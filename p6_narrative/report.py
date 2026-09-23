@@ -458,7 +458,25 @@ def _material_resources(res):
                         'material, each kept in its own unit of measure.')
 
 
-# ── §15 Volume of Work ────────────────────────────────────────────────────────
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _productivity(data, path):
+    """Planned daily production rate + assigned crew for every material (quantities) resource:
+    total quantity ÷ total working-days (weighted), the per-activity rate range, and the labour
+    and plant loaded on the same activities. Generic and self-explaining; an honest fallback
+    (blank rate cells, then a no-data note) when the schedule carries no quantity loading. See
+    :mod:`p6_narrative.prodrate`."""
+    try:
+        from p6_narrative import prodrate
+        payload = prodrate.productivity(data, path)
+    except Exception:
+        payload = {'available': False}
+    return Section('15', 'Productivity Rates & Resources Assigned', 'prodrate', 'auto',
+                   payload=payload,
+                   note='Planned daily production rate for each quantities resource and the crew '
+                        'assigned — derived from the baseline resource assignments.')
+
+
+# ── §16 Volume of Work ────────────────────────────────────────────────────────
 def _volume_of_work(data, path):
     """Planned value-of-work distribution: each activity's budgeted cost spread over its working
     days (P6 Resource Usage) → the monthly value of work + the cumulative S-curve. Generic and
@@ -468,7 +486,7 @@ def _volume_of_work(data, path):
         payload = volwork.volume_of_work(data, path)
     except Exception:
         payload = {'available': False}
-    return Section('15', 'Volume of Work', 'volwork', 'auto', payload=payload,
+    return Section('16', 'Volume of Work', 'volwork', 'auto', payload=payload,
                    note='The planned volume of work from the baseline cost loading — the monthly '
                         'value of work and the cumulative planned-value S-curve.')
 
@@ -551,6 +569,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _activity_ids(data),
         _resource_loading(res),
         _material_resources(res),
+        _productivity(data, path),
         _volume_of_work(data, path),
     ]
     ordered = [s for s in ordered if s is not None]

@@ -1123,6 +1123,75 @@ def _volwork(p, number, title, meta, cur):
     return ''.join(out)
 
 
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _prodrate(p, number, title, meta, cur):
+    """§15 — the method note (15.1, formulas + worked examples) then the productivity table (15.2:
+    one row per material/quantities resource with its weighted rate, per-activity range and crew).
+    Twin of ``docx_writer._render_prodrate`` — both draw the same payload, so the explanation and
+    the figures are identical on screen, in the PDF and in Word."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no material resources, so planned '
+                'production rates cannot be derived.</p>')
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+
+    # {number}.1 — how the rates are calculated (formulas + worked examples), identical to Word
+    out.append('<div class="sub">%s.1 &middot; How the rates are calculated</div>' % _esc(number))
+    out.append('<p class="rescap">%s</p>' % _esc(p.get('method_intro') or ''))
+    for m in (p.get('method') or []):
+        lead = m[0] if len(m) > 0 else ''
+        body = m[1] if len(m) > 1 else ''
+        out.append('<p style="margin:3px 0 3px 14px;font-size:12px">'
+                   '<b style="color:#1F4E79">&bull;&nbsp;&nbsp;%s = </b>%s</p>'
+                   % (_esc(lead), _esc(body)))
+
+    # {number}.2 — the productivity table (one row per quantities resource)
+    out.append('<div class="sub">%s.2 &middot; Daily production rate by quantities resource</div>'
+               % _esc(number))
+    heads = p.get('headers') or []
+    thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
+    body = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
+                   for r in (p.get('rows') or []))
+    # Pin the HTML columns to the SAME inch widths the Word renderer uses (table-layout:fixed +
+    # a percentage colgroup), so a long Activity-ID list never squeezes the numeric columns and
+    # screen == PDF == Word to the column.
+    def _cg(ws):
+        if not ws:
+            return ''
+        tot = sum(ws) or 1
+        return ('<colgroup>%s</colgroup>'
+                % ''.join('<col style="width:%.2f%%">' % (100.0 * w / tot) for w in ws))
+    out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
+               % (_cg(p.get('widths') or []), thead, body))
+
+    # {number}.3 — per-activity breakdown (one small table per quantities resource): how each
+    # item's overall rate derives from its individual activities, listed by Activity ID. Only when
+    # the materials carry a unit of measure (the unit-less fallback has no rates to break down).
+    bd = p.get('breakdown') or []
+    if bd:
+        out.append('<div class="sub">%s.3 &middot; Breakdown by activity</div>' % _esc(number))
+        out.append('<p class="rescap">%s</p>' % _esc(p.get('breakdown_intro') or ''))
+        for b in bd:
+            cap = ('%s &mdash; %s &middot; %s overall, %s working-days, %s activities'
+                   % (_esc(b.get('name') or ''), _esc(b.get('unit') or ''),
+                      _esc(b.get('rate') or ''), _esc(str(b.get('total_wd'))),
+                      _esc(str(b.get('nact')))))
+            bheads = b.get('headers') or []
+            bthead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in bheads)
+            bbody = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in row)
+                            for row in (b.get('rows') or []))
+            out.append('<div class="prodbd">'
+                       '<p class="rescap prodbd-cap"><b>%s</b></p>'
+                       '<table class="dt" style="table-layout:fixed">%s%s%s</table></div>'
+                       % (cap, _cg(b.get('widths') or []), bthead, bbody))
+
+    if p.get('no_unit_note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('no_unit_note')))
+    if p.get('closing_note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('closing_note')))
+    return ''.join(out)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -1136,6 +1205,7 @@ _RENDER = {
     'activity_ids': _actids,
     'resload': _resload,
     'materials': _materials,
+    'prodrate': _prodrate,
     'volwork': _volwork,
 }
 
@@ -1369,6 +1439,9 @@ table { border-collapse: collapse; }
 .dt th.num, .dt td.num { text-align:center; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
+/* §15.3 per-activity breakdown — each resource's caption + table stay together on one page */
+.prodbd { break-inside:avoid; page-break-inside:avoid; margin-top:10px; }
+.prodbd-cap { font-size:12px; color:#1F4E79; margin:0 0 4px; font-family:'Times New Roman',serif; }
 .vwsvg { width:100%; height:auto; display:block; margin:4px 0 6px; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}

@@ -319,6 +319,49 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     return t
 
 
+def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
+                     header_h_pt=30.0, cell_size=10):
+    """A navy-header data table whose DATA ROWS all share one EXACT height
+    (``WD_ROW_HEIGHT_RULE.EXACTLY``) — unlike :func:`data_table`, which grows each row to fit
+    (``AT_LEAST``). Used by §15 so every production row is the same height; ``row_h_pt`` is set
+    generously (≈0.55") so the tallest wrapped cell (crew / long resource names) still fits
+    without clipping. The header row keeps ``AT_LEAST`` so its multi-line labels are never cut.
+    Zebra striping; every cell centred and wrapping. Other sections' tables are untouched."""
+    if not headers:
+        return None
+    t = document.add_table(rows=1, cols=len(headers))
+    t.style = 'Table Grid'
+    t.autofit = False
+    hr = t.rows[0]
+    _row_h(hr, header_h_pt, exact=False)              # header grows to fit its wrapped labels
+    for i, hd in enumerate(headers):
+        c = hr.cells[i]
+        _shade(c, '26517D'); _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        if widths:
+            _set_w(c, widths[i])
+        p = c.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(p, hd, font=CAL, size=9.5, bold=True, color=WHITE)
+    for ri, row_vals in enumerate(rows or []):
+        rr = t.add_row()
+        _row_h(rr, row_h_pt, exact=True)              # EXACTLY: every data row shares one height
+        for ci, val in enumerate(row_vals):
+            if ci >= len(rr.cells):
+                break
+            c = rr.cells[ci]
+            _no_space(c); c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+            if widths:
+                _set_w(c, widths[ci])
+            if ri % 2 == 1:
+                _shade(c, ZEBRA)
+            p = c.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(p, val, size=cell_size)
+    _keep_table_together(t, header=True)        # navy header repeats on any page break
+    return t
+
+
 def banner(document, left_text, right_text):
     """Navy total banner — a 2-cell full-width bar (label left, value right)."""
     ban = document.add_table(rows=1, cols=2)
@@ -901,7 +944,67 @@ def _render_materials(document, p, number, note):
                          'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
 
 
-# ── §15 Volume of Work ────────────────────────────────────────────────────────
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _render_prodrate(document, p, number, note):
+    """Native Word §15 — the method note (``number``.1: the formulas + worked examples, IDENTICAL
+    to the HTML/PDF twin ``html._prodrate``) then the productivity table (``number``.2: one row
+    per material/quantities resource). The table is drawn with :func:`_equal_row_table` so every
+    data row is the SAME exact height; None-safe with an honest no-data note."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no material resources, so planned production '
+                         'rates cannot be derived.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # number.1 — how the rates are calculated (formulas + worked examples)
+    _subhead(document, '%s.1' % number, 'How the rates are calculated')
+    mi = para(document, p.get('method_intro') or '', size=11, italic=True, color=GREY, after=4,
+              align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    mi.paragraph_format.keep_with_next = True
+    for m in (p.get('method') or []):
+        lead = m[0] if len(m) > 0 else ''
+        body = m[1] if len(m) > 1 else ''
+        mp = document.add_paragraph()
+        mp.paragraph_format.space_after = Pt(3)
+        mp.paragraph_format.left_indent = Pt(10)
+        mp.paragraph_format.keep_with_next = True     # formulas never orphaned from the table
+        run(mp, '•  ' + lead + ' = ', size=11, bold=True, color=NAVY)
+        run(mp, body, size=11)
+
+    # number.2 — the productivity table (equal-height rows, one per quantities resource)
+    _subhead(document, '%s.2' % number, 'Daily production rate by quantities resource')
+    _equal_row_table(document, p.get('headers') or [], p.get('rows') or [],
+                     widths=p.get('widths'))
+
+    # number.3 — per-activity breakdown: one growing table per quantities resource showing how its
+    # overall rate derives from its individual activities (Activity ID · Quantity · Working-days ·
+    # Rate/day). Twins html._prodrate; only when the materials carry a unit of measure.
+    bd = p.get('breakdown') or []
+    if bd:
+        _subhead(document, '%s.3' % number, 'Breakdown by activity')
+        bi = para(document, p.get('breakdown_intro') or '', size=11, italic=True, color=GREY,
+                  after=4, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        bi.paragraph_format.keep_with_next = True
+        for b in bd:
+            cap = document.add_paragraph()
+            cap.paragraph_format.space_before = Pt(6)
+            cap.paragraph_format.space_after = Pt(2)
+            cap.paragraph_format.keep_with_next = True     # caption stays with its table
+            run(cap, '%s — %s' % (b.get('name') or '', b.get('unit') or ''),
+                size=11, bold=True, color=NAVY)
+            run(cap, '   ·  %s overall, %s working-days, %s activities'
+                % (b.get('rate') or '', b.get('total_wd'), b.get('nact')), size=10, color=GREY)
+            data_table(document, b.get('headers') or [], b.get('rows') or [],
+                       widths=b.get('widths'))
+
+    if p.get('no_unit_note'):
+        _muted(document, p.get('no_unit_note'))
+    if p.get('closing_note'):
+        _muted(document, p.get('closing_note'))
+
+
+# ── §16 Volume of Work ────────────────────────────────────────────────────────
 def _render_volwork(document, p, number, note):
     """Native Word §15 — one combo chart (monthly value-of-work columns + cumulative S-curve on
     a secondary axis) then a two-row summary table. Mirrors the HTML/PDF twin (``html._volwork``);
@@ -1073,6 +1176,7 @@ _RENDER = {
     'activity_ids': _render_activity_ids,
     'resload': _render_resload,
     'materials': _render_materials,
+    'prodrate': _render_prodrate,
     'volwork': _render_volwork,
 }
 
