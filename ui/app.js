@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['evm','Earned Value'], ['oos','Out of Sequence'], ['update','Update Analysis'], ['critpath','Critical Path'],
     ]},
     { group:'Compare & Claims', items:[
-      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'], ['chat','AI Chat','ai'],
+      ['period','Update vs Update'], ['compare','Consultant Review'], ['revcompare','Baseline Revision','revcompare'],
     ]},
     { group:'Calendars & Weather', items:[
       ['calendar','P6 Calendar Audit','calendar'], ['weather','Bad Weather','weather'],
@@ -365,6 +365,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // The AI Chat is a standalone assistant reached from the top menu bar — it opens with NO
+  // prior import (the planner sends the P6 file inside the chat), so it must NOT go through
+  // openFeatureById's "import a schedule first" gate.
+  function openChat() {
+    exitDatabase(); exitRecent(); exitProdIntel();
+    document.getElementById('import-section')?.classList.add('hidden');
+    document.getElementById('results-section')?.classList.remove('hidden');
+    document.getElementById('analysis-chooser')?.classList.add('hidden');
+    document.getElementById('analysis-views')?.classList.remove('hidden');
+    openView('chat'); setCrumb('chat');
+    document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('mb-ai-chat')?.addEventListener('click', openChat);
+
   menubar.addEventListener('click', (e) => {
     const m = e.target.closest('.menu'); if (!m) return;
     const key = m.dataset.menu;
@@ -488,10 +502,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Excel exports for the report/screen views (revcompare + special wire their own
   // in-panel buttons inside their modules). The schedule button is re-created on every
   // Gantt render, so it is bound by delegation on the static #schedule-body container.
-  document.getElementById('evm-excel-btn').addEventListener('click', exportEvmExcel);
-  document.getElementById('narr-excel-btn').addEventListener('click', exportNarrativeExcel);
-  document.getElementById('ov-excel-btn').addEventListener('click', exportOverviewExcel);
-  document.getElementById('wbs-excel-btn').addEventListener('click', exportWbsExcel);
+  // Optional-chain these: a couple of these buttons are created inside their panels rather
+  // than living statically in index.html, so a hard `.addEventListener` on a missing one threw
+  // at init and halted the rest of the wiring (a pre-existing bug). Guarding keeps init going.
+  document.getElementById('evm-excel-btn')?.addEventListener('click', exportEvmExcel);
+  document.getElementById('narr-excel-btn')?.addEventListener('click', exportNarrativeExcel);
+  document.getElementById('ov-excel-btn')?.addEventListener('click', exportOverviewExcel);
+  document.getElementById('wbs-excel-btn')?.addEventListener('click', exportWbsExcel);
   document.getElementById('schedule-body')?.addEventListener('click', (e) => {
     if (e.target.closest('#sched-excel-btn')) exportScheduleExcel();
   });
