@@ -27,6 +27,7 @@ project. Three honest fallbacks:
 The payload is DATA only — both the HTML/PDF renderer (:mod:`p6_narrative.html`) and the native
 Word renderer (:mod:`p6_narrative.docx_writer`) draw straight from it, so screen == PDF == Word.
 """
+import math
 from collections import defaultdict
 from datetime import timedelta
 
@@ -125,17 +126,17 @@ def _working_days(ps, pf, cal):
 def _n0(v):
     try:
         return '{:,.0f}'.format(round(float(v or 0)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):      # OverflowError guards inf
         return '0'
 
 
 def _d1(v):
     """One decimal, trailing '.0' dropped: 78.5 -> '78.5', 1.0 -> '1', 11.9 -> '11.9'."""
-    try:
-        f = round(float(v or 0), 1)
-    except (TypeError, ValueError):
+    try:                                                # int()/round() inside the guard so a
+        f = round(float(v or 0), 1)                     # non-finite value degrades to '0', never
+        return '%d' % f if f == int(f) else '%.1f' % f  # an uncaught inf/NaN that blanks §15
+    except (TypeError, ValueError, OverflowError):
         return '0'
-    return '%d' % f if f == int(f) else '%.1f' % f
 
 
 def _crew_text(crew, max_chars=CREW_MAX_CHARS):
@@ -188,6 +189,8 @@ def _compute(data, meta):
             try:
                 q = float(a.get('budget_units') or 0)
             except (TypeError, ValueError):
+                q = 0.0
+            if not math.isfinite(q):                    # a corrupt inf/NaN qty contributes nothing
                 q = 0.0
             if typ == 'RT_Labor':
                 crew.append((nm, 'L', q))
