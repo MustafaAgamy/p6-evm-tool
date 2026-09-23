@@ -3087,10 +3087,27 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-assign { margin-top: 11px; border-top: 1px dashed var(--border); padding-top: 9px; }
 .rc-assignh { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rc-caldimsel { font-size: 10px; font-weight: 700; border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; background: var(--card-bg); color: var(--ink-soft); text-transform: none; letter-spacing: 0; }
-.rc-acrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rc-acrow { display: block; }
 .rc-acchip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; color: var(--text); }
 .rc-acchip .cnt { font-weight: 800; color: var(--accent-dark); }
 .rc-acids { margin-top: 7px; font-size: 11px; color: var(--muted); }
+/* round-18 #01 — assigned-activities relocated to a full-width panel at the bottom of the card,
+   dimension picker as pills (no dropdown near the tabs). */
+.rc-assignpanel { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); padding: 11px 13px; }
+.rc-assignhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.rc-assignt { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+.rc-assigntot { font-size: 11px; color: var(--muted); margin-left: auto; }
+.rc-dimtabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 9px; }
+.rc-dimtab { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); cursor: pointer; }
+.rc-dimtab.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
+/* round-18 #02 — highlight NEW non-working days (red) and REDUCED-hours periods (amber). */
+.rc-ldg tr.rc-hi-new td { background: var(--danger-bg); box-shadow: inset 3px 0 0 var(--danger); }
+.rc-ldg tr.rc-hi-red td { background: var(--warning-bg); box-shadow: inset 3px 0 0 var(--warning); }
+.rc-flag { font-size: 8.5px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 7px; text-transform: uppercase; vertical-align: 1px; }
+.rc-flag.new { background: var(--danger); color: #fff; } .rc-flag.red { background: var(--warning); color: #fff; }
+.rc-nwtbl.new { border: 1px solid var(--danger-border, var(--danger)); background: var(--danger-bg); border-radius: 9px; padding: 10px 12px; border-top: 1px solid var(--danger-border, var(--danger)); }
+.rc-nwtbl.new .rc-nwh { color: var(--danger); }
+.rc-nwtbl.rem { background: var(--bg); }
 /* round-17 #03 — assigned-activities proportion bar (Option A) */
 .rc-acbar { display: flex; height: 30px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
 .rc-acseg { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800;

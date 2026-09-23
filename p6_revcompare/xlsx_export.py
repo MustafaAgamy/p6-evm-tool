@@ -591,6 +591,29 @@ def _cal_name(p):
     return _txt(p.get('name'))
 
 
+def _cal_exc_flag(e):
+    """Round-18 #02 — the NEW / REDUCED marker for a CHANGED calendar exception date, the tabular
+    equivalent of the on-screen calLedger highlight + badge (Excel via this writer can't easily
+    colour a cell, so the meaning rides as text). Mirrors the JS exactly:
+      • change == 'now non-working' → "NEW non-working" (a day non-working in Rev.01 that wasn't in
+        Rev.00 — the red-highlight NEW badge);
+      • a 'now working' day that is also reduced (either revision reads "(reduced)") →
+        "now working (reduced)";
+      • any other reduced-hours row — either revision reads "(reduced)", OR the change is a bare
+        hours change "Ah → Bh" — → "REDUCED" (the amber badge);
+      • otherwise no marker."""
+    c = str(e.get('change') or '')
+    combined = str(e.get('rev0')) + str(e.get('rev1'))
+    is_reduced = '(reduced)' in combined or (not c.startswith('now') and '→' in c)
+    if c == 'now non-working':
+        return 'NEW non-working'
+    if c == 'now working':
+        return 'now working (reduced)' if is_reduced else ''
+    if is_reduced:
+        return 'REDUCED'
+    return ''
+
+
 def _cal_blocks(report):
     """Calendar changes as their own sheet (round-16 Option A parity with calendarView) — one
     row per calendar carrying a plain-language BRIEF, its Rev.00 / Rev.01 working pattern, the
@@ -672,19 +695,22 @@ def _cal_blocks(report):
         excs = p.get('date_exceptions') or []
         flips = [e for e in excs if e.get('change') != 'unchanged']
         for e in flips:
+            # Round-18 #02 — the on-screen NEW / REDUCED highlight rides here as a Flag column.
             exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
-                             _txt(e.get('rev1')), _txt(e.get('change'))])
+                             _txt(e.get('rev1')), _txt(e.get('change')), _cal_exc_flag(e)])
         identical = len(excs) - len(flips)
         if identical:
             exc_rows.append([_txt(p.get('name')),
                              f"{identical} non-working day{'s' if identical != 1 else ''} identical in both revisions",
-                             '', '', 'identical — no change'])
+                             '', '', 'identical — no change', ''])
     if exc_rows:
         blocks.append({'title': 'Calendar exception changes — Rev.00 vs Rev.01',
                        'note': 'Only the specific dates that CHANGED between the revisions — a non-working ⇄ working '
-                               'flip or an hours change (e.g. 6h/day → 8h/day). Identical dates are not listed; a '
+                               'flip or an hours change (e.g. 6h/day → 8h/day). The Flag marks which are NEW '
+                               'non-working days (non-working in Rev.01, not in Rev.00) vs REDUCED hours, mirroring '
+                               'the on-screen NEW / REDUCED highlight. Identical dates are not listed; a '
                                'per-calendar "identical — no change" row records how many were compared.',
-                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
+                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change', 'Flag'],
                        'rows': exc_rows})
 
     # round-16 #03c — an ADDED or REMOVED calendar has no other revision to diff against, so its own
@@ -696,13 +722,22 @@ def _cal_blocks(report):
     for p in changed:
         if p.get('change') not in ('added', 'removed'):
             continue
+        removed = p.get('change') == 'removed'
+        # Round-18 #02 — mirror the on-screen calNonworkingTable: an ADDED calendar's non-working
+        # days are ALL new in Rev.01 (its NEW band/badge), a REMOVED calendar's are gone with the
+        # calendar in Rev.01 (its "(removed)" suffix). This one block mixes both, so the distinction
+        # rides on each row's Status ("(new in Rev.01)" vs "(removed)").
         for d in (p.get('nonworking_dates') or []):
-            nw_rows.append([_txt(p.get('name')), _txt(d.get('date')), _txt(d.get('status'))])
+            status = _txt(d.get('status'))
+            status += ' (removed)' if removed else ' (new in Rev.01)'
+            nw_rows.append([_txt(p.get('name')), _txt(d.get('date')), status])
     if nw_rows:
-        blocks.append({'title': 'Non-working days — added/removed calendars',
+        blocks.append({'title': 'Non-working days — added (new in Rev.01) & removed (gone in Rev.01) calendars',
                        'note': 'An added or removed calendar has no prior/next revision to diff against, so its own '
-                               'dated non-working days are listed in full — added calendars from Rev.01, removed '
-                               'calendars from Rev.00. Status is "Non-working" or a reduced-hours day (e.g. 6h/day).',
+                               'dated non-working days are listed in full — an ADDED calendar\'s days are all new in '
+                               'Rev.01, a REMOVED calendar\'s are gone with it in Rev.01. Status carries "(new in '
+                               'Rev.01)" or "(removed)" so the two are distinguished; the base status is "Non-working" '
+                               'or a reduced-hours day (e.g. 6h/day).',
                        'headers': ['Calendar', 'Date', 'Status'],
                        'rows': nw_rows})
 

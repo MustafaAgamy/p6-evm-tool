@@ -1078,6 +1078,12 @@ def _cal_assigned_pdf(p):
     rev = 'Rev.00' if p.get('assigned_rev') == 'rev0' else 'Rev.01'
     hdr = ('Activities that used it in Rev.00' if p.get('change') == 'removed'
            else 'Activities using it in Rev.01' if p.get('change') == 'added' else 'Assigned activities')
+    # round-18 #01 — dimension picker as static PILLS (first active); a static PDF renders every
+    # dimension's proportion bar stacked underneath, each labelled by its pill.
+    dims = list(by_dim.keys())
+    pills = ''.join(f'<span class="rc-dimtab{" on" if i == 0 else ""}">{_e(d)}</span>'
+                    for i, d in enumerate(dims))
+    pills = f'<div class="rc-dimtabs">{pills}</div>' if dims else ''
     rows = ''
     for dim, vals in by_dim.items():
         vals = vals or []
@@ -1103,8 +1109,11 @@ def _cal_assigned_pdf(p):
         shown = ' · '.join(_e(i) for i in ids[:40])
         more = f' · … ({_num(len(ids) - 40)} more)' if len(ids) > 40 else ''
         ids_html = f'<div class="acids"><span class="mut">Activity IDs:</span> <span class="idlist">{shown}{more}</span></div>'
-    return (f'<div class="assign"><div class="assignh">{hdr} — by activity code '
-            f'<span class="mut">({_num(a.get("count"))} activities in {rev})</span></div>{rows}{ids_html}</div>')
+    # round-18 #01 — the whole block is a distinct full-width PANEL at the bottom of the card.
+    return (f'<div class="rc-assignpanel"><div class="rc-assignhead">'
+            f'<span class="rc-assignt">{hdr} — by activity code</span>'
+            f'<span class="rc-assigntot">{_num(a.get("count"))} activities in {rev}</span></div>'
+            f'{pills}{rows}{ids_html}</div>')
 
 
 def _fmtpat(p):
@@ -1215,10 +1224,19 @@ def _cal_ledger(p):
         for e in flips:
             c = e.get('change')
             cls = 'g' if c == 'now working' else 'r' if c == 'now non-working' else 'a'
-            note = ('made working' if c == 'now working'
-                    else 'made non-working' if c == 'now non-working'
-                    else f'hours {_e(c)}')
-            exc += (f'<tr><td class="rc-lattr"><span class="rc-dot {cls}"></span>{_e(e.get("date"))}</td>'
+            # round-18 #02 — a day non-working in Rev.01 that wasn't in Rev.00 is a NEW non-working
+            # day (red highlight + badge); a reduced-hours day/period is amber. Reduced = either
+            # revision reads "(reduced)" OR the change is an hours change (Ah → Bh).
+            is_new = c == 'now non-working'
+            is_reduced = ('(reduced)' in (str(e.get('rev0')) + str(e.get('rev1')))
+                          or (not str(c or '').startswith('now') and '→' in str(c or '')))
+            hi = ' rc-hi-new' if is_new else ' rc-hi-red' if is_reduced else ''
+            badge = (' <span class="rc-flag new">NEW</span>' if is_new
+                     else ' <span class="rc-flag red">REDUCED</span>' if is_reduced else '')
+            note = (('now working, reduced' if is_reduced else 'made working') if c == 'now working'
+                    else 'new non-working' if c == 'now non-working'
+                    else f'hours {_e(c)}') + badge
+            exc += (f'<tr class="{hi.strip()}"><td class="rc-lattr"><span class="rc-dot {cls}"></span>{_e(e.get("date"))}</td>'
                     f'<td class="rc-lrev">{_e(e.get("rev0"))}</td><td class="rc-lrev">{_e(e.get("rev1"))}</td>'
                     f'<td class="rc-lchg rc-chg-{cls}">{note}</td></tr>')
     if identical:
@@ -1243,17 +1261,25 @@ def _cal_nonworking_table(p):
         return ''
     nd = p.get('nonworking_dates') or []
     is_removed = chg == 'removed'
-    rev = 'Rev.00' if is_removed else 'Rev.01'
-    title = (f'Non-working days it had in {rev}' if is_removed
-             else 'Non-working days of this new calendar')
-    sub = '' if is_removed else ' — no prior revision to compare, so the pattern is listed in full'
+    # round-18 #02 — an ADDED calendar's non-working days are ALL new in Rev.01 (red band + NEW
+    # badge); a REMOVED calendar's are gone with it in Rev.01 (muted band). Mirrors calNonworkingTable.
+    band = 'rc-nwtbl rem' if is_removed else 'rc-nwtbl new'
+    title = ('Non-working days it had in Rev.00 — gone with the calendar in Rev.01' if is_removed
+             else 'New non-working days — all new in Rev.01 (no prior revision to compare)')
+    badge = '' if is_removed else ' <span class="rc-flag new">NEW</span>'
     if not nd:
-        return (f'<div class="rc-nwtbl"><div class="rc-nwh">{_e(title)}</div>'
+        return (f'<div class="{band}"><div class="rc-nwh">{_e(title)}{badge}</div>'
                 '<div class="sec rc-mut" style="margin:4px 0 0">No dated non-working days — this '
                 'calendar works every day in its weekly pattern (shown above).</div></div>')
+
+    def _st_cls(d):
+        if '(reduced)' in str(d.get('status') or ''):
+            return 'rc-chg-a'
+        return 'rc-mut' if is_removed else 'rc-chg-r'
     trows = ''.join(f'<tr><td class="rc-lattr">{_e(d.get("date"))}</td>'
-                    f'<td class="rc-lchg rc-chg-r">{_e(d.get("status"))}</td></tr>' for d in nd)
-    return (f'<div class="rc-nwtbl"><div class="rc-nwh">{_e(title)}<span class="rc-mut">{_e(sub)}</span></div>'
+                    f'<td class="rc-lchg {_st_cls(d)}">{_e(d.get("status"))}{" (removed)" if is_removed else ""}</td></tr>'
+                    for d in nd)
+    return (f'<div class="{band}"><div class="rc-nwh">{_e(title)}{badge}</div>'
             f'<table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th>'
             f'<th class="rc-lchg">Status</th></tr></thead><tbody>{trows}</tbody></table></div>')
 
@@ -2318,6 +2344,22 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .rc-nwh .rc-mut { font-weight: 600; text-transform: none; letter-spacing: 0; }
 .rc-ldg.rc-nwld { margin-top: 4px; } .rc-ldg.rc-nwld .rc-lattr { width: 60%; font-weight: 600; }
 .rc-ldg.rc-nwld .rc-lchg { text-align: left; width: 40%; }
+/* round-18 #02 — highlight NEW non-working days (red) and REDUCED-hours periods (amber) */
+.rc-ldg tr.rc-hi-new td { background: var(--rpt-bad-bg); box-shadow: inset 3px 0 0 var(--rpt-bad); }
+.rc-ldg tr.rc-hi-red td { background: var(--rpt-warn-bg); box-shadow: inset 3px 0 0 var(--rpt-warn); }
+.rc-flag { font-size: 8px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 6px; text-transform: uppercase; }
+.rc-flag.new { background: var(--rpt-bad); color: #fff; } .rc-flag.red { background: var(--rpt-warn); color: #fff; }
+.rc-nwtbl.new { border: 1px solid var(--rpt-bad); background: var(--rpt-bad-bg); border-radius: 9px; padding: 9px 12px; }
+.rc-nwtbl.new .rc-nwh { color: var(--rpt-bad); }
+.rc-nwtbl.rem { background: var(--rpt-surface-2); }
+/* round-18 #01 — assigned activities relocated to a full-width panel at the bottom of the card, dimension as pills */
+.rc-assignpanel { margin-top: 11px; border: 1px solid var(--rpt-edge); border-radius: 10px; background: var(--rpt-surface); padding: 10px 12px; page-break-inside: avoid; }
+.rc-assignhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rc-assignt { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-ink-soft); }
+.rc-assigntot { font-size: 10px; color: var(--rpt-muted); margin-left: auto; }
+.rc-dimtabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.rc-dimtab { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--rpt-edge); background: var(--rpt-surface); color: var(--rpt-muted); }
+.rc-dimtab.on { background: var(--rpt-accent-bg, var(--rpt-surface-2)); border-color: var(--rpt-accent); color: var(--rpt-accent); }
 /* ── round-15 Manpower (labour man-hours, difference-first) — NEUTRAL blue(+)/violet(−), never good/bad */
 .rc-mp-herorow { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; margin: 6px 0 4px; }
 .rc-mp-big { font-size: 46px; font-weight: 800; letter-spacing: -1.2px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--rpt-muted); }

@@ -212,11 +212,15 @@ function renderResults(body) {
 
 // Each calendar card's activity-code dimension selector shows one dimension's chips at a time.
 function wireCalendar(body) {
-  body.querySelectorAll('.rc-caldimsel').forEach(sel => {
-    const card = sel.dataset.card;
-    sel.addEventListener('change', () => {
+  // Round-18 #01 — dimension PILLS: clicking one shows that dimension's proportion bar and marks
+  // the pill active (per calendar card, keyed by data-card).
+  body.querySelectorAll('.rc-dimtab').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const card = pill.dataset.card, dim = pill.dataset.dim;
+      if (card == null) return;
+      body.querySelectorAll(`.rc-dimtab[data-card="${card}"]`).forEach(t => t.classList.toggle('on', t === pill));
       body.querySelectorAll(`.rc-acrow[data-card="${card}"]`).forEach(row => {
-        row.style.display = (row.dataset.dim === sel.value) ? '' : 'none';
+        row.style.display = (row.dataset.dim === dim) ? '' : 'none';
       });
     });
   });
@@ -1046,9 +1050,11 @@ function calAssigned(p, pi) {
   const rev = p.assigned_rev === 'rev0' ? 'Rev.00' : 'Rev.01';
   const hdr = p.change === 'removed' ? 'Activities that used it in Rev.00'
     : p.change === 'added' ? 'Activities using it in Rev.01' : 'Assigned activities';
-  const sel = dims.length > 1
-    ? `<select class="rc-caldimsel" data-card="${pi}">${dims.map(d => `<option>${esc(d)}</option>`).join('')}</select>`
-    : (dims[0] ? `<span class="rc-mut">${esc(dims[0])}</span>` : '');
+  // Round-18 #01 — dimension picker as PILLS (not a cramped dropdown near the tabs); the whole
+  // block is relocated to a full-width panel at the BOTTOM of the card (see the return below).
+  const pills = dims.length
+    ? `<div class="rc-dimtabs">${dims.map((d, i) => `<span class="rc-dimtab${i === 0 ? ' on' : ''}" data-card="${pi}" data-dim="${esc(d)}">${esc(d)}</span>`).join('')}</div>`
+    : '';
   // Round-17 #03 (Option A) — a single 100%-proportion bar per dimension, split by activity-code
   // value (segment width = share of the calendar's activities), so the dominant trade reads at a
   // glance; a legend under it carries each value's %. Replaces the flat chips.
@@ -1071,7 +1077,7 @@ function calAssigned(p, pi) {
   const idsBlock = ids.length
     ? `<div class="rc-acids"><details><summary>see the ${fmtInt(ids.length)} activity ID${ids.length === 1 ? '' : 's'}</summary><div class="rc-idlist">${ids.slice(0, 60).map(esc).join(' · ')}${ids.length > 60 ? ` · … (${fmtInt(ids.length - 60)} more)` : ''}</div></details></div>`
     : '';
-  return `<div class="rc-assign"><div class="rc-assignh">${hdr} — by activity code ${sel} <span class="rc-mut">(${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev})</span></div>${rows}${idsBlock}</div>`;
+  return `<div class="rc-assignpanel"><div class="rc-assignhead"><span class="rc-assignt">${hdr} — by activity code</span><span class="rc-assigntot">${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev}</span></div>${pills}${rows}${idsBlock}</div>`;
 }
 
 // Actual number of DAYS an exception entry covers — a grouped range like "23–26 Mar" is one
@@ -1146,8 +1152,16 @@ function calLedger(p) {
     exc = `<tr class="rc-lband"><td colspan="4">Exception dates — changed only</td></tr>`
       + flips.map(e => {
         const c = e.change, cls = c === 'now working' ? 'g' : c === 'now non-working' ? 'r' : 'a';
-        const note = c === 'now working' ? 'made working' : c === 'now non-working' ? 'made non-working' : `hours ${esc(c)}`;
-        return `<tr><td class="rc-lattr"><span class="rc-dot ${cls}"></span>${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg rc-chg-${cls}">${note}</td></tr>`;
+        // Round-18 #02 — a day non-working in Rev.01 that wasn't in Rev.00 is a NEW non-working day
+        // (red highlight); a reduced-hours day/period is amber. Reduced = either revision reads
+        // "(reduced)" OR the change is an hours change (Ah → Bh).
+        const isNew = c === 'now non-working';
+        const isReduced = /\(reduced\)/.test(String(e.rev0) + String(e.rev1)) || (!String(c).startsWith('now') && /→/.test(String(c)));
+        const hiCls = isNew ? ' rc-hi-new' : isReduced ? ' rc-hi-red' : '';
+        const badge = isNew ? ' <span class="rc-flag new">NEW</span>' : isReduced ? ' <span class="rc-flag red">REDUCED</span>' : '';
+        const note = (c === 'now working' ? (isReduced ? 'now working, reduced' : 'made working')
+          : c === 'now non-working' ? 'new non-working' : `hours ${esc(c)}`) + badge;
+        return `<tr class="${hiCls.trim()}"><td class="rc-lattr"><span class="rc-dot ${cls}"></span>${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg rc-chg-${cls}">${note}</td></tr>`;
       }).join('');
   }
   if (identical) {
@@ -1162,14 +1176,18 @@ function calNonworkingTable(p) {
   if (p.change !== 'added' && p.change !== 'removed') return '';
   const nd = p.nonworking_dates || [];
   const isRemoved = p.change === 'removed';
-  const rev = isRemoved ? 'Rev.00' : 'Rev.01';
-  const title = isRemoved ? `Non-working days it had in ${rev}` : 'Non-working days of this new calendar';
-  const sub = isRemoved ? '' : ' — no prior revision to compare, so the pattern is listed in full';
+  // Round-18 #02 — an ADDED calendar's non-working days are ALL new in Rev.01 (red band + NEW
+  // badge); a REMOVED calendar's are gone with it in Rev.01 (muted band).
+  const band = isRemoved ? 'rc-nwtbl rem' : 'rc-nwtbl new';
+  const title = isRemoved ? 'Non-working days it had in Rev.00 — gone with the calendar in Rev.01'
+    : 'New non-working days — all new in Rev.01 (no prior revision to compare)';
+  const badge = isRemoved ? '' : ' <span class="rc-flag new">NEW</span>';
   if (!nd.length) {
-    return `<div class="rc-nwtbl"><div class="rc-nwh">${title}</div><div class="rc-sec rc-mut" style="margin:4px 0 0">No dated non-working days — this calendar works every day in its weekly pattern (shown above).</div></div>`;
+    return `<div class="${band}"><div class="rc-nwh">${title}${badge}</div><div class="rc-sec rc-mut" style="margin:4px 0 0">No dated non-working days — this calendar works every day in its weekly pattern (shown above).</div></div>`;
   }
-  const trows = nd.map(d => `<tr><td class="rc-lattr">${esc(d.date)}</td><td class="rc-lchg rc-chg-r">${esc(d.status)}</td></tr>`).join('');
-  return `<div class="rc-nwtbl"><div class="rc-nwh">${title}<span class="rc-mut">${sub}</span></div>
+  const stCls = d => /\(reduced\)/.test(String(d.status)) ? 'rc-chg-a' : (isRemoved ? 'rc-mut' : 'rc-chg-r');
+  const trows = nd.map(d => `<tr><td class="rc-lattr">${esc(d.date)}</td><td class="rc-lchg ${stCls(d)}">${esc(d.status)}${isRemoved ? ' (removed)' : ''}</td></tr>`).join('');
+  return `<div class="${band}"><div class="rc-nwh">${title}${badge}</div>
     <table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th><th class="rc-lchg">Status</th></tr></thead><tbody>${trows}</tbody></table></div>`;
 }
 
