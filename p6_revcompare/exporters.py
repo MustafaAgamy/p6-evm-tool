@@ -1234,14 +1234,14 @@ def _sec_cal(report, filters=None):
         reass_from.setdefault(g.get('from'), []).append(g)
     tag = {'modified': ('chg', 'modified'), 'renamed': ('ren', 'renamed'),
            'added': ('add', 'added'), 'removed': ('rem', 'retired')}
-    # round-16 #03a — an added calendar with 0 activities assigned has no schedule impact and only
-    # adds noise for the planner, so it is dropped from the detailed cards AND the digest counts; a
-    # single small note records how many were hidden (mirrors the screen's isEmptyAdded / emptyAdded
-    # / dropNote).
-    def _is_empty_added(p):
-        return p.get('change') == 'added' and not ((p.get('activities') or 0) > 0)
-    empty_added = [p for p in patterns if _is_empty_added(p)]
-    changed = [p for p in patterns if p.get('change') != 'unchanged' and not _is_empty_added(p)]
+    # round-16 #03a — an added OR removed calendar with 0 activities assigned has no schedule impact
+    # and only adds noise for the planner, so it is dropped from the detailed cards AND the digest
+    # counts; a single small note records how many were hidden (mirrors the screen's isEmptyZero /
+    # emptyZero / dropNote).
+    def _is_empty_zero(p):
+        return p.get('change') in ('added', 'removed') and not ((p.get('activities') or 0) > 0)
+    empty_zero = [p for p in patterns if _is_empty_zero(p)]
+    changed = [p for p in patterns if p.get('change') != 'unchanged' and not _is_empty_zero(p)]
     unchanged = [p for p in patterns if p.get('change') == 'unchanged']
 
     # Section digest — the whole-section headline before any single calendar (counts exclude the
@@ -1258,11 +1258,11 @@ def _sec_cal(report, filters=None):
               f'· {len(unchanged)} unchanged</b> — {tot_flips} exception date'
               f'{"" if tot_flips == 1 else "s"} changed.</span>{legend}</div>')
     drop_note = ''
-    if empty_added:
-        ne = len(empty_added)
-        drop_note = (f'<div class="rc-caldrop">{_num(ne)} added calendar{"s" if ne > 1 else ""} '
-                     f'with <b>0 activities</b> assigned {"are" if ne > 1 else "is"} not detailed '
-                     '— no schedule impact.</div>')
+    if empty_zero:
+        ne = len(empty_zero)
+        drop_note = (f'<div class="rc-caldrop">{_num(ne)} calendar{"s" if ne > 1 else ""} '
+                     f'with <b>0 activities</b> assigned (added or retired) {"are" if ne > 1 else "is"} '
+                     'not detailed — no schedule impact.</div>')
 
     paper_accel = False
     cards = ''

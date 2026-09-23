@@ -583,14 +583,14 @@ def _cal_blocks(report):
     for g in (cc.get('reassignments') or []):
         reass_from.setdefault(g.get('from'), []).append(g)
 
-    # round-16 #03a — an ADDED calendar with 0 activities assigned has no schedule impact and only
-    # adds noise, so it is dropped from every block (summary / exception / assigned / non-working)
-    # and its count recorded in one note (mirrors the screen's isEmptyAdded / emptyAdded / dropNote
-    # and the PDF's _is_empty_added). Filter: change == 'added' and NOT activities > 0.
-    def _is_empty_added(p):
-        return p.get('change') == 'added' and not ((p.get('activities') or 0) > 0)
-    empty_added = [p for p in patterns if _is_empty_added(p)]
-    kept = [p for p in patterns if not _is_empty_added(p)]
+    # round-16 #03a — an ADDED or REMOVED calendar with 0 activities assigned has no schedule impact
+    # and only adds noise, so it is dropped from every block (summary / exception / assigned /
+    # non-working) and its count recorded in one note (mirrors the screen's isEmptyZero / emptyZero /
+    # dropNote and the PDF's _is_empty_zero). Filter: change in (added, removed) and NOT activities > 0.
+    def _is_empty_zero(p):
+        return p.get('change') in ('added', 'removed') and not ((p.get('activities') or 0) > 0)
+    empty_added = [p for p in patterns if _is_empty_zero(p)]
+    kept = [p for p in patterns if not _is_empty_zero(p)]
     changed = [p for p in kept if p.get('change') != 'unchanged']
     unchanged = [p for p in kept if p.get('change') == 'unchanged']
 
@@ -615,8 +615,8 @@ def _cal_blocks(report):
               "count, and a plain-language summary.")
     if empty_added:
         ne = len(empty_added)
-        digest += (f" {ne} added calendar{'s' if ne != 1 else ''} with 0 activities assigned — "
-                   "not detailed (no schedule impact).")
+        digest += (f" {ne} calendar{'s' if ne != 1 else ''} with 0 activities assigned (added or "
+                   "retired) — not detailed (no schedule impact).")
     if paper_accel:
         digest += (' A calendar moved to a longer working week — durations shorten on paper without changing '
                    'the work; a paper acceleration to confirm.')

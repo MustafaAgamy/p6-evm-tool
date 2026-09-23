@@ -1161,12 +1161,12 @@ function calendarView(r) {
   let paperAccel = false;
   const TAG = { modified: ['chg', 'modified'], renamed: ['ren', 'renamed'], added: ['add', 'added'], removed: ['rem', 'retired'] };
 
-  // Round-16 #03a — an added calendar with 0 activities assigned has no schedule impact and only
-  // adds noise for the planner, so it is dropped from the detailed cards and the counts (a small
-  // note records how many were hidden).
-  const isEmptyAdded = p => p.change === 'added' && !(p.activities > 0);
-  const emptyAdded = patterns.filter(isEmptyAdded);
-  const changed = patterns.filter(p => p.change !== 'unchanged' && !isEmptyAdded(p));
+  // Round-16 #03a — an added OR removed calendar with 0 activities assigned has no schedule impact
+  // and only adds noise for the planner, so it is dropped from the detailed cards and the counts
+  // (a small note records how many were hidden).
+  const isEmptyZero = p => (p.change === 'added' || p.change === 'removed') && !(p.activities > 0);
+  const emptyZero = patterns.filter(isEmptyZero);
+  const changed = patterns.filter(p => p.change !== 'unchanged' && !isEmptyZero(p));
   const unchanged = patterns.filter(p => p.change === 'unchanged');
 
   // Section digest — the whole-section headline before any single calendar.
@@ -1176,8 +1176,8 @@ function calendarView(r) {
   const totFlips = changed.reduce((s, p) => s + (p.date_exceptions || []).filter(e => e.change !== 'unchanged').length, 0);
   const legend = '<span class="rc-legend"><span><i style="background:var(--success)"></i>made working</span><span><i style="background:var(--danger)"></i>made non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></span>';
   const digest = `<div class="rc-caldigest"><span><b>${nMod} modified · ${nAdd} added · ${nRem} retired · ${unchanged.length} unchanged</b> — ${totFlips} exception date${totFlips === 1 ? '' : 's'} changed.</span>${legend}</div>`;
-  const dropNote = emptyAdded.length
-    ? `<div class="rc-caldrop">${fmtInt(emptyAdded.length)} added calendar${emptyAdded.length > 1 ? 's' : ''} with <b>0 activities</b> assigned ${emptyAdded.length > 1 ? 'are' : 'is'} not detailed — no schedule impact.</div>`
+  const dropNote = emptyZero.length
+    ? `<div class="rc-caldrop">${fmtInt(emptyZero.length)} calendar${emptyZero.length > 1 ? 's' : ''} with <b>0 activities</b> assigned (added or retired) ${emptyZero.length > 1 ? 'are' : 'is'} not detailed — no schedule impact.</div>`
     : '';
 
   const cards = changed.map((p, pi) => {
