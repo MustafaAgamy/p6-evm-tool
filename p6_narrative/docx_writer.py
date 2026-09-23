@@ -901,6 +901,44 @@ def _render_materials(document, p, number, note):
                          'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
 
 
+# ── §15 Volume of Work ────────────────────────────────────────────────────────
+def _render_volwork(document, p, number, note):
+    """Native Word §15 — one combo chart (monthly value-of-work columns + cumulative S-curve on
+    a secondary axis) then a two-row summary table. Mirrors the HTML/PDF twin (``html._volwork``);
+    None-safe with a data-table fallback if the chart can't be built."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no cost loading, so a volume-of-work curve '
+                         'cannot be built.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    ch = p.get('chart') or {}
+    _subhead(document, '%s.1' % number, 'Monthly value of work — cumulative S-curve')
+    cap = para(document, p.get('caption') or '', size=10, italic=True, color=GREY, after=6,
+               align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    cap.paragraph_format.keep_with_next = True
+    lbl = document.add_paragraph()
+    lbl.paragraph_format.space_before = Pt(6)
+    lbl.paragraph_format.space_after = Pt(2)
+    lbl.paragraph_format.keep_with_next = True
+    run(lbl, 'Monthly value of work & cumulative S-curve', size=11, bold=True,
+        color=NAVY, font=CAL)
+    combo = docx_native.add_cashflow_combo(
+        document, ch.get('labels'), ch.get('values'), ch.get('cum'), '',
+        bar_color=ch.get('bar_color') or '1F4E79', line_color=ch.get('line_color') or 'E8A33D',
+        num_fmt=ch.get('num_fmt'))
+    if combo is None:
+        data_table(document, ch.get('table_headers') or ['Month', 'Value of work', 'Cumulative'],
+                   ch.get('table_rows') or [], aligns=['l', 'r', 'r'])
+    else:
+        _keep_last_with_next(document)
+    para(document, p.get('end_caption') or '', size=10, italic=True, color=GREY, after=6,
+         align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    _subhead(document, '%s.2' % number, 'Volume of work summary')
+    data_table(document, p.get('summary_headers') or ['Metric', 'Value'],
+               p.get('summary_rows') or [], aligns=['l', 'r'])
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -1034,6 +1072,7 @@ _RENDER = {
     'activity_ids': _render_activity_ids,
     'resload': _render_resload,
     'materials': _render_materials,
+    'volwork': _render_volwork,
 }
 
 

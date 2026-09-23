@@ -1018,6 +1018,110 @@ def _materials(p, number, title, meta, cur):
     return ''.join(out)
 
 
+# ── §15 Volume of Work ────────────────────────────────────────────────────────
+def _mln(v, sym):
+    """Whole-millions label (e.g. '$138M') — matches the Word chart's num_fmt."""
+    try:
+        return '%s%dM' % (sym or '', round(float(v or 0) / 1e6))
+    except Exception:
+        return '%s0M' % (sym or '')
+
+
+def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
+    """Combo chart as vector SVG — monthly value-of-work columns (left axis) + the cumulative
+    S-curve line (right axis). The vector twin of ``docx_native.add_cashflow_combo``."""
+    n = len(labels)
+    if not n or not values:
+        return ''
+    W, H = 720, 360
+    pL, pR, pT, pB = 60, W - 66, 42, H - 66   # top headroom for the vertical bar labels
+    pW, pH = pR - pL, pB - pT
+    maxbar = max(values) or 1
+    maxcum = max(cum) or 1
+    band = pW / n
+    barw = band * 0.6
+    p = ['<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pL, pB, pR, pB),
+         '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pL, pT, pL, pB),
+         '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pR, pT, pR, pB)]
+    for t in range(5):
+        yb = pB - (t / 4.0) * pH
+        p.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#eef2f6"/>' % (pL, yb, pR, yb))
+        p.append('<text x="%.1f" y="%.1f" font-size="8.5" fill="#5b6472" text-anchor="end" '
+                 'font-family="Calibri,sans-serif">%s</text>'
+                 % (pL - 5, yb + 3, _esc(_mln(maxbar * t / 4, sym))))
+        p.append('<text x="%.1f" y="%.1f" font-size="8.5" fill="#a06a1e" text-anchor="start" '
+                 'font-family="Calibri,sans-serif">%s</text>'
+                 % (pR + 5, yb + 3, _esc(_mln(maxcum * t / 4, sym))))
+    for i, (lb, v) in enumerate(zip(labels, values)):
+        x = pL + i * band + (band - barw) / 2
+        bh = (float(v) / maxbar) * pH if maxbar else 0
+        y = pB - bh
+        cx = x + barw / 2
+        p.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#%s"/>'
+                 % (x, y, barw, bh, _esc(bar_hex)))
+        p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
+                 'text-anchor="start" font-family="Calibri,sans-serif" '
+                 'transform="rotate(-90 %.1f %.1f)">%s</text>'
+                 % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
+        mx = pL + i * band + band / 2
+        p.append('<text x="%.1f" y="%.1f" font-size="8" fill="#8a95a1" text-anchor="end" '
+                 'font-family="Calibri,sans-serif" transform="rotate(-45 %.1f %.1f)">%s</text>'
+                 % (mx, pB + 12, mx, pB + 12, _esc(lb)))
+    pts = []
+    for i, c in enumerate(cum):
+        cx = pL + i * band + band / 2
+        cy = pB - (float(c) / maxcum) * pH if maxcum else pB
+        pts.append((cx, cy))
+    p.append('<polyline points="%s" fill="none" stroke="#%s" stroke-width="2.2"/>'
+             % (' '.join('%.1f,%.1f' % pt for pt in pts), _esc(line_hex)))
+    for cx, cy in pts:
+        p.append('<circle cx="%.1f" cy="%.1f" r="2.4" fill="#%s"/>' % (cx, cy, _esc(line_hex)))
+    ex, ey = pts[-1]
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#a06a1e" font-weight="700" '
+             'text-anchor="end" font-family="Calibri,sans-serif">%s</text>'
+             % (ex - 4, ey - 5, _esc(_mln(cum[-1], sym))))
+    ly = H - 14
+    p.append('<rect x="%.1f" y="%.1f" width="10" height="10" fill="#%s"/>' % (pL, ly - 8, _esc(bar_hex)))
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#5b6472" font-family="Calibri,sans-serif">'
+             'Monthly value of work</text>' % (pL + 14, ly))
+    p.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#%s" stroke-width="2.2"/>'
+             % (pL + 155, ly - 4, pL + 175, ly - 4, _esc(line_hex)))
+    p.append('<circle cx="%.1f" cy="%.1f" r="2.4" fill="#%s"/>' % (pL + 165, ly - 4, _esc(line_hex)))
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#5b6472" font-family="Calibri,sans-serif">'
+             'Cumulative (S-curve)</text>' % (pL + 181, ly))
+    return ('<svg viewBox="0 0 %d %d" class="vwsvg" xmlns="http://www.w3.org/2000/svg">%s</svg>'
+            % (W, H, ''.join(p)))
+
+
+def _volwork(p, number, title, meta, cur):
+    """§15 — one combo chart (monthly value-of-work columns + cumulative S-curve) + a two-row
+    summary. Twin of ``docx_writer._render_volwork``."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no cost loading, so a volume-of-work '
+                'curve cannot be built.</p>')
+    ch = p.get('chart') or {}
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+    out.append('<div class="sub">%s.1 &middot; Monthly value of work &mdash; cumulative S-curve</div>'
+               % _esc(number))
+    out.append('<p class="rescap">%s</p>' % _esc(p.get('caption') or ''))
+    out.append('<div class="calfig">%s<div class="rescap">%s</div></div>'
+               % (_volwork_svg(ch.get('labels') or [], ch.get('values') or [], ch.get('cum') or [],
+                               ch.get('bar_color') or '1F4E79', ch.get('line_color') or 'E8A33D',
+                               ch.get('sym') or ''),
+                  _esc(p.get('end_caption') or '')))
+    out.append('<div class="sub">%s.2 &middot; Volume of work summary</div>' % _esc(number))
+    heads = p.get('summary_headers') or ['Metric', 'Value']
+    thead = '<tr>%s</tr>' % ''.join(
+        '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h)) for j, h in enumerate(heads))
+    body = ''.join(
+        '<tr>%s</tr>' % ''.join(
+            '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c)) for j, c in enumerate(r))
+        for r in (p.get('summary_rows') or []))
+    out.append('<table class="dt">%s%s</table>' % (thead, body))
+    return ''.join(out)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -1031,6 +1135,7 @@ _RENDER = {
     'activity_ids': _actids,
     'resload': _resload,
     'materials': _materials,
+    'volwork': _volwork,
 }
 
 
@@ -1263,6 +1368,7 @@ table { border-collapse: collapse; }
 .dt th.num, .dt td.num { text-align:center; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
+.vwsvg { width:100%; height:auto; display:block; margin:4px 0 6px; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}
 .wt li{position:relative;padding:4px 0;}

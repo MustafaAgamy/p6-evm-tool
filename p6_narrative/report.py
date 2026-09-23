@@ -458,6 +458,21 @@ def _material_resources(res):
                         'material, each kept in its own unit of measure.')
 
 
+# ── §15 Volume of Work ────────────────────────────────────────────────────────
+def _volume_of_work(data, path):
+    """Planned value-of-work distribution: each activity's budgeted cost spread over its working
+    days (P6 Resource Usage) → the monthly value of work + the cumulative S-curve. Generic and
+    currency-aware; an honest no-data payload when the schedule carries no cost loading."""
+    try:
+        from p6_narrative import volwork
+        payload = volwork.volume_of_work(data, path)
+    except Exception:
+        payload = {'available': False}
+    return Section('15', 'Volume of Work', 'volwork', 'auto', payload=payload,
+                   note='The planned volume of work from the baseline cost loading — the monthly '
+                        'value of work and the cumulative planned-value S-curve.')
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -536,6 +551,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _activity_ids(data),
         _resource_loading(res),
         _material_resources(res),
+        _volume_of_work(data, path),
     ]
     ordered = [s for s in ordered if s is not None]
 
