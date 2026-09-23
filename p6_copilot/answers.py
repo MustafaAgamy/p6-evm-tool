@@ -337,7 +337,12 @@ _ANSWERS = {
 
 
 def answer(question_id, ctx, mode='management'):
-    fn = _ANSWERS.get((mode, question_id)) or _ANSWERS.get(('management', question_id))
+    # Prefer the asked mode, then Management, then Planning — so a real intent (recovery,
+    # critical_driver, delay_method, project_needs are Planning-only) still answers for a
+    # Management-mode user instead of dead-ending on "can't answer that one yet".
+    fn = (_ANSWERS.get((mode, question_id))
+          or _ANSWERS.get(('management', question_id))
+          or _ANSWERS.get(('planning', question_id)))
     if not fn:
         return {'headline': "The offline Copilot can't answer that one yet.",
                 'body': ["Pick one of the suggested questions — those are answered with your schedule's own evidence. "

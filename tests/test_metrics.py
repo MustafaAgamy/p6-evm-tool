@@ -160,7 +160,9 @@ def test_delay_days_none_when_no_remaining_dates(sample_schedule, test_config):
     result = compute(sample_schedule, test_config)
     assert result['delay_days'] is None
 
-def test_delay_days_computed_from_milestone(test_config):
+def test_delay_days_positive_float_means_ahead(test_config):
+    # late_start (Jul 5) AFTER early_start (Jul 1) → +4 working days of total float (slack) →
+    # the finish is AHEAD of its deadline. delay_days is "days late" = -(total float) = -4.
     data = make_schedule()
     cal = Calendar('C1', 'Test', nonworking_days={'Saturday', 'Sunday'})
     data.calendars = {'C1': cal}
@@ -169,19 +171,19 @@ def test_delay_days_computed_from_milestone(test_config):
     data.activities['OBJ002']['remaining_early_start'] = datetime(2024, 7, 1)
     data.activities['OBJ002']['remaining_late_start']  = datetime(2024, 7, 5)
     result = compute(data, test_config)
-    # signed_working_days(cal, Jul 1, Jul 5) = 4 (Tue+Wed+Thu+Fri)
-    assert result['delay_days'] == 4
+    assert result['delay_days'] == -4
 
-def test_delay_days_negative_means_ahead(test_config):
+def test_delay_days_negative_float_means_behind(test_config):
+    # late_start (Jul 1) BEFORE early_start (Jul 5) → -4 total float (negative float = behind) →
+    # delay_days is "days late" = -(total float) = +4 (4 working days behind).
     data = make_schedule()
     cal = Calendar('C1', 'Test', nonworking_days={'Saturday', 'Sunday'})
     data.calendars = {'C1': cal}
     data.activities['OBJ002']['calendar_id'] = 'C1'
-    # late_start < early_start → signed negative → ahead of schedule
     data.activities['OBJ002']['remaining_early_start'] = datetime(2024, 7, 5)
     data.activities['OBJ002']['remaining_late_start']  = datetime(2024, 7, 1)
     result = compute(data, test_config)
-    assert result['delay_days'] == -4
+    assert result['delay_days'] == 4
 
 
 # ── activity_planned_pct helper ────────────────────────────────────────────
