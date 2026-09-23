@@ -1105,7 +1105,8 @@ def _volwork(p, number, title, meta, cur):
     out.append('<div class="sub">%s.1 &middot; Monthly value of work &mdash; cumulative S-curve</div>'
                % _esc(number))
     out.append('<p class="rescap">%s</p>' % _esc(p.get('caption') or ''))
-    out.append('<div class="calfig">%s<div class="rescap">%s</div></div>'
+    out.append('<div class="calfig"><div class="calname">Monthly value of work &amp; cumulative '
+               'S-curve</div>%s<div class="rescap">%s</div></div>'
                % (_volwork_svg(ch.get('labels') or [], ch.get('values') or [], ch.get('cum') or [],
                                ch.get('bar_color') or '1F4E79', ch.get('line_color') or 'E8A33D',
                                ch.get('sym') or ''),

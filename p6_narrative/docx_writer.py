@@ -926,6 +926,7 @@ def _render_volwork(document, p, number, note):
     combo = docx_native.add_cashflow_combo(
         document, ch.get('labels'), ch.get('values'), ch.get('cum'), '',
         bar_color=ch.get('bar_color') or '1F4E79', line_color=ch.get('line_color') or 'E8A33D',
+        bar_name='Monthly value of work', line_name='Cumulative (S-curve)',
         num_fmt=ch.get('num_fmt'))
     if combo is None:
         data_table(document, ch.get('table_headers') or ['Month', 'Value of work', 'Cumulative'],
