@@ -77,6 +77,7 @@ def library():
     themes = []
     for t in load().get('catalog', []):
         qs = [{
+            'id': q.get('id'),
             'q': q.get('q'),
             'grounds': q.get('grounds'),
             'status': q.get('status'),

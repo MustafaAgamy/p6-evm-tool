@@ -1125,6 +1125,44 @@ async function askCopilot(cap, qid, mode, question) {
   }
 }
 
+// Answer a library question by its id from the offline grounded engine (/api/chat/qa) —
+// a detailed, senior-planning-engineer answer computed on the PC, no AI model. Same card as
+// the Copilot answers (renderAssistant). `q` is the wording (for the user bubble).
+async function askQA(id, q) {
+  if (BUSY) return;
+  BUSY = true; setSendEnabled(false);
+  try {
+    addUser(q || '');
+    const bodyEl = addAiShell();
+    if (!bodyEl) return;
+    const think = bodyEl.querySelector('.pchat-think');
+    if (think) think.innerHTML = '<span class="d"></span><span class="d"></span><span class="d"></span> Analysing your schedule…';
+    ensureCopilotCss();
+    let resp;
+    try {
+      resp = await postJSON('/api/chat/qa', { snapshot_id: state.currentSnapshotId || null, question_id: id, mode: roleMode() });
+    } catch (e) {
+      resp = { ok: false, error: 'The answer engine was unreachable: ' + String((e && e.message) || e) };
+    }
+    if (think) think.remove();
+    if (!resp || !resp.ok) {
+      const pe = document.createElement('div'); pe.className = 'pchat-stream';
+      pe.textContent = (resp && resp.error) || 'I could not answer that one.';
+      bodyEl.appendChild(pe);
+    } else {
+      bodyEl.appendChild(renderAssistant(resp.answer || {}));
+      const foot = document.createElement('div'); foot.className = 'pchat-foot';
+      foot.innerHTML = `🔒 <span><b>Grounded</b> — computed on your PC from this project · no AI model needed.</span>`;
+      bodyEl.appendChild(foot);
+    }
+    scrollThread();
+  } catch (_) {
+    /* best-effort — finally frees the composer even if rendering threw */
+  } finally {
+    BUSY = false; setSendEnabled(true);
+  }
+}
+
 function answerFooter(out) {
   const foot = document.createElement('div'); foot.className = 'pchat-foot';
   if (out.source === 'brain') {
@@ -1326,7 +1364,8 @@ function renderLibBody() {
       const cap = q.cap ? ` data-cap="${escapeHtml(q.cap)}"` : '';
       const qid = q.qid ? ` data-qid="${escapeHtml(q.qid)}"` : '';
       const mode = q.mode ? ` data-mode="${escapeHtml(q.mode)}"` : '';
-      return `<div class="pchat-q" data-q="${escapeHtml(q.q)}" data-status="${q.status}" data-roles="${(q.role_keys || []).join('|')}" data-text="${escapeHtml((q.q + ' ' + (q.grounds || '')).toLowerCase())}"${cap}${qid}${mode}>
+      const qidAttr = q.id ? ` data-id="${escapeHtml(q.id)}"` : '';
+      return `<div class="pchat-q"${qidAttr} data-q="${escapeHtml(q.q)}" data-status="${q.status}" data-roles="${(q.role_keys || []).join('|')}" data-text="${escapeHtml((q.q + ' ' + (q.grounds || '')).toLowerCase())}"${cap}${qid}${mode}>
         <span class="pchat-sdot ${sdotClass(q.status)}"></span>
         <span class="qt">${escapeHtml(q.q)}<span class="qg">${escapeHtml(q.grounds || '')}</span></span>
       </div>`;
@@ -1383,21 +1422,20 @@ function sugCardsHtml() {
      </button>`).join('');
 }
 function sugStripHtml() {
-  return SUGGESTIONS.map((x) =>
-    `<button class="pchat-chipsug" ${sugAttrs(x)}><span class="ic">${x.icon}</span>${escapeHtml(x.q)}</button>`).join('')
-    + `<button class="pchat-chipsug browse" data-browse="1">Browse all ▸</button>`;
+  // Questions live only in the drawer now — the strip above the composer is just a
+  // persistent opener for the full library (no on-screen question suggestions).
+  return `<button class="pchat-chipsug browse" data-browse="1">Browse all questions ▸</button>`;
 }
 function welcomeHtml() {
   return `<div class="pchat-empty pchat-welcome">
     <div class="pchat-cta-mk">✦</div>
     <div class="pchat-greet">Hi — I'm your offline planning manager.</div>
-    <div class="pchat-greet-sub">Drag a <b>.xer</b> or <b>.xml</b> P6 export anywhere here, or <button class="pchat-linkbtn" id="pchat-attach-cta">📎 choose a file</button>, then ask me anything. Offline — nothing leaves your PC.</div>
-    <div class="pchat-sugcards">${sugCardsHtml()}</div>
+    <div class="pchat-greet-sub">Drag a <b>.xer</b> or <b>.xml</b> P6 export anywhere here, or <button class="pchat-linkbtn" id="pchat-attach-cta">📎 choose a file</button>, then open the question library and pick anything. Offline — nothing leaves your PC.</div>
     <div class="pchat-welcome-foot">
       <label class="pchat-rolepick">Show questions for
         <select class="pchat-roleselect" id="pchat-roleselect"><option value="all">Everyone</option></select>
       </label>
-      <button class="pchat-browse" data-browse="1">Browse all <span id="pchat-browsecount"></span> questions ▸</button>
+      <button class="pchat-browse pchat-browse-lg" data-browse="1">Browse all <span id="pchat-browsecount"></span> questions ▸</button>
     </div>
   </div>`;
 }
@@ -1481,8 +1519,11 @@ export async function renderChat() {
         return;
       }
       // Library questions live in the drawer now — close it so the answer is visible.
+      // Copilot "expert analysis" questions (data-cap) route to the Copilot engine; every
+      // other question routes by its stable id to the offline grounded engine (askQA); a
+      // question with neither falls back to the free-text path.
       const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { closeDrawer(); askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
-      const q = e.target.closest('.pchat-q'); if (q) { closeDrawer(); ask(q.dataset.q); return; }
+      const q = e.target.closest('.pchat-q'); if (q) { closeDrawer(); if (q.dataset.id) askQA(q.dataset.id, q.dataset.q); else ask(q.dataset.q); return; }
       const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); renderRoleSelect(); applyFilter(); return; }
       const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {
         SFILT = sc.dataset.s;

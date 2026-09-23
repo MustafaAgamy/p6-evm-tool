@@ -22,6 +22,13 @@ ask = service.ask
 answer_stream = service.answer_stream
 
 
+def answer_question(snapshot_id, question_id, role='management'):
+    """The offline, deterministic answer for one library question id — a grounded,
+    senior-planning-engineer answer with no AI model. See p6_chat.qa_service."""
+    from . import qa_service
+    return qa_service.answer_question(snapshot_id, question_id, role)
+
+
 def brain_status():
     return llm.status()
 
@@ -44,5 +51,5 @@ def build_dashboard(xml_path=None, snapshot_id=None):
     return dashboard.build_from_snapshot(snapshot_id=snapshot_id, xml_path=xml_path)
 
 
-__all__ = ['get_library', 'ask', 'answer_stream', 'brain_status', 'brain_setup',
-           'save_brain_settings', 'build_dashboard', 'copilot']
+__all__ = ['get_library', 'ask', 'answer_stream', 'answer_question', 'brain_status',
+           'brain_setup', 'save_brain_settings', 'build_dashboard', 'copilot']
