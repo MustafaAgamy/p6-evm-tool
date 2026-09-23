@@ -73,19 +73,20 @@ def ask(question, result, role=None):
     # Brain not set up → honest fallback: real snapshot + charts + a pointer to set up.
     if has_ground:
         snap = _snapshot(result)
-        lines = ["**Your offline AI brain isn't set up yet**, so I can't give the "
-                 "full, reasoned answer to that question. It's a one-time download "
-                 "inside the app (about 2 GB) — nothing to install — after which it "
-                 "runs entirely on your PC, no internet, no cost."]
+        lines = ["That's an **open-ended question** — the kind the optional AI brain answers in "
+                 "free-form. The built-in analyses (why the project is delayed, top risks, "
+                 "recovery options, the dashboard, a time-impact analysis, a manager's briefing, "
+                 "the EOT/claim read, and more) answer right here with **no download needed**. "
+                 "If you want free-form answers too, the AI brain is a one-time in-app download "
+                 "(about 2 GB) that then runs entirely on your PC — no internet, no cost."]
         if snap:
-            lines.append("For now, here's what I can read straight from your "
-                         "imported schedule:")
+            lines.append("For this question, here's what I can read straight from your schedule:")
             lines.append("\n".join('• ' + b for b in snap))
         answer = "\n\n".join(lines)
     else:
-        answer = ("Import a P6 schedule first — then I can read it and answer this "
-                  "in detail. (Your offline AI brain also needs a one-time model "
-                  "download to give the full reasoned answers.)")
+        answer = ("Send me your P6 schedule first (the 📎 button, or drag it onto the chat) — "
+                  "then I can read it and answer. The built-in analyses need no download; only "
+                  "free-form typed questions use the optional AI brain.")
     return {'ok': True, 'answer': answer, 'source': 'setup',
             'grounded': has_ground, 'needs_setup': True, 'brain': brain, 'charts': ch}
 
