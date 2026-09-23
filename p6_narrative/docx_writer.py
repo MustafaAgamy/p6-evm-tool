@@ -290,7 +290,7 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     t.style = 'Table Grid'
     t.autofit = False
     hr = t.rows[0]
-    _row_h(hr, h)
+    _row_h(hr, h, exact=False)                        # AT_LEAST: grow to fit wrapped text
     for i, hd in enumerate(headers):
         c = hr.cells[i]
         _shade(c, '26517D'); _no_space(c)
@@ -298,12 +298,11 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
         if widths:
             _set_w(c, widths[i])
         p = c.paragraphs[0]
-        if aligns and aligns[i] == 'r':
-            p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER      # all table content centred + wrapped
         run(p, hd, font=CAL, size=10, bold=True, color=WHITE)
     for ri, row_vals in enumerate(rows or []):
         rr = t.add_row()
-        _row_h(rr, h)
+        _row_h(rr, h, exact=False)                    # AT_LEAST: wrapped cells grow, never clip
         for ci, val in enumerate(row_vals):
             if ci >= len(rr.cells):
                 break
@@ -314,8 +313,7 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
             if ri % 2 == 1:
                 _shade(c, ZEBRA)
             p = c.paragraphs[0]
-            if aligns and aligns[ci] == 'r':
-                p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run(p, val, size=11)
     _keep_table_together(t, header=True)        # navy header repeats on any page break
     return t
@@ -808,6 +806,101 @@ def _render_activity_ids(document, p, number, note):
              size=10, italic=True, color=GREEN, before=3, after=8)
 
 
+# ── §13 Resource Loading + §14 Material Resources ─────────────────────────────
+def _wn(v):
+    try:
+        return '{:,.0f}'.format(round(float(v or 0)))
+    except Exception:
+        return '0'
+
+
+def _render_resload(document, p, number, note):
+    """Native Word §13 — Manpower + Equipment as the number on site per month: a sub-section
+    each with a labelled native column histogram (value above every bar) and a per-resource
+    totals table. Mirrors the HTML/PDF twin (``html._resload``); None-safe with a data-table
+    fallback if a chart can't be built."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no manpower or equipment loading in its '
+                         'baseline resource assignments.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    for i, g in enumerate(p.get('groups') or [], 1):
+        _subhead(document, '%s.%d' % (number, i), g.get('title') or 'Resources')
+        cap = para(document,
+                   '%s Total budgeted %s %s across %s.'
+                   % (g.get('basis_note') or '', g.get('total_label') or '',
+                      g.get('total_unit') or '', g.get('window') or ''),
+                   size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        cap.paragraph_format.keep_with_next = True
+        for ch in (g.get('charts') or []):
+            lbl = document.add_paragraph()
+            lbl.paragraph_format.space_before = Pt(6)
+            lbl.paragraph_format.space_after = Pt(2)
+            lbl.paragraph_format.keep_with_next = True
+            run(lbl, ch.get('chart_title') or '', size=11, bold=True, color=NAVY, font=CAL)
+            if docx_native.add_bar_chart(document, ch.get('span'), ch.get('values'), '',
+                                         color=ch.get('color') or '1F4E79',
+                                         data_labels=True, num_fmt='#,##0') is None:
+                data_table(document, ['Month', 'Value'],
+                           [[mm, _wn(vv)] for mm, vv in
+                            zip(ch.get('span') or [], ch.get('values') or [])], aligns=['l', 'r'])
+            else:
+                _keep_last_with_next(document)
+            pu = (' ' + ch['peak_unit']) if ch.get('peak_unit') else ''
+            para(document, 'Peak %s%s in %s.'
+                 % (_wn(ch.get('peak_val')), pu, ch.get('peak_label') or ''),
+                 size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        rows = g.get('rows') or []
+        if rows:
+            data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
+                       rows, aligns=['l', 'r', 'r'])
+
+
+def _render_materials(document, p, number, note):
+    """Native Word §14 — one labelled native column histogram per material resource (top by
+    total, each in its own unit), then a full totals table and the cost-model note. Never mixes
+    units. Mirrors the HTML/PDF twin (``html._materials``); None-safe chart fallback."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no unit-bearing material resources in its '
+                         'baseline.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    cap = ''
+    if (p.get('total_n') or 0) > (p.get('charted_n') or 0):
+        cap = ' (top %d of %d by total)' % (p.get('charted_n'), p.get('total_n'))
+    _subhead(document, '%s.1' % number, 'Monthly quantity per material%s' % cap)
+    for m in (p.get('charts') or []):
+        lbl = document.add_paragraph()
+        lbl.paragraph_format.space_before = Pt(6)
+        lbl.paragraph_format.space_after = Pt(2)
+        lbl.paragraph_format.keep_with_next = True
+        run(lbl, '%s — %s (total %s %s)' % (m.get('name') or '—', m.get('unit') or '',
+            _wn(m.get('total')), m.get('unit') or ''), size=11, bold=True, color=NAVY, font=CAL)
+        # No chart title — the material name is already on the bold label above (matches the
+        # title-less HTML histogram, so the name shows once, not twice).
+        if docx_native.add_bar_chart(document, m.get('span'), m.get('values'), '',
+                                     color=m.get('color') or 'E8A33D',
+                                     data_labels=True, num_fmt='#,##0') is None:
+            data_table(document, ['Month', m.get('unit') or 'Quantity'],
+                       [[mm, _wn(vv)] for mm, vv in
+                        zip(m.get('span') or [], m.get('values') or [])], aligns=['l', 'r'])
+        else:
+            _keep_last_with_next(document)          # chart stays with its peak caption
+        para(document, 'Peak %s %s in %s.' % (_wn(m.get('peak_val')), m.get('unit') or '',
+             m.get('peak_label') or ''), size=10, italic=True, color=GREY, after=6,
+             align=WD_ALIGN_PARAGRAPH.JUSTIFY)     # peak caption — parity with HTML/PDF §14
+    _subhead(document, '%s.2' % number, 'Materials Major Quantities')
+    data_table(document, p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity'],
+               p.get('table_rows') or [], aligns=['l', 'l', 'r'])
+    exc = p.get('excluded')
+    if exc:
+        _muted(document, '%s unit-less “material” assignments (total %s) are the cost model — '
+                         'the contract value — and are reported in the cost sections, not charted '
+                         'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -939,6 +1032,8 @@ _RENDER = {
     'codes': _render_codes,
     'sequence': _render_sequence,
     'activity_ids': _render_activity_ids,
+    'resload': _render_resload,
+    'materials': _render_materials,
 }
 
 

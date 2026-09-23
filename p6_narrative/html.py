@@ -916,6 +916,108 @@ def _actids(p, number, title, meta, cur):
     return out
 
 
+# ── §13 Resource Loading + §14 Material Resources ─────────────────────────────
+def _wnum(v):
+    try:
+        return '{:,.0f}'.format(round(float(v or 0)))
+    except Exception:
+        return '0'
+
+
+def _res_hist(labels, values, color):
+    """A single-series vertical histogram with a value label above each bar — the resource
+    twin of the §8 calendar histogram (``_cal_hist``), reused for manpower/equipment/material."""
+    labels = labels or []
+    values = values or []
+    if not labels or not values:
+        return ''
+    mx = max(values) or 1
+    HH = 44.0
+    cols = ''
+    for lab, v in zip(labels, values):
+        h = HH * (float(v) / mx) if mx else 0.0
+        cols += ('<div class="col"><div class="v">%s</div>'
+                 '<div class="bstack"><div class="rbar" style="height:%.1fpx;background:#%s"></div>'
+                 '</div><div class="m">%s</div></div>'
+                 % (_esc(_wnum(v)), h, _esc(color or '1F4E79'), _esc(lab)))
+    return '<div class="hist reshist">%s</div>' % cols
+
+
+def _resload(p, number, title, meta, cur):
+    """§13 — Manpower (man-hours AND headcount histograms) + Equipment (machines on site), each
+    a labelled histogram with a per-resource totals table. Twin of ``docx._render_resload``."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no manpower or equipment loading in '
+                'its baseline resource assignments.</p>')
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+    for i, g in enumerate(p.get('groups') or [], 1):
+        out.append('<div class="sub">%s.%d &middot; %s</div>'
+                   % (_esc(number), i, _esc(g.get('title'))))
+        out.append('<p class="rescap">%s Total budgeted %s %s across %s.</p>'
+                   % (_esc(g.get('basis_note') or ''), _esc(g.get('total_label')),
+                      _esc(g.get('total_unit')), _esc(g.get('window'))))
+        for ch in (g.get('charts') or []):
+            pu = (' ' + ch['peak_unit']) if ch.get('peak_unit') else ''
+            peak = 'Peak %s%s in %s.' % (_wnum(ch.get('peak_val')), _esc(pu),
+                                         _esc(ch.get('peak_label')))
+            out.append('<div class="calfig"><div class="calname">%s</div>%s'
+                       '<div class="rescap">%s</div></div>'
+                       % (_esc(ch.get('chart_title')),
+                          _res_hist(ch.get('span'), ch.get('values'), ch.get('color')), peak))
+        heads = g.get('row_headers') or ['Resource', 'Total']
+        thead = '<tr>%s</tr>' % ''.join(
+            '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
+            for j, h in enumerate(heads))
+        body = ''.join(
+            '<tr>%s</tr>' % ''.join(
+                '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c))
+                for j, c in enumerate(r))
+            for r in (g.get('rows') or []))
+        out.append('<table class="dt">%s%s</table>' % (thead, body))
+    return ''.join(out)
+
+
+def _materials(p, number, title, meta, cur):
+    """§14 — one labelled monthly-quantity histogram per material resource (top by total),
+    each in its own unit, then a full totals table and the cost-model note. Never mixes units.
+    Twin of ``docx_writer._render_materials``."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no unit-bearing material resources in '
+                'its baseline.</p>')
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+    cap = ''
+    if (p.get('total_n') or 0) > (p.get('charted_n') or 0):
+        cap = ' (top %d of %d by total)' % (p.get('charted_n'), p.get('total_n'))
+    out.append('<div class="sub">%s.1 &middot; Monthly quantity per material%s</div>'
+               % (_esc(number), _esc(cap)))
+    for m in (p.get('charts') or []):
+        out.append('<div class="calfig"><div class="calname">%s &mdash; %s (total %s %s)</div>%s'
+                   '<div class="rescap">Peak %s %s in %s.</div></div>'
+                   % (_esc(m.get('name')), _esc(m.get('unit')), _esc(_wnum(m.get('total'))),
+                      _esc(m.get('unit')),
+                      _res_hist(m.get('span'), m.get('values'), m.get('color')),
+                      _esc(_wnum(m.get('peak_val'))), _esc(m.get('unit')),
+                      _esc(m.get('peak_label'))))
+    heads = p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity']
+    thead = '<tr>%s</tr>' % ''.join(
+        '<th%s>%s</th>' % (' class="num"' if j == 2 else '', _esc(h))
+        for j, h in enumerate(heads))
+    body = ''.join('<tr><td>%s</td><td>%s</td><td class="num">%s</td></tr>'
+                   % (_esc(r[0] if len(r) > 0 else ''), _esc(r[1] if len(r) > 1 else ''),
+                      _esc(r[2] if len(r) > 2 else '')) for r in (p.get('table_rows') or []))
+    out.append('<div class="sub">%s.2 &middot; Materials Major Quantities</div>' % _esc(number))
+    out.append('<table class="dt">%s%s</table>' % (thead, body))
+    exc = p.get('excluded')
+    if exc:
+        out.append('<p class="note">%s unit-less &ldquo;material&rdquo; assignments '
+                   '(total %s) are the cost model &mdash; the contract value &mdash; and are '
+                   'reported in the cost sections, not charted as physical quantities.</p>'
+                   % (_esc(exc.get('n')), _esc(exc.get('total_label'))))
+    return ''.join(out)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -927,6 +1029,8 @@ _RENDER = {
     'codes': _codes,
     'sequence': _seqflow,
     'activity_ids': _actids,
+    'resload': _resload,
+    'materials': _materials,
 }
 
 
@@ -1097,8 +1201,8 @@ table { border-collapse: collapse; }
 .kv td { border:1px solid #cbd8e2; padding:7px 11px; }
 .kv td.k { width:36%; background:#eef3f9; color:#1F4E79; font-weight:700; }
 .dt { width:100%; font-size:12px; break-inside:avoid; page-break-inside:avoid; }
-.dt th { background:#26517d; color:#fff; text-align:left; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; }
-.dt td { border:1px solid #dbe3ec; padding:6px 9px; }
+.dt th { background:#26517d; color:#fff; text-align:center; vertical-align:middle; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; overflow-wrap:anywhere; }
+.dt td { border:1px solid #dbe3ec; padding:7px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; line-height:1.35; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
 .r { text-align:right; }
 .tiles { display:flex; gap:8px; }
@@ -1154,6 +1258,11 @@ table { border-collapse: collapse; }
 .hist .gseg { background:#1f7a3d; border-radius:0 0 3px 3px; }
 .hist .rseg { background:#b23030; border-radius:3px 3px 0 0; }
 .hist .m { font-size:8.5px; color:#8a95a1; margin-top:3px; font-family:Calibri,sans-serif; }
+.reshist .rbar { border-radius:3px 3px 0 0; min-height:1px; }
+.reshist .v { color:#17457a; }
+.dt th.num, .dt td.num { text-align:center; }
+.rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
+.resload-fig { break-after:avoid; page-break-after:avoid; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}
 .wt li{position:relative;padding:4px 0;}
