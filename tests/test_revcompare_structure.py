@@ -114,6 +114,32 @@ def test_calendar_lists_shared_nonworking_dates():
     assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 1}
 
 
+def test_added_calendar_lists_its_own_nonworking_dates():
+    """Round-16: a newly ADDED calendar has no prior revision to diff against, so its own dated
+    non-working days are listed in full via `nonworking_dates` (holidays → 'Non-working', a
+    reduced-hours exception → 'Nh/day')."""
+    c_new = Calendar(object_id='cNEW', name='Marine Works', nonworking_days=set(),
+                     holidays={date(2026, 1, 1), date(2026, 4, 25)}, added_work_days=set(),
+                     day_hours=10.0, work_intervals={}, exception_intervals={})
+    rev0 = _sched([_act('A1', 'x', calid='c6')], cals=[_cal('c6', 'Base', {'Friday'})])
+    rev1 = _sched([_act('A2', 'y', calid='cNEW')], cals=[c_new])
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns']
+               if p['name'] == 'Marine Works')
+    assert pat['change'] == 'added'
+    nd = {d['date']: d['status'] for d in pat['nonworking_dates']}
+    assert nd == {'01 Jan 2026': 'Non-working', '25 Apr 2026': 'Non-working'}
+
+
+def test_inboth_calendar_has_no_nonworking_dates_list():
+    """A calendar present in BOTH revisions relies on date_exceptions for its differences, so the
+    added/removed-only `nonworking_dates` list stays empty (no full dump for an in-both calendar)."""
+    c = _cal('c1', '6 Day', {'Friday'})
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[_cal('c1', '6 Day', {'Friday'})])
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '6 Day')
+    assert pat['nonworking_dates'] == []
+
+
 def test_calendar_same_name_compared_from_xer_clndr_blobs():
     """End-to-end for XER: two SAME-NAMED calendars parsed from real clndr_data blobs with
     different holiday dates are still compared by their non-working days (the name being unchanged

@@ -91,6 +91,31 @@ def _money_label(v):
     return f'{sign}{body}'
 
 
+def _compact(n):
+    """Compact whole-number chart label mirroring the screen's ``fmtCompact`` (round-16): a value is
+    shown in full but short so it never trims or collides above a bar — 147000 → '147k',
+    12400 → '12.4k', 1_200_000 → '1.2M'. Returns '' for None / non-numeric / non-finite."""
+    try:
+        v = float(n)
+    except (TypeError, ValueError):
+        return ''
+    if v != v or v in (float('inf'), float('-inf')):   # NaN / ±inf guard
+        return ''
+    a = abs(v)
+    s = '-' if v < 0 else ''
+    if a >= 1e6:
+        num = f'{a / 1e6:.0f}' if a >= 1e7 else f'{a / 1e6:.1f}'
+        if num.endswith('.0'):
+            num = num[:-2]
+        return f'{s}{num}M'
+    if a >= 1e3:
+        num = f'{int(a / 1e3 + 0.5)}' if a >= 1e5 else f'{a / 1e3:.1f}'
+        if num.endswith('.0'):
+            num = num[:-2]
+        return f'{s}{num}k'
+    return f'{s}{int(a + 0.5)}'
+
+
 def _month_label(date_str):
     """'19 Dec 2026' → 'Mon YYYY' ('Dec 2026') to index a finish date against the month axis;
     returns '' when it cannot be parsed. Mirrors the screen's monthLabel."""
@@ -290,7 +315,7 @@ def _donut(items, note='', center='added'):
     svg = (f'<svg viewBox="0 0 120 120" width="118" height="118" role="img">'
            + ''.join(segs)
            + f'<text x="{cx}" y="{cy - 1}" text-anchor="middle" font-size="21" font-weight="800" '
-             f'fill="var(--rpt-ink)">{int(round(total))}</text>'
+             f'fill="var(--rpt-ink)">{_e(_compact(total))}</text>'
            + f'<text x="{cx}" y="{cy + 15}" text-anchor="middle" font-size="8" '
              f'fill="var(--rpt-muted)">{_e(center)}</text></svg>')
     leg = ''
@@ -1155,12 +1180,40 @@ def _cal_ledger(p):
                     f'<td class="rc-lrev">{_e(e.get("rev0"))}</td><td class="rc-lrev">{_e(e.get("rev1"))}</td>'
                     f'<td class="rc-lchg rc-chg-{cls}">{note}</td></tr>')
     if identical:
-        exc += (f'<tr class="rc-lident"><td class="rc-lattr">+ {_num(identical)} other exception '
-                f'date{"s" if identical > 1 else ""}</td><td class="rc-lrev">identical</td>'
-                f'<td class="rc-lrev">identical</td><td class="rc-lchg">not listed</td></tr>')
+        # round-16 #03b — one clear full-width line proving the identical dates were compared (mirrors
+        # the screen's calLedger rc-lident row), with 'not listed' kept in the Change column.
+        exc += (f'<tr class="rc-lident"><td colspan="3"><b>{_num(identical)} non-working '
+                f'day{"s" if identical > 1 else ""}</b> {"are" if identical > 1 else "is"} '
+                f'identical in both revisions — no change</td>'
+                f'<td class="rc-lchg">not listed</td></tr>')
     return (f'<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th>'
             f'<th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th>'
             f'<th class="rc-lchg">Change</th></tr></thead><tbody>{rows}{exc}</tbody></table>')
+
+
+def _cal_nonworking_table(p):
+    """Round-16 #03c — an ADDED (or removed) calendar has no other revision to diff against, so its
+    own non-working days are listed in a TABLE (Date | Status) from the pattern's ``nonworking_dates``
+    (list of {date, iso, status}) rather than only being implied by the weekly pattern. Mirrors the
+    screen's ``calNonworkingTable`` so screen == PDF. Empty string for a modified/renamed calendar."""
+    chg = p.get('change')
+    if chg not in ('added', 'removed'):
+        return ''
+    nd = p.get('nonworking_dates') or []
+    is_removed = chg == 'removed'
+    rev = 'Rev.00' if is_removed else 'Rev.01'
+    title = (f'Non-working days it had in {rev}' if is_removed
+             else 'Non-working days of this new calendar')
+    sub = '' if is_removed else ' — no prior revision to compare, so the pattern is listed in full'
+    if not nd:
+        return (f'<div class="rc-nwtbl"><div class="rc-nwh">{_e(title)}</div>'
+                '<div class="sec rc-mut" style="margin:4px 0 0">No dated non-working days — this '
+                'calendar works every day in its weekly pattern (shown above).</div></div>')
+    trows = ''.join(f'<tr><td class="rc-lattr">{_e(d.get("date"))}</td>'
+                    f'<td class="rc-lchg rc-chg-r">{_e(d.get("status"))}</td></tr>' for d in nd)
+    return (f'<div class="rc-nwtbl"><div class="rc-nwh">{_e(title)}<span class="rc-mut">{_e(sub)}</span></div>'
+            f'<table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th>'
+            f'<th class="rc-lchg">Status</th></tr></thead><tbody>{trows}</tbody></table></div>')
 
 
 def _sec_cal(report, filters=None):
@@ -1181,21 +1234,35 @@ def _sec_cal(report, filters=None):
         reass_from.setdefault(g.get('from'), []).append(g)
     tag = {'modified': ('chg', 'modified'), 'renamed': ('ren', 'renamed'),
            'added': ('add', 'added'), 'removed': ('rem', 'retired')}
-    changed = [p for p in patterns if p.get('change') != 'unchanged']
+    # round-16 #03a — an added calendar with 0 activities assigned has no schedule impact and only
+    # adds noise for the planner, so it is dropped from the detailed cards AND the digest counts; a
+    # single small note records how many were hidden (mirrors the screen's isEmptyAdded / emptyAdded
+    # / dropNote).
+    def _is_empty_added(p):
+        return p.get('change') == 'added' and not ((p.get('activities') or 0) > 0)
+    empty_added = [p for p in patterns if _is_empty_added(p)]
+    changed = [p for p in patterns if p.get('change') != 'unchanged' and not _is_empty_added(p)]
     unchanged = [p for p in patterns if p.get('change') == 'unchanged']
 
-    # Section digest — the whole-section headline before any single calendar.
-    n_mod = sum(1 for p in patterns if p.get('change') in ('modified', 'renamed'))
-    n_add = sum(1 for p in patterns if p.get('change') == 'added')
-    n_rem = sum(1 for p in patterns if p.get('change') == 'removed')
+    # Section digest — the whole-section headline before any single calendar (counts exclude the
+    # dropped empty added calendars, matching the detailed cards below).
+    n_mod = sum(1 for p in changed if p.get('change') in ('modified', 'renamed'))
+    n_add = sum(1 for p in changed if p.get('change') == 'added')
+    n_rem = sum(1 for p in changed if p.get('change') == 'removed')
     tot_flips = sum(sum(1 for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged')
-                    for p in patterns)
+                    for p in changed)
     legend = ('<span class="rc-callegend"><span><i class="g"></i>made working</span>'
               '<span><i class="r"></i>made non-working</span>'
               '<span><i class="a"></i>hours changed</span></span>')
     digest = (f'<div class="rc-caldigest"><span><b>{n_mod} modified · {n_add} added · {n_rem} retired '
               f'· {len(unchanged)} unchanged</b> — {tot_flips} exception date'
               f'{"" if tot_flips == 1 else "s"} changed.</span>{legend}</div>')
+    drop_note = ''
+    if empty_added:
+        ne = len(empty_added)
+        drop_note = (f'<div class="rc-caldrop">{_num(ne)} added calendar{"s" if ne > 1 else ""} '
+                     f'with <b>0 activities</b> assigned {"are" if ne > 1 else "is"} not detailed '
+                     '— no schedule impact.</div>')
 
     paper_accel = False
     cards = ''
@@ -1230,7 +1297,7 @@ def _sec_cal(report, filters=None):
                   f'<span class="rc-caltag {tagcls}">{_e(taglbl)}</span>'
                   f'<span class="rc-calmeta">{meta}</span></div>'
                   f'<div class="rc-calbrief">{_cal_brief(p, reass_from)}</div>'
-                  f'{ctx}{_cal_ledger(p)}{_cal_assigned_pdf(p)}</div>')
+                  f'{ctx}{_cal_ledger(p)}{_cal_nonworking_table(p)}{_cal_assigned_pdf(p)}</div>')
 
     unchanged_line = ''
     if unchanged:
@@ -1246,7 +1313,7 @@ def _sec_cal(report, filters=None):
                '— durations shorten <b>on paper</b> without changing the work. A paper acceleration to '
                'confirm.</div>') if paper_accel else ''
     return _card('Calendar', 'working pattern · exception dates · assigned activities by code',
-                 digest + cards + unchanged_line + callout)
+                 digest + drop_note + cards + unchanged_line + callout)
 
 
 def _scurve_svg(report):
@@ -1257,80 +1324,91 @@ def _scurve_svg(report):
     if not c.get('cost_available') or not months or not vm:
         return _muted('Neither revision carries cost loading — the planned-value chart is not applicable.')
     n = len(months)
-    W, H = 860, 300
-    # comment 6a — extra top padding so the tallest bar's value label is never clipped; a wide
-    # right margin (comment 3) leaves room for the Rev.01 completion label past the curve end so
-    # it is never trimmed off screen.
-    left, right, top, bot = 52, 112, 46, 56
+    by0 = {x.get('month'): (x.get('rev0') or 0) for x in vm}
+    by1 = {x.get('month'): (x.get('rev1') or 0) for x in vm}
+    rev0v = [by0.get(mo, 0) or 0 for mo in months]
+    rev1v = [by1.get(mo, 0) or 0 for mo in months]
+    cum_by = {x.get('month'): x for x in vc}
+    # round-16 #02b — widen the per-month spacing (66px/month) so the month labels at the right end
+    # never clash and the "Rev.01 finish" end label clears the last x-axis label. Mirrors the screen.
+    W, H = max(760, n * 66), 300
+    # round-16 #02a — extra top padding (top=58) so an angled value label off the tallest bar is
+    # never clipped; a wide right margin (116) leaves room for the Rev.01 completion label past the
+    # curve end so it is never trimmed off screen.
+    left, right, top, baseY = 56, 116, 58, 250
     plot_w = W - left - right
-    plot_h = H - top - bot
+    plot_h = baseY - top
     step = plot_w / max(n, 1)
-    bw = min(14, step / 3)
-    # value labels thin out when columns crowd (so they never touch); MONTH labels are drawn
-    # under EVERY bar (comment 6a), angled so they never run together
-    thin = 2 if step < 34 else 1
-    max_m = max([max(m.get('rev0', 0) or 0, m.get('rev1', 0) or 0) for m in vm] + [1])
+    bw = min(13.0, step * 0.32)   # narrower — two grouped bars per month
+    max_m = max(rev0v + rev1v + [1])
     cum_mx = max([(x.get('rev0', 0) or 0) for x in vc] + [(x.get('rev1', 0) or 0) for x in vc] + [1])
-    baseY = top + plot_h
 
     bars = []
-    for i, m in enumerate(vm):
-        x = left + i * step + step / 2
-        v0, v1 = m.get('rev0', 0) or 0, m.get('rev1', 0) or 0
-        # comment 3 — a non-zero month always draws a visible bar (min height) so the earliest
-        # small months (the "first histogram not shown") are never invisible.
-        h0 = max(2.0, v0 / max_m * plot_h) if v0 > 0 else 0.0
-        h1 = max(2.0, v1 / max_m * plot_h) if v1 > 0 else 0.0
-        bars.append(f'<rect x="{x - bw - 1:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" fill="var(--rpt-hair-strong)"/>')
-        bars.append(f'<rect x="{x + 1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" fill="var(--rpt-accent)" opacity="0.9"/>')
-        # comment 3 — value label sits DIRECTLY above its own histogram bar (not lifted to the
-        # cumulative curve); thinned so labels never touch. Top padding keeps it in frame.
-        if v1 and i % thin == 0:
-            bars.append(f'<text x="{x + 1 + bw / 2:.1f}" y="{baseY - h1 - 5:.1f}" font-size="8" '
-                        f'font-weight="700" fill="var(--rpt-ink-soft)" text-anchor="middle">{_e(_money_label(v1))}</text>')
+    for i, mo in enumerate(months):
+        cx = left + (i + 0.5) * step
+        v0, v1 = rev0v[i], rev1v[i]
+        # BOTH the Rev.00 (before, grey) and Rev.01 (after, accent) monthly bars are drawn side by
+        # side; a non-zero month keeps a min height so the earliest small months stay visible.
+        h0 = max(3.0, v0 / max_m * plot_h) if v0 > 0 else 0.0
+        h1 = max(3.0, v1 / max_m * plot_h) if v1 > 0 else 0.0
+        x0, x1 = cx - bw - 1, cx + 1
+        if h0 > 0:
+            bars.append(f'<rect x="{x0:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" rx="2" fill="var(--rpt-hair-strong)"/>')
+        if h1 > 0:
+            bars.append(f'<rect x="{x1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" rx="2" fill="var(--rpt-accent)" opacity="0.9"/>')
+        # round-16 #02a — value angled up off the bar top (start-anchored) so adjacent labels never
+        # overlap or get trimmed; positioned above the taller of the two bars, kept in frame by the
+        # top padding. Compact money formatter so a big value never overflows.
+        if v1 > 0 or v0 > 0:
+            ly = baseY - max(h0, h1) - 6
+            bars.append(f'<text x="{cx:.1f}" y="{ly:.1f}" font-size="9" font-weight="700" '
+                        f'fill="var(--rpt-ink-soft)" text-anchor="start" '
+                        f'transform="rotate(-55 {cx:.1f} {ly:.1f})">{_e(_money_label(v1))}</text>')
 
     def line(mx, key, stroke, sw):
         if not vc:
             return ''
         pts = []
-        for i, x in enumerate(vc):
-            px = left + i * step + step / 2
-            py = baseY - (x.get(key, 0) or 0) / mx * plot_h
+        for i, mo in enumerate(months):
+            px = left + (i + 0.5) * step
+            val = (cum_by.get(mo) or {}).get(key, 0) or 0
+            py = baseY - val / mx * plot_h
             pts.append(f'{px:.1f},{py:.1f}')
         return f'<polyline points="{" ".join(pts)}" fill="none" stroke="{stroke}" stroke-width="{sw}"/>'
 
-    # comment 3 — the ORIGINAL (Rev.00) completion date, drawn at its month on the axis when it
-    # falls within the value spread, labelled with the date so both finishes read clearly.
+    # The ORIGINAL (Rev.00) completion date, drawn at its month on the axis when it falls within the
+    # value spread, labelled with the date so both finishes read clearly.
     r0fin = (report.get('rev0') or {}).get('finish')
     orig_line = ''
     o_idx = months.index(_month_label(r0fin)) if _month_label(r0fin) in months else None
     if o_idx is not None:
-        ox = left + o_idx * step + step / 2
+        ox = left + (o_idx + 1) * step
         orig_line = (f'<line x1="{ox:.1f}" y1="{top}" x2="{ox:.1f}" y2="{baseY}" stroke="var(--rpt-bad)" stroke-dasharray="4 3"/>'
                      f'<text x="{ox + 4:.1f}" y="{top + 12}" font-size="9" fill="var(--rpt-bad)">orig finish {_e(r0fin)}</text>')
 
     labels = ''
-    for i in range(0, n):        # comment 6a — a month label under EVERY bar
-        x = left + i * step + step / 2
+    for i in range(0, n):        # a month label under EVERY bar, angled so none is missing or clashes
+        x = left + (i + 0.5) * step
         ly = baseY + 12
-        labels += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8" fill="var(--rpt-muted)" '
-                   f'text-anchor="end" transform="rotate(-40 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
+        labels += (f'<text x="{x:.1f}" y="{ly:.1f}" font-size="8.5" fill="var(--rpt-muted)" '
+                   f'text-anchor="end" transform="rotate(-42 {x:.1f} {ly:.1f})">{_e(months[i])}</text>')
 
-    # comment 3/5 — the Rev.01 completion date at the END of the cumulative curve, anchored to the
-    # right (into the wide margin) so it is never trimmed.
+    # round-16 #02b — the Rev.01 completion date at the END of the cumulative curve, anchored to the
+    # right (into the wide margin) so it is never trimmed and never collides with the last x-axis label.
     r1fin = (report.get('rev1') or {}).get('finish')
     finish_marker = ''
     if r1fin and vc:
-        fx = left + (n - 1) * step + step / 2
-        fy = baseY - (vc[-1].get('rev1', 0) or 0) / cum_mx * plot_h
+        last_val = (cum_by.get(months[-1]) or {}).get('rev1', 0) or 0
+        fx = left + (n - 1 + 0.5) * step
+        fy = baseY - last_val / cum_mx * plot_h
         tx = fx + 8
         finish_marker = (f'<circle cx="{fx:.1f}" cy="{fy:.1f}" r="3.2" fill="var(--rpt-accent)"/>'
-                         f'<text x="{tx:.1f}" y="{fy - 7:.1f}" font-size="9.5" font-weight="800" '
+                         f'<text x="{tx:.1f}" y="{fy - 7:.1f}" font-size="10" font-weight="800" '
                          f'fill="var(--rpt-accent)" text-anchor="start">{_e(r1fin)}</text>'
                          f'<text x="{tx:.1f}" y="{fy + 5:.1f}" font-size="8" '
                          f'fill="var(--rpt-muted)" text-anchor="start">Rev.01 finish</text>')
 
-    svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:640px">'
+    svg = (f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;min-width:{W}px">'
            f'<line x1="{left}" y1="{baseY}" x2="{W - right}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            f'<line x1="{left}" y1="{top}" x2="{left}" y2="{baseY}" stroke="var(--rpt-chart-axis)"/>'
            + ''.join(bars)
@@ -1679,32 +1757,49 @@ def _sec_manpower(report, filters=None):
         "number, so it ties to P6's Labor Units total for each revision.</div>")
     hero = _card('Labour man-hours — Rev.00 → Rev.01', 'the change is the headline', hero_body)
 
-    # ── Monthly labour man-hours difference — signed bars around a zero line ──
+    # ── Monthly labour man-hours — Before & After grouped bars (round-16 #01) ──
+    # Per month, a Rev.00 bar (grey) and a Rev.01 bar (accent) side by side, scaled to the max of all
+    # monthly values, each carrying a COMPACT value label angled up off the bar top so adjacent labels
+    # never overlap or clip; every month labelled on the x-axis. The variance lives in the hero above
+    # and the by-trade chart below. Mirrors the screen's manpowerView monthly block (screen == PDF).
     mm = c.get('manpower_monthly') or []
     r0map = {m.get('month'): m.get('rev0') for m in mm}
     r1map = {m.get('month'): m.get('rev1') for m in mm}
-    dm = [int(round((r1map.get(mo) or 0) - (r0map.get(mo) or 0))) for mo in months]
+    rev0v = [float(r0map.get(mo) or 0) for mo in months]
+    rev1v = [float(r1map.get(mo) or 0) for mo in months]
     n = len(months)
-    W = max(760, n * 54)
-    H, L, Rp, T, B = 250, 44, 16, 20, 52
-    half = (H - T - B) / 2.0
-    mid_y = T + half
-    amx = max([abs(x) for x in dm] + [1])
+    W = max(760, n * 58)
+    H, L, Rp, T, B = 300, 40, 14, 48, 54
+    ph = H - T - B
+    mx = max(rev0v + rev1v + [1])
     step = (W - L - Rp) / n
-    bw = min(22.0, step * 0.5)
-    s = (f'<line x1="{L}" y1="{mid_y:.1f}" x2="{W - Rp}" y2="{mid_y:.1f}" stroke="var(--rpt-ink-soft)"/>'
-         f'<text x="{L - 6}" y="{mid_y + 3:.1f}" font-size="9" fill="var(--rpt-muted)" '
-         f'text-anchor="end">0</text>')
-    for idx, mo in enumerate(months):
-        cx = L + idx * step + step / 2
-        bh = abs(dm[idx]) / amx * half * 0.92
-        if dm[idx] != 0:
-            up = dm[idx] > 0
-            y = (mid_y - bh) if up else mid_y
-            fill = 'var(--rpt-accent)' if up else 'var(--rpt-series-4)'
-            s += (f'<rect x="{cx - bw / 2:.1f}" y="{y:.1f}" width="{bw:.1f}" '
-                  f'height="{max(1.0, bh):.1f}" rx="2" fill="{fill}"/>')
-        ly = H - B + 14
+    bw = min(16.0, step * 0.30)
+    gap = 3.0
+
+    def _mvlabel(cxb, val, hb, col):
+        """A compact value label angled up-right (-55°) off the bar top so labels never overlap/clip."""
+        if val <= 0:
+            return ''
+        ly = T + ph - hb - 5
+        return (f'<text x="{cxb:.1f}" y="{ly:.1f}" font-size="9" font-weight="700" fill="{col}" '
+                f'text-anchor="start" transform="rotate(-55 {cxb:.1f} {ly:.1f})">{_e(_compact(val))}</text>')
+
+    s = f'<line x1="{L}" y1="{T + ph}" x2="{W - Rp}" y2="{T + ph}" stroke="var(--rpt-chart-axis)"/>'
+    for i, mo in enumerate(months):
+        cx = L + i * step + step / 2
+        h0 = rev0v[i] / mx * ph
+        h1 = rev1v[i] / mx * ph
+        x0 = cx - bw - gap / 2
+        x1 = cx + gap / 2
+        if rev0v[i] > 0:
+            s += (f'<rect x="{x0:.1f}" y="{T + ph - h0:.1f}" width="{bw:.1f}" '
+                  f'height="{max(1.0, h0):.1f}" rx="2" fill="var(--rpt-hair-strong)"/>')
+        if rev1v[i] > 0:
+            s += (f'<rect x="{x1:.1f}" y="{T + ph - h1:.1f}" width="{bw:.1f}" '
+                  f'height="{max(1.0, h1):.1f}" rx="2" fill="var(--rpt-accent)"/>')
+        s += _mvlabel(x0 + bw / 2, rev0v[i], h0, 'var(--rpt-ink-soft)')
+        s += _mvlabel(x1 + bw / 2, rev1v[i], h1, 'var(--rpt-accent)')
+        ly = T + ph + 14
         s += (f'<text x="{cx:.1f}" y="{ly}" font-size="9" fill="var(--rpt-muted)" text-anchor="end" '
               f'transform="rotate(-40 {cx:.1f} {ly})">{_e(mo)}</text>')
     peak = c.get('peak') or {}
@@ -1716,15 +1811,15 @@ def _sec_manpower(report, filters=None):
                      f'mh/month{(" in " + _e(m1)) if m1 else ""} (Rev.01). Peak is man-hours per month, '
                      'not headcount.</div>')
     month_body = (
-        '<div class="sec">Bars above the line = more labour planned in Rev.01; below = fewer. '
-        'Every month, labour only.</div>'
+        '<div class="sec"><b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> labour man-hours side by side, '
+        'every month, with the value on each bar. The variance is the hero above and the by-trade chart below.</div>'
         + peak_note
         + f'<div class="chartwrap" style="overflow:visible"><svg viewBox="0 0 {W} {H}" '
-          f'style="width:100%;height:auto;min-width:640px" role="img" '
-          f'aria-label="Monthly labour man-hours difference">{s}</svg></div>'
-        '<div class="legend"><span><b style="background:var(--rpt-accent)"></b>more than Rev.00</span>'
-        '<span><b style="background:var(--rpt-series-4)"></b>fewer than Rev.00</span></div>')
-    month_card = _card('Labour man-hours by month', 'the change, month by month (Rev.01 − Rev.00)',
+          f'style="width:100%;height:auto" role="img" '
+          f'aria-label="Monthly labour man-hours before and after">{s}</svg></div>'
+        '<div class="legend"><span><b style="background:var(--rpt-hair-strong)"></b>Rev.00 (before)</span>'
+        '<span><b style="background:var(--rpt-accent)"></b>Rev.01 (after)</span></div>')
+    month_card = _card('Labour man-hours by month', 'Before & After — Rev.00 vs Rev.01, every bar labelled',
                        month_body)
 
     # ── Labour man-hours by trade — diverging delta bars (the change is drawn) + exact table ──
@@ -2158,6 +2253,15 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .rc-chg-a { color: var(--rpt-warn); font-weight: 700; } .rc-chg-n { color: var(--rpt-muted); }
 .rc-calunchanged { padding: 9px 14px; color: var(--rpt-muted); font-size: 12px; background: var(--rpt-surface-2); border: 1px dashed var(--rpt-edge); border-radius: 9px; margin-top: 4px; }
 .rc-calunchanged b { color: var(--rpt-ink-soft); }
+/* round-16 #03a — dropped-empty-added-calendars note */
+.rc-caldrop { padding: 8px 13px; color: var(--rpt-muted); font-size: 11px; background: var(--rpt-surface-2); border: 1px dashed var(--rpt-edge); border-radius: 9px; margin-bottom: 11px; }
+.rc-caldrop b { color: var(--rpt-ink-soft); }
+/* round-16 #03c — a new/removed calendar's own non-working days, listed as a Date | Status table */
+.rc-nwtbl { margin-top: 9px; border-top: 1px dashed var(--rpt-edge); padding-top: 8px; page-break-inside: avoid; }
+.rc-nwh { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--rpt-muted); margin-bottom: 4px; }
+.rc-nwh .rc-mut { font-weight: 600; text-transform: none; letter-spacing: 0; }
+.rc-ldg.rc-nwld { margin-top: 4px; } .rc-ldg.rc-nwld .rc-lattr { width: 60%; font-weight: 600; }
+.rc-ldg.rc-nwld .rc-lchg { text-align: left; width: 40%; }
 /* ── round-15 Manpower (labour man-hours, difference-first) — NEUTRAL blue(+)/violet(−), never good/bad */
 .rc-mp-herorow { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; margin: 6px 0 4px; }
 .rc-mp-big { font-size: 46px; font-weight: 800; letter-spacing: -1.2px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--rpt-muted); }

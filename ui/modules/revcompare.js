@@ -278,6 +278,16 @@ function fmtMoney(n) {
   if (a >= 1e3) return `${s}${(a / 1e3).toFixed(0)}K`;
   return `${s}${Math.round(a)}`;
 }
+// Compact whole-number label for a chart bar/axis (147,000 → "147k", 12,400 → "12.4k",
+// 1,200,000 → "1.2M"). Never trims: a small, readable label that fits above a bar. Used by every
+// chart's value labels so numbers are shown in full without collision (round-16: all charts).
+function fmtCompact(n) {
+  if (n == null || !isFinite(Number(n))) return '';
+  const v = Number(n), a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e6) return `${s}${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (a >= 1e3) return `${s}${(a >= 1e5 ? Math.round(a / 1e3) : (a / 1e3).toFixed(1).replace(/\.0$/, ''))}k`;
+  return `${s}${Math.round(a)}`;
+}
 function esc(v) { return escapeHtml(v != null ? String(v) : '—'); }
 // Normalise a date-ish string to a 'Mon YYYY' month key (matches curves.months labels).
 function monthLabel(str) {
@@ -331,7 +341,7 @@ function barsSvg(items, opts = {}) {
   const rows = items.map(it => {
     const v = it.v || 0;
     const w = Math.max(2, Math.abs(v) / mx * 100);
-    const label = opts.money ? fmtMoney(v) : fmtInt(v) + (opts.suffix || '');
+    const label = opts.money ? fmtMoney(v) : fmtCompact(v) + (opts.suffix || '');
     const name = escapeHtml(String(it.label ?? ''));
     const inside = w > 20;
     const valStyle = inside
@@ -370,7 +380,7 @@ function donutSvg(items, opts = {}) {
     hole = `<circle cx="${cx}" cy="${cy}" r="${RI}" fill="var(--card-bg)"/>`;
   }
   const center = `<text x="${cx}" y="${cy - 4}" font-size="11" fill="var(--muted)" text-anchor="middle">${escapeHtml(opts.centerLabel || 'Added')}</text>`
-    + `<text x="${cx}" y="${cy + 13}" font-size="15" font-weight="800" fill="var(--text)" text-anchor="middle">${fmtInt(tot)}</text>`;
+    + `<text x="${cx}" y="${cy + 13}" font-size="15" font-weight="800" fill="var(--text)" text-anchor="middle">${escapeHtml(fmtCompact(tot))}</text>`;
   const svg = `<svg viewBox="0 0 200 200" class="rc-donut" role="img" aria-label="Share of added activities by activity code">${arcs}${hole}${center}</svg>`;
   const legend = `<div class="rc-pleg">${clean.map(it =>
     `<div class="rc-plegrow"><span class="rc-plegsw" style="background:${it.color || 'var(--accent)'}"></span>`
@@ -1116,9 +1126,26 @@ function calLedger(p) {
       }).join('');
   }
   if (identical) {
-    exc += `<tr class="rc-lident"><td class="rc-lattr">+ ${fmtInt(identical)} other exception date${identical > 1 ? 's' : ''}</td><td class="rc-lrev">identical</td><td class="rc-lrev">identical</td><td class="rc-lchg">not listed</td></tr>`;
+    exc += `<tr class="rc-lident"><td colspan="3">${fmtInt(identical)} non-working day${identical > 1 ? 's are' : ' is'} <b>identical</b> in both revisions — no change</td><td class="rc-lchg">not listed</td></tr>`;
   }
   return `<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th><th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th><th class="rc-lchg">Change</th></tr></thead><tbody>${rows}${exc}</tbody></table>`;
+}
+
+// Round-16 #03c — an ADDED (or removed) calendar has no other revision to diff against, so its own
+// non-working days are listed in a TABLE (Date | Status) rather than only implied by the pattern.
+function calNonworkingTable(p) {
+  if (p.change !== 'added' && p.change !== 'removed') return '';
+  const nd = p.nonworking_dates || [];
+  const isRemoved = p.change === 'removed';
+  const rev = isRemoved ? 'Rev.00' : 'Rev.01';
+  const title = isRemoved ? `Non-working days it had in ${rev}` : 'Non-working days of this new calendar';
+  const sub = isRemoved ? '' : ' — no prior revision to compare, so the pattern is listed in full';
+  if (!nd.length) {
+    return `<div class="rc-nwtbl"><div class="rc-nwh">${title}</div><div class="rc-sec rc-mut" style="margin:4px 0 0">No dated non-working days — this calendar works every day in its weekly pattern (shown above).</div></div>`;
+  }
+  const trows = nd.map(d => `<tr><td class="rc-lattr">${esc(d.date)}</td><td class="rc-lchg rc-chg-r">${esc(d.status)}</td></tr>`).join('');
+  return `<div class="rc-nwtbl"><div class="rc-nwh">${title}<span class="rc-mut">${sub}</span></div>
+    <table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th><th class="rc-lchg">Status</th></tr></thead><tbody>${trows}</tbody></table></div>`;
 }
 
 function calendarView(r) {
@@ -1134,16 +1161,24 @@ function calendarView(r) {
   let paperAccel = false;
   const TAG = { modified: ['chg', 'modified'], renamed: ['ren', 'renamed'], added: ['add', 'added'], removed: ['rem', 'retired'] };
 
-  const changed = patterns.filter(p => p.change !== 'unchanged');
+  // Round-16 #03a — an added calendar with 0 activities assigned has no schedule impact and only
+  // adds noise for the planner, so it is dropped from the detailed cards and the counts (a small
+  // note records how many were hidden).
+  const isEmptyAdded = p => p.change === 'added' && !(p.activities > 0);
+  const emptyAdded = patterns.filter(isEmptyAdded);
+  const changed = patterns.filter(p => p.change !== 'unchanged' && !isEmptyAdded(p));
   const unchanged = patterns.filter(p => p.change === 'unchanged');
 
   // Section digest — the whole-section headline before any single calendar.
-  const nMod = patterns.filter(p => p.change === 'modified' || p.change === 'renamed').length;
-  const nAdd = patterns.filter(p => p.change === 'added').length;
-  const nRem = patterns.filter(p => p.change === 'removed').length;
-  const totFlips = patterns.reduce((s, p) => s + (p.date_exceptions || []).filter(e => e.change !== 'unchanged').length, 0);
+  const nMod = changed.filter(p => p.change === 'modified' || p.change === 'renamed').length;
+  const nAdd = changed.filter(p => p.change === 'added').length;
+  const nRem = changed.filter(p => p.change === 'removed').length;
+  const totFlips = changed.reduce((s, p) => s + (p.date_exceptions || []).filter(e => e.change !== 'unchanged').length, 0);
   const legend = '<span class="rc-legend"><span><i style="background:var(--success)"></i>made working</span><span><i style="background:var(--danger)"></i>made non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></span>';
   const digest = `<div class="rc-caldigest"><span><b>${nMod} modified · ${nAdd} added · ${nRem} retired · ${unchanged.length} unchanged</b> — ${totFlips} exception date${totFlips === 1 ? '' : 's'} changed.</span>${legend}</div>`;
+  const dropNote = emptyAdded.length
+    ? `<div class="rc-caldrop">${fmtInt(emptyAdded.length)} added calendar${emptyAdded.length > 1 ? 's' : ''} with <b>0 activities</b> assigned ${emptyAdded.length > 1 ? 'are' : 'is'} not detailed — no schedule impact.</div>`
+    : '';
 
   const cards = changed.map((p, pi) => {
     const [tagcls, taglbl] = TAG[p.change] || ['chg', p.change || 'changed'];
@@ -1161,7 +1196,7 @@ function calendarView(r) {
     return `<div class="rc-calcard">
       <div class="rc-calhead"><span class="rc-calname">${nameHtml}</span><span class="rc-caltag ${tagcls}">${esc(taglbl)}</span><span class="rc-calmeta">${meta}</span></div>
       <div class="rc-calbrief">${calBrief(p, reassFrom)}</div>
-      ${ctx}${calLedger(p)}${calAssigned(p, pi)}</div>`;
+      ${ctx}${calLedger(p)}${calNonworkingTable(p)}${calAssigned(p, pi)}</div>`;
   }).join('');
 
   const unchangedLine = unchanged.length
@@ -1171,7 +1206,7 @@ function calendarView(r) {
     ? '<div class="rc-callout warn">A calendar moved to a longer working week (more hours/week) — durations shorten <b>on paper</b> without changing the work. A paper acceleration to confirm.</div>'
     : '';
   return secmark('6', 'Calendar', 'working pattern · exception dates · assigned activities by code')
-    + `<div class="rc-card">${digest}${cards}${unchangedLine}${callout}</div>`;
+    + `<div class="rc-card">${digest}${dropNote}${cards}${unchangedLine}${callout}</div>`;
 }
 
 // ══ 7 · Cost & Resources (comments 8, 9, 10) ═══════════════════════════════════
@@ -1185,7 +1220,7 @@ function scurveSvg(curves, rev0finish, rev1finish) {
   const n = months.length;
   if (!n || !vm.length) return noData('No planned-value spread available.');
   // Extra top padding (plotT) so the tallest bar's value label is never clipped (comment 6a).
-  const W = Math.max(760, n * 62), plotL = 56, plotR = W - 108, plotT = 46, plotB = 250;
+  const W = Math.max(760, n * 66), plotL = 56, plotR = W - 116, plotT = 58, plotB = 250;
   const colW = (plotR - plotL) / n;
   const bw = Math.min(13, colW * 0.32);   // narrower — two grouped bars per month
   const byMonth0 = {}, byMonth1 = {};
@@ -1205,8 +1240,9 @@ function scurveSvg(curves, rev0finish, rev1finish) {
     if (h0 > 0) bars += `<rect x="${x0.toFixed(1)}" y="${(plotB - h0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h0.toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
     if (h1 > 0) bars += `<rect x="${x1.toFixed(1)}" y="${(plotB - h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".9"/>`;
     if (v1 > 0 || v0 > 0) {
-      const labelY = plotB - Math.max(h0, h1) - 6;   // value (Rev.01) directly above the taller bar (comment 3)
-      bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">${escapeHtml(fmtMoney(v1))}</text>`;
+      // Value angled up off the bar top so adjacent labels never overlap or get trimmed (round-16 #02).
+      const labelY = plotB - Math.max(h0, h1) - 6;
+      bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="start" transform="rotate(-55 ${cx.toFixed(1)} ${labelY.toFixed(1)})">${escapeHtml(fmtMoney(v1))}</text>`;
     }
   });
   const line = (key, stroke, sw) => {
@@ -1611,37 +1647,43 @@ function manpowerView(r) {
     <div class="rc-cap"><b>Man-hours = sum of P6 Budgeted Labor Units</b> (resource type = Labour). Equipment and material are reported separately below and are <b>not</b> in this number, so it ties to P6's Labor Units total for each revision.</div>
   </div>`;
 
-  // ── Monthly labour man-hours difference — signed bars around a zero line ──
+  // ── Monthly labour man-hours — Before & After grouped bars (round-16 #01), a compact value
+  //    labelled on EVERY bar, nothing trimmed; the variance lives in the hero + by-trade chart.
   const mm = curves.manpower_monthly || [];
   const r0map = {}, r1map = {};
   mm.forEach(m => { r0map[m.month] = m.rev0; r1map[m.month] = m.rev1; });
-  const dm = months.map(mo => Math.round((Number(r1map[mo]) || 0) - (Number(r0map[mo]) || 0)));
+  const rev0v = months.map(mo => Number(r0map[mo]) || 0);
+  const rev1v = months.map(mo => Number(r1map[mo]) || 0);
   const n = months.length;
-  const W = Math.max(760, n * 54), h = 250, L = 44, Rp = 16, T = 20, B = 52;
-  const half = (h - T - B) / 2, midY = T + half;
-  const amx = Math.max(1, ...dm.map(Math.abs));
-  const step = (W - L - Rp) / n, bw = Math.min(22, step * 0.5);
-  let s = `<line x1="${L}" y1="${midY}" x2="${W - Rp}" y2="${midY}" stroke="var(--ink-soft)"/>`
-    + `<text x="${L - 6}" y="${midY + 3}" font-size="9" fill="var(--muted)" text-anchor="end">0</text>`;
+  const W = Math.max(760, n * 58), h = 300, L = 40, Rp = 14, T = 48, B = 54;
+  const ph = h - T - B;
+  const mx = Math.max(1, ...rev0v, ...rev1v);
+  const step = (W - L - Rp) / n, bw = Math.min(16, step * 0.30), gap = 3;
+  let s = `<line x1="${L}" y1="${T + ph}" x2="${W - Rp}" y2="${T + ph}" stroke="var(--border)"/>`;
+  // Value label angled up-right off the bar top so adjacent labels never overlap or clip.
+  const vlabel = (cxb, val, hb, col) => val > 0
+    ? `<text x="${cxb.toFixed(1)}" y="${(T + ph - hb - 5).toFixed(1)}" font-size="9" font-weight="700" fill="${col}" text-anchor="start" transform="rotate(-55 ${cxb.toFixed(1)} ${(T + ph - hb - 5).toFixed(1)})">${escapeHtml(fmtCompact(val))}</text>`
+    : '';
   months.forEach((mo, i) => {
     const cx = L + i * step + step / 2;
-    const bh = Math.abs(dm[i]) / amx * half * 0.92;
-    if (dm[i] !== 0) {
-      const up = dm[i] > 0;
-      s += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${(up ? midY - bh : midY).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, bh).toFixed(1)}" rx="2" fill="${up ? 'var(--rc-up)' : 'var(--rc-down)'}"/>`;
-    }
-    const ly = h - B + 14;
+    const h0 = rev0v[i] / mx * ph, h1 = rev1v[i] / mx * ph;
+    const x0 = cx - bw - gap / 2, x1 = cx + gap / 2;
+    if (rev0v[i] > 0) s += `<rect x="${x0.toFixed(1)}" y="${(T + ph - h0).toFixed(1)}" width="${bw}" height="${Math.max(1, h0).toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
+    if (rev1v[i] > 0) s += `<rect x="${x1.toFixed(1)}" y="${(T + ph - h1).toFixed(1)}" width="${bw}" height="${Math.max(1, h1).toFixed(1)}" rx="2" fill="var(--accent)"/>`;
+    s += vlabel(x0 + bw / 2, rev0v[i], h0, 'var(--ink-soft)');
+    s += vlabel(x1 + bw / 2, rev1v[i], h1, 'var(--accent-dark)');
+    const ly = T + ph + 14;
     s += `<text x="${cx.toFixed(1)}" y="${ly}" font-size="9" fill="var(--muted)" text-anchor="end" transform="rotate(-40 ${cx.toFixed(1)} ${ly})">${escapeHtml(String(mo))}</text>`;
   });
   const peak = curves.peak || {};
   const peakNote = (peak.rev0 || peak.rev1)
     ? `<div class="rc-sec" style="margin-top:2px">Peak labour: <b>${fmtInt(peak.rev0 || 0)}</b> mh/month${peak.rev0_month ? ' in ' + esc(peak.rev0_month) : ''} (Rev.00) → <b>${fmtInt(peak.rev1 || 0)}</b> mh/month${peak.rev1_month ? ' in ' + esc(peak.rev1_month) : ''} (Rev.01). Peak is man-hours per month, not headcount.</div>`
     : '';
-  const monthCard = `<div class="rc-card"><h3>Labour man-hours by month <span class="rc-n">the change, month by month (Rev.01 − Rev.00)</span></h3>
-    <div class="rc-sec">Bars above the line = more labour planned in Rev.01; below = fewer. Every month, labour only.</div>
+  const monthCard = `<div class="rc-card"><h3>Labour man-hours by month <span class="rc-n">Before &amp; After — Rev.00 vs Rev.01, every bar labelled</span></h3>
+    <div class="rc-sec"><b>Rev.00 (grey)</b> and <b>Rev.01 (blue)</b> labour man-hours side by side, every month, with the value on each bar. The variance is the hero above and the by-trade chart below.</div>
     ${peakNote}
-    <div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Monthly labour man-hours difference">${s}</svg></div>
-    <div class="rc-legend"><span><i style="background:var(--rc-up)"></i>more than Rev.00</span><span><i style="background:var(--rc-down)"></i>fewer than Rev.00</span></div></div>`;
+    <div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} ${h}" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Monthly labour man-hours before and after">${s}</svg></div>
+    <div class="rc-legend"><span><i style="background:var(--rc-b0)"></i>Rev.00 (before)</span><span><i style="background:var(--accent)"></i>Rev.01 (after)</span></div></div>`;
 
   // ── Labour man-hours by trade — diverging delta bars (the change is drawn) ──
   let tradeCard = '';

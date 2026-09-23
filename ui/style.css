@@ -3059,6 +3059,13 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-chg-a { color: var(--warning); font-weight: 700; } .rc-chg-n { color: var(--muted); }
 .rc-calunchanged { padding: 10px 14px; color: var(--muted); font-size: 12.5px; background: var(--bg); border: 1px dashed var(--border); border-radius: 9px; margin-top: 4px; }
 .rc-calunchanged b { color: var(--ink-soft); }
+/* round-16 — dropped empty added calendars note + a new calendar's own non-working-days table */
+.rc-caldrop { padding: 8px 12px; color: var(--muted); font-size: 12px; background: var(--bg); border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 12px; }
+.rc-caldrop b { color: var(--ink-soft); }
+.rc-nwtbl { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.rc-nwh { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+.rc-nwh .rc-mut { font-weight: 600; text-transform: none; letter-spacing: 0; }
+.rc-nwld { margin-top: 2px; } .rc-nwld .rc-lattr { width: 60%; } .rc-nwld .rc-lchg { width: 40%; }
 /* timeline strip */
 .rc-tl { margin: 11px 0 6px; }
 .rc-tllab { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 3px; }

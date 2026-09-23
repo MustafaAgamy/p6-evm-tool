@@ -566,11 +566,14 @@ def _cal_name(p):
 
 
 def _cal_blocks(report):
-    """Calendar changes as their own sheet (round-15 Option A parity with calendarView) — one
+    """Calendar changes as their own sheet (round-16 Option A parity with calendarView) — one
     row per calendar carrying a plain-language BRIEF, its Rev.00 / Rev.01 working pattern, the
-    change kind and activity count; then the CHANGED exception dates; then the assigned
-    activities by activity code. The Constraint / reassignment / Mon→Sun-grid tables are gone —
-    reassignments fold into each calendar's brief, exactly like the on-screen cards."""
+    change kind and activity count; then the CHANGED exception dates (with a per-calendar
+    "identical — no change" row proving the identical non-working dates were compared); then the
+    assigned activities by activity code; and, for added / removed calendars, their own dated
+    non-working days in full. Empty ADDED calendars (0 activities → no schedule impact) are dropped
+    from every block and recorded in one note, exactly like the on-screen calendarView and the PDF
+    _sec_cal (round-16 #03a/#03b/#03c). Reassignments fold into each calendar's brief."""
     cc = report.get('calendar_changes') or {}
     patterns = cc.get('patterns') or []
 
@@ -580,33 +583,50 @@ def _cal_blocks(report):
     for g in (cc.get('reassignments') or []):
         reass_from.setdefault(g.get('from'), []).append(g)
 
-    # Section digest headline — the same counts the on-screen card view leads with.
-    n_mod = sum(1 for p in patterns if p.get('change') in ('modified', 'renamed'))
-    n_add = sum(1 for p in patterns if p.get('change') == 'added')
-    n_rem = sum(1 for p in patterns if p.get('change') == 'removed')
-    n_unch = sum(1 for p in patterns if p.get('change') == 'unchanged')
+    # round-16 #03a — an ADDED calendar with 0 activities assigned has no schedule impact and only
+    # adds noise, so it is dropped from every block (summary / exception / assigned / non-working)
+    # and its count recorded in one note (mirrors the screen's isEmptyAdded / emptyAdded / dropNote
+    # and the PDF's _is_empty_added). Filter: change == 'added' and NOT activities > 0.
+    def _is_empty_added(p):
+        return p.get('change') == 'added' and not ((p.get('activities') or 0) > 0)
+    empty_added = [p for p in patterns if _is_empty_added(p)]
+    kept = [p for p in patterns if not _is_empty_added(p)]
+    changed = [p for p in kept if p.get('change') != 'unchanged']
+    unchanged = [p for p in kept if p.get('change') == 'unchanged']
+
+    # Section digest headline — the same counts the on-screen card view leads with (all EXCLUDING the
+    # dropped empty added calendars, matching the detailed cards).
+    n_mod = sum(1 for p in changed if p.get('change') in ('modified', 'renamed'))
+    n_add = sum(1 for p in changed if p.get('change') == 'added')
+    n_rem = sum(1 for p in changed if p.get('change') == 'removed')
+    n_unch = len(unchanged)
     tot_flips = sum(len([e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged'])
-                    for p in patterns)
+                    for p in changed)
     # Paper-acceleration caution — a changed calendar moving to a longer working week (same as
     # the on-screen callout condition).
     paper_accel = any(p.get('rev0') and p.get('rev1')
                       and isinstance((p.get('rev1') or {}).get('hpw'), (int, float))
                       and isinstance((p.get('rev0') or {}).get('hpw'), (int, float))
                       and (p.get('rev1') or {}).get('hpw') > (p.get('rev0') or {}).get('hpw')
-                      for p in patterns if p.get('change') != 'unchanged')
+                      for p in changed)
     digest = (f"{n_mod} modified · {n_add} added · {n_rem} retired · {n_unch} unchanged — "
               f"{tot_flips} exception date{'' if tot_flips == 1 else 's'} changed. One row per calendar: "
               "its change, working pattern (days/week · hours/day · hours/week) in each revision, activity "
               "count, and a plain-language summary.")
+    if empty_added:
+        ne = len(empty_added)
+        digest += (f" {ne} added calendar{'s' if ne != 1 else ''} with 0 activities assigned — "
+                   "not detailed (no schedule impact).")
     if paper_accel:
         digest += (' A calendar moved to a longer working week — durations shorten on paper without changing '
                    'the work; a paper acceleration to confirm.')
 
-    # One row per calendar (changed and unchanged, like the card view): name · change · Rev.00
-    # pattern · Rev.01 pattern · activities · plain-language summary.
+    # One row per calendar (changed and unchanged, like the card view + unchanged line), EXCLUDING the
+    # dropped empty added calendars: name · change · Rev.00 pattern · Rev.01 pattern · activities ·
+    # plain-language summary.
     patt = [[_cal_name(p), _CAL_CHANGE_LABEL.get(p.get('change'), _txt(p.get('change'))),
              _pattern_str(p.get('rev0')), _pattern_str(p.get('rev1')),
-             _num(p.get('activities')), _cal_brief_text(p, reass_from)] for p in patterns]
+             _num(p.get('activities')), _cal_brief_text(p, reass_from)] for p in kept]
     blocks = [{'title': 'Calendars — Rev.00 → Rev.01',
                'note': digest,
                'headers': ['Calendar', 'Change', 'Rev.00 pattern', 'Rev.01 pattern', 'Activities', 'Summary'],
@@ -614,39 +634,55 @@ def _cal_blocks(report):
 
     # The specific calendar exception dates that CHANGED between the revisions (round-14): only a
     # date whose working/non-working state flipped, or whose hours changed (e.g. 6h/day → 8h/day).
-    # Identical ('unchanged') dates are dropped — the reader only wants what moved.
+    # Identical ('unchanged') dates are NOT listed; instead, per calendar, ONE "identical — no change"
+    # row records how many identical non-working days were compared (round-16 #03b — mirrors the
+    # screen's rc-lident collapse row). Only the detailed (changed) calendars are walked — an
+    # unchanged calendar has no card / ledger on screen (its identical dates fold into its summary
+    # brief and the unchanged line).
     exc_rows = []
-    counts = []
-    for p in (cc.get('patterns') or []):
-        for e in (p.get('date_exceptions') or []):
-            if e.get('change') == 'unchanged':
-                continue
+    for p in changed:
+        excs = p.get('date_exceptions') or []
+        flips = [e for e in excs if e.get('change') != 'unchanged']
+        for e in flips:
             exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
                              _txt(e.get('rev1')), _txt(e.get('change'))])
-        nc = p.get('nonworking_count') or {}
-        if nc.get('rev0') is not None or nc.get('rev1') is not None:
-            counts.append(f"{p.get('name')}: {_num(nc.get('rev0') or 0)} non-working date(s) in Rev.00 · "
-                          f"{_num(nc.get('rev1') or 0)} in Rev.01")
-    count_note = (' Per-revision non-working dates — ' + ' · '.join(counts) + '.') if counts else ''
+        identical = len(excs) - len(flips)
+        if identical:
+            exc_rows.append([_txt(p.get('name')),
+                             f"{identical} non-working day{'s' if identical != 1 else ''} identical in both revisions",
+                             '', '', 'identical — no change'])
     if exc_rows:
         blocks.append({'title': 'Calendar exception changes — Rev.00 vs Rev.01',
                        'note': 'Only the specific dates that CHANGED between the revisions — a non-working ⇄ working '
-                               'flip or an hours change (e.g. 6h/day → 8h/day). Identical dates are not listed.'
-                               + count_note,
+                               'flip or an hours change (e.g. 6h/day → 8h/day). Identical dates are not listed; a '
+                               'per-calendar "identical — no change" row records how many were compared.',
                        'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
                        'rows': exc_rows})
-    elif counts:
-        # Calendars were compared but no specific exception date changed (parity with screen/PDF).
-        blocks.append({'title': 'Calendar exception changes — Rev.00 vs Rev.01',
-                       'note': 'No specific exception date changed between the revisions — the exception dates '
-                               '(holidays / reduced-hours days) are identical on both calendars.' + count_note,
-                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Change'],
-                       'rows': [['No changed exception dates', '', '', '', '']]})
+
+    # round-16 #03c — an ADDED or REMOVED calendar has no other revision to diff against, so its own
+    # dated non-working days are listed in full (Date · Status) rather than only being implied by the
+    # weekly pattern (mirrors the screen's calNonworkingTable / PDF _cal_nonworking_table). The empty
+    # added calendars were already dropped above, so `changed` carries only the ones with schedule
+    # impact. Status is 'Non-working' or a reduced-hours day (e.g. 6h/day).
+    nw_rows = []
+    for p in changed:
+        if p.get('change') not in ('added', 'removed'):
+            continue
+        for d in (p.get('nonworking_dates') or []):
+            nw_rows.append([_txt(p.get('name')), _txt(d.get('date')), _txt(d.get('status'))])
+    if nw_rows:
+        blocks.append({'title': 'Non-working days — added/removed calendars',
+                       'note': 'An added or removed calendar has no prior/next revision to diff against, so its own '
+                               'dated non-working days are listed in full — added calendars from Rev.01, removed '
+                               'calendars from Rev.00. Status is "Non-working" or a reduced-hours day (e.g. 6h/day).',
+                       'headers': ['Calendar', 'Date', 'Status'],
+                       'rows': nw_rows})
 
     # Assigned activities — by calendar & activity code (round-14): which activities use each
-    # calendar and at which activity code, taken from the revision the calendar exists in.
+    # calendar and at which activity code, taken from the revision the calendar exists in. Empty
+    # added calendars are excluded (dropped above — they carry 0 activities anyway).
     asg_rows = []
-    for p in (cc.get('patterns') or []):
+    for p in kept:
         by_dim = ((p.get('assigned') or {}).get('by_dim')) or {}
         for dim, vals in by_dim.items():
             for v in (vals or []):
@@ -1019,7 +1055,7 @@ def revcompare_excel(report):
         {'name': 'Milestones', 'blocks': _ms_blocks(report),
          'col_widths': {0: 16, 1: 32, 2: 20, 3: 20, 4: 16}},
         {'name': 'Calendar', 'blocks': _cal_blocks(report),
-         'col_widths': {0: 26, 1: 18, 2: 24, 3: 24, 4: 14, 5: 62}},
+         'col_widths': {0: 28, 1: 34, 2: 24, 3: 24, 4: 20, 5: 62}},
         {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
          'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
         {'name': 'Resources', 'blocks': _resource_blocks(report),

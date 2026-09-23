@@ -238,6 +238,42 @@ def _date_exceptions(a, b):
     return out
 
 
+def _nonworking_dates(cal):
+    """The dated non-working / reduced-hours exceptions of a SINGLE calendar — used for a newly
+    ADDED (or removed) calendar, which has no other revision to diff against, so its non-working
+    days are listed in full. Holidays → 'Non-working'; an exception day whose hours fall below the
+    standard working day → 'Nh/day'. Consecutive same-status dates group into one range. The weekly
+    days-off are conveyed by the working-pattern rows, not repeated here."""
+    if cal is None:
+        return []
+
+    def _is_date(x):
+        return hasattr(x, 'weekday') and hasattr(x, 'strftime') and hasattr(x, 'toordinal')
+    day_h = getattr(cal, 'day_hours', None) or 0.0
+    items = {}
+    for d in (getattr(cal, 'holidays', None) or set()):
+        if _is_date(d):
+            items[d] = 0.0
+    for d, ivs in (getattr(cal, 'exception_intervals', None) or {}).items():
+        if not _is_date(d):
+            continue
+        h = _interval_hours(ivs)
+        if h == 0 or (day_h and h < day_h - 1e-6):   # non-working or reduced below the standard day
+            items[d] = h
+    groups = []
+    for d, h in sorted(items.items()):
+        if groups and abs(groups[-1]['h'] - h) < 1e-6 and (d.toordinal() - groups[-1]['end'].toordinal()) == 1:
+            groups[-1]['end'] = d
+        else:
+            groups.append({'start': d, 'end': d, 'h': h})
+    out = []
+    for g in groups:
+        s, e = g['start'], g['end']
+        label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
+        out.append({'date': label, 'iso': s.isoformat(), 'status': _hlabel(g['h'])})
+    return out
+
+
 def _cal_by_name(data):
     out = {}
     for cal in (getattr(data, 'calendars', None) or {}).values():
@@ -391,10 +427,16 @@ def diff_calendars(rev0, rev1, matched):
             assigned, assigned_rev = _assigned_breakdown(rev0, name), 'rev0'
         else:
             assigned, assigned_rev = _assigned_breakdown(rev1, rn or name), 'rev1'
+        # For an added/removed calendar there is no other revision to diff against, so list its own
+        # dated non-working / reduced-hours days in full (round-16 comment: "clarify the non-working
+        # days for [a] new calendar added").
+        nonworking_dates = (_nonworking_dates(b) if (b and not a)
+                            else _nonworking_dates(a) if (a and not b) else [])
         patterns.append({'name': name, 'renamed_to': rn, 'rev0': p0, 'rev1': p1,
                          'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
                          'date_exceptions': date_exc,
                          'nonworking_count': {'rev0': nw0, 'rev1': nw1},
+                         'nonworking_dates': nonworking_dates,
                          'assigned': assigned, 'assigned_rev': assigned_rev,
                          'activities': (u1.get(rn) if rn else u1.get(name)) or u0.get(name) or 0,
                          'change': change})
