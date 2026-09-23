@@ -24,6 +24,7 @@ report renders the exact filtered view the planner chose on screen::
 Each key is optional; a missing key (or ``val`` == 'All' / absent) means no filter.
 """
 import html as _html
+from datetime import date as _date
 import report_theme
 
 
@@ -1043,9 +1044,33 @@ def _cal_timeline_svg(flips):
             f'rx="5" fill="var(--rpt-surface-2)" stroke="var(--rpt-edge)"/>{ticks}</svg></div>')
 
 
+def _cal_flip_days(e):
+    """Actual number of DAYS an exception entry covers — a grouped range like '23–26 Mar' is one
+    entry but four days (round-17 #01: the brief and digest must count days, not grouped entries).
+    Mirrors the screen's calFlipDays: days between ``iso`` and ``iso_end`` inclusive, fallback 1."""
+    iso = e.get('iso')
+    iso_end = e.get('iso_end') or iso
+    try:
+        a = _date.fromisoformat(str(iso)[:10])
+        b = _date.fromisoformat(str(iso_end)[:10])
+    except (ValueError, TypeError):
+        return 1
+    if b < a:
+        return 1
+    return (b - a).days + 1
+
+
+def _cal_sum_days(flips, pred):
+    """Total DAYS across the flips matching ``pred`` — mirrors the screen's calSumDays."""
+    return sum(_cal_flip_days(e) for e in flips if pred(e))
+
+
 def _cal_assigned_pdf(p):
-    """Which activities use a calendar, by activity code — every dimension's value counts + the
-    activity IDs (comment: know which activities and at which activity code)."""
+    """Which activities use a calendar, by activity code (round-17 #03, Option A) — one 100%-width
+    PROPORTION BAR per dimension split by activity-code value (segment width = share of the
+    calendar's activities), so the dominant trade reads at a glance; a legend under it carries each
+    value's %. Replaces the flat chips. Mirrors the screen's calAssigned (a static PDF renders every
+    dimension's bar stacked, with no interactive selector). Keeps the expandable activity-ID list."""
     a = p.get('assigned') or {}
     by_dim = a.get('by_dim') or {}
     if not a.get('count'):
@@ -1053,10 +1078,25 @@ def _cal_assigned_pdf(p):
     rev = 'Rev.00' if p.get('assigned_rev') == 'rev0' else 'Rev.01'
     hdr = ('Activities that used it in Rev.00' if p.get('change') == 'removed'
            else 'Activities using it in Rev.01' if p.get('change') == 'added' else 'Assigned activities')
-    dims = ''
+    rows = ''
     for dim, vals in by_dim.items():
-        chips = ''.join(f'<span class="acchip">{_e(v.get("value"))} <b>{_num(v.get("count"))}</b></span>' for v in vals)
-        dims += f'<div class="acdim"><span class="acdimn">{_e(dim)}</span>{chips}</div>'
+        vals = vals or []
+        tot = sum((x.get('count') or 0) for x in vals) or 1
+        if vals:
+            segs = ''
+            leg = ''
+            for i, x in enumerate(vals):
+                w = (x.get('count') or 0) / tot * 100
+                col = _series_color(i)   # same chart-token palette as the donut/pie
+                seg_lbl = f'{_e(x.get("value"))} {_num(x.get("count"))}' if w >= 12 else ''
+                segs += (f'<span class="acseg" style="width:{w:.2f}%;background:{col}" '
+                         f'title="{_e(x.get("value"))}: {_num(x.get("count"))}">{seg_lbl}</span>')
+                pct = int((x.get('count') or 0) / tot * 100 + 0.5)
+                leg += (f'<span><i style="background:{col}"></i>{_e(x.get("value"))} {pct}%</span>')
+            body = f'<div class="acbar">{segs}</div><div class="aclegend">{leg}</div>'
+        else:
+            body = '<span class="mut">no activity codes on these activities</span>'
+        rows += f'<div class="acrow"><div class="acdimn">{_e(dim)}</div>{body}</div>'
     ids = a.get('ids') or []
     ids_html = ''
     if ids:
@@ -1064,7 +1104,7 @@ def _cal_assigned_pdf(p):
         more = f' · … ({_num(len(ids) - 40)} more)' if len(ids) > 40 else ''
         ids_html = f'<div class="acids"><span class="mut">Activity IDs:</span> <span class="idlist">{shown}{more}</span></div>'
     return (f'<div class="assign"><div class="assignh">{hdr} — by activity code '
-            f'<span class="mut">({_num(a.get("count"))} activities in {rev})</span></div>{dims}{ids_html}</div>')
+            f'<span class="mut">({_num(a.get("count"))} activities in {rev})</span></div>{rows}{ids_html}</div>')
 
 
 def _fmtpat(p):
@@ -1109,16 +1149,18 @@ def _cal_brief(p, reass_from):
                   if (r1.get('hpw') is not None and (r1.get('hpw') or 0) >= 60) else '')
         return f'{name} — new{(" " + _e(pat)) if pat else ""} calendar, now used by {_num(acts)} activities.{longer}'
     flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
-    now_w = sum(1 for e in flips if e.get('change') == 'now working')
-    now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
-    hrs = sum(1 for e in flips if not str(e.get('change') or '').startswith('now'))
+    # round-17 #01 — count DAYS, not grouped entries: a range like "23–26 Mar" is one entry but
+    # four days. Mirrors the screen's calSumDays over calFlipDays.
+    day_w = _cal_sum_days(flips, lambda e: e.get('change') == 'now working')
+    day_n = _cal_sum_days(flips, lambda e: e.get('change') == 'now non-working')
+    day_h = _cal_sum_days(flips, lambda e: not str(e.get('change') or '').startswith('now'))
     bits = []
-    if now_w:
-        bits.append(f'<span class="rc-hl-g">{now_w} day{"s" if now_w > 1 else ""} made working</span>')
-    if now_n:
-        bits.append(f'<span class="rc-hl-r">{now_n} day{"s" if now_n > 1 else ""} made non-working</span>')
-    if hrs:
-        bits.append(f'<span class="rc-hl-a">{hrs} reduced-hours {"periods" if hrs > 1 else "period"} re-houred</span>')
+    if day_w:
+        bits.append(f'<span class="rc-hl-g">{day_w} day{"s" if day_w > 1 else ""} made working</span>')
+    if day_n:
+        bits.append(f'<span class="rc-hl-r">{day_n} day{"s" if day_n > 1 else ""} made non-working</span>')
+    if day_h:
+        bits.append(f'<span class="rc-hl-a">{day_h} day{"s" if day_h > 1 else ""} re-houred</span>')
     week_changed = _fmtpat(p.get('rev0')) != _fmtpat(p.get('rev1'))
     if bits:
         lead = (bits[0] if len(bits) == 1 else ', '.join(bits[:-1]) + ' and ' + bits[-1]) + '.'
@@ -1249,14 +1291,16 @@ def _sec_cal(report, filters=None):
     n_mod = sum(1 for p in changed if p.get('change') in ('modified', 'renamed'))
     n_add = sum(1 for p in changed if p.get('change') == 'added')
     n_rem = sum(1 for p in changed if p.get('change') == 'removed')
-    tot_flips = sum(sum(1 for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged')
-                    for p in changed)
+    # round-17 #01 — total DAYS changed across all calendars (a grouped range counts every day it
+    # spans), not the number of grouped entries. Mirrors the screen's totDays / calSumDays.
+    tot_days = sum(_cal_sum_days((p.get('date_exceptions') or []), lambda e: e.get('change') != 'unchanged')
+                   for p in changed)
     legend = ('<span class="rc-callegend"><span><i class="g"></i>made working</span>'
               '<span><i class="r"></i>made non-working</span>'
               '<span><i class="a"></i>hours changed</span></span>')
     digest = (f'<div class="rc-caldigest"><span><b>{n_mod} modified · {n_add} added · {n_rem} retired '
-              f'· {len(unchanged)} unchanged</b> — {tot_flips} exception date'
-              f'{"" if tot_flips == 1 else "s"} changed.</span>{legend}</div>')
+              f'· {len(unchanged)} unchanged</b> — {tot_days} exception day'
+              f'{"" if tot_days == 1 else "s"} changed.</span>{legend}</div>')
     drop_note = ''
     if empty_zero:
         ne = len(empty_zero)
@@ -1356,14 +1400,22 @@ def _scurve_svg(report):
             bars.append(f'<rect x="{x0:.1f}" y="{baseY - h0:.1f}" width="{bw:.1f}" height="{h0:.1f}" rx="2" fill="var(--rpt-hair-strong)"/>')
         if h1 > 0:
             bars.append(f'<rect x="{x1:.1f}" y="{baseY - h1:.1f}" width="{bw:.1f}" height="{h1:.1f}" rx="2" fill="var(--rpt-accent)" opacity="0.9"/>')
-        # round-16 #02a — value angled up off the bar top (start-anchored) so adjacent labels never
-        # overlap or get trimmed; positioned above the taller of the two bars, kept in frame by the
-        # top padding. Compact money formatter so a big value never overflows.
-        if v1 > 0 or v0 > 0:
-            ly = baseY - max(h0, h1) - 6
-            bars.append(f'<text x="{cx:.1f}" y="{ly:.1f}" font-size="9" font-weight="700" '
-                        f'fill="var(--rpt-ink-soft)" text-anchor="start" '
-                        f'transform="rotate(-55 {cx:.1f} {ly:.1f})">{_e(_money_label(v1))}</text>')
+        # round-17 #04 — a compact value on BOTH bars (Rev.00 grey + Rev.01 blue), each angled up
+        # off its OWN bar top so the two numbers never run into each other or get trimmed; the top
+        # padding keeps the tallest label in frame. Compact money formatter so a big value never
+        # overflows. Mirrors the screen's scurveSvg.
+        if v0 > 0:
+            ly0 = baseY - h0 - 5
+            lx0 = x0 + bw / 2
+            bars.append(f'<text x="{lx0:.1f}" y="{ly0:.1f}" font-size="8.5" font-weight="700" '
+                        f'fill="var(--rpt-muted)" text-anchor="start" '
+                        f'transform="rotate(-55 {lx0:.1f} {ly0:.1f})">{_e(_money_label(v0))}</text>')
+        if v1 > 0:
+            ly1 = baseY - h1 - 5
+            lx1 = x1 + bw / 2
+            bars.append(f'<text x="{lx1:.1f}" y="{ly1:.1f}" font-size="8.5" font-weight="700" '
+                        f'fill="var(--rpt-accent)" text-anchor="start" '
+                        f'transform="rotate(-55 {lx1:.1f} {ly1:.1f})">{_e(_money_label(v1))}</text>')
 
     def line(mx, key, stroke, sw):
         if not vc:
@@ -2121,10 +2173,14 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .cchip.g { background: var(--rpt-good-bg); color: var(--rpt-good); } .cchip.r { background: var(--rpt-bad-bg); color: var(--rpt-bad); } .cchip.a { background: var(--rpt-warn-bg); color: var(--rpt-warn); }
 .assign { margin-top: 9px; border-top: 1px dashed var(--rpt-edge); padding-top: 8px; }
 .assignh { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--rpt-muted); margin-bottom: 6px; }
-.acdim { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 3px 0; }
-.acdimn { font-size: 10px; font-weight: 700; color: var(--rpt-ink-soft); min-width: 110px; }
-.acchip { display: inline-block; font-size: 11px; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 999px; padding: 2px 9px; color: var(--rpt-ink); }
-.acchip b { color: var(--rpt-accent); }
+/* round-17 #03 — assigned-activities proportion bar (Option A), one per dimension */
+.acrow { margin: 7px 0; }
+.acdimn { font-size: 10px; font-weight: 700; color: var(--rpt-ink-soft); margin-bottom: 4px; }
+.acbar { display: flex; width: 100%; height: 26px; border-radius: 7px; overflow: hidden; border: 1px solid var(--rpt-edge); }
+.acseg { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 800; white-space: nowrap; overflow: hidden; min-width: 0; }
+.aclegend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-size: 10.5px; color: var(--rpt-ink-soft); }
+.aclegend span { display: inline-flex; align-items: center; gap: 5px; }
+.aclegend i { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
 .acids { margin-top: 6px; font-size: 10.5px; color: var(--rpt-muted); } .acids .idlist { font-family: ui-monospace, Consolas, monospace; color: var(--rpt-ink-soft); }
 /* manpower KPIs (comment 5) */
 .mpk { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 2px 0 10px; }

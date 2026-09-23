@@ -41,6 +41,8 @@ integers. Every table degrades to a single "No data" row when its source is empt
 throughout: change detected, not judged.
 """
 
+from datetime import date
+
 # severity code (as stored on register rows / findings) -> on-screen badge label
 _SEV_LABEL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
 _KIND_LABEL = {'delayed': 'Delayed', 'advanced': 'Advanced', 'unchanged': 'Unchanged',
@@ -503,13 +505,35 @@ def _fmt_pattern(p):
     return ' · '.join(parts) if parts else None
 
 
+def _cal_flip_days(e):
+    """Actual number of DAYS an exception entry covers — mirror of the on-screen calFlipDays
+    (round-17 #01). A grouped range like "23–26 Mar" carries iso + iso_end and is FOUR days
+    though it is ONE entry; a single date (no iso_end) is one day. Falls back to 1 when a date
+    is missing, unparseable or reversed (b < a)."""
+    iso = e.get('iso')
+    end = e.get('iso_end') or iso
+    try:
+        a = date.fromisoformat(str(iso)[:10])
+        b = date.fromisoformat(str(end)[:10])
+    except (ValueError, TypeError):
+        return 1
+    delta = (b - a).days
+    return delta + 1 if delta >= 0 else 1
+
+
+def _cal_sum_days(flips, pred):
+    """Sum of _cal_flip_days over the entries in ``flips`` matching ``pred`` — mirror of the
+    on-screen calSumDays (round-17 #01). Counts DAYS, not grouped entries."""
+    return sum(_cal_flip_days(e) for e in (flips or []) if pred(e))
+
+
 def _cal_brief_text(p, reass_from):
     """Plain-text mirror of the on-screen calBrief — one self-explaining sentence per calendar
     (the leading name is dropped; the Calendar column already names it). Same branches as the
     screen: retired / added / modified-or-unchanged, all built from the engine's counts.
 
-    e.g. modified → "1 day made working, 1 day made non-working and 1 reduced-hours period
-    re-houred. Working week itself unchanged. Used by 88 activities, mostly Civil"; removed →
+    e.g. modified → "1 day made working, 1 day made non-working and 1 day re-houred. Working
+    week itself unchanged. Used by 88 activities, mostly Civil"; removed →
     "Retired in Rev.01. The 12 activities that used it now run on 6 Day Workweek"; added → "New
     7 d/wk · 10 h/day · 70 h/wk calendar, now used by 8 activities."."""
     acts = p.get('activities') or 0
@@ -537,16 +561,18 @@ def _cal_brief_text(p, reass_from):
         return f"New{(' ' + pat) if pat else ''} calendar, now used by {acts:,} activities.{longer}"
 
     flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
-    now_w = sum(1 for e in flips if e.get('change') == 'now working')
-    now_n = sum(1 for e in flips if e.get('change') == 'now non-working')
-    hrs = sum(1 for e in flips if not str(e.get('change') or '').startswith('now'))
+    # Round-17 #01 — count DAYS per category (a grouped range is one entry but several days),
+    # exactly like the on-screen calBrief (calSumDays over calFlipDays).
+    now_w = _cal_sum_days(flips, lambda e: e.get('change') == 'now working')
+    now_n = _cal_sum_days(flips, lambda e: e.get('change') == 'now non-working')
+    hrs = _cal_sum_days(flips, lambda e: not str(e.get('change') or '').startswith('now'))
     bits = []
     if now_w:
         bits.append(f"{now_w} day{'s' if now_w > 1 else ''} made working")
     if now_n:
         bits.append(f"{now_n} day{'s' if now_n > 1 else ''} made non-working")
     if hrs:
-        bits.append(f"{hrs} reduced-hours {'periods' if hrs > 1 else 'period'} re-houred")
+        bits.append(f"{hrs} day{'s' if hrs > 1 else ''} re-houred")
     week_changed = _fmt_pattern(p.get('rev0')) != _fmt_pattern(p.get('rev1'))
     if bits:
         lead = (bits[0] if len(bits) == 1 else ', '.join(bits[:-1]) + ' and ' + bits[-1]) + '.'
@@ -600,8 +626,10 @@ def _cal_blocks(report):
     n_add = sum(1 for p in changed if p.get('change') == 'added')
     n_rem = sum(1 for p in changed if p.get('change') == 'removed')
     n_unch = len(unchanged)
-    tot_flips = sum(len([e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged'])
-                    for p in changed)
+    # Round-17 #01 — total EXCEPTION DAYS changed (a grouped range counts as its span, not 1),
+    # exactly like the on-screen digest (totDays = Σ calSumDays over the non-unchanged flips).
+    tot_days = sum(_cal_sum_days(p.get('date_exceptions') or [], lambda e: e.get('change') != 'unchanged')
+                   for p in changed)
     # Paper-acceleration caution — a changed calendar moving to a longer working week (same as
     # the on-screen callout condition).
     paper_accel = any(p.get('rev0') and p.get('rev1')
@@ -610,7 +638,7 @@ def _cal_blocks(report):
                       and (p.get('rev1') or {}).get('hpw') > (p.get('rev0') or {}).get('hpw')
                       for p in changed)
     digest = (f"{n_mod} modified · {n_add} added · {n_rem} retired · {n_unch} unchanged — "
-              f"{tot_flips} exception date{'' if tot_flips == 1 else 's'} changed. One row per calendar: "
+              f"{tot_days} exception day{'' if tot_days == 1 else 's'} changed. One row per calendar: "
               "its change, working pattern (days/week · hours/day · hours/week) in each revision, activity "
               "count, and a plain-language summary.")
     if empty_added:
@@ -685,13 +713,21 @@ def _cal_blocks(report):
     for p in kept:
         by_dim = ((p.get('assigned') or {}).get('by_dim')) or {}
         for dim, vals in by_dim.items():
-            for v in (vals or []):
-                asg_rows.append([_txt(p.get('name')), _txt(dim), _txt(v.get('value')), _num(v.get('count'))])
+            vals = vals or []
+            # Round-17 #03 — Share % mirrors the on-screen proportion bar/legend: each value's
+            # count over the calendar's dimension total, rounded (the tabular equivalent of the
+            # screen/PDF bar, so the proportion is available in Excel too).
+            dim_tot = sum((v.get('count') or 0) for v in vals) or 1
+            for v in vals:
+                cnt = v.get('count')
+                share = f"{round((cnt or 0) / dim_tot * 100)}%"
+                asg_rows.append([_txt(p.get('name')), _txt(dim), _txt(v.get('value')), _num(cnt), share])
     if asg_rows:
         blocks.append({'title': 'Assigned activities — by calendar & activity code',
                        'note': 'Which activities use each calendar, grouped by activity code (from the revision the '
-                               'calendar exists in — Rev.01 for added/renamed/modified, Rev.00 for removed).',
-                       'headers': ['Calendar', 'Activity code (dimension)', 'Value', 'Activities'],
+                               'calendar exists in — Rev.01 for added/renamed/modified, Rev.00 for removed). Share % '
+                               'is each value over that calendar dimension total (the on-screen proportion bar).',
+                       'headers': ['Calendar', 'Activity code (dimension)', 'Value', 'Activities', 'Share %'],
                        'rows': asg_rows})
     return blocks
 

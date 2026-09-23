@@ -140,6 +140,24 @@ def test_inboth_calendar_has_no_nonworking_dates_list():
     assert pat['nonworking_dates'] == []
 
 
+def test_reduced_hours_flagged_against_standard_day():
+    """Round-17 #02: on a 24h/day calendar, a day that works only 8h is a REDUCED day and must be
+    labelled '8h/day (reduced)' — while on an 8h/day calendar an 8h day is just '8h/day'."""
+    from p6_evm.calendars import Calendar
+    from datetime import date as _d
+    d1 = _d(2026, 3, 23)
+    # rev0: 24h calendar, 23 Mar non-working (holiday). rev1: 24h calendar, 23 Mar works 8h (reduced).
+    c0 = Calendar(object_id='c1', name='24h', nonworking_days=set(), holidays={d1}, added_work_days=set(),
+                  day_hours=24.0, work_intervals={}, exception_intervals={})
+    c1 = Calendar(object_id='c1', name='24h', nonworking_days=set(), holidays=set(), added_work_days=set(),
+                  day_hours=24.0, work_intervals={}, exception_intervals={d1: [(8 * 60, 16 * 60)]})
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '24h')
+    e = {x['date']: x for x in pat['date_exceptions']}['23 Mar 2026']
+    assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced)' and e['change'] == 'now working'
+
+
 def test_calendar_same_name_compared_from_xer_clndr_blobs():
     """End-to-end for XER: two SAME-NAMED calendars parsed from real clndr_data blobs with
     different holiday dates are still compared by their non-working days (the name being unchanged

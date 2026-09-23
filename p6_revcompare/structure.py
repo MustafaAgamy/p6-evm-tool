@@ -179,10 +179,14 @@ def _date_working(cal, d):
     return _date_hours(cal, d) > 0
 
 
-def _hlabel(h):
-    """Status/hours label for a date in one revision: 'Non-working' or 'Nh/day'."""
+def _hlabel(h, std=None):
+    """Status/hours label for a date in one revision: 'Non-working', 'Nh/day', or — when the day
+    works FEWER hours than the calendar's standard day (e.g. 8h on a 24h calendar) — 'Nh/day
+    (reduced)' so a reduced-hours period is visible against that revision's normal day (round-17 #02)."""
     if not h:
         return 'Non-working'
+    if std and h < std - 1e-6:
+        return f'{h:g}h/day (reduced)'
     return f'{h:g}h/day'
 
 
@@ -219,6 +223,8 @@ def _date_exceptions(a, b):
         else:
             groups.append({'start': d, 'end': d, 'h0': h0, 'h1': h1})
 
+    std0 = getattr(a, 'day_hours', None)
+    std1 = getattr(b, 'day_hours', None)
     out = []
     for g in groups:
         h0, h1 = g['h0'], g['h1']
@@ -233,7 +239,7 @@ def _date_exceptions(a, b):
         s, e = g['start'], g['end']
         label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
         out.append({'date': label, 'iso': s.isoformat(), 'iso_end': e.isoformat(),
-                    'rev0': _hlabel(h0), 'rev1': _hlabel(h1), 'change': change})
+                    'rev0': _hlabel(h0, std0), 'rev1': _hlabel(h1, std1), 'change': change})
     out.sort(key=lambda x: (x['change'] == 'unchanged', x['iso']))
     return out
 
@@ -270,7 +276,7 @@ def _nonworking_dates(cal):
     for g in groups:
         s, e = g['start'], g['end']
         label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
-        out.append({'date': label, 'iso': s.isoformat(), 'status': _hlabel(g['h'])})
+        out.append({'date': label, 'iso': s.isoformat(), 'status': _hlabel(g['h'], day_h)})
     return out
 
 

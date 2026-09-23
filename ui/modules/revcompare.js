@@ -1049,15 +1049,40 @@ function calAssigned(p, pi) {
   const sel = dims.length > 1
     ? `<select class="rc-caldimsel" data-card="${pi}">${dims.map(d => `<option>${esc(d)}</option>`).join('')}</select>`
     : (dims[0] ? `<span class="rc-mut">${esc(dims[0])}</span>` : '');
+  // Round-17 #03 (Option A) — a single 100%-proportion bar per dimension, split by activity-code
+  // value (segment width = share of the calendar's activities), so the dominant trade reads at a
+  // glance; a legend under it carries each value's %. Replaces the flat chips.
   const rows = dims.map((d, di) => {
-    const chips = (byDim[d] || []).map(x => `<span class="rc-acchip">${esc(x.value)} <span class="cnt">${fmtInt(x.count)}</span></span>`).join('');
-    return `<div class="rc-acrow" data-card="${pi}" data-dim="${esc(d)}" style="${di === 0 ? '' : 'display:none'}">${chips || '<span class="rc-mut">no activity codes on these activities</span>'}</div>`;
+    const vals = byDim[d] || [];
+    const tot = vals.reduce((s, x) => s + (x.count || 0), 0) || 1;
+    const order = vals.map(x => x.value);
+    const segs = vals.map(x => {
+      const w = (x.count || 0) / tot * 100;
+      const col = tokenColor(x.value, order);
+      return `<span class="rc-acseg" style="width:${w.toFixed(2)}%;background:${col}" title="${esc(x.value)}: ${fmtInt(x.count)}">${w >= 12 ? `${esc(x.value)} ${fmtInt(x.count)}` : ''}</span>`;
+    }).join('');
+    const leg = vals.map(x => `<span><i style="background:${tokenColor(x.value, order)}"></i>${esc(x.value)} ${Math.round((x.count || 0) / tot * 100)}%</span>`).join('');
+    const body = vals.length
+      ? `<div class="rc-acbar">${segs}</div><div class="rc-aclegend">${leg}</div>`
+      : '<span class="rc-mut">no activity codes on these activities</span>';
+    return `<div class="rc-acrow" data-card="${pi}" data-dim="${esc(d)}" style="${di === 0 ? '' : 'display:none'}">${body}</div>`;
   }).join('');
   const ids = a.ids || [];
   const idsBlock = ids.length
     ? `<div class="rc-acids"><details><summary>see the ${fmtInt(ids.length)} activity ID${ids.length === 1 ? '' : 's'}</summary><div class="rc-idlist">${ids.slice(0, 60).map(esc).join(' · ')}${ids.length > 60 ? ` · … (${fmtInt(ids.length - 60)} more)` : ''}</div></details></div>`
     : '';
   return `<div class="rc-assign"><div class="rc-assignh">${hdr} — by activity code ${sel} <span class="rc-mut">(${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev})</span></div>${rows}${idsBlock}</div>`;
+}
+
+// Actual number of DAYS an exception entry covers — a grouped range like "23–26 Mar" is one
+// entry but four days (round-17 #01: the brief must count days, not grouped entries).
+function calFlipDays(e) {
+  const a = Date.parse(e.iso), b = Date.parse(e.iso_end || e.iso);
+  if (isNaN(a) || isNaN(b) || b < a) return 1;
+  return Math.round((b - a) / 864e5) + 1;
+}
+function calSumDays(flips, pred) {
+  return flips.filter(pred).reduce((s, e) => s + calFlipDays(e), 0);
 }
 
 // Round-15 Option A — one plain-language BRIEF sentence per calendar (self-explaining for a
@@ -1079,13 +1104,13 @@ function calBrief(p, reassFrom) {
     return `<b>${name}</b> — new${pat ? ` ${esc(pat)}` : ''} calendar, now used by ${fmtInt(acts)} activities.${longer}`;
   }
   const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
-  const nowW = flips.filter(e => e.change === 'now working').length;
-  const nowN = flips.filter(e => e.change === 'now non-working').length;
-  const hrs = flips.filter(e => !String(e.change).startsWith('now')).length;
+  const dayW = calSumDays(flips, e => e.change === 'now working');
+  const dayN = calSumDays(flips, e => e.change === 'now non-working');
+  const dayH = calSumDays(flips, e => !String(e.change).startsWith('now'));
   const bits = [];
-  if (nowW) bits.push(`<span class="rc-hl-g">${nowW} day${nowW > 1 ? 's' : ''} made working</span>`);
-  if (nowN) bits.push(`<span class="rc-hl-r">${nowN} day${nowN > 1 ? 's' : ''} made non-working</span>`);
-  if (hrs) bits.push(`<span class="rc-hl-a">${hrs} reduced-hours ${hrs > 1 ? 'periods' : 'period'} re-houred</span>`);
+  if (dayW) bits.push(`<span class="rc-hl-g">${dayW} day${dayW > 1 ? 's' : ''} made working</span>`);
+  if (dayN) bits.push(`<span class="rc-hl-r">${dayN} day${dayN > 1 ? 's' : ''} made non-working</span>`);
+  if (dayH) bits.push(`<span class="rc-hl-a">${dayH} day${dayH > 1 ? 's' : ''} re-houred</span>`);
   const weekChanged = fmtPattern(p.rev0) !== fmtPattern(p.rev1);
   let lead;
   if (bits.length) {
@@ -1173,9 +1198,9 @@ function calendarView(r) {
   const nMod = changed.filter(p => p.change === 'modified' || p.change === 'renamed').length;
   const nAdd = changed.filter(p => p.change === 'added').length;
   const nRem = changed.filter(p => p.change === 'removed').length;
-  const totFlips = changed.reduce((s, p) => s + (p.date_exceptions || []).filter(e => e.change !== 'unchanged').length, 0);
+  const totDays = changed.reduce((s, p) => s + calSumDays((p.date_exceptions || []), e => e.change !== 'unchanged'), 0);
   const legend = '<span class="rc-legend"><span><i style="background:var(--success)"></i>made working</span><span><i style="background:var(--danger)"></i>made non-working</span><span><i style="background:var(--warning)"></i>hours changed</span></span>';
-  const digest = `<div class="rc-caldigest"><span><b>${nMod} modified · ${nAdd} added · ${nRem} retired · ${unchanged.length} unchanged</b> — ${totFlips} exception date${totFlips === 1 ? '' : 's'} changed.</span>${legend}</div>`;
+  const digest = `<div class="rc-caldigest"><span><b>${nMod} modified · ${nAdd} added · ${nRem} retired · ${unchanged.length} unchanged</b> — ${totDays} exception day${totDays === 1 ? '' : 's'} changed.</span>${legend}</div>`;
   const dropNote = emptyZero.length
     ? `<div class="rc-caldrop">${fmtInt(emptyZero.length)} calendar${emptyZero.length > 1 ? 's' : ''} with <b>0 activities</b> assigned (added or retired) ${emptyZero.length > 1 ? 'are' : 'is'} not detailed — no schedule impact.</div>`
     : '';
@@ -1239,10 +1264,15 @@ function scurveSvg(curves, rev0finish, rev1finish) {
     const x0 = cx - bw - 1, x1 = cx + 1;
     if (h0 > 0) bars += `<rect x="${x0.toFixed(1)}" y="${(plotB - h0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h0.toFixed(1)}" rx="2" fill="var(--rc-b0)"/>`;
     if (h1 > 0) bars += `<rect x="${x1.toFixed(1)}" y="${(plotB - h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--accent)" opacity=".9"/>`;
-    if (v1 > 0 || v0 > 0) {
-      // Value angled up off the bar top so adjacent labels never overlap or get trimmed (round-16 #02).
-      const labelY = plotB - Math.max(h0, h1) - 6;
-      bars += `<text x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="700" fill="var(--ink-soft)" text-anchor="start" transform="rotate(-55 ${cx.toFixed(1)} ${labelY.toFixed(1)})">${escapeHtml(fmtMoney(v1))}</text>`;
+    // Round-17 #04 — a compact value on BOTH bars (Rev.00 grey + Rev.01 blue), each angled up off
+    // its own bar top so the two numbers never run into each other or get trimmed.
+    if (v0 > 0) {
+      const ly0 = plotB - h0 - 5, lx0 = x0 + bw / 2;
+      bars += `<text x="${lx0.toFixed(1)}" y="${ly0.toFixed(1)}" font-size="8.5" font-weight="700" fill="var(--muted)" text-anchor="start" transform="rotate(-55 ${lx0.toFixed(1)} ${ly0.toFixed(1)})">${escapeHtml(fmtMoney(v0))}</text>`;
+    }
+    if (v1 > 0) {
+      const ly1 = plotB - h1 - 5, lx1 = x1 + bw / 2;
+      bars += `<text x="${lx1.toFixed(1)}" y="${ly1.toFixed(1)}" font-size="8.5" font-weight="700" fill="var(--accent-dark)" text-anchor="start" transform="rotate(-55 ${lx1.toFixed(1)} ${ly1.toFixed(1)})">${escapeHtml(fmtMoney(v1))}</text>`;
     }
   });
   const line = (key, stroke, sw) => {
@@ -1282,7 +1312,7 @@ function scurveSvg(curves, rev0finish, rev1finish) {
       + `<text x="${tx.toFixed(1)}" y="${(endY - 7).toFixed(1)}" font-size="10" font-weight="800" fill="var(--accent-dark)" text-anchor="start">${esc(rev1finish)}</text>`
       + `<text x="${tx.toFixed(1)}" y="${(endY + 5).toFixed(1)}" font-size="8" fill="var(--muted)" text-anchor="start">Rev.01 finish</text>`;
   }
-  return `<div class="rc-chartwrap"><svg viewBox="0 0 ${W} 300" class="rc-svg" style="min-width:${W}px" role="img" aria-label="Planned value chart">
+  return `<div class="rc-chartwrap" style="overflow:visible"><svg viewBox="0 0 ${W} 300" class="rc-svg" style="width:100%;height:auto" role="img" aria-label="Planned value chart">
     <line x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}" stroke="var(--border)"/>
     <line x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}" stroke="var(--border)"/>
     ${bars}
