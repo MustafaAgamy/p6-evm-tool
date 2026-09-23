@@ -1144,15 +1144,43 @@ function setSendEnabled(on) {
 
 // Ask a question — streams the answer live (NDJSON) so long, detailed answers
 // appear as they're written, then renders charts + the grounded footer.
+// role → the Copilot answer engine's persona (planning roles get the technical voice).
+function roleMode() {
+  return (ROLE === 'plmgr' || ROLE === 'planner' || ROLE === 'tom' || ROLE === 'contracts')
+    ? 'planning' : 'management';
+}
+
 async function ask(question) {
   if (BUSY || !question || !question.trim()) return;
-  if (isDashboardIntent(question)) { return askDashboard(question.trim()); }
+  const question0 = question.trim();
+  if (isDashboardIntent(question0)) { return askDashboard(question0); }
   BUSY = true; setSendEnabled(false);
   try {
-    addUser(question.trim());
+    addUser(question0);
     const bodyEl = addAiShell();
     if (!bodyEl) return;
     const think = bodyEl.querySelector('.pchat-think');
+
+    // ── Offline-first: try the deterministic engine (no AI model). If the question maps to a
+    // computed answer (delay / health / risks / recovery / EOT / method / …), answer it here —
+    // no brain, no download. Only truly open-ended questions fall through to the model path.
+    try {
+      const cop = await postJSON('/api/chat/copilot/ask', {
+        snapshot_id: state.currentSnapshotId || null,
+        xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || null,
+        question_text: question0, mode: roleMode(),
+      });
+      if (cop && cop.ok && cop.matched && cop.answer) {
+        if (think) think.remove();
+        bodyEl.appendChild(renderAssistant(cop.answer));
+        const foot = document.createElement('div'); foot.className = 'pchat-foot';
+        foot.innerHTML = '🔒 <span><b>Grounded</b> — computed on your PC from this project · no AI model needed.</span>';
+        bodyEl.appendChild(foot);
+        scrollThread();
+        return;                                   // handled offline; finally frees the composer
+      }
+    } catch (_) { /* engine unreachable → fall through to the model path below */ }
+
     let ansEl = null, caret = null, raw = '', meta = null;
     const ensureAns = () => {
       if (ansEl) return;
@@ -1209,7 +1237,7 @@ async function ask(question) {
 function renderBrainPill() {
   const ready = BRAIN && BRAIN.ready;
   const cls = 'pchat-pill ' + (ready ? 'ready' : 'off');
-  const html = `<span class="dot"></span>${ready ? 'AI brain ready' : 'AI brain not set up'}`;
+  const html = `<span class="dot"></span>${ready ? 'AI brain ready' : 'AI brain — optional'}`;
   ['pchat-brainpill', 'pchat-brainpill-top'].forEach((id) => {
     const el = document.getElementById(id); if (el) { el.className = cls; el.innerHTML = html; }
   });
@@ -1265,8 +1293,8 @@ async function setupBrain() {
 function setupCardHtml() {
   const b = BRAIN || {};
   return `<div class="pchat-setup" id="pchat-setup" ${b.ready ? 'hidden' : ''}>
-    <h3>Switch on your offline AI brain (one-time)</h3>
-    <p>The chat answers with a real AI that runs entirely on your PC — no internet, no key, no cost, and <b>nothing to install</b>. It just needs a one-time model download, which it does right here. After that it works fully offline. Charts and a grounded snapshot of your schedule already work below.</p>
+    <h3>Optional — add the offline AI brain for free-form questions</h3>
+    <p>The chat already answers the built-in analyses (why the project is delayed, risks, recovery, the dashboard, a time-impact analysis, a manager's briefing, EOT/claim…) with <b>no download</b>. Add the offline AI brain only if you also want to type <b>free-form</b> questions and get written answers — a real AI that runs entirely on your PC (no internet, no key, no cost, <b>nothing to install</b>) after a one-time model download here.</p>
     <div class="pchat-rolelbl" style="text-align:left">Choose the AI brain — bigger is smarter &amp; more detailed, smaller is faster</div>
     <div class="pchat-models" id="pchat-models"></div>
     <div class="row">

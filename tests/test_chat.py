@@ -109,7 +109,7 @@ def test_ask_fallback_when_brain_not_ready(monkeypatch):
 def test_ask_no_project(monkeypatch):
     monkeypatch.setattr(llm, 'status', lambda: {'ready': False, 'engine': False, 'model': False})
     out = service.ask('Why are we delayed?', {}, role=None)
-    assert out['ok'] and 'Import a P6 schedule' in out['answer']
+    assert out['ok'] and 'Send me your P6 schedule' in out['answer']
 
 
 def test_ask_empty_question():
