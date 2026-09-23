@@ -502,10 +502,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Excel exports for the report/screen views (revcompare + special wire their own
   // in-panel buttons inside their modules). The schedule button is re-created on every
   // Gantt render, so it is bound by delegation on the static #schedule-body container.
-  document.getElementById('evm-excel-btn').addEventListener('click', exportEvmExcel);
-  document.getElementById('narr-excel-btn').addEventListener('click', exportNarrativeExcel);
-  document.getElementById('ov-excel-btn').addEventListener('click', exportOverviewExcel);
-  document.getElementById('wbs-excel-btn').addEventListener('click', exportWbsExcel);
+  // Optional-chain these: a couple of these buttons are created inside their panels rather
+  // than living statically in index.html, so a hard `.addEventListener` on a missing one threw
+  // at init and halted the rest of the wiring (a pre-existing bug). Guarding keeps init going.
+  document.getElementById('evm-excel-btn')?.addEventListener('click', exportEvmExcel);
+  document.getElementById('narr-excel-btn')?.addEventListener('click', exportNarrativeExcel);
+  document.getElementById('ov-excel-btn')?.addEventListener('click', exportOverviewExcel);
+  document.getElementById('wbs-excel-btn')?.addEventListener('click', exportWbsExcel);
   document.getElementById('schedule-body')?.addEventListener('click', (e) => {
     if (e.target.closest('#sched-excel-btn')) exportScheduleExcel();
   });

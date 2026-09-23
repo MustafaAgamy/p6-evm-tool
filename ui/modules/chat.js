@@ -145,6 +145,61 @@ function ensureCss() {
   .pchat-mchip:hover{border-color:var(--accent)}
   .pchat-mchip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
   .pchat-mchip .sz{display:block;font-size:10.5px;color:var(--muted)}
+
+  /* ── Claude-style standalone layout (drawer library + greeting + suggestion strip) ── */
+  .pchat{height:100%;min-height:0}
+  .pchat-head .sub{margin-top:1px}
+  .pchat-setuplink{border:1px solid var(--border);background:transparent;color:var(--accent-dark);font:inherit;font-size:11.5px;font-weight:650;border-radius:999px;padding:5px 11px;cursor:pointer}
+  .pchat-setuplink:hover{border-color:var(--accent);color:var(--accent)}
+  .pchat-setupwrap{margin-top:-2px}
+  /* thread fills the remaining height; caps to the viewport so the composer stays in view */
+  .pchat-thread{flex:1 1 auto;min-height:240px;max-height:calc(100vh - 320px)}
+
+  /* greeting / empty state */
+  .pchat-welcome{display:flex;flex-direction:column;align-items:center;gap:11px;text-align:center;padding:20px 8px 6px}
+  .pchat-welcome .pchat-cta-mk{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:22px;background:linear-gradient(135deg,var(--accent),#7c5cff)}
+  .pchat-greet{font-size:20px;font-weight:750;color:var(--text);letter-spacing:-.2px}
+  .pchat-greet-sub{font-size:13px;color:var(--muted);max-width:540px;line-height:1.55}
+  .pchat-greet-sub b{color:var(--ink-soft)}
+  .pchat-linkbtn{border:0;background:transparent;color:var(--accent-dark);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px}
+  .pchat-linkbtn:hover{color:var(--accent)}
+  .pchat-sugcards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:660px;margin-top:6px}
+  .pchat-sugcard{text-align:left;border:1px solid var(--border);background:var(--card-bg);border-radius:12px;padding:12px 13px;cursor:pointer;display:flex;flex-direction:column;gap:4px;font-family:inherit;transition:border-color .15s,transform .15s,box-shadow .15s}
+  .pchat-sugcard:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+  .pchat-sugcard .ic{font-size:18px;line-height:1}
+  .pchat-sugcard .t{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+  .pchat-sugcard .s{font-size:11.5px;color:var(--muted);line-height:1.35}
+  .pchat-welcome-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+  .pchat-rolepick{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:7px}
+  .pchat-roleselect{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:12.5px;outline:0;cursor:pointer}
+  .pchat-roleselect:focus{border-color:var(--accent)}
+  .pchat-browse{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-dark);font:inherit;font-size:12.5px;font-weight:700;border-radius:999px;padding:7px 15px;cursor:pointer}
+  .pchat-browse:hover{background:var(--accent);color:#fff}
+
+  /* suggestion strip (just above the composer) */
+  .pchat-strip{display:flex;gap:8px;overflow-x:auto;padding:1px 1px 3px;scrollbar-width:thin}
+  .pchat-strip::-webkit-scrollbar{height:6px}
+  .pchat-strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .pchat-chipsug{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card-bg);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:inherit;white-space:nowrap}
+  .pchat-chipsug:hover{border-color:var(--accent);color:var(--accent-dark)}
+  .pchat-chipsug .ic{font-size:13px;line-height:1}
+  .pchat-chipsug.browse{border-style:dashed;color:var(--accent-dark);font-weight:700}
+  .pchat-chipsug.browse:hover{background:var(--accent-soft)}
+
+  /* slide-in question-library drawer + scrim */
+  .pchat-scrim{position:fixed;inset:0;background:rgba(10,15,25,.42);opacity:0;visibility:hidden;transition:opacity .28s ease;z-index:59}
+  .pchat-scrim.on{opacity:1;visibility:visible}
+  .pchat-drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,92vw);background:var(--card-bg);border-left:1px solid var(--border);box-shadow:-14px 0 44px rgba(0,0,0,.20);transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:60;display:flex;flex-direction:column}
+  .pchat-drawer.on{transform:translateX(0)}
+  .pchat-drawer-head{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:750;color:var(--text);flex:0 0 auto}
+  .pchat-drawer-head b{color:var(--accent-dark)}
+  .pchat-drawer-head .sp{flex:1}
+  .pchat-drawer-close{border:1px solid var(--border);background:transparent;color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1;font-family:inherit}
+  .pchat-drawer-close:hover{border-color:var(--accent);color:var(--accent)}
+  .pchat-drawer-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px 16px}
+  .pchat-drawer-body .lsub{font-size:12px;color:var(--muted);text-align:center;margin:0 0 12px}
+  @media (max-width:560px){.pchat-sugcards{grid-template-columns:repeat(2,1fr)}}
+
   [hidden]{display:none!important}
   `;
   document.head.appendChild(s);
@@ -1270,6 +1325,74 @@ function applyFilter() {
   const nm = document.getElementById('pchat-nomatch'); if (nm) nm.hidden = any;
 }
 
+// ── suggestions (empty-state cards + strip chips) ────────────────────────────
+// Exactly six curated starters. Each routes to a deterministic engine that matches
+// a library entry: those with a `cap` go to askCopilot(cap,qid,mode,q); the rest to
+// ask(q) — which covers "Create a professional dashboard" via the dashboard-intent.
+const SUGGESTIONS = [
+  { icon: '📉', q: 'Why is the project delayed?',          cap: 'assistant', qid: 'why_delayed', mode: 'management', sub: 'to-date / performance read' },
+  { icon: '📊', q: 'Create a professional dashboard',       cap: null,                                                 sub: 'one-page EVM command board' },
+  { icon: '⏱', q: 'Run a time impact analysis',            cap: 'tia',                                                sub: 'finish-slip decomposition' },
+  { icon: '📋', q: "Give me a manager's briefing",          cap: 'report',                                             sub: 'exec one-pager + S-curve' },
+  { icon: '⚠️', q: 'What are the biggest risks right now?', cap: 'assistant', qid: 'risks',       mode: 'management', sub: 'slip · out-of-sequence · float' },
+  { icon: '⚖️', q: 'Is there an EOT / claim case?',         cap: 'assistant', qid: 'eot_likely',  mode: 'planning',   sub: 'honest indicators + method' },
+];
+
+// Shared data-* so the ONE delegated handler routes cards and chips identically.
+function sugAttrs(x) {
+  return 'data-sug="1"'
+    + (x.cap ? ` data-cap="${escapeHtml(x.cap)}"` : '')
+    + (x.qid ? ` data-qid="${escapeHtml(x.qid)}"` : '')
+    + (x.mode ? ` data-mode="${escapeHtml(x.mode)}"` : '')
+    + ` data-q="${escapeHtml(x.q)}"`;
+}
+function sugCardsHtml() {
+  return SUGGESTIONS.map((x) =>
+    `<button class="pchat-sugcard" ${sugAttrs(x)}>
+       <span class="ic">${x.icon}</span>
+       <span class="t">${escapeHtml(x.q)}</span>
+       <span class="s">${escapeHtml(x.sub || '')}</span>
+     </button>`).join('');
+}
+function sugStripHtml() {
+  return SUGGESTIONS.map((x) =>
+    `<button class="pchat-chipsug" ${sugAttrs(x)}><span class="ic">${x.icon}</span>${escapeHtml(x.q)}</button>`).join('')
+    + `<button class="pchat-chipsug browse" data-browse="1">Browse all ▸</button>`;
+}
+function welcomeHtml() {
+  return `<div class="pchat-empty pchat-welcome">
+    <div class="pchat-cta-mk">✦</div>
+    <div class="pchat-greet">Hi — I'm your offline planning manager.</div>
+    <div class="pchat-greet-sub">Drag a <b>.xer</b> or <b>.xml</b> P6 export anywhere here, or <button class="pchat-linkbtn" id="pchat-attach-cta">📎 choose a file</button>, then ask me anything. Offline — nothing leaves your PC.</div>
+    <div class="pchat-sugcards">${sugCardsHtml()}</div>
+    <div class="pchat-welcome-foot">
+      <label class="pchat-rolepick">Show questions for
+        <select class="pchat-roleselect" id="pchat-roleselect"><option value="all">Everyone</option></select>
+      </label>
+      <button class="pchat-browse" data-browse="1">Browse all <span id="pchat-browsecount"></span> questions ▸</button>
+    </div>
+  </div>`;
+}
+
+// role <select> in the greeting mirrors the drawer's role chips (populated after LIB loads)
+function renderRoleSelect() {
+  const el = document.getElementById('pchat-roleselect'); if (!el) return;
+  const roles = (LIB && LIB.roles) || [];
+  el.innerHTML = `<option value="all">Everyone</option>`
+    + roles.map((r) => `<option value="${escapeHtml(r.key)}">${escapeHtml(r.title)}</option>`).join('');
+  el.value = ROLE;
+}
+
+// ── question-library drawer ──────────────────────────────────────────────────
+function openDrawer() {
+  const d = document.getElementById('pchat-drawer'), s = document.getElementById('pchat-scrim');
+  if (d) d.classList.add('on'); if (s) s.classList.add('on');
+}
+function closeDrawer() {
+  const d = document.getElementById('pchat-drawer'), s = document.getElementById('pchat-scrim');
+  if (d) d.classList.remove('on'); if (s) s.classList.remove('on');
+}
+
 // ── main render ──────────────────────────────────────────────────────────────
 export async function renderChat() {
   const host = document.getElementById('chat-body'); if (!host) return;
@@ -1279,42 +1402,36 @@ export async function renderChat() {
     <div class="pchat">
       <div class="pchat-head">
         <div class="pchat-mark">✦</div>
-        <div><h2>AI Chat</h2><div class="sub">Your offline planning manager · reads your schedule, answers grounded</div></div>
+        <div><h2>AI Chat</h2><div class="sub">Your offline planning manager</div></div>
         <span class="spring"></span>
-        <span class="pchat-pill" id="pchat-brainpill-top"><span class="dot"></span>checking…</span>
+        <span class="pchat-pill" id="pchat-brainpill-top" title="Free-form typed answers use a one-time offline AI brain — click to set it up. The suggestions and analyses work now, no download."><span class="dot"></span>checking…</span>
       </div>
-      ${setupCardHtml()}
-      <div class="pchat-thread" id="pchat-thread">
-        ${loaded
-          ? '<div class="pchat-empty"><b>Ask me anything about this schedule.</b><br>Pick a question below (choose your job role to focus it), or type your own.</div>'
-          : `<div class="pchat-empty pchat-dropcta">
-               <div class="pchat-cta-mk">✦</div>
-               <b>Send me your P6 schedule to analyse.</b>
-               <div class="pchat-cta-sub">Drag an <b>.xer</b> or <b>.xml</b> file anywhere here, or</div>
-               <button class="pchat-cta-btn" id="pchat-attach-cta">📎 Choose a P6 file…</button>
-               <div class="pchat-cta-note">Offline — nothing leaves your PC. No separate import needed; the question library below lights up once your file is in.</div>
-             </div>`}
-      </div>
+      <div class="pchat-setupwrap" id="pchat-setupwrap" hidden>${setupCardHtml()}</div>
+      <div class="pchat-thread" id="pchat-thread">${welcomeHtml()}</div>
+      <div class="pchat-strip" id="pchat-strip">${sugStripHtml()}</div>
       <div class="pchat-composer">
         <button class="attach" id="pchat-attach" title="Send a P6 file (.xer / .xml) to analyse">📎</button>
         <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…"></textarea>
         <button class="send" id="pchat-send" title="Send">↑</button>
       </div>
-      <div class="pchat-lib">
-        <div class="lh">📚 Question Library — <b id="pchat-total">…</b> questions a PM might ask</div>
-        <div class="lsub">Click any question to answer it — grounded in your data + a planning manager's read.</div>
-        <span class="pchat-rolelbl">Show questions for</span>
-        <div class="pchat-chips" id="pchat-roles"></div>
-        <div class="pchat-chips" id="pchat-status">
-          <button class="pchat-chip on" data-s="all">All</button>
-          <button class="pchat-chip" data-s="today"><span class="pchat-sdot today"></span>Ready today</button>
-          <button class="pchat-chip" data-s="in-progress"><span class="pchat-sdot prog"></span>In progress</button>
-          <button class="pchat-chip" data-s="gap"><span class="pchat-sdot gap"></span>Future</button>
+      <div class="pchat-scrim" id="pchat-scrim"></div>
+      <aside class="pchat-drawer" id="pchat-drawer" aria-label="Question library">
+        <div class="pchat-drawer-head">📚 Question Library — <b id="pchat-total">…</b><span class="sp"></span><button class="pchat-drawer-close" id="pchat-drawer-close" title="Close">✕</button></div>
+        <div class="pchat-drawer-body">
+          <div class="lsub">Click any question — grounded in your data + a planning manager's read.</div>
+          <input class="pchat-search" id="pchat-search" placeholder="Search… (delay, float, EOT, dashboard, manpower)">
+          <span class="pchat-rolelbl">Show questions for</span>
+          <div class="pchat-chips" id="pchat-roles"></div>
+          <div class="pchat-chips" id="pchat-status">
+            <button class="pchat-chip on" data-s="all">All</button>
+            <button class="pchat-chip" data-s="today"><span class="pchat-sdot today"></span>Ready today</button>
+            <button class="pchat-chip" data-s="in-progress"><span class="pchat-sdot prog"></span>In progress</button>
+            <button class="pchat-chip" data-s="gap"><span class="pchat-sdot gap"></span>Future</button>
+          </div>
+          <div class="pchat-legend" id="pchat-legend"></div>
+          <div id="pchat-libbody"></div>
         </div>
-        <div class="pchat-legend" id="pchat-legend"></div>
-        <input class="pchat-search" id="pchat-search" placeholder="Search… (delay, float, EOT, manpower, cost)">
-        <div id="pchat-libbody"></div>
-      </div>
+      </aside>
     </div>`;
 
   // events (delegated) — wired once per host so re-opening the panel doesn't stack listeners
@@ -1322,9 +1439,23 @@ export async function renderChat() {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
       const at = e.target.closest('#pchat-attach, #pchat-attach-cta'); if (at) { pickAndSend(); return; }
-      const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
-      const q = e.target.closest('.pchat-q'); if (q) { ask(q.dataset.q); return; }
-      const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); applyFilter(); return; }
+      // Browse-all + drawer open/close
+      const br = e.target.closest('[data-browse]'); if (br) { openDrawer(); return; }
+      const dx = e.target.closest('#pchat-drawer-close'); if (dx) { closeDrawer(); return; }
+      const sm = e.target.closest('#pchat-scrim'); if (sm) { closeDrawer(); return; }
+      // The brain pill reveals the (tucked-away) one-time setup panel.
+      const bp = e.target.closest('#pchat-brainpill-top'); if (bp) { const w = document.getElementById('pchat-setupwrap'); if (w) w.hidden = !w.hidden; return; }
+      // Suggestion card / strip chip — route like a library question (cap → Copilot, else ask).
+      const sug = e.target.closest('[data-sug]'); if (sug) {
+        closeDrawer();
+        if (sug.dataset.cap) askCopilot(sug.dataset.cap, sug.dataset.qid, sug.dataset.mode, sug.dataset.q);
+        else ask(sug.dataset.q);
+        return;
+      }
+      // Library questions live in the drawer now — close it so the answer is visible.
+      const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { closeDrawer(); askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
+      const q = e.target.closest('.pchat-q'); if (q) { closeDrawer(); ask(q.dataset.q); return; }
+      const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); renderRoleSelect(); applyFilter(); return; }
       const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {
         SFILT = sc.dataset.s;
         host.querySelectorAll('#pchat-status .pchat-chip').forEach((c) => c.classList.toggle('on', c.dataset.s === SFILT));
@@ -1334,6 +1465,10 @@ export async function renderChat() {
       const setupBtn = e.target.closest('#pchat-setup-btn'); if (setupBtn) { setupBrain(); return; }
     });
     host.addEventListener('input', (e) => { if (e.target && e.target.id === 'pchat-search') applyFilter(); });
+    // Role picker in the greeting mirrors the drawer's role chips.
+    host.addEventListener('change', (e) => { if (e.target && e.target.id === 'pchat-roleselect') { ROLE = e.target.value; renderRoles(); applyFilter(); } });
+    // Esc closes the drawer.
+    host.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
     // Send a P6 file by dropping it anywhere on the chat (reuses the app's file.path drop).
     host.addEventListener('dragover', (e) => { e.preventDefault(); host.classList.add('pchat-dragging'); });
     host.addEventListener('dragleave', (e) => { if (!host.contains(e.relatedTarget)) host.classList.remove('pchat-dragging'); });
@@ -1361,7 +1496,9 @@ export async function renderChat() {
         `<span><span class="pchat-sdot today"></span>${d.counts.today} ready today</span>` +
         `<span><span class="pchat-sdot prog"></span>${d.counts.in_progress} in progress</span>` +
         `<span><span class="pchat-sdot gap"></span>${d.counts.gap} future</span>`;
-      renderRoles(); renderLibBody();
+      const bc = document.getElementById('pchat-browsecount');
+      if (bc) bc.textContent = (d.counts && d.counts.total) || '';
+      renderRoles(); renderRoleSelect(); renderLibBody();
     }
   } catch { /* library missing */ }
   await refreshStatus();
