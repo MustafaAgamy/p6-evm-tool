@@ -185,8 +185,11 @@ def compute(data, config, overrides=None, classifier=None):
     cpi = (ev / total_ac) if total_ac else None
     variance = ev - pv
 
-    # Delay = float of the project finish milestone, in whole working days.
-    # Prefer an actual Finish Milestone; fall back to the latest-finishing activity.
+    # Delay = working days LATE to completion (POSITIVE = behind, negative = ahead) — the
+    # whole tool (EVM tab, dashboard, Copilot, reports) reads delay_days that way. It is the
+    # NEGATIVE of the finish milestone's total float: in P6 a negative total float means the
+    # finish is behind its deadline, so -(total float) is "days late". Prefer an actual Finish
+    # Milestone; fall back to the latest-finishing activity.
     with_finish = [r for r in records if r['activity']['planned_finish']]
     delay_days = None
     if with_finish:
@@ -195,16 +198,16 @@ def compute(data, config, overrides=None, classifier=None):
         milestone = max(pool, key=lambda r: r['activity']['planned_finish'])
         a = milestone['activity']
         if a.get('tf_from_hours'):
-            # P6's stored float (XER) — authoritative, use as-is.
+            # P6's stored float (XER) — authoritative. Days late = -(total float).
             tf = milestone['total_float']
-            delay_days = round(tf) if tf is not None else None
+            delay_days = -round(tf) if tf is not None else None
         else:
             # Reconstructed (XML): recompute boundary-correct so Delay matches P6 and the XER.
             cal = data.calendars.get(a['calendar_id'])
             es, ls = a.get('remaining_early_start'), a.get('remaining_late_start')
             fw = float_working_days(cal, es, ls) if (cal and es and ls) else None
             tf = milestone['total_float']
-            delay_days = fw if fw is not None else (round(tf) if tf is not None else None)
+            delay_days = (-fw if fw is not None else (-round(tf) if tf is not None else None))
 
     return {
         'data_date': data_date,
