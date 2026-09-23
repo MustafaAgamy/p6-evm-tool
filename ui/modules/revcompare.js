@@ -1043,43 +1043,6 @@ function calTimeline(flips) {
   return `<div class="rc-tl"><div class="rc-tllab"><span>${lab(lo)}</span><span>${lab(hi)}</span></div><div class="rc-tltrack">${ticks}</div></div>`;
 }
 
-function calAssigned(p, pi) {
-  const a = p.assigned || {}, byDim = a.by_dim || {};
-  const dims = Object.keys(byDim);
-  if (!a.count) return '';
-  const rev = p.assigned_rev === 'rev0' ? 'Rev.00' : 'Rev.01';
-  const hdr = p.change === 'removed' ? 'Activities that used it in Rev.00'
-    : p.change === 'added' ? 'Activities using it in Rev.01' : 'Assigned activities';
-  // Round-18 #01 — dimension picker as PILLS (not a cramped dropdown near the tabs); the whole
-  // block is relocated to a full-width panel at the BOTTOM of the card (see the return below).
-  const pills = dims.length
-    ? `<div class="rc-dimtabs">${dims.map((d, i) => `<span class="rc-dimtab${i === 0 ? ' on' : ''}" data-card="${pi}" data-dim="${esc(d)}">${esc(d)}</span>`).join('')}</div>`
-    : '';
-  // Round-17 #03 (Option A) — a single 100%-proportion bar per dimension, split by activity-code
-  // value (segment width = share of the calendar's activities), so the dominant trade reads at a
-  // glance; a legend under it carries each value's %. Replaces the flat chips.
-  const rows = dims.map((d, di) => {
-    const vals = byDim[d] || [];
-    const tot = vals.reduce((s, x) => s + (x.count || 0), 0) || 1;
-    const order = vals.map(x => x.value);
-    const segs = vals.map(x => {
-      const w = (x.count || 0) / tot * 100;
-      const col = tokenColor(x.value, order);
-      return `<span class="rc-acseg" style="width:${w.toFixed(2)}%;background:${col}" title="${esc(x.value)}: ${fmtInt(x.count)}">${w >= 12 ? `${esc(x.value)} ${fmtInt(x.count)}` : ''}</span>`;
-    }).join('');
-    const leg = vals.map(x => `<span><i style="background:${tokenColor(x.value, order)}"></i>${esc(x.value)} ${Math.round((x.count || 0) / tot * 100)}%</span>`).join('');
-    const body = vals.length
-      ? `<div class="rc-acbar">${segs}</div><div class="rc-aclegend">${leg}</div>`
-      : '<span class="rc-mut">no activity codes on these activities</span>';
-    return `<div class="rc-acrow" data-card="${pi}" data-dim="${esc(d)}" style="${di === 0 ? '' : 'display:none'}">${body}</div>`;
-  }).join('');
-  const ids = a.ids || [];
-  const idsBlock = ids.length
-    ? `<div class="rc-acids"><details><summary>see the ${fmtInt(ids.length)} activity ID${ids.length === 1 ? '' : 's'}</summary><div class="rc-idlist">${ids.slice(0, 60).map(esc).join(' · ')}${ids.length > 60 ? ` · … (${fmtInt(ids.length - 60)} more)` : ''}</div></details></div>`
-    : '';
-  return `<div class="rc-assignpanel"><div class="rc-assignhead"><span class="rc-assignt">${hdr} — by activity code</span><span class="rc-assigntot">${fmtInt(a.count)} activit${a.count === 1 ? 'y' : 'ies'} in ${rev}</span></div>${pills}${rows}${idsBlock}</div>`;
-}
-
 // Actual number of DAYS an exception entry covers — a grouped range like "23–26 Mar" is one
 // entry but four days (round-17 #01: the brief must count days, not grouped entries).
 function calFlipDays(e) {
@@ -1096,10 +1059,7 @@ function calSumDays(flips, pred) {
 function calBrief(p, reassFrom) {
   const name = esc(p.name);
   const acts = p.activities || 0;
-  const byDim = (p.assigned || {}).by_dim || {};
-  const firstDim = Object.keys(byDim)[0];
-  const top = firstDim && (byDim[firstDim] || [])[0];
-  const usedBy = acts ? ` Used by ${fmtInt(acts)} activities${top ? `, mostly ${esc(top.value)}` : ''}.` : '';
+  const usedBy = acts ? ` Used by ${fmtInt(acts)} activities.` : '';
   if (p.change === 'removed') {
     const dest = (reassFrom[p.name] || []).slice().sort((x, y) => (y.count || 0) - (x.count || 0))[0];
     return `<b>${name}</b> — retired in Rev.01.${dest ? ` The ${fmtInt(dest.count)} activities that used it now run on <b>${esc(dest.to)}</b>.` : ` ${fmtInt(acts)} activities no longer carry this calendar.`}`;
@@ -1239,7 +1199,7 @@ function calendarView(r) {
     return `<div class="rc-calcard">
       <div class="rc-calhead"><span class="rc-calname">${nameHtml}</span><span class="rc-caltag ${tagcls}">${esc(taglbl)}</span><span class="rc-calmeta">${meta}</span></div>
       <div class="rc-calbrief">${calBrief(p, reassFrom)}</div>
-      ${ctx}${calLedger(p)}${calNonworkingTable(p)}${calAssigned(p, pi)}</div>`;
+      ${ctx}${calLedger(p)}${calNonworkingTable(p)}</div>`;
   }).join('');
 
   const unchangedLine = unchanged.length

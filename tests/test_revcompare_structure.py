@@ -158,6 +158,30 @@ def test_reduced_hours_flagged_against_standard_day():
     assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced)' and e['change'] == 'now working'
 
 
+def test_calendar_comparison_limited_to_data_date_completion_window():
+    """Round-19 #02 — the calendar comparison covers only data date → project completion; a
+    historical exception before the data date and one past completion are dropped."""
+    from p6_evm.calendars import Calendar
+    old, infront, after = date(2010, 1, 1), date(2026, 3, 10), date(2030, 1, 1)
+    c0 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={old, infront, after}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})
+    c1 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
+                  holidays={old, after}, added_work_days=set(), day_hours=8.0,
+                  work_intervals={}, exception_intervals={})   # infront now working
+    rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
+    rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
+    rev0.data_date = datetime(2026, 1, 1)
+    rev1.data_date = datetime(2026, 1, 1)
+    rev0.activities['o0']['planned_finish'] = datetime(2027, 1, 1)
+    rev1.activities['o0']['planned_finish'] = datetime(2027, 1, 1)
+    pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '6 Day')
+    isos = {e['iso'] for e in pat['date_exceptions']}
+    assert '2026-03-10' in isos          # in-window change kept
+    assert '2010-01-01' not in isos      # historical (pre data date) dropped
+    assert '2030-01-01' not in isos      # past completion dropped
+
+
 def test_calendar_same_name_compared_from_xer_clndr_blobs():
     """End-to-end for XER: two SAME-NAMED calendars parsed from real clndr_data blobs with
     different holiday dates are still compared by their non-working days (the name being unchanged

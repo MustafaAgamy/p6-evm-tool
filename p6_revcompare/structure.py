@@ -9,7 +9,7 @@ All three read fields the parser already exposes (no parser changes):
 
 Pure functions over parsed ScheduleData / a MatchedSchedules; unit-tested.
 """
-from datetime import datetime
+from datetime import datetime, date
 
 from p6_evm.parser import full_wbs_path
 
@@ -190,13 +190,29 @@ def _hlabel(h, std=None):
     return f'{h:g}h/day'
 
 
-def _date_exceptions(a, b):
+def _in_window(d, win):
+    """Round-19 #02 — keep only calendar dates within the comparison window [data date, project
+    completion]; historical exceptions (before the data date) and dates past completion are dropped.
+    Coerces datetime→date so a datetime exception compares cleanly against date bounds."""
+    if not win:
+        return True
+    lo, hi = win
+    dd = d.date() if isinstance(d, datetime) else d
+    if lo is not None and dd < lo:
+        return False
+    if hi is not None and dd > hi:
+        return False
+    return True
+
+
+def _date_exceptions(a, b, win=None):
     """Compare the specific calendar exception DATES of two revisions of one calendar: every date
     that is non-working in either revision OR whose working HOURS differ (e.g. a day reduced from
     8h to 6h, or restored 6h → 8h). Consecutive dates with the same before/after are grouped into a
     range (e.g. 01 Mar 2026 – 07 Mar 2026). Returns [{date, iso, rev0, rev1, change}] with changed
     entries first, then chronological. rev0/rev1 read 'Non-working' or 'Nh/day'; change reads
-    'now working' / 'now non-working' / 'Ah → Bh' / 'unchanged'."""
+    'now working' / 'now non-working' / 'Ah → Bh' / 'unchanged'. ``win`` = (start, end) dates limits
+    the comparison to the data-date→completion window (round-19 #02)."""
     if a is None or b is None:
         return []
 
@@ -207,6 +223,7 @@ def _date_exceptions(a, b):
         for attr in ('holidays', 'added_work_days'):
             dates |= {d for d in (getattr(cal, attr, None) or set()) if _is_date(d)}
         dates |= {d for d in (getattr(cal, 'exception_intervals', None) or {}) if _is_date(d)}
+    dates = {d for d in dates if _in_window(d, win)}
 
     # Per-date effective hours; keep dates that are non-working in one rev OR whose hours differ.
     kept = []
@@ -244,12 +261,13 @@ def _date_exceptions(a, b):
     return out
 
 
-def _nonworking_dates(cal):
+def _nonworking_dates(cal, win=None):
     """The dated non-working / reduced-hours exceptions of a SINGLE calendar — used for a newly
     ADDED (or removed) calendar, which has no other revision to diff against, so its non-working
     days are listed in full. Holidays → 'Non-working'; an exception day whose hours fall below the
     standard working day → 'Nh/day'. Consecutive same-status dates group into one range. The weekly
-    days-off are conveyed by the working-pattern rows, not repeated here."""
+    days-off are conveyed by the working-pattern rows, not repeated here. ``win`` = (start, end)
+    limits it to the data-date→completion window (round-19 #02)."""
     if cal is None:
         return []
 
@@ -258,10 +276,10 @@ def _nonworking_dates(cal):
     day_h = getattr(cal, 'day_hours', None) or 0.0
     items = {}
     for d in (getattr(cal, 'holidays', None) or set()):
-        if _is_date(d):
+        if _is_date(d) and _in_window(d, win):
             items[d] = 0.0
     for d, ivs in (getattr(cal, 'exception_intervals', None) or {}).items():
-        if not _is_date(d):
+        if not _is_date(d) or not _in_window(d, win):
             continue
         h = _interval_hours(ivs)
         if h == 0 or (day_h and h < day_h - 1e-6):   # non-working or reduced below the standard day
@@ -309,6 +327,36 @@ def _assigned_breakdown(data, cal_name):
     return {'count': len(ids), 'ids': sorted(ids), 'by_dim': by_dim_sorted}
 
 
+def _as_date(v):
+    """A datetime → its date; a date passes through; None otherwise. (datetime is a subclass of
+    date, so the datetime check must come first.)"""
+    if v is None:
+        return None
+    return v.date() if isinstance(v, datetime) else v
+
+
+def _cal_window(rev0, rev1):
+    """Round-19 #02 — the calendar-comparison window: from the DATA DATE to project COMPLETION.
+    Start = the earliest data date of the two revisions; when neither carries one (common in XER,
+    where last_recalc_date is blank) it falls back to the earliest planned START, which still drops
+    the historical pre-project exceptions. End = the latest planned FINISH (completion). Either end
+    is None when unavailable, which _in_window treats as unbounded."""
+    dds = [_as_date(getattr(r, 'data_date', None)) for r in (rev0, rev1)]
+    dds = [d for d in dds if d]
+    starts, fins = [], []
+    for data in (rev0, rev1):
+        for a in (getattr(data, 'activities', None) or {}).values():
+            s = _as_date(a.get('planned_start'))
+            if s:
+                starts.append(s)
+            f = _as_date(a.get('planned_finish'))
+            if f:
+                fins.append(f)
+    start = min(dds) if dds else (min(starts) if starts else None)
+    end = max(fins) if fins else None
+    return (start, end) if (start or end) else None
+
+
 def diff_calendars(rev0, rev1, matched):
     """Calendar-level changes (added/removed/workweek/day-hours/holidays) matched by name,
     plus per-activity calendar reassignments grouped by (from -> to) with the working-day
@@ -317,6 +365,10 @@ def diff_calendars(rev0, rev1, matched):
     Returns {'calendars':[{name,change,detail}], 'reassignments':[{from,to,from_wd,to_wd,count,codes}]}.
     """
     c0, c1 = _cal_by_name(rev0), _cal_by_name(rev1)
+
+    # Round-19 #02 — the calendar comparison covers only the data-date → project-completion window,
+    # so historical exceptions (before the data date) and dates past completion are dropped.
+    win = _cal_window(rev0, rev1)
 
     # Per-calendar activity usage (drives the rename signal + the "activities" count).
     def _usage(data):
@@ -421,7 +473,7 @@ def diff_calendars(rev0, rev1, matched):
         changed = []
         if g0 and g1:
             changed = [g1[i]['day'] for i in range(7) if g0[i]['working'] != g1[i]['working']]
-        date_exc = _date_exceptions(a, b) if (a and b) else []
+        date_exc = _date_exceptions(a, b, win) if (a and b) else []
         date_flips = [e for e in date_exc if e['change'] != 'unchanged']
         # Count of specific NON-WORKING exception dates (holidays) in each revision.
         nw0, nw1 = _nw_count(a), _nw_count(b)
@@ -436,8 +488,8 @@ def diff_calendars(rev0, rev1, matched):
         # For an added/removed calendar there is no other revision to diff against, so list its own
         # dated non-working / reduced-hours days in full (round-16 comment: "clarify the non-working
         # days for [a] new calendar added").
-        nonworking_dates = (_nonworking_dates(b) if (b and not a)
-                            else _nonworking_dates(a) if (a and not b) else [])
+        nonworking_dates = (_nonworking_dates(b, win) if (b and not a)
+                            else _nonworking_dates(a, win) if (a and not b) else [])
         patterns.append({'name': name, 'renamed_to': rn, 'rev0': p0, 'rev1': p1,
                          'rev0_grid': g0, 'rev1_grid': g1, 'changed_days': changed,
                          'date_exceptions': date_exc,

@@ -537,12 +537,7 @@ def _cal_brief_text(p, reass_from):
     "Retired in Rev.01. The 12 activities that used it now run on 6 Day Workweek"; added → "New
     7 d/wk · 10 h/day · 70 h/wk calendar, now used by 8 activities."."""
     acts = p.get('activities') or 0
-    by_dim = (p.get('assigned') or {}).get('by_dim') or {}
-    first_dim = next(iter(by_dim), None)
-    top = (by_dim.get(first_dim) or [None])[0] if first_dim else None
-    used_by = ''
-    if acts:
-        used_by = f" Used by {acts:,} activities" + (f", mostly {top.get('value')}" if top else '') + '.'
+    used_by = f" Used by {acts:,} activities." if acts else ''
 
     change = p.get('change')
     if change == 'removed':
@@ -741,29 +736,8 @@ def _cal_blocks(report):
                        'headers': ['Calendar', 'Date', 'Status'],
                        'rows': nw_rows})
 
-    # Assigned activities — by calendar & activity code (round-14): which activities use each
-    # calendar and at which activity code, taken from the revision the calendar exists in. Empty
-    # added calendars are excluded (dropped above — they carry 0 activities anyway).
-    asg_rows = []
-    for p in kept:
-        by_dim = ((p.get('assigned') or {}).get('by_dim')) or {}
-        for dim, vals in by_dim.items():
-            vals = vals or []
-            # Round-17 #03 — Share % mirrors the on-screen proportion bar/legend: each value's
-            # count over the calendar's dimension total, rounded (the tabular equivalent of the
-            # screen/PDF bar, so the proportion is available in Excel too).
-            dim_tot = sum((v.get('count') or 0) for v in vals) or 1
-            for v in vals:
-                cnt = v.get('count')
-                share = f"{round((cnt or 0) / dim_tot * 100)}%"
-                asg_rows.append([_txt(p.get('name')), _txt(dim), _txt(v.get('value')), _num(cnt), share])
-    if asg_rows:
-        blocks.append({'title': 'Assigned activities — by calendar & activity code',
-                       'note': 'Which activities use each calendar, grouped by activity code (from the revision the '
-                               'calendar exists in — Rev.01 for added/renamed/modified, Rev.00 for removed). Share % '
-                               'is each value over that calendar dimension total (the on-screen proportion bar).',
-                       'headers': ['Calendar', 'Activity code (dimension)', 'Value', 'Activities', 'Share %'],
-                       'rows': asg_rows})
+    # Round-19 #01 — the "assigned activities by activity code" breakdown was removed from the whole
+    # report (screen, PDF and Excel), so no assigned block is emitted here.
     return blocks
 
 

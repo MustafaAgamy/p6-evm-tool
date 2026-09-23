@@ -1137,13 +1137,7 @@ def _cal_brief(p, reass_from):
     counts. Neutral: it states what moved, never whether it is good or bad."""
     name = f'<b>{_e(p.get("name"))}</b>'
     acts = p.get('activities') or 0
-    by_dim = (p.get('assigned') or {}).get('by_dim') or {}
-    first_dim = next(iter(by_dim), None)
-    top = (by_dim.get(first_dim) or [{}])[0] if first_dim else None
-    used_by = ''
-    if acts:
-        mostly = f', mostly {_e(top.get("value"))}' if top and top.get('value') is not None else ''
-        used_by = f' Used by {_num(acts)} activities{mostly}.'
+    used_by = f' Used by {_num(acts)} activities.' if acts else ''
     chg = p.get('change')
     if chg == 'removed':
         dest = sorted(reass_from.get(p.get('name'), []), key=lambda g: -(g.get('count') or 0))
@@ -1367,7 +1361,7 @@ def _sec_cal(report, filters=None):
                   f'<span class="rc-caltag {tagcls}">{_e(taglbl)}</span>'
                   f'<span class="rc-calmeta">{meta}</span></div>'
                   f'<div class="rc-calbrief">{_cal_brief(p, reass_from)}</div>'
-                  f'{ctx}{_cal_ledger(p)}{_cal_nonworking_table(p)}{_cal_assigned_pdf(p)}</div>')
+                  f'{ctx}{_cal_ledger(p)}{_cal_nonworking_table(p)}</div>')
 
     unchanged_line = ''
     if unchanged:
