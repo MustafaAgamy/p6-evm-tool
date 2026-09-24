@@ -103,10 +103,11 @@ BREAKDOWN_HEADERS = ['Activity ID', 'Quantity', 'Working-days', 'Rate/day']
 BREAKDOWN_WIDTHS = [3.2, 1.1, 0.9, 1.7]                   # inches, Σ = 6.9" (A4 usable width)
 BREAKDOWN_ID_CAP = 16
 BREAKDOWN_INTRO = ("For each quantity of work below, its activities are listed with the quantity, "
-                   "the working-days and the resulting rate — the overall rate in the table above "
-                   "is the total quantity divided by the total working-days across these "
-                   "activities. Activities that share the same quantity and duration are grouped "
-                   "on one line, and the fastest activity is shown first.")
+                   "the working-days and the resulting rate (quantity ÷ working-days). Activities "
+                   "that share the same quantity and duration are grouped on one line, and the "
+                   "fastest activity is shown first. The weighted overall rate for each quantity — "
+                   "its total quantity ÷ its total working-days — is given in the summary rate "
+                   "table that follows.")
 
 
 # ── computation ───────────────────────────────────────────────────────────────

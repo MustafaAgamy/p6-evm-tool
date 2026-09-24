@@ -946,10 +946,11 @@ def _render_materials(document, p, number, note):
 
 # ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
 def _render_prodrate(document, p, number, note):
-    """Native Word §15 — the method note (``number``.1: the formulas + worked examples, IDENTICAL
-    to the HTML/PDF twin ``html._prodrate``) then the productivity table (``number``.2: one row
-    per material/quantities resource). The table is drawn with :func:`_equal_row_table` so every
-    data row is the SAME exact height; None-safe with an honest no-data note."""
+    """Native Word §15 — the method note (``number``.1: formulas + worked examples), then the
+    per-activity breakdown (``number``.2, unit-bearing schedules only), then the summary rate
+    table LAST (``number``.3, or ``number``.2 when there is no breakdown). IDENTICAL to the
+    HTML/PDF twin ``html._prodrate``. The summary table is drawn with :func:`_equal_row_table` so
+    every data row is the SAME exact height; None-safe with an honest no-data note."""
     p = p or {}
     if not p.get('available'):
         _muted(document, 'This schedule carries no material resources, so planned production '
@@ -972,17 +973,17 @@ def _render_prodrate(document, p, number, note):
         run(mp, '•  ' + lead + ' = ', size=11, bold=True, color=NAVY)
         run(mp, body, size=11)
 
-    # number.2 — the productivity table (equal-height rows, one per quantities resource)
-    _subhead(document, '%s.2' % number, 'Daily production rate by quantities resource')
-    _equal_row_table(document, p.get('headers') or [], p.get('rows') or [],
-                     widths=p.get('widths'))
+    # Order (Ibrahim): number.1 method → number.2 per-activity breakdown → number.3 the summary
+    # rate table LAST. Only unit-bearing materials have a breakdown; in the unit-less fallback the
+    # summary table is number.2 so the sub-numbering stays gap-free. Twins html._prodrate.
+    def _rate_table(sub):
+        _subhead(document, '%s.%s' % (number, sub), 'Daily production rate by quantities resource')
+        _equal_row_table(document, p.get('headers') or [], p.get('rows') or [],
+                         widths=p.get('widths'))
 
-    # number.3 — per-activity breakdown: one growing table per quantities resource showing how its
-    # overall rate derives from its individual activities (Activity ID · Quantity · Working-days ·
-    # Rate/day). Twins html._prodrate; only when the materials carry a unit of measure.
     bd = p.get('breakdown') or []
     if bd:
-        _subhead(document, '%s.3' % number, 'Breakdown by activity')
+        _subhead(document, '%s.2' % number, 'Breakdown by activity')
         bi = para(document, p.get('breakdown_intro') or '', size=11, italic=True, color=GREY,
                   after=4, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
         bi.paragraph_format.keep_with_next = True
@@ -997,6 +998,9 @@ def _render_prodrate(document, p, number, note):
                 % (b.get('rate') or '', b.get('total_wd'), b.get('nact')), size=10, color=GREY)
             data_table(document, b.get('headers') or [], b.get('rows') or [],
                        widths=b.get('widths'))
+        _rate_table('3')                                   # summary rate table last, as number.3
+    else:
+        _rate_table('2')                                   # no breakdown → summary table is number.2
 
     if p.get('no_unit_note'):
         _muted(document, p.get('no_unit_note'))

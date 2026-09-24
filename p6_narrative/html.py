@@ -1125,10 +1125,11 @@ def _volwork(p, number, title, meta, cur):
 
 # ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
 def _prodrate(p, number, title, meta, cur):
-    """§15 — the method note (15.1, formulas + worked examples) then the productivity table (15.2:
-    one row per material/quantities resource with its weighted rate, per-activity range and crew).
-    Twin of ``docx_writer._render_prodrate`` — both draw the same payload, so the explanation and
-    the figures are identical on screen, in the PDF and in Word."""
+    """§15 — the method note ({number}.1, formulas + worked examples), then the per-activity
+    breakdown ({number}.2, unit-bearing schedules only), then the summary rate table LAST
+    ({number}.3, or {number}.2 when there is no breakdown). Twin of ``docx_writer._render_prodrate``
+    — both draw the same payload, so the explanation and the figures are identical on screen, in the
+    PDF and in Word."""
     p = p or {}
     if not p.get('available'):
         return ('<p class="note">This schedule carries no material resources, so planned '
@@ -1145,13 +1146,6 @@ def _prodrate(p, number, title, meta, cur):
                    '<b style="color:#1F4E79">&bull;&nbsp;&nbsp;%s = </b>%s</p>'
                    % (_esc(lead), _esc(body)))
 
-    # {number}.2 — the productivity table (one row per quantities resource)
-    out.append('<div class="sub">%s.2 &middot; Daily production rate by quantities resource</div>'
-               % _esc(number))
-    heads = p.get('headers') or []
-    thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
-    body = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
-                   for r in (p.get('rows') or []))
     # Pin the HTML columns to the SAME inch widths the Word renderer uses (table-layout:fixed +
     # a percentage colgroup), so a long Activity-ID list never squeezes the numeric columns and
     # screen == PDF == Word to the column.
@@ -1161,15 +1155,23 @@ def _prodrate(p, number, title, meta, cur):
         tot = sum(ws) or 1
         return ('<colgroup>%s</colgroup>'
                 % ''.join('<col style="width:%.2f%%">' % (100.0 * w / tot) for w in ws))
-    out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
-               % (_cg(p.get('widths') or []), thead, body))
 
-    # {number}.3 — per-activity breakdown (one small table per quantities resource): how each
-    # item's overall rate derives from its individual activities, listed by Activity ID. Only when
-    # the materials carry a unit of measure (the unit-less fallback has no rates to break down).
+    def _rate_table(sub):
+        out.append('<div class="sub">%s.%d &middot; Daily production rate by quantities resource'
+                   '</div>' % (_esc(number), sub))
+        heads = p.get('headers') or []
+        thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
+        rowsb = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
+                        for r in (p.get('rows') or []))
+        out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
+                   % (_cg(p.get('widths') or []), thead, rowsb))
+
+    # Order (Ibrahim): {number}.1 method → {number}.2 per-activity breakdown → {number}.3 the
+    # summary rate table LAST. The breakdown only exists when the materials carry a unit of
+    # measure; in the unit-less fallback the summary table is {number}.2 so the numbering stays gap-free.
     bd = p.get('breakdown') or []
     if bd:
-        out.append('<div class="sub">%s.3 &middot; Breakdown by activity</div>' % _esc(number))
+        out.append('<div class="sub">%s.2 &middot; Breakdown by activity</div>' % _esc(number))
         out.append('<p class="rescap">%s</p>' % _esc(p.get('breakdown_intro') or ''))
         for b in bd:
             cap = ('%s &mdash; %s &middot; %s overall, %s working-days, %s activities'
@@ -1184,6 +1186,9 @@ def _prodrate(p, number, title, meta, cur):
                        '<p class="rescap prodbd-cap"><b>%s</b></p>'
                        '<table class="dt" style="table-layout:fixed">%s%s%s</table></div>'
                        % (cap, _cg(b.get('widths') or []), bthead, bbody))
+        _rate_table(3)                              # summary rate table last, as {number}.3
+    else:
+        _rate_table(2)                              # no breakdown → summary table is {number}.2
 
     if p.get('no_unit_note'):
         out.append('<p class="note">%s</p>' % _esc(p.get('no_unit_note')))
