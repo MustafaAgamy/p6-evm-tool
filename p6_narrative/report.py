@@ -507,11 +507,21 @@ def _critical_path(data):
                         'as a month-by-month sweep of the driving zones.')
 
 
+def _critical_path_from_p6(data):
+    """Appendix (Critical Path From P6): an un-numbered COVER/DIVIDER page — same style as the
+    Mapping Sheet — placed AFTER the tool's derived critical-path results, where the planner
+    attaches P6's own critical-path output. Nothing is auto-generated (a light note only)."""
+    return Section('18', 'Appendix (Critical Path From P6)', 'mapsheet', 'auto',
+                   appendix=True, cover=True,
+                   payload={'placeholder': 'The P6 critical-path output is attached in this '
+                                           'appendix by the planner.'})
+
+
 def _mapping_sheet(data):
     """Appendix (Mapping Sheet): an un-numbered COVER/DIVIDER page — the title centred and pushed
     down the page, matching the reference report's divider pages. The planner attaches the project
     mapping sheet into this appendix themselves, so nothing is auto-generated (a light note only)."""
-    return Section('18', 'Appendix (Mapping Sheet)', 'mapsheet', 'auto', appendix=True, cover=True,
+    return Section('19', 'Appendix (Mapping Sheet)', 'mapsheet', 'auto', appendix=True, cover=True,
                    payload={'placeholder': 'The project mapping sheet is attached in this '
                                            'appendix by the planner.'})
 
@@ -597,6 +607,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _productivity(data, path),
         _volume_of_work(data, path),
         _critical_path(data),
+        _critical_path_from_p6(data),
         _mapping_sheet(data),
     ]
     ordered = [s for s in ordered if s is not None]
