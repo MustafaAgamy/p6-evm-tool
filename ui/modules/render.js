@@ -62,15 +62,21 @@ export function clearError() {
   document.getElementById('error-banner').classList.add('hidden');
 }
 
+// Every left-sidebar standalone/library page (Recent Projects, Knowledge Base + its
+// Database, Productivity & Resources) must NEVER trail the import screen or a feature's
+// results. Hide them all whenever we enter the import screen or render results — so no
+// matter which page the user was on before, nothing shows underneath.
+export function hideStandalonePages() {
+  ['recent-section', 'kb-section', 'kb-database-section', 'prodintel-section'].forEach((id) =>
+    document.getElementById(id)?.classList.add('hidden'));
+}
+
 export function loadAnother() {
   document.getElementById('results-section').classList.add('hidden');
   document.getElementById('import-section')?.classList.remove('hidden');  // Aurora+ landing back
   document.getElementById('topbar-sub').textContent = 'Home · Import';
   document.getElementById('feature-gate')?.classList.add('hidden');       // clear any open Run gate
-  // #06: "back to import" shows ONLY the import screen — never let the Recent / KB pages trail it.
-  document.getElementById('recent-section')?.classList.add('hidden');
-  document.getElementById('kb-section')?.classList.add('hidden');
-  document.getElementById('kb-database-section')?.classList.add('hidden');
+  hideStandalonePages();   // #06: back to import shows ONLY the import screen — no Recent/KB/Productivity page trailing
   if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
   // Back to the import screen: clear any active module in the navigator (Aurora+ shell).
   document.querySelectorAll('#nav-tree .tnode[data-nav]').forEach(n =>
@@ -114,6 +120,7 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   if (state.ranFeatures && typeof state.ranFeatures.clear === 'function') state.ranFeatures.clear();
   showChooser();   // "Choose a feature to analyze" — the user picks; nothing auto-runs
 
+  hideStandalonePages();   // importing while on a Library page (KB/Recent/Productivity) must not leave it trailing
   document.getElementById('import-section')?.classList.add('hidden');   // Aurora+: landing gives way to results
   document.getElementById('results-section').classList.remove('hidden');
   updateStatusLight(result);   // light up the menu-bar schedule-health light (covers import + open-recent)

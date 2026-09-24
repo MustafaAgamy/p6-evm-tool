@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.painting.external_painting",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Painting",
+  "item": "External Facade Painting",
+  "aliases": [
+    "external painting",
+    "facade paint",
+    "weather coat",
+    "exterior emulsion"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Weather-resistant external paint system — primer/sealer and two coats of exterior-grade emulsion applied off scaffold; slower than internal due to access, exposure and heavier film build.",
+  "assumptions": [
+    "Single 8 hr/day shift",
+    "Sealer + 2 exterior emulsion coats on render",
+    "Facade access via external scaffold",
+    "Render cured and clean",
+    "Favourable weather window"
+  ],
+  "exclusions": [
+    "Scaffold erection (measured separately)",
+    "Elastomeric/textured coatings premium",
+    "Substrate repair",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "external_painting_system",
+      "name": "Sealer & two exterior coats",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.64,
+        "low": 0.5,
+        "likely": 0.64,
+        "high": 0.85,
+        "output_per_day": 25,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Painter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Rollers/brushes & trays",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Facade scaffold (shared)",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Exterior sealer/primer",
+          "qty_per_unit": 0.12,
+          "unit": "L/m2"
+        },
+        {
+          "name": "Exterior emulsion (2 coats)",
+          "qty_per_unit": 0.3,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — external facade emulsion",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "exterior emulsion on rendered facades — validate with your XER to promote"
+      }
+    }
+  ]
+}

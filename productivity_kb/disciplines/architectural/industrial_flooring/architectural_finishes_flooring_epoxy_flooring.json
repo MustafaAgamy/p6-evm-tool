@@ -1,0 +1,116 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.flooring.epoxy_flooring",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Industrial Flooring",
+  "item": "Epoxy / Industrial Flooring",
+  "aliases": [
+    "epoxy flooring",
+    "industrial floor coating",
+    "self-levelling epoxy",
+    "resin flooring",
+    "epoxy coating"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Residential"
+  ],
+  "primary_unit": "m2",
+  "why": "Multi-coat epoxy resin floor system over prepared concrete — mechanical surface prep, primer, self-levelling body coat and seal/topcoat; treated as a single applied-coating operation measured per m2 of floor.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "2 mm self-levelling system: prep + primer + body + topcoat",
+    "Concrete cured, dry and diamond-ground",
+    "Controlled temperature/humidity for cure"
+  ],
+  "exclusions": [
+    "Major crack/joint repair",
+    "Anti-static/heavy-duty screed systems premium",
+    "Substrate replacement",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "epoxy_application",
+      "name": "Surface prep & epoxy coating",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.36,
+        "low": 0.28,
+        "likely": 0.36,
+        "high": 0.5,
+        "output_per_day": 45,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Coating Applicator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Floor grinder/shot blaster",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Spiked roller & squeegee",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Forced-action mixer",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Epoxy primer",
+          "qty_per_unit": 0.3,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Self-levelling epoxy resin",
+          "qty_per_unit": 3,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Epoxy topcoat/seal",
+          "qty_per_unit": 0.3,
+          "unit": "kg/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — self-levelling epoxy floor system",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "2 mm self-levelling epoxy over prepared concrete — validate with your XER to promote"
+      }
+    }
+  ]
+}

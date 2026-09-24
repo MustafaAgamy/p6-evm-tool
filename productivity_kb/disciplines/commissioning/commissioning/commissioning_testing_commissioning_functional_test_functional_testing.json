@@ -1,0 +1,96 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "commissioning.testing_commissioning.functional_test.functional_testing",
+  "discipline": "Commissioning",
+  "work_type": "Testing & Commissioning",
+  "system": "Commissioning",
+  "item": "Equipment / Device Functional Testing",
+  "aliases": [
+    "functional test",
+    "device functional test",
+    "point-to-point functional test",
+    "cause & effect test"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "point",
+  "why": "Each device/interlock is exercised to confirm it responds correctly to commands, permissives and cause-and-effect logic (start/stop, trip, alarm) before system-level commissioning; scales with the number of tested points/devices.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Loop checks completed",
+    "Control philosophy / cause-and-effect matrix issued"
+  ],
+  "exclusions": [
+    "Logic/software modification",
+    "Rework of failed devices",
+    "Integrated multi-system testing (separate item)"
+  ],
+  "components": [
+    {
+      "component_id": "functional_test",
+      "name": "Device / interlock functional test",
+      "unit": "point",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1,
+        "likely": 1.33,
+        "high": 2,
+        "output_per_day": 12,
+        "output_unit": "point/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Commissioning Technician",
+          "count": 1
+        },
+        {
+          "trade": "Electrician / Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Multimeter / test set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Two-way radios (pair)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Test record sheets / consumables",
+          "qty_per_unit": 1,
+          "unit": "no/point"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Industry standard norm — device/interlock functional testing per point",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "individual devices, interlocks and cause-and-effect points — validate with your XER to promote"
+      }
+    }
+  ]
+}

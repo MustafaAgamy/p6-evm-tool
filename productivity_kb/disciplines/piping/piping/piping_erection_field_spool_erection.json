@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "piping.erection.field.spool_erection",
+  "discipline": "Piping",
+  "work_type": "Erection",
+  "system": "Piping",
+  "item": "Field Pipe Erection (pre-fabricated spools)",
+  "aliases": [
+    "spool erection",
+    "pipe hang and align",
+    "field piping installation",
+    "spool set"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Infrastructure",
+    "Marine/Port"
+  ],
+  "primary_unit": "dia-inch",
+  "why": "Handling, lifting, aligning and supporting pre-fabricated spools in the field (on racks, in trenches, to equipment) is the erection front distinct from shop fab and field welding; norming it in dia-inch matches how spool registers are counted.",
+  "assumptions": [
+    "Pre-fabricated spools delivered to area",
+    "Normal access with shared mobile crane",
+    "Single 8 hr/day shift",
+    "Permanent supports available",
+    "dia-inch = pipe nominal diameter (in)"
+  ],
+  "exclusions": [
+    "Shop fabrication",
+    "Field golden/tie-in welds (see welding item)",
+    "Bolt-up (separate item)",
+    "Support steel fabrication",
+    "Scaffolding"
+  ],
+  "components": [
+    {
+      "component_id": "erection",
+      "name": "Handle, rig, align & support spools",
+      "unit": "dia-inch",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 1.2,
+        "low": 0.9,
+        "likely": 1.2,
+        "high": 1.8,
+        "output_per_day": 26.7,
+        "output_unit": "dia-inch/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane (shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/dia-inch"
+        },
+        {
+          "name": "Rigging / chain blocks",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Rigging & alignment consumables (slings, shims)",
+          "qty_per_unit": 0.01,
+          "unit": "set/dia-inch"
+        },
+        {
+          "name": "Temporary support / bracing steel",
+          "qty_per_unit": 0.05,
+          "unit": "kg/dia-inch"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industrial norm - field erection of pre-fab spools per diameter-inch",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Rack and equipment piping, NPS 2-24, normal access — validate with your XER to promote"
+      }
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.electrical.distribution.db_panel",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Distribution",
+  "item": "Distribution Boards & Panels Install",
+  "aliases": [
+    "distribution board",
+    "db install",
+    "panel board",
+    "consumer unit",
+    "panel mounting"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant",
+    "Data Center"
+  ],
+  "primary_unit": "no",
+  "why": "Mount and fix wall/floor distribution boards and panels level and plumb, ready for cabling and terminations.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "Blended small DB to medium panel",
+    "Board delivered to floor / staged"
+  ],
+  "exclusions": [
+    "Cable terminations & dressing (separate item)",
+    "Testing & commissioning",
+    "Switchgear / MCC (separate, heavier item)",
+    "Builder's work openings"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Board/panel mounting, levelling and fixing",
+      "unit": "no",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 5.3,
+        "low": 3,
+        "likely": 5.3,
+        "high": 12,
+        "output_per_day": 3,
+        "output_unit": "boards/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hammer drill",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Laser level",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Unistrut / backing frame",
+          "qty_per_unit": 2,
+          "unit": "m/no"
+        },
+        {
+          "name": "Anchors / fixings",
+          "qty_per_unit": 6,
+          "unit": "no/no"
+        },
+        {
+          "name": "Labels / circuit schedule",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — DB/panel installation (mechanical mounting)",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "surface/flush DBs and medium distribution panels — validate with your XER to promote"
+      }
+    }
+  ]
+}

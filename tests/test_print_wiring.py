@@ -28,11 +28,12 @@ def test_shared_printview_helper_exists():
 
 def test_every_screen_view_is_registered_for_print():
     assert 'const PRINT_VIEW = {' in APP
-    for view in ('overview', 'wbs', 'dash', 'narrative', 'copilot'):
+    # (the standalone AI Copilot screen was retired — its capabilities moved into the
+    # AI Chat as questions; the chat is a conversational view, not a print-sections view.)
+    for view in ('overview', 'wbs', 'narrative'):
         assert f'{view}:' in APP, f'{view} not registered in PRINT_VIEW'
     # each provider is imported from its module
-    for fn in ('overviewPrint', 'wbsPrint', 'dashboardPrint',
-               'narrativePrint', 'copilotPrint'):
+    for fn in ('overviewPrint', 'wbsPrint', 'narrativePrint'):
         assert fn in APP, f'{fn} not imported/used in app.js'
 
 

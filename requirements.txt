@@ -1,2 +1,9 @@
+# Prefer prebuilt CPU wheels for llama-cpp-python (avoids compiling in CI).
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 playwright>=1.40
 openpyxl>=3.1
+python-docx>=1.1
+PyMuPDF>=1.24
+# Offline AI Chat brain — the llama.cpp engine, bundled into the exe so there is
+# nothing for the user to install (only the model is downloaded, in-app, on first use).
+llama-cpp-python>=0.3.2

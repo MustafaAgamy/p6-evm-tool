@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 import json
 import os
 import subprocess
@@ -8,6 +8,154 @@ from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE
 import db
 import report_theme
+
+
+def _fmt_meta_date(v):
+    """Render a date-ish value ('2026-02-09', a datetime, or an already-human string)
+    as '09 Feb 2026'; pass anything unparseable through unchanged."""
+    if v in (None, ''):
+        return None
+    if isinstance(v, (datetime, date)):
+        return v.strftime('%d %b %Y')
+    s = str(v).strip()
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d %b %Y')
+    except ValueError:
+        pass
+    for fmt in ('%Y-%m-%d', '%d %b %Y', '%d-%b-%Y', '%m/%d/%Y', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(s, fmt).strftime('%d %b %Y')
+        except ValueError:
+            continue
+    return s
+
+
+def _excel_meta(title, src=None, snapshot_id=None, **extra):
+    """The uniform Excel header/context block passed to the shared writer.
+
+    Every export opens self-explaining: "<APP_NAME> — <title>" over a grey context
+    line of Project · Data date · [extras] · Generated. Project/data-date are pulled
+    from whatever common keys the feature's report/result dict uses (a nested ``meta``
+    dict is also consulted); when they're absent and `snapshot_id` is given, they're
+    looked up from the DB so even DB-read exports name their project. Anything still
+    missing is simply omitted. `extra` keyword pairs (e.g. baseline='Rev 3',
+    period='Aug → Sep') are inserted before Generated.
+    """
+    src = src or {}
+    meta = src.get('meta') if isinstance(src.get('meta'), dict) else {}
+
+    def pick(*keys):
+        for k in keys:
+            for d in (src, meta):
+                v = d.get(k)
+                if v not in (None, ''):
+                    return v
+        return None
+
+    project = pick('project', 'project_name', 'projectName', 'project_title')
+    data_date = pick('data_date', 'dataDate', 'data_date_str', 'date')
+    if snapshot_id is not None and (not project or not data_date):
+        try:
+            with db.get_conn() as conn:
+                row = conn.execute(
+                    '''SELECT p.name AS project_name, s.data_date AS data_date
+                       FROM snapshots s JOIN projects p ON p.id = s.project_id
+                       WHERE s.id = ?''', (snapshot_id,)).fetchone()
+            if row:
+                project = project or row['project_name']
+                data_date = data_date or row['data_date']
+        except Exception:
+            pass                                          # a missing project name is non-fatal
+
+    ctx = []
+    if project:
+        ctx.append(('Project', str(project)))
+    dd = _fmt_meta_date(data_date)
+    if dd:
+        ctx.append(('Data date', dd))
+    for k, v in extra.items():
+        if v not in (None, ''):
+            ctx.append((k.replace('_', ' ').capitalize(), str(v)))
+    ctx.append(('Generated', datetime.now().strftime('%d %b %Y')))
+    return {'app': APP_NAME, 'title': title, 'context': ctx}
+
+
+def _prodintel_excel_sections(r):
+    """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
+    ctx = r.get('context') or {}
+    hasq = r.get('has_quantity')
+    roll = r.get('rollup') or {}
+    comps = r.get('components') or []
+    shift = ctx.get('shift_hours') or 8
+    dash = lambda x: x if x is not None else '—'
+
+    summ = [['Item', r.get('item')], ['Discipline', r.get('discipline')], ['System', r.get('system')],
+            ['Project type', ctx.get('Project type')], ['Location', ctx.get('Location')],
+            ['Methodology', ctx.get('Methodology')], ['Shift (hr/day)', shift]]
+    if hasq:
+        summ += [['Quantity', '%s %s' % (r.get('quantity'), r.get('primary_unit') or '')],
+                 ['Total man-hours', roll.get('total_mh')],
+                 ['Estimated duration (days)', roll.get('duration_days')],
+                 ['Controlling component', roll.get('controlling_component')],
+                 ['Blended rate (MH/%s)' % (r.get('primary_unit') or ''), roll.get('blended_mh_per_primary')]]
+    summ += [['Overall confidence', r.get('overall_confidence')]]
+
+    prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Crew', 'Quantity', 'Man-hours']
+    prod_r = []
+    for c in comps:
+        rate = c.get('rate') or {}
+        crew = ', '.join('%sx %s' % (g.get('count'), g.get('trade')) for g in (c.get('gang') or []))
+        prod_r.append([c.get('name'), c.get('unit'), dash(rate.get('mh_per_unit')),
+                       ('%s %s' % (rate.get('output_per_day'), rate.get('output_unit') or '')) if rate.get('output_per_day') else '—',
+                       crew or '—', dash(c.get('component_qty')) if hasq else '—',
+                       dash(c.get('man_hours')) if hasq else '—'])
+
+    labour, equip, material = {}, {}, {}
+    for c in comps:
+        if not c.get('rate'):
+            continue
+        n = c.get('n_gangs') or 1
+        gp = c.get('gang_persons') or 0
+        for g in (c.get('gang') or []):
+            cur = labour.setdefault(g.get('trade'), {'persons': 0, 'mh': 0.0})
+            cur['persons'] += (g.get('count') or 0) * n
+            if hasq and c.get('man_hours') and gp:
+                cur['mh'] += c['man_hours'] * (g.get('count') or 0) / gp
+        for e in (c.get('equipment') or []):
+            if e.get('name') not in equip:
+                hrs = round(c['duration_days'] * shift) if (hasq and c.get('duration_days')) else None
+                equip[e.get('name')] = 'shared' if 'shar' in (e.get('name') or '').lower() else (hrs if hrs is not None else '—')
+        for m in (c.get('material') or []):
+            q = (c.get('component_qty') or 0) * m['qty_per_unit'] if (hasq and c.get('component_qty') and m.get('qty_per_unit') is not None) else None
+            cur = material.setdefault(m.get('name'), {'unit': m.get('unit'), 'qty': 0.0, 'known': False})
+            if q is not None:
+                cur['qty'] += q
+                cur['known'] = True
+
+    res_r = []
+    for t, v in labour.items():
+        res_r.append(['Labour', t, v['persons'], 'persons' + (' · %d MH' % round(v['mh']) if v['mh'] else '')])
+    for name, val in equip.items():
+        res_r.append(['Equipment', name, val, 'h' if isinstance(val, (int, float)) else ''])
+    for name, val in material.items():
+        res_r.append(['Material', name, (round(val['qty']) if val['known'] else '—'), (val['unit'] or '').split('/')[0]])
+
+    sections = [('Summary', ['Field', 'Value'], summ),
+                ('Productivity', prod_h, prod_r),
+                ('Resources', ['Category', 'Resource', 'Amount', 'Unit'], res_r)]
+    if hasq:
+        p6_r = []
+        for t, v in labour.items():
+            p6_r.append([t, 'Labor', '%d MH' % round(v['mh']), '%d h/d' % (v['persons'] * shift)])
+        for name, val in equip.items():
+            p6_r.append([name, 'Nonlabor', ('shared' if val == 'shared' else ('%s h' % val if isinstance(val, (int, float)) else '—')), 'per method'])
+        for name, val in material.items():
+            if val['known']:
+                p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
+        if p6_r:
+            sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
+    # shape into the shared write_sections_xlsx contract: one sheet per section, one titled block each
+    return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
 
 
 class _Encoder(json.JSONEncoder):
@@ -42,6 +190,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_kb_knowledge_get()
         elif self.path == '/api/database':
             self._handle_database_list()
+        elif self.path == '/api/prodintel/tree':
+            self._handle_prodintel_tree()
+        elif self.path == '/api/chat/library':
+            self._handle_chat_library()
+        elif self.path == '/api/chat/status':
+            self._handle_chat_status()
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -66,6 +220,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_oos_validate(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
+        elif self.path == '/api/prodintel/query':
+            self._handle_prodintel_query(body)
+        elif self.path == '/api/prodintel/excel':
+            self._handle_prodintel_excel(body)
+        elif self.path == '/api/dangling/validate':
+            self._handle_dangling_validate(body)
+        elif self.path == '/api/dangling/corrected-file':
+            self._handle_dangling_corrected(body)
+        elif self.path == '/api/health/recompute':
+            self._handle_health_recompute(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -114,10 +278,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_schedule_excel(body)
         elif self.path == '/api/update/report':
             self._handle_update_report(body)
-        elif self.path == '/api/dashboard':
-            self._handle_dashboard(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/narrative/docx':
+            self._handle_narrative_docx(body)
+        elif self.path == '/api/narrative/pdf':
+            self._handle_narrative_pdf(body)
+        elif self.path == '/api/narrative/html':
+            self._handle_narrative_html(body)
         elif self.path == '/api/copilot':
             self._handle_copilot(body)
         elif self.path == '/api/report/html':
@@ -196,6 +364,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_pdf(body)
         elif self.path == '/api/special/doc':
             self._handle_special_doc(body)
+        elif self.path == '/api/special/docx':
+            self._handle_special_docx(body)
+        elif self.path == '/api/special/excel':
+            self._handle_special_excel(body)
         elif self.path == '/api/special/templates/list':
             self._handle_special_templates_list(body)
         elif self.path == '/api/special/templates/save':
@@ -206,6 +378,30 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_report_manifest(body)
         elif self.path == '/api/report/render':
             self._handle_report_render(body)
+        elif self.path == '/api/chat/ask':
+            self._handle_chat_ask(body)
+        elif self.path == '/api/chat/setup':
+            self._handle_chat_setup(body)
+        elif self.path == '/api/chat/settings':
+            self._handle_chat_settings(body)
+        elif self.path == '/api/chat/dashboard':
+            self._handle_chat_dashboard(body)
+        elif self.path == '/api/chat/qa':
+            self._handle_chat_qa(body)
+        elif self.path == '/api/chat/copilot/ask':
+            self._handle_chat_copilot_ask(body)
+        elif self.path == '/api/chat/copilot/tia':
+            self._handle_chat_copilot_tia(body)
+        elif self.path == '/api/chat/copilot/activities':
+            self._handle_chat_copilot_activities(body)
+        elif self.path == '/api/chat/copilot/whatif':
+            self._handle_chat_copilot_whatif(body)
+        elif self.path == '/api/chat/copilot/scenario':
+            self._handle_chat_copilot_scenario(body)
+        elif self.path == '/api/chat/copilot/impact':
+            self._handle_chat_copilot_impact(body)
+        elif self.path == '/api/chat/copilot/report':
+            self._handle_chat_copilot_report(body)
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -253,18 +449,17 @@ class Handler(BaseHTTPRequestHandler):
             if not output_path:
                 self._json(200, {'ok': False, 'error': 'No output path.'})
                 return
-            html = self._special_html(body)
-            with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
-                                             encoding='utf-8') as tmp:
-                tmp.write(html)
-                html_path = tmp.name
-            chrome = _find_chrome()
-            out = os.path.abspath(output_path)
-            subprocess.run([chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                            f'--print-to-pdf={out}', '--no-pdf-header-footer',
-                            f'file:///{html_path.replace(os.sep, "/")}'],
-                           check=True, capture_output=True)
-            os.unlink(html_path)
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            import report_theme
+            # Two-pass render so the contents page shows REAL page numbers.
+            assemble.render_pdf(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                mode=report_theme.normalize(body.get('theme')),
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=_find_chrome())
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -286,6 +481,55 @@ class Handler(BaseHTTPRequestHandler):
                 meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
                 inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'))
             save_word_document(html, os.path.abspath(output_path))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_docx(self, body):
+        """Export the picked Studio results to a REAL Word .docx (python-docx) in the
+        narrative house style — double page frame, logo header, page-number footer,
+        navy cover + tables, bars drawn as bars — matching the PDF as Word allows."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            # Reused feature sections are chart-heavy HTML; the .docx rasterises them
+            # to an image via Chrome (headless) so Word matches the PDF exactly. A
+            # missing Chrome must NOT fail the export — pass None and let docx_report
+            # fall back to text/table extraction.
+            try:
+                chrome = _find_chrome()
+            except Exception:
+                chrome = None
+            assemble.docx(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
+                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
+                chrome=chrome, mode=report_theme.normalize(body.get('theme')),
+                editable=bool(body.get('editable')))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_special_excel(self, body):
+        """Export the picked Studio results to .xlsx (a Contents sheet + one data
+        sheet per result) — the numbers behind the Document/Dashboard."""
+        try:
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            sys.path.insert(0, resource_path('.'))
+            from p6_special import assemble
+            assemble.excel(
+                os.path.abspath(output_path), self._special_pid(body),
+                body.get('item_ids') or [], body.get('report_name') or 'Special Report',
+                meta=body.get('meta') or {}, inputs=body.get('inputs') or {},
+                snapshot_id=body.get('snapshot_id'))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -368,6 +612,48 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(body)
+
+    # ── /api/prodintel — Productivity & Resource Intelligence ──────────
+    def _handle_prodintel_tree(self):
+        try:
+            import p6_prodintel
+            self._json(200, {'ok': True, 'tree': p6_prodintel.build_tree()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_query(self, body):
+        try:
+            import p6_prodintel
+            res = p6_prodintel.query(
+                body.get('item_id'),
+                context=body.get('context') or {},
+                quantity=body.get('quantity'),
+                component_quantities=body.get('component_quantities') or {},
+            )
+            self._json(200, {'ok': True, 'result': res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_prodintel_excel(self, body):
+        """Export the current Productivity result to .xlsx — one sheet per report section."""
+        try:
+            import p6_prodintel
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            output_path = body.get('output_path')
+            if not output_path:
+                self._json(200, {'ok': False, 'error': 'No output path.'})
+                return
+            r = p6_prodintel.query(body.get('item_id'), context=body.get('context') or {},
+                                   quantity=body.get('quantity'),
+                                   component_quantities=body.get('component_quantities') or {})
+            if not r or r.get('found') is False:
+                self._json(200, {'ok': False, 'error': 'No validated reference for this selection.'})
+                return
+            write_sections_xlsx(os.path.abspath(output_path), _prodintel_excel_sections(r),
+                                meta=_excel_meta('Productivity & Resource Intelligence', r))
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):
@@ -812,10 +1098,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_update.exporters import report_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = report_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Update Analysis', headers, rows)
+            from p6_update.exporters import report_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
+                                meta=_excel_meta('Update Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -831,7 +1117,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.evm_excel import evm_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), evm_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
+                                meta=_excel_meta('Earned Value Report', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -848,7 +1135,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_revcompare.xlsx_export import revcompare_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), revcompare_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), revcompare_excel(report),
+                                meta=_excel_meta('Baseline Revision Comparison', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -879,7 +1167,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
                 return
             report = build_copilot(result, weather)
-            write_sections_xlsx(os.path.abspath(output_path), copilot_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), copilot_excel(report),
+                                meta=_excel_meta('AI Copilot · Time Impact Analysis', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -897,7 +1186,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.dashboard_excel import dashboard_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = dashboard_excel(dashboard)
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Professional Dashboard', dashboard))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -949,7 +1239,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
                 return
             sheets = narrative_excel({'narrative': build_narrative(result), 'result': result})
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Baseline Narrative', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -966,7 +1257,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.overview_excel import overview_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = overview_excel(report)
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Project Overview', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -982,7 +1274,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.wbs_excel import wbs_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report))
+            write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report),
+                                meta=_excel_meta('WBS Summary', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -999,7 +1292,8 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.schedule_excel import schedule_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
-            write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result))
+            write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result),
+                                meta=_excel_meta('Schedule (Gantt)', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1200,8 +1494,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_critpath.exporters import to_excel
-            to_excel(report, output_path)
+            from p6_critpath.exporters import critpath_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
+                                meta=_excel_meta('Critical Path Analyzer', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1578,10 +1875,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_kb.exporters import findings_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = findings_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Constructability Findings', headers, rows)
+            from p6_kb.exporters import findings_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            write_sections_xlsx(os.path.abspath(output_path), findings_excel_sections(report),
+                                meta=_excel_meta('Constructability Review', report,
+                                                 snapshot_id=body.get('snapshot_id')))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1769,6 +2067,66 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/dangling/validate ────────────────────────────────────────────
+    def _handle_dangling_validate(self, body):
+        """Dangling — re-validate after the planner applies relationship-type fixes. Re-parses the
+        imported schedule, applies the accepted fixes to an in-memory copy, re-runs the SAME dangling
+        engine, and reports the fresh findings + which activities are now genuinely no longer
+        dangling. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        accepted = body.get('accepted') or []
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, accepted, completion=body.get('completion'))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/dangling/corrected-file ──────────────────────────────────────
+    def _handle_dangling_corrected(self, body):
+        """Dangling — write the corrected schedule (accepted relationship-type fixes only) to a
+        separate file in the same format as the import (P6 XML or XER). Actuals and dates are never
+        touched; open in P6 → F9. The user's original file is not modified."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No fixes have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.dangling_resolve import write_corrected
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path),
+                                  completion=body.get('completion'))
+            self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/recompute ─────────────────────────────────────────────
+    def _handle_health_recompute(self, body):
+        """Recompute the Schedule Health roll-up from the client's CURRENT modules (with any in-memory
+        Dangling fixes previewed in), so the Dangling module tab score AND the Summary roll-up update
+        live as findings resolve — using the same weighted engine as import (single source of truth)."""
+        modules = body.get('modules') or {}
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.health import schedule_health
+            self._json(200, {'ok': True, 'health': schedule_health(modules)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/compare/before-after ─────────────────────────────────────────
     def _handle_before_after(self, body):
         """Consultant Review — the but-for impact. Given the baseline, the update, and
@@ -1809,10 +2167,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.exporters import logic_excel
-            from p6_evm.xlsx_writer import write_xlsx
-            headers, rows = logic_excel(report)
-            write_xlsx(os.path.abspath(output_path), 'Driving Logic Changes', headers, rows)
+            from p6_compare.exporters import logic_excel_sections
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            impact = body.get('impact')
+            write_sections_xlsx(os.path.abspath(output_path), logic_excel_sections(report, impact),
+                                meta=_excel_meta('Consultant Review', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1946,7 +2305,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
-            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows)
+            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
+                       meta=_excel_meta('Update vs Update — Windows Analysis', report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2106,7 +2466,9 @@ class Handler(BaseHTTPRequestHandler):
             sev_col, legend = excel_severity_meta(m, headers)
             write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
                        headers, rows, highlight_cols=excel_highlight_cols(headers),
-                       severity_col=sev_col, legend=legend)
+                       severity_col=sev_col, legend=legend,
+                       meta=_excel_meta(m.get('name') or 'Schedule Health Review',
+                                        m, snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2440,7 +2802,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_calendar_xlsx
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
-            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather)
+            write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather,
+                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2465,7 +2828,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.xlsx_writer import write_weather_xlsx
-            write_weather_xlsx(os.path.abspath(output_path), ca, weather)
+            write_weather_xlsx(os.path.abspath(output_path), ca, weather,
+                               meta=_excel_meta('Bad Weather', snapshot_id=snapshot_id))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2713,34 +3077,365 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
-    def _handle_narrative(self, body):
-        """Baseline Narrative: a deterministic status narrative built from the
-        already-computed result. Prefers the DB result for the given snapshot
-        (the read path); falls back to the client-supplied result."""
+    # ── /api/chat/* — Offline AI Chat ────────────────────────────────────────
+    def _chat_result(self, body):
+        """Resolve the open project's computed result for grounding (DB read path,
+        falling back to a client-supplied result)."""
+        result = body.get('result')
+        snap = body.get('snapshot_id')
+        if not result and snap is not None:
+            pid = db.snapshot_project_id(snap)
+            if pid is not None:
+                result = db.get_project_result(pid)
+        return result
+
+    def _handle_chat_library(self):
         try:
-            from p6_evm.narrative import build_narrative
-            result = None
-            snap = body.get('snapshot_id')
-            if snap is not None:
-                pid = db.snapshot_project_id(snap)
-                if pid is not None:
-                    result = db.get_project_result(pid)
-            if result is None:
-                result = body.get('result')
-            if not result:
-                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
-                return
-            self._json(200, {'ok': True, **build_narrative(result)})
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, **p6_chat.get_library()})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
-    def _handle_dashboard(self, body):
-        """Professional Dashboard read-model: the portfolio (latest snapshot per
-        project) + the active project's snapshot trend. DB-only, no re-parse."""
+    def _handle_chat_status(self):
         try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, {'ok': True, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_ask(self, body):
+        """Stream the answer as NDJSON: {"delta": "..."} lines while the local brain
+        writes, then a final {"done": true, ...meta} line with charts/source/brain.
+        Streaming keeps long, detailed answers usable (they appear as they're
+        written) even though generation runs locally on the CPU."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            meta, gen = p6_chat.answer_stream(body.get('question'),
+                                              self._chat_result(body) or {},
+                                              role=body.get('role'))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+            return
+        if not meta.get('ok'):
+            self._json(200, meta)
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/x-ndjson')
+        self.send_header('Cache-Control', 'no-cache')
+        self.end_headers()
+
+        def write(obj):
+            self.wfile.write((json.dumps(obj, cls=_Encoder) + '\n').encode())
+            self.wfile.flush()
+        try:
+            for delta in gen:
+                write({'delta': delta})
+        except Exception as exc:
+            try:
+                write({'delta': '\n\n_(stream error: %s)_' % exc})
+            except Exception:
+                return                                    # client gone — nothing to send
+        final = {'done': True}
+        final.update({k: v for k, v in meta.items() if k != 'ok'})
+        try:
+            write(final)
+        except Exception:
+            pass
+
+    def _handle_chat_setup(self, body):
+        """Kick off the one-time model download in the background and return at once;
+        the UI polls /api/chat/status and enables the chat when the brain is ready."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat, threading
+            threading.Thread(target=p6_chat.brain_setup, args=(body.get('model'),),
+                             daemon=True).start()
+            self._json(200, {'ok': True, 'started': True,
+                             'note': 'Downloading the AI brain — this can take several '
+                                     'minutes on first setup. It runs in the background; '
+                                     'the chat enables itself when it finishes.'})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_settings(self, body):
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            s = p6_chat.save_brain_settings(base_url=body.get('base_url'), model=body.get('model'))
+            self._json(200, {'ok': True, 'settings': s, 'brain': p6_chat.brain_status()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_dashboard(self, body):
+        """Build the in-chat professional dashboard. Re-parses the open snapshot's XML
+        (the report/PDF exception to the DB read path — the charts need the full
+        ScheduleData) and reuses the existing engines; every number is grounded."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
             snap = body.get('snapshot_id')
-            data = db.get_dashboard(active_snapshot_id=snap)
-            self._json(200, {'ok': True, **data})
+            if not xml_path and snap is not None:
+                xml_path = db.get_snapshot_xml_path(snap)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then ask me to build the dashboard.'})
+                return
+            self._json(200, p6_chat.build_dashboard(xml_path=xml_path, snapshot_id=snap))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/chat/copilot/* — Offline AI Chat ▸ the AI Copilot engines ───────
+    def _chat_copilot_xml(self, body):
+        """Resolve the open snapshot's XML the same way _handle_chat_dashboard does
+        (original → cached → best-for-snapshot). Returns the path or None."""
+        xml_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        snap = body.get('snapshot_id')
+        if not xml_path and snap is not None:
+            xml_path = db.get_snapshot_xml_path(snap)
+        return xml_path
+
+    def _handle_chat_qa(self, body):
+        """Answer one library question by its id from the offline grounded engine
+        (p6_chat.qa) — a detailed, senior-planning-engineer answer, DB read path, no model."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.answer_question(
+                body.get('snapshot_id'),
+                body.get('question_id'),
+                body.get('mode', 'management')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_ask(self, body):
+        """Answer one Copilot question (repertoire button or free-typed) for the loaded
+        project, from the DB read path — never re-parses."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.ask(
+                body.get('snapshot_id'),
+                question_id=body.get('question_id'),
+                question_text=body.get('question_text'),
+                mode=body.get('mode', 'management')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_tia(self, body):
+        """Finish-slip decomposition + ranked insights for the loaded project (DB read path)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.tia(body.get('snapshot_id')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_activities(self, body):
+        """Activity picker list — re-parses the open snapshot's XML (the report exception)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.activities(xml_path))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_whatif(self, body):
+        """Instant offline what-if estimate — re-parses the open snapshot's XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.whatif(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_scenario(self, body):
+        """Write a what-if scenario programme for the planner to F9 — re-parses the XML."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Import a P6 schedule first, then try again.'})
+                return
+            self._json(200, p6_chat.copilot.scenario(
+                xml_path, body.get('kind'),
+                activity_id=body.get('activity_id'), days=body.get('days'),
+                output_path=body.get('output_path', ''), label=body.get('label')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_impact(self, body):
+        """Read P6's exact TIA impact (base vs the F9-rescheduled file) — re-parses both."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            xml_path = self._chat_copilot_xml(body)
+            if not xml_path:
+                self._json(200, {'ok': False, 'error': 'Base schedule not found — re-import it and try again.'})
+                return
+            self._json(200, p6_chat.copilot.impact(xml_path, body.get('rescheduled_path', '')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_copilot_report(self, body):
+        """Build the Manager Report — preview HTML (default) or a written PDF. The XML is
+        resolved best-effort for the drivers/recovery enrichment (only used when behind)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.copilot.manager_report(
+                body.get('snapshot_id'),
+                xml_path=self._chat_copilot_xml(body),
+                preview=bool(body.get('preview')),
+                output_path=body.get('output_path', ''),
+                meta=body.get('meta')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative ────────────────────────────────────────────────────
+    def _handle_narrative(self, body):
+        """Baseline Narrative — assemble the Basis-of-Schedule document from the
+        parsed baseline. Re-parses, pulls the Calendar feature's report and the full
+        activity-code catalog, and returns the document model + rendered HTML. A thin
+        assembler over the existing engines — recomputes no number. No `records`."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_narrative.report import build_report
+            from p6_narrative.html import render_narrative_html
+            data = parse_file(resolved)
+
+            # v5 Narrative Report — driven by the Schedule-Intelligence front detector.
+            # A read-only study of the baseline; recomputes no EVM number.
+            doc = build_report(data, path=resolved, setup=body.get('setup'))
+            doc_dict = doc.to_dict()
+            self._json(200, {'ok': True, 'doc': doc_dict,
+                             'html': render_narrative_html(doc_dict), 'counts': doc.counts()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/docx ───────────────────────────────────────────────
+    def _handle_narrative_docx(self, body):
+        """Write the (possibly user-edited) narrative to an editable Word file. The
+        client holds the document and applies in-app prose edits, so no re-parse."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.docx_writer import write_docx
+            write_docx(apply_edits(doc_dict, body.get('edits')), os.path.abspath(output_path),
+                       chrome=_find_chrome())
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/pdf ────────────────────────────────────────────────
+    def _handle_narrative_pdf(self, body):
+        """Render the (edited) narrative to PDF via Chrome headless — same pipeline
+        as the other reports, so the PDF reflects the user's on-screen edits.
+
+        TWO-PASS so the Table of Contents can carry the sections' real physical page
+        numbers (a section that overflows onto a later sheet still lists the page you
+        turn to): pass-1 renders with ordinal TOC numbers, PyMuPDF then locates every
+        section heading in that PDF to build a page-map, and pass-2 re-renders the TOC
+        with those real pages. If PyMuPDF is unavailable or no heading can be located,
+        the pass-1 PDF (ordinal TOC) is kept — no failure, just the earlier behaviour."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path', '')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            import subprocess, tempfile
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            edited = apply_edits(doc_dict, body.get('edits'))
+            chrome = _find_chrome()
+            out = os.path.abspath(output_path)
+
+            def _render_pdf(html_str, out_pdf):
+                with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
+                                                 encoding='utf-8') as tmp:
+                    tmp.write(html_str)
+                    html_path = tmp.name
+                try:
+                    subprocess.run([
+                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
+                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
+                        f'file:///{html_path.replace(os.sep, "/")}',
+                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        timeout=180)
+                finally:
+                    try:
+                        os.unlink(html_path)
+                    except OSError:
+                        pass
+
+            # pass 1 — ordinal TOC, into a temp PDF used only for measuring page numbers
+            pass1 = out + '.pass1.pdf'
+            _render_pdf(page_html(edited), pass1)
+
+            page_map = None
+            try:
+                page_map = _narrative_page_map(pass1, edited.get('sections') or [])
+            except Exception:
+                page_map = None
+
+            if page_map:
+                # pass 2 — TOC stamped with real physical pages
+                _render_pdf(page_html(edited, page_map=page_map), out)
+                try:
+                    os.unlink(pass1)
+                except OSError:
+                    pass
+            else:
+                # keep the pass-1 PDF (ordinal TOC) as the deliverable
+                os.replace(pass1, out)
+
+            self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/html ───────────────────────────────────────────────
+    def _handle_narrative_html(self, body):
+        """Write the (edited) narrative as a self-contained HTML file — the same
+        HTML the PDF export builds, minus the Chrome print step. page_html returns
+        a full <!doctype html> document with inline CSS + data-URI logos, so the
+        single file needs no external assets."""
+        doc_dict = body.get('doc')
+        output_path = body.get('output_path')
+        if not doc_dict or not output_path:
+            self._json(200, {'ok': False, 'error': 'Missing document or output path'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_narrative.builder import apply_edits
+            from p6_narrative.html import page_html
+            with open(os.path.abspath(output_path), 'w', encoding='utf-8') as f:
+                f.write(page_html(apply_edits(doc_dict, body.get('edits'))))
+            self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -2788,6 +3483,43 @@ def _find_chrome():
     )
 
 
+def _narrative_page_map(pdf_path, sections):
+    """Second half of the Baseline-Narrative two-pass PDF export: open the pass-1 PDF
+    with PyMuPDF and locate each section's real physical page by its ``"N) Title"``
+    heading text, returning ``{section_number: physical_page}`` (1-based) for the TOC.
+
+    Front matter (cover + Table of Contents) is skipped so a section title that also
+    appears in the TOC never yields a false match. Headings are matched in body order
+    with a forward pointer (every section starts on its own sheet), and whitespace is
+    normalised so a wrapped or re-spaced heading still matches. Returns ``None`` if
+    nothing could be located (caller then keeps the pass-1 ordinals)."""
+    import pymupdf
+    pdf = pymupdf.open(pdf_path)
+    try:
+        texts = [' '.join((pdf[i].get_text() or '').split()) for i in range(pdf.page_count)]
+    finally:
+        pdf.close()
+    start = 0
+    for i, t in enumerate(texts):                       # first body page = after the TOC
+        if 'Table of Contents' in t:
+            start = i + 1
+    page_map, ptr = {}, start
+    for s in sections or []:
+        if not s:
+            continue
+        num = str(s.get('number'))
+        heading = ' '.join(('%s) %s' % (num, s.get('title') or '')).split())
+        if not heading:
+            continue
+        found = next((i for i in range(ptr, len(texts)) if heading in texts[i]), None)
+        if found is None:                               # relax: anywhere in the body
+            found = next((i for i in range(start, len(texts)) if heading in texts[i]), None)
+        if found is not None:
+            page_map[num] = found + 1                    # 1-based physical page
+            ptr = found + 1
+    return page_map or None
+
+
 def make_server():
     # Run migration from legacy history.json if it exists
     legacy = os.path.join(exe_dir(), 'history.json')
@@ -2795,4 +3527,8 @@ def make_server():
         db.migrate_history_json(legacy)
 
     db.init_db()
-    return HTTPServer(('127.0.0.1', 0), Handler)
+    # Threaded so a long local-AI generation (the chat streams for minutes on a CPU)
+    # doesn't block every other request — the UI stays responsive during an answer.
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    srv.daemon_threads = True
+    return srv

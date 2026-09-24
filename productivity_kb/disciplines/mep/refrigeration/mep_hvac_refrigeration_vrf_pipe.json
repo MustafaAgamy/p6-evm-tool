@@ -1,0 +1,204 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "mep.hvac.refrigeration.vrf_pipe",
+  "discipline": "MEP",
+  "work_type": "HVAC",
+  "system": "Refrigeration",
+  "item": "Refrigerant Piping (VRF/VRV)",
+  "aliases": [
+    "vrf pipe",
+    "vrv piping",
+    "refrigerant copper pipe",
+    "split refrigerant piping"
+  ],
+  "project_types": [
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Airport",
+    "Industrial"
+  ],
+  "primary_unit": "m",
+  "why": "VRF/VRV refrigerant copper piping is measured per metre and decomposes into brazed copper pipe installation (cut, braze under nitrogen purge, pressure/vacuum prep), pipe supports, and closed-cell insulation — each a distinct operation.",
+  "assumptions": [
+    "Refrigerant-grade copper, brazed with nitrogen purge",
+    "Blended average for typical VRF liquid/gas line sizes",
+    "Closed-cell elastomeric insulation on both lines",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Refnet joints/headers as loose supply",
+    "Refrigerant charging (vendor)",
+    "Pressure test & vacuum dehydration (commissioning)",
+    "Condensate drain piping",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "pipe_install",
+      "name": "Copper pipe install & braze",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.6,
+        "low": 0.45,
+        "likely": 0.6,
+        "high": 0.85,
+        "output_per_day": 26.7,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Refrigeration Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Brazing kit (oxy-acetylene) + nitrogen purge",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        },
+        {
+          "name": "Tube cutter / flaring / swaging tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Refrigerant copper pipe (incl. waste)",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        },
+        {
+          "name": "Brazing rods + nitrogen",
+          "qty_per_unit": 0.15,
+          "unit": "set/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — VRF copper refrigerant pipe, brazed with N2 purge",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "typical VRF liquid/gas line sizes, blended — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "supports",
+      "name": "Refrigerant pipe supports & clips",
+      "unit": "no",
+      "qty_per_primary": 0.4,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.5,
+        "low": 0.35,
+        "likely": 0.5,
+        "high": 0.7,
+        "output_per_day": 32,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Refrigeration Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Drill / hand tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Clip/clamp + rod + anchor",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — refrigerant pipe support at ~2.5 m spacing",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "cushioned clamps for copper twin runs — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "insulation",
+      "name": "Closed-cell pipe insulation",
+      "unit": "m",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.3,
+        "low": 0.2,
+        "likely": 0.3,
+        "high": 0.45,
+        "output_per_day": 53.3,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Insulator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hand tools / adhesive gun",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Elastomeric closed-cell tube (incl. laps)",
+          "qty_per_unit": 1.05,
+          "unit": "m/m"
+        },
+        {
+          "name": "Adhesive + tape",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf HVAC norm — closed-cell elastomeric refrigerant pipe insulation",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "elastomeric tube on VRF liquid/gas lines — validate with your XER to promote"
+      }
+    }
+  ]
+}

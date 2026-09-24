@@ -12,9 +12,18 @@ new feature only has to emit payloads — no renderer or export code changes.
 TONES = ('neutral', 'accent', 'good', 'warn', 'bad')
 
 
-def kpi(label, value, sub=None, tone='neutral'):
-    """A single KPI figure (label + big value + optional sub-line)."""
-    return {'label': label, 'value': value, 'sub': sub, 'tone': tone}
+def kpi(label, value, sub=None, tone='neutral', spark=None, delta=None, delta_tone='neutral'):
+    """A single KPI figure (label + big value + optional sub-line).
+
+    Optional trend (drawn only on the dashboard): ``spark`` = list of recent
+    values shown as an axis-less mini line under the value; ``delta`` = a short
+    change string vs the previous update (e.g. ``'+0.03'`` or ``'▲ 3 d'``);
+    ``delta_tone`` = the delta's colour, defaulting to ``'neutral'`` until change
+    thresholds are confirmed.
+    """
+    return {'label': label, 'value': value, 'sub': sub, 'tone': tone,
+            'spark': list(spark) if spark else None, 'delta': delta,
+            'delta_tone': delta_tone}
 
 
 def kpi_group(items):
@@ -38,7 +47,7 @@ def table(columns, rows, aligns=None):
     }
 
 
-def bars(rows, series, note=None, axis_max=None):
+def bars(rows, series, note=None, axis_max=None, style=None):
     """Horizontal comparison bars (e.g. Planned vs Actual, or counts by schedule).
 
     ``series``: list of ``{'label': str, 'tone': str}`` — one measure per bar row.
@@ -46,9 +55,13 @@ def bars(rows, series, note=None, axis_max=None):
         aligned to ``series``.
     ``axis_max``: if given, bar width = value / axis_max (for counts/days/money);
         if omitted, ``values`` are treated as already on a 0..100 percent scale.
+    ``style``: ``None`` (default) or ``'variance'`` — a variance row draws its bar
+        to the actual value with a tick at the row's ``target`` and the shortfall
+        between actual and target shaded. Variance rows carry ``target`` (num) and
+        optional ``target_display`` (str) beside ``values``/``display``.
     """
     return {'kind': 'bars', 'series': list(series), 'rows': list(rows),
-            'note': note, 'axis_max': axis_max}
+            'note': note, 'axis_max': axis_max, 'style': style}
 
 
 def segbar(segments, note=None):
@@ -78,6 +91,34 @@ def text(paragraphs):
 def note(message, tone='info'):
     """A short callout line. ``tone`` = ``'info'|'good'|'warn'|'bad'``."""
     return {'kind': 'note', 'message': message, 'tone': tone}
+
+
+def line(series, x=None, y_max=None, ref=None, note=None):
+    """A multi-series line chart for trends over time (e.g. SPI/CPI per update).
+
+    ``series``: list of ``{'label': str, 'tone': str, 'points': [num|None, ...]}``
+        aligned to ``x``; a ``None`` point is a gap (skipped), never drawn as 0.
+    ``x``: optional list of x-axis labels (e.g. data dates).
+    ``y_max``: optional fixed y max (else derived from the data).
+    ``ref``: optional ``{'value': num, 'label': str}`` horizontal reference line
+        (e.g. the 1.00 SPI/CPI target) — the dashboard never invents this value.
+    ``note``: optional caption.
+    """
+    return {'kind': 'line', 'series': list(series), 'x': list(x) if x else None,
+            'y_max': y_max, 'ref': ref, 'note': note}
+
+
+def status_header(domains, verdict=None):
+    """Executive status header: per-domain status chips + an optional single verdict.
+
+    ``domains``: list of ``{'domain': str, 'tone': str, 'headline': str}`` — one
+        chip per assessed area; ``tone='neutral'`` reads as "Not run", never a
+        false green.
+    ``verdict``: optional ``{'label': str, 'tone': str, 'note': str}`` — the single
+        overall On-track / At-risk / Critical label. Left ``None`` until its rule is
+        configured, so the header shows only the honest per-domain chips.
+    """
+    return {'kind': 'status_header', 'domains': list(domains), 'verdict': verdict}
 
 
 def group(blocks):

@@ -51,9 +51,12 @@ def test_catalog_includes_every_feature(temp_db, xml_path):
     registry.clear_providers()
     ctx = SpecialContext(_seed(xml_path))
     features = {g['feature'] for g in registry.catalog(ctx)}
-    for f in ('evm', 'audit', 'calendar', 'update', 'constructability',
-              'critpath', 'compare', 'period'):
+    # Constructability was removed from the Studio (Ibrahim: no constructability review
+    # belongs in the Special Report). Every other feature must still be present.
+    for f in ('evm', 'audit', 'calendar', 'update',
+              'critpath', 'compare', 'period', 'revcompare', 'narrative'):
         assert f in features, f
+    assert 'constructability' not in features
 
 
 # ── audit (parse-free) ───────────────────────────────────────────────────────
@@ -88,15 +91,6 @@ def test_update_renders_via_registry(temp_db, xml_path):
     _payloads_ok(registry.render(ctx, ids))   # no raise even on the minimal fixture
 
 
-# ── constructability (recompute) ─────────────────────────────────────────────
-def test_constructability_renders(temp_db, xml_path):
-    registry.clear_providers()
-    ctx = SpecialContext(_seed(xml_path))
-    groups = {g['feature']: g for g in registry.catalog(ctx)}
-    ids = [i['id'] for i in groups['constructability']['items']]
-    _payloads_ok(registry.render(ctx, ids))
-
-
 # ── two-file features — needs_input / attach / auto-run ───────────────────────
 def test_twofile_needs_input_without_attachment(temp_db, xml_path):
     registry.clear_providers()
@@ -115,8 +109,11 @@ def test_twofile_needs_input_without_attachment(temp_db, xml_path):
 def test_twofile_ready_with_attachment(temp_db, xml_path):
     registry.clear_providers()
     pid = _seed(xml_path)
-    # attach the fixture as a stand-in baseline + previous → features turn ready + auto-run
-    ctx = SpecialContext(pid, inputs={'baseline': str(xml_path), 'previous': str(xml_path)})
+    # attach the fixture as a stand-in baseline + previous + corrected → every two-/three-file
+    # item turns ready + auto-runs (the Consultant Review impact section needs the 3rd
+    # 'corrected' file, so it is attached here too).
+    ctx = SpecialContext(pid, inputs={'baseline': str(xml_path), 'previous': str(xml_path),
+                                      'corrected': str(xml_path)})
     groups = {g['feature']: g for g in registry.catalog(ctx)}
     for feat in ('critpath', 'compare', 'period'):
         assert all(i['availability'] == 'ready' for i in groups[feat]['items']), feat
@@ -158,7 +155,10 @@ def test_calendar_weather_gated_without_estimate(temp_db, xml_path):
     ctx = SpecialContext(_seed(xml_path))          # calendar saved, no weather estimate
     cal = {g['feature']: g for g in registry.catalog(ctx)}['calendar']['items']
     avail = {i['id']: i['availability'] for i in cal}
-    assert avail['calendar:weather'] == 'no_data'
+    # The Bad-Weather sub-sections (rendered via feature='weather') are gated no_data
+    # without a weather estimate — never a 'ready' item that renders empty.
+    assert avail['calendar:wx_dashboard'] == 'no_data'
+    assert avail['calendar:wx_timeline'] == 'no_data'
     ready_ids = [i['id'] for i in cal if i['availability'] == 'ready']
     for r in registry.render(ctx, ready_ids):
         assert r['payload']['kind'] != 'no_data', r['id']

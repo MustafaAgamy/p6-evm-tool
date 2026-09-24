@@ -1,0 +1,102 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.earthworks.excavation.rock_excavation",
+  "discipline": "Civil",
+  "work_type": "Earthworks",
+  "system": "Excavation",
+  "item": "Rock Excavation (ripping / breaking)",
+  "aliases": [
+    "rock excavation",
+    "hard rock excavation",
+    "breaking rock",
+    "hammer excavation"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Excavation of hard/rock strata by hydraulic breaker mounted on an excavator, then loading the broken material. Much slower and more plant-intensive than common soil.",
+  "assumptions": [
+    "Non-rippable to medium-hard rock broken by hydraulic hammer",
+    "Single 8 hr/day shift",
+    "No blasting",
+    "Excavator-mounted breaker plus loading excavator",
+    "In-situ (bank) m3"
+  ],
+  "exclusions": [
+    "Drilling & blasting",
+    "Dewatering",
+    "Haulage/disposal fees",
+    "Very hard massive rock requiring blasting"
+  ],
+  "components": [
+    {
+      "component_id": "break_load_rock",
+      "name": "Break & load rock",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.2,
+        "low": 0.15,
+        "likely": 0.2,
+        "high": 0.3,
+        "output_per_day": 120,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Breaker Operator",
+          "count": 1
+        },
+        {
+          "trade": "Banksman",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Hydraulic breaker on excavator",
+          "basis": "utilization",
+          "value": 0.067,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Loading excavator",
+          "basis": "utilization",
+          "value": 0.05,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Tipper trucks (shared)",
+          "basis": "utilization",
+          "value": 0.08,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — hydraulic hammer rock breaking (soft–medium rock)",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Rippable to medium-hard rock, hammer method (no blasting) — validate with your XER to promote"
+      }
+    }
+  ]
+}

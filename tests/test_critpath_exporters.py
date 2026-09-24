@@ -3,7 +3,7 @@ from datetime import datetime
 import report_theme
 from p6_evm.parser import ScheduleData
 from p6_critpath.analysis import build_report
-from p6_critpath.exporters import render_html, to_excel
+from p6_critpath.exporters import render_html, to_excel, critpath_excel_sections
 
 
 def _sched(data_date, chain, ms_finish, ms_bl, ms_tf, extra):
@@ -74,6 +74,50 @@ def test_to_excel_writes_expected_sheets(tmp_path):
     from openpyxl import load_workbook
     out = tmp_path / 'cpa.xlsx'
     to_excel(_report(), str(out))
+    assert out.exists() and out.stat().st_size > 0     # a real, non-empty .xlsx
     wb = load_workbook(out)
     assert set(wb.sheetnames) >= {'Census', 'Milestones', 'Driving path (current)', 'Float migration'}
-    assert wb['Census']['A1'].value == 'Measure'
+    # The workbook now mirrors the report sections via the shared writer: each sheet opens
+    # with its section title, then the (self-explaining) header row.
+    assert wb['Census']['A1'].value == 'Critical & near-critical census'
+    census_vals = [c.value for col in wb['Census'].iter_cols() for c in col]
+    assert 'Measure' in census_vals                    # the neutral header row is present
+    assert any(str(v or '').startswith('Total activities') for v in census_vals)
+    assert any(str(v or '').startswith('CPLI') for v in census_vals)
+
+
+def test_critpath_excel_sections_structure():
+    r = _report()
+    sheets = critpath_excel_sections(r)
+    names = [s['name'] for s in sheets]
+    assert names[:3] == ['Census', 'Milestones', 'Driving path (current)']
+    assert 'Float migration' in names                  # base schedule loaded → section present
+
+    # Census mirrors the on-screen numbers exactly (roles = previous, current).
+    census = next(s for s in sheets if s['name'] == 'Census')
+    blk = census['blocks'][0]
+    hdr = blk['headers']
+    assert hdr == ['Measure', 'Previous update', 'Current update']
+    ci, pi = hdr.index('Current update'), hdr.index('Previous update')
+    crit = next(row for row in blk['rows'] if row[0].startswith('Critical activities — count'))
+    assert crit[ci] == r['census']['current']['critical']
+    assert crit[pi] == r['census']['previous']['critical']
+
+    # Driving path colour-codes criticality via a severity column + a sheet legend.
+    dp = next(s for s in sheets if s['name'] == 'Driving path (current)')
+    dblk = dp['blocks'][0]
+    assert dblk['severity_col'] == dblk['headers'].index('Criticality')
+    assert dp.get('legend') and dp['legend'][0][0] == 'Critical'
+    # every criticality cell is a valid severity word (or blank) so it colour-matches
+    sc = dblk['severity_col']
+    assert all(row[sc] in ('Critical', 'High', 'Low', '') for row in dblk['rows'])
+
+
+def test_critpath_excel_sections_write_roundtrip(tmp_path):
+    """The sections structure writes a valid workbook through the shared writer."""
+    from openpyxl import load_workbook
+    from p6_evm.xlsx_writer import write_sections_xlsx
+    out = tmp_path / 'cpa_sections.xlsx'
+    write_sections_xlsx(str(out), critpath_excel_sections(_report()))
+    wb = load_workbook(out)
+    assert {'Census', 'Milestones', 'Driving path (current)', 'Float migration'} <= set(wb.sheetnames)

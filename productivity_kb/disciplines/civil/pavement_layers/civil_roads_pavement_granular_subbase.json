@@ -1,0 +1,113 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "civil.roads.pavement.granular_subbase",
+  "discipline": "Civil",
+  "work_type": "Roads",
+  "system": "Pavement Layers",
+  "item": "Granular Subbase Course",
+  "aliases": [
+    "subbase",
+    "granular subbase",
+    "sub-base course",
+    "GSB"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Airport",
+    "Marine/Port",
+    "Power Plant",
+    "Oil & Gas"
+  ],
+  "primary_unit": "m3",
+  "why": "Supply, spread, grade and compact granular subbase over prepared subgrade as the lower structural pavement layer; grader-and-roller operation measured as compacted m3.",
+  "assumptions": [
+    "Approved granular subbase material",
+    "Placed to design thickness in one/two layers",
+    "Compaction to specified density",
+    "Single 8 hr/day shift",
+    "Compacted (in-place) m3"
+  ],
+  "exclusions": [
+    "Subgrade preparation/proof-rolling",
+    "Density & CBR testing",
+    "Supply of rejected material",
+    "Kerb/edge restraints"
+  ],
+  "components": [
+    {
+      "component_id": "spread_compact_subbase",
+      "name": "Spread, grade & compact subbase",
+      "unit": "m3",
+      "qty_per_primary": 1.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.107,
+        "low": 0.08,
+        "likely": 0.107,
+        "high": 0.15,
+        "output_per_day": 300,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Grader Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Motor grader",
+          "basis": "utilization",
+          "value": 0.027,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Vibratory roller",
+          "basis": "utilization",
+          "value": 0.027,
+          "unit": "h/m3"
+        },
+        {
+          "name": "Water bowser",
+          "basis": "utilization",
+          "value": 0.015,
+          "unit": "h/m3"
+        }
+      ],
+      "material": [
+        {
+          "name": "Granular subbase aggregate (loose)",
+          "qty_per_unit": 1.18,
+          "unit": "m3/m3"
+        },
+        {
+          "name": "Water for compaction",
+          "qty_per_unit": 0.06,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/Gulf industry norm — grader/roller placement of granular subbase",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Open carriageway subbase, compacted m3 — validate with your XER to promote"
+      }
+    }
+  ]
+}

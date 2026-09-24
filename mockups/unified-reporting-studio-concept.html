@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporting Studio — concept</title>
+<style>
+  :root{
+    --bg:#eef2f7; --card-bg:#ffffff; --border:#e2e8f0; --hair:#eef1f6;
+    --text:#1e293b; --ink-soft:#41506a; --muted:#64748b;
+    --accent:#2563eb; --accent-dark:#1d4ed8; --accent-soft:#dbe6ff;
+    --danger:#c02626; --success:#15803d; --warning:#b45309;
+    --row-hover:rgba(0,0,0,.03); --track:#e6ebf3;
+    --chart-1:#3b6fa8; --chart-2:#7ba63c; --chart-3:#c0764a; --chart-4:#6b5bbd; --chart-5:#2f9c9c; --chart-6:#b8497f;
+    --pd-phead:rgba(59,130,246,.14); --pd-phead-t:var(--accent);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  .wrap{max-width:1210px;margin:0 auto;padding:22px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .note-top{background:linear-gradient(90deg,#e7f0ff,#eef4ff);border:1px solid #cfe0ff;
+    border-radius:10px;padding:12px 15px;margin:0 0 16px;color:#26436e;font-size:13px}
+  .note-top b{color:#153a6b}
+  .newtag{display:inline-block;background:var(--accent);color:#fff;font-size:9px;font-weight:800;
+    letter-spacing:.04em;padding:1px 6px;border-radius:9px;vertical-align:middle;margin-left:5px}
+
+  .shell{display:grid;grid-template-columns:288px 1fr;gap:16px;align-items:start}
+  .card{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .card > h2{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+    margin:0;padding:13px 15px;border-bottom:1px solid var(--border)}
+
+  /* Left shared picker */
+  .picker{max-height:880px;overflow:auto}
+  .picker .body{padding:9px 11px 14px}
+  .hint{color:var(--muted);font-size:12px;padding:2px 4px 9px;line-height:1.45}
+  .feat{margin:7px 0 3px}
+  .fhead{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;background:var(--bg);font-weight:700;font-size:12.5px}
+  .fhead .cnt{margin-left:auto;color:var(--muted);font-weight:600;font-size:10.5px}
+  .items{padding:3px 3px 2px 8px}
+  .it{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:6px;font-size:12.5px}
+  .it:hover{background:var(--row-hover)}
+  .it input{accent-color:var(--accent);width:15px;height:15px}
+  .it .badge{margin-left:auto;font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .muted-feat{opacity:.5}
+  .addmore{margin-top:10px;text-align:center;color:var(--muted);font-size:11.5px;border:1.5px dashed var(--border);border-radius:8px;padding:9px}
+
+  /* Right stage */
+  .stage-top{display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid var(--border)}
+  .switch{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:3px}
+  .switch button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:700;font-size:13px;padding:8px 15px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .switch button.on{background:var(--accent);color:#fff}
+  .switch svg{width:15px;height:15px}
+  .stage-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .pill{border:1px solid var(--border);border-radius:20px;padding:4px 11px;color:var(--muted);font-size:11px;background:var(--card-bg)}
+  .pill.accent{border-color:#bcd0f5;color:var(--accent);background:var(--accent-soft)}
+  .stage-body{padding:16px}
+
+  /* ── DASHBOARD (approved .pd-* + marked enhancements) ─────────────────── */
+  .pd-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .pd-mode{font-size:11px;color:var(--muted);border:1px dashed var(--border);border-radius:20px;padding:4px 10px}
+  .pd-actions{margin-left:auto;display:flex;gap:8px}
+  .btn-sec,.btn-pri{font:inherit;font-size:12px;font-weight:600;border-radius:7px;padding:6px 12px;cursor:pointer}
+  .btn-sec{background:var(--card-bg);border:1px solid var(--border);color:var(--ink-soft)}
+  .btn-pri{background:var(--accent);border:1px solid var(--accent);color:#fff}
+
+  .pd-sheet{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+  .pd-letterhead{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:6px;padding:9px 14px;margin-bottom:12px;background:linear-gradient(180deg,var(--pd-phead),transparent)}
+  .pd-logo-slot{width:74px;height:38px;border:1px dashed var(--border);border-radius:4px;display:grid;place-items:center;color:var(--muted);font-size:9px}
+  .pd-ttl{flex:1;text-align:center}
+  .pd-h-title{font-size:19px;font-weight:800;color:var(--text)}
+  .pd-h-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .fresh{display:inline-block;margin-left:8px;background:var(--success);color:#fff;font-size:9px;font-weight:700;padding:1px 7px;border-radius:9px}
+
+  /* Exec status header (NEW) */
+  .pd-exec{border:1px solid var(--border);border-left:4px solid var(--warning);border-radius:6px;padding:10px 13px;margin-bottom:12px;background:linear-gradient(180deg,rgba(180,83,9,.07),transparent);display:flex;gap:16px;align-items:center;flex-wrap:wrap;position:relative}
+  .pd-verdict-lab{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .pd-verdict-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+  .pd-verdict-note{font-size:10px;color:var(--muted);margin-top:3px;font-style:italic}
+  .pd-chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .pd-chip{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:8px;padding:5px 9px;background:var(--card-bg);font-size:10.5px}
+  .pd-chip .cl{font-weight:800;font-size:10px;width:15px;height:15px;border-radius:3px;color:#fff;display:grid;place-items:center;flex:none}
+  .pd-chip .cn{color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-size:8.5px}
+  .pd-chip .cv{font-weight:800;font-size:11.5px}
+  .pd-chip.grey .cl{background:var(--muted)} .pd-chip.warn .cl{background:var(--warning)} .pd-chip.bad .cl{background:var(--danger)} .pd-chip.good .cl{background:var(--success)}
+
+  .pd-kpirow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:12px}
+  .pd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:10px;grid-auto-rows:1fr}
+  .pd-kpi,.pd-panel{background:var(--card-bg);border:1px solid var(--border);border-radius:6px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .pd-panel.span2{grid-column:span 2}
+  /* RAG accent rail (NEW) — rail only, no body tint */
+  .rail-bad{border-left:3px solid var(--danger)} .rail-warn{border-left:3px solid var(--warning)} .rail-good{border-left:3px solid var(--success)}
+  .rag{position:absolute;left:6px;top:6px;width:14px;height:14px;border-radius:3px;color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;z-index:2}
+  .rag.bad{background:var(--danger)} .rag.warn{background:var(--warning)} .rag.good{background:var(--success)}
+  .pd-k-head,.pd-p-head{background:var(--pd-phead);color:var(--pd-phead-t);font-weight:700;padding:5px 8px;border-bottom:1px solid var(--border);text-align:center;position:relative}
+  .pd-k-head{text-transform:uppercase;letter-spacing:.4px;font-size:9.5px}
+  .pd-p-head{font-size:11px}
+  .pd-p-head .nw{position:absolute;right:6px;top:4px;background:var(--accent);color:#fff;font-size:8px;font-weight:800;padding:1px 5px;border-radius:8px}
+  .pd-k-body{padding:8px 8px 10px;text-align:center}
+  .pd-p-body{padding:11px 13px;flex:1}
+  .pd-kv{font-size:21px;font-weight:800}
+  .pd-note{font-size:10px;color:var(--muted);margin-top:4px}
+  .pd-trend{font-size:10px;margin-left:5px;font-weight:700}
+  .spark{margin:3px auto 0;display:block}
+  .pd-good{color:var(--success)} .pd-warn{color:var(--warning)} .pd-bad{color:var(--danger)} .pd-neutral{color:var(--text)}
+  .pd-score{display:flex;align-items:center;gap:12px;justify-content:center}
+  .pd-band{font-weight:700;font-size:12px}
+  .pd-finds .pd-find{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px;text-align:left;align-items:flex-start}
+  .pd-finds .pd-find:last-child{border-bottom:none}
+  .pd-sev{width:15px;height:15px;border-radius:3px;color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;flex:none;margin-top:1px}
+  .pd-sev.bad{background:var(--danger)} .pd-sev.warn{background:var(--warning)} .pd-sev.good{background:var(--success)}
+  .pd-fsrc{color:var(--muted);font-size:9.5px}
+  .pd-more{font-size:10px;color:var(--accent);text-align:center;padding-top:7px}
+  .pd-legend{display:flex;gap:11px;flex-wrap:wrap;font-size:9.5px;color:var(--muted);margin-top:6px;justify-content:center}
+  .pd-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+  /* variance bar (NEW) */
+  .vbar{display:grid;grid-template-columns:96px 1fr 52px;align-items:center;gap:8px;margin:9px 0;font-size:10.5px}
+  .vbl{color:var(--ink-soft)}
+  .vtrk{position:relative;height:14px;background:rgba(148,163,184,.16);border-radius:3px;overflow:hidden}
+  .vact{position:absolute;left:0;top:0;height:100%;border-radius:3px}
+  .vshort{position:absolute;top:0;height:100%;background:repeating-linear-gradient(45deg,rgba(192,38,38,.16),rgba(192,38,38,.16) 3px,transparent 3px,transparent 6px)}
+  .vtick{position:absolute;top:-2px;height:18px;width:2px;background:var(--text)}
+  .vval{text-align:right;font-weight:700}
+  .drill{font-size:9.5px;color:var(--muted);text-align:center;margin-top:9px;padding-top:7px;border-top:1px dashed var(--border)}
+
+  /* Document view */
+  .doc{background:#fff;color:#1a2230;border:1px solid var(--border);border-radius:8px;padding:28px 32px;font-size:13px;line-height:1.5}
+  .doc .dhead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #1e3a8a;padding-bottom:13px}
+  .doc .dlogo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px}
+  .doc .dt1{font-size:18px;font-weight:800;color:#0f1e3d}
+  .doc .dt2{font-size:12px;color:#5a6a82}
+  .doc .dmeta{margin-left:auto;text-align:right;font-size:11px;color:#5a6a82}
+  .toc{background:#f3f6fb;border:1px solid #dbe4f0;border-radius:6px;padding:11px 15px;margin:16px 0;font-size:12.5px}
+  .toc b{display:block;color:#0f1e3d;margin-bottom:5px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase}
+  .toc ol{margin:0;padding-left:20px;color:#334}.toc li{margin:3px 0}
+  .picknote{font-size:10.5px;color:#2563eb;background:#eef4ff;border:1px solid #d5e4ff;border-radius:5px;padding:5px 9px;margin-top:8px}
+  .sec{margin:18px 0}
+  .sec h4{font-size:14px;color:#0f1e3d;margin:0 0 3px;border-left:4px solid #2563eb;padding-left:9px}
+  .sec .scap{color:#5a6a82;font-size:11px;margin:0 0 9px;padding-left:13px}
+  table.dt{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  table.dt th{background:#eef3fa;color:#26334a;text-align:left;padding:7px 9px;border:1px solid #dbe4f0;font-weight:700}
+  table.dt td{padding:6px 9px;border:1px solid #e6ecf4}
+  table.dt td.r{text-align:right;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;font-size:10px;padding:1px 7px;border-radius:4px;font-weight:700}
+  .tag.b{background:#fde8e8;color:#b42318} .tag.g{background:#e6f6ec;color:#0a7f37} .tag.w{background:#fff3e0;color:#b25e00}
+  .mb{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:11.5px}
+  .mb .nm{width:120px;color:#5a6a82}
+  .mb .tk{flex:1;height:13px;background:#eef2f8;border-radius:3px;position:relative;overflow:hidden}
+  .mb .tk .pl{position:absolute;height:100%;background:#c7d3e6}.mb .tk .ac{position:absolute;height:100%;background:#2563eb}
+  .mb .pc{width:96px;text-align:right;color:#26334a}
+
+  .footc{color:var(--muted);font-size:12px;text-align:center;margin-top:20px;padding-top:13px;border-top:1px solid var(--border)}
+
+  /* Options + numbers */
+  .opts{margin-top:26px}
+  .opts h2{font-size:15px;margin:0 0 6px}
+  .opts p.lead{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .optgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .opt{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:14px 15px}
+  .opt.reco{border-color:#7fbf98;box-shadow:0 0 0 1px #cfe9d8 inset}
+  .opt .tag2{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .opt.reco .tag2{color:var(--success)}
+  .opt h3{margin:6px 0 8px;font-size:14px}
+  .opt p{margin:0 0 8px;color:var(--ink-soft);font-size:12.5px}
+  .opt ul{margin:0 0 8px 16px;padding:0;color:var(--ink-soft);font-size:11.5px}
+  .opt li{margin:2px 0}
+  .opt .tr{color:var(--muted);font-size:11.5px}
+  .yours{margin-top:18px;background:#fffaf0;border:1px solid #f0dcb8;border-radius:10px;padding:14px 16px}
+  .yours h2{font-size:14px;margin:0 0 4px;color:#8a5a12}
+  .yours p{font-size:12px;color:#6b5324;margin:0 0 8px}
+  .yours ol{margin:0 0 0 18px;color:#5c4a24;font-size:12px}.yours li{margin:4px 0}
+  @media(max-width:920px){.shell{grid-template-columns:1fr}.optgrid{grid-template-columns:1fr}.pd-chips{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reporting Studio — one place, two outputs</h1>
+  <p class="sub">Concept · merges <b>Special Report</b> + <b>Professional Dashboard</b> · Dashboard keeps your approved one-pager style, with proposed upgrades marked <span class="newtag">NEW</span></p>
+
+  <div class="note-top">
+    <b>The idea in one line:</b> pick your results <b>once</b> from the features you actually need — then view the same data as a detailed <b>Document</b> or your visual <b>Dashboard</b>. Flip the switch below. The dashboard style is exactly your approved one; the <span class="newtag">NEW</span> tiles are the enhancements a design panel proposed to make it stronger.
+  </div>
+
+  <div class="shell">
+    <!-- LEFT: shared curated picker -->
+    <div class="card picker">
+      <h2>Choose what to include</h2>
+      <div class="body">
+        <div class="hint">Only the features whose results you need — not everything. This one selection feeds both the Document and the Dashboard.</div>
+        <div class="feat">
+          <div class="fhead">📊 EVM Performance <span class="cnt">4 / 6</span></div>
+          <div class="items">
+            <label class="it"><input type="checkbox" checked>Planned % vs Actual % <span class="badge">kpi</span></label>
+            <label class="it"><input type="checkbox" checked>SPI / CPI <span class="badge">kpi</span></label>
+            <label class="it"><input type="checkbox" checked>Delay (days) <span class="badge">kpi</span></label>
+            <label class="it"><input type="checkbox" checked>Discipline progress gap <span class="badge">chart</span></label>
+            <label class="it"><input type="checkbox">Planned vs Actual S-curve <span class="badge">chart</span></label>
+            <label class="it"><input type="checkbox">PV / EV / AC <span class="badge">kpi</span></label>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="fhead">🩺 Schedule Audit <span class="cnt">2 / 5</span></div>
+          <div class="items">
+            <label class="it"><input type="checkbox" checked>Float Health score <span class="badge">score</span></label>
+            <label class="it"><input type="checkbox" checked>What needs attention <span class="badge">findings</span></label>
+            <label class="it"><input type="checkbox">Out-of-Sequence log <span class="badge">table</span></label>
+            <label class="it"><input type="checkbox">Lag register <span class="badge">table</span></label>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="fhead">📅 Calendar &amp; Weather <span class="cnt">1 / 3</span></div>
+          <div class="items">
+            <label class="it"><input type="checkbox" checked>Weather-adjusted finish <span class="badge">chart</span></label>
+            <label class="it"><input type="checkbox">Working-days histogram <span class="badge">chart</span></label>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="fhead">🧭 Critical Path <span class="cnt">1 / 4</span></div>
+          <div class="items">
+            <label class="it"><input type="checkbox" checked>CPLI health <span class="badge">score</span></label>
+            <label class="it"><input type="checkbox">Milestone slip <span class="badge">table</span></label>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="fhead">🕓 Trends (from weekly updates) <span class="cnt">1 / 2</span></div>
+          <div class="items">
+            <label class="it"><input type="checkbox" checked>SPI / CPI trend <span class="badge">chart</span></label>
+            <label class="it"><input type="checkbox">Update history table <span class="badge">table</span></label>
+          </div>
+        </div>
+        <div class="feat muted-feat"><div class="fhead">🧠 Constructability <span class="cnt">0</span></div></div>
+        <div class="feat muted-feat"><div class="fhead">📈 Update Analysis <span class="cnt">0</span></div></div>
+        <div class="addmore">Every feature registers its results here <b>once</b> — new features appear in both views automatically.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: switching stage -->
+    <div class="card">
+      <div class="stage-top">
+        <div class="switch">
+          <button id="btnDash" class="on" onclick="setMode('dash')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            Dashboard
+          </button>
+          <button id="btnDoc" onclick="setMode('doc')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v15H6z"/><path d="M9 8h6M9 12h8M9 16h8"/></svg>
+            Document
+          </button>
+        </div>
+        <div class="stage-right">
+          <span class="pill accent">Grain Bulk Terminal</span>
+          <span class="pill">Appearance: Light</span>
+        </div>
+      </div>
+
+      <div class="stage-body">
+        <!-- DASHBOARD VIEW -->
+        <div id="viewDash">
+          <div class="pd-toolbar">
+            <span class="pd-mode">View mode</span>
+            <div class="pd-actions"><button class="btn-sec">Export PDF</button><button class="btn-sec">Export Excel</button><button class="btn-pri">⚙ Edit Dashboard</button></div>
+          </div>
+
+          <div class="pd-sheet">
+            <div class="pd-letterhead">
+              <div class="pd-logo-slot">LOGO</div>
+              <div class="pd-ttl">
+                <div class="pd-h-title">Grain Bulk Terminal — East Port Said</div>
+                <div class="pd-h-sub">Weekly Management Dashboard · Data date 19 Jul 2026 · Update #14 <span class="fresh">current · 5 days ago</span></div>
+              </div>
+              <div class="pd-logo-slot">LOGO</div>
+            </div>
+
+            <!-- NEW · Executive status header -->
+            <div class="pd-exec">
+              <div>
+                <div class="pd-verdict-lab pd-warn">AT RISK <span class="rag warn" style="position:static">A</span></div>
+                <div class="pd-verdict-sub">Schedule slipping (SPI 0.87, +34 d); cost on track (CPI 1.02).</div>
+                <div class="pd-verdict-note">Overall verdict is opt-in until you set the rule · shows “Partial” when a domain wasn’t run.</div>
+              </div>
+              <div class="pd-chips">
+                <div class="pd-chip warn"><span class="cl">A</span><div><div class="cn">EVM</div><div class="cv">SPI 0.87</div></div></div>
+                <div class="pd-chip warn"><span class="cl">A</span><div><div class="cn">Sched. quality</div><div class="cv">72/100</div></div></div>
+                <div class="pd-chip warn"><span class="cl">A</span><div><div class="cn">Critical path</div><div class="cv">CPLI 0.94</div></div></div>
+                <div class="pd-chip warn"><span class="cl">A</span><div><div class="cn">Weather</div><div class="cv">+7 wd</div></div></div>
+                <div class="pd-chip grey"><span class="cl">–</span><div><div class="cn">Buildability</div><div class="cv">Not run</div></div></div>
+              </div>
+            </div>
+
+            <!-- KPI row — NEW: delta + mini sparkline + RAG rail/letter -->
+            <div class="pd-kpirow">
+              <div class="pd-kpi rail-warn"><span class="rag warn">A</span><div class="pd-k-head">Progress · Act vs Plan</div><div class="pd-k-body"><div class="pd-kv pd-warn">40.4%<span class="pd-trend pd-bad">▲2.1</span></div><svg class="spark" width="92" height="20" viewBox="0 0 92 20"><polyline points="2,17 15,16 28,15 41,13 54,12 67,10 80,8 90,7" fill="none" stroke="var(--chart-3)" stroke-width="1.5"/></svg><div class="pd-note">Planned 61.4% · −21.0 pts</div></div></div>
+              <div class="pd-kpi rail-bad"><span class="rag bad">R</span><div class="pd-k-head">SPI</div><div class="pd-k-body"><div class="pd-kv pd-bad">0.87<span class="pd-trend pd-bad">▼0.03</span></div><svg class="spark" width="92" height="20" viewBox="0 0 92 20"><polyline points="2,4 15,5 28,6 41,8 54,9 67,11 80,12 90,13" fill="none" stroke="var(--danger)" stroke-width="1.5"/></svg><div class="pd-note">3 weeks declining</div></div></div>
+              <div class="pd-kpi rail-good"><span class="rag good">G</span><div class="pd-k-head">CPI</div><div class="pd-k-body"><div class="pd-kv pd-good">1.02<span class="pd-trend pd-good">▲0.01</span></div><svg class="spark" width="92" height="20" viewBox="0 0 92 20"><polyline points="2,11 15,11 28,10 41,10 54,9 67,9 80,8 90,8" fill="none" stroke="var(--success)" stroke-width="1.5"/></svg><div class="pd-note">stable on cost</div></div></div>
+              <div class="pd-kpi rail-bad"><span class="rag bad">R</span><div class="pd-k-head">Delay</div><div class="pd-k-body"><div class="pd-kv pd-bad">+34 d<span class="pd-trend pd-bad">▲6</span></div><svg class="spark" width="92" height="20" viewBox="0 0 92 20"><polyline points="2,16 15,15 28,13 41,12 54,10 67,8 80,6 90,4" fill="none" stroke="var(--danger)" stroke-width="1.5"/></svg><div class="pd-note">vs baseline finish</div></div></div>
+              <div class="pd-kpi rail-warn"><span class="rag warn">A</span><div class="pd-k-head">Float Health</div><div class="pd-k-body"><div class="pd-kv pd-warn">72<span class="pd-trend pd-good">▲3</span></div><svg class="spark" width="92" height="20" viewBox="0 0 92 20"><polyline points="2,13 15,12 28,12 41,11 54,11 67,10 80,9 90,9" fill="none" stroke="var(--warning)" stroke-width="1.5"/></svg><div class="pd-note">/ 100 · Audit</div></div></div>
+            </div>
+
+            <div class="pd-grid">
+              <!-- NEW · Performance trend -->
+              <div class="pd-panel span2">
+                <div class="pd-p-head">Performance trend — SPI &amp; CPI over the weekly updates<span class="nw">NEW</span></div>
+                <div class="pd-p-body">
+                  <svg width="100%" viewBox="0 0 300 120" preserveAspectRatio="xMidYMid meet">
+                    <line x1="26" y1="100" x2="296" y2="100" stroke="var(--border)"/><line x1="26" y1="8" x2="26" y2="100" stroke="var(--border)"/>
+                    <line x1="26" y1="46" x2="296" y2="46" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4"/><text x="292" y="43" font-size="7" fill="var(--muted)" text-anchor="end">1.00 target</text>
+                    <polyline points="26,44 64,45 102,47 140,49 178,52 216,55 254,58 290,60" fill="none" stroke="var(--chart-1)" stroke-width="2"/>
+                    <polyline points="26,48 64,47 102,46 140,45 178,45 216,44 254,44 290,43" fill="none" stroke="var(--chart-2)" stroke-width="2"/>
+                  </svg>
+                  <div class="pd-legend"><span><i style="background:var(--chart-1)"></i>SPI</span><span><i style="background:var(--chart-2)"></i>CPI</span><span><i style="background:var(--muted)"></i>1.00 reference</span></div>
+                </div>
+              </div>
+
+              <!-- NEW · What needs attention this week -->
+              <div class="pd-panel rail-bad">
+                <div class="pd-p-head">What needs attention this week<span class="nw">NEW</span></div>
+                <div class="pd-p-body">
+                  <div class="pd-finds">
+                    <div class="pd-find"><span class="pd-sev bad">R</span><div><div>14 activities on negative float</div><div class="pd-fsrc">Schedule Audit · Float</div></div></div>
+                    <div class="pd-find"><span class="pd-sev bad">R</span><div><div>Silo 9 milestone slipped +6 d this period</div><div class="pd-fsrc">Critical Path · Milestone slip</div></div></div>
+                    <div class="pd-find"><span class="pd-sev warn">A</span><div><div>23 out-of-sequence relationships</div><div class="pd-fsrc">Schedule Audit · OOS</div></div></div>
+                    <div class="pd-find"><span class="pd-sev warn">A</span><div><div>Weather may add +7 wd to finish</div><div class="pd-fsrc">Calendar · Weather</div></div></div>
+                  </div>
+                  <div class="pd-more">+ 5 more in the report ▸</div>
+                </div>
+              </div>
+
+              <!-- NEW · Discipline progress gap -->
+              <div class="pd-panel">
+                <div class="pd-p-head">Discipline progress gap — worst first<span class="nw">NEW</span></div>
+                <div class="pd-p-body">
+                  <div class="vbar"><div class="vbl">Construction</div><div class="vtrk"><div class="vact" style="width:45%;background:var(--danger)"></div><div class="vshort" style="left:45%;width:25%"></div><div class="vtick" style="left:70%"></div></div><div class="vval pd-bad">−25</div></div>
+                  <div class="vbar"><div class="vbl">Engineering</div><div class="vtrk"><div class="vact" style="width:74%;background:var(--warning)"></div><div class="vshort" style="left:74%;width:14%"></div><div class="vtick" style="left:88%"></div></div><div class="vval pd-warn">−14</div></div>
+                  <div class="vbar"><div class="vbl">Procurement</div><div class="vtrk"><div class="vact" style="width:52%;background:var(--warning)"></div><div class="vshort" style="left:52%;width:8%"></div><div class="vtick" style="left:60%"></div></div><div class="vval pd-warn">−8</div></div>
+                  <div class="vbar"><div class="vbl">Mobilization</div><div class="vtrk"><div class="vact" style="width:100%;background:var(--success)"></div><div class="vtick" style="left:100%"></div></div><div class="vval pd-good">0</div></div>
+                  <div class="pd-legend"><span>bar = actual %</span><span>│ tick = planned %</span><span>▨ shortfall</span></div>
+                </div>
+              </div>
+
+              <!-- base · Float Health gauge -->
+              <div class="pd-panel rail-warn"><div class="pd-p-head">Float Health</div><div class="pd-p-body"><div class="pd-score"><svg width="76" height="76" viewBox="0 0 80 80" style="color:var(--warning)"><circle cx="40" cy="40" r="30" fill="none" stroke="var(--track)" stroke-width="9"/><circle cx="40" cy="40" r="30" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="52.8" transform="rotate(-90 40 40)"/><text x="40" y="46" text-anchor="middle" font-size="20" font-weight="800" fill="currentColor">72</text></svg><div><div class="pd-band pd-warn">Needs review</div><div class="pd-note">9 critical · 19 review</div></div></div></div></div>
+
+              <!-- base · CPLI gauge -->
+              <div class="pd-panel rail-warn"><div class="pd-p-head">CPLI health</div><div class="pd-p-body"><div class="pd-score"><svg width="76" height="76" viewBox="0 0 80 80" style="color:var(--warning)"><circle cx="40" cy="40" r="30" fill="none" stroke="var(--track)" stroke-width="9"/><circle cx="40" cy="40" r="30" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="11.3" transform="rotate(-90 40 40)"/><text x="40" y="46" text-anchor="middle" font-size="17" font-weight="800" fill="currentColor">0.94</text></svg><div><div class="pd-band pd-warn">Path at risk</div><div class="pd-note">below 1.0 · no buffer</div></div></div></div></div>
+
+              <!-- base · weather -->
+              <div class="pd-panel"><div class="pd-p-head">Weather-adjusted finish</div><div class="pd-p-body"><svg width="100%" viewBox="0 0 300 120" preserveAspectRatio="xMidYMid meet"><line x1="20" y1="98" x2="296" y2="98" stroke="var(--border)"/><rect x="44" y="48" width="52" height="50" fill="var(--chart-1)"/><text x="70" y="112" font-size="8" fill="var(--muted)" text-anchor="middle">Baseline</text><rect x="126" y="38" width="52" height="60" fill="var(--chart-3)"/><text x="152" y="112" font-size="8" fill="var(--muted)" text-anchor="middle">Forecast</text><rect x="208" y="24" width="52" height="74" fill="var(--chart-6)"/><text x="234" y="112" font-size="8" fill="var(--muted)" text-anchor="middle">+ Weather</text><text x="234" y="18" font-size="9" fill="var(--chart-6)" text-anchor="middle" font-weight="700">+7 wd</text></svg></div></div>
+            </div>
+            <div class="drill">NEW · click any red tile → jumps to its detailed section in the Document view (monitor here, investigate in one click)</div>
+          </div>
+        </div>
+
+        <!-- DOCUMENT VIEW -->
+        <div id="viewDoc" style="display:none">
+          <div class="pd-toolbar">
+            <span class="pd-mode">Detailed document</span>
+            <div class="pd-actions"><button class="btn-sec">Export Word</button><button class="btn-sec">Export PDF</button><button class="btn-pri">Report Contents…</button></div>
+          </div>
+          <div class="doc">
+            <div class="dhead"><div class="dlogo">GB</div><div><div class="dt1">Grain Bulk Terminal — East Port Said</div><div class="dt2">Weekly Progress &amp; Performance Report</div></div><div class="dmeta">Data date · 19 Jul 2026<br>Update #14 · Prepared by Planning</div></div>
+            <div class="toc"><b>Contents</b><ol><li>EVM Performance</li><li>Discipline progress gap</li><li>Schedule Audit — Float Health &amp; findings</li><li>Critical Path — CPLI &amp; milestone slip</li><li>SPI / CPI trend</li><li>Calendar &amp; Weather</li></ol>
+              <div class="picknote">Same picks as the dashboard · the binding “Report Contents” selector lets you include/exclude each table &amp; chart down to item level.</div>
+            </div>
+            <div class="sec"><h4>1 · EVM Performance</h4><p class="scap">Earned-value status as at the data date.</p>
+              <table class="dt"><tr><th>Metric</th><th class="r">Planned</th><th class="r">Actual</th><th class="r">Variance</th><th>Status</th></tr>
+                <tr><td>Overall progress</td><td class="r">61.4%</td><td class="r">40.4%</td><td class="r">−21.0 pts</td><td><span class="tag w">Behind</span></td></tr>
+                <tr><td>SPI</td><td class="r">1.00</td><td class="r">0.87</td><td class="r">−0.13</td><td><span class="tag b">Slow</span></td></tr>
+                <tr><td>CPI</td><td class="r">1.00</td><td class="r">1.02</td><td class="r">+0.02</td><td><span class="tag g">On cost</span></td></tr>
+                <tr><td>Delay to baseline finish</td><td class="r">—</td><td class="r">+34 d</td><td class="r">—</td><td><span class="tag b">Critical</span></td></tr></table></div>
+            <div class="sec"><h4>2 · Discipline progress gap</h4><p class="scap">Planned vs actual by discipline (weighted), worst first.</p>
+              <div class="mb"><span class="nm">Construction</span><div class="tk"><div class="pl" style="width:70%"></div><div class="ac" style="width:45%"></div></div><span class="pc">45 / 70% (−25)</span></div>
+              <div class="mb"><span class="nm">Engineering</span><div class="tk"><div class="pl" style="width:88%"></div><div class="ac" style="width:74%"></div></div><span class="pc">74 / 88% (−14)</span></div>
+              <div class="mb"><span class="nm">Procurement</span><div class="tk"><div class="pl" style="width:60%"></div><div class="ac" style="width:52%"></div></div><span class="pc">52 / 60% (−8)</span></div></div>
+            <div class="sec"><h4>3 · Schedule Audit — Float Health 72 / 100</h4><p class="scap">63 findings · 35 pass · 19 review · 9 critical.</p>
+              <table class="dt"><tr><th>Check</th><th class="r">Result</th><th>Severity</th></tr>
+                <tr><td>Negative-float activities</td><td class="r">14</td><td><span class="tag b">Critical</span></td></tr>
+                <tr><td>Out-of-sequence relationships</td><td class="r">23</td><td><span class="tag w">Review</span></td></tr>
+                <tr><td>Dangling activities</td><td class="r">8</td><td><span class="tag w">Review</span></td></tr></table></div>
+            <div class="sec"><h4>4 · Critical Path — CPLI 0.94</h4><p class="scap">Length index below 1.0 — the driving path has no float buffer; Silo 9 slipped +6 d this period.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="footc" id="foot">Dashboard mode · your approved one-page monitoring view · exports to PDF &amp; native Excel charts</div>
+    </div>
+  </div>
+
+  <!-- OPTIONS -->
+  <div class="opts">
+    <h2>How far to take it — your call</h2>
+    <p class="lead">Same dial as before, now filled in from the design panel. Each step includes the one before it.</p>
+    <div class="optgrid">
+      <div class="opt"><div class="tag2">Lightest · your literal ask</div><h3>A · “View as charts” toggle</h3><p>Add a chart view to Special Report only.</p><div class="tr">Fast · but the two catalogs stay separate, so the duplication you spotted remains.</div></div>
+      <div class="opt reco"><div class="tag2">★ Recommended</div><h3>B · One Reporting Studio (the core)</h3>
+        <ul>
+          <li>Unify the two catalogs into one (no more double-wiring)</li>
+          <li>Pick once → Document ⇄ Dashboard toggle</li>
+          <li>Auto-chart <b>every</b> picked result (your “all the data” ask)</li>
+          <li>Trend on the KPI tiles (arrow + mini sparkline)</li>
+          <li>SPI/CPI &amp; delay trend charts from your weekly updates</li>
+          <li>“What needs attention this week” exception list</li>
+        </ul>
+        <div class="tr">Keeps your approved style · folds in the unmerged Dashboard · retires the duplicate.</div></div>
+      <div class="opt"><div class="tag2">Biggest</div><h3>C · Studio + full enhancement set</h3><p>B, plus the stronger extras:</p>
+        <ul>
+          <li>Executive status header (RAG verdict + domain chips)</li>
+          <li>RAG accent rail + drill-through to detail</li>
+          <li>Discipline progress-gap variance bars</li>
+          <li>Forecast finish &amp; milestone-slip panel</li>
+          <li>Named report packs · starter boards · export polish</li>
+        </ul>
+        <div class="tr">Most to build · richest weekly pack.</div></div>
+    </div>
+  </div>
+
+  <!-- NUMBERS -->
+  <div class="yours">
+    <h2>A few number rules are yours to decide (not mine)</h2>
+    <p>These don’t change the plan — I’ll ask them when you pick a direction. The dashboard will never guess them.</p>
+    <ol>
+      <li><b>Trend targets:</b> is the SPI/CPI reference line exactly <b>1.00</b>, and the CPLI target <b>100%</b>?</li>
+      <li><b>Change colours:</b> rising CPI = good, rising delay = bad — and how big a weekly change turns a tile amber vs red?</li>
+      <li><b>Score-gauge zones:</b> what score is green / amber / red for Float Health and CPLI?</li>
+      <li><b>“Needs attention” order:</b> use each feature’s own severity, or one shared ranking across features?</li>
+      <li><b>Discipline gap:</b> rank by the raw plan−actual gap, or weight it by each discipline’s cost weight?</li>
+      <li><b>Overall verdict rule</b> (only if you want the single On-track/At-risk/Critical label): which domains count, and how is a not-run domain handled?</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+  function setMode(m){
+    var dash=m==='dash';
+    document.getElementById('viewDash').style.display=dash?'block':'none';
+    document.getElementById('viewDoc').style.display=dash?'none':'block';
+    document.getElementById('btnDash').classList.toggle('on',dash);
+    document.getElementById('btnDoc').classList.toggle('on',!dash);
+    document.getElementById('foot').textContent=dash
+      ? 'Dashboard mode · your approved one-page monitoring view · exports to PDF & native Excel charts'
+      : 'Document mode · a detailed named report · cover, contents, numbered sections · exports to Word & PDF (identical)';
+  }
+</script>
+</body>
+</html>

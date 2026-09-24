@@ -1,0 +1,288 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "steel.fabrication.structural_steel.shop_fabrication",
+  "discipline": "Structural Steel",
+  "work_type": "Fabrication",
+  "system": "Structural Steel",
+  "item": "Structural Steel Shop Fabrication",
+  "aliases": [
+    "steel fabrication",
+    "shop fabrication",
+    "fabricated steel",
+    "steel fab"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "ton",
+  "why": "Shop fabrication of structural steel is a genuinely multi-trade activity - raw sections and plate are cut and prepared, members are fitted/assembled, welded, then blasted and shop-primed. Each operation has a distinct crew and productivity, so a single mh/ton figure hides where the hours actually go. Norms are medium-complexity (beams, columns, bracing, base/cap plates, cleats); very light lattice/truss work or heavy plate girders shift toward the high/low bands respectively.",
+  "assumptions": [
+    "Medium fabrication complexity (typical building/industrial frame)",
+    "Normal shop access with overhead travelling crane",
+    "Single 8 hr/day shift",
+    "Welding is manual/semi-automatic (MMA/FCAW/MAG)",
+    "Shop primer only (finish coat applied on site or excluded)"
+  ],
+  "exclusions": [
+    "Raw material supply price (quantity only carried)",
+    "Detailing/shop drawing engineering hours",
+    "Galvanizing",
+    "Site painting / finish coats",
+    "Rework and NDT-driven repairs",
+    "Complex node/box fabrication beyond medium complexity"
+  ],
+  "components": [
+    {
+      "component_id": "cutting_preparation",
+      "name": "Cutting & preparation",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 6,
+        "low": 5,
+        "likely": 6,
+        "high": 8,
+        "output_per_day": 2.7,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Fabricator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Band saw / plasma-oxy cutting",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Overhead travelling crane (shared)",
+          "basis": "utilization",
+          "value": 0.15,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Structural steel sections/plate",
+          "qty_per_unit": 1.08,
+          "unit": "t/t"
+        },
+        {
+          "name": "Cutting consumables (gas/discs)",
+          "qty_per_unit": 1,
+          "unit": "set/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - cutting, drilling and end preparation of structural sections",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium-complexity building/industrial steelwork — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "fit_up_assembly",
+      "name": "Fit-up & assembly",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 10,
+        "low": 8,
+        "likely": 10,
+        "high": 13,
+        "output_per_day": 1.6,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Overhead travelling crane (shared)",
+          "basis": "utilization",
+          "value": 0.25,
+          "unit": "h/t"
+        },
+        {
+          "name": "Assembly jigs / clamps",
+          "basis": "count",
+          "value": 1,
+          "unit": "set"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fit-up consumables (tack wire, clamps)",
+          "qty_per_unit": 1,
+          "unit": "set/t"
+        },
+        {
+          "name": "Bolts / cleats (fit-up)",
+          "qty_per_unit": 6,
+          "unit": "kg/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - fitting and tack assembly of built-up members and connections",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium-complexity building/industrial steelwork — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "welding",
+      "name": "Welding",
+      "unit": "ton",
+      "qty_per_primary": 1.0,
+      "default_gangs": 4,
+      "rate": {
+        "mh_per_unit": 12,
+        "low": 10,
+        "likely": 12,
+        "high": 16,
+        "output_per_day": 1.33,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Welder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Welding set (FCAW/MAG)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Fume extraction",
+          "basis": "utilization",
+          "value": 0.5,
+          "unit": "h/t"
+        }
+      ],
+      "material": [
+        {
+          "name": "Welding consumables (wire/electrode)",
+          "qty_per_unit": 15,
+          "unit": "kg/t"
+        },
+        {
+          "name": "Shielding gas",
+          "qty_per_unit": 1,
+          "unit": "set/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - manual/semi-automatic welding of connections and built-up sections",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "medium weld volume; excludes heavy full-pen box welds — validate with your XER to promote"
+      }
+    },
+    {
+      "component_id": "shop_painting",
+      "name": "Shop blasting & priming",
+      "unit": "m2",
+      "qty_per_primary": 22.0,
+      "default_gangs": 2,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.3,
+        "likely": 0.4,
+        "high": 0.55,
+        "output_per_day": 40,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Blaster / Painter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Abrasive blast pot + compressor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Airless spray unit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Abrasive grit",
+          "qty_per_unit": 3,
+          "unit": "kg/m2"
+        },
+        {
+          "name": "Shop primer",
+          "qty_per_unit": 0.15,
+          "unit": "L/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm - Sa2.5 blast + single shop primer coat; ~22 m2 painted surface per tonne of typical sections",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "single shop coat; surface area per tonne varies with section factor — validate with your XER to promote"
+      }
+    }
+  ]
+}

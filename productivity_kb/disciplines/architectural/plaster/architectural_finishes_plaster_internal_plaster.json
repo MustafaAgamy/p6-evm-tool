@@ -1,0 +1,104 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "architectural.finishes.plaster.internal_plaster",
+  "discipline": "Architectural",
+  "work_type": "Finishes",
+  "system": "Plaster",
+  "item": "Internal Cement Plaster",
+  "aliases": [
+    "internal plaster",
+    "internal render",
+    "cement plaster",
+    "wall plaster"
+  ],
+  "project_types": [
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Infrastructure",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Two-coat internal cement/sand plaster to walls and soffits is the standard substrate for paint/tiling; a single trowelling operation (spatterdash + float + finish) measured per m2 of finished face.",
+  "assumptions": [
+    "Normal access",
+    "Single 8 hr/day shift",
+    "15-20 mm two-coat plaster on masonry",
+    "Internal walls up to 3.5 m",
+    "Corner beads at arrises"
+  ],
+  "exclusions": [
+    "External render",
+    "Gypsum skim/putty",
+    "Decorative/moulded plaster",
+    "Abnormal congestion",
+    "Rework"
+  ],
+  "components": [
+    {
+      "component_id": "plastering",
+      "name": "Plastering (two-coat)",
+      "unit": "m2",
+      "qty_per_primary": 1.0,
+      "default_gangs": 3,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.65,
+        "likely": 0.8,
+        "high": 1,
+        "output_per_day": 20,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Plasterer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mortar mixer (shared)",
+          "basis": "utilization",
+          "value": 0.02,
+          "unit": "h/m2"
+        },
+        {
+          "name": "Mobile scaffold",
+          "basis": "shared",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Cement/sand plaster mortar",
+          "qty_per_unit": 0.02,
+          "unit": "m3/m2"
+        },
+        {
+          "name": "Corner bead",
+          "qty_per_unit": 0.3,
+          "unit": "m/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "Egypt/industry standard norm — internal two-coat plaster",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "internal cement plaster on masonry/concrete — validate with your XER to promote"
+      }
+    }
+  ]
+}
