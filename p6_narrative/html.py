@@ -1264,7 +1264,8 @@ def _mapsheet(p, number, title, meta, cur):
     p = p or {}
     txt = _esc(p.get('placeholder')
                or 'The project mapping sheet is attached in this appendix by the planner.')
-    return ('<div style="text-align:center;margin-top:40mm;color:#8a95a1;font-style:italic;'
+    # the cover heading is already centred and pushed down the page, so the note sits just below it
+    return ('<div style="text-align:center;margin-top:10mm;color:#8a95a1;font-style:italic;'
             'font-size:13px">%s</div>' % txt)
 
 
@@ -1305,8 +1306,12 @@ def _section_page(s, meta, cur, footer):
     number = s.get('number', '')
     title = s.get('title', '')
     # Appendix sections keep a running number internally (addressability) but show the title
-    # alone — no "N)" prefix — matching the report's un-numbered appendix pages.
-    if s.get('appendix'):
+    # alone — no "N)" prefix. A cover/divider appendix (e.g. the Mapping Sheet) centres its title
+    # and pushes it down the page, like the reference report's divider pages.
+    if s.get('cover'):
+        head = ('<h1 class="sec" style="text-align:center;margin-top:48mm;font-size:26px;'
+                'font-weight:600">%s</h1>' % _esc(title))
+    elif s.get('appendix'):
         head = '<h1 class="sec">%s</h1>' % _esc(title)
     else:
         head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))

@@ -1272,7 +1272,8 @@ def _render_mapsheet(document, p, number, note):
     is a single light, centred placeholder note pushed down the page. Twins ``html._mapsheet``."""
     p = p or {}
     txt = p.get('placeholder') or 'The project mapping sheet is attached in this appendix by the planner.'
-    para(document, txt, size=13, italic=True, color=GREY, before=190,
+    # the cover heading is already centred and pushed down the page, so the note sits just below it
+    para(document, txt, size=13, italic=True, color=GREY, before=12,
          align=WD_ALIGN_PARAGRAPH.CENTER)
 
 
@@ -1506,6 +1507,9 @@ def write_docx(doc, output_path, chrome=None):
         else:
             hp = docx_template.heading(document, docx_template.format_number((number,)),
                                        section.get('title', ''))
+        if section.get('cover'):                               # centred divider title, pushed down
+            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
         if idx < len(sections):

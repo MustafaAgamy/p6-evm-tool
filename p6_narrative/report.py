@@ -501,17 +501,17 @@ def _critical_path(data):
         payload = critpath.critical_path(data)
     except Exception:
         payload = {'available': False}
-    return Section('17', 'Appendix — Critical Path', 'critpath', 'auto', payload=payload,
+    return Section('17', 'Appendix (Critical Path)', 'critpath', 'auto', payload=payload,
                    appendix=True,
                    note='The critical path taken straight from P6’s exported total float, shown '
                         'as a month-by-month sweep of the driving zones.')
 
 
 def _mapping_sheet(data):
-    """Appendix — Mapping Sheet: an un-numbered cover page only. The planner attaches the project
-    mapping sheet into this appendix themselves, so the tool renders the header + titled page and
-    a light placeholder note — nothing is auto-generated here."""
-    return Section('18', 'Appendix — Mapping Sheet', 'mapsheet', 'auto', appendix=True,
+    """Appendix (Mapping Sheet): an un-numbered COVER/DIVIDER page — the title centred and pushed
+    down the page, matching the reference report's divider pages. The planner attaches the project
+    mapping sheet into this appendix themselves, so nothing is auto-generated (a light note only)."""
+    return Section('18', 'Appendix (Mapping Sheet)', 'mapsheet', 'auto', appendix=True, cover=True,
                    payload={'placeholder': 'The project mapping sheet is attached in this '
                                            'appendix by the planner.'})
 
