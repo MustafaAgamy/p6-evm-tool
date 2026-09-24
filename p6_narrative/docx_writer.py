@@ -319,6 +319,49 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     return t
 
 
+def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
+                     header_h_pt=30.0, cell_size=10):
+    """A navy-header data table whose DATA ROWS all share one EXACT height
+    (``WD_ROW_HEIGHT_RULE.EXACTLY``) — unlike :func:`data_table`, which grows each row to fit
+    (``AT_LEAST``). Used by §15 so every production row is the same height; ``row_h_pt`` is set
+    generously (≈0.55") so the tallest wrapped cell (crew / long resource names) still fits
+    without clipping. The header row keeps ``AT_LEAST`` so its multi-line labels are never cut.
+    Zebra striping; every cell centred and wrapping. Other sections' tables are untouched."""
+    if not headers:
+        return None
+    t = document.add_table(rows=1, cols=len(headers))
+    t.style = 'Table Grid'
+    t.autofit = False
+    hr = t.rows[0]
+    _row_h(hr, header_h_pt, exact=False)              # header grows to fit its wrapped labels
+    for i, hd in enumerate(headers):
+        c = hr.cells[i]
+        _shade(c, '26517D'); _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        if widths:
+            _set_w(c, widths[i])
+        p = c.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(p, hd, font=CAL, size=9.5, bold=True, color=WHITE)
+    for ri, row_vals in enumerate(rows or []):
+        rr = t.add_row()
+        _row_h(rr, row_h_pt, exact=True)              # EXACTLY: every data row shares one height
+        for ci, val in enumerate(row_vals):
+            if ci >= len(rr.cells):
+                break
+            c = rr.cells[ci]
+            _no_space(c); c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+            if widths:
+                _set_w(c, widths[ci])
+            if ri % 2 == 1:
+                _shade(c, ZEBRA)
+            p = c.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(p, val, size=cell_size)
+    _keep_table_together(t, header=True)        # navy header repeats on any page break
+    return t
+
+
 def banner(document, left_text, right_text):
     """Navy total banner — a 2-cell full-width bar (label left, value right)."""
     ban = document.add_table(rows=1, cols=2)
@@ -901,6 +944,109 @@ def _render_materials(document, p, number, note):
                          'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
 
 
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _render_prodrate(document, p, number, note):
+    """Native Word §15 — the method note (``number``.1: formulas + worked examples), then the
+    per-activity breakdown (``number``.2, unit-bearing schedules only), then the summary rate
+    table LAST (``number``.3, or ``number``.2 when there is no breakdown). IDENTICAL to the
+    HTML/PDF twin ``html._prodrate``. The summary table is drawn with :func:`_equal_row_table` so
+    every data row is the SAME exact height; None-safe with an honest no-data note."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no material resources, so planned production '
+                         'rates cannot be derived.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # number.1 — how the rates are calculated (formulas + worked examples)
+    _subhead(document, '%s.1' % number, 'How the rates are calculated')
+    mi = para(document, p.get('method_intro') or '', size=11, italic=True, color=GREY, after=4,
+              align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    mi.paragraph_format.keep_with_next = True
+    for m in (p.get('method') or []):
+        lead = m[0] if len(m) > 0 else ''
+        body = m[1] if len(m) > 1 else ''
+        mp = document.add_paragraph()
+        mp.paragraph_format.space_after = Pt(3)
+        mp.paragraph_format.left_indent = Pt(10)
+        mp.paragraph_format.keep_with_next = True     # formulas never orphaned from the table
+        run(mp, '•  ' + lead + ' = ', size=11, bold=True, color=NAVY)
+        run(mp, body, size=11)
+
+    # Order (Ibrahim): number.1 method → number.2 per-activity breakdown → number.3 the summary
+    # rate table LAST. Only unit-bearing materials have a breakdown; in the unit-less fallback the
+    # summary table is number.2 so the sub-numbering stays gap-free. Twins html._prodrate.
+    def _rate_table(sub):
+        _subhead(document, '%s.%s' % (number, sub), 'Daily production rate by quantities resource')
+        _equal_row_table(document, p.get('headers') or [], p.get('rows') or [],
+                         widths=p.get('widths'))
+
+    bd = p.get('breakdown') or []
+    if bd:
+        _subhead(document, '%s.2' % number, 'Breakdown by activity')
+        bi = para(document, p.get('breakdown_intro') or '', size=11, italic=True, color=GREY,
+                  after=4, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+        bi.paragraph_format.keep_with_next = True
+        for b in bd:
+            cap = document.add_paragraph()
+            cap.paragraph_format.space_before = Pt(6)
+            cap.paragraph_format.space_after = Pt(2)
+            cap.paragraph_format.keep_with_next = True     # caption stays with its table
+            run(cap, '%s — %s' % (b.get('name') or '', b.get('unit') or ''),
+                size=11, bold=True, color=NAVY)
+            run(cap, '   ·  %s overall, %s working-days, %s activities'
+                % (b.get('rate') or '', b.get('total_wd'), b.get('nact')), size=10, color=GREY)
+            data_table(document, b.get('headers') or [], b.get('rows') or [],
+                       widths=b.get('widths'))
+        _rate_table('3')                                   # summary rate table last, as number.3
+    else:
+        _rate_table('2')                                   # no breakdown → summary table is number.2
+
+    if p.get('no_unit_note'):
+        _muted(document, p.get('no_unit_note'))
+    if p.get('closing_note'):
+        _muted(document, p.get('closing_note'))
+
+
+# ── §16 Volume of Work ────────────────────────────────────────────────────────
+def _render_volwork(document, p, number, note):
+    """Native Word §15 — one combo chart (monthly value-of-work columns + cumulative S-curve on
+    a secondary axis) then a two-row summary table. Mirrors the HTML/PDF twin (``html._volwork``);
+    None-safe with a data-table fallback if the chart can't be built."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, 'This schedule carries no cost loading, so a volume-of-work curve '
+                         'cannot be built.')
+        return
+    para(document, p.get('intro') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    ch = p.get('chart') or {}
+    _subhead(document, '%s.1' % number, 'Monthly value of work — cumulative S-curve')
+    cap = para(document, p.get('caption') or '', size=10, italic=True, color=GREY, after=6,
+               align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    cap.paragraph_format.keep_with_next = True
+    lbl = document.add_paragraph()
+    lbl.paragraph_format.space_before = Pt(6)
+    lbl.paragraph_format.space_after = Pt(2)
+    lbl.paragraph_format.keep_with_next = True
+    run(lbl, 'Monthly value of work & cumulative S-curve', size=11, bold=True,
+        color=NAVY, font=CAL)
+    combo = docx_native.add_cashflow_combo(
+        document, ch.get('labels'), ch.get('values'), ch.get('cum'), '',
+        bar_color=ch.get('bar_color') or '1F4E79', line_color=ch.get('line_color') or 'E8A33D',
+        bar_name='Monthly value of work', line_name='Cumulative (S-curve)',
+        num_fmt=ch.get('num_fmt'))
+    if combo is None:
+        data_table(document, ch.get('table_headers') or ['Month', 'Value of work', 'Cumulative'],
+                   ch.get('table_rows') or [], aligns=['l', 'r', 'r'])
+    else:
+        _keep_last_with_next(document)
+    para(document, p.get('end_caption') or '', size=10, italic=True, color=GREY, after=6,
+         align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+    _subhead(document, '%s.2' % number, 'Volume of work summary')
+    data_table(document, p.get('summary_headers') or ['Metric', 'Value'],
+               p.get('summary_rows') or [], aligns=['l', 'r'])
+
+
 # ── §8 Project Calendars & Holidays (delegated) ───────────────────────────────
 def _render_table(document, p, number, note):
     if p.get('view') == 'calendars':
@@ -1020,6 +1166,117 @@ def _render_codes(document, p, number, note):
         para(document, '', after=6)
 
 
+def _render_critpath(document, p, number, note):
+    """Native Word Appendix — Critical Path: the "critical-path sweep". An auto-narrative, a KPI
+    strip, a trade legend, and a REAL Word table whose month-cells are shaded (``_shade``) by the
+    driving trade — no image, fully editable. Twins ``html._critpath`` (same zones, months,
+    colours, KPIs and order)."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, p.get('note') or 'The schedule carries no total float, so a critical '
+                                          'path cannot be derived from it.')
+        return
+    months = p.get('months') or []
+    zones = p.get('zones') or []
+    ncol = 1 + len(months)
+    label_w = 1.5
+    mo_w = round((6.9 - label_w) / max(len(months), 1), 3)
+
+    para(document, p.get('narrative') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # KPI strip — a two-row table (value over label), one column per KPI.
+    kpis = p.get('kpis') or []
+    if kpis:
+        kt = document.add_table(rows=2, cols=len(kpis))
+        kt.style = 'Table Grid'
+        kt.autofit = False
+        kw = round(6.9 / len(kpis), 3)
+        for j, kv in enumerate(kpis):
+            v, l = (kv + ['', ''])[:2]
+            cv, cl = kt.cell(0, j), kt.cell(1, j)
+            for c in (cv, cl):
+                _no_space(c); _set_w(c, kw); _shade(c, 'F1F5FA')
+                c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+                c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(cv.paragraphs[0], v, font=CAL, size=13, bold=True, color=NAVY)
+            run(cl.paragraphs[0], l, font=CAL, size=8, color=GREY)
+        _keep_table_together(kt, header=False)
+
+    sp = para(document, p.get('subhead')
+              or 'Critical-path sweep — when each zone drives the schedule',
+              font=CAL, size=11, bold=True, color=NAVY, before=10, after=5)
+    sp.paragraph_format.keep_with_next = True
+
+    # trade legend — shaded swatch runs + labels, inline.
+    leg = p.get('legend') or []
+    if leg:
+        lp = document.add_paragraph()
+        lp.paragraph_format.space_after = Pt(5)
+        lp.paragraph_format.keep_with_next = True
+        for disp, hexv in leg:
+            sw = run(lp, '  ', font=CAL, size=9)
+            rpr = sw._element.get_or_add_rPr()
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear'); shd.set(qn('w:fill'), hexv)
+            rpr.append(shd)
+            run(lp, ' %s    ' % disp, font=CAL, size=9, color=BODYNAVY)
+
+    # the sweep — a native shaded-cell grid: year header (no merge), month header, one row/zone.
+    t = document.add_table(rows=0, cols=ncol)
+    t.style = 'Table Grid'
+    t.autofit = False
+    spans, i = [], 0
+    while i < len(months):
+        y = months[i]['y']
+        span = 0
+        while i + span < len(months) and months[i + span]['y'] == y:
+            span += 1
+        spans.append((y, i + 1))                     # (year, first 1-based month-column)
+        i += span
+    year_at = {a: y for (y, a) in spans}
+
+    yr = t.add_row(); _row_h(yr, 11, exact=False)
+    c0 = yr.cells[0]; _shade(c0, '26517D'); _no_space(c0); _set_w(c0, label_w)
+    for k in range(1, ncol):
+        c = yr.cells[k]; _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w)
+        if k in year_at:
+            run(c.paragraphs[0], str(year_at[k]), font=CAL, size=7.5, bold=True, color=WHITE)
+
+    mr = t.add_row(); _row_h(mr, 12, exact=False)
+    lc = mr.cells[0]; _shade(lc, '3A6EA5'); _no_space(lc); _set_w(lc, label_w)
+    lc.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run(lc.paragraphs[0], 'Zone', font=CAL, size=8, bold=True, color=WHITE)
+    for k, m in enumerate(months, start=1):
+        c = mr.cells[k]; _shade(c, '3A6EA5'); _no_space(c); _set_w(c, mo_w)
+        c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(c.paragraphs[0], m.get('label') or '', font=CAL, size=7.5, color=WHITE)
+
+    for z in zones:
+        rr = t.add_row(); _row_h(rr, 12, exact=False)
+        lc = rr.cells[0]; _no_space(lc); _set_w(lc, label_w); _shade(lc, 'F6F8FB')
+        run(lc.paragraphs[0], z.get('label') or '', font=CAL, size=8, color=BODYNAVY)
+        cells = z.get('cells') or []
+        for k in range(1, ncol):
+            c = rr.cells[k]; _no_space(c); _set_w(c, mo_w)
+            cell = cells[k - 1] if k - 1 < len(cells) else None
+            _shade(c, (cell.get('color') if cell else 'F2F4F7'))
+    _keep_table_together(t, header=True)
+
+    if p.get('note'):
+        _muted(document, p.get('note'))
+
+
+def _render_mapsheet(document, p, number, note):
+    """Native Word Appendix — Mapping Sheet: a cover page only (the heading is laid down by
+    ``write_docx``). The planner attaches the project mapping sheet into this appendix, so the body
+    is a single light, centred placeholder note pushed down the page. Twins ``html._mapsheet``."""
+    p = p or {}
+    txt = p.get('placeholder') or 'The project mapping sheet is attached in this appendix by the planner.'
+    # the cover heading is already centred and pushed down the page, so the note sits just below it
+    para(document, txt, size=13, italic=True, color=GREY, before=12,
+         align=WD_ALIGN_PARAGRAPH.CENTER)
+
+
 _RENDER = {
     'overview': _render_overview,
     'image': _render_image,
@@ -1034,6 +1291,10 @@ _RENDER = {
     'activity_ids': _render_activity_ids,
     'resload': _render_resload,
     'materials': _render_materials,
+    'prodrate': _render_prodrate,
+    'volwork': _render_volwork,
+    'critpath': _render_critpath,
+    'mapsheet': _render_mapsheet,
 }
 
 
@@ -1241,8 +1502,14 @@ def write_docx(doc, output_path, chrome=None):
             number = int(section.get('number'))
         except (TypeError, ValueError):
             number = idx
-        hp = docx_template.heading(document, docx_template.format_number((number,)),
-                                   section.get('title', ''))
+        if section.get('appendix'):                            # appendix pages carry no "N)" prefix
+            hp = docx_template.heading(document, '', section.get('title', ''))
+            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER           # appendix titles are centred
+        else:
+            hp = docx_template.heading(document, docx_template.format_number((number,)),
+                                       section.get('title', ''))
+        if section.get('cover'):                               # cover/divider: also pushed down the page
+            hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
         if idx < len(sections):

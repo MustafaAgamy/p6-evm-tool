@@ -874,6 +874,88 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
     return _inject(document, build, cats, [(name, vals)])
 
 
+def add_cashflow_combo(document, categories, bar_vals, line_vals, title,
+                       bar_color='1F4E79', line_color='E8A33D',
+                       bar_name='Monthly value of work', line_name='Cumulative',
+                       num_fmt=None, label_last_only=True):
+    """Native editable COMBO chart (§15 Volume of Work): monthly columns on the primary/left
+    axis + a cumulative S-curve line with markers on a SECONDARY/right axis — the standard
+    value-of-work presentation. Bar labels are small and vertically rotated so many months fit
+    without overlapping; the S-curve shows a single end-point label. ``num_fmt`` (e.g.
+    ``'"$"#,##0,,"M"'``) formats the labels + both value axes. None-safe (bad/mismatched input
+    returns ``None``, so callers can fall back to a table)."""
+    if document is None or not categories:
+        return None
+    cats = list(categories)
+    bvals = [_num(v) for v in bar_vals]
+    lvals = [_num(v) for v in line_vals]
+    if len(cats) != len(bvals) or len(cats) != len(lvals):
+        return None
+    if any(v is None for v in bvals) or any(v is None for v in lvals):
+        return None
+    bcol = _hex(bar_color, '1F4E79')
+    lcol = _hex(line_color, 'E8A33D')
+    fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>' if num_fmt else '')
+
+    # small, vertically-rotated bar labels so many monthly values don't overlap or get trimmed
+    bar_txpr = ('<c:txPr><a:bodyPr rot="-5400000" vert="horz"/><a:lstStyle/>'
+                '<a:p><a:pPr><a:defRPr sz="700" b="1"/></a:pPr>'
+                '<a:endParaRPr lang="en-US"/></a:p></c:txPr>')
+    bar_dlbls = (f'<c:dLbls>{fmt}{bar_txpr}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/>'
+                 '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
+                 '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
+    if label_last_only:
+        per = ''.join(f'<c:dLbl><c:idx val="{i}"/><c:delete val="1"/></c:dLbl>'
+                      for i in range(len(lvals) - 1))
+        line_dlbls = (f'<c:dLbls>{per}{fmt}<c:dLblPos val="t"/><c:showLegendKey val="0"/>'
+                      '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
+                      '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
+    else:
+        line_dlbls = ''
+
+    def build(rid):
+        bdpts = ''.join(
+            f'<c:dPt><c:idx val="{i}"/><c:invertIfNegative val="0"/><c:bubble3D val="0"/>'
+            f'<c:spPr><a:solidFill><a:srgbClr val="{bcol}"/></a:solidFill></c:spPr></c:dPt>'
+            for i in range(len(bvals)))
+        bar_ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/>{_tx_ref(bar_name, "B")}'
+                   f'<c:spPr><a:solidFill><a:srgbClr val="{bcol}"/></a:solidFill></c:spPr>'
+                   f'{bdpts}{bar_dlbls}{_cat_ref(cats)}{_val_ref(bvals, "B")}</c:ser>')
+        bar_chart = (f'<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>'
+                     f'<c:varyColors val="0"/>{bar_ser}<c:gapWidth val="60"/>'
+                     f'<c:axId val="111"/><c:axId val="222"/></c:barChart>')
+        marker = (f'<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr>'
+                  f'<a:solidFill><a:srgbClr val="{lcol}"/></a:solidFill>'
+                  f'<a:ln><a:solidFill><a:srgbClr val="{lcol}"/></a:solidFill></a:ln>'
+                  f'</c:spPr></c:marker>')
+        line_ser = (f'<c:ser><c:idx val="1"/><c:order val="1"/>{_tx_ref(line_name, "C")}'
+                    f'<c:spPr><a:ln w="28575" cap="rnd"><a:solidFill><a:srgbClr val="{lcol}"/>'
+                    f'</a:solidFill><a:round/></a:ln></c:spPr>{marker}{line_dlbls}'
+                    f'{_cat_ref(cats)}{_val_ref(lvals, "C")}<c:smooth val="0"/></c:ser>')
+        line_chart = (f'<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>{line_ser}'
+                      f'<c:marker val="1"/><c:axId val="333"/><c:axId val="444"/></c:lineChart>')
+        cat_ax_p = ('<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/>'
+                    '</c:scaling><c:delete val="0"/><c:axPos val="b"/>'
+                    '<c:crossAx val="222"/></c:catAx>')
+        val_ax_p = (f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/>'
+                    f'</c:scaling><c:delete val="0"/><c:axPos val="l"/>{fmt}'
+                    f'<c:crossAx val="111"/></c:valAx>')
+        val_ax_s = (f'<c:valAx><c:axId val="444"/><c:scaling><c:orientation val="minMax"/>'
+                    f'</c:scaling><c:delete val="0"/><c:axPos val="r"/>{fmt}'
+                    f'<c:crossAx val="333"/><c:crosses val="max"/></c:valAx>')
+        cat_ax_s = ('<c:catAx><c:axId val="333"/><c:scaling><c:orientation val="minMax"/>'
+                    '</c:scaling><c:delete val="1"/><c:axPos val="b"/>'
+                    '<c:crossAx val="444"/></c:catAx>')
+        return (
+            f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<c:chartSpace {_C_NS}><c:chart>{_title_el(title)}<c:plotArea><c:layout/>'
+            f'{bar_chart}{line_chart}{cat_ax_p}{val_ax_p}{val_ax_s}{cat_ax_s}</c:plotArea>'
+            f'<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
+            f'<c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}</c:chartSpace>')
+
+    return _inject(document, build, cats, [(bar_name, bvals), (line_name, lvals)])
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SLICE E — NATIVE, EDITABLE §6 doughnut + §7.1 composition bar as GROUPED SHAPES
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1018,6 +1018,257 @@ def _materials(p, number, title, meta, cur):
     return ''.join(out)
 
 
+# ── §15 Volume of Work ────────────────────────────────────────────────────────
+def _mln(v, sym):
+    """Whole-millions label (e.g. '$138M') — matches the Word chart's num_fmt."""
+    try:
+        return '%s%dM' % (sym or '', round(float(v or 0) / 1e6))
+    except Exception:
+        return '%s0M' % (sym or '')
+
+
+def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
+    """Combo chart as vector SVG — monthly value-of-work columns (left axis) + the cumulative
+    S-curve line (right axis). The vector twin of ``docx_native.add_cashflow_combo``."""
+    n = len(labels)
+    if not n or not values:
+        return ''
+    W, H = 720, 360
+    pL, pR, pT, pB = 60, W - 66, 42, H - 66   # top headroom for the vertical bar labels
+    pW, pH = pR - pL, pB - pT
+    maxbar = max(values) or 1
+    maxcum = max(cum) or 1
+    band = pW / n
+    barw = band * 0.6
+    p = ['<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pL, pB, pR, pB),
+         '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pL, pT, pL, pB),
+         '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c9d3de"/>' % (pR, pT, pR, pB)]
+    for t in range(5):
+        yb = pB - (t / 4.0) * pH
+        p.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#eef2f6"/>' % (pL, yb, pR, yb))
+        p.append('<text x="%.1f" y="%.1f" font-size="8.5" fill="#5b6472" text-anchor="end" '
+                 'font-family="Calibri,sans-serif">%s</text>'
+                 % (pL - 5, yb + 3, _esc(_mln(maxbar * t / 4, sym))))
+        p.append('<text x="%.1f" y="%.1f" font-size="8.5" fill="#a06a1e" text-anchor="start" '
+                 'font-family="Calibri,sans-serif">%s</text>'
+                 % (pR + 5, yb + 3, _esc(_mln(maxcum * t / 4, sym))))
+    for i, (lb, v) in enumerate(zip(labels, values)):
+        x = pL + i * band + (band - barw) / 2
+        bh = (float(v) / maxbar) * pH if maxbar else 0
+        y = pB - bh
+        cx = x + barw / 2
+        p.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#%s"/>'
+                 % (x, y, barw, bh, _esc(bar_hex)))
+        p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
+                 'text-anchor="start" font-family="Calibri,sans-serif" '
+                 'transform="rotate(-90 %.1f %.1f)">%s</text>'
+                 % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
+        mx = pL + i * band + band / 2
+        p.append('<text x="%.1f" y="%.1f" font-size="8" fill="#8a95a1" text-anchor="end" '
+                 'font-family="Calibri,sans-serif" transform="rotate(-45 %.1f %.1f)">%s</text>'
+                 % (mx, pB + 12, mx, pB + 12, _esc(lb)))
+    pts = []
+    for i, c in enumerate(cum):
+        cx = pL + i * band + band / 2
+        cy = pB - (float(c) / maxcum) * pH if maxcum else pB
+        pts.append((cx, cy))
+    p.append('<polyline points="%s" fill="none" stroke="#%s" stroke-width="2.2"/>'
+             % (' '.join('%.1f,%.1f' % pt for pt in pts), _esc(line_hex)))
+    for cx, cy in pts:
+        p.append('<circle cx="%.1f" cy="%.1f" r="2.4" fill="#%s"/>' % (cx, cy, _esc(line_hex)))
+    ex, ey = pts[-1]
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#a06a1e" font-weight="700" '
+             'text-anchor="end" font-family="Calibri,sans-serif">%s</text>'
+             % (ex - 4, ey - 5, _esc(_mln(cum[-1], sym))))
+    ly = H - 14
+    p.append('<rect x="%.1f" y="%.1f" width="10" height="10" fill="#%s"/>' % (pL, ly - 8, _esc(bar_hex)))
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#5b6472" font-family="Calibri,sans-serif">'
+             'Monthly value of work</text>' % (pL + 14, ly))
+    p.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#%s" stroke-width="2.2"/>'
+             % (pL + 155, ly - 4, pL + 175, ly - 4, _esc(line_hex)))
+    p.append('<circle cx="%.1f" cy="%.1f" r="2.4" fill="#%s"/>' % (pL + 165, ly - 4, _esc(line_hex)))
+    p.append('<text x="%.1f" y="%.1f" font-size="9" fill="#5b6472" font-family="Calibri,sans-serif">'
+             'Cumulative (S-curve)</text>' % (pL + 181, ly))
+    return ('<svg viewBox="0 0 %d %d" class="vwsvg" xmlns="http://www.w3.org/2000/svg">%s</svg>'
+            % (W, H, ''.join(p)))
+
+
+def _volwork(p, number, title, meta, cur):
+    """§15 — one combo chart (monthly value-of-work columns + cumulative S-curve) + a two-row
+    summary. Twin of ``docx_writer._render_volwork``."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no cost loading, so a volume-of-work '
+                'curve cannot be built.</p>')
+    ch = p.get('chart') or {}
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+    out.append('<div class="sub">%s.1 &middot; Monthly value of work &mdash; cumulative S-curve</div>'
+               % _esc(number))
+    out.append('<p class="rescap">%s</p>' % _esc(p.get('caption') or ''))
+    out.append('<div class="calfig"><div class="calname">Monthly value of work &amp; cumulative '
+               'S-curve</div>%s<div class="rescap">%s</div></div>'
+               % (_volwork_svg(ch.get('labels') or [], ch.get('values') or [], ch.get('cum') or [],
+                               ch.get('bar_color') or '1F4E79', ch.get('line_color') or 'E8A33D',
+                               ch.get('sym') or ''),
+                  _esc(p.get('end_caption') or '')))
+    out.append('<div class="sub">%s.2 &middot; Volume of work summary</div>' % _esc(number))
+    heads = p.get('summary_headers') or ['Metric', 'Value']
+    thead = '<tr>%s</tr>' % ''.join(
+        '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h)) for j, h in enumerate(heads))
+    body = ''.join(
+        '<tr>%s</tr>' % ''.join(
+            '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c)) for j, c in enumerate(r))
+        for r in (p.get('summary_rows') or []))
+    out.append('<table class="dt">%s%s</table>' % (thead, body))
+    return ''.join(out)
+
+
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _prodrate(p, number, title, meta, cur):
+    """§15 — the method note ({number}.1, formulas + worked examples), then the per-activity
+    breakdown ({number}.2, unit-bearing schedules only), then the summary rate table LAST
+    ({number}.3, or {number}.2 when there is no breakdown). Twin of ``docx_writer._render_prodrate``
+    — both draw the same payload, so the explanation and the figures are identical on screen, in the
+    PDF and in Word."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">This schedule carries no material resources, so planned '
+                'production rates cannot be derived.</p>')
+    out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
+
+    # {number}.1 — how the rates are calculated (formulas + worked examples), identical to Word
+    out.append('<div class="sub">%s.1 &middot; How the rates are calculated</div>' % _esc(number))
+    out.append('<p class="rescap">%s</p>' % _esc(p.get('method_intro') or ''))
+    for m in (p.get('method') or []):
+        lead = m[0] if len(m) > 0 else ''
+        body = m[1] if len(m) > 1 else ''
+        out.append('<p style="margin:3px 0 3px 14px;font-size:12px">'
+                   '<b style="color:#1F4E79">&bull;&nbsp;&nbsp;%s = </b>%s</p>'
+                   % (_esc(lead), _esc(body)))
+
+    # Pin the HTML columns to the SAME inch widths the Word renderer uses (table-layout:fixed +
+    # a percentage colgroup), so a long Activity-ID list never squeezes the numeric columns and
+    # screen == PDF == Word to the column.
+    def _cg(ws):
+        if not ws:
+            return ''
+        tot = sum(ws) or 1
+        return ('<colgroup>%s</colgroup>'
+                % ''.join('<col style="width:%.2f%%">' % (100.0 * w / tot) for w in ws))
+
+    def _rate_table(sub):
+        out.append('<div class="sub">%s.%d &middot; Daily production rate by quantities resource'
+                   '</div>' % (_esc(number), sub))
+        heads = p.get('headers') or []
+        thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
+        rowsb = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
+                        for r in (p.get('rows') or []))
+        out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
+                   % (_cg(p.get('widths') or []), thead, rowsb))
+
+    # Order (Ibrahim): {number}.1 method → {number}.2 per-activity breakdown → {number}.3 the
+    # summary rate table LAST. The breakdown only exists when the materials carry a unit of
+    # measure; in the unit-less fallback the summary table is {number}.2 so the numbering stays gap-free.
+    bd = p.get('breakdown') or []
+    if bd:
+        out.append('<div class="sub">%s.2 &middot; Breakdown by activity</div>' % _esc(number))
+        out.append('<p class="rescap">%s</p>' % _esc(p.get('breakdown_intro') or ''))
+        for b in bd:
+            cap = ('%s &mdash; %s &middot; %s overall, %s working-days, %s activities'
+                   % (_esc(b.get('name') or ''), _esc(b.get('unit') or ''),
+                      _esc(b.get('rate') or ''), _esc(str(b.get('total_wd'))),
+                      _esc(str(b.get('nact')))))
+            bheads = b.get('headers') or []
+            bthead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in bheads)
+            bbody = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in row)
+                            for row in (b.get('rows') or []))
+            out.append('<div class="prodbd">'
+                       '<p class="rescap prodbd-cap"><b>%s</b></p>'
+                       '<table class="dt" style="table-layout:fixed">%s%s%s</table></div>'
+                       % (cap, _cg(b.get('widths') or []), bthead, bbody))
+        _rate_table(3)                              # summary rate table last, as {number}.3
+    else:
+        _rate_table(2)                              # no breakdown → summary table is {number}.2
+
+    if p.get('no_unit_note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('no_unit_note')))
+    if p.get('closing_note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('closing_note')))
+    return ''.join(out)
+
+
+def _critpath(p, number, title, meta, cur):
+    """Appendix — Critical Path: the "critical-path sweep". A KPI strip, an auto-narrative, a trade
+    legend and a month-grid table whose cells are shaded by the driving trade — so the critical
+    path (P6's own total float = 0) reads as a coloured staircase down the zones and across the
+    months. Twin of ``docx_writer._render_critpath`` (same zones, months, colours, KPIs, order)."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">%s</p>'
+                % _esc(p.get('note') or 'The schedule carries no total float, so a critical path '
+                       'cannot be derived from it.'))
+    months = p.get('months') or []
+    zones = p.get('zones') or []
+    out = ['<p>%s</p>' % _esc(p.get('narrative') or '')]
+
+    kpis = p.get('kpis') or []
+    if kpis:
+        out.append('<div class="cpk-row">%s</div>' % ''.join(
+            '<div class="cpk"><div class="cpk-v">%s</div><div class="cpk-l">%s</div></div>'
+            % (_esc(v), _esc(l)) for v, l in kpis))
+
+    out.append('<div class="sub">%s</div>' % _esc(p.get('subhead')
+               or 'Critical-path sweep — when each zone drives the schedule'))
+    leg = p.get('legend') or []
+    if leg:
+        out.append('<div class="cpleg">%s</div>' % ''.join(
+            '<span class="cplg"><i style="background:#%s"></i>%s</span>' % (hexv, _esc(disp))
+            for disp, hexv in leg))
+
+    # year header (colspan per year) + month header, then one shaded row per zone
+    yspans, i = [], 0
+    while i < len(months):
+        y = months[i]['y']
+        span = 0
+        while i + span < len(months) and months[i + span]['y'] == y:
+            span += 1
+        yspans.append((y, span))
+        i += span
+    yhead = ('<tr><th class="cpz cpzh"></th>%s</tr>'
+             % ''.join('<th class="cpyr" colspan="%d">%d</th>' % (sp, y) for y, sp in yspans))
+    mhead = ('<tr><th class="cpz cpzh">Zone</th>%s</tr>'
+             % ''.join('<th class="cpmo">%s</th>' % _esc(m['label']) for m in months))
+    rows = ''
+    for z in zones:
+        cells = z.get('cells') or []
+        tds = ''
+        for k in range(len(months)):
+            c = cells[k] if k < len(cells) else None
+            if c:
+                tds += ('<td class="cpcell" style="background:#%s" title="%s"></td>'
+                        % (_esc(c.get('color') or '9AA4B0'), _esc(c.get('trade') or '')))
+            else:
+                tds += '<td class="cpcell cpoff"></td>'
+        rows += '<tr><td class="cpz">%s</td>%s</tr>' % (_esc(z.get('label') or ''), tds)
+    out.append('<table class="cpgrid">%s%s%s</table>' % (yhead, mhead, rows))
+
+    if p.get('note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('note')))
+    return ''.join(out)
+
+
+def _mapsheet(p, number, title, meta, cur):
+    """Appendix — Mapping Sheet: a cover page only (the heading is drawn by the section wrapper).
+    The planner attaches the project mapping sheet into this appendix, so the body is just a light,
+    centred placeholder note. Twin of ``docx_writer._render_mapsheet``."""
+    p = p or {}
+    txt = _esc(p.get('placeholder')
+               or 'The project mapping sheet is attached in this appendix by the planner.')
+    # the cover heading is already centred and pushed down the page, so the note sits just below it
+    return ('<div style="text-align:center;margin-top:10mm;color:#8a95a1;font-style:italic;'
+            'font-size:13px">%s</div>' % txt)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -1031,6 +1282,10 @@ _RENDER = {
     'activity_ids': _actids,
     'resload': _resload,
     'materials': _materials,
+    'prodrate': _prodrate,
+    'volwork': _volwork,
+    'critpath': _critpath,
+    'mapsheet': _mapsheet,
 }
 
 
@@ -1050,7 +1305,16 @@ def _section_body(s, meta, cur):
 def _section_page(s, meta, cur, footer):
     number = s.get('number', '')
     title = s.get('title', '')
-    head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
+    # Appendix sections keep a running number internally (addressability) but show the title
+    # alone — no "N)" prefix. A cover/divider appendix (e.g. the Mapping Sheet) centres its title
+    # and pushes it down the page, like the reference report's divider pages.
+    if s.get('cover'):
+        head = ('<h1 class="sec" style="text-align:center;margin-top:48mm;font-size:26px;'
+                'font-weight:600">%s</h1>' % _esc(title))
+    elif s.get('appendix'):                              # appendix title: centred, at the top of its page
+        head = '<h1 class="sec" style="text-align:center">%s</h1>' % _esc(title)
+    else:
+        head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
     body = _section_body(s, meta, cur)
     # Wrap the heading + body in an addressable section block so the interactive
     # layer (Report-Contents selection, in-place prose editing, reorder/hide) can
@@ -1105,9 +1369,13 @@ def _toc(meta, paged, page_map=None):
                'font-weight:700;letter-spacing:.06em;margin:16px 0 5px;border-bottom:'
                '1px solid #e2e8ef;padding-bottom:3px">%s</div>')
     item = ('<div class="toc-i" style="display:flex;font-size:13px;padding:5px 0">'
-            '<span style="color:#1F4E79;font-weight:700;width:34px">%s)</span>'
+            '<span style="color:#1F4E79;font-weight:700;width:34px">%s</span>'
             '<span>%s</span><span style="flex:1;border-bottom:1.4px dotted #9aa4b0;'
             'margin:0 8px;transform:translateY(-4px)"></span><span>%s</span></div>')
+
+    def _numlab(s):
+        # appendix rows list the title alone (no "N)"), everything else shows its ordinal.
+        return '' if s.get('appendix') else '%s)' % _esc(s.get('number'))
 
     def _pg(s, pg):
         if page_map:
@@ -1125,14 +1393,14 @@ def _toc(meta, paged, page_map=None):
             if t in by_title:
                 s, pg = by_title[t]
                 used.add(t)
-                rows += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
+                rows += item % (_numlab(s), _esc(s.get('title')), _pg(s, pg))
         if rows:
             out += (grp_hdr % _h.escape(label)) + rows
     # any section not covered by a named group (defensive) → an "OTHER" trailer
     extra = ''
     for s, pg in paged:
         if s.get('title') not in used:
-            extra += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
+            extra += item % (_numlab(s), _esc(s.get('title')), _pg(s, pg))
     if extra:
         out += (grp_hdr % 'OTHER') + extra
     body = ('<div style="text-align:center;font-family:\'Calibri Light\',Calibri,sans-serif;'
@@ -1263,6 +1531,31 @@ table { border-collapse: collapse; }
 .dt th.num, .dt td.num { text-align:center; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
+/* §15.3 per-activity breakdown — each resource's caption + table stay together on one page */
+.prodbd { break-inside:avoid; page-break-inside:avoid; margin-top:10px; }
+.prodbd-cap { font-size:12px; color:#1F4E79; margin:0 0 4px; font-family:'Times New Roman',serif; }
+/* Appendix — Critical Path: KPI strip, trade legend and the month-grid "sweep" */
+.cpk-row { display:flex; gap:8px; margin:10px 0 8px; }
+.cpk { flex:1; border:1px solid #dfe4ea; border-top:3px solid #1F4E79; border-radius:3px;
+       padding:7px 6px; text-align:center; }
+.cpk-v { font-family:Calibri,sans-serif; font-size:15px; font-weight:700; color:#1F4E79; }
+.cpk-l { font-size:8.5px; color:#5b6472; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+.cpleg { margin:6px 0 6px; }
+.cplg { display:inline-block; font-size:10px; color:#3a424c; margin:0 12px 4px 0;
+        font-family:Calibri,sans-serif; }
+.cplg i { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px;
+          margin-right:4px; }
+.cpgrid { width:100%; border-collapse:collapse; table-layout:fixed;
+          font-family:Calibri,sans-serif; break-inside:avoid; page-break-inside:avoid; }
+.cpgrid th, .cpgrid td { border:1px solid #e4e8ee; }
+.cpz { width:148px; font-size:10px; color:#2b2f36; padding:2px 5px; text-align:left;
+       background:#f6f8fb; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cpzh { background:#26517D; color:#fff; font-weight:700; }
+.cpyr { background:#26517D; color:#fff; font-size:9px; font-weight:700; text-align:center; }
+.cpmo { background:#3a6ea5; color:#fff; font-size:8.5px; font-weight:600; text-align:center; }
+.cpcell { height:15px; }
+.cpoff { background:#F2F4F7; }
+.vwsvg { width:100%; height:auto; display:block; margin:4px 0 6px; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}
 .wt li{position:relative;padding:4px 0;}

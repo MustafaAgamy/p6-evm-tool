@@ -458,6 +458,74 @@ def _material_resources(res):
                         'material, each kept in its own unit of measure.')
 
 
+# ── §15 Productivity Rates & Resources Assigned ───────────────────────────────
+def _productivity(data, path):
+    """Planned daily production rate + assigned crew for every material (quantities) resource:
+    total quantity ÷ total working-days (weighted), the per-activity rate range, and the labour
+    and plant loaded on the same activities. Generic and self-explaining; an honest fallback
+    (blank rate cells, then a no-data note) when the schedule carries no quantity loading. See
+    :mod:`p6_narrative.prodrate`."""
+    try:
+        from p6_narrative import prodrate
+        payload = prodrate.productivity(data, path)
+    except Exception:
+        payload = {'available': False}
+    return Section('15', 'Productivity Rates & Resources Assigned', 'prodrate', 'auto',
+                   payload=payload,
+                   note='Planned daily production rate for each quantities resource and the crew '
+                        'assigned — derived from the baseline resource assignments.')
+
+
+# ── §16 Volume of Work ────────────────────────────────────────────────────────
+def _volume_of_work(data, path):
+    """Planned value-of-work distribution: each activity's budgeted cost spread over its working
+    days (P6 Resource Usage) → the monthly value of work + the cumulative S-curve. Generic and
+    currency-aware; an honest no-data payload when the schedule carries no cost loading."""
+    try:
+        from p6_narrative import volwork
+        payload = volwork.volume_of_work(data, path)
+    except Exception:
+        payload = {'available': False}
+    return Section('16', 'Volume of Work', 'volwork', 'auto', payload=payload,
+                   note='The planned volume of work from the baseline cost loading — the monthly '
+                        'value of work and the cumulative planned-value S-curve.')
+
+
+def _critical_path(data):
+    """Appendix — Critical Path: the schedule's critical activities (P6's OWN exported total
+    float ≤ 0) distilled into the project's WBS zones and swept month-by-month, coloured by
+    trade — the 'critical-path sweep'. Generic; honest no-data payload when the file carries no
+    float. Rendered as an un-numbered appendix (``appendix=True``)."""
+    try:
+        from p6_narrative import critpath
+        payload = critpath.critical_path(data)
+    except Exception:
+        payload = {'available': False}
+    return Section('17', 'Appendix (Critical Path)', 'critpath', 'auto', payload=payload,
+                   appendix=True,
+                   note='The critical path taken straight from P6’s exported total float, shown '
+                        'as a month-by-month sweep of the driving zones.')
+
+
+def _critical_path_from_p6(data):
+    """Appendix (Critical Path From P6): an un-numbered COVER/DIVIDER page — same style as the
+    Mapping Sheet — placed AFTER the tool's derived critical-path results, where the planner
+    attaches P6's own critical-path output. Nothing is auto-generated (a light note only)."""
+    return Section('18', 'Appendix (Critical Path From P6)', 'mapsheet', 'auto',
+                   appendix=True, cover=True,
+                   payload={'placeholder': 'The P6 critical-path output is attached in this '
+                                           'appendix by the planner.'})
+
+
+def _mapping_sheet(data):
+    """Appendix (Mapping Sheet): an un-numbered COVER/DIVIDER page — the title centred and pushed
+    down the page, matching the reference report's divider pages. The planner attaches the project
+    mapping sheet into this appendix themselves, so nothing is auto-generated (a light note only)."""
+    return Section('19', 'Appendix (Mapping Sheet)', 'mapsheet', 'auto', appendix=True, cover=True,
+                   payload={'placeholder': 'The project mapping sheet is attached in this '
+                                           'appendix by the planner.'})
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -536,6 +604,11 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _activity_ids(data),
         _resource_loading(res),
         _material_resources(res),
+        _productivity(data, path),
+        _volume_of_work(data, path),
+        _critical_path(data),
+        _critical_path_from_p6(data),
+        _mapping_sheet(data),
     ]
     ordered = [s for s in ordered if s is not None]
 

@@ -15,7 +15,7 @@ PROVENANCE = ('auto', 'calendar', 'drafted', 'fill')
 
 class Section:
     def __init__(self, number, title, kind, provenance='auto',
-                 payload=None, note=None, editable=False):
+                 payload=None, note=None, editable=False, appendix=False, cover=False):
         assert provenance in PROVENANCE, provenance
         self.number = number
         self.title = title
@@ -24,12 +24,21 @@ class Section:
         self.payload = payload if payload is not None else {}
         self.note = note
         self.editable = editable
+        # An appendix section keeps a running ``number`` internally (so the renumber loop is
+        # never disturbed) but is shown WITHOUT its numeric "N)" prefix — the title stands
+        # alone ("Appendix (…)") and the Table of Contents shows it without a number.
+        self.appendix = appendix
+        # A cover/divider section (e.g. the Mapping Sheet the planner attaches into) renders its
+        # title CENTRED and pushed down the page, like the reference report's divider pages —
+        # rather than as a top-left section heading.
+        self.cover = cover
 
     def to_dict(self):
         return {
             'number': self.number, 'title': self.title, 'kind': self.kind,
             'provenance': self.provenance, 'payload': self.payload,
-            'note': self.note, 'editable': self.editable,
+            'note': self.note, 'editable': self.editable, 'appendix': self.appendix,
+            'cover': self.cover,
         }
 
 
