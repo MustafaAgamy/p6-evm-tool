@@ -1166,6 +1166,106 @@ def _render_codes(document, p, number, note):
         para(document, '', after=6)
 
 
+def _render_critpath(document, p, number, note):
+    """Native Word Appendix — Critical Path: the "critical-path sweep". An auto-narrative, a KPI
+    strip, a trade legend, and a REAL Word table whose month-cells are shaded (``_shade``) by the
+    driving trade — no image, fully editable. Twins ``html._critpath`` (same zones, months,
+    colours, KPIs and order)."""
+    p = p or {}
+    if not p.get('available'):
+        _muted(document, p.get('note') or 'The schedule carries no total float, so a critical '
+                                          'path cannot be derived from it.')
+        return
+    months = p.get('months') or []
+    zones = p.get('zones') or []
+    ncol = 1 + len(months)
+    label_w = 1.5
+    mo_w = round((6.9 - label_w) / max(len(months), 1), 3)
+
+    para(document, p.get('narrative') or '', align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+
+    # KPI strip — a two-row table (value over label), one column per KPI.
+    kpis = p.get('kpis') or []
+    if kpis:
+        kt = document.add_table(rows=2, cols=len(kpis))
+        kt.style = 'Table Grid'
+        kt.autofit = False
+        kw = round(6.9 / len(kpis), 3)
+        for j, kv in enumerate(kpis):
+            v, l = (kv + ['', ''])[:2]
+            cv, cl = kt.cell(0, j), kt.cell(1, j)
+            for c in (cv, cl):
+                _no_space(c); _set_w(c, kw); _shade(c, 'F1F5FA')
+                c.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+                c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(cv.paragraphs[0], v, font=CAL, size=13, bold=True, color=NAVY)
+            run(cl.paragraphs[0], l, font=CAL, size=8, color=GREY)
+        _keep_table_together(kt, header=False)
+
+    sp = para(document, p.get('subhead')
+              or 'Critical-path sweep — when each zone drives the schedule',
+              font=CAL, size=11, bold=True, color=NAVY, before=10, after=5)
+    sp.paragraph_format.keep_with_next = True
+
+    # trade legend — shaded swatch runs + labels, inline.
+    leg = p.get('legend') or []
+    if leg:
+        lp = document.add_paragraph()
+        lp.paragraph_format.space_after = Pt(5)
+        lp.paragraph_format.keep_with_next = True
+        for disp, hexv in leg:
+            sw = run(lp, '  ', font=CAL, size=9)
+            rpr = sw._element.get_or_add_rPr()
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear'); shd.set(qn('w:fill'), hexv)
+            rpr.append(shd)
+            run(lp, ' %s    ' % disp, font=CAL, size=9, color=BODYNAVY)
+
+    # the sweep — a native shaded-cell grid: year header (no merge), month header, one row/zone.
+    t = document.add_table(rows=0, cols=ncol)
+    t.style = 'Table Grid'
+    t.autofit = False
+    spans, i = [], 0
+    while i < len(months):
+        y = months[i]['y']
+        span = 0
+        while i + span < len(months) and months[i + span]['y'] == y:
+            span += 1
+        spans.append((y, i + 1))                     # (year, first 1-based month-column)
+        i += span
+    year_at = {a: y for (y, a) in spans}
+
+    yr = t.add_row(); _row_h(yr, 11, exact=False)
+    c0 = yr.cells[0]; _shade(c0, '26517D'); _no_space(c0); _set_w(c0, label_w)
+    for k in range(1, ncol):
+        c = yr.cells[k]; _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w)
+        if k in year_at:
+            run(c.paragraphs[0], str(year_at[k]), font=CAL, size=7.5, bold=True, color=WHITE)
+
+    mr = t.add_row(); _row_h(mr, 12, exact=False)
+    lc = mr.cells[0]; _shade(lc, '3A6EA5'); _no_space(lc); _set_w(lc, label_w)
+    lc.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run(lc.paragraphs[0], 'Zone', font=CAL, size=8, bold=True, color=WHITE)
+    for k, m in enumerate(months, start=1):
+        c = mr.cells[k]; _shade(c, '3A6EA5'); _no_space(c); _set_w(c, mo_w)
+        c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(c.paragraphs[0], m.get('label') or '', font=CAL, size=7.5, color=WHITE)
+
+    for z in zones:
+        rr = t.add_row(); _row_h(rr, 12, exact=False)
+        lc = rr.cells[0]; _no_space(lc); _set_w(lc, label_w); _shade(lc, 'F6F8FB')
+        run(lc.paragraphs[0], z.get('label') or '', font=CAL, size=8, color=BODYNAVY)
+        cells = z.get('cells') or []
+        for k in range(1, ncol):
+            c = rr.cells[k]; _no_space(c); _set_w(c, mo_w)
+            cell = cells[k - 1] if k - 1 < len(cells) else None
+            _shade(c, (cell.get('color') if cell else 'F2F4F7'))
+    _keep_table_together(t, header=True)
+
+    if p.get('note'):
+        _muted(document, p.get('note'))
+
+
 _RENDER = {
     'overview': _render_overview,
     'image': _render_image,
@@ -1182,6 +1282,7 @@ _RENDER = {
     'materials': _render_materials,
     'prodrate': _render_prodrate,
     'volwork': _render_volwork,
+    'critpath': _render_critpath,
 }
 
 
@@ -1389,8 +1490,11 @@ def write_docx(doc, output_path, chrome=None):
             number = int(section.get('number'))
         except (TypeError, ValueError):
             number = idx
-        hp = docx_template.heading(document, docx_template.format_number((number,)),
-                                   section.get('title', ''))
+        if section.get('appendix'):                            # appendix pages carry no "N)" prefix
+            hp = docx_template.heading(document, '', section.get('title', ''))
+        else:
+            hp = docx_template.heading(document, docx_template.format_number((number,)),
+                                       section.get('title', ''))
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
         if idx < len(sections):

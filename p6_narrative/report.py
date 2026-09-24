@@ -491,6 +491,22 @@ def _volume_of_work(data, path):
                         'value of work and the cumulative planned-value S-curve.')
 
 
+def _critical_path(data):
+    """Appendix — Critical Path: the schedule's critical activities (P6's OWN exported total
+    float ≤ 0) distilled into the project's WBS zones and swept month-by-month, coloured by
+    trade — the 'critical-path sweep'. Generic; honest no-data payload when the file carries no
+    float. Rendered as an un-numbered appendix (``appendix=True``)."""
+    try:
+        from p6_narrative import critpath
+        payload = critpath.critical_path(data)
+    except Exception:
+        payload = {'available': False}
+    return Section('17', 'Appendix — Critical Path', 'critpath', 'auto', payload=payload,
+                   appendix=True,
+                   note='The critical path taken straight from P6’s exported total float, shown '
+                        'as a month-by-month sweep of the driving zones.')
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
@@ -571,6 +587,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
         _material_resources(res),
         _productivity(data, path),
         _volume_of_work(data, path),
+        _critical_path(data),
     ]
     ordered = [s for s in ordered if s is not None]
 

@@ -1197,6 +1197,66 @@ def _prodrate(p, number, title, meta, cur):
     return ''.join(out)
 
 
+def _critpath(p, number, title, meta, cur):
+    """Appendix — Critical Path: the "critical-path sweep". A KPI strip, an auto-narrative, a trade
+    legend and a month-grid table whose cells are shaded by the driving trade — so the critical
+    path (P6's own total float = 0) reads as a coloured staircase down the zones and across the
+    months. Twin of ``docx_writer._render_critpath`` (same zones, months, colours, KPIs, order)."""
+    p = p or {}
+    if not p.get('available'):
+        return ('<p class="note">%s</p>'
+                % _esc(p.get('note') or 'The schedule carries no total float, so a critical path '
+                       'cannot be derived from it.'))
+    months = p.get('months') or []
+    zones = p.get('zones') or []
+    out = ['<p>%s</p>' % _esc(p.get('narrative') or '')]
+
+    kpis = p.get('kpis') or []
+    if kpis:
+        out.append('<div class="cpk-row">%s</div>' % ''.join(
+            '<div class="cpk"><div class="cpk-v">%s</div><div class="cpk-l">%s</div></div>'
+            % (_esc(v), _esc(l)) for v, l in kpis))
+
+    out.append('<div class="sub">%s</div>' % _esc(p.get('subhead')
+               or 'Critical-path sweep — when each zone drives the schedule'))
+    leg = p.get('legend') or []
+    if leg:
+        out.append('<div class="cpleg">%s</div>' % ''.join(
+            '<span class="cplg"><i style="background:#%s"></i>%s</span>' % (hexv, _esc(disp))
+            for disp, hexv in leg))
+
+    # year header (colspan per year) + month header, then one shaded row per zone
+    yspans, i = [], 0
+    while i < len(months):
+        y = months[i]['y']
+        span = 0
+        while i + span < len(months) and months[i + span]['y'] == y:
+            span += 1
+        yspans.append((y, span))
+        i += span
+    yhead = ('<tr><th class="cpz cpzh"></th>%s</tr>'
+             % ''.join('<th class="cpyr" colspan="%d">%d</th>' % (sp, y) for y, sp in yspans))
+    mhead = ('<tr><th class="cpz cpzh">Zone</th>%s</tr>'
+             % ''.join('<th class="cpmo">%s</th>' % _esc(m['label']) for m in months))
+    rows = ''
+    for z in zones:
+        cells = z.get('cells') or []
+        tds = ''
+        for k in range(len(months)):
+            c = cells[k] if k < len(cells) else None
+            if c:
+                tds += ('<td class="cpcell" style="background:#%s" title="%s"></td>'
+                        % (_esc(c.get('color') or '9AA4B0'), _esc(c.get('trade') or '')))
+            else:
+                tds += '<td class="cpcell cpoff"></td>'
+        rows += '<tr><td class="cpz">%s</td>%s</tr>' % (_esc(z.get('label') or ''), tds)
+    out.append('<table class="cpgrid">%s%s%s</table>' % (yhead, mhead, rows))
+
+    if p.get('note'):
+        out.append('<p class="note">%s</p>' % _esc(p.get('note')))
+    return ''.join(out)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -1212,6 +1272,7 @@ _RENDER = {
     'materials': _materials,
     'prodrate': _prodrate,
     'volwork': _volwork,
+    'critpath': _critpath,
 }
 
 
@@ -1231,7 +1292,12 @@ def _section_body(s, meta, cur):
 def _section_page(s, meta, cur, footer):
     number = s.get('number', '')
     title = s.get('title', '')
-    head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
+    # Appendix sections keep a running number internally (addressability) but show the title
+    # alone — no "N)" prefix — matching the report's un-numbered appendix pages.
+    if s.get('appendix'):
+        head = '<h1 class="sec">%s</h1>' % _esc(title)
+    else:
+        head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
     body = _section_body(s, meta, cur)
     # Wrap the heading + body in an addressable section block so the interactive
     # layer (Report-Contents selection, in-place prose editing, reorder/hide) can
@@ -1286,9 +1352,13 @@ def _toc(meta, paged, page_map=None):
                'font-weight:700;letter-spacing:.06em;margin:16px 0 5px;border-bottom:'
                '1px solid #e2e8ef;padding-bottom:3px">%s</div>')
     item = ('<div class="toc-i" style="display:flex;font-size:13px;padding:5px 0">'
-            '<span style="color:#1F4E79;font-weight:700;width:34px">%s)</span>'
+            '<span style="color:#1F4E79;font-weight:700;width:34px">%s</span>'
             '<span>%s</span><span style="flex:1;border-bottom:1.4px dotted #9aa4b0;'
             'margin:0 8px;transform:translateY(-4px)"></span><span>%s</span></div>')
+
+    def _numlab(s):
+        # appendix rows list the title alone (no "N)"), everything else shows its ordinal.
+        return '' if s.get('appendix') else '%s)' % _esc(s.get('number'))
 
     def _pg(s, pg):
         if page_map:
@@ -1306,14 +1376,14 @@ def _toc(meta, paged, page_map=None):
             if t in by_title:
                 s, pg = by_title[t]
                 used.add(t)
-                rows += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
+                rows += item % (_numlab(s), _esc(s.get('title')), _pg(s, pg))
         if rows:
             out += (grp_hdr % _h.escape(label)) + rows
     # any section not covered by a named group (defensive) → an "OTHER" trailer
     extra = ''
     for s, pg in paged:
         if s.get('title') not in used:
-            extra += item % (_esc(s.get('number')), _esc(s.get('title')), _pg(s, pg))
+            extra += item % (_numlab(s), _esc(s.get('title')), _pg(s, pg))
     if extra:
         out += (grp_hdr % 'OTHER') + extra
     body = ('<div style="text-align:center;font-family:\'Calibri Light\',Calibri,sans-serif;'
@@ -1447,6 +1517,27 @@ table { border-collapse: collapse; }
 /* §15.3 per-activity breakdown — each resource's caption + table stay together on one page */
 .prodbd { break-inside:avoid; page-break-inside:avoid; margin-top:10px; }
 .prodbd-cap { font-size:12px; color:#1F4E79; margin:0 0 4px; font-family:'Times New Roman',serif; }
+/* Appendix — Critical Path: KPI strip, trade legend and the month-grid "sweep" */
+.cpk-row { display:flex; gap:8px; margin:10px 0 8px; }
+.cpk { flex:1; border:1px solid #dfe4ea; border-top:3px solid #1F4E79; border-radius:3px;
+       padding:7px 6px; text-align:center; }
+.cpk-v { font-family:Calibri,sans-serif; font-size:15px; font-weight:700; color:#1F4E79; }
+.cpk-l { font-size:8.5px; color:#5b6472; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+.cpleg { margin:6px 0 6px; }
+.cplg { display:inline-block; font-size:10px; color:#3a424c; margin:0 12px 4px 0;
+        font-family:Calibri,sans-serif; }
+.cplg i { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px;
+          margin-right:4px; }
+.cpgrid { width:100%; border-collapse:collapse; table-layout:fixed;
+          font-family:Calibri,sans-serif; break-inside:avoid; page-break-inside:avoid; }
+.cpgrid th, .cpgrid td { border:1px solid #e4e8ee; }
+.cpz { width:148px; font-size:10px; color:#2b2f36; padding:2px 5px; text-align:left;
+       background:#f6f8fb; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cpzh { background:#26517D; color:#fff; font-weight:700; }
+.cpyr { background:#26517D; color:#fff; font-size:9px; font-weight:700; text-align:center; }
+.cpmo { background:#3a6ea5; color:#fff; font-size:8.5px; font-weight:600; text-align:center; }
+.cpcell { height:15px; }
+.cpoff { background:#F2F4F7; }
 .vwsvg { width:100%; height:auto; display:block; margin:4px 0 6px; }
 .wt ul{list-style:none;margin:0;padding-left:22px;}
 .wt>ul{padding-left:0;}
