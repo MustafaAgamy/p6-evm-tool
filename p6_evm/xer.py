@@ -217,10 +217,16 @@ def parse_xer(path):
         })
 
     # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.
+    # 'code' is P6's human Resource Id (rsrc_short_name — the short code the planner sees), distinct
+    # from the internal rsrc_id; the UI shows the code so the table matches P6.
+    _RSRC_TYPE = {'RT_Labor': 'Labour', 'RT_Nonlabor': 'Equipment', 'RT_Equip': 'Equipment',
+                  'RT_Mat': 'Material'}
     for rr in tables.get('RSRC', []):
         rid = rr.get('rsrc_id')
         if rid:
-            data.resources[rid] = {'name': rr.get('rsrc_name') or rr.get('rsrc_short_name') or rid}
+            data.resources[rid] = {'name': rr.get('rsrc_name') or rr.get('rsrc_short_name') or rid,
+                                   'code': rr.get('rsrc_short_name'),
+                                   'type': _RSRC_TYPE.get(rr.get('rsrc_type'))}
 
     for ra in tables.get('TASKRSRC', []):
         tid = ra.get('task_id')
@@ -234,7 +240,9 @@ def parse_xer(path):
         rid = ra.get('rsrc_id')
         data.assignments_by_activity.setdefault(tid, []).append({
             'resource_id': rid,
+            'resource_code': (data.resources.get(rid) or {}).get('code'),   # P6 human Resource Id
             'resource_name': (data.resources.get(rid) or {}).get('name'),
+            'resource_type': (data.resources.get(rid) or {}).get('type'),
             'budget_units': _num(ra.get('target_qty'), 0.0) or 0.0,
             'actual_units': (_num(ra.get('act_reg_qty'), 0.0) or 0.0) + (_num(ra.get('act_ot_qty'), 0.0) or 0.0),
             'budget_cost': bac,

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — round 16</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --b0:#9aa6b6; --b0-soft:#eef1f5;
+    --good:#1f9d57; --good-soft:#e7f6ee; --bad:#d5453b; --bad-soft:#fdeceb;
+    --warn:#c8801a; --warn-soft:#fbf1e0; --ren:#6b52d6; --ren-soft:#efeafb;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding:22px 16px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800}
+  h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .note{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:10px;padding:10px 13px;color:#254a86;font-size:12.5px;margin:0 0 16px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);margin:0 0 14px;padding:16px 18px}
+  .card h3{margin:0 0 3px;font-size:14px;font-weight:800}
+  .card h3 .n{font-weight:600;color:var(--muted);font-size:12px}
+  .desc{color:var(--ink-soft);font-size:12.5px;margin:2px 0 12px}
+  .tagfix{display:inline-block;background:var(--good-soft);color:var(--good);font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:8px;letter-spacing:.3px}
+  .chart{width:100%;height:auto}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--ink-soft)}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* calendar */
+  .caldigest{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink-soft);padding:9px 12px;background:var(--bg);border:1px solid var(--edge);border-radius:9px;margin-bottom:13px}
+  .calcard{border:1px solid var(--edge);border-radius:12px;padding:13px 15px;margin-bottom:12px}
+  .calhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .calname{font-size:14.5px;font-weight:800}
+  .calmeta{font-size:11px;color:var(--muted);margin-left:auto}
+  .tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+  .tag.mod{background:var(--warn-soft);color:var(--warn)} .tag.add{background:var(--good-soft);color:var(--good)} .tag.rem{background:var(--bad-soft);color:var(--bad)}
+  .calbrief{font-size:14px;line-height:1.55;margin:4px 0}
+  .hl-g{color:var(--good);font-weight:700}.hl-r{color:var(--bad);font-weight:700}.hl-a{color:var(--warn);font-weight:700}
+  .calctx{font-size:12.5px;color:var(--ink-soft);margin:6px 0;padding:8px 11px;background:var(--bg);border:1px solid var(--edge2);border-radius:8px}
+  .calctx .flag{color:var(--warn);font-weight:700}
+  table.ldg{width:100%;border-collapse:collapse;margin:9px 0 4px;font-size:13px}
+  table.ldg th{text-align:left;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:800;padding:6px 10px;border-bottom:1px solid var(--edge)}
+  table.ldg td{padding:7px 10px;border-bottom:1px solid var(--edge2)}
+  .lattr{color:var(--ink-soft);font-weight:600;width:32%}.lrev{text-align:center;width:19%;font-variant-numeric:tabular-nums}.lchg{text-align:right;width:30%}
+  tr.band td{background:var(--bg);color:var(--ink-soft);font-weight:800;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+  tr.ident td{color:var(--muted);font-style:italic;background:#fcfcfe}
+  .chg-g{color:var(--good);font-weight:700}.chg-r{color:var(--bad);font-weight:700}.chg-a{color:var(--warn);font-weight:700}.chg-n{color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:1px}
+  .dot.g{background:var(--good)}.dot.r{background:var(--bad)}.dot.a{background:var(--warn)}
+  .nwlist{margin:10px 0 2px;padding:11px 13px;background:var(--good-soft);border:1px solid #cfead9;border-radius:9px}
+  .nwlist .h{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--good);margin-bottom:7px}
+  .nwlist .row{font-size:12.5px;color:var(--ink);margin:3px 0}
+  .nwlist .wk{color:var(--ink-soft)}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+  .chip{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:20px;padding:4px 10px;font-size:12px;color:#254a86}
+  .assignh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:11px;border-top:1px dashed var(--edge);padding-top:10px}
+  .calunchanged{padding:10px 14px;color:var(--muted);font-size:12.5px;background:var(--bg);border:1px dashed var(--edge);border-radius:9px}
+  .calunchanged b{color:var(--ink-soft)}
+  .drop{background:#fbfbfd;border:1px dashed var(--edge);border-radius:9px;padding:9px 13px;font-size:12px;color:var(--muted);margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lead">
+    <div class="secnum">R16</div>
+    <div>
+      <h1>Round-16 refinements — mockup for approval</h1>
+      <p class="sub">Baseline Revision Comparison · manpower monthly chart (Before &amp; After) + calendar fixes. Nothing coded yet.</p>
+    </div>
+  </div>
+
+  <div class="note"><b>Your 3 comments →</b> ① Manpower monthly = Before &amp; After bars with value labels (147k), nothing trimmed. ② Cost chart labels/dates fixed (bug-fix, no mockup needed). ③ Calendar: drop added calendars with 0 activities · clearer "identical non-working days" wording · list a new calendar's non-working days.</div>
+
+  <!-- ===================== MANPOWER (#01) ===================== -->
+  <div class="card">
+    <h3>Labour man-hours by month <span class="n">— Before &amp; After (Rev.00 vs Rev.01), value on every bar</span><span class="tagfix">#01</span></h3>
+    <div class="desc">The monthly histogram now shows the actual <b>Before</b> (Rev.00) and <b>After</b> (Rev.01) man-hours side by side — the variance is already in the hero (−528) and the by-trade chart below. Every bar is labelled with a compact value (e.g. 147,000 → <b>147k</b>); neither number is trimmed.</div>
+    <svg class="chart" viewBox="0 0 900 300" role="img" aria-label="Before and after labour man-hours by month">
+      <line x1="44" y1="250" x2="884" y2="250" stroke="var(--edge)"/>
+      <g font-size="10" font-weight="800" text-anchor="middle">
+        <!-- month groups: grey=Rev.00, blue=Rev.01, label above each bar -->
+        <!-- m1 -->
+        <rect x="60"  y="150" width="20" height="100" rx="2" fill="var(--b0)"/><text x="70" y="144" fill="var(--ink-soft)">12.4k</text>
+        <rect x="82"  y="162" width="20" height="88"  rx="2" fill="var(--accent)"/><text x="92" y="156" fill="var(--accent)">11.1k</text>
+        <!-- m2 -->
+        <rect x="140" y="120" width="20" height="130" rx="2" fill="var(--b0)"/><text x="150" y="114" fill="var(--ink-soft)">16.1k</text>
+        <rect x="162" y="128" width="20" height="122" rx="2" fill="var(--accent)"/><text x="172" y="122" fill="var(--accent)">15.2k</text>
+        <!-- m3 -->
+        <rect x="220" y="96"  width="20" height="154" rx="2" fill="var(--b0)"/><text x="230" y="90" fill="var(--ink-soft)">19.0k</text>
+        <rect x="242" y="104" width="20" height="146" rx="2" fill="var(--accent)"/><text x="252" y="98" fill="var(--accent)">18.1k</text>
+        <!-- m4 -->
+        <rect x="300" y="132" width="20" height="118" rx="2" fill="var(--b0)"/><text x="310" y="126" fill="var(--ink-soft)">14.7k</text>
+        <rect x="322" y="140" width="20" height="110" rx="2" fill="var(--accent)"/><text x="332" y="134" fill="var(--accent)">13.9k</text>
+        <!-- m5 -->
+        <rect x="380" y="170" width="20" height="80"  rx="2" fill="var(--b0)"/><text x="390" y="164" fill="var(--ink-soft)">9.9k</text>
+        <rect x="402" y="176" width="20" height="74"  rx="2" fill="var(--accent)"/><text x="412" y="170" fill="var(--accent)">9.2k</text>
+        <!-- m6 -->
+        <rect x="460" y="150" width="20" height="100" rx="2" fill="var(--b0)"/><text x="470" y="144" fill="var(--ink-soft)">12.5k</text>
+        <rect x="482" y="146" width="20" height="104" rx="2" fill="var(--accent)"/><text x="492" y="140" fill="var(--accent)">12.9k</text>
+        <!-- m7 -->
+        <rect x="540" y="188" width="20" height="62"  rx="2" fill="var(--b0)"/><text x="550" y="182" fill="var(--ink-soft)">7.7k</text>
+        <rect x="562" y="192" width="20" height="58"  rx="2" fill="var(--accent)"/><text x="572" y="186" fill="var(--accent)">7.2k</text>
+        <!-- m8 -->
+        <rect x="620" y="204" width="20" height="46"  rx="2" fill="var(--b0)"/><text x="630" y="198" fill="var(--ink-soft)">5.7k</text>
+        <rect x="642" y="200" width="20" height="50"  rx="2" fill="var(--accent)"/><text x="652" y="194" fill="var(--accent)">6.2k</text>
+        <!-- m9 -->
+        <rect x="700" y="220" width="20" height="30"  rx="2" fill="var(--b0)"/><text x="710" y="214" fill="var(--ink-soft)">3.7k</text>
+        <rect x="722" y="224" width="20" height="26"  rx="2" fill="var(--accent)"/><text x="732" y="218" fill="var(--accent)">3.2k</text>
+        <!-- m10 -->
+        <rect x="780" y="230" width="20" height="20"  rx="2" fill="var(--b0)"/><text x="790" y="224" fill="var(--ink-soft)">2.5k</text>
+        <rect x="802" y="232" width="20" height="18"  rx="2" fill="var(--accent)"/><text x="812" y="226" fill="var(--accent)">2.2k</text>
+      </g>
+      <g font-size="10" fill="var(--muted)" text-anchor="middle">
+        <text x="81" y="266">Jan 25</text><text x="161" y="266">Feb 25</text><text x="241" y="266">Mar 25</text>
+        <text x="321" y="266">Apr 25</text><text x="401" y="266">May 25</text><text x="481" y="266">Jun 25</text>
+        <text x="561" y="266">Jul 25</text><text x="641" y="266">Aug 25</text><text x="721" y="266">Sep 25</text><text x="801" y="266">Oct 25</text>
+      </g>
+    </svg>
+    <div class="legend"><span><i style="background:var(--b0)"></i>Rev.00 (before) man-hours</span><span><i style="background:var(--accent)"></i>Rev.01 (after) man-hours</span><span class="wk" style="color:var(--muted)">value labelled on every bar · nothing trimmed</span></div>
+  </div>
+
+  <!-- ===================== CALENDAR (#03) ===================== -->
+  <div class="card">
+    <h3>Calendar <span class="n">— Option A with round-16 fixes</span><span class="tagfix">#03</span></h3>
+
+    <div class="caldigest">
+      <span><b>1 modified · 1 added · 1 retired · 2 unchanged</b> — 3 exception dates changed.</span>
+      <span class="legend" style="margin:0"><span><i style="background:var(--good)"></i>made working</span><span><i style="background:var(--bad)"></i>made non-working</span><span><i style="background:var(--warn)"></i>hours changed</span></span>
+    </div>
+
+    <div class="drop">① <b>Not shown:</b> 9 added calendars that have <b>0 activities</b> assigned (e.g. "6 Working Days-1", "Al-Forat-4") — noise for a planner, so they're dropped from the report and the counts above.</div>
+
+    <!-- modified: reworded identical row -->
+    <div class="calcard">
+      <div class="calhead"><span class="calname">6 Day Workweek</span><span class="tag mod">modified</span><span class="calmeta">88 activities</span></div>
+      <div class="calbrief"><b>6 Day Workweek</b> — <span class="hl-g">1 day made working</span>, <span class="hl-r">1 day made non-working</span> and <span class="hl-a">1 reduced-hours period re-houred</span>. Working week unchanged. Used by 88 activities, mostly Civil.</div>
+      <table class="ldg">
+        <thead><tr><th class="lattr">Attribute</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Change</th></tr></thead>
+        <tbody>
+          <tr><td class="lattr">Working days / week</td><td class="lrev">6 d/wk</td><td class="lrev">6 d/wk</td><td class="lchg chg-n">unchanged</td></tr>
+          <tr><td class="lattr">Hours / day</td><td class="lrev">8 h</td><td class="lrev">8 h</td><td class="lchg chg-n">unchanged</td></tr>
+          <tr class="band"><td colspan="4">Exception dates — changed only</td></tr>
+          <tr><td class="lattr"><span class="dot g"></span>07 Jan 2026</td><td class="lrev">Non-working</td><td class="lrev">8h/day</td><td class="lchg chg-g">made working</td></tr>
+          <tr><td class="lattr"><span class="dot a"></span>01–07 Mar 2026</td><td class="lrev">6h/day</td><td class="lrev">8h/day</td><td class="lchg chg-a">hours 6h → 8h</td></tr>
+          <tr><td class="lattr"><span class="dot r"></span>23 Sep 2026</td><td class="lrev">8h/day</td><td class="lrev">Non-working</td><td class="lchg chg-r">made non-working</td></tr>
+          <tr class="ident"><td class="lattr" colspan="3">② 89 non-working days are <b>identical</b> in both revisions — no change</td><td class="lchg">not listed</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- added WITH activities: list its non-working days -->
+    <div class="calcard">
+      <div class="calhead"><span class="calname">Marine Works</span><span class="tag add">added</span><span class="calmeta">8 activities</span></div>
+      <div class="calbrief"><b>Marine Works</b> — new 7 d/wk · 10 h/day calendar, now used by 8 activities moved off 6 Day Workweek. A longer working week shortens those durations on paper.</div>
+      <div class="calctx">New in Rev.01 · adopted by <b>8 activities</b>. <span class="flag">Flagged for review.</span></div>
+      <table class="ldg">
+        <thead><tr><th class="lattr">Attribute</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Change</th></tr></thead>
+        <tbody>
+          <tr><td class="lattr">Working days / week</td><td class="lrev">—</td><td class="lrev">7 d/wk</td><td class="lchg chg-g">added</td></tr>
+          <tr><td class="lattr">Hours / day</td><td class="lrev">—</td><td class="lrev">10 h</td><td class="lchg chg-g">added</td></tr>
+        </tbody>
+      </table>
+      <div class="nwlist">
+        <div class="h">③ Non-working days of this new calendar <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-soft)">— no prior revision to compare, so the pattern is listed in full</span></div>
+        <div class="row"><span class="wk">Weekly:</span> <b>none</b> — works 7 days/week.</div>
+        <div class="row"><span class="wk">Public holidays (5):</span> 01 Jan 2026 · 25 Apr 2026 · 23 Jul 2026 · 06 Oct 2026 · 25 Dec 2026</div>
+        <div class="row"><span class="wk">Reduced-hours dates:</span> none.</div>
+      </div>
+      <div class="assignh">Assigned — by activity code</div>
+      <div class="chips"><span class="chip">Marine <b>6</b></span><span class="chip">Civil <b>2</b></span></div>
+    </div>
+
+    <!-- retired -->
+    <div class="calcard">
+      <div class="calhead"><span class="calname">Temporary Site Cal</span><span class="tag rem">retired</span><span class="calmeta">removed in Rev.01</span></div>
+      <div class="calbrief"><b>Temporary Site Cal</b> — retired in Rev.01. The 12 activities that used it now run on <b>6 Day Workweek</b>.</div>
+      <div class="calctx">Retired in Rev.01 · its 12 activities now use <b>6 Day Workweek</b> — consolidated. <span class="flag">Flagged for review.</span></div>
+    </div>
+
+    <div class="calunchanged"><b>2 calendars unchanged</b> — National Holidays (210), Standard 5-Day (44). Identical working pattern and non-working days in both revisions.</div>
+  </div>
+
+  <div class="desc" style="text-align:center">These are illustrative values/dates — the live report derives everything from your XER/XML. Cost-chart fix (#02) is a straight bug-fix, applied directly.</div>
+
+</div>
+</body>
+</html>

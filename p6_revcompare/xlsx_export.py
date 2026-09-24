@@ -1,27 +1,57 @@
-"""Excel export for the Baseline Revision Comparison (Rev.00 vs Rev.01).
+"""Excel export for the Baseline Revision Comparison (Rev.00 vs Rev.01) — round-4 redesign.
 
-Turns the report dict the client already holds (from ``compare.build_report`` /
-``/api/revcompare``) into the ``sheets`` structure consumed by the shared
-``p6_evm.xlsx_writer.write_sections_xlsx`` — one worksheet per major report area,
-each a stack of titled tables that MIRROR the on-screen tabs and the PDF sections
-(``REVCOMPARE_SECTIONS`` in ``ui/modules/revcompare.js`` /
-``p6_revcompare/exporters.py`` ``render_html``):
+Turns the report dict the client already holds (from ``compare.build_report_from_data``
+/ ``/api/revcompare``) into the ``sheets`` structure consumed by the shared
+``p6_evm.xlsx_writer.write_sections_xlsx`` — one worksheet per canonical report section,
+each a stack of titled tables that MIRROR the on-screen tabs, the PDF ``data-sec`` sections
+and the report-contents picker (same ten section keys throughout — the approved interactive
+prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revcompare.js``
+``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``):
 
-    Executive Summary · Revision Overview · Milestones · Critical Path & Sequence ·
-    Logic Changes · Scope & Structure · Resource & Cost · Change Register ·
-    Detailed Analysis
+    summary   → Executive Summary   (bottom line · revision snapshot · comparison ledger ·
+                schedule-quality signals · scope BY ACTIVITY CODE — no Building column)
+    findings  → Key Findings        (finish-slip driver bridge + its contribution breakdown ·
+                the "Logic & Sequence Changes" — every changed relationship as rows carrying
+                a column per activity-code dimension · key findings list)
+    critical  → Critical Path & Float (Rev.00/Rev.01 driving chains · membership change ·
+                total-float band shift · negative-float register)
+    register  → Change Register      (DURATION changed only — no Calendar / TF-After columns;
+                Before → After → Variance → % change, filterable by activity code)
+    ms        → Milestones           (Activity ID + Before → After → Variance — no Type column)
+    cal       → Calendar             (Option A — one row per calendar with a plain-language brief ·
+                Rev.00/Rev.01 working pattern · change kind · activities; then the CHANGED exception
+                dates; then assigned activities by activity code)
+    cost      → Cost & Resources     (planned-value S-curve · budget by activity code ·
+                the itemised Cost changed table)
+    resource  → Resources            (the Resource-changed assignment table — moved out of Cost)
+    manpower  → Manpower             (LABOUR-only, difference-first — the Rev.01 − Rev.00 labour
+                man-hours change, by trade and by month, then the other resources reported
+                separately and never summed into man-hours)
+    scope     → Scope & Structure    (WBS comparison Rev.00 / Rev.01 · largest date shifts)
 
-Nothing here computes a number — it only presents what ``build_report`` produced.
-Every table degrades to a single "No data" row when its source is empty, so the
-export never crashes on a sparse or partial report.
+The old combined "Milestones, Constraints & Calendars" sheet is split into separate
+Milestones and Calendar sheets, and the Constraint table is REMOVED entirely (round-4
+comment 6). Manpower is its own sheet (comments 11/12) and no longer trails Cost.
+
+Nothing here computes a number — it only presents what ``build_report_from_data`` produced.
+Money / value / man-hour cells are formatted through one shared thousands + 2-decimal
+formatter (``_money`` — 124563 → "124,563.00"); counts (activities, days, float) stay plain
+integers. Every table degrades to a single "No data" row when its source is empty (via
+``_rows_or_none``), so the export never crashes on a sparse or partial report. Neutral
+throughout: change detected, not judged.
 """
+
+from datetime import date
 
 # severity code (as stored on register rows / findings) -> on-screen badge label
 _SEV_LABEL = {'crit': 'Critical', 'hi': 'High', 'med': 'Review', 'low': 'Info'}
 _KIND_LABEL = {'delayed': 'Delayed', 'advanced': 'Advanced', 'unchanged': 'Unchanged',
-               'new': 'New', 'removed': 'Removed'}
-_CON_KIND = {'added': 'Added', 'removed': 'Removed', 'type': 'Type changed', 'date': 'Date changed'}
+               'new': 'New', 'removed': 'Removed', 'idchange': 'ID changed'}
 _ASG_KIND = {'added': 'Added', 'removed': 'Removed', 'units': 'Units changed', 'rate': 'Rate changed'}
+# calendar change kind -> on-screen card tag (round-15 Option A): modified / renamed / added /
+# retired (removed) / unchanged.
+_CAL_CHANGE_LABEL = {'modified': 'Modified', 'renamed': 'Renamed', 'added': 'Added',
+                     'removed': 'Retired', 'unchanged': 'Unchanged'}
 
 
 def _sev(code):
@@ -30,7 +60,7 @@ def _sev(code):
 
 def _num(v, dash='—'):
     """Keep genuine numbers numeric (so Excel treats them as numbers); everything
-    missing becomes an em dash placeholder."""
+    missing becomes an em-dash placeholder."""
     if isinstance(v, bool):
         return str(v)
     if isinstance(v, (int, float)):
@@ -42,11 +72,82 @@ def _txt(v, dash=''):
     return dash if v is None else str(v)
 
 
+def _money(v, dash='—'):
+    """Shared money / value / man-hour DISPLAY formatter — thousands separators and two
+    decimals (124563 → "124,563.00"). Emitted as a string on purpose (a formatted display
+    cell, not a number the writer needs for arithmetic); non-numeric passes through / dashes
+    (round-4 comment 9)."""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return f"{v:,.2f}"
+    return dash if v is None else str(v)
+
+
+def _money_sgn(v, dash='—'):
+    """Signed money / value delta, thousands + 2dp: +150,000.00 / -6,000.00 / 0.00."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return dash if v is None else str(v)
+    return f"{'+' if v > 0 else ''}{v:,.2f}"
+
+
 def _sgn(n, unit=''):
     """Signed count like the KPI tiles: +3, -2, 0 (with an optional trailing unit)."""
     if n is None:
         return '—'
     return f"{'+' if n > 0 else ''}{n}{unit}"
+
+
+def _delta(a, b, unit=''):
+    """Signed Rev.00 → Rev.01 delta from two numeric per-revision values."""
+    if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+        return '—'
+    return _sgn(b - a, unit)
+
+
+def _pct_change(before, variance):
+    """Signed % duration change from a numeric before + variance (+40% / -33%); em-dash
+    when either is non-numeric (added / removed rows) or before is zero."""
+    if (isinstance(before, (int, float)) and not isinstance(before, bool) and before
+            and isinstance(variance, (int, float)) and not isinstance(variance, bool)):
+        return _sgn(round(variance / before * 100), '%')
+    return '—'
+
+
+def _mh(v, dash='—'):
+    """Labour man-hours as a rounded integer (mirrors the on-screen fmtInt) — kept numeric so
+    Excel treats it as a number, not text."""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, (int, float)):
+        return int(round(v))
+    return dash if v is None else v
+
+
+def _mh_sgn(v, dash='—'):
+    """Signed labour man-hours change as a rounded integer string: +3 / -528 / 0."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return dash if v is None else str(v)
+    return _sgn(int(round(v)))
+
+
+def _mh_pct(mh0, mh1, pct):
+    """The on-screen Change % for the man-hours headline: 'new' when Rev.00 is zero and Rev.01
+    has hours, '—' when undefined, else a signed one-decimal percent (mirrors manpowerView)."""
+    if (mh0 in (0, 0.0, None) and isinstance(mh1, (int, float)) and not isinstance(mh1, bool)
+            and mh1 > 0):
+        return 'new'
+    if not isinstance(pct, (int, float)) or isinstance(pct, bool):
+        return '—'
+    return f"{'+' if pct > 0 else ''}{pct:.1f}%"
+
+
+def _onoff(b):
+    return 'Yes' if b else 'No'
+
+
+def _flag(b, yes='Yes'):
+    return yes if b else ''
 
 
 def _rows_or_none(rows, ncols, msg='No data'):
@@ -57,267 +158,950 @@ def _rows_or_none(rows, ncols, msg='No data'):
     return [[msg] + [''] * (ncols - 1)]
 
 
-# ── sections ───────────────────────────────────────────────────────────────────
+# ── 1 · summary — Executive Summary ──────────────────────────────────────────────
 
 def _summary_blocks(report):
+    r0, r1 = report.get('rev0') or {}, report.get('rev1') or {}
     s = report.get('summary') or {}
-    r1 = report.get('rev1') or {}
-    kpis = [
-        ['Activities', f"{s.get('activities0', 0)}→{s.get('activities1', 0)}", f"{_sgn(s.get('net'))} net"],
-        ['New', _num(s.get('added')), 'added in Rev.01'],
-        ['Removed', _num(s.get('removed')), 'not in Rev.01'],
-        ['Modified', _num(s.get('modified')), f"+{s.get('id_changes', 0)} ID changes"],
-        ['Project duration', _sgn(s.get('duration_change_wd'), ' wd'), 'critical-path length'],
-        ['Finish date', _txt(r1.get('finish'), '—'), _sgn(s.get('finish_shift_days'), ' days')],
+    q = report.get('quality') or {}
+    codes = report.get('codes') or {}
+
+    bottom = report.get('bottom_line') or ''
+    blocks = [{'title': 'Bottom line', 'headers': ['Neutral one-line summary'],
+               'rows': [[bottom]] if bottom else [['No summary available for this comparison.']]}]
+
+    # Revision snapshot — Rev.00 · Original vs Rev.01 · Revised
+    def snap(lbl, k, dash='—'):
+        return [lbl, _txt(r0.get(k), dash), _txt(r1.get(k), dash)]
+    snap_rows = [
+        snap('File', 'file'),
+        snap('Data date', 'data_date'),
+        snap('Governing finish', 'finish'),
+        ['Activities', _num(r0.get('activities')), _num(r1.get('activities'))],
+        ['Finish slip', '', _sgn(s.get('finish_shift_days'), ' days')],
     ]
-    profile = [[_txt(p.get('label')), _num(p.get('count'))] for p in (report.get('profile') or [])]
+    blocks.append({'title': 'Revision snapshot — Rev.00 → Rev.01',
+                   'note': 'Baselines only (no actuals) — a like-for-like comparison.',
+                   'headers': ['', 'Rev.00 · Original', 'Rev.01 · Revised'], 'rows': snap_rows})
+
+    # Comparison ledger
     ledger = [[_txt(l.get('label')), _num(l.get('rev0')), _num(l.get('rev1')), _num(l.get('delta'))]
               for l in (report.get('ledger') or [])]
-    findings = [[_txt(f.get('title')), _txt(f.get('type_label')), _sev(f.get('severity')),
-                 _txt(f.get('body'))] for f in (report.get('findings') or [])]
-    narrative = report.get('narrative') or ''
-    blocks = [
-        {'title': 'Summary', 'headers': ['Metric', 'Value', 'Detail'], 'rows': kpis},
-        {'title': 'Change profile — by category', 'headers': ['Category', 'Count'],
-         'rows': _rows_or_none(profile, 2)},
-        {'title': 'Comparison ledger — Rev.00 → Rev.01',
-         'headers': ['Item', 'Rev.00', 'Rev.01', 'Change'], 'rows': _rows_or_none(ledger, 4)},
+    blocks.append({'title': 'Comparison ledger',
+                   'headers': ['Measure', 'Rev.00', 'Rev.01', 'Change'],
+                   'rows': _rows_or_none(ledger, 4)})
+
+    # Credibility / red flags — from quality
+    neg = q.get('negative_float') or {}
+    oe = q.get('open_ends') or {}
+    ld = q.get('leads') or {}
+    tr = q.get('total_rels') or {}
+    rpa = q.get('rels_per_act') or {}
+    hc = q.get('hard_constraints') or {}
+    nc = q.get('near_critical') or {}
+
+    def qrow(lbl, d):
+        d = d or {}
+        return [lbl, _num(d.get('rev0')), _num(d.get('rev1')), _delta(d.get('rev0'), d.get('rev1'))]
+    red = [
+        qrow('Negative-float activities', neg),
+        qrow('Open ends (dangling)', oe),
+        qrow('Hard constraints', hc),
+        qrow('Leads (negative lags)', ld),
+        qrow('Near-critical activities', nc),
+        qrow('Total relationships', tr),
+        ['Relationships per activity', _num(rpa.get('rev0')), _num(rpa.get('rev1')),
+         _delta(rpa.get('rev0'), rpa.get('rev1'))],
     ]
-    if narrative:
-        blocks.append({'title': 'Assessment', 'headers': ['Narrative'], 'rows': [[narrative]]})
+    blocks.append({'title': 'Schedule-quality signals',
+                   'note': 'Signals for planning review, not defects.',
+                   'headers': ['Signal', 'Rev.00', 'Rev.01', 'Δ'], 'rows': red})
+
+    # Scope change — by activity code (the activity-code analysis; no Building column, comment 1)
+    sbc = codes.get('scope_by_code') or {}
+    for dim, rows in sbc.items():
+        table = [[_txt(c.get('category')), _num(c.get('added')), _num(c.get('removed'))]
+                 for c in (rows or [])]
+        blocks.append({'title': f'Scope change — by {dim}',
+                       'headers': ['Category', 'Added', 'Removed'],
+                       'rows': _rows_or_none(table, 3, 'No scope changes for this dimension.')})
+    if not sbc:
+        blocks.append({'title': 'Scope change — by activity code',
+                       'headers': ['Category', 'Added', 'Removed'],
+                       'rows': [['No activity-code scope changes.', '', '']]})
+
+    # Itemised added / removed — the trailing dimension-value column ("Main WBS") is dropped
+    # (change 1) and the full-path column keeps only its "WBS Path" header; the WBS field
+    # already carries the full path.
+    itemised = ([[_txt(a.get('id')), _txt(a.get('name')), 'Added',
+                  _txt(a.get('wbs'), '—')] for a in (codes.get('added') or [])]
+                + [[_txt(a.get('id')), _txt(a.get('name')), 'Removed',
+                    _txt(a.get('wbs'), '—')] for a in (codes.get('removed') or [])])
+    blocks.append({'title': 'Scope changes — activities added / removed',
+                   'headers': ['Activity ID', 'Activity Name', 'Change', 'WBS Path'],
+                   'rows': _rows_or_none(itemised, 4, 'No activities added or removed.')})
+
+    recoded = [[_txt(c.get('id')), _txt(c.get('name')), _txt(c.get('code_type')),
+                _txt(c.get('before'), '—'), _txt(c.get('after'), '—')] for c in (codes.get('recoded') or [])]
+    blocks.append({'title': 'Re-coded activities — code value changed',
+                   'headers': ['Activity ID', 'Activity Name', 'Code type', 'Before', 'After'],
+                   'rows': _rows_or_none(recoded, 5, 'No activity-code value changes on matched activities.')})
+    return blocks
+
+
+# ── 2 · findings — Key Findings ──────────────────────────────────────────────────
+
+def _logic_dims(report):
+    """Ordered activity-code dimensions to spread across columns for the logic changes —
+    the report's own dimensions (``codes.dimensions``), the synthetic ``WBS`` branch, and
+    any extra dimension keys that only appear on the logic rows themselves. Always at least
+    one column so the code context is never dropped."""
+    codes = report.get('codes') or {}
+    out = []
+    for d in (codes.get('dimensions') or []):
+        if d and d not in out:
+            out.append(d)
+    if 'WBS' not in out:
+        out.append('WBS')
+    for r in (report.get('logic_register') or []):
+        for k in (r.get('codes') or {}):
+            if k not in out:
+                out.append(k)
+    return out or ['Activity code']
+
+
+def _findings_blocks(report):
+    slip = report.get('slip') or {}
+    total = slip.get('total_wd')
+    # Finish-slip contribution breakdown — one row per cause with its day count and meaning
+    # (the on-screen colour swatch is visual only; the sheet carries cause · +N d · detail).
+    contrib = [[_txt(c.get('cause')), _num(c.get('wd')), _txt(c.get('detail'))]
+               for c in (slip.get('contributions') or [])]
+    if contrib and total is not None:
+        contrib.append(['Total finish slip', _num(total), f"{_txt(slip.get('rev0_finish'), '—')} → "
+                        f"{_txt(slip.get('rev1_finish'), '—')}"])
+    slip_title = f"What drove the {_sgn(total, ' working days')} — finish-slip bridge" if total is not None \
+        else 'Finish-slip bridge'
+    blocks = [{'title': slip_title,
+               'note': 'Neutral attribution along the driving path — this attributes the slip, it does not judge it. '
+                       'Each row is a cause, the working days it added, and what it means.',
+               'headers': ['Cause', 'Working days', 'Detail'],
+               'rows': _rows_or_none(contrib, 3, 'No finish slip to attribute.')}]
+
+    # Logic & Sequence Changes — every changed relationship as a row, carrying a column per
+    # activity-code dimension (so the grouping/filtering the chart offers is preserved on
+    # paper). The on-screen WBS-breadcrumb boxes reduce here to the predecessor / successor
+    # names + IDs and the code columns.
+    dims = _logic_dims(report)
+    lg_headers = list(dims) + ['Predecessor ID', 'Predecessor Name', 'Successor ID',
+                               'Successor Name', 'Link Before', 'Link After', 'Change',
+                               'Replacement predecessor', 'On CP?', 'Lead?']
+    # Map each successor to the NEW predecessor links it gained, so a removed link names its
+    # replacement (comment 1) — mirrors the screen/PDF.
+    reg = report.get('logic_register') or []
+    added_by_succ = {}
+    for r in reg:
+        if 'added' in str(r.get('change') or '').lower():
+            added_by_succ.setdefault(r.get('succ_id'), []).append(r)
+    lg = []
+    for r in reg:
+        rc = r.get('codes') or {}
+        change = str(r.get('change') or '')
+        low = change.lower()
+        # Comment 1 — spell out "not linked in Rev.00" / "link removed" rather than a bare dash.
+        before_txt = 'not linked in Rev.00' if 'added' in low else _txt(r.get('before'), '—')
+        after_txt = 'link removed' if 'removed' in low else _txt(r.get('after'), '—')
+        repl_txt = '—'
+        if 'removed' in low:
+            repl = [a for a in added_by_succ.get(r.get('succ_id'), []) if a.get('pred_id') != r.get('pred_id')]
+            repl_txt = ('; '.join(f"{_txt(a.get('pred_name'))} ({_txt(a.get('after'))})" for a in repl)
+                        if repl else 'open end — no replacement link added')
+        lg.append([_txt(rc.get(d), '—') for d in dims]
+                  + [_txt(r.get('pred_id')), _txt(r.get('pred_name')), _txt(r.get('succ_id')),
+                     _txt(r.get('succ_name')), before_txt, after_txt,
+                     _txt(r.get('change')), repl_txt, _onoff(r.get('on_cp')), _flag(r.get('is_lead'), 'Lead')])
+    blocks.append({'title': 'Logic & Sequence Changes — every changed relationship (by activity code)',
+                   'note': 'Before → After per predecessor→successor link, grouped/filterable by activity code; '
+                           'an added link reads "not linked in Rev.00", a removed link reads "link removed" and '
+                           'names its replacement predecessor; "On CP?" flags links touching the revised critical '
+                           'path, leads (negative lags) flagged.',
+                   'headers': lg_headers,
+                   'rows': _rows_or_none(lg, len(lg_headers),
+                                         'No relationship / logic changes on matched activities.')})
+
+    # Key findings list
+    finds = [[_txt(f.get('title')), _txt(f.get('type_label')), _sev(f.get('severity')),
+              _txt(f.get('body'))] for f in (report.get('findings') or [])]
     blocks.append({'title': 'Key findings — material changes',
                    'note': 'Each is an observation for planning review, not a verdict.',
                    'headers': ['Finding', 'Type', 'Severity', 'Detail'],
-                   'rows': _rows_or_none(findings, 4, 'No material changes detected between the two revisions.')})
+                   'rows': _rows_or_none(finds, 4, 'No material changes detected between the two revisions.')})
     return blocks
 
 
-def _overview_blocks(report):
-    r0, r1 = report.get('rev0') or {}, report.get('rev1') or {}
+# ── 3 · critical — Critical Path & Float ─────────────────────────────────────────
 
-    def row(lbl, k):
-        return [lbl, _txt(r0.get(k), '—'), _txt(r1.get(k), '—')]
-    rows = [row('File', 'file'), row('Activities', 'activities'),
-            row('Data date', 'data_date'), row('Governing finish', 'finish')]
-    blocks = [{'title': 'Revision Overview', 'headers': ['', 'Rev.00 · Original', 'Rev.01 · Revised'],
-               'rows': rows}]
-    warnings = report.get('warnings') or []
-    if warnings:
-        blocks.append({'title': 'Warnings', 'headers': ['Note'], 'rows': [[w] for w in warnings]})
-    return blocks
-
-
-def _milestone_blocks(report):
-    rows = []
-    for m in report.get('milestones') or []:
-        cd = m.get('change_days')
-        change = (f"{'+' if (cd or 0) > 0 else ''}{cd} d") if cd is not None else _KIND_LABEL.get(m.get('kind'), '')
-        rows.append([_txt(m.get('name')), _txt(m.get('rev0'), '—'), _txt(m.get('rev1'), '—'),
-                     change, _KIND_LABEL.get(m.get('kind'), _txt(m.get('kind')))])
-    return [{'title': 'Milestone Comparison',
-             'headers': ['Milestone', 'Rev.00', 'Rev.01', 'Change', 'Impact'],
-             'rows': _rows_or_none(rows, 5, 'No finish milestones found in the revisions.')}]
-
-
-def _critpath_blocks(report):
+def _critical_blocks(report):
     cp = report.get('critical_path') or {}
+    q = report.get('quality') or {}
     lc = cp.get('length_change_wd')
-    note = ''
+    note = None
     if lc is not None:
-        note = (f"Rev.01 critical path is {'+' if lc >= 0 else ''}{lc} working days "
+        note = (f"Rev.01 critical path is {_sgn(lc, ' working days')} "
                 f"{'longer' if lc >= 0 else 'shorter'}.")
+
+    _state = {'enter': 'Entered critical path', 'leave': 'Left critical path'}
 
     def chain_rows(nodes):
         out = []
         for i, n in enumerate(nodes or [], 1):
             tf = n.get('tf')
-            state = {'enter': 'Entered critical path', 'leave': 'Left critical path'}.get(n.get('state'), '')
-            out.append([i, _txt(n.get('name')), _num(round(tf, 1) if isinstance(tf, (int, float)) else tf), state])
+            nm = n.get('name')
+            if n.get('is_ms'):
+                nm = f"{nm} (milestone)"
+            out.append([i, _txt(n.get('code')), _txt(nm),
+                        _num(round(tf, 1) if isinstance(tf, (int, float)) else tf),
+                        _state.get(n.get('state'), '')])
         return out
 
-    membership = []
-    for e in cp.get('entered') or []:
-        membership.append(['Entered critical path', _txt(e.get('name'))])
-    for e in cp.get('left') or []:
-        membership.append(['Left critical path', _txt(e.get('name'))])
+    membership = ([['Entered critical path', _txt(e.get('code')), _txt(e.get('name'))]
+                   for e in (cp.get('entered') or [])]
+                  + [['Left critical path', _txt(e.get('code')), _txt(e.get('name'))]
+                     for e in (cp.get('left') or [])])
 
-    floats = [[f"{_txt(f.get('activity_id'))} {_txt(f.get('name'))}".strip(),
-               _num(f.get('rev0_tf')), _num(f.get('rev1_tf')), _num(f.get('delta')), _txt(f.get('movement'))]
-              for f in (report.get('float_movement') or [])]
+    bands = [[_txt(b.get('band')), _num(b.get('rev0')), _num(b.get('rev1')),
+              _delta(b.get('rev0'), b.get('rev1'))] for b in (q.get('float_bands') or [])]
 
-    seq = []
-    for sq in report.get('sequence') or []:
-        seq.append([_txt(sq.get('a_name')), _txt(sq.get('b_name')),
-                    _txt(sq.get('rev0')), _txt(sq.get('rev1')),
-                    ' → '.join(_txt(x) for x in (sq.get('chain0') or [])),
-                    ' → '.join(_txt(x) for x in (sq.get('chain1') or []))])
-
-    ch0, ch1 = chain_rows(cp.get('rev0')), chain_rows(cp.get('rev1'))
-    return [
-        {'title': 'Critical Path — Rev.00 driving chain', 'note': note or None,
-         'headers': ['#', 'Activity', 'Total float', 'State'], 'rows': _rows_or_none(ch0, 4,
-         'No driving path available for Rev.00.')},
-        {'title': 'Critical Path — Rev.01 driving chain',
-         'headers': ['#', 'Activity', 'Total float', 'State'], 'rows': _rows_or_none(ch1, 4,
-         'No driving path available for Rev.01.')},
-        {'title': 'Critical path membership change', 'headers': ['Change', 'Activity'],
-         'rows': _rows_or_none(membership, 2, 'No activities entered or left the critical path.')},
-        {'title': 'Float / criticality movement', 'note': 'Total float, working days.',
-         'headers': ['Activity', 'Rev.00 TF', 'Rev.01 TF', 'Δ', 'Movement'],
-         'rows': _rows_or_none(floats, 5, 'No material float movement.')},
-        {'title': 'Major sequence changes',
-         'headers': ['Activity', 'Re-sequenced relative to', 'Was', 'Now', 'Rev.00 order', 'Rev.01 order'],
-         'rows': _rows_or_none(seq, 6, 'No execution-order reversals detected from the logic.')},
-    ]
-
-
-def _logic_blocks(report):
-    rows = []
-    for row in report.get('register') or []:
-        if row.get('change_type') != 'logic':
-            continue
-        rows.append([_txt(row.get('orig_id') or row.get('activity_id')), _txt(row.get('activity_name')),
-                     _txt(row.get('rev0')), _txt(row.get('rev1')), _txt(row.get('change')),
-                     _sev(row.get('severity'))])
-    return [{'title': 'Major Relationship / Logic Changes',
-             'headers': ['Activity', 'Name', 'Rev.00', 'Rev.01', 'Change', 'Severity'],
-             'rows': _rows_or_none(rows, 6, 'No relationship/logic changes on matched activities.')}]
-
-
-def _scope_blocks(report):
-    s = report.get('summary') or {}
-    lg = s.get('logic') or {}
-    items = [
-        ['New activities', _num(s.get('added'))],
-        ['Removed activities', _num(s.get('removed'))],
-        ['Identity (ID) changes', _num(s.get('id_changes'))],
-        ['Moved between WBS', _num(s.get('moved_wbs'))],
-        ['WBS branches +/−/renamed',
-         f"{s.get('wbs_added', 0)} / {s.get('wbs_removed', 0)} / {s.get('wbs_renamed', 0)}"],
-        ['Relationships added / removed', f"{lg.get('added', 0)} / {lg.get('removed', 0)}"],
-        ['Calendar reassignments', _num(s.get('calendar_reassigned'))],
-        ['Constraint changes', _num(s.get('constraint_changes'))],
-    ]
-    w = report.get('wbs_changes') or {}
-    wbs = ([['Added', '—', _txt(x.get('path'))] for x in (w.get('added') or [])]
-           + [['Removed', _txt(x.get('path')), '—'] for x in (w.get('removed') or [])]
-           + [['Renamed', _txt(x.get('from')), _txt(x.get('to'))] for x in (w.get('renamed') or [])])
-
-    cc = report.get('calendar_changes') or {}
-    reassign = [[_txt(g.get('from')), _txt(g.get('to')),
-                 (f"{g.get('from_wd')}-day → {g.get('to_wd')}-day"
-                  if g.get('from_wd') is not None and g.get('to_wd') is not None else '—'),
-                 _num(g.get('count'))] for g in (cc.get('reassignments') or [])]
-    callevel = [[_txt(c.get('change')), _txt(c.get('name')), _txt(c.get('detail'))]
-                for c in (cc.get('calendars') or [])]
-
-    con = [[_txt(c.get('activity_id')), _txt(c.get('name')),
-            _CON_KIND.get(c.get('kind'), _txt(c.get('kind'))) + (' · hard' if c.get('hard') else ''),
-            _txt(c.get('rev0')), _txt(c.get('rev1'))] for c in (report.get('constraint_changes') or [])]
+    neg = q.get('negative_float') or {}
+    reg = [[_txt(a.get('id')), _txt(a.get('name')),
+            _num(a.get('tf')), _txt(a.get('wbs'), '—')] for a in (neg.get('register') or [])]
 
     return [
-        {'title': 'Scope & structure summary', 'headers': ['Item', 'Value'], 'rows': items},
-        {'title': 'WBS / scope structure', 'headers': ['Change', 'Rev.00', 'Rev.01'],
-         'rows': _rows_or_none(wbs, 3, 'No WBS branches added, removed or renamed.')},
-        {'title': 'Calendar reassignments', 'headers': ['From', 'To', 'Workweek', 'Activities'],
-         'rows': _rows_or_none(reassign, 4, 'No calendar assignment changes.')},
-        {'title': 'Calendar-level changes', 'headers': ['Change', 'Calendar', 'Detail'],
-         'rows': _rows_or_none(callevel, 3, 'No calendar-level changes.')},
-        {'title': 'Constraint changes', 'headers': ['Activity', 'Name', 'Change', 'Rev.00', 'Rev.01'],
-         'rows': _rows_or_none(con, 5, 'No primary-constraint changes.')},
+        {'title': 'Critical path — Rev.00 driving chain', 'note': note,
+         'headers': ['#', 'Activity ID', 'Activity Name', 'Total Float', 'State'],
+         'rows': _rows_or_none(chain_rows(cp.get('rev0')), 5, 'No driving path available for Rev.00.')},
+        {'title': 'Critical path — Rev.01 driving chain',
+         'headers': ['#', 'Activity ID', 'Activity Name', 'Total Float', 'State'],
+         'rows': _rows_or_none(chain_rows(cp.get('rev1')), 5, 'No driving path available for Rev.01.')},
+        {'title': 'Critical-path membership change',
+         'headers': ['Change', 'Activity ID', 'Activity Name'],
+         'rows': _rows_or_none(membership, 3, 'No activities entered or left the critical path.')},
+        {'title': 'Total-float band shift — Rev.00 vs Rev.01',
+         'note': 'Activity counts per total-float band (working days).',
+         'headers': ['Total-float band', 'Rev.00', 'Rev.01', 'Δ'],
+         'rows': _rows_or_none(bands, 4, 'No float distribution available.')},
+        {'title': 'Negative-float register — re-plan trigger',
+         'note': 'Activities carrying total float below zero in Rev.01.',
+         'headers': ['Activity ID', 'Activity Name', 'Total Float', 'WBS'],
+         'rows': _rows_or_none(reg, 4, 'No activities carry negative float in Rev.01.')},
     ]
 
 
-def _resource_blocks(report):
-    rc = report.get('resource_changes') or {}
-    if not (rc.get('cost_available') or rc.get('resource_available')):
-        return [{'title': 'Resource & Cost Comparison',
-                 'note': 'Neither revision carries resource loading or cost — reported as not applicable.',
-                 'headers': ['Resource & cost'], 'rows': [['Not applicable']]}]
-    tb = rc.get('total_budget') or {}
-    bd = tb.get('delta', 0) or 0
-    note = (f"Total budget {tb.get('rev0', 0):,} → {tb.get('rev1', 0):,} "
-            f"({'+' if bd > 0 else ''}{bd:,}). Informational — a cost/resource change is not a schedule impact.")
-    cost = [[_txt(c.get('code')), _txt(c.get('name')), _num(c.get('rev0')), _num(c.get('rev1')),
-             _num(c.get('delta'))] for c in (rc.get('activity_cost_changes') or [])]
-    asg = [[_txt(a.get('code')), _txt(a.get('resource')),
-            _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0')), _txt(a.get('rev1'))]
-           for a in (rc.get('assignment_changes') or [])]
-    return [
-        {'title': 'Resource & Cost Comparison', 'note': note,
-         'headers': ['Budget'], 'rows': [[f"Rev.00 {tb.get('rev0', 0):,} · Rev.01 {tb.get('rev1', 0):,}"]]},
-        {'title': 'Budget cost by activity', 'headers': ['Activity', 'Name', 'Rev.00', 'Rev.01', 'Δ'],
-         'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')},
-        {'title': 'Resource assignments', 'headers': ['Activity', 'Resource', 'Change', 'Rev.00', 'Rev.01'],
-         'rows': _rows_or_none(asg, 5, 'No resource-assignment changes.')},
-    ]
+# ── 4 · register — Change Register (DURATION changed only) ───────────────────────
+
+def _pct_display(d):
+    """% duration change for a duration row — prefer the report-supplied ``pct`` (the engine's
+    own value), falling back to the before/variance derivation for older payloads."""
+    p = d.get('pct')
+    if isinstance(p, (int, float)) and not isinstance(p, bool):
+        return _sgn(round(p), '%')
+    return _pct_change(d.get('before'), d.get('variance'))
+
+
+def _dur_note(d):
+    """Neutral Note cell for a duration row: an ADDED activity (Rev.00 before is the em-dash
+    placeholder) is tagged "New activity" so the reader knows the row is a new activity, not a
+    duration change (change 3); a >±200% swing is flagged for justification. Both can show."""
+    parts = []
+    if d.get('before') == '—':
+        parts.append('New activity')
+    if d.get('big_variance'):
+        parts.append('Needs justification (>±200%)')
+    return ' · '.join(parts)
 
 
 def _register_blocks(report):
-    rows = []
-    for row in report.get('register') or []:
-        idt = (row.get('orig_id') or row.get('activity_id') or '')
-        idt = idt.replace('MS:', '').replace('SCOPE:', '')
-        rows.append([idt, _txt(row.get('activity_name')), _txt(row.get('type_label')),
-                     _txt(row.get('rev0'), '—'), _txt(row.get('rev1'), '—'), _txt(row.get('change')),
-                     'Material' if row.get('impact') == 'material' else 'Minor',
-                     _sev(row.get('severity')), _txt(row.get('status'))])
-    return [{'title': 'Detailed Change Register',
-             'note': 'Ranked by impact then severity. Severity reflects schedule impact, not a judgement.',
-             'headers': ['Activity', 'Name', 'Type', 'Rev.00', 'Rev.01', 'Change', 'Impact', 'Severity', 'Status'],
-             'rows': _rows_or_none(rows, 9, 'No material changes detected between the two revisions.')}]
+    # Only the Duration changed table lives in the register now — Calendar / TF-After columns
+    # removed (comment 3); a % change column added; milestone / calendar to their own sheets,
+    # logic to Key Findings, cost / resource to Cost & Resources. A neutral "Note" column flags
+    # a >±200% swing for justification (usually the activity/relationship type changed) and tags
+    # a newly ADDED activity — never calls the change wrong.
+    dur = [[_txt(d.get('id')), _txt(d.get('name')), _txt(d.get('wbs'), '—'),
+            _num(d.get('before')), _num(d.get('after')), _num(d.get('variance')),
+            _pct_display(d),
+            _dur_note(d)]
+           for d in (report.get('duration_table') or [])]
+    return [{'title': 'Duration changed — working days',
+             'note': 'Every activity whose planned duration moved. Filter by activity code on screen '
+                     '(Discipline / Building / WBS); % change is the variance over the Rev.00 duration. '
+                     'A >±200% swing is flagged for justification — usually the activity type or '
+                     'relationship type changed, not an error.',
+             'headers': ['Activity ID', 'Activity Name', 'WBS', 'Before', 'After', 'Variance',
+                         '% change', 'Note'],
+             'rows': _rows_or_none(dur, 8, 'No duration changes on matched activities.')}]
 
 
-def _detailed_blocks(report):
-    blocks = []
-    _fields = [('Activity ID', 'id'), ('Name', 'name'), ('WBS', 'wbs'), ('Start', 'start'),
-               ('Finish', 'finish'), ('Duration', 'duration'), ('Total float', 'total_float'),
-               ('Criticality', 'criticality')]
-    for row in report.get('register') or []:
-        d = row.get('detail')
-        if not d:
+# ── 5 · ms — Milestones ──────────────────────────────────────────────────────────
+
+def _ms_blocks(report):
+    """Milestone changes as their own sheet — Activity ID + Before → After → Variance (the Type
+    column is removed, change 4). Lists only actual changes (matches the PDF / screen), never
+    unchanged milestones."""
+    ms = []
+    for m in (report.get('milestones') or []):
+        cd = m.get('change_days')
+        kind = m.get('kind')
+        if kind == 'unchanged':
             continue
-        r0, r1 = d.get('rev0') or {}, d.get('rev1') or {}
-        table = [[lbl, _txt(r0.get(k), '—'), _txt(r1.get(k), '—')] for lbl, k in _fields]
-        table += [
-            ['Change detected', _txt(d.get('detected')), ''],
-            ['Why it matters', _txt(d.get('why')), ''],
-            ['Potential impact', _txt(d.get('impact')), ''],
-            ['Planning review', _txt(d.get('review')), ''],
-        ]
-        title = f"{_txt(row.get('activity_name'))} — {_txt(row.get('change'))}".strip(' —')
-        blocks.append({'title': title or 'Change',
-                       'headers': ['Field / Analysis', 'Rev.00 · Original', 'Rev.01 · Revised'],
-                       'rows': table, 'col_widths': {0: 20, 1: 46, 2: 46}})
-    if not blocks:
-        blocks.append({'title': 'Detailed Change Analysis', 'headers': ['Analysis'],
-                       'rows': [['No detailed change analysis for this comparison.']]})
+        if kind == 'new':
+            change = 'Added'
+        elif kind == 'removed':
+            change = 'Removed'
+        elif kind == 'idchange':
+            # The engine folds the removed+added duplicate into one row (id "OLD → NEW",
+            # both dates carried); a neutral "ID changed" tag, plus the day shift if the
+            # engine measured one.
+            change = f"ID changed ({_sgn(cd, ' d')})" if cd is not None else 'ID changed'
+        elif cd is not None:
+            change = _sgn(cd, ' d')
+        else:
+            change = _KIND_LABEL.get(kind, _txt(kind))
+        ms.append([_txt(m.get('id'), '—'), _txt(m.get('name')),
+                   _txt(m.get('rev0'), '—'), _txt(m.get('rev1'), '—'), change])
+    return [{'title': 'Milestone changed — Activity ID · Before → After',
+             'note': 'Finish milestones whose date moved, plus milestones added / removed between the '
+                     'revisions.',
+             'headers': ['Activity ID', 'Milestone', 'Before', 'After', 'Variance'],
+             'rows': _rows_or_none(ms, 5, 'No finish-milestone changes between the revisions.')}]
+
+
+# ── 6 · cal — Calendar ───────────────────────────────────────────────────────────
+
+def _pattern_str(p):
+    """A calendar working pattern for display: "N d/wk · H h/day · HPW h/wk" (change 5).
+    Em-dash when the calendar is absent in that revision."""
+    if not p:
+        return '—'
+    days, hours, hpw = p.get('days'), p.get('hours'), p.get('hpw')
+    parts = []
+    parts.append(f"{_num(days)} d/wk")
+    parts.append(f"{_num(hours)} h/day")
+    parts.append(f"{_num(hpw)} h/wk")
+    return ' · '.join(parts)
+
+
+def _fmt_pattern(p):
+    """Mirror of the on-screen fmtPattern — 'N d/wk · N h/day · N h/wk', or None when the
+    calendar is absent in that revision. Used inside the plain-language brief."""
+    if not p:
+        return None
+    parts = []
+    if p.get('days') is not None:
+        parts.append(f"{p.get('days')} d/wk")
+    if p.get('hours') is not None:
+        parts.append(f"{p.get('hours')} h/day")
+    if p.get('hpw') is not None:
+        parts.append(f"{p.get('hpw')} h/wk")
+    return ' · '.join(parts) if parts else None
+
+
+def _cal_flip_days(e):
+    """Actual number of DAYS an exception entry covers — mirror of the on-screen calFlipDays
+    (round-17 #01). A grouped range like "23–26 Mar" carries iso + iso_end and is FOUR days
+    though it is ONE entry; a single date (no iso_end) is one day. Falls back to 1 when a date
+    is missing, unparseable or reversed (b < a)."""
+    iso = e.get('iso')
+    end = e.get('iso_end') or iso
+    try:
+        a = date.fromisoformat(str(iso)[:10])
+        b = date.fromisoformat(str(end)[:10])
+    except (ValueError, TypeError):
+        return 1
+    delta = (b - a).days
+    return delta + 1 if delta >= 0 else 1
+
+
+def _cal_sum_days(flips, pred):
+    """Sum of _cal_flip_days over the entries in ``flips`` matching ``pred`` — mirror of the
+    on-screen calSumDays (round-17 #01). Counts DAYS, not grouped entries."""
+    return sum(_cal_flip_days(e) for e in (flips or []) if pred(e))
+
+
+def _cal_brief_text(p, reass_from):
+    """Plain-text mirror of the on-screen calBrief — one self-explaining sentence per calendar
+    (the leading name is dropped; the Calendar column already names it). Same branches as the
+    screen: retired / added / modified-or-unchanged, all built from the engine's counts.
+
+    e.g. modified → "1 day made working, 1 day made non-working and 1 day re-houred. Working
+    week itself unchanged. Used by 88 activities, mostly Civil"; removed →
+    "Retired in Rev.01. The 12 activities that used it now run on 6 Day Workweek"; added → "New
+    7 d/wk · 10 h/day · 70 h/wk calendar, now used by 8 activities."."""
+    acts = p.get('activities') or 0
+    used_by = f" Used by {acts:,} activities." if acts else ''
+
+    change = p.get('change')
+    if change == 'removed':
+        dests = sorted(reass_from.get(p.get('name')) or [], key=lambda g: -(g.get('count') or 0))
+        dest = dests[0] if dests else None
+        if dest:
+            tail = f" The {(dest.get('count') or 0):,} activities that used it now run on {dest.get('to')}."
+        else:
+            tail = f" {acts:,} activities no longer carry this calendar."
+        return f"Retired in Rev.01.{tail}"
+    if change == 'added':
+        pat = _fmt_pattern(p.get('rev1'))
+        r1 = p.get('rev1') or {}
+        longer = (' A longer working week shortens those durations on paper.'
+                  if isinstance(r1.get('hpw'), (int, float)) and r1.get('hpw') >= 60 else '')
+        return f"New{(' ' + pat) if pat else ''} calendar, now used by {acts:,} activities.{longer}"
+
+    flips = [e for e in (p.get('date_exceptions') or []) if e.get('change') != 'unchanged']
+    # Round-17 #01 — count DAYS per category (a grouped range is one entry but several days),
+    # exactly like the on-screen calBrief (calSumDays over calFlipDays).
+    now_w = _cal_sum_days(flips, lambda e: e.get('change') == 'now working')
+    now_n = _cal_sum_days(flips, lambda e: e.get('change') == 'now non-working')
+    hrs = _cal_sum_days(flips, lambda e: not str(e.get('change') or '').startswith('now'))
+    bits = []
+    if now_w:
+        bits.append(f"{now_w} day{'s' if now_w > 1 else ''} made working")
+    if now_n:
+        bits.append(f"{now_n} day{'s' if now_n > 1 else ''} made non-working")
+    if hrs:
+        bits.append(f"{hrs} day{'s' if hrs > 1 else ''} re-houred")
+    week_changed = _fmt_pattern(p.get('rev0')) != _fmt_pattern(p.get('rev1'))
+    if bits:
+        lead = (bits[0] if len(bits) == 1 else ', '.join(bits[:-1]) + ' and ' + bits[-1]) + '.'
+        lead += ' Working week also changed.' if week_changed else ' Working week itself unchanged.'
+    elif week_changed:
+        lead = f"Working week changed {_fmt_pattern(p.get('rev0')) or '—'} → {_fmt_pattern(p.get('rev1')) or '—'}."
+    else:
+        lead = 'No material change to the working calendar.'
+    return f"{lead}{used_by}"
+
+
+def _cal_name(p):
+    """Calendar label for the ledger row — 'Old → New' when renamed, else the plain name."""
+    if p.get('change') == 'renamed' and p.get('renamed_to'):
+        return f"{_txt(p.get('name'))} → {_txt(p.get('renamed_to'))}"
+    return _txt(p.get('name'))
+
+
+def _cal_exc_flag(e):
+    """Round-18 #02 — the NEW / REDUCED marker for a CHANGED calendar exception date, the tabular
+    equivalent of the on-screen calLedger highlight + badge (Excel via this writer can't easily
+    colour a cell, so the meaning rides as text). Mirrors the JS exactly:
+      • change == 'now non-working' → "NEW non-working" (a day non-working in Rev.01 that wasn't in
+        Rev.00 — the red-highlight NEW badge);
+      • a 'now working' day that is also reduced (either revision reads "(reduced)") →
+        "now working (reduced)";
+      • any other reduced-hours row — either revision reads "(reduced)", OR the change is a bare
+        hours change "Ah → Bh" — → "REDUCED" (the amber badge);
+      • otherwise no marker."""
+    c = str(e.get('change') or '')
+    combined = str(e.get('rev0')) + str(e.get('rev1'))
+    is_reduced = '(reduced)' in combined or (not c.startswith('now') and '→' in c)
+    if c == 'now non-working':
+        return 'NEW non-working'
+    if c == 'now working':
+        return 'now working (reduced)' if is_reduced else ''
+    if is_reduced:
+        return 'REDUCED'
+    return ''
+
+
+def _cal_blocks(report):
+    """Calendar changes as their own sheet (round-16 Option A parity with calendarView) — one
+    row per calendar carrying a plain-language BRIEF, its Rev.00 / Rev.01 working pattern, the
+    change kind and activity count; then the CHANGED exception dates (with a per-calendar
+    "identical — no change" row proving the identical non-working dates were compared); then the
+    assigned activities by activity code; and, for added / removed calendars, their own dated
+    non-working days in full. Empty ADDED calendars (0 activities → no schedule impact) are dropped
+    from every block and recorded in one note, exactly like the on-screen calendarView and the PDF
+    _sec_cal (round-16 #03a/#03b/#03c). Reassignments fold into each calendar's brief."""
+    cc = report.get('calendar_changes') or {}
+    patterns = cc.get('patterns') or []
+
+    # from-calendar -> its reassignment groups, so a retired calendar's brief can name where its
+    # activities went (mirrors the on-screen reassFrom map).
+    reass_from = {}
+    for g in (cc.get('reassignments') or []):
+        reass_from.setdefault(g.get('from'), []).append(g)
+
+    # round-16 #03a — an ADDED or REMOVED calendar with 0 activities assigned has no schedule impact
+    # and only adds noise, so it is dropped from every block (summary / exception / assigned /
+    # non-working) and its count recorded in one note (mirrors the screen's isEmptyZero / emptyZero /
+    # dropNote and the PDF's _is_empty_zero). Filter: change in (added, removed) and NOT activities > 0.
+    def _is_empty_zero(p):
+        return p.get('change') in ('added', 'removed') and not ((p.get('activities') or 0) > 0)
+    empty_added = [p for p in patterns if _is_empty_zero(p)]
+    kept = [p for p in patterns if not _is_empty_zero(p)]
+    changed = [p for p in kept if p.get('change') != 'unchanged']
+    unchanged = [p for p in kept if p.get('change') == 'unchanged']
+
+    # Section digest headline — the same counts the on-screen card view leads with (all EXCLUDING the
+    # dropped empty added calendars, matching the detailed cards).
+    n_mod = sum(1 for p in changed if p.get('change') in ('modified', 'renamed'))
+    n_add = sum(1 for p in changed if p.get('change') == 'added')
+    n_rem = sum(1 for p in changed if p.get('change') == 'removed')
+    n_unch = len(unchanged)
+    # Round-17 #01 — total EXCEPTION DAYS changed (a grouped range counts as its span, not 1),
+    # exactly like the on-screen digest (totDays = Σ calSumDays over the non-unchanged flips).
+    tot_days = sum(_cal_sum_days(p.get('date_exceptions') or [], lambda e: e.get('change') != 'unchanged')
+                   for p in changed)
+    # Paper-acceleration caution — a changed calendar moving to a longer working week (same as
+    # the on-screen callout condition).
+    paper_accel = any(p.get('rev0') and p.get('rev1')
+                      and isinstance((p.get('rev1') or {}).get('hpw'), (int, float))
+                      and isinstance((p.get('rev0') or {}).get('hpw'), (int, float))
+                      and (p.get('rev1') or {}).get('hpw') > (p.get('rev0') or {}).get('hpw')
+                      for p in changed)
+    digest = (f"{n_mod} modified · {n_add} added · {n_rem} retired · {n_unch} unchanged — "
+              f"{tot_days} exception day{'' if tot_days == 1 else 's'} changed. One row per calendar: "
+              "its change, working pattern (days/week · hours/day · hours/week) in each revision, activity "
+              "count, and a plain-language summary.")
+    if empty_added:
+        ne = len(empty_added)
+        digest += (f" {ne} calendar{'s' if ne != 1 else ''} with 0 activities assigned (added or "
+                   "retired) — not detailed (no schedule impact).")
+    if paper_accel:
+        digest += (' A calendar moved to a longer working week — durations shorten on paper without changing '
+                   'the work; a paper acceleration to confirm.')
+
+    # One row per calendar (changed and unchanged, like the card view + unchanged line), EXCLUDING the
+    # dropped empty added calendars: name · change · Rev.00 pattern · Rev.01 pattern · activities ·
+    # plain-language summary.
+    patt = [[_cal_name(p), _CAL_CHANGE_LABEL.get(p.get('change'), _txt(p.get('change'))),
+             _pattern_str(p.get('rev0')), _pattern_str(p.get('rev1')),
+             _num(p.get('activities')), _cal_brief_text(p, reass_from)] for p in kept]
+    blocks = [{'title': 'Calendars — Rev.00 → Rev.01',
+               'note': digest,
+               'headers': ['Calendar', 'Change', 'Rev.00 pattern', 'Rev.01 pattern', 'Activities', 'Summary'],
+               'rows': _rows_or_none(patt, 6, 'No calendars found.')}]
+
+    # The specific calendar exception dates that CHANGED between the revisions (round-14): only a
+    # date whose working/non-working state flipped, or whose hours changed (e.g. 6h/day → 8h/day).
+    # Identical ('unchanged') dates are NOT listed; instead, per calendar, ONE "identical — no change"
+    # row records how many identical non-working days were compared (round-16 #03b — mirrors the
+    # screen's rc-lident collapse row). Only the detailed (changed) calendars are walked — an
+    # unchanged calendar has no card / ledger on screen (its identical dates fold into its summary
+    # brief and the unchanged line).
+    # Round-20 #2 — list ALL non-working days in the window (not just the changed ones); the
+    # Difference column flags the Rev.00↔Rev.01 changes ('now working' / 'now non-working' /
+    # 'hours Ah → Bh') and reads '—' for an unchanged day. Mirrors the on-screen "all listed,
+    # differences highlighted" ledger; no identical-collapse row.
+    exc_rows = []
+    for p in changed:
+        for e in sorted((p.get('date_exceptions') or []), key=lambda x: str(x.get('iso') or '')):
+            c = e.get('change')
+            diff = ('—' if c == 'unchanged'
+                    else 'now working' if c == 'now working'
+                    else 'now non-working' if c == 'now non-working'
+                    else f'hours {c}')
+            exc_rows.append([_txt(p.get('name')), _txt(e.get('date')), _txt(e.get('rev0')),
+                             _txt(e.get('rev1')), diff])
+    if exc_rows:
+        blocks.append({'title': 'Calendar non-working days — all listed, differences flagged',
+                       'note': 'Every non-working day in the window (data date → project completion) for each '
+                               'changed calendar. The Difference column flags the Rev.00↔Rev.01 changes '
+                               '(now working / now non-working / hours change) and reads "—" for an unchanged day.',
+                       'headers': ['Calendar', 'Date', 'Rev.00', 'Rev.01', 'Difference'],
+                       'rows': exc_rows})
+
+    # round-16 #03c — an ADDED or REMOVED calendar has no other revision to diff against, so its own
+    # dated non-working days are listed in full (Date · Status) rather than only being implied by the
+    # weekly pattern (mirrors the screen's calNonworkingTable / PDF _cal_nonworking_table). The empty
+    # added calendars were already dropped above, so `changed` carries only the ones with schedule
+    # impact. Status is 'Non-working' or a reduced-hours day (e.g. 6h/day).
+    nw_rows = []
+    for p in changed:
+        if p.get('change') not in ('added', 'removed'):
+            continue
+        # Round-20 #1 — no redundant "(removed)" on each Status; a "Calendar state" column carries
+        # the added-vs-retired distinction once, and Status stays clean ("Non-working" / a
+        # reduced-hours day like "8h/day (reduced from 24h)").
+        state = 'Retired (gone in Rev.01)' if p.get('change') == 'removed' else 'Added (new in Rev.01)'
+        for d in (p.get('nonworking_dates') or []):
+            nw_rows.append([_txt(p.get('name')), state, _txt(d.get('date')), _txt(d.get('status'))])
+    if nw_rows:
+        blocks.append({'title': 'Non-working days — added & retired calendars',
+                       'note': 'An added or retired calendar has no prior/next revision to diff against, so its own '
+                               'dated non-working days are listed in full. The Calendar state column says whether the '
+                               'calendar was added in Rev.01 or retired (gone in Rev.01); Status is "Non-working" or a '
+                               'reduced-hours day (e.g. "8h/day (reduced from 24h)").',
+                       'headers': ['Calendar', 'Calendar state', 'Date', 'Status'],
+                       'rows': nw_rows})
+
+    # Round-19 #01 — the "assigned activities by activity code" breakdown was removed from the whole
+    # report (screen, PDF and Excel), so no assigned block is emitted here.
     return blocks
+
+
+# ── 7 · cost — Cost & Resources ──────────────────────────────────────────────────
+
+def _itemised_cost_blocks(report):
+    """The itemised per-activity Cost changed table + total budget — returned to Cost &
+    Resources (change 6); the by-WBS roll-up sheet is gone (``cost_by_wbs`` stays in the
+    engine but is no longer rendered)."""
+    rc = report.get('resource_changes') or {}
+    changes = rc.get('activity_cost_changes') or []
+    cost = []
+    for c in changes:
+        # Money from the numeric *_num fields so every row matches the Total's 2dp format (comment 4).
+        rev0 = c.get('rev0_num') if c.get('rev0_num') is not None else c.get('rev0')
+        rev1 = c.get('rev1_num') if c.get('rev1_num') is not None else c.get('rev1')
+        cost.append([_txt(c.get('code')), _txt(c.get('name')), _money(rev0),
+                     _money(rev1), _money_sgn(c.get('delta'))])
+    # Total of the CHANGED activities (comment 4) — the sum of the rows above, matching the screen
+    # and the variance pie's Δ (not the whole-project budget). Prefer the raw *_num ints; fall back
+    # to parsing the formatted rev0/rev1 (which may be money strings or plain numbers).
+    def _cnum(c, num_key, str_key):
+        v = c.get(num_key)
+        if v is None:
+            v = c.get(str_key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return float(v)
+        try:
+            return float(str(v).replace(',', '').replace('%', '').strip() or 0)
+        except (ValueError, TypeError):
+            return 0.0
+    if rc.get('cost_available') and changes:
+        s0 = sum(_cnum(c, 'rev0_num', 'rev0') for c in changes)
+        s1 = sum(_cnum(c, 'rev1_num', 'rev1') for c in changes)
+        cost.append(['—', 'Total — changed activities', _money(s0), _money(s1), _money_sgn(s1 - s0)])
+    return [{'title': 'Cost changed — budget total cost',
+             'note': 'Informational — a cost change is not itself a schedule impact.',
+             'headers': ['Activity ID', 'Activity Name', 'Before', 'After', 'Variance'],
+             'rows': _rows_or_none(cost, 5, 'No per-activity budget changes.')}]
+
+
+def _cost_blocks(report):
+    c = report.get('curves') or {}
+    rc = report.get('resource_changes') or {}
+    cost_av = c.get('cost_available') or rc.get('cost_available')
+    res_av = c.get('resource_available') or rc.get('resource_available')
+    has_value = bool(c.get('value_monthly') or c.get('budget_by_dim'))
+    if not (cost_av or res_av) and not has_value:
+        return [{'title': 'Cost & Resources',
+                 'note': 'Neither revision carries resource loading or cost — reported as not applicable.',
+                 'headers': ['Cost & resources'], 'rows': [['Not applicable']]}]
+
+    blocks = []
+    # Planned value — monthly + cumulative merged by month (money formatted, comment 9)
+    cum = {r.get('month'): r for r in (c.get('value_cumulative') or [])}
+    pv = []
+    for r in (c.get('value_monthly') or []):
+        mth = r.get('month')
+        cr = cum.get(mth) or {}
+        pv.append([_txt(mth), _money(r.get('rev0')), _money(r.get('rev1')), _money_sgn(r.get('var')),
+                   _money(cr.get('rev0')), _money(cr.get('rev1')), _money_sgn(cr.get('var'))])
+    vao = c.get('value_after_orig_finish')
+    note = None
+    if isinstance(vao, (int, float)) and vao:
+        note = (f"{_money(vao)} of planned value falls after the original governing finish — "
+                f"extended-works exposure (prolongation, prelims, plant hire).")
+    if c.get('value_monthly'):
+        blocks.append({'title': 'Planned value of work — monthly & cumulative', 'note': note,
+                       'headers': ['Month', 'Rev.00 monthly', 'Rev.01 monthly', 'Var',
+                                   'Rev.00 cum', 'Rev.01 cum', 'Cum Var'],
+                       'rows': _rows_or_none(pv, 7, 'No time-phased planned value available.')})
+
+    # Budget by dimension — where the money moved (money formatted, comment 10)
+    for dim, rows in (c.get('budget_by_dim') or {}).items():
+        sub = [[_txt(x.get('category')), _money(x.get('rev0')), _money(x.get('rev1')), _money_sgn(x.get('var'))]
+               for x in (rows or [])]
+        blocks.append({'title': f'Budget by {dim} — where the money moved',
+                       'headers': [dim, 'Before', 'After', 'Variance'],
+                       'rows': _rows_or_none(sub, 4, 'No budget movement for this dimension.')})
+    if not (c.get('budget_by_dim')) and cost_av:
+        blocks.append({'title': 'Budget by dimension — where the money moved',
+                       'headers': ['Dimension', 'Before', 'After', 'Variance'],
+                       'rows': [['No budget breakdown available.', '', '', '']]})
+
+    # Cost variance share by activity code (comment 4 — the on-screen pie in tabular form): for
+    # each code dimension present on the changed activities, the share of the total |Δ cost|.
+    cc = rc.get('activity_cost_changes') or []
+    dims_present = []
+    for x in cc:
+        for k in (x.get('codes') or {}):
+            if k not in dims_present:
+                dims_present.append(k)
+    for dim in dims_present:
+        by_val = {}
+        for x in cc:
+            v = (x.get('codes') or {}).get(dim)
+            if v in (None, ''):
+                continue
+            by_val[v] = by_val.get(v, 0) + abs(x.get('delta') or 0)
+        tot = sum(by_val.values())
+        if tot <= 0:
+            continue
+        share = [[_txt(k), _money(v), f"{round(v / tot * 100)}%"]
+                 for k, v in sorted(by_val.items(), key=lambda kv: -kv[1])]
+        share.append(['Total', _money(tot), '100%'])
+        blocks.append({'title': f'Cost variance share by {dim}',
+                       'note': 'Share of the total cost change carried by each activity-code value '
+                               '(the on-screen pie) — |variance| per code value.',
+                       'headers': [dim, 'Cost variance (|Δ|)', 'Share'],
+                       'rows': share})
+
+    # Cost reconciliation — where the budget sits (comment 3): the changed-activity total is only
+    # part of the whole budget; this accounts for every currency unit (Changed + Unchanged + New
+    # scope − Removed scope = Budget total). The final 'total' bucket is just another row.
+    recon = rc.get('cost_reconciliation') or []
+    if recon:
+        # A zero side (New scope has rev0=0, Removed scope has rev1=0) prints '—', matching screen/PDF.
+        recon_rows = [[_txt(b.get('label')), _txt(b.get('note')),
+                       _money(b.get('rev0')) if b.get('rev0') else '—',
+                       _money(b.get('rev1')) if b.get('rev1') else '—',
+                       _money_sgn(b.get('delta'))] for b in recon]
+        blocks.append({'title': 'Cost reconciliation — where the budget sits',
+                       'note': 'The changed-activity total is only part of the whole budget; this accounts for '
+                               'every currency unit — Changed + Unchanged + New scope − Removed scope = Budget '
+                               'total. Answers "where does the remaining budget go".',
+                       'headers': ['Bucket', 'What it is', 'Rev.00', 'Rev.01', 'Variance'],
+                       'rows': recon_rows})
+
+    # Itemised Cost changed table — returned to Cost & Resources (change 6). The by-WBS
+    # roll-up sheet is removed; the Resource-changed table now has its own Resources sheet.
+    blocks.extend(_itemised_cost_blocks(report))
+    return blocks
+
+
+# ── 7b · resource — Resources ─────────────────────────────────────────────────────
+
+_RES_KIND_LABEL = {'added': 'Added', 'removed': 'Removed', 'increased': 'Increased',
+                   'decreased': 'Reduced', 'unchanged': 'Unchanged'}
+
+
+def _resource_blocks(report):
+    """Resources — before vs after, at a glance (comments 5 & 6). The lead table is one row per
+    resource from ``resource_changes.resource_totals``: id · type · assigned units Before → After ·
+    variance · activities · Added / Removed / Increased / Reduced tag, with the added/removed/re-
+    sized summary in the note. The raw per-activity assignment list is kept below as detail."""
+    rc = report.get('resource_changes') or {}
+    totals = rc.get('resource_totals') or []
+    asg = rc.get('assignment_changes') or []
+
+    rows = []
+    for t in totals:
+        v = t.get('var')
+        if v is None:
+            v = (t.get('rev1') or 0) - (t.get('rev0') or 0)
+        rows.append([_txt(t.get('id'), '—'), _txt(t.get('name')), _txt(t.get('type'), '—'),
+                     _num(t.get('rev0'), '—') if t.get('rev0') else '—',
+                     _num(t.get('rev1'), '—') if t.get('rev1') else '—',
+                     _sgn(v), _num(t.get('activities'), '0'),
+                     _RES_KIND_LABEL.get(t.get('kind'), _txt(t.get('kind')))])
+
+    sm = rc.get('summary') or {}
+    n_add = sm.get('res_added', sum(1 for t in totals if t.get('kind') == 'added'))
+    n_rem = sm.get('res_removed', sum(1 for t in totals if t.get('kind') == 'removed'))
+    n_chg = sm.get('res_resized', sum(1 for t in totals if t.get('kind') in ('increased', 'decreased')))
+    summary_note = (f'{n_add} added · {n_rem} removed · {n_chg} re-sized. One row per resource — assigned '
+                    'units before → after, variance, activities it is on, and a clear change tag.')
+    blocks = [{'title': 'Resource comparison — before vs after, per resource (Rev.00 → Rev.01)',
+               'note': summary_note,
+               'headers': ['Resource ID', 'Resource', 'Type', 'Rev.00 (units)', 'Rev.01 (units)',
+                           'Variance', 'Activities', 'Change'],
+               'rows': _rows_or_none(rows, 8, 'No resource changes between the revisions.')}]
+
+    # Per-activity assignment detail — the individual changes behind the by-resource view above.
+    detail = [[_txt(a.get('code')), _txt(a.get('name')), _txt(a.get('resource')),
+               _ASG_KIND.get(a.get('kind'), _txt(a.get('kind'))), _txt(a.get('rev0'), '—'),
+               _txt(a.get('rev1'), '—')] for a in asg]
+    blocks.append({'title': 'Per-activity assignment detail',
+                   'note': 'The individual assignment changes (added / removed / units / rate) behind the '
+                           'by-resource comparison above.',
+                   'headers': ['Activity ID', 'Activity Name', 'Resource', 'Change', 'Before', 'After'],
+                   'rows': _rows_or_none(detail, 6, 'No resource-assignment changes.')})
+    return blocks
+
+
+# ── 8 · manpower — Manpower ──────────────────────────────────────────────────────
+
+def _other_resources_block(other):
+    """The 'Other resources' block (equipment / material / untyped) — reported beside man-hours,
+    NEVER summed into them. Mirrors the on-screen mpOtherResources boxes: each type's Rev.00 →
+    Rev.01, the change, its own unit of measure, and the assignment count."""
+    unit = {'equipment': 'equipment-hours', 'material': 'quantities (m³ / t / m²)',
+            'untyped': 'units — no resource type'}
+    name = {'equipment': 'Equipment', 'material': 'Material', 'untyped': 'Untyped'}
+    rows = []
+    for k in ('equipment', 'material', 'untyped'):
+        v = other.get(k)
+        if not v:
+            continue
+        dv = v.get('var')
+        if dv is None:
+            dv = (v.get('rev1') or 0) - (v.get('rev0') or 0)
+        assignments = v.get('n1') if v.get('n1') is not None else v.get('n0')
+        rows.append([name[k], _mh(v.get('rev0')), _mh(v.get('rev1')), _mh_sgn(dv),
+                     unit[k], _num(assignments, '0')])
+    return {'title': 'Other resources — reported separately (never added to man-hours)',
+            'note': 'Equipment and material carry their own units of measure — shown here beside labour so '
+                    'nothing is dropped from the comparison, but they do not belong in a man-hours total. '
+                    'Untyped assignments carry no resource type in the P6 export and are never guessed as labour.',
+            'headers': ['Type', 'Rev.00', 'Rev.01', 'Change', 'Unit', 'Assignments'],
+            'rows': rows}
+
+
+def _manpower_blocks(report):
+    """Manpower as its own sheet (round-15 Option A parity with manpowerView) — DIFFERENCE-FIRST
+    and LABOUR-ONLY. Man-hours = P6 Budgeted Labor Units; equipment and material carry a different
+    unit of measure and are reported separately, never summed in. The section leads with the
+    Rev.01 − Rev.00 labour man-hours difference, then the by-trade and by-month breakdowns, then
+    the honest 'other resources' block."""
+    c = report.get('curves') or {}
+    res_av = c.get('resource_available')
+    months = c.get('months') or []
+    mt = c.get('manhours_total') or {}
+    trade = c.get('manhours_by_trade') or []
+    mm = c.get('manpower_monthly') or []
+    other = c.get('other_resources') or {}
+    has_labour = bool(res_av and months)
+    has_other = bool(other)
+
+    # Not-applicable fallback ONLY when there is neither labour nor other resources.
+    if not (has_labour or has_other):
+        return [{'title': 'Manpower',
+                 'note': 'Neither revision carries labour man-hours or other resources — reported as not '
+                         'applicable rather than "no change".',
+                 'headers': ['Manpower'], 'rows': [['Not applicable']]}]
+
+    blocks = []
+    if not has_labour:
+        # Labour absent but other resources present — say so honestly, then list the other resources
+        # (mirrors manpowerView showing the not-applicable card + mpOtherResources).
+        blocks.append({'title': 'Manpower',
+                       'note': 'Neither revision carries LABOUR resource loading — man-hours are reported as '
+                               'not applicable rather than "no change". Equipment / material resources are '
+                               'listed below.',
+                       'headers': ['Manpower'], 'rows': [['Not applicable']]})
+        blocks.append(_other_resources_block(other))
+        return blocks
+
+    # ── Block 1 — Labour man-hours difference (the headline) ──
+    mh0, mh1, var, pct = mt.get('rev0'), mt.get('rev1'), mt.get('var'), mt.get('pct')
+    if var is None and isinstance(mh0, (int, float)) and isinstance(mh1, (int, float)):
+        var = mh1 - mh0
+    total_rows = [
+        ['Labour man-hours · Rev.00', _mh(mh0), ''],
+        ['Labour man-hours · Rev.01', _mh(mh1), ''],
+        ['Difference — Rev.01 − Rev.00', _mh_sgn(var), _mh_pct(mh0, mh1, pct)],
+    ]
+    blocks.append({'title': 'Labour man-hours — Rev.00 → Rev.01',
+                   'note': 'Man-hours = P6 Budgeted Labor Units (Labour only); equipment & material excluded. '
+                           'The change (Rev.01 − Rev.00) is the headline; the two totals are supporting context.',
+                   'headers': ['Measure', 'Labour man-hours', 'Change %'],
+                   'rows': total_rows})
+
+    # ── Block 2 — Labour man-hours by trade, biggest change first ──
+    def _tvar(t):
+        v = t.get('var')
+        return v if v is not None else (t.get('rev1') or 0) - (t.get('rev0') or 0)
+    trows = [[_txt(t.get('resource_id'), '—'), _txt(t.get('name')), _mh(t.get('rev0')),
+              _mh(t.get('rev1')), _mh_sgn(_tvar(t))]
+             for t in sorted(trade, key=lambda t: -abs(_tvar(t) or 0))]
+    blocks.append({'title': 'Labour man-hours by trade — Rev.00 → Rev.01',
+                   'note': 'One row per labour resource (the same P6 Resource Id shown in Primavera), biggest '
+                           'change first. Equipment and material are excluded — see "Other resources" below.',
+                   'headers': ['Resource ID', 'Resource', 'Rev.00 (mh)', 'Rev.01 (mh)', 'Change'],
+                   'rows': _rows_or_none(trows, 5, 'No labour resources on either revision.')})
+
+    # ── Block 3 — Labour man-hours by month ──
+    mrows = []
+    for m in mm:
+        r0, r1 = m.get('rev0') or 0, m.get('rev1') or 0
+        mrows.append([_txt(m.get('month')), _mh(r0), _mh(r1), _sgn(int(round(r1 - r0)))])
+    peak = c.get('peak') or {}
+    peak_note = ''
+    if peak.get('rev0') or peak.get('rev1'):
+        peak_note = (f" Peak labour: {_mh(peak.get('rev0'))} mh/month"
+                     f"{(' in ' + peak.get('rev0_month')) if peak.get('rev0_month') else ''} (Rev.00) → "
+                     f"{_mh(peak.get('rev1'))} mh/month"
+                     f"{(' in ' + peak.get('rev1_month')) if peak.get('rev1_month') else ''} (Rev.01). "
+                     "Peak is man-hours per month, not headcount.")
+    blocks.append({'title': 'Labour man-hours by month',
+                   'note': 'Planned labour man-hours per calendar month in each revision, and the month-by-month '
+                           'change (Rev.01 − Rev.00).' + peak_note,
+                   'headers': ['Month', 'Rev.00 (mh)', 'Rev.01 (mh)', 'Change'],
+                   'rows': _rows_or_none(mrows, 4, 'No monthly labour man-hours available.')})
+
+    # ── Block 4 — Other resources (never added to man-hours) ──
+    if has_other:
+        blocks.append(_other_resources_block(other))
+    return blocks
+
+
+# ── 9 · scope — Scope & Structure ────────────────────────────────────────────────
+
+def _scope_blocks(report):
+    wv = report.get('wbs_view') or {}
+
+    def wbs_rows(nodes):
+        out = []
+        for n in (nodes or []):
+            lvl = n.get('level')
+            indent = '   ' * (lvl if isinstance(lvl, int) else 0)
+            out.append([_num(lvl), f"{indent}{_txt(n.get('name'))}", _txt(n.get('state'))])
+        return out
+
+    sm = wv.get('summary') or {}
+    summary_rows = [
+        ['Branches added', _num(sm.get('added'))],
+        ['Branches removed', _num(sm.get('removed'))],
+        ['Branches moved', _num(sm.get('moved'))],
+        ['Activities re-parented', _num(sm.get('reparented'))],
+    ]
+
+    ds = [[_txt(d.get('id')), _txt(d.get('name')), _txt(d.get('wbs'), '—'),
+           f"{_txt(d.get('start0'), '—')} → {_txt(d.get('start1'), '—')}",
+           f"{_txt(d.get('finish0'), '—')} → {_txt(d.get('finish1'), '—')}",
+           _num(d.get('shift_wd'))] for d in (report.get('date_shifts') or [])]
+
+    return [
+        {'title': 'WBS comparison — Rev.00 (original)',
+         'note': 'Primavera colour-grouping in the report; here one row per WBS branch.',
+         'headers': ['Level', 'WBS', 'State'],
+         'rows': _rows_or_none(wbs_rows(wv.get('rev0')), 3, 'No WBS structure available for Rev.00.')},
+        {'title': 'WBS comparison — Rev.01 (revised)',
+         'headers': ['Level', 'WBS', 'State'],
+         'rows': _rows_or_none(wbs_rows(wv.get('rev1')), 3, 'No WBS structure available for Rev.01.')},
+        {'title': 'WBS change summary', 'headers': ['Item', 'Count'], 'rows': summary_rows},
+        {'title': 'Largest date shifts — activities whose dates moved',
+         'headers': ['Activity ID', 'Activity Name', 'WBS', 'Start (before → after)',
+                     'Finish (before → after)', 'Shift (wd)'],
+         'rows': _rows_or_none(ds, 6, 'No material activity date shifts.')},
+    ]
 
 
 # ── assembly ────────────────────────────────────────────────────────────────────
 
 def revcompare_excel(report):
-    """Return the ``sheets`` list for ``write_sections_xlsx`` — one worksheet per major
-    report area, mirroring the on-screen tabs and the PDF's gated sections."""
+    """Return the ``sheets`` list for ``write_sections_xlsx`` — one worksheet per canonical
+    report section (summary · findings · critical · register · ms · cal · cost · resource ·
+    manpower · scope), mirroring the ten redesigned on-screen tabs, the PDF's gated sections
+    and the report-contents picker (same section keys throughout)."""
     report = report or {}
-    _wide = {0: 26, 1: 26, 2: 22, 3: 18, 4: 18, 5: 16, 6: 12, 7: 12, 8: 10}
     return [
         {'name': 'Executive Summary', 'blocks': _summary_blocks(report),
-         'col_widths': {0: 30, 1: 20, 2: 46, 3: 14}},
-        {'name': 'Revision Overview', 'blocks': _overview_blocks(report),
-         'col_widths': {0: 20, 1: 34, 2: 34}},
-        {'name': 'Milestones', 'blocks': _milestone_blocks(report),
-         'col_widths': {0: 34, 1: 16, 2: 16, 3: 12, 4: 12}},
-        {'name': 'Critical Path & Sequence', 'blocks': _critpath_blocks(report),
-         'col_widths': {0: 30, 1: 26, 2: 14, 3: 22, 4: 30, 5: 30}},
-        {'name': 'Logic Changes', 'blocks': _logic_blocks(report),
-         'col_widths': {0: 18, 1: 30, 2: 24, 3: 24, 4: 24, 5: 12}},
+         'col_widths': {0: 30, 1: 26, 2: 26, 3: 16, 4: 26}},
+        {'name': 'Key Findings', 'blocks': _findings_blocks(report),
+         'col_widths': {0: 22, 1: 22, 2: 18, 3: 20, 4: 20, 5: 16, 6: 16, 7: 16, 8: 14, 9: 12, 10: 10}},
+        {'name': 'Critical Path & Float', 'blocks': _critical_blocks(report),
+         'col_widths': {0: 6, 1: 16, 2: 32, 3: 14, 4: 22}},
+        {'name': 'Change Register', 'blocks': _register_blocks(report),
+         'col_widths': {0: 18, 1: 30, 2: 24, 3: 12, 4: 12, 5: 12, 6: 12, 7: 26}},
+        {'name': 'Milestones', 'blocks': _ms_blocks(report),
+         'col_widths': {0: 16, 1: 32, 2: 20, 3: 20, 4: 16}},
+        {'name': 'Calendar', 'blocks': _cal_blocks(report),
+         'col_widths': {0: 28, 1: 34, 2: 24, 3: 24, 4: 20, 5: 62}},
+        {'name': 'Cost & Resources', 'blocks': _cost_blocks(report),
+         'col_widths': {0: 20, 1: 24, 2: 18, 3: 16, 4: 16, 5: 16, 6: 16}},
+        {'name': 'Resources', 'blocks': _resource_blocks(report),
+         'col_widths': {0: 24, 1: 16, 2: 16, 3: 16, 4: 14, 5: 44}},
+        {'name': 'Manpower', 'blocks': _manpower_blocks(report),
+         'col_widths': {0: 30, 1: 22, 2: 16, 3: 16, 4: 24, 5: 14}},
         {'name': 'Scope & Structure', 'blocks': _scope_blocks(report),
-         'col_widths': {0: 26, 1: 30, 2: 30, 3: 14, 4: 24}},
-        {'name': 'Resource & Cost', 'blocks': _resource_blocks(report),
-         'col_widths': {0: 20, 1: 30, 2: 16, 3: 16, 4: 14}},
-        {'name': 'Change Register', 'blocks': _register_blocks(report), 'col_widths': _wide},
-        {'name': 'Detailed Analysis', 'blocks': _detailed_blocks(report),
-         'col_widths': {0: 20, 1: 46, 2: 46}},
+         'col_widths': {0: 8, 1: 40, 2: 16, 3: 28, 4: 28, 5: 12}},
     ]

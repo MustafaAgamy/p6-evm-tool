@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Calendar all-days + highlight (round 20)</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6;
+    --good:#1f9d57; --good-soft:#e7f6ee; --bad:#d5453b; --bad-soft:#fdecea; --bad-line:#f3c9c4;
+    --warn:#c8801a; --warn-soft:#fbf1e0; --ren:#6b52d6; --ren-soft:#efeafb;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding:22px 16px 60px}
+  .wrap{max-width:960px;margin:0 auto}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:8px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800}
+  h1{font-size:18px;margin:0;font-weight:800}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .note{background:#eaf1ff;border:1px solid #d3e2ff;border-radius:10px;padding:10px 13px;color:#254a86;font-size:12.5px;margin:14px 0 16px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);margin:0 0 14px;padding:15px 17px}
+  .calhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .calname{font-size:14.5px;font-weight:800}.calname .arr{color:var(--muted);font-weight:600}
+  .calmeta{font-size:11px;color:var(--muted);margin-left:auto}
+  .tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+  .tag.mod{background:var(--warn-soft);color:var(--warn)}.tag.rem{background:var(--bad-soft);color:var(--bad)}.tag.add{background:var(--good-soft);color:var(--good)}
+  .brief{font-size:14px;margin:4px 0 8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 4px;font-size:11.5px;color:var(--ink-soft)}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  table.ldg{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:13px}
+  table.ldg th{text-align:left;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:800;padding:6px 10px;border-bottom:1px solid var(--edge)}
+  table.ldg td{padding:6px 10px;border-bottom:1px solid var(--edge2)}
+  .lattr{color:var(--ink-soft);font-weight:600;width:32%}.lrev{text-align:center;width:22%;font-variant-numeric:tabular-nums}.lchg{text-align:right;width:24%}
+  tr.band td{background:var(--bg);color:var(--ink-soft);font-weight:800;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+  /* unchanged rows are plain/muted; only differences are highlighted */
+  tr.same td{color:var(--muted)} tr.same .lattr{color:var(--ink-soft);font-weight:500}
+  tr.hi-g td{background:var(--good-soft);box-shadow:inset 3px 0 0 var(--good)}
+  tr.hi-r td{background:var(--bad-soft);box-shadow:inset 3px 0 0 var(--bad)}
+  tr.hi-a td{background:var(--warn-soft);box-shadow:inset 3px 0 0 var(--warn)}
+  .chg-g{color:var(--good);font-weight:700}.chg-r{color:var(--bad);font-weight:700}.chg-a{color:var(--warn);font-weight:700}.chg-n{color:var(--muted)}
+  .flag{font-size:8.5px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:20px;margin-left:6px;text-transform:uppercase;color:#fff}
+  .flag.g{background:var(--good)}.flag.r{background:var(--bad)}.flag.a{background:var(--warn)}
+  .cnt{color:var(--muted);font-size:11.5px;margin-top:6px}
+  .nwband{margin-top:10px;border:1px solid var(--bad-line);background:#fef6f5;border-radius:9px;padding:10px 12px}
+  .nwband.rem{border-color:var(--edge);background:var(--bg)}
+  .nwband .h{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--bad);margin-bottom:4px}
+  .nwband.rem .h{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="secnum">6</div>
+    <div><h1>Calendar — all non-working days, differences highlighted (round 20)</h1>
+      <p class="sub">Every non-working day in the window is listed; only the Rev.00↔Rev.01 differences are highlighted. Mockup for approval.</p></div>
+  </div>
+
+  <div class="note">
+    <b>#2 — All non-working days shown, only differences highlighted.</b> Every holiday/non-working day (within data date → completion) is a row; unchanged days are plain/grey, and a real change is highlighted — <span style="color:var(--good);font-weight:700">green = now working</span>, <span style="color:var(--bad);font-weight:700">red = now non-working</span>, <span style="color:var(--warn);font-weight:700">amber = hours changed</span>. &nbsp; <b>#1 — clearer wording:</b> the confusing "(reduced) (removed)" is gone — reduced days read "8h/day (reduced from 24h)", and a retired calendar's band already says the days are gone (no "(removed)" on every row).
+  </div>
+
+  <!-- In-both calendar: ALL non-working days, differences highlighted -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Roots Silos - 24 Hrs</span><span class="tag mod">modified</span><span class="calmeta">29 activities</span></div>
+    <div class="brief"><b>Roots Silos - 24 Hrs</b> — 4 days made working (at reduced hours). Working week unchanged (24 h/day). Used by 29 activities.</div>
+    <div class="legend"><span><i style="background:var(--good)"></i>now working</span><span><i style="background:var(--bad)"></i>now non-working</span><span><i style="background:var(--warn)"></i>hours changed</span><span><i style="background:var(--edge)"></i>unchanged (shown, not highlighted)</span></div>
+    <table class="ldg">
+      <thead><tr><th class="lattr">Non-working day</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Difference</th></tr></thead>
+      <tbody>
+        <tr class="same"><td class="lattr">01 Jan 2025</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+        <tr class="hi-g"><td class="lattr">25 Jan 2025</td><td class="lrev">Non-working</td><td class="lrev">8h/day (reduced from 24h)</td><td class="lchg chg-g">now working <span class="flag g">DIFF</span></td></tr>
+        <tr class="same"><td class="lattr">25 Apr 2025</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+        <tr class="hi-g"><td class="lattr">01 May 2025</td><td class="lrev">Non-working</td><td class="lrev">8h/day (reduced from 24h)</td><td class="lchg chg-g">now working <span class="flag g">DIFF</span></td></tr>
+        <tr class="same"><td class="lattr">05 Jun 2025</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+        <tr class="same"><td class="lattr">30 Jun 2025</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+        <tr class="hi-a"><td class="lattr">01–07 Mar 2026</td><td class="lrev">24h/day</td><td class="lrev">12h/day (reduced from 24h)</td><td class="lchg chg-a">hours 24h → 12h <span class="flag a">DIFF</span></td></tr>
+        <tr class="same"><td class="lattr">25 Apr 2026</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+        <tr class="hi-r"><td class="lattr">23 Sep 2026</td><td class="lrev">24h/day</td><td class="lrev">Non-working</td><td class="lchg chg-r">now non-working <span class="flag r">DIFF</span></td></tr>
+        <tr class="same"><td class="lattr">25 Dec 2026</td><td class="lrev">Non-working</td><td class="lrev">Non-working</td><td class="lchg chg-n">—</td></tr>
+      </tbody>
+    </table>
+    <div class="cnt">10 non-working days in the window · <b>3 differ</b> between Rev.00 and Rev.01 (highlighted).</div>
+  </div>
+
+  <!-- Removed calendar: clearer wording (no "(removed)" per row) -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Roots Silos - 24 Hrs - Phase I Scope</span><span class="tag rem">retired</span><span class="calmeta">15 activities → Roots Silos - 24 Hrs</span></div>
+    <div class="brief"><b>Roots Silos - 24 Hrs - Phase I Scope</b> — retired in Rev.01. The 15 activities that used it now run on <b>Roots Silos - 24 Hrs</b>.</div>
+    <div class="nwband rem">
+      <div class="h">Non-working days it had in Rev.00 (this calendar is gone in Rev.01)</div>
+      <table class="ldg" style="margin-top:2px">
+        <thead><tr><th class="lattr">Date</th><th class="lchg" style="text-align:left">Status in Rev.00</th></tr></thead>
+        <tbody>
+          <tr><td class="lattr">25 Jan 2025</td><td class="lchg" style="text-align:left" >8h/day (reduced from 24h)</td></tr>
+          <tr><td class="lattr">30–31 Mar 2025</td><td class="lchg" style="text-align:left">Non-working</td></tr>
+          <tr><td class="lattr">01 May 2025</td><td class="lchg" style="text-align:left">8h/day (reduced from 24h)</td></tr>
+          <tr><td class="lattr">05 Jun 2025</td><td class="lchg" style="text-align:left">Non-working</td></tr>
+          <tr><td class="lattr">26–28 May 2026</td><td class="lchg" style="text-align:left">Non-working</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cnt">No "(removed)" tag on each row — the heading already says the whole calendar is gone in Rev.01.</div>
+  </div>
+
+  <p class="sub" style="text-align:center;margin-top:14px">Confirm two things: (1) list <b>all</b> non-working days with only the differences highlighted (unchanged rows shown greyed), and (2) the clearer wording — "8h/day (reduced from 24h)" and no redundant "(removed)" per row.</p>
+</div>
+</body>
+</html>

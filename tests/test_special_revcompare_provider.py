@@ -11,12 +11,12 @@ import db
 from p6_special.providers import revcompare
 from p6_special.context import SpecialContext
 
-# Sections that DO render when comparing the minimal fixture against itself
-# (resource loading is present in the fixture, so 'resource' renders; there is no
-# material change, so 'detailed' is skipped by the renderer).
-RENDERED = ['summary', 'overview', 'milestones', 'critpath', 'sequence', 'logic',
-            'scope', 'resource', 'register']
-SKIPPED = ['detailed']
+# The 6-tab redesign's section keys (p6_revcompare.exporters._SECTIONS). Comparing the
+# minimal fixture against itself, every section renders (each shows its "no change" state
+# rather than being omitted), so nothing is skipped for this fixture.
+RENDERED = ['summary', 'findings', 'critical', 'register', 'ms', 'cal', 'cost',
+            'resource', 'manpower', 'scope']
+SKIPPED = []
 
 
 def _seed(fixture):
@@ -90,10 +90,11 @@ def test_every_item_produces_without_raising(temp_db, xml_path):
 
 
 def test_summary_mirrors_feature_renderer(temp_db, xml_path):
-    """The sliced Executive Summary carries the feature's own markup (KPI tiles +
-    'Change profile') — reuse, not a hand-rebuilt block — and its own <h2> is stripped
+    """The sliced Executive Summary carries the feature's own markup (the 'Bottom line'
+    verdict + the 'Revision snapshot' Rev.00→Rev.01 block) — reuse, not a hand-rebuilt
+    block — and its own heading (the <div class="secmark"> title with its <h2>) is stripped
     so the Studio's numbered heading is the only title."""
     ctx = _ctx_both(xml_path)
     html = _items(ctx)['revcompare:summary'].produce(ctx)['html']
-    assert 'kpis' in html and 'Change profile' in html
-    assert '<h2' not in html
+    assert 'bottomline' in html and 'Revision snapshot' in html
+    assert '<h2' not in html and 'secmark' not in html

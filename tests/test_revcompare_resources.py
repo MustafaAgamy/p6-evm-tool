@@ -19,8 +19,9 @@ def _sched(acts, bac=None, asg=None):
     return d
 
 
-def _asg(rid, name, units, cost, rate=None):
-    return {'resource_id': rid, 'resource_name': name, 'budget_units': units, 'budget_cost': cost, 'rate': rate}
+def _asg(rid, name, units, cost, rate=None, rtype=None, rcode=None):
+    return {'resource_id': rid, 'resource_code': rcode, 'resource_name': name,
+            'budget_units': units, 'budget_cost': cost, 'rate': rate, 'resource_type': rtype}
 
 
 def test_not_available_when_no_cost_or_resources():
@@ -61,6 +62,97 @@ def test_resource_removed():
     d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
     removed = [a for a in d['assignment_changes'] if a['kind'] == 'removed']
     assert len(removed) == 1 and removed[0]['resource'] == 'Crane'
+
+
+def test_resource_totals_before_after_rollup():
+    """resource_totals rolls up per resource across activities with a neutral change kind, an
+    activity count, the type, and drives the added/removed/re-sized summary (comments 5 & 6)."""
+    # resource_type arrives already normalised by the parser (_res_type_label) and is threaded through.
+    r0 = _sched([_act('A1', 'Exc'), _act('A2', 'Conc')],
+                asg={'A1': [_asg('r1', 'Labour', 100, 10000, rtype='Labour'),
+                            _asg('r2', 'Crane', 5, 5000, rtype='Equipment')],
+                     'A2': [_asg('r1', 'Labour', 40, 4000, rtype='Labour')]})
+    r1 = _sched([_act('A1', 'Exc'), _act('A2', 'Conc')],
+                asg={'A1': [_asg('r1', 'Labour', 150, 15000, rtype='Labour'),
+                            _asg('r4', 'MEP crew', 30, 9000, rtype='Labour')],
+                     'A2': [_asg('r1', 'Labour', 40, 4000, rtype='Labour')]})
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    totals = {t['name']: t for t in d['resource_totals']}
+    # Labour: 140 → 190 across two activities → increased.
+    assert totals['Labour']['rev0'] == 140 and totals['Labour']['rev1'] == 190
+    assert totals['Labour']['kind'] == 'increased' and totals['Labour']['activities'] == 2
+    assert totals['Labour']['type'] == 'Labour'          # type threaded through the roll-up
+    assert totals['Crane']['kind'] == 'removed' and totals['Crane']['rev1'] == 0
+    assert totals['MEP crew']['kind'] == 'added' and totals['MEP crew']['rev0'] == 0
+    s = d['summary']
+    assert s['res_added'] == 1 and s['res_removed'] == 1 and s['res_resized'] == 1
+
+
+def test_cost_reconciliation_buckets_reconcile():
+    """Cost reconciliation partitions the whole budget into changed / unchanged / new / removed
+    that sum back to the total (comment 3 — where the remaining budget goes)."""
+    r0 = _sched([_act('A1', 'Exc'), _act('A2', 'Conc'), _act('A3', 'Old')],
+                bac={'A1': 100000, 'A2': 50000, 'A3': 20000})
+    r1 = _sched([_act('A1', 'Exc'), _act('A2', 'Conc'), _act('A4', 'New')],
+                bac={'A1': 130000, 'A2': 50000, 'A4': 31000})  # A1 changed, A2 same, A3 removed, A4 new
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    recon = {b['bucket']: b for b in d['cost_reconciliation']}
+    assert recon['changed']['rev0'] == 100000 and recon['changed']['rev1'] == 130000
+    assert recon['unchanged']['rev0'] == 50000 and recon['unchanged']['rev1'] == 50000
+    assert recon['added']['rev1'] == 31000 and recon['added']['rev0'] == 0
+    assert recon['removed']['rev0'] == 20000 and recon['removed']['rev1'] == 0
+    # buckets reconcile to the whole-project total
+    tot = recon['total']
+    assert tot['rev0'] == 170000 and tot['rev1'] == 211000
+    assert (recon['changed']['rev1'] + recon['unchanged']['rev1'] + recon['added']['rev1']) == tot['rev1']
+
+
+def test_cost_reconciliation_reconciles_with_fractional_costs():
+    """Parts must equal the whole even when per-activity costs are fractional (rate × units):
+    every bucket + the total are integer sums of the same per-activity rounded values."""
+    r0 = _sched([_act('A1', 'a'), _act('A2', 'b'), _act('A3', 'c')],
+                bac={'A1': 100.4, 'A2': 100.4, 'A3': 20.6})  # A1 changed, A2 unchanged, A3 removed
+    r1 = _sched([_act('A1', 'a'), _act('A2', 'b'), _act('A4', 'd')],
+                bac={'A1': 300.4, 'A2': 100.4, 'A4': 31.6})   # A4 new
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    rec = {b['bucket']: b for b in d['cost_reconciliation']}
+    tot = rec['total']
+    assert rec['changed']['rev1'] + rec['unchanged']['rev1'] + rec['added']['rev1'] == tot['rev1']
+    assert rec['changed']['rev0'] + rec['unchanged']['rev0'] + rec['removed']['rev0'] == tot['rev0']
+    # every cell is an integer (per-activity rounded), so the table ties out exactly
+    assert all(isinstance(b['rev0'], int) and isinstance(b['rev1'], int) for b in d['cost_reconciliation'])
+
+
+def test_resource_totals_display_p6_code_not_objectid():
+    """The table's Resource ID must be P6's human Resource Id (code), not the internal ObjectId;
+    it falls back to the ObjectId only when the export carries no code."""
+    r0 = _sched([_act('A1', 'x')],
+                asg={'A1': [_asg('4521', 'Steelfixers', 100, 10000, rcode='LAB-STF'),
+                            _asg('4899', 'Crane', 5, 5000)]})   # Crane has no P6 code
+    r1 = _sched([_act('A1', 'x')],
+                asg={'A1': [_asg('4521', 'Steelfixers', 150, 15000, rcode='LAB-STF'),
+                            _asg('4899', 'Crane', 5, 5000)]})
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    by_name = {t['name']: t for t in d['resource_totals']}
+    assert by_name['Steelfixers']['id'] == 'LAB-STF'      # P6 code, not '4521'
+    assert by_name['Crane']['id'] == '4899'               # fallback to ObjectId when no code
+
+
+def test_resource_totals_empty_without_assignments():
+    r0 = _sched([_act('A1', 'x')], bac={'A1': 100})
+    r1 = _sched([_act('A1', 'x')], bac={'A1': 200})
+    d = diff_resources(r0, r1, MatchedSchedules(r0, r1))
+    assert d['resource_totals'] == []
+    assert d['summary']['res_added'] == 0 and d['summary']['res_removed'] == 0
+
+
+def test_parser_captures_resource_type_label():
+    """P6 ResourceType maps to a plain label (Labour/Equipment/Material) or None, additively."""
+    from p6_evm.parser import _res_type_label
+    assert _res_type_label('Labor') == 'Labour'
+    assert _res_type_label('Nonlabor') == 'Equipment'
+    assert _res_type_label('Material') == 'Material'
+    assert _res_type_label('') is None and _res_type_label(None) is None
 
 
 def test_parser_populates_assignments_additively():

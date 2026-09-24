@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Complete Report (mockup v3)</title>
+<style>
+:root{
+  --bg:#eef2f7; --card-bg:#ffffff; --border:#e2e8f0; --hair:#eef1f6;
+  --text:#1e293b; --ink-soft:#41506a; --muted:#64748b;
+  --accent:#2563eb; --accent-dark:#1d4ed8; --accent-soft:#dbe6ff;
+  --danger:#c02626; --danger-bg:#fadddd; --success:#15803d; --success-bg:#dcf3e4;
+  --warning:#b45309; --warning-bg:#fbeccf; --row-hover:rgba(0,0,0,.03);
+  --chart-1:#3b6fa8; --chart-2:#7ba63c; --chart-3:#c0764a; --chart-4:#6b5bbd; --chart-5:#2f9c9c; --chart-6:#b8497f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 22px 80px;}
+h1{font-size:22px;margin:0 0 3px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:940px}
+.bottomline{background:linear-gradient(0deg,var(--card-bg),var(--card-bg));border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:14px}
+.bottomline b{color:var(--accent-dark)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:5;border-bottom:1px solid var(--border)}
+.tab{font-size:12px;font-weight:700;padding:7px 12px;border-radius:9px;background:var(--card-bg);border:1px solid var(--border);color:var(--ink-soft);text-decoration:none;cursor:pointer;font-family:inherit}
+.tab:hover{border-color:var(--accent);color:var(--accent)}
+.tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.secmark{display:flex;align-items:center;gap:10px;margin:30px 0 12px;border-top:2px solid var(--border);padding-top:16px}
+.secmark .n{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:6px;padding:4px 9px}
+.secmark h2{font-size:17px;margin:0}.secmark .sub{font-size:12px;color:var(--muted)}
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:16px 17px;margin-bottom:14px;}
+.card h3{margin:0 0 3px;font-size:14px;}.card h3 .n{font-size:11px;font-weight:600;color:var(--muted);margin-left:6px}
+.sec{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.split3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800;padding:8px 9px;border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:8px 9px;border-bottom:1px solid var(--hair)}td.n,th.n{text-align:right}tr:hover td{background:var(--row-hover)}
+.mut{color:var(--muted)}.new{color:var(--text);font-weight:600}.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--ink-soft)}
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto}
+.d{font-weight:700}.d.up{color:var(--danger)}.d.down{color:var(--success)}.d.zero{color:var(--muted)}
+.tag{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.tag.add{background:var(--success-bg);color:var(--success)}.tag.rem{background:var(--danger-bg);color:var(--danger)}.tag.chg{background:var(--warning-bg);color:var(--warning)}
+.tag.civil{background:var(--accent-soft);color:var(--chart-1)}.tag.mep{background:var(--accent-soft);color:var(--chart-5)}.tag.arch{background:var(--accent-soft);color:var(--chart-4)}.tag.struct{background:var(--warning-bg);color:var(--chart-3)}
+.tag.hard{background:var(--danger-bg);color:var(--danger)}
+.newbadge{font-size:9px;font-weight:800;color:var(--success);background:var(--success-bg);border:1px solid var(--success);border-radius:5px;padding:0 5px;margin-left:6px}
+.rembadge{font-size:9px;font-weight:800;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger);border-radius:5px;padding:0 5px;margin-left:6px}
+.snap{display:grid;grid-template-columns:1fr auto 1fr}
+.snapcol{padding:2px 16px}.snapcol.r0{border-left:3px solid var(--muted)}.snapcol.r1{border-left:3px solid var(--accent)}
+.snaptag{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px}.snapcol.r1 .snaptag{color:var(--accent)}
+.snapfile{font-weight:700;font-size:12px;margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-top:1px dashed var(--hair)}.kv .k{color:var(--muted)}.kv .v{font-weight:600}.kv .v.hot{color:var(--danger)}
+.snapmid{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 14px;min-width:110px;text-align:center}
+.snapmid .big{font-size:22px;font-weight:800;color:var(--danger)}.snapmid .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+.led{display:grid;grid-template-columns:1fr auto auto auto;gap:0 18px;align-items:center}
+.led>div{padding:9px 0;border-top:1px solid var(--hair)}.led .h{border-top:0;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800}
+.led .lbl{font-weight:600}.led .r{text-align:right}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{border:1px solid var(--border);border-radius:11px;padding:10px 12px}.tile.flag{border-color:var(--danger);background:var(--danger-bg)}
+.tile .k{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.tile .val{font-size:16px;font-weight:800;margin-top:3px}.tile .val .a{color:var(--muted);font-weight:700;font-size:13px}.tile .val .arw{color:var(--muted);margin:0 5px}
+.tile .dd{font-size:10.5px;margin-top:2px;color:var(--muted)}
+.bar{display:grid;grid-template-columns:120px 1fr 78px;gap:9px;align-items:center;font-size:12px;padding:3px 0}
+.bar .track{background:var(--bg);border-radius:5px;height:15px;overflow:hidden;display:flex}
+.bar .fa{background:var(--success);height:100%}.bar .fr{background:var(--danger);height:100%}.bar .f0{background:#c7d0dc;height:100%}.bar .f1{background:var(--accent);height:100%}
+.bar .v{text-align:right;font-weight:700}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px}.legend b{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px}
+.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fchip{font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;background:var(--card-bg);border:1px solid var(--border);color:var(--ink-soft)}
+.fchip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fsel{font-size:11px;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--ink-soft)}
+.callout{border-radius:10px;padding:9px 12px;font-size:11.5px;background:var(--accent-soft);color:var(--accent-dark);margin-top:10px}
+.callout.warn{background:var(--warning-bg);color:var(--warning)}.callout.bad{background:var(--danger-bg);color:#7c1d1d}
+.wbscrumb{font-size:10.5px;color:var(--muted);margin:2px 0 8px}.wbscrumb b{color:var(--accent)}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:5px 0}
+.chain.ind{margin-left:22px}
+.node{border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:11px;font-weight:600;background:var(--card-bg)}
+.node.moved{border-color:var(--warning);background:var(--warning-bg);color:var(--warning)}.node.crit{border-color:var(--danger);background:var(--danger-bg);color:var(--danger)}.node.enter{border-color:var(--success);background:var(--success-bg);color:var(--success)}
+.arw{color:var(--muted);font-weight:800}
+.clab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}.clab.r1{color:var(--accent)}
+.foot{font-size:11px;color:var(--muted);margin-top:8px}
+.grouplab{font-size:11px;font-weight:800;color:var(--ink-soft);background:var(--bg);padding:5px 10px;border-radius:6px;margin:8px 0 4px}
+.seqitem{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--hair);font-size:12px}.seqitem .exp{color:var(--accent);font-weight:800}
+.dirtag{font-size:9px;font-weight:800;padding:1px 7px;border-radius:5px;background:var(--warning-bg);color:var(--warning);margin-left:auto}
+.p6band{display:flex;align-items:center;gap:8px;padding:5px 10px;font-weight:700;color:#fff;border-radius:4px;margin:3px 0}
+.p6-l1{background:#1f4e79}.p6-l2{background:#2e6da4}.p6-l3{background:#5b9bd5}.p6-l4{background:#9dc3e6;color:#12314f}
+.p6band.added{outline:2px solid var(--success)}.p6band.removed{outline:2px solid var(--danger);opacity:.75;text-decoration:line-through}.p6band.moved{outline:2px solid var(--warning)}
+.p6badge{font-size:8.5px;font-weight:800;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.85);color:#12314f;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Baseline Revision Comparison — complete report</h1>
+  <p class="lead">The whole report, end to end — every section combined (v2 redesign + Points 1–6 + the three mediums). Neutral throughout: <b>Change detected → Potential impact → Planning review</b>. Illustrative data; light theme (all six appearance modes follow).</p>
+
+  <div class="bottomline">📌 <b>Bottom line:</b> Rev.01 finishes <b>47 working days later</b> (04 Feb 2027), adds <b>18 net activities</b> and <b>£0.64 M</b>. The slip is driven mainly by <b>added critical-path scope and longer durations</b>, with a re-sequence and a new constraint. <b>14 activities now carry negative float</b> — flagged for planning review, not marked wrong.</div>
+
+  <div class="tabs" id="rtabs">
+    <button class="tab on" data-target="summary">Executive Summary</button>
+    <button class="tab" data-target="findings">Key Findings</button>
+    <button class="tab" data-target="critical">Critical Path &amp; Float</button>
+    <button class="tab" data-target="register">Change Register</button>
+    <button class="tab" data-target="cost">Cost &amp; Resources</button>
+    <button class="tab" data-target="scope">Scope &amp; Structure</button>
+  </div>
+
+  <div id="panels">
+  <div class="panel" data-panel="summary">
+  <!-- ══ 1 EXEC ══ -->
+  <div class="secmark"><span class="n">1</span><h2>Executive Summary</h2></div>
+  <div class="card"><h3>Revision snapshot <span class="n">Rev.00 → Rev.01</span></h3>
+    <div class="snap">
+      <div class="snapcol r0"><div class="snaptag">Rev.00 · Original</div><div class="snapfile">Project_Baseline_Rev00.xer</div><div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div><div class="kv"><span class="k">Governing finish</span><span class="v">19 Dec 2026</span></div><div class="kv"><span class="k">Activities</span><span class="v">1,240</span></div></div>
+      <div class="snapmid"><div class="big">+47d</div><div class="l">Finish slip</div></div>
+      <div class="snapcol r1"><div class="snaptag">Rev.01 · Revised</div><div class="snapfile">Project_Baseline_Rev01.xer</div><div class="kv"><span class="k">Data date</span><span class="v">01 Mar 2025</span></div><div class="kv"><span class="k">Governing finish</span><span class="v hot">04 Feb 2027</span></div><div class="kv"><span class="k">Activities</span><span class="v">1,258</span></div></div>
+    </div>
+    <div class="foot">Like-for-like: both files 0% complete (baselines, no actuals) · same data date verified · Rev.01 governing finish is <b>logic-driven</b> (not held by a constraint).</div>
+  </div>
+
+  <div class="split">
+    <div class="card"><h3>Comparison ledger</h3>
+      <div class="led">
+        <div class="h">Measure</div><div class="h r">Rev.00</div><div class="h r">Rev.01</div><div class="h r">Change</div>
+        <div class="lbl">Total activities</div><div class="r mut">1,240</div><div class="r new">1,258</div><div class="r"><span class="d up">+18</span></div>
+        <div class="lbl">Logic &amp; relationships changed</div><div class="r mut" style="grid-column:2/4;text-align:center">+34 added · −21 removed · 7 type · 3 lag</div><div class="r"><span class="d">65</span></div>
+        <div class="lbl">Critical-path activities in / out</div><div class="r mut">4 in</div><div class="r new">1 out</div><div class="r"><span class="d up">CP +47 d</span></div>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--danger)"><h3 style="color:var(--danger)">Credibility / red flags</h3>
+      <div class="led">
+        <div class="h">Signal</div><div class="h r">Rev.00</div><div class="h r">Rev.01</div><div class="h r">Δ</div>
+        <div class="lbl">Negative-float activities</div><div class="r mut">0</div><div class="r new">14</div><div class="r"><span class="d up">+14</span></div>
+        <div class="lbl">Open ends (dangling)</div><div class="r mut">12</div><div class="r new">3</div><div class="r"><span class="d down">−9</span></div>
+        <div class="lbl">Constraints added (hard)</div><div class="r mut">6</div><div class="r new">9</div><div class="r"><span class="d up">+3</span></div>
+        <div class="lbl">Calendars changed</div><div class="r mut" style="grid-column:2/4;text-align:center">2 definitions · 34 activities reassigned</div><div class="r"><span class="d up">!</span></div>
+        <div class="lbl">Leads (negative lags)</div><div class="r mut">4</div><div class="r new">11</div><div class="r"><span class="d up">+7</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card"><h3>Scope change <span class="n">added &amp; removed, by activity code</span></h3>
+    <div class="filters"><span class="fchip on">By Discipline</span><span class="fchip">By Building</span><span class="fchip">By WBS</span><span style="margin-left:auto"></span><span class="fchip">Count</span><span class="fchip">£ Value</span></div>
+    <div class="bar"><div>Civil</div><div class="track"><div class="fa" style="width:46%"></div><div class="fr" style="width:12%"></div></div><div class="v">8 / 2</div></div>
+    <div class="bar"><div>MEP</div><div class="track"><div class="fa" style="width:30%"></div></div><div class="v">5 / 0</div></div>
+    <div class="bar"><div>Architectural</div><div class="track"><div class="fa" style="width:18%"></div><div class="fr" style="width:24%"></div></div><div class="v">3 / 4</div></div>
+    <div class="bar"><div>Structural</div><div class="track"><div class="fa" style="width:12%"></div></div><div class="v">2 / 0</div></div>
+    <div class="legend"><span><b style="background:var(--success)"></b>Added (18)</span><span><b style="background:var(--danger)"></b>Removed (6)</span><span>Toggle Count / £ Value</span></div>
+    <div class="tbl-wrap" style="margin-top:10px"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Change</th><th>Building</th><th>WBS (under)</th><th>Scope</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A4400</td><td>MEP Risers — Core B</td><td><span class="tag add">Added</span></td><td>Building B</td><td>B › Superstructure › Core</td><td><span class="tag mep">MEP</span></td></tr>
+        <tr><td class="mono">A1980</td><td>Temporary Dewatering</td><td><span class="tag rem">Removed</span></td><td>Building A</td><td>A › Substructure › Enabling</td><td><span class="tag civil">Civil</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  </div><div class="panel" data-panel="findings">
+  <!-- ══ 2 KEY FINDINGS ══ -->
+  <div class="secmark"><span class="n">2</span><h2>Key Findings</h2><span class="sub">— what drove the slip, and the re-sequencing</span></div>
+  <div class="card"><h3>What drove the +47 days <span class="n">finish-slip bridge · neutral attribution</span></h3>
+    <svg viewBox="0 0 900 250" style="width:100%;height:auto;min-width:720px">
+      <line x1="60" y1="210" x2="880" y2="210" stroke="var(--border)"/>
+      <line x1="60" y1="205" x2="60" y2="215" stroke="var(--muted)"/><text x="60" y="230" font-size="10" fill="var(--muted)" text-anchor="middle">Rev.00 finish</text><text x="60" y="242" font-size="9" fill="var(--muted)" text-anchor="middle">19 Dec 2026</text>
+      <rect x="150" y="148.8" width="70" height="61.2" fill="#c9453a"/><text x="185" y="140" font-size="11" fill="var(--danger)" text-anchor="middle" font-weight="700">+18</text><text x="185" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle">Added CP scope</text>
+      <rect x="270" y="108" width="70" height="40.8" fill="#d1734a"/><text x="305" y="100" font-size="11" fill="var(--danger)" text-anchor="middle" font-weight="700">+12</text><text x="305" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle">Longer durations</text>
+      <rect x="390" y="77.4" width="70" height="30.6" fill="#c78a3a"/><text x="425" y="69" font-size="11" fill="var(--warning)" text-anchor="middle" font-weight="700">+9</text><text x="425" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle">Re-sequence</text>
+      <rect x="510" y="60.4" width="70" height="17" fill="#3b6fa8"/><text x="545" y="52" font-size="11" fill="var(--accent)" text-anchor="middle" font-weight="700">+5</text><text x="545" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle">New driving link</text>
+      <rect x="630" y="50.2" width="70" height="10.2" fill="#6b5bbd"/><text x="665" y="42" font-size="11" fill="var(--chart-4)" text-anchor="middle" font-weight="700">+3</text><text x="665" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle">Constraint</text>
+      <rect x="760" y="50.2" width="80" height="159.8" fill="var(--danger)" opacity=".85"/><text x="800" y="42" font-size="12" fill="var(--danger)" text-anchor="middle" font-weight="800">+47</text><text x="800" y="228" font-size="9" fill="var(--ink-soft)" text-anchor="middle" font-weight="700">Rev.01 · 04 Feb 27</text>
+      <g stroke="var(--border)" stroke-dasharray="3 3"><line x1="220" y1="148.8" x2="270" y2="148.8"/><line x1="340" y1="108" x2="390" y2="108"/><line x1="460" y1="77.4" x2="510" y2="77.4"/><line x1="580" y1="60.4" x2="630" y2="60.4"/><line x1="700" y1="50.2" x2="760" y2="50.2"/></g>
+    </svg>
+    <div class="callout">Each contribution links back to the row that caused it. Neutral: this attributes the slip, it does not judge the revision.</div>
+  </div>
+  <div class="card"><h3>Re-sequenced activities <span class="n">23 detected · grouped by WBS / zone</span></h3>
+    <div class="grouplab">Building A › Superstructure — 11 activities</div>
+    <div class="seqitem"><span class="exp">▾</span> Columns S1–S8 vs Slabs <span class="dirtag">de-interleaved</span></div>
+    <div class="wbscrumb" style="margin-left:22px">Building A › <b>Superstructure</b> › Columns</div>
+    <div class="clab" style="margin-left:22px">Rev.00 order</div>
+    <div class="chain ind"><span class="node">Slab S1</span><span class="arw">→</span><span class="node moved">Col S1</span><span class="arw">→</span><span class="node">Slab S2</span><span class="arw">→</span><span class="node moved">Col S2</span></div>
+    <div class="clab r1" style="margin-left:22px">Rev.01 order</div>
+    <div class="chain ind"><span class="node">Slab S1</span><span class="arw">→</span><span class="node">Slab S2</span><span class="arw">→</span><span class="node moved">Col S1</span><span class="arw">→</span><span class="node moved">Col S2</span></div>
+    <div class="seqitem"><span class="exp">▸</span> Blockwork L3 before MEP 1st fix <span class="dirtag">zone order reversed</span></div>
+    <div class="grouplab">Building B › Superstructure — 8 activities</div>
+    <div class="seqitem"><span class="exp">▸</span> Core walls / MEP risers overlapped <span class="dirtag">trades overlapped</span></div>
+  </div>
+
+  </div><div class="panel" data-panel="critical">
+  <!-- ══ 3 CRITICAL PATH & FLOAT ══ -->
+  <div class="secmark"><span class="n">3</span><h2>Critical Path &amp; Float</h2><span class="sub">— driving chain, entered/left, float-band shift, negative float</span></div>
+  <div class="card"><h3>Driving chain <span class="n">Rev.01 critical path +47 wd · dates on each node</span></h3>
+    <div class="clab">Rev.00 — ends 19 Dec 2026 · path length 445 wd · TF on finish 0</div>
+    <div class="chain"><span class="node">Excavation<br><span style="font-weight:400;color:var(--muted)">01–20 Mar 25</span></span><span class="arw">→</span><span class="node">Piling</span><span class="arw">→</span><span class="node crit">Columns S1–S8<br><span style="font-weight:400">to 02 Nov 26</span></span><span class="arw">→</span><span class="node">Practical Completion</span></div>
+    <div class="clab r1">Rev.01 — ends 04 Feb 2027 · path length 492 wd · TF on finish −6 (near-critical secondary chain via MEP)</div>
+    <div class="chain"><span class="node">Excavation</span><span class="arw">→</span><span class="node enter">Raft Waterproofing</span><span class="arw">→</span><span class="node crit">Columns S1–S8</span><span class="arw">→</span><span class="node enter">MEP Risers — Core B<br><span style="font-weight:400">to 18 Dec 26</span></span><span class="arw">→</span><span class="node">Practical Completion</span></div>
+    <div class="legend"><span><b style="background:var(--success)"></b>Entered CP (4)</span><span><b style="background:var(--danger)"></b>Critical in both</span><span>Left CP (1): Temp Dewatering</span></div>
+  </div>
+  <div class="split">
+    <div class="card"><h3>Total-float band shift <span class="n">Rev.00 vs Rev.01</span></h3>
+      <div class="sec">Rev.01 slips 47 d but is far more fragile — float drained toward zero.</div>
+      <div class="bar"><div style="color:var(--danger)">&lt; 0 (negative)</div><div class="track"><div class="f0" style="width:0%"></div><div class="f1" style="width:9%"></div></div><div class="v">0 / 14</div></div>
+      <div class="bar"><div>0–5 d</div><div class="track"><div class="f0" style="width:8%"></div><div class="f1" style="width:22%"></div></div><div class="v">36 / 128</div></div>
+      <div class="bar"><div>6–20 d</div><div class="track"><div class="f0" style="width:26%"></div><div class="f1" style="width:30%"></div></div><div class="v">210 / 240</div></div>
+      <div class="bar"><div>21–60 d</div><div class="track"><div class="f0" style="width:44%"></div><div class="f1" style="width:34%"></div></div><div class="v">520 / 402</div></div>
+      <div class="bar"><div>60+ d</div><div class="track"><div class="f0" style="width:60%"></div><div class="f1" style="width:47%"></div></div><div class="v">474 / 474</div></div>
+      <div class="legend"><span><b style="background:#c7d0dc"></b>Rev.00</span><span><b style="background:var(--accent)"></b>Rev.01</span></div>
+    </div>
+    <div class="card" style="border-color:var(--danger)"><h3 style="color:var(--danger)">Negative-float register <span class="n">14 activities — re-plan trigger</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Total Float</th><th>WBS</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">A2-COL-05</td><td>Columns — Storey 5</td><td class="n"><span class="d up">−6 d</span></td><td class="mut">A › Superstructure</td></tr>
+          <tr><td class="mono">A4410</td><td>MEP Risers tie-in</td><td class="n"><span class="d up">−4 d</span></td><td class="mut">B › Superstructure</td></tr>
+          <tr><td class="mono">A5120</td><td>Façade Panels — L5</td><td class="n"><span class="d up">−2 d</span></td><td class="mut">A › Envelope</td></tr>
+          <tr><td colspan="4" class="mut">… 11 more — full list in the report</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  </div><div class="panel" data-panel="register">
+  <!-- ══ 4 CHANGE REGISTER ══ -->
+  <div class="secmark"><span class="n">4</span><h2>Change Register</h2><span class="sub">— one table per change type · separate ID / Name columns · Before → After → Variance</span></div>
+  <div class="card" style="background:#f8fafc"><div class="filters"><b style="font-size:12px">Filter by activity code:</b>
+    <select class="fsel"><option>Discipline — All</option></select><select class="fsel"><option>Building — All</option></select><select class="fsel"><option>WBS — All</option></select>
+    <span class="fchip">Include added &amp; removed</span><span class="foot" style="margin:0">(off by default — added/removed are inventoried in §1)</span></div></div>
+
+  <div class="card"><h3>Duration changed <span class="n">working days · + calendar &amp; float context</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th><th>Calendar</th><th class="n">TF After</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="n">20 d</td><td class="n new">28 d</td><td class="n"><span class="d up">+8 d</span></td><td class="mut">5-day (same)</td><td class="n">0 d</td></tr>
+        <tr><td class="mono">A1105</td><td>Blinding — Zone B</td><td class="n">10 d</td><td class="n new">6 d</td><td class="n"><span class="d down">−4 d</span></td><td><span class="tag chg">5→6-day</span></td><td class="n">18 d</td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot">Flag: Blinding’s cut is a <b>calendar change</b> (5→6-day week), not less work — a paper shortening.</div>
+  </div>
+
+  <div class="card"><h3>Milestone changed</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Type</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">MS-PC</td><td>Practical Completion</td><td><span class="tag hard">Contract</span></td><td class="n">19 Dec 2026</td><td class="n new">04 Feb 2027</td><td class="n"><span class="d up">+47 d</span></td></tr>
+        <tr><td class="mono">MS-POD</td><td>Sectional Handover — Podium <span class="newbadge">NEW</span></td><td class="mut">Internal</td><td class="n mut">—</td><td class="n new">30 Nov 2026</td><td class="n"><span class="tag add">Added</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card"><h3>Logic / relationship changed <span class="n">each row is one link — predecessor drives successor</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th colspan="2" style="border-right:1px solid var(--border)">Predecessor (drives)</th><th colspan="2" style="border-right:1px solid var(--border)">Successor (driven)</th><th>Link Before</th><th>Link After</th><th>Change</th><th class="n">On CP?</th></tr>
+             <tr><th>ID</th><th style="border-right:1px solid var(--border)">Name</th><th>ID</th><th style="border-right:1px solid var(--border)">Name</th><th></th><th></th><th></th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2050</td><td style="border-right:1px solid var(--hair)">Steel Procurement</td><td class="mono">A2075</td><td style="border-right:1px solid var(--hair)">Steel Erection</td><td>Finish-to-Start (FS) · +0 d</td><td class="new">Start-to-Start (SS) · +0 d</td><td><span class="tag chg">Type changed</span></td><td class="n"><span class="d up">Yes</span></td></tr>
+        <tr><td class="mono">A1362</td><td style="border-right:1px solid var(--hair)">Raft Waterproofing</td><td class="mono">A1300</td><td style="border-right:1px solid var(--hair)">Raft Pour</td><td class="mut">— no link</td><td class="new">Finish-to-Start (FS) · +2 d</td><td><span class="tag add">Link added</span></td><td class="n"><span class="d up">Yes</span></td></tr>
+        <tr><td class="mono">A3200</td><td style="border-right:1px solid var(--hair)">Slab L3</td><td class="mono">A3300</td><td style="border-right:1px solid var(--hair)">Blockwork L3</td><td>Finish-to-Start (FS) · +0 d</td><td class="mut">— link removed</td><td><span class="tag rem">Link removed</span></td><td class="n mut">No</td></tr>
+      </tbody>
+    </table></div>
+    <div class="foot">“On CP?” triages 65 logic changes to the few that moved the finish; new leads (negative lags) are flagged in red.</div>
+  </div>
+
+  <div class="card"><h3>Constraint changed <span class="n">Point 1 — a hidden lever on the finish date</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th>Constraint Before</th><th>Constraint After</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A9000</td><td>Testing &amp; Commissioning</td><td class="mut">Project</td><td class="mut">—</td><td class="new">Start On or After 10 Nov 2026</td><td><span class="tag add">Added</span> <span class="tag hard">Hard · on CP</span></td></tr>
+        <tr><td class="mono">MS-B-TO</td><td>Building B Topping Out</td><td class="mut">Building B</td><td>Finish On or Before 12 Aug 2026</td><td class="new">Finish On or Before 05 Aug 2026</td><td><span class="tag chg">Date changed</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn">A hard constraint on the driving path can pin or move the finish independently of logic — here it contributes to the +47 d. Surfaced for review.</div>
+  </div>
+
+  <div class="card"><h3>Calendar changed <span class="n">Point 2 — reassignments &amp; definition changes</span></h3>
+    <div class="split">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Calendar Before → After</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">A1105</td><td>Blinding — Zone B</td><td>5-day → <span class="new">6-day</span></td></tr>
+          <tr><td colspan="3" class="mut">… 34 activities reassigned</td></tr>
+        </tbody>
+      </table></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Calendar</th><th class="n">Days/wk</th><th class="n">Hrs/day</th><th class="n">Acts</th></tr></thead>
+        <tbody>
+          <tr><td>Site 6-Day</td><td class="n new">6 (was 5)</td><td class="n">9</td><td class="n">34</td></tr>
+          <tr><td>Standard 5-Day</td><td class="n">5</td><td class="n new">9 (was 8)</td><td class="n">890</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="callout warn">A 5→6-day week or an hours/day change shortens durations on paper without changing the work — confirm the basis (approved acceleration vs inadvertent reassignment).</div>
+  </div>
+
+  <div class="card"><h3>Resource changed <span class="n">assignment before / after · one line per swap</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>Resource ID</th><th>Resource Name</th><th class="n">Before</th><th class="n">After</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A1300</td><td>Raft Pour — Zone B</td><td class="mono">R-TC07</td><td>Tower Crane TC-7</td><td class="n mut">— <span class="tag rem">rem</span> Crawler 50T</td><td class="n new"><span class="tag add">add</span> TC-7</td></tr>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="mono">R-STF</td><td>Steelfixers</td><td class="n">8 crew</td><td class="n new">12 crew</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card"><h3>Cost changed <span class="n">budget total cost · variance % · subtotals</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th><th class="n">%</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2-COL-02</td><td>Column Works — Storey 2</td><td class="n">420,000</td><td class="n new">505,000</td><td class="n"><span class="d up">+85,000</span></td><td class="n">+20%</td></tr>
+        <tr><td class="mono">A4400</td><td>MEP Risers — Core B <span class="newbadge">NEW</span></td><td class="n mut">—</td><td class="n new">310,000</td><td class="n"><span class="tag add">Added</span></td><td class="n mut">—</td></tr>
+        <tr><td style="font-weight:800" colspan="2">Total budget</td><td class="n" style="font-weight:800">18,420,000</td><td class="n" style="font-weight:800">19,060,000</td><td class="n"><span class="d up" style="font-weight:800">+640,000</span></td><td class="n" style="font-weight:800">+3.5%</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  </div><div class="panel" data-panel="cost">
+  <!-- ══ 5 COST & RESOURCES ══ -->
+  <div class="secmark"><span class="n">5</span><h2>Cost &amp; Resources</h2><span class="sub">— S-curve, value tables, budget by discipline, manpower histogram</span></div>
+  <div class="card"><h3>Planned value of work <span class="n">monthly bars + cumulative % curves · Rev.00 vs Rev.01</span></h3>
+    <svg viewBox="0 0 860 280" style="width:100%;height:auto;min-width:680px">
+      <line x1="52" y1="250" x2="830" y2="250" stroke="var(--border)"/><line x1="52" y1="20" x2="52" y2="250" stroke="var(--border)"/><line x1="830" y1="20" x2="830" y2="250" stroke="var(--border)"/>
+      <text x="836" y="26" font-size="9" fill="var(--accent)">100%</text>
+      <g>
+        <rect x="66" y="222" width="14" height="28" fill="#c7d0dc"/><rect x="82" y="226" width="14" height="24" fill="var(--accent)" opacity=".85"/>
+        <rect x="142" y="205" width="14" height="45" fill="#c7d0dc"/><rect x="158" y="212" width="14" height="38" fill="var(--accent)" opacity=".85"/>
+        <rect x="218" y="180" width="14" height="70" fill="#c7d0dc"/><rect x="234" y="192" width="14" height="58" fill="var(--accent)" opacity=".85"/>
+        <rect x="294" y="150" width="14" height="100" fill="#c7d0dc"/><rect x="310" y="165" width="14" height="85" fill="var(--accent)" opacity=".85"/>
+        <rect x="370" y="120" width="14" height="130" fill="#c7d0dc"/><rect x="386" y="135" width="14" height="115" fill="var(--accent)" opacity=".85"/>
+        <rect x="446" y="130" width="14" height="120" fill="#c7d0dc"/><rect x="462" y="120" width="14" height="130" fill="var(--accent)" opacity=".85"/>
+        <rect x="522" y="150" width="14" height="100" fill="#c7d0dc"/><rect x="538" y="128" width="14" height="122" fill="var(--accent)" opacity=".85"/>
+        <rect x="598" y="180" width="14" height="70" fill="#c7d0dc"/><rect x="614" y="150" width="14" height="100" fill="var(--accent)" opacity=".85"/>
+        <rect x="674" y="210" width="14" height="40" fill="#c7d0dc"/><rect x="690" y="185" width="14" height="65" fill="var(--accent)" opacity=".85"/>
+        <rect x="750" y="234" width="14" height="16" fill="#c7d0dc"/><rect x="766" y="210" width="14" height="40" fill="var(--accent)" opacity=".85"/>
+      </g>
+      <path d="M59,244 C160,232 300,175 400,120 C520,66 700,34 823,26" fill="none" stroke="var(--muted)" stroke-width="2.2"/>
+      <path d="M59,246 C170,238 320,196 430,140 C560,82 720,40 823,26" fill="none" stroke="var(--accent)" stroke-width="2.6"/>
+      <line x1="612" y1="20" x2="612" y2="250" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="616" y="34" font-size="9" fill="var(--danger)">orig finish 19 Dec 26</text>
+      <g font-size="8" fill="var(--muted)"><text x="70" y="264">M1</text><text x="298" y="264">M7</text><text x="450" y="264">M11</text><text x="674" y="264">M17</text><text x="756" y="264">M19</text></g>
+    </svg>
+    <div class="legend"><span><b style="background:#c7d0dc"></b>Rev.00 value/mo</span><span><b style="background:var(--accent)"></b>Rev.01 value/mo</span><span><b style="background:var(--muted)"></b>Rev.00 cum %</span><span><b style="background:var(--accent)"></b>Rev.01 cum %</span></div>
+    <div class="callout warn"><b>£1.10 M of value now falls after the original finish (19 Dec 2026)</b> — extended-works exposure (prolongation, prelims, plant hire).</div>
+  </div>
+  <div class="split">
+    <div class="card"><h3>Planned value table <span class="n">monthly &amp; cumulative</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Month</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Var</th><th class="n">Cum Var</th></tr></thead>
+        <tbody>
+          <tr><td>Mar 25</td><td class="n">0.28</td><td class="n new">0.24</td><td class="n"><span class="d down">−0.04</span></td><td class="n mut">−0.04</td></tr>
+          <tr><td>…</td><td class="n mut">…</td><td class="n mut">…</td><td class="n mut">…</td><td class="n mut">…</td></tr>
+          <tr><td>Dec 26</td><td class="n">0.70</td><td class="n new">1.00</td><td class="n"><span class="d up">+0.30</span></td><td class="n">+0.24</td></tr>
+          <tr><td>Feb 27</td><td class="n mut">—</td><td class="n new">0.40</td><td class="n"><span class="d up">+0.40</span></td><td class="n" style="font-weight:700">+0.64</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card"><h3>Budget by discipline <span class="n">where the money moved</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Discipline</th><th class="n">Before</th><th class="n">After</th><th class="n">Variance</th></tr></thead>
+        <tbody>
+          <tr><td>MEP</td><td class="n">4.85 M</td><td class="n new">5.47 M</td><td class="n"><span class="d up">+0.62</span></td></tr>
+          <tr><td>Architectural</td><td class="n">4.20 M</td><td class="n new">4.38 M</td><td class="n"><span class="d up">+0.18</span></td></tr>
+          <tr><td>Civil</td><td class="n">6.10 M</td><td class="n new">6.00 M</td><td class="n"><span class="d down">−0.10</span></td></tr>
+          <tr><td>Structural</td><td class="n">3.27 M</td><td class="n new">3.21 M</td><td class="n"><span class="d down">−0.06</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="card"><h3>Manpower histogram <span class="n">persons/month · Rev.00 vs Rev.01</span></h3>
+    <svg viewBox="0 0 860 220" style="width:100%;height:auto;min-width:680px">
+      <line x1="52" y1="190" x2="830" y2="190" stroke="var(--border)"/><line x1="52" y1="20" x2="52" y2="190" stroke="var(--border)"/>
+      <g>
+        <rect x="70" y="160" width="13" height="30" fill="#c7d0dc"/><rect x="85" y="164" width="13" height="26" fill="var(--accent)"/>
+        <rect x="146" y="138" width="13" height="52" fill="#c7d0dc"/><rect x="161" y="146" width="13" height="44" fill="var(--accent)"/>
+        <rect x="222" y="108" width="13" height="82" fill="#c7d0dc"/><rect x="237" y="118" width="13" height="72" fill="var(--accent)"/>
+        <rect x="298" y="80" width="13" height="110" fill="#c7d0dc"/><rect x="313" y="92" width="13" height="98" fill="var(--accent)"/>
+        <rect x="374" y="66" width="13" height="124" fill="#c7d0dc"/><rect x="389" y="80" width="13" height="110" fill="var(--accent)"/>
+        <rect x="450" y="74" width="13" height="116" fill="#c7d0dc"/><rect x="465" y="58" width="13" height="132" fill="var(--accent)"/>
+        <rect x="526" y="92" width="13" height="98" fill="#c7d0dc"/><rect x="541" y="66" width="13" height="124" fill="var(--accent)"/>
+        <rect x="602" y="120" width="13" height="70" fill="#c7d0dc"/><rect x="617" y="90" width="13" height="100" fill="var(--accent)"/>
+        <rect x="678" y="156" width="13" height="34" fill="#c7d0dc"/><rect x="693" y="128" width="13" height="62" fill="var(--accent)"/>
+        <rect x="754" y="178" width="13" height="12" fill="#c7d0dc"/><rect x="769" y="154" width="13" height="36" fill="var(--accent)"/>
+      </g>
+      <text x="381" y="58" font-size="9" fill="var(--muted)">Rev.00 peak 120 (Sep 26)</text><text x="470" y="50" font-size="9" fill="var(--accent)" font-weight="700">Rev.01 peak 137 (Nov 26)</text>
+    </svg>
+    <div class="tbl-wrap" style="margin-top:8px"><table>
+      <thead><tr><th>Resource ID</th><th>Trade</th><th class="n">Man-hrs Before</th><th class="n">After</th><th class="n">Variance</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">R-STF</td><td>Steelfixers</td><td class="n">42,000</td><td class="n new">51,600</td><td class="n"><span class="d up">+9,600</span></td><td><span class="tag chg">Units ↑</span></td></tr>
+        <tr><td class="mono">R-MEP</td><td>MEP Multi-trade</td><td class="n mut">—</td><td class="n new">18,400</td><td class="n"><span class="d up">+18,400</span></td><td><span class="tag add">Added</span></td></tr>
+        <tr><td class="mono">R-DEWAT</td><td>Dewatering</td><td class="n">2,400</td><td class="n mut">—</td><td class="n"><span class="d down">−2,400</span></td><td><span class="tag rem">Removed</span></td></tr>
+        <tr><td style="font-weight:800" colspan="2">Total man-hours</td><td class="n" style="font-weight:800">286,400</td><td class="n" style="font-weight:800">309,200</td><td class="n"><span class="d up" style="font-weight:800">+22,800 (+8%)</span></td><td></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  </div><div class="panel" data-panel="scope">
+  <!-- ══ 6 SCOPE & STRUCTURE ══ -->
+  <div class="secmark"><span class="n">6</span><h2>Scope &amp; Structure</h2><span class="sub">— WBS in Primavera colour-grouping + largest date shifts</span></div>
+  <div class="card"><h3>WBS comparison <span class="n">Primavera colour-grouping · a colour per level</span></h3>
+    <div class="split">
+      <div><div class="clab">Rev.00 — original WBS</div>
+        <div class="p6band p6-l1">Project — Two-Tower Development</div>
+        <div class="p6band p6-l2" style="margin-left:14px">Building A</div>
+        <div class="p6band p6-l3" style="margin-left:28px">Substructure</div>
+        <div class="p6band p6-l4 removed" style="margin-left:42px">Enabling / Dewatering <span class="p6badge">removed</span></div>
+        <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+        <div class="p6band p6-l3 moved" style="margin-left:28px">Fit-out › L3 Blockwork <span class="p6badge">moved →</span></div>
+        <div class="p6band p6-l2" style="margin-left:14px">Building B</div>
+      </div>
+      <div><div class="clab r1">Rev.01 — revised WBS</div>
+        <div class="p6band p6-l1">Project — Two-Tower Development</div>
+        <div class="p6band p6-l2" style="margin-left:14px">Building A</div>
+        <div class="p6band p6-l3" style="margin-left:28px">Substructure</div>
+        <div class="p6band p6-l3" style="margin-left:28px">Superstructure</div>
+        <div class="p6band p6-l3" style="margin-left:28px">Envelope</div>
+        <div class="p6band p6-l4 moved" style="margin-left:42px">L3 Blockwork <span class="p6badge">← moved here</span></div>
+        <div class="p6band p6-l2" style="margin-left:14px">Building B</div>
+        <div class="p6band p6-l4 added" style="margin-left:42px">Core › MEP Risers <span class="p6badge">added</span></div>
+      </div>
+    </div>
+    <div class="legend"><span><b style="background:#1f4e79"></b>L1</span><span><b style="background:#2e6da4"></b>L2</span><span><b style="background:#5b9bd5"></b>L3</span><span><b style="background:#9dc3e6"></b>L4</span><span><b style="outline:2px solid var(--success);background:transparent"></b>added</span><span><b style="outline:2px solid var(--danger);background:transparent"></b>removed</span><span><b style="outline:2px solid var(--warning);background:transparent"></b>moved</span></div>
+    <div class="callout">1 branch added · 1 removed · 1 moved (L3 Blockwork: Fit-out → Envelope) · 18 activities re-parented (expandable list).</div>
+  </div>
+  <div class="card"><h3>Largest date shifts <span class="n">activities whose dates moved</span></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Activity ID</th><th>Activity Name</th><th>WBS</th><th>Start (before → after)</th><th>Finish (before → after)</th><th class="n">Shift</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">A2-COL-06</td><td>Column Works — Storey 6</td><td class="mut">A › Superstructure</td><td>12 Jun → 04 Aug 26</td><td>02 Jul → 30 Aug 26</td><td class="n"><span class="d up">+41 d</span></td></tr>
+        <tr><td class="mono">A5120</td><td>Façade Panels — L5</td><td class="mut">A › Envelope</td><td>20 Sep → 02 Nov 26</td><td>15 Oct → 28 Nov 26</td><td class="n"><span class="d up">+31 d</span></td></tr>
+        <tr><td class="mono">A1300</td><td>Raft Pour — Zone B</td><td class="mut">A › Substructure</td><td>29 Apr → 21 Apr 25</td><td>20 May → 08 May 25</td><td class="n"><span class="d down">−8 d</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  </div></div>
+  <script>
+  (function(){
+    var tabs=[].slice.call(document.querySelectorAll('#rtabs .tab'));
+    var panels=[].slice.call(document.querySelectorAll('#panels .panel'));
+    function show(id){
+      panels.forEach(function(p){ p.hidden = (p.getAttribute('data-panel') !== id); });
+      tabs.forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-target') === id); });
+      var r=document.getElementById('rtabs'); if(r){ r.scrollIntoView({block:'start'}); }
+    }
+    tabs.forEach(function(t){ t.addEventListener('click', function(){ show(t.getAttribute('data-target')); }); });
+    show('summary');
+  })();
+  </script>
+</div>
+</body>
+</html>

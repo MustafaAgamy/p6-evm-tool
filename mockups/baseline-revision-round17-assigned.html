@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — assigned activities (round 17)</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --c1:#2f6df6; --c2:#1f9d57; --c3:#c8801a; --c4:#6b52d6; --c5:#d5453b; --c6:#0e9aa7;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding:22px 16px 60px}
+  .wrap{max-width:940px;margin:0 auto}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800}
+  h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .note{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:10px;padding:10px 13px;color:#254a86;font-size:12.5px;margin:0 0 16px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);margin:0 0 16px;padding:16px 18px}
+  .opt{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--accent);text-transform:uppercase;margin-bottom:3px}
+  .opt .rec{background:#e7f6ee;color:#1f9d57;padding:2px 7px;border-radius:20px;margin-left:6px}
+  .cardh{font-size:15px;font-weight:800;margin:0 0 2px}
+  .why{color:var(--ink-soft);font-size:12px;margin:0 0 12px}
+  .calname{font-weight:800;font-size:13.5px;margin-bottom:2px}
+  .sel{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin:6px 0 10px}
+  select{font:inherit;font-size:12px;padding:3px 7px;border:1px solid var(--edge);border-radius:7px;background:#fff;color:var(--ink);text-transform:none;letter-spacing:0}
+  /* CURRENT — flat chips */
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{background:var(--bg);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;font-size:11.5px}
+  .chip b{color:var(--accent)}
+  /* A — proportion bar */
+  .propbar{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--edge)}
+  .propbar span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;white-space:nowrap;min-width:0}
+  .proplegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--ink-soft)}
+  .proplegend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* B — ranked rows with share bars */
+  .rrow{display:grid;grid-template-columns:120px 1fr 74px;gap:10px;align-items:center;margin:5px 0}
+  .rrow .rn{font-size:12.5px;font-weight:600;text-align:right}
+  .rtrack{height:16px;background:var(--bg);border-radius:5px;overflow:hidden}
+  .rfill{height:16px;border-radius:5px}
+  .rval{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+  .rval .pct{color:var(--muted);font-weight:600;font-size:11px}
+  /* C — donut */
+  .donutwrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .dleg{display:flex;flex-direction:column;gap:5px;font-size:12px}
+  .dleg .row{display:flex;gap:8px;align-items:center}
+  .dleg i{width:10px;height:10px;border-radius:3px}
+  .dleg .c{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+  .dleg .p{color:var(--muted);width:38px;text-align:right}
+  .ids{margin-top:11px;border-top:1px dashed var(--edge);padding-top:9px;font-size:11px;color:var(--muted)}
+  .ids summary{cursor:pointer;color:var(--accent);font-weight:600}
+  .idbox{margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);background:var(--bg);border:1px solid var(--edge2);border-radius:7px;padding:8px 10px;line-height:1.7}
+  .tot{font-size:11.5px;color:var(--muted);margin-left:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="secnum">6</div>
+    <div>
+      <h1>Assigned activities — a more visual presentation</h1>
+      <p class="sub">Baseline Revision · Calendar · round 17 #03 · which activities use a calendar, by activity code. Pick a style.</p>
+    </div>
+  </div>
+  <div class="note">Every option keeps the <b>dimension picker</b> (Discipline / Type of Works / …) and the expandable <b>activity-ID list</b>. What changes is how the split is shown: today it's flat chips with no sense of proportion. Example: <b>Roots Silos – 24 Hrs</b>, 88 activities.</div>
+
+  <!-- CURRENT -->
+  <div class="card">
+    <div class="opt" style="color:var(--muted)">Current — flat chips</div>
+    <div class="calname">Assigned — by activity code</div>
+    <div class="sel">Dimension <select><option>Discipline</option><option>Type of Works</option></select></div>
+    <div class="chips"><span class="chip">Civil <b>40</b></span><span class="chip">Structural <b>30</b></span><span class="chip">MEP <b>18</b></span></div>
+    <div class="why" style="margin-top:8px">You read numbers but get no sense of which discipline dominates.</div>
+  </div>
+
+  <!-- OPTION A -->
+  <div class="card">
+    <div class="opt">Option A — proportion bar <span class="rec">RECOMMENDED</span></div>
+    <div class="cardh">One bar, split by activity code</div>
+    <div class="why">A single 100% bar per dimension — segment width = share of the calendar's activities. The dominant trade is obvious instantly; compact enough for every calendar card.</div>
+    <div class="calname">Assigned — by activity code <span class="tot">· 88 activities in Rev.01</span></div>
+    <div class="sel">Dimension <select><option>Discipline</option><option>Type of Works</option><option>Area</option></select></div>
+    <div class="propbar">
+      <span style="width:45.5%;background:var(--c1)">Civil 40</span>
+      <span style="width:34.1%;background:var(--c2)">Structural 30</span>
+      <span style="width:20.4%;background:var(--c3)">MEP 18</span>
+    </div>
+    <div class="proplegend"><span><i style="background:var(--c1)"></i>Civil 45%</span><span><i style="background:var(--c2)"></i>Structural 34%</span><span><i style="background:var(--c3)"></i>MEP 20%</span></div>
+    <details class="ids"><summary>see the 88 activity IDs</summary><div class="idbox">RS-1010 · RS-1025 · RS-1040 · RS-1055 · RS-1070 · RS-1085 · RS-1100 · … (81 more)</div></details>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="card">
+    <div class="opt">Option B — ranked bars</div>
+    <div class="cardh">One row per code value, sorted, with a share bar</div>
+    <div class="why">Best when a calendar spans many code values — each on its own line, biggest first, count + %, easy to scan and export to Excel unchanged.</div>
+    <div class="calname">Assigned — by activity code <span class="tot">· 88 activities in Rev.01</span></div>
+    <div class="sel">Dimension <select><option>Discipline</option><option>Type of Works</option></select></div>
+    <div class="rrow"><div class="rn">Civil</div><div class="rtrack"><div class="rfill" style="width:100%;background:var(--c1)"></div></div><div class="rval">40 <span class="pct">45%</span></div></div>
+    <div class="rrow"><div class="rn">Structural</div><div class="rtrack"><div class="rfill" style="width:75%;background:var(--c2)"></div></div><div class="rval">30 <span class="pct">34%</span></div></div>
+    <div class="rrow"><div class="rn">MEP</div><div class="rtrack"><div class="rfill" style="width:45%;background:var(--c3)"></div></div><div class="rval">18 <span class="pct">20%</span></div></div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="card">
+    <div class="opt">Option C — donut</div>
+    <div class="cardh">A small donut of the mix</div>
+    <div class="why">Most visual, matches the scope-donut style elsewhere in the tool; costs a little more vertical space per calendar.</div>
+    <div class="calname">Assigned — by activity code <span class="tot">· 88 activities in Rev.01</span></div>
+    <div class="sel">Dimension <select><option>Discipline</option><option>Type of Works</option></select></div>
+    <div class="donutwrap">
+      <svg viewBox="0 0 120 120" width="120" height="120" aria-label="assigned mix">
+        <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c1)" stroke-width="26" stroke-dasharray="131.6 289" transform="rotate(-90 60 60)"/>
+        <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c2)" stroke-width="26" stroke-dasharray="98.6 289" stroke-dashoffset="-131.6" transform="rotate(-90 60 60)"/>
+        <circle cx="60" cy="60" r="46" fill="none" stroke="var(--c3)" stroke-width="26" stroke-dasharray="59 289" stroke-dashoffset="-230.2" transform="rotate(-90 60 60)"/>
+        <text x="60" y="57" text-anchor="middle" font-size="10" fill="var(--muted)">activities</text>
+        <text x="60" y="72" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">88</text>
+      </svg>
+      <div class="dleg">
+        <div class="row"><i style="background:var(--c1)"></i>Civil <span class="c">40</span><span class="p">45%</span></div>
+        <div class="row"><i style="background:var(--c2)"></i>Structural <span class="c">30</span><span class="p">34%</span></div>
+        <div class="row"><i style="background:var(--c3)"></i>MEP <span class="c">18</span><span class="p">20%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="why" style="text-align:center">Illustrative values. My pick is <b>Option A</b> (proportion bar) — instant read, compact for every calendar card, exports cleanly. Say which you want.</div>
+</div>
+</body>
+</html>

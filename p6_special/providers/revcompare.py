@@ -32,23 +32,14 @@ ORIGINAL_REQ = [{'role': 'original', 'label': 'Original baseline (Rev.00)',
                  'hint': 'the first approved baseline; the open schedule is compared '
                          'against it as Rev.01 (Revised)'}]
 
-# The exact data-sec keys + section titles p6_revcompare/exporters.render_html emits,
-# in report order — so each item mirrors one feature section 1:1 and the Studio's
-# numbered heading matches the section's own title. ('resource' is emitted only when a
-# revision carries cost/resource loading; 'detailed' only when there is a material
-# change — both are gated honestly by availability below.)
-SECS = [
-    ('summary', 'Executive Summary'),
-    ('overview', 'Revision Overview'),
-    ('milestones', 'Milestone Comparison'),
-    ('critpath', 'Critical Path Comparison'),
-    ('sequence', 'Major Sequence Changes'),
-    ('logic', 'Major Relationship / Logic Changes'),
-    ('scope', 'WBS, Calendar & Constraint Changes'),
-    ('resource', 'Resource & Cost Comparison'),
-    ('register', 'Detailed Change Register'),
-    ('detailed', 'Detailed Change Analysis'),
-]
+# The data-sec keys + section titles are taken straight from the feature's own section
+# registry (p6_revcompare.exporters._SECTIONS), so each Studio item mirrors one feature
+# section 1:1 and the list auto-tracks the feature as it evolves (the 6-tab redesign
+# renamed/re-ordered the sections — deriving them here keeps parity by construction, no
+# hand-maintained list to fall out of sync). Each section is still gated honestly by
+# availability below (a section that renders nothing for this comparison reports no_data).
+from p6_revcompare.exporters import _SECTIONS as _RC_SECTIONS
+SECS = [(key, title) for key, _num, title, _sub, _fn, _opt in _RC_SECTIONS]
 
 
 def _full(ctx):
@@ -79,10 +70,16 @@ def _full(ctx):
 
 
 def _strip_leading_h2(frag):
-    """Drop the section's own leading ``<h2>…</h2>`` heading — the Studio already wraps
-    each section in its own numbered badge (the picked item's title), so keeping the
-    section's heading would stack two titles (matches feature_reports._strip_leading_h2)."""
-    return re.sub(r'^\s*<h2\b[^>]*>.*?</h2>', '', frag or '', count=1, flags=re.S | re.I)
+    """Drop the section's own leading heading — the Studio already wraps each section in its
+    own numbered badge (the picked item's title), so keeping the section's heading would stack
+    two titles. The 6-tab redesign wraps the heading as ``<div class="secmark">…<h2>…</h2></div>``
+    (not a bare leading ``<h2>``), so strip that block; fall back to a bare ``<h2>`` for any
+    older markup."""
+    frag = frag or ''
+    stripped = re.sub(r'^\s*<div class="secmark">.*?</div>', '', frag, count=1, flags=re.S | re.I)
+    if stripped != frag:
+        return stripped
+    return re.sub(r'^\s*<h2\b[^>]*>.*?</h2>', '', frag, count=1, flags=re.S | re.I)
 
 
 def _section(ctx, key):

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Manpower (round 15)</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --b0:#9aa6b6; --b0-soft:#eef1f5;
+    --up:#2f6df6; --down:#7a54d0; --neutral:#5a6678;
+    --good:#1f9d57; --bad:#d5453b; --warn:#c8801a;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:22px 16px 60px}
+  .wrap{max-width:980px;margin:0 auto}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:6px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:14px}
+  h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);
+    margin:14px 0;padding:16px 18px}
+  .card h3{margin:0 0 3px;font-size:14px;font-weight:800}
+  .card h3 .n{font-weight:600;color:var(--muted);font-size:12px}
+  .desc{color:var(--ink-soft);font-size:12.5px;margin:2px 0 12px}
+  /* the "before" problem panel */
+  .problem{border:1px solid #f3d6d3;background:#fdf4f3;border-radius:12px;padding:14px 16px;margin:14px 0}
+  .problem .ph{font-weight:800;color:var(--bad);font-size:13px;display:flex;gap:8px;align-items:center}
+  .badtiles{display:flex;gap:12px;margin:12px 0 6px;flex-wrap:wrap}
+  .badtile{flex:1;min-width:200px;background:#fff;border:1px solid #f0d3d0;border-radius:10px;padding:11px 13px}
+  .badtile .k{font-size:11px;color:var(--muted);font-weight:700}
+  .badtile .v{font-size:23px;font-weight:800;color:#b23a31;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .badtile .d{font-size:11px;color:var(--bad);margin-top:2px}
+  .composition{margin-top:8px}
+  .cbar{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #f0d3d0}
+  .cbar span{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#fff;white-space:nowrap}
+  .clabels{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--ink-soft)}
+  .clabels i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* fixed hero */
+  .fixhdr{font-weight:800;color:var(--good);font-size:13px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+  .hero{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin:6px 0 4px}
+  .hero .big{font-size:52px;font-weight:800;letter-spacing:-1.5px;line-height:1;font-variant-numeric:tabular-nums}
+  .hero .big.down{color:var(--down)} .hero .big.up{color:var(--up)}
+  .hero .biglbl{font-size:12.5px;color:var(--ink-soft);font-weight:700;margin-top:6px}
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .kchip{background:#f7f9fc;border:1px solid var(--edge);border-radius:10px;padding:8px 13px;min-width:120px}
+  .kchip .k{font-size:11px;color:var(--muted);font-weight:700}
+  .kchip .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+  .kchip .v.soft{color:var(--ink-soft)}
+  .arrowchip{display:flex;align-items:center;color:var(--muted);font-size:20px}
+  .pline{margin:12px 0 2px;font-size:13px;color:var(--ink)}
+  .cap{margin-top:10px;font-size:11.5px;color:var(--muted);background:#f7f9fc;border:1px solid var(--edge2);
+    border-radius:8px;padding:8px 11px}
+  .cap b{color:var(--ink-soft)}
+  /* monthly delta chart */
+  .chart{width:100%;height:auto;margin-top:6px}
+  .zbaseline{stroke:var(--ink-soft);stroke-width:1}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--ink-soft)}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  /* trade diverging bars */
+  .trow{display:grid;grid-template-columns:150px 1fr 92px;gap:10px;align-items:center;margin:6px 0}
+  .trow .tn{font-size:12.5px;font-weight:600;text-align:right;color:var(--ink)}
+  .tn small{display:block;color:var(--muted);font-weight:600;font-family:var(--mono);font-size:10px}
+  .tbar{position:relative;height:22px;background:#f4f6fa;border-radius:5px}
+  .tbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--edge)}
+  .tbar .fill{position:absolute;top:3px;height:16px;border-radius:3px}
+  .tbar .fill.pos{left:50%;background:var(--up)} .tbar .fill.neg{right:50%;background:var(--down)}
+  .tval{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tval.pos{color:var(--up)} .tval.neg{color:var(--down)}
+  /* other resources honest block */
+  .other{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+  .obox{flex:1;min-width:150px;border:1px solid var(--edge);border-radius:10px;padding:10px 13px;background:#fbfcfe}
+  .obox .k{font-size:11px;color:var(--muted);font-weight:700}
+  .obox .v{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+  .obox .u{font-size:11px;color:var(--ink-soft)}
+  .warn{margin-top:10px;background:#fbf1e0;border:1px solid #f0dcb4;border-radius:8px;padding:9px 12px;
+    font-size:12px;color:#8a5a12}
+  .foot{color:var(--muted);font-size:11.5px;margin-top:6px}
+  .tag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;background:#e7f6ee;color:var(--good)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lead">
+    <div class="secnum">9</div>
+    <div>
+      <h1>Manpower — fixed to real labour man-hours, difference first</h1>
+      <p class="sub">Baseline Revision Comparison · round 15 · your Saint Gobain AS2 PKG3 baseline pair · mockup for approval (nothing coded yet).</p>
+    </div>
+  </div>
+
+  <!-- THE PROBLEM -->
+  <div class="problem">
+    <div class="ph">⚠ Why today's number "seems to be as it is cost"</div>
+    <div class="badtiles">
+      <div class="badtile"><div class="k">Total man-hours · Rev.00 (current)</div><div class="v">243,945,610</div><div class="d">looks like a cost figure</div></div>
+      <div class="badtile"><div class="k">Total man-hours · Rev.01 (current)</div><div class="v">242,871,464</div><div class="d">looks like a cost figure</div></div>
+    </div>
+    <div class="composition">
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">What that 243,945,610 is actually made of:</div>
+      <div class="cbar">
+        <span style="width:99.9%;background:#b23a31">Material — 243,805,397 (99.9%)</span>
+        <span style="width:0.06%;background:#1f9d57;min-width:3px"></span>
+      </div>
+      <div class="clabels">
+        <span><i style="background:#b23a31"></i><b>Material</b> 243,805,397 &nbsp;— m³ / tonnes / m² quantities, <b>not hours</b></span>
+        <span><i style="background:#1f9d57"></i><b>Labour</b> 124,142 &nbsp;— the real man-hours (0.05%)</span>
+        <span><i style="background:#c8801a"></i><b>Equipment</b> 16,071 &nbsp;— equipment-hours</span>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:#8a3b34;margin-top:11px">The current total adds material quantities (m³, tonnes) and equipment-hours to labour hours. That's why it balloons to 243 million and reads like money. <b>Man-hours must mean labour only.</b></div>
+  </div>
+
+  <!-- THE FIX: hero = difference -->
+  <div class="card">
+    <div class="fixhdr">✓ Fixed — labour man-hours only, difference is the headline <span class="tag">reconciles to P6 Budgeted Labor Units</span></div>
+    <div class="hero">
+      <div>
+        <div class="big down">−528</div>
+        <div class="biglbl">labour man-hours change &nbsp;·&nbsp; Rev.00 → Rev.01</div>
+      </div>
+      <div class="chips">
+        <div class="kchip"><div class="k">Labour man-hours · Rev.00</div><div class="v soft">124,142</div></div>
+        <div class="arrowchip">→</div>
+        <div class="kchip"><div class="k">Labour man-hours · Rev.01</div><div class="v soft">123,614</div></div>
+        <div class="kchip"><div class="k">Change</div><div class="v" style="color:var(--down)">−0.4%</div></div>
+      </div>
+    </div>
+    <div class="pline">Rev.01 plans <b>528 fewer labour man-hours</b> than Rev.00 across the project — change detected; review the trade and monthly breakdown below.</div>
+    <div class="cap"><b>Man-hours = sum of P6 Budgeted Labor Units</b> (resource type = Labour). Equipment and Material are reported separately below and are <b>NOT</b> in this number — so it ticks against P6's Labor Units total for each revision.</div>
+  </div>
+
+  <!-- MONTHLY DELTA -->
+  <div class="card">
+    <h3>Labour man-hours by month <span class="n">— the change, month by month (Rev.01 − Rev.00)</span></h3>
+    <div class="desc">Bars above the line = more labour planned in Rev.01; below = less. Every month shown, labour only.</div>
+    <svg class="chart" viewBox="0 0 900 250" role="img" aria-label="Monthly labour man-hours difference">
+      <line class="zbaseline" x1="40" y1="125" x2="880" y2="125"></line>
+      <text x="34" y="128" font-size="9" fill="#8994a5" text-anchor="end">0</text>
+      <!-- 18 months of signed deltas -->
+      <g font-size="8" fill="#8994a5" text-anchor="middle">
+        <!-- helper: pos bars blue (up=more), neg bars purple (down=less) -->
+        <rect x="52"  y="95"  width="30" height="30" rx="2" fill="#2f6df6"/>
+        <rect x="98"  y="125" width="30" height="34" rx="2" fill="#7a54d0"/>
+        <rect x="144" y="108" width="30" height="17" rx="2" fill="#2f6df6"/>
+        <rect x="190" y="125" width="30" height="22" rx="2" fill="#7a54d0"/>
+        <rect x="236" y="125" width="30" height="40" rx="2" fill="#7a54d0"/>
+        <rect x="282" y="112" width="30" height="13" rx="2" fill="#2f6df6"/>
+        <rect x="328" y="125" width="30" height="28" rx="2" fill="#7a54d0"/>
+        <rect x="374" y="101" width="30" height="24" rx="2" fill="#2f6df6"/>
+        <rect x="420" y="125" width="30" height="18" rx="2" fill="#7a54d0"/>
+        <rect x="466" y="118" width="30" height="7"  rx="2" fill="#2f6df6"/>
+        <rect x="512" y="125" width="30" height="30" rx="2" fill="#7a54d0"/>
+        <rect x="558" y="106" width="30" height="19" rx="2" fill="#2f6df6"/>
+        <rect x="604" y="125" width="30" height="12" rx="2" fill="#7a54d0"/>
+        <rect x="650" y="120" width="30" height="5"  rx="2" fill="#2f6df6"/>
+        <rect x="696" y="125" width="30" height="24" rx="2" fill="#7a54d0"/>
+        <rect x="742" y="115" width="30" height="10" rx="2" fill="#2f6df6"/>
+        <rect x="788" y="125" width="30" height="16" rx="2" fill="#7a54d0"/>
+        <rect x="834" y="125" width="30" height="9"  rx="2" fill="#7a54d0"/>
+        <text x="67"  y="180">Jan</text><text x="113" y="180">Feb</text><text x="159" y="180">Mar</text>
+        <text x="205" y="180">Apr</text><text x="251" y="180">May</text><text x="297" y="180">Jun</text>
+        <text x="343" y="180">Jul</text><text x="389" y="180">Aug</text><text x="435" y="180">Sep</text>
+        <text x="481" y="180">Oct</text><text x="527" y="180">Nov</text><text x="573" y="180">Dec</text>
+        <text x="619" y="192">Jan</text><text x="665" y="192">Feb</text><text x="711" y="192">Mar</text>
+        <text x="757" y="192">Apr</text><text x="803" y="192">May</text><text x="849" y="192">Jun</text>
+        <text x="619" y="203" fill="#b6bfcd">'27</text>
+      </g>
+    </svg>
+    <div class="legend"><span><i style="background:#2f6df6"></i>more labour than Rev.00</span><span><i style="background:#7a54d0"></i>fewer than Rev.00</span></div>
+    <div class="foot">Peak labour: 14,880 man-hours/month in Aug 2026 (Rev.00) → 14,210 in Aug 2026 (Rev.01). "Peak" is man-hours per month, not headcount.</div>
+  </div>
+
+  <!-- TRADE DELTA -->
+  <div class="card">
+    <h3>Labour man-hours by trade <span class="n">— which trades grew or shrank (Rev.01 − Rev.00)</span></h3>
+    <div class="desc">One row per labour resource, biggest change first. Same P6 Resource Id you see in Primavera; before/after in the tooltip, the <b>change</b> is what's drawn.</div>
+
+    <div class="trow"><div class="tn">Steel Fixer <small>LAB-STL</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill neg" style="right:50%;width:24%"></div></div>
+      <div class="tval neg">−4,120</div></div>
+    <div class="trow"><div class="tn">Concretor <small>LAB-CON</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill pos" style="left:50%;width:18%"></div></div>
+      <div class="tval pos">+3,050</div></div>
+    <div class="trow"><div class="tn">General Labour <small>LAB-GEN</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill pos" style="left:50%;width:12%"></div></div>
+      <div class="tval pos">+1,980</div></div>
+    <div class="trow"><div class="tn">Electrician <small>LAB-ELE</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill neg" style="right:50%;width:9%"></div></div>
+      <div class="tval neg">−1,540</div></div>
+    <div class="trow"><div class="tn">Pipe Fitter <small>LAB-PIP</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill pos" style="left:50%;width:5%"></div></div>
+      <div class="tval pos">+860</div></div>
+    <div class="trow"><div class="tn">Scaffolder <small>LAB-SCF</small></div>
+      <div class="tbar"><div class="mid"></div><div class="fill neg" style="right:50%;width:4%"></div></div>
+      <div class="tval neg">−760</div></div>
+    <div class="legend"><span><i style="background:#2f6df6"></i>increased in Rev.01</span><span><i style="background:#7a54d0"></i>decreased in Rev.01</span><span>net across all labour trades: <b style="color:var(--down)">−528 mh</b></span></div>
+  </div>
+
+  <!-- OTHER RESOURCES (HONEST) -->
+  <div class="card">
+    <h3>Other resources <span class="n">— reported separately, never added to man-hours</span></h3>
+    <div class="desc">Equipment and Material carry their own units. They're shown here for completeness so nothing is dropped — they do not belong in a man-hours total.</div>
+    <div class="other">
+      <div class="obox"><div class="k">Equipment</div><div class="v">16,071 → 16,071</div><div class="u">equipment-hours · no change</div></div>
+      <div class="obox"><div class="k">Material</div><div class="v">243,805,397 → 242,731,779</div><div class="u">quantities (m³ / t / m²) · −1,073,618</div></div>
+    </div>
+    <div class="warn">Material quantities are shown as one figure only because this P6 export doesn't carry each resource's unit of measure — so they can't be safely labelled per material (m³ vs t) or summed. If you want a per-material breakdown, P6 needs the resource Unit of Measure populated.</div>
+    <div class="foot" style="margin-top:8px">All 306 labour + 110 equipment + 445 material assignments accounted for — every assignment counted once (keyed by activity), none untyped in this file.</div>
+  </div>
+
+  <div class="foot" style="text-align:center;margin-top:14px">Numbers above are your real Saint Gobain AS2 PKG3 figures for the totals/composition; the monthly &amp; per-trade bars are illustrative shapes — the live report computes them from the labour-only assignment set.</div>
+
+</div>
+</body>
+</html>

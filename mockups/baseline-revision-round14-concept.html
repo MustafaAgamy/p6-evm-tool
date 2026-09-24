@@ -1,0 +1,155 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — round 14 concept</title>
+<style>
+:root{
+  --bg:#eef1f6; --card:#fff; --ink:#1f2733; --ink-soft:#3d4757; --muted:#7b8798;
+  --border:#dfe4ec; --accent:#2f6df0; --accent-dark:#1c4fca; --accent-soft:#e7effc;
+  --success:#1f9d5c; --success-bg:#e5f6ec; --danger:#d1495b; --danger-bg:#fbe8ea; --warning:#b7791f; --warning-bg:#fdf3e2;
+  --b0:#c7d0dc;
+}
+*{box-sizing:border-box}
+body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:26px;font-size:13px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.lead{color:var(--ink-soft);margin:0 0 20px;max-width:860px}
+.secmark{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+.secmark .n{background:var(--accent);color:#fff;font-weight:800;font-size:12px;border-radius:7px;padding:4px 10px}
+.secmark h2{font-size:17px;margin:0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.card h3{margin:0 0 4px;font-size:14px}
+.card h3 .n{font-size:11px;font-weight:600;color:var(--muted);margin-left:8px}
+.sec{font-size:12px;color:var(--muted);margin-bottom:10px}.sec b{color:var(--ink)}
+.tag{font-size:9px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.tag.add{background:var(--success-bg);color:var(--success)}.tag.rem{background:var(--danger-bg);color:var(--danger)}.tag.chg{background:var(--warning-bg);color:var(--warning)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800;padding:7px 8px;border-bottom:1px solid var(--border)}
+th.n,td.n{text-align:right}
+td{padding:7px 8px;border-bottom:1px solid #eef1f5;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--ink-soft)}
+.d{font-weight:700}.d.up{color:var(--danger)}.d.down{color:var(--success)}
+.callout{background:var(--accent-soft);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--ink-soft);margin-top:10px}
+.callout b{color:var(--ink)} .callout.ok{background:var(--success-bg);border-left-color:var(--success)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}.legend b{width:12px;height:12px;border-radius:3px;display:inline-block}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.kpi{border:1px solid var(--border);border-radius:11px;padding:11px 13px}
+.kpi .k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.kpi .v{font-size:21px;font-weight:800;margin-top:4px;line-height:1}.kpi .v.hot{color:var(--danger)}
+.kpi .s{font-size:10px;color:var(--muted);margin-top:4px}
+.pill{display:inline-block;font-size:10px;font-weight:700;background:#eef2f8;border:1px solid var(--border);border-radius:999px;padding:2px 8px;margin-left:6px;color:var(--ink-soft)}
+.p6{display:inline-block;font-size:9px;font-weight:800;background:#eafaf0;color:var(--success);border:1px solid var(--success);border-radius:5px;padding:1px 6px;margin-left:6px}
+/* before/after horizontal bars — no scroll, labels never trimmed */
+.hbars{display:flex;flex-direction:column;gap:10px}
+.hrow{display:grid;grid-template-columns:230px 1fr;gap:12px;align-items:center}
+.hlbl{font-size:12px;font-weight:600;text-align:right;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hlbl .code{font-weight:400;color:var(--muted);font-size:10.5px}
+.ba{display:flex;align-items:center;gap:10px}
+.babars{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.brow{display:flex;align-items:center;gap:7px}
+.blab{font-size:9px;font-weight:800;color:var(--muted);width:34px;text-align:right}
+.btrack{flex:1;background:#f2f5f9;border-radius:5px;height:16px;position:relative}
+.bfill{height:16px;border-radius:5px;min-width:3px}
+.bfill.b0{background:var(--b0)}.bfill.b1{background:var(--accent)}
+.bval{position:absolute;top:0;height:16px;display:flex;align-items:center;font-size:10px;font-weight:800;white-space:nowrap}
+.hvar{font-size:11.5px;font-weight:800;white-space:nowrap}.hvar.up{color:var(--danger)}.hvar.down{color:var(--success)}
+.note{font-size:11px;color:var(--muted);margin-top:8px}
+.badnote{background:var(--danger-bg);border-left:4px solid var(--danger);border-radius:8px;padding:6px 10px;font-size:11px;margin:4px 0 10px;color:var(--ink-soft)}
+.goodnote{background:var(--success-bg);border-left:4px solid var(--success);border-radius:8px;padding:6px 10px;font-size:11px;margin:4px 0 10px;color:var(--ink-soft)}
+.before-after{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:9px;font-weight:800;margin-left:8px;vertical-align:middle}
+.before-after span{padding:1px 6px}.before-after .b{background:#eef1f5;color:var(--muted)}.before-after .a{background:var(--accent-soft);color:var(--accent-dark)}
+</style></head>
+<body><div class="wrap">
+<h1>Baseline Revision — round 14 changes (for your approval)</h1>
+<p class="lead">How I'll fix your three comments. Illustrative numbers. The guiding rule everywhere: <b>man-hours, units and IDs come straight from the P6 file</b> (XER <span class="mono">target_qty</span>/<span class="mono">rsrc_short_name</span>), so every total ties to P6. Reply <b>approved</b> or tell me what to change, then I'll implement (with sub-agents) and hand you one build.</p>
+
+<!-- 1 CALENDAR -->
+<div class="secmark"><span class="n">1</span><h2>Calendar — clearer added/removed, only real differences</h2></div>
+<div class="card"><h3>Working pattern per calendar <span class="n">what changed, in plain words</span></h3>
+  <div class="sec">A removed/added calendar no longer shows a bare "activities" count that looks illogical — it now says <b>what happened to those activities</b>. And when two calendars share the same non-working days, they are <b>not</b> listed as rows; only real differences appear.</div>
+  <table><thead><tr><th>Calendar</th><th>Rev.00</th><th>Rev.01</th><th>What it means for the plan</th></tr></thead>
+    <tbody>
+      <tr><td><b>6 Day Workweek</b></td><td>6 d/wk · 8h</td><td>6 d/wk · 8h</td><td class="mono" style="color:var(--muted)">unchanged pattern (date changes below)</td></tr>
+      <tr><td><b>Temporary Site Cal</b> <span class="tag rem">removed</span></td><td>6 d/wk · 8h</td><td>—</td><td>Retired in Rev.01 — the <b>12 activities</b> that used it in Rev.00 now use <b>“6 Day Workweek”</b>.</td></tr>
+      <tr><td><b>Marine Works</b> <span class="tag add">added</span></td><td>—</td><td>7 d/wk · 10h</td><td>New in Rev.01 — now used by <b>8 activities</b> (moved off “6 Day Workweek”).</td></tr>
+    </tbody></table>
+</div>
+<div class="card"><h3>Calendar exception dates <span class="n">only the differences — non-working days &amp; reduced hours</span></h3>
+  <div class="sec">Lists only the dates that actually <b>changed</b> between the two revisions (non-working ⇄ working, or hours changed). Identical non-working days are summarised, not listed.</div>
+  <table><thead><tr><th>Calendar</th><th>Date</th><th>Rev.00</th><th>Rev.01</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td>6 Day Workweek</td><td class="mono">07 Jan 2026</td><td>Non-working</td><td>Working</td><td><span class="tag add">now working</span></td></tr>
+      <tr><td>6 Day Workweek</td><td class="mono">01 Mar 2026 – 07 Mar 2026</td><td>6h/day</td><td>8h/day</td><td><span class="tag chg">6h → 8h</span></td></tr>
+      <tr><td>6 Day Workweek</td><td class="mono">23 Sep 2026</td><td>Working</td><td>Non-working</td><td><span class="tag rem">now non-working</span></td></tr>
+    </tbody></table>
+  <div class="callout"><b>Reads as:</b> 07 Jan 2026 became a working day; the week of 01–07 Mar 2026 was restored from 6h/day back to 8h/day; 23 Sep 2026 became non-working. <span class="pill">4 other non-working dates are identical in both revisions — not listed</span></div>
+</div>
+
+<!-- 2 MANPOWER -->
+<div class="secmark"><span class="n">2</span><h2>Manpower — 2 colours, every month, no scroll, P6-matched totals</h2></div>
+<div class="card"><h3>Manpower on site per month <span class="n">Rev.00 vs Rev.01 · two colours · every month labelled</span></h3>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Total man-hours · Rev.00</div><div class="v">120,400</div><div class="s">matches P6 <span class="p6">P6 ✓</span></div></div>
+    <div class="kpi"><div class="k">Total man-hours · Rev.01</div><div class="v hot">137,600</div><div class="s">matches P6 <span class="p6">P6 ✓</span></div></div>
+    <div class="kpi"><div class="k">Change</div><div class="v hot">+14.3%</div><div class="s">Rev.00 → Rev.01</div></div>
+  </div>
+  <div class="sec">Two colours only — <b>Rev.00 (grey)</b> vs <b>Rev.01 (blue)</b> — the difference labelled above each pair. <b>Every month</b> is shown (chart fits the width / wraps — no horizontal scroll). The total is the sum of P6 planned units, so it equals what P6 reports.</div>
+  <div style="overflow:visible"><svg viewBox="0 0 1000 250" style="width:100%;height:auto" id="mp"></svg></div>
+  <div class="legend"><span><b style="background:var(--b0)"></b>Rev.00 on site</span><span><b style="background:var(--accent)"></b>Rev.01 on site</span><span style="color:var(--danger)">▲ more</span><span style="color:var(--success)">▼ fewer</span></div>
+</div>
+<div class="card"><h3>Resource mix — man-hours by trade <span class="n">same-named resources disambiguated · before/after labelled</span></h3>
+  <div class="badnote">Before: two rows both read <b>“Steelfixers”</b> with no way to tell them apart — looks duplicated.</div>
+  <div class="goodnote">After: each resource carries its <b>P6 code</b> so duplicates are distinct, and every bar is labelled <b>Rev.00 / Rev.01</b> so it never reads as duplicated work.</div>
+  <div class="hbars" id="mix"></div>
+  <div class="legend"><span><b style="background:var(--b0)"></b>Rev.00 man-hours</span><span><b style="background:var(--accent)"></b>Rev.01 man-hours</span></div>
+</div>
+
+<!-- 3 RESOURCES -->
+<div class="secmark"><span class="n">3</span><h2>Resources — P6 Resource ID, untrimmed labels</h2></div>
+<div class="card"><h3>Resource comparison <span class="n">Resource ID = P6 code (XER rsrc_short_name) · values fully shown</span></h3>
+  <div class="sec">The <b>Resource ID</b> now shows the P6 code you assign (e.g. <span class="mono">LAB-01</span>), not the internal database number — for XER <b>and</b> XML. The number inside each bar is fully visible (never trimmed): it sits at the bar end when the bar is short.</div>
+  <div class="hbars" id="res" style="margin-bottom:12px"></div>
+  <div class="legend" style="margin-bottom:12px"><span><b style="background:var(--b0)"></b>Rev.00 units</span><span><b style="background:var(--accent)"></b>Rev.01 units</span><span><b style="background:var(--success)"></b>Added</span><span><b style="background:var(--danger)"></b>Removed</span></div>
+  <table><thead><tr><th>Resource ID <span class="p6">P6</span></th><th>Resource</th><th>Type</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Variance</th><th class="n">Activities</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">LAB-01</td><td>Steelfixers</td><td>Labour</td><td class="n">34</td><td class="n">46</td><td class="n"><span class="d up">+12</span></td><td class="n">6</td><td><span class="tag chg">Increased</span></td></tr>
+      <tr><td class="mono">LAB-07</td><td>Steelfixers</td><td>Labour</td><td class="n">8</td><td class="n">12</td><td class="n"><span class="d up">+4</span></td><td class="n">2</td><td><span class="tag chg">Increased</span></td></tr>
+      <tr><td class="mono">MEP-03</td><td>MEP crew</td><td>Labour</td><td class="n">—</td><td class="n">10</td><td class="n"><span class="d up">+10</span></td><td class="n">2</td><td><span class="tag add">Added</span></td></tr>
+      <tr><td class="mono">EQ-DW</td><td>Dewatering</td><td>Equipment</td><td class="n">3</td><td class="n">—</td><td class="n"><span class="d down">−3</span></td><td class="n">1</td><td><span class="tag rem">Removed</span></td></tr>
+    </tbody></table>
+</div>
+
+</div>
+<script>
+const MON=['Jan26','Feb26','Mar26','Apr26','May26','Jun26','Jul26','Aug26','Sep26','Oct26','Nov26','Dec26'];
+const R0=[40,60,88,120,132,120,96,72,60,44,30,18];
+const R1=[52,72,96,128,137,129,110,84,66,50,34,22];
+(function(){const W=1000,H=250,L=34,R=10,T=30,B=42,pw=W-L-R,ph=H-T-B,step=pw/MON.length;
+ const bw=Math.min(13,step*0.34);const mx=Math.max(...R0,...R1);let s='';
+ MON.forEach((mo,i)=>{const cx=L+i*step+step/2;const h0=R0[i]/mx*ph,h1=R1[i]/mx*ph;const x0=cx-bw-1,x1=cx+1;
+  s+=`<rect x="${x0}" y="${T+ph-h0}" width="${bw}" height="${h0}" rx="2" fill="var(--b0)"/>`;
+  s+=`<rect x="${x1}" y="${T+ph-h1}" width="${bw}" height="${h1}" rx="2" fill="var(--accent)"/>`;
+  const d=R1[i]-R0[i],col=d>=0?'var(--danger)':'var(--success)';
+  s+=`<text x="${cx}" y="${T+ph-Math.max(h0,h1)-5}" font-size="9" font-weight="800" fill="${col}" text-anchor="middle">${d>=0?'+':''}${d}</text>`;
+  s+=`<text x="${cx}" y="${T+ph+13}" font-size="8" fill="var(--muted)" text-anchor="middle" transform="rotate(-35 ${cx} ${T+ph+13})">${mo}</text>`;});
+ document.getElementById('mp').innerHTML=`<line x1="${L}" y1="${T+ph}" x2="${W-R}" y2="${T+ph}" stroke="var(--border)"/>${s}`;})();
+// before/after bars — Rev.00 over Rev.01, label at bar end (never trimmed)
+function baBars(el,rows,fmt){const mx=Math.max(...rows.flatMap(r=>[r.a,r.b]));
+ el.innerHTML=rows.map(r=>{const wa=Math.max(r.a/mx*100,r.a>0?2:0),wb=Math.max(r.b/mx*100,r.b>0?2:0),v=r.b-r.a;
+  const added=r.a===0,removed=r.b===0;
+  const c0=removed?'background:var(--danger)':'',c1=added?'background:var(--success)':'';
+  const val=(w,val,col)=>{const inside=w>26;return `<div class="bval" style="${inside?`left:calc(${w}% - 5px);transform:translateX(-100%);color:#fff`:`left:calc(${w}% + 5px);color:var(--ink-soft)`}">${val?fmt(val):''}</div>`;};
+  return `<div class="hrow"><div class="hlbl">${r.name}${r.code?`<br><span class="code">${r.code}</span>`:''}</div>
+   <div class="ba"><div class="babars">
+     <div class="brow"><span class="blab">Rev.00</span><div class="btrack"><div class="bfill b0" style="width:${wa}%;${c0}"></div>${val(wa,r.a)}</div></div>
+     <div class="brow"><span class="blab">Rev.01</span><div class="btrack"><div class="bfill b1" style="width:${wb}%;${c1}"></div>${val(wb,r.b)}</div></div>
+   </div><span class="hvar ${v>=0?'up':'down'}">${v>=0?'+':''}${fmt(v)}</span></div></div>`;}).join('');}
+baBars(document.getElementById('mix'),[
+  {name:'Steelfixers',code:'LAB-01',a:42000,b:51600},{name:'Steelfixers',code:'LAB-07',a:9000,b:13000},
+  {name:'Subcontractors',code:'SUB-01',a:60000,b:78000},{name:'MEP crew',code:'MEP-03',a:0,b:18400},
+  {name:'Dewatering',code:'EQ-DW',a:9000,b:0}],x=>Math.abs(x)>=1000?(Math.round(x/1000))+'k':(''+x));
+baBars(document.getElementById('res'),[
+  {name:'Steelfixers',code:'LAB-01',a:34,b:46},{name:'Steelfixers',code:'LAB-07',a:8,b:12},
+  {name:'MEP crew',code:'MEP-03',a:0,b:10},{name:'Dewatering',code:'EQ-DW',a:3,b:0}],x=>''+x);
+</script></body></html>

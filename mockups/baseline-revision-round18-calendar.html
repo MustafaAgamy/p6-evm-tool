@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baseline Revision — Calendar full layout (round 18)</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5a6678; --muted:#8994a5;
+    --edge:#e2e7ee; --edge2:#eef1f6; --accent:#2f6df6; --accent-soft:#eaf1ff;
+    --good:#1f9d57; --good-soft:#e7f6ee; --bad:#d5453b; --bad-soft:#fdecea; --bad-line:#f3c9c4;
+    --warn:#c8801a; --warn-soft:#fbf1e0; --warn-line:#f0dcb4; --ren:#6b52d6; --ren-soft:#efeafb;
+    --c1:#2f6df6; --c2:#1f9d57; --c3:#c8801a; --c4:#6b52d6; --c5:#d5453b;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 20px rgba(20,30,50,.05);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding:20px 16px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  /* tab bar (for location context) */
+  .tabbar{display:flex;gap:2px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:5px;margin-bottom:14px;font-size:12.5px}
+  .tabbar .t{padding:7px 11px;border-radius:7px;color:var(--ink-soft);font-weight:600}
+  .tabbar .t.on{background:var(--ink);color:#fff;font-weight:800}
+  .lead{display:flex;gap:12px;align-items:flex-start;margin-bottom:6px}
+  .secnum{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800}
+  h1{font-size:18px;margin:0;font-weight:800}
+  .sub{color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .note{background:var(--accent-soft);border:1px solid #d3e2ff;border-radius:10px;padding:10px 13px;color:#254a86;font-size:12.5px;margin:14px 0 16px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;box-shadow:var(--shadow);margin:0 0 14px;padding:15px 17px}
+  .caldigest{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink-soft);padding:9px 12px;background:var(--bg);border:1px solid var(--edge);border-radius:9px;margin-bottom:6px}
+  .legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft)}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .calhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .calname{font-size:14.5px;font-weight:800}.calname .arr{color:var(--muted);font-weight:600}
+  .calmeta{font-size:11px;color:var(--muted);margin-left:auto}
+  .tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+  .tag.mod{background:var(--warn-soft);color:var(--warn)}.tag.ren{background:var(--ren-soft);color:var(--ren)}
+  .tag.add{background:var(--good-soft);color:var(--good)}.tag.rem{background:var(--bad-soft);color:var(--bad)}
+  .brief{font-size:14px;line-height:1.5;margin:4px 0 8px}
+  .hl-g{color:var(--good);font-weight:700}.hl-r{color:var(--bad);font-weight:700}.hl-a{color:var(--warn);font-weight:700}
+  table.ldg{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:13px}
+  table.ldg th{text-align:left;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:800;padding:6px 10px;border-bottom:1px solid var(--edge)}
+  table.ldg td{padding:7px 10px;border-bottom:1px solid var(--edge2)}
+  .lattr{color:var(--ink-soft);font-weight:600;width:34%}.lrev{text-align:center;width:19%;font-variant-numeric:tabular-nums}.lchg{text-align:right;width:28%}
+  tr.band td{background:var(--bg);color:var(--ink-soft);font-weight:800;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+  tr.ident td{color:var(--muted);font-style:italic;background:#fcfcfe}
+  .chg-g{color:var(--good);font-weight:700}.chg-r{color:var(--bad);font-weight:700}.chg-a{color:var(--warn);font-weight:700}.chg-n{color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:1px}
+  .dot.g{background:var(--good)}.dot.r{background:var(--bad)}.dot.a{background:var(--warn)}
+  /* #02 HIGHLIGHT rows */
+  tr.hi-new td{background:var(--bad-soft);box-shadow:inset 3px 0 0 var(--bad)}
+  tr.hi-red td{background:var(--warn-soft);box-shadow:inset 3px 0 0 var(--warn)}
+  .flag{font-size:9px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:20px;margin-left:7px;text-transform:uppercase;vertical-align:1px}
+  .flag.new{background:var(--bad);color:#fff}.flag.red{background:var(--warn);color:#fff}
+  /* added/removed non-working table with highlight */
+  .nwband{margin-top:10px;border:1px solid var(--bad-line);background:#fef6f5;border-radius:9px;padding:10px 12px}
+  .nwband.rem{border-color:var(--edge);background:var(--bg)}
+  .nwband .h{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--bad);margin-bottom:6px}
+  .nwband.rem .h{color:var(--muted)}
+  .nwband table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .nwband td{padding:5px 8px;border-bottom:1px solid #f6dcd8}
+  .nwband.rem td{border-bottom:1px solid var(--edge2)}
+  /* #01 RELOCATED assigned-activities panel — its own full-width footer sub-panel */
+  .assignpanel{margin-top:12px;border:1px solid var(--edge);border-radius:10px;background:#fbfcfe;padding:11px 13px}
+  .assignhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+  .assignhead .t{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft)}
+  .assignhead .tot{font-size:11px;color:var(--muted);margin-left:auto}
+  .dimtabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+  .dimtab{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid var(--edge);background:#fff;color:var(--ink-soft);cursor:pointer}
+  .dimtab.on{background:var(--accent-soft);border-color:#cfe0ff;color:#254a86}
+  .propbar{display:flex;height:30px;border-radius:8px;overflow:hidden;border:1px solid var(--edge)}
+  .propbar span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden}
+  .proplegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--ink-soft)}
+  .proplegend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .idsline{margin-top:9px;font-size:11.5px;color:var(--accent);font-weight:600}
+  .calunchanged{padding:10px 14px;color:var(--muted);font-size:12.5px;background:var(--bg);border:1px dashed var(--edge);border-radius:9px}
+  .calunchanged b{color:var(--ink-soft)}
+  .callabel{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- tab bar shows WHERE the calendar section sits -->
+  <div class="tabbar">
+    <span class="t">Executive Summary</span><span class="t">Key Findings</span><span class="t">Critical Path &amp; Float</span>
+    <span class="t">Change Register</span><span class="t">Milestones</span><span class="t on">Calendar</span>
+    <span class="t">Cost &amp; Resources</span><span class="t">Resources</span><span class="t">Manpower</span><span class="t">Scope &amp; Structure</span>
+  </div>
+
+  <div class="lead">
+    <div class="secnum">6</div>
+    <div>
+      <h1>Calendar — full section layout (round 18)</h1>
+      <p class="sub">Real Roots Silos data · showing where every result sits. Mockup for approval.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>#01 Assigned activities relocated</b> → out of the cramped spot near the top; now a clean full-width <b>panel at the bottom of each calendar card</b> (its own box, dimension picker as pills, nothing trimmed). &nbsp;
+    <b>#02 New non-working days &amp; reduced hours highlighted</b> → a red band + <span class="flag new" style="margin:0">NEW</span> badge for a day non-working in Rev.01 that wasn't in Rev.00; an amber band + <span class="flag red" style="margin:0">REDUCED</span> badge for reduced-hours periods — on every calendar (modified, renamed, added, retired).
+  </div>
+
+  <div class="card" style="padding:0;background:transparent;border:none;box-shadow:none">
+    <div class="caldigest">
+      <span><b>1 modified · 1 renamed · 1 added · 1 retired · 5 unchanged</b> — 12 exception days changed.</span>
+      <span class="legend"><span><i style="background:var(--good)"></i>made working</span><span><i style="background:var(--bad)"></i>new non-working</span><span><i style="background:var(--warn)"></i>reduced hours</span></span>
+    </div>
+  </div>
+
+  <!-- RENAMED calendar (both revisions) -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Roots Silos Phase I Scope <span class="arr">→ Roots Silos</span></span><span class="tag ren">renamed</span><span class="calmeta">993 activities</span></div>
+    <div class="brief">Roots Silos Phase I Scope — <span class="hl-g">7 days made working</span> and <span class="hl-r">1 day made non-working</span>. Working week unchanged. Used by 993 activities, mostly Phase II Design.</div>
+    <table class="ldg">
+      <thead><tr><th class="lattr">Attribute</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Change</th></tr></thead>
+      <tbody>
+        <tr><td class="lattr">Working days / week</td><td class="lrev">6 d/wk</td><td class="lrev">6 d/wk</td><td class="lchg chg-n">unchanged</td></tr>
+        <tr><td class="lattr">Hours / day</td><td class="lrev">8 h</td><td class="lrev">8 h</td><td class="lchg chg-n">unchanged</td></tr>
+        <tr class="band"><td colspan="4">Exception dates — changed only</td></tr>
+        <tr><td class="lattr"><span class="dot g"></span>23 Mar 2026 – 26 Mar 2026</td><td class="lrev">Non-working</td><td class="lrev">8h/day</td><td class="lchg chg-g">made working</td></tr>
+        <tr><td class="lattr"><span class="dot g"></span>23 May 2026 – 25 May 2026</td><td class="lrev">Non-working</td><td class="lrev">8h/day</td><td class="lchg chg-g">made working</td></tr>
+        <tr class="hi-new"><td class="lattr"><span class="dot r"></span>02 Mar 2027</td><td class="lrev">8h/day</td><td class="lrev">Non-working</td><td class="lchg chg-r">new non-working <span class="flag new">NEW</span></td></tr>
+        <tr class="ident"><td colspan="3">89 non-working days are identical in both revisions — no change</td><td class="lchg">not listed</td></tr>
+      </tbody>
+    </table>
+    <div class="assignpanel">
+      <div class="assignhead"><span class="t">Assigned activities — by activity code</span><span class="tot">993 activities in Rev.01</span></div>
+      <div class="dimtabs"><span class="dimtab on">Main WBS</span><span class="dimtab">Discipline</span><span class="dimtab">Type of Works</span></div>
+      <div class="propbar"><span style="width:45%;background:var(--c1)">Phase II Design 447</span><span style="width:38%;background:var(--c2)">Construction 377</span><span style="width:11%;background:var(--c3)">Procurement 110</span><span style="width:6%;background:var(--c4)">Milestones 59</span></div>
+      <div class="proplegend"><span><i style="background:var(--c1)"></i>Phase II Design 45%</span><span><i style="background:var(--c2)"></i>Construction 38%</span><span><i style="background:var(--c3)"></i>Procurement 11%</span><span><i style="background:var(--c4)"></i>Milestones 6%</span></div>
+      <div class="idsline">▸ see the 993 activity IDs</div>
+    </div>
+  </div>
+
+  <!-- RENAMED 24h calendar — reduced hours highlighted -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Roots Silos - 24 Hrs - Phase I Scope <span class="arr">→ Roots Silos - 24 Hrs</span></span><span class="tag ren">renamed</span><span class="calmeta">29 activities</span></div>
+    <div class="brief">Roots Silos - 24 Hrs — <span class="hl-g">4 days made working</span> <span class="hl-a">at reduced hours</span>. Working week unchanged (24 h/day). Used by 29 activities, mostly Construction.</div>
+    <table class="ldg">
+      <thead><tr><th class="lattr">Attribute</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Change</th></tr></thead>
+      <tbody>
+        <tr><td class="lattr">Hours / day</td><td class="lrev">24 h</td><td class="lrev">24 h</td><td class="lchg chg-n">unchanged</td></tr>
+        <tr class="band"><td colspan="4">Exception dates — changed only</td></tr>
+        <tr class="hi-red"><td class="lattr"><span class="dot a"></span>25 Jan 2025</td><td class="lrev">Non-working</td><td class="lrev">8h/day (reduced)</td><td class="lchg chg-a">now working, reduced <span class="flag red">REDUCED</span></td></tr>
+        <tr class="hi-red"><td class="lattr"><span class="dot a"></span>01 May 2025</td><td class="lrev">Non-working</td><td class="lrev">8h/day (reduced)</td><td class="lchg chg-a">now working, reduced <span class="flag red">REDUCED</span></td></tr>
+        <tr class="hi-red"><td class="lattr"><span class="dot a"></span>30 Jun 2026</td><td class="lrev">Non-working</td><td class="lrev">8h/day (reduced)</td><td class="lchg chg-a">now working, reduced <span class="flag red">REDUCED</span></td></tr>
+        <tr class="ident"><td colspan="3">52 non-working days are identical in both revisions — no change</td><td class="lchg">not listed</td></tr>
+      </tbody>
+    </table>
+    <div class="assignpanel">
+      <div class="assignhead"><span class="t">Assigned activities — by activity code</span><span class="tot">29 activities in Rev.01</span></div>
+      <div class="dimtabs"><span class="dimtab on">Main WBS</span><span class="dimtab">Discipline</span></div>
+      <div class="propbar"><span style="width:100%;background:var(--c1)">Phase I Construction Works 29</span></div>
+      <div class="proplegend"><span><i style="background:var(--c1)"></i>Phase I Construction Works 100%</span></div>
+      <div class="idsline">▸ see the 29 activity IDs</div>
+    </div>
+  </div>
+
+  <!-- ADDED calendar — all non-working days are NEW in Rev.01 -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Marine Works</span><span class="tag add">added</span><span class="calmeta">8 activities</span></div>
+    <div class="brief">Marine Works — new 7 d/wk · 10 h/day calendar, now used by 8 activities. A longer working week shortens those durations on paper.</div>
+    <table class="ldg">
+      <thead><tr><th class="lattr">Attribute</th><th class="lrev">Rev.00</th><th class="lrev">Rev.01</th><th class="lchg">Change</th></tr></thead>
+      <tbody>
+        <tr><td class="lattr">Working days / week</td><td class="lrev">—</td><td class="lrev">7 d/wk</td><td class="lchg chg-g">added</td></tr>
+        <tr><td class="lattr">Hours / day</td><td class="lrev">—</td><td class="lrev">10 h</td><td class="lchg chg-g">added</td></tr>
+      </tbody>
+    </table>
+    <div class="nwband">
+      <div class="h">New non-working days — all new in Rev.01 (no prior revision) <span class="flag new">NEW</span></div>
+      <table>
+        <tr><td><span class="dot r"></span>01 Jan 2026</td><td style="text-align:right;color:var(--bad);font-weight:700">Non-working</td></tr>
+        <tr><td><span class="dot r"></span>25 Apr 2026</td><td style="text-align:right;color:var(--bad);font-weight:700">Non-working</td></tr>
+        <tr><td><span class="dot a"></span>01 Mar 2026 – 07 Mar 2026</td><td style="text-align:right;color:var(--warn);font-weight:700">6h/day (reduced)</td></tr>
+      </table>
+    </div>
+    <div class="assignpanel">
+      <div class="assignhead"><span class="t">Assigned activities — by activity code</span><span class="tot">8 activities in Rev.01</span></div>
+      <div class="dimtabs"><span class="dimtab on">Discipline</span></div>
+      <div class="propbar"><span style="width:75%;background:var(--c1)">Marine 6</span><span style="width:25%;background:var(--c2)">Civil 2</span></div>
+      <div class="proplegend"><span><i style="background:var(--c1)"></i>Marine 75%</span><span><i style="background:var(--c2)"></i>Civil 25%</span></div>
+      <div class="idsline">▸ see the 8 activity IDs</div>
+    </div>
+  </div>
+
+  <!-- REMOVED calendar — its non-working days are gone in Rev.01 -->
+  <div class="card">
+    <div class="calhead"><span class="calname">Roots Silos Phase I Scope - For Loading Test</span><span class="tag rem">retired</span><span class="calmeta">12 activities</span></div>
+    <div class="brief">Roots Silos … For Loading Test — retired in Rev.01. The 12 activities that used it now run on <b>Roots Silos</b>.</div>
+    <div class="nwband rem">
+      <div class="h">Non-working days it had in Rev.00 — gone with the calendar in Rev.01</div>
+      <table>
+        <tr><td>01 Jan 2025</td><td style="text-align:right;color:var(--muted)">Non-working (removed)</td></tr>
+        <tr><td>25 Dec 2025</td><td style="text-align:right;color:var(--muted)">Non-working (removed)</td></tr>
+        <tr><td style="color:var(--muted);font-style:italic" colspan="2">+ 56 more non-working days removed with this calendar</td></tr>
+      </table>
+    </div>
+    <div class="assignpanel">
+      <div class="assignhead"><span class="t">Activities that used it in Rev.00 — by activity code</span><span class="tot">12 activities in Rev.00</span></div>
+      <div class="dimtabs"><span class="dimtab on">Main WBS</span></div>
+      <div class="propbar"><span style="width:100%;background:var(--c1)">Phase I Construction Works 12</span></div>
+      <div class="proplegend"><span><i style="background:var(--c1)"></i>Phase I Construction Works 100%</span></div>
+    </div>
+  </div>
+
+  <div class="calunchanged"><b>5 calendars unchanged</b> — 5 Days Workweek-08Hrs, National Holidays (210), Standard 5-Day (44), … Identical working pattern and non-working days in both revisions.</div>
+
+  <p class="sub" style="text-align:center;margin-top:16px">Illustrative values from your Roots Silos pair. Two things to confirm: (1) the assigned-activities panel at the <b>bottom of each card</b>, and (2) the <b>red NEW / amber REDUCED highlighting</b> on new non-working &amp; reduced-hours days across all calendar types.</p>
+</div>
+</body>
+</html>
