@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v2.7.0] - 2026-09-24
+
+### Added — Baseline Narrative Report: Productivity, Volume of Work, and the Critical-Path Appendix
+- **Productivity Rates & Resources Assigned (§15).** For every quantity of work in the baseline the report now states the planned **production rate per day** — the total quantity divided by the working days its activities span — the spread of that rate across the individual activities, and the crew (labour and plant) planned to deliver it. A short method note explains exactly how each figure is worked out; a **breakdown by activity** lists every activity behind each quantity (Activity ID · Quantity · Working-days · Rate/day); and a summary table gives the headline rate, range and crew per quantity. Every figure is read from your schedule's own resource loading — where a resource carries no unit of measure the rate columns are left blank with a short explanation instead of an empty figure.
+- **Volume of Work (§16).** A single chart shows the planned **value of work month by month** (columns) against the **cumulative planned-value S-curve**, both spread from the baseline cost loading the same way P6's Resource Usage does, with a short summary of the total and the peak month.
+- **Appendix — Critical Path.** The report closes with a **"critical-path sweep"**: your schedule's critical activities — taken straight from P6's own total float, with nothing re-scheduled — distilled into the project's zones and swept month by month, coloured by trade, so hundreds of critical activities read as one clear staircase from start to completion instead of an unreadable list.
+- **Appendix — Critical Path From P6 & Mapping Sheet.** Two cover pages ready for you to attach P6's own critical-path output and your project mapping sheet.
+- Every new section and chart is **native and editable in Word** and matches the on-screen and PDF versions exactly.
+
 ## [v2.6.2] - 2026-09-15
 
 ### Changed — Excel exports are clearer across the whole tool
