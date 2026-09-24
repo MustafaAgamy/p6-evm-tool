@@ -386,6 +386,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_settings(body)
         elif self.path == '/api/chat/dashboard':
             self._handle_chat_dashboard(body)
+        elif self.path == '/api/chat/qa':
+            self._handle_chat_qa(body)
         elif self.path == '/api/chat/copilot/ask':
             self._handle_chat_copilot_ask(body)
         elif self.path == '/api/chat/copilot/tia':
@@ -3193,6 +3195,19 @@ class Handler(BaseHTTPRequestHandler):
         if not xml_path and snap is not None:
             xml_path = db.get_snapshot_xml_path(snap)
         return xml_path
+
+    def _handle_chat_qa(self, body):
+        """Answer one library question by its id from the offline grounded engine
+        (p6_chat.qa) — a detailed, senior-planning-engineer answer, DB read path, no model."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.answer_question(
+                body.get('snapshot_id'),
+                body.get('question_id'),
+                body.get('mode', 'management')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_chat_copilot_ask(self, body):
         """Answer one Copilot question (repertoire button or free-typed) for the loaded

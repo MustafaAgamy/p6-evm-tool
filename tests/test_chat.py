@@ -44,9 +44,10 @@ def test_library_roles_have_counts_and_no_answers_leak():
     for t in lib['themes']:
         for q in t['questions']:
             assert 'answer_full' not in q and 'answer_sketch' not in q
-            # safe payload only: the question, its grounding hint, status, roles, and the
-            # optional Copilot capability tags (cap/qid/mode) — never a bundled answer.
-            assert set(q) == {'q', 'grounds', 'status', 'role_keys', 'cap', 'qid', 'mode'}
+            # safe payload only: the stable id, the question, its grounding hint, status,
+            # roles, and the optional Copilot capability tags (cap/qid/mode) — never a
+            # bundled answer. The id routes a clicked question to the offline qa engine.
+            assert set(q) == {'id', 'q', 'grounds', 'status', 'role_keys', 'cap', 'qid', 'mode'}
 
 
 def test_library_find_exact_returns_bundled_answer():
