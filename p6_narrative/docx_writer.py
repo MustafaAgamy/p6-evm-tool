@@ -1504,11 +1504,11 @@ def write_docx(doc, output_path, chrome=None):
             number = idx
         if section.get('appendix'):                            # appendix pages carry no "N)" prefix
             hp = docx_template.heading(document, '', section.get('title', ''))
+            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER           # appendix titles are centred
         else:
             hp = docx_template.heading(document, docx_template.format_number((number,)),
                                        section.get('title', ''))
-        if section.get('cover'):                               # centred divider title, pushed down
-            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if section.get('cover'):                               # cover/divider: also pushed down the page
             hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)

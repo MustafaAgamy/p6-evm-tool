@@ -1311,8 +1311,8 @@ def _section_page(s, meta, cur, footer):
     if s.get('cover'):
         head = ('<h1 class="sec" style="text-align:center;margin-top:48mm;font-size:26px;'
                 'font-weight:600">%s</h1>' % _esc(title))
-    elif s.get('appendix'):
-        head = '<h1 class="sec">%s</h1>' % _esc(title)
+    elif s.get('appendix'):                              # appendix title: centred, at the top of its page
+        head = '<h1 class="sec" style="text-align:center">%s</h1>' % _esc(title)
     else:
         head = '<h1 class="sec">%s) %s</h1>' % (_esc(number), _esc(title))
     body = _section_body(s, meta, cur)

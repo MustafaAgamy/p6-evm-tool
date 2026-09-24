@@ -191,21 +191,24 @@ def critical_path(data, path=None):
     # rather than cluttering the staircase with dozens of one-cell rows. If there are more
     # substantive zones than fit, the busiest are kept and the rest fold into "Other areas" too.
     MAX_ZONES, MIN_ACTS = 18, 3
-    subst = [(k, v) for k, v in zone_acts.items() if len(v) >= MIN_ACTS]
+    subst = sorted([(k, v) for k, v in zone_acts.items() if len(v) >= MIN_ACTS],
+                   key=lambda kv: (-len(kv[1]), str(kv[0])))
     tiny = [(k, v) for k, v in zone_acts.items() if len(v) < MIN_ACTS]
-    if subst:
-        subst.sort(key=lambda kv: (-len(kv[1]), str(kv[0])))
+    if subst:                                           # keep the busiest substantive zones …
         keep = dict(subst[:MAX_ZONES])
-        tail = subst[MAX_ZONES:] + tiny
-        other = []
-        for _lab, alist in tail:
-            other.extend(alist)
-        if other:
-            keep['Other areas (%d)' % len(tail)] = other
-        zone_acts = keep
-    elif len(zone_acts) > MAX_ZONES:                    # no substantive zones — just cap, no merge
-        ranked = sorted(zone_acts.items(), key=lambda kv: (-len(kv[1]), str(kv[0])))
-        zone_acts = dict(ranked[:MAX_ZONES])
+        overflow = subst[MAX_ZONES:] + tiny             # … the rest (overflow + every tiny) merge
+    else:                                               # no substantive zone — keep the busiest tiny
+        tiny.sort(key=lambda kv: (-len(kv[1]), str(kv[0])))
+        keep = dict(tiny[:MAX_ZONES])
+        overflow = tiny[MAX_ZONES:]
+    # NEVER drop a critical activity: fold every overflow zone into one honest "Other areas" row so
+    # the count, the month span and the sweep stay consistent with the KPI figures.
+    other = []
+    for _lab, alist in overflow:
+        other.extend(alist)
+    if other:
+        keep['Other areas (%d)' % len(overflow)] = other
+    zone_acts = keep
 
     # ── month timeline across the critical span ──
     starts = [_as_date(a['planned_start']) for a in crit]
@@ -261,10 +264,13 @@ def critical_path(data, path=None):
     def _fd(d):
         return '%d %s %d' % (d.day, _MONTHS[d.month - 1], d.year)
 
+    # These span the CRITICAL path only (min/max over the critical activities), which need not
+    # equal the contract window when the earliest activities carry float — so they are labelled as
+    # the critical path, not the contract (the contract dates live in §3 Project Brief).
     kpis = [
-        ['%d months' % dur_months, 'Contract duration'],
-        [_fd(proj_start), 'Contract start'],
-        [_fd(proj_finish), 'Contract completion'],
+        ['%d months' % dur_months, 'Critical span'],
+        [_fd(proj_start), 'Critical path start'],
+        [_fd(proj_finish), 'Critical path finish'],
         ['{:,}'.format(n_crit), 'Critical activities'],
         ['%d' % n_zones, 'Driving zones'],
     ]
@@ -287,10 +293,9 @@ def critical_path(data, path=None):
         last_zone = zones[-1]['label'] if zones else 'the last zone'
     ending = '' if first_zone == last_zone else ' and ending in %s' % last_zone
     narrative = (
-        'The baseline is driven by %s running from contract start on %s to completion on %s '
-        '— about %d months. The critical path sweeps through the project’s %d '
-        'driving zones in turn, beginning in %s%s, so the staircase below reads the sequence '
-        'in which each area controls the finish date.'
+        'The baseline is driven by %s. Its critical path runs from %s to %s — about %d months — '
+        'and sweeps through the project’s %d driving zones in turn, beginning in %s%s, so the '
+        'staircase below reads the sequence in which each area controls the finish date.'
         % (basis_txt, _fd(proj_start), _fd(proj_finish), dur_months, n_zones,
            first_zone, ending))
 
