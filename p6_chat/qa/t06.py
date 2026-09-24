@@ -196,16 +196,22 @@ def t06q00(F, role):
             return f"{parts[0]} and {parts[1]}"
         return ", ".join(parts[:-1]) + f" and {parts[-1]}"
 
-    if not flagged and not minor:
+    n_flag = len(flagged)
+    if n_flag == 0 and not minor:
         head = (f"Reads **clean overall** — on the {npts} logic points I can score from this snapshot, "
                 "nothing structural is corrupting the numbers.")
-    elif len(flagged) <= 1 and len(minor) <= 2:
-        real = flagged + minor
-        head = (f"**Broadly clean.** The only real flags across the {npts} points I can read are "
-                f"{_phrase(real)} — modest, and neither is manufacturing the delay.")
+    elif n_flag == 0:
+        head = (f"**Broadly clean.** No logic point is over its DCMA tolerance across the {npts} I can read — "
+                f"only within-tolerance housekeeping remains ({_phrase(minor)}).")
+    elif n_flag == 1:
+        head = (f"**Broadly clean.** Just one of the {npts} logic points is over tolerance — {_phrase(flagged)} — "
+                "and it isn't manufacturing the delay.")
+    elif n_flag == 2:
+        head = (f"**Two points need work** of the {npts} I can read — {_phrase(flagged)} — before anyone banks a "
+                "forecast off this.")
     else:
-        head = (f"**Mixed.** {len(flagged)} of the {npts} logic points I can read are flagging "
-                f"({_phrase(flagged)}) — tidy those before anyone banks a forecast off this.")
+        head = (f"**Mixed.** {n_flag} of the {npts} logic points I can read are over tolerance "
+                f"({_phrase(flagged)}) — clean those before you rely on the forecast.")
 
     body = [
         (f"The Health Review runs all 14 DCMA points; I can score {npts} of them from this snapshot "
@@ -306,7 +312,7 @@ def t06q02(F, role):
          + " and ".join([x for x in (oe, oos) if x])
          + "." if (oe or oos) else
          f"Out of {_acts(F)} the logic reads clean — no loose ends or out-of-order progress worth flagging."),
-        "None of that is rot — it's the kind of tidy-up every live schedule needs, not a sign the plan is broken.",
+        "That's not rot — it's the kind of tidy-up every live schedule needs, not a sign the plan is broken.",
         _delay_is_real_line(F),
         ("So when we brief the client, the message is simple: the schedule is trustworthy for decisions once the "
          "loose ends are closed, and the reported position is real — not an artefact of soft logic."),
@@ -348,7 +354,7 @@ def t06q03(F, role):
         body.append(f"The points still over the DCMA line — {names} — are what a reviewer marks up; none is fatal, "
                     "but each is a reason to send it back if you submit as-is.")
     body.append(
-        "None of this is structural — it's typically half a day of housekeeping. Close the open ends, add the "
+        "That's not structural — it's typically half a day of housekeeping. Close the open ends, add the "
         "status notes, confirm no key milestone is left dangling, and it clears review.")
     body.append(_delay_is_real_line(F)
                 + " Submitting dirty invites a rejection over cosmetics while the real story gets buried in the markup.")

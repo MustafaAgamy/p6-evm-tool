@@ -46,8 +46,14 @@ def _facts(**over):
     return F
 
 
-# Literals from the bundled illustrative answer_full sample — must NEVER appear verbatim.
-_SAMPLE_LEAKS = ['0.66', '40.4%', '61.4%', '47 working', '20 Apr 2027', '9 Feb', 'TF −18', 'TF -18', 'jetty']
+# Sample facts/nouns from the bundled illustrative answer_full — must NEVER appear verbatim in a
+# grounded answer (they'd only show up if a draft pasted the sample instead of reading F). These are
+# distinctive sample literals, not generic construction words (which are fine in advice examples).
+# (Real discipline names like "MCC Design & Engineering" are NOT leaks — they come from
+# F['disciplines'] and appear only when the loaded project actually has them; the distinctive
+# sample NUMBERS/DATES and hardcoded sample NOUNS below are the true tells of a pasted sample.)
+_SAMPLE_LEAKS = ['0.66', '40.4', '61.4', '47 working', '20 Apr 2027', '9 Feb', 'TF −18', 'TF -18',
+                 'bulk terminal', 'marine/jetty', 'Silo Structure']
 
 
 def _all_ids():

@@ -32,10 +32,6 @@ def _kpi(F, module, key):
         return None
 
 
-def _planner(role):
-    return role == 'planning'
-
-
 def _delay_chip(F):
     d = F.get('delay_days')
     if d is None:
@@ -495,8 +491,10 @@ def t03q08(F, role):
                          "spread question — once the Schedule Health Review is in, I'll tell you if the underwater "
                          "work sits on one chain or fans across several, then point the Critical Path Analyzer at "
                          "it to draw them.",
-                         f"For context, the finish is {K.delay_phrase(F)} — a slip that size on a multi-discipline "
-                         "job usually means more than one front is under pressure, not just one."],
+                         f"For context, the finish is {K.delay_phrase(F)}"
+                         + (" — a slip that size on a multi-discipline job usually means more than one front is "
+                            "under pressure, not just one." if (F.get('delay_days') or 0) > 0 else
+                            " — even so, I'd confirm whether one chain or several govern once the audit is in.")],
                    advice=[K.go_deeper('Critical Path Analyzer', 'To see the parallel chains')],
                    evidence=[K.ev('EVM', 'Delay', _delay_chip(F))])
     head = ("Likely **yes — plan for more than one.** This snapshot doesn't enumerate the parallel chains, but the "
@@ -590,7 +588,8 @@ def t03q10(F, role):
     return K.A(head, body,
                advice=["Use the float ranking as the proxy — shallowest float first — and treat any likelihood call "
                        "on top of it as engineering judgement, stated as such.",
-                       K.go_deeper('Schedule Audit, Critical Path Analyzer', 'For the float-based ranking')],
+                       K.go_deeper('Schedule Audit', 'For the float-based ranking'),
+                       K.go_deeper('Critical Path Analyzer', 'To see which chains those activities sit on')],
                evidence=[K.ev('Negative float', 'Already critical', nf),
                          K.ev('Float', 'Grade', F.get('float_grade'))])
 
