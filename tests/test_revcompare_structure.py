@@ -117,11 +117,13 @@ def test_calendar_lists_shared_nonworking_dates():
 def test_added_calendar_lists_its_own_nonworking_dates():
     """Round-16: a newly ADDED calendar has no prior revision to diff against, so its own dated
     non-working days are listed in full via `nonworking_dates` (holidays → 'Non-working', a
-    reduced-hours exception → 'Nh/day')."""
+    reduced-hours exception → 'Nh/day'). (Round-21: the added calendar must be pattern-DISSIMILAR
+    from the removed one — a 24h base vs a 10h new — so it is not paired as a rename by the new
+    working-pattern matching, and stays a genuine 'added'.)"""
     c_new = Calendar(object_id='cNEW', name='Marine Works', nonworking_days=set(),
                      holidays={date(2026, 1, 1), date(2026, 4, 25)}, added_work_days=set(),
                      day_hours=10.0, work_intervals={}, exception_intervals={})
-    rev0 = _sched([_act('A1', 'x', calid='c6')], cals=[_cal('c6', 'Base', {'Friday'})])
+    rev0 = _sched([_act('A1', 'x', calid='c6')], cals=[_cal('c6', 'Base', {'Friday'}, dh=24.0)])
     rev1 = _sched([_act('A2', 'y', calid='cNEW')], cals=[c_new])
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns']
                if p['name'] == 'Marine Works')
@@ -157,6 +159,25 @@ def test_reduced_hours_flagged_against_standard_day():
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '24h')
     e = {x['date']: x for x in pat['date_exceptions']}['23 Mar 2026']
     assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced from 24h)' and e['change'] == 'now working'
+
+
+def test_calendar_matched_by_working_pattern_not_activity_movement():
+    """Round-21 — a Rev.00-only calendar is paired with the Rev.01-only calendar of the MOST SIMILAR
+    working pattern (hours/day), so an 8h calendar compares with an 8h calendar and a 24h with a 24h
+    — never a 24h paired with an 8h — even when the activities moved the other way."""
+    c0_8 = Calendar(object_id='a0', name='Day Shift - Old', nonworking_days={'Friday'}, holidays=set(),
+                    added_work_days=set(), day_hours=8.0, work_intervals={}, exception_intervals={})
+    c0_24 = Calendar(object_id='b0', name='Round Clock - Old', nonworking_days=set(), holidays=set(),
+                     added_work_days=set(), day_hours=24.0, work_intervals={}, exception_intervals={})
+    c1_8 = Calendar(object_id='a1', name='Day Shift - New', nonworking_days={'Friday'}, holidays=set(),
+                    added_work_days=set(), day_hours=8.0, work_intervals={}, exception_intervals={})
+    c1_24 = Calendar(object_id='b1', name='Round Clock - New', nonworking_days=set(), holidays=set(),
+                     added_work_days=set(), day_hours=24.0, work_intervals={}, exception_intervals={})
+    rev0 = _sched([_act('A1', 'x', calid='a0'), _act('A2', 'y', calid='b0')], cals=[c0_8, c0_24])
+    rev1 = _sched([_act('A1', 'x', calid='a1'), _act('A2', 'y', calid='b1')], cals=[c1_8, c1_24])
+    pats = {p['name']: p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns']}
+    assert pats['Day Shift - Old']['renamed_to'] == 'Day Shift - New'        # 8h → 8h
+    assert pats['Round Clock - Old']['renamed_to'] == 'Round Clock - New'    # 24h → 24h
 
 
 def test_calendar_comparison_limited_to_data_date_completion_window():

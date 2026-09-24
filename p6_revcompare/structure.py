@@ -398,21 +398,38 @@ def diff_calendars(rev0, rev1, matched):
         if n0 and n1 and n0 != n1:
             groups.setdefault((n0, n1), []).append(code)
 
-    # Calendar RENAME detection: a calendar whose name is only in Rev.00 paired with one only in
-    # Rev.01 when (nearly) all of the old calendar's activities were reassigned to the new one —
-    # i.e. it was renamed, not replaced. Uses the activity-usage signal (NOT holiday overlap, which
-    # is exactly what we are comparing), so a renamed calendar's non-working dates are still diffed
-    # rather than lost as an unrelated removed+added pair.
+    # Round-21 — match a Rev.00-only calendar to a Rev.01-only calendar by WORKING-PATTERN
+    # SIMILARITY (hours/day dominant, then days/week), so the comparison is always calendar-vs-most-
+    # similar-calendar (an 8h calendar compares with an 8h calendar, a 24h with a 24h) — never a 24h
+    # paired with an 8h. Activity reassignment is only a tie-breaker between equally-similar
+    # candidates. A pairing is accepted only when the two are the same TYPE (hours/day within 50%),
+    # so a genuinely new/removed calendar with no similar counterpart stays added/removed.
+    def _pdist(a, b):
+        h0, h1 = getattr(a, 'day_hours', None) or 0.0, getattr(b, 'day_hours', None) or 0.0
+        d0, d1 = _workdays_per_week(a) or 0, _workdays_per_week(b) or 0
+        return abs(h0 - h1) * 10 + abs(d0 - d1)          # hours/day dominant, days/week secondary
+
+    def _psim(a, b):
+        h0, h1 = getattr(a, 'day_hours', None) or 0.0, getattr(b, 'day_hours', None) or 0.0
+        if h0 and h1:
+            return min(h0, h1) / max(h0, h1) >= 0.5      # same calendar TYPE (8h never ~ 24h)
+        return h0 == h1
+
     removed_names, added_names = set(c0) - set(c1), set(c1) - set(c0)
-    rename_map, used_new = {}, set()
-    for n0 in sorted(removed_names):
-        best, best_cnt = None, 0
-        for (g0, g1), codes in groups.items():
-            if g0 == n0 and g1 in added_names and g1 not in used_new and len(codes) > best_cnt:
-                best, best_cnt = g1, len(codes)
-        if best is not None and best_cnt >= max(1, round((u0.get(n0, 0)) * 0.6)):
-            rename_map[n0] = best
-            used_new.add(best)
+    cand = []
+    for n0 in removed_names:
+        for n1 in added_names:
+            if _psim(c0[n0], c1[n1]):
+                reassign = len(groups.get((n0, n1), []))
+                cand.append((_pdist(c0[n0], c1[n1]), -reassign, n0, n1))
+    cand.sort()                                          # closest pattern first; more reassignment breaks ties
+    rename_map, used_new, used_old = {}, set(), set()
+    for _dist, _neg, n0, n1 in cand:
+        if n0 in used_old or n1 in used_new:
+            continue
+        rename_map[n0] = n1
+        used_old.add(n0)
+        used_new.add(n1)
     renamed_to = set(rename_map.values())
 
     reassignments = []
