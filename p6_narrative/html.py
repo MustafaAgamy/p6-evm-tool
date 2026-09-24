@@ -1257,6 +1257,17 @@ def _critpath(p, number, title, meta, cur):
     return ''.join(out)
 
 
+def _mapsheet(p, number, title, meta, cur):
+    """Appendix — Mapping Sheet: a cover page only (the heading is drawn by the section wrapper).
+    The planner attaches the project mapping sheet into this appendix, so the body is just a light,
+    centred placeholder note. Twin of ``docx_writer._render_mapsheet``."""
+    p = p or {}
+    txt = _esc(p.get('placeholder')
+               or 'The project mapping sheet is attached in this appendix by the planner.')
+    return ('<div style="text-align:center;margin-top:40mm;color:#8a95a1;font-style:italic;'
+            'font-size:13px">%s</div>' % txt)
+
+
 _RENDER = {
     'overview': _overview,
     'image': _image,
@@ -1273,6 +1284,7 @@ _RENDER = {
     'prodrate': _prodrate,
     'volwork': _volwork,
     'critpath': _critpath,
+    'mapsheet': _mapsheet,
 }
 
 

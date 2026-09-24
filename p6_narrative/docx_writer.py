@@ -1266,6 +1266,16 @@ def _render_critpath(document, p, number, note):
         _muted(document, p.get('note'))
 
 
+def _render_mapsheet(document, p, number, note):
+    """Native Word Appendix — Mapping Sheet: a cover page only (the heading is laid down by
+    ``write_docx``). The planner attaches the project mapping sheet into this appendix, so the body
+    is a single light, centred placeholder note pushed down the page. Twins ``html._mapsheet``."""
+    p = p or {}
+    txt = p.get('placeholder') or 'The project mapping sheet is attached in this appendix by the planner.'
+    para(document, txt, size=13, italic=True, color=GREY, before=190,
+         align=WD_ALIGN_PARAGRAPH.CENTER)
+
+
 _RENDER = {
     'overview': _render_overview,
     'image': _render_image,
@@ -1283,6 +1293,7 @@ _RENDER = {
     'prodrate': _render_prodrate,
     'volwork': _render_volwork,
     'critpath': _render_critpath,
+    'mapsheet': _render_mapsheet,
 }
 
 
