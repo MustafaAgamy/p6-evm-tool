@@ -141,8 +141,9 @@ def test_inboth_calendar_has_no_nonworking_dates_list():
 
 
 def test_reduced_hours_flagged_against_standard_day():
-    """Round-17 #02: on a 24h/day calendar, a day that works only 8h is a REDUCED day and must be
-    labelled '8h/day (reduced)' — while on an 8h/day calendar an 8h day is just '8h/day'."""
+    """Round-17 #02 / round-20 #1: on a 24h/day calendar, a day that works only 8h is a REDUCED day
+    and must be labelled '8h/day (reduced from 24h)' — while on an 8h/day calendar an 8h day is just
+    '8h/day'."""
     from p6_evm.calendars import Calendar
     from datetime import date as _d
     d1 = _d(2026, 3, 23)
@@ -155,7 +156,7 @@ def test_reduced_hours_flagged_against_standard_day():
     rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '24h')
     e = {x['date']: x for x in pat['date_exceptions']}['23 Mar 2026']
-    assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced)' and e['change'] == 'now working'
+    assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced from 24h)' and e['change'] == 'now working'
 
 
 def test_calendar_comparison_limited_to_data_date_completion_window():

@@ -1105,29 +1105,25 @@ function calLedger(p) {
   let rows = wkRow('Working days / week', r0.days, r1.days, ' d/wk')
     + wkRow('Hours / day', r0.hours, r1.hours, ' h')
     + wkRow('Hours / week', r0.hpw, r1.hpw, ' h');
-  const flips = (p.date_exceptions || []).filter(e => e.change !== 'unchanged');
-  const identical = (p.date_exceptions || []).filter(e => e.change === 'unchanged').length;
+  // Round-20 #2 — list ALL non-working days in the window (chronological), not just the changed ones;
+  // unchanged days are shown greyed, only the Rev.00↔Rev.01 DIFFERENCES are highlighted.
+  const allDays = (p.date_exceptions || []).slice().sort((a, b) => String(a.iso).localeCompare(String(b.iso)));
+  const nDiff = allDays.filter(e => e.change !== 'unchanged').length;
   let exc = '';
-  if (flips.length) {
-    exc = `<tr class="rc-lband"><td colspan="4">Exception dates — changed only</td></tr>`
-      + flips.map(e => {
-        const c = e.change, cls = c === 'now working' ? 'g' : c === 'now non-working' ? 'r' : 'a';
-        // Round-18 #02 — a day non-working in Rev.01 that wasn't in Rev.00 is a NEW non-working day
-        // (red highlight); a reduced-hours day/period is amber. Reduced = either revision reads
-        // "(reduced)" OR the change is an hours change (Ah → Bh).
-        const isNew = c === 'now non-working';
-        const isReduced = /\(reduced\)/.test(String(e.rev0) + String(e.rev1)) || (!String(c).startsWith('now') && /→/.test(String(c)));
-        const hiCls = isNew ? ' rc-hi-new' : isReduced ? ' rc-hi-red' : '';
-        const badge = isNew ? ' <span class="rc-flag new">NEW</span>' : isReduced ? ' <span class="rc-flag red">REDUCED</span>' : '';
-        const note = (c === 'now working' ? (isReduced ? 'now working, reduced' : 'made working')
-          : c === 'now non-working' ? 'new non-working' : `hours ${esc(c)}`) + badge;
-        return `<tr class="${hiCls.trim()}"><td class="rc-lattr"><span class="rc-dot ${cls}"></span>${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg rc-chg-${cls}">${note}</td></tr>`;
-      }).join('');
+  if (allDays.length) {
+    exc = `<tr class="rc-lband"><td colspan="4">Non-working days — all listed, differences highlighted</td></tr>`
+      + allDays.map(e => {
+        const c = e.change;
+        if (c === 'unchanged') {
+          return `<tr class="rc-same"><td class="rc-lattr">${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg">—</td></tr>`;
+        }
+        const cls = c === 'now working' ? 'g' : c === 'now non-working' ? 'r' : 'a';
+        const note = c === 'now working' ? 'now working' : c === 'now non-working' ? 'now non-working' : `hours ${esc(c)}`;
+        return `<tr class="rc-hi-${cls}"><td class="rc-lattr"><span class="rc-dot ${cls}"></span>${esc(e.date)}</td><td class="rc-lrev">${esc(e.rev0)}</td><td class="rc-lrev">${esc(e.rev1)}</td><td class="rc-lchg rc-chg-${cls}">${note} <span class="rc-flag ${cls}">DIFF</span></td></tr>`;
+      }).join('')
+      + `<tr class="rc-lsum"><td colspan="4">${fmtInt(allDays.length)} non-working day${allDays.length === 1 ? '' : 's'} in the window · <b>${fmtInt(nDiff)} differ${nDiff === 1 ? 's' : ''}</b> between Rev.00 and Rev.01 (highlighted).</td></tr>`;
   }
-  if (identical) {
-    exc += `<tr class="rc-lident"><td colspan="3">${fmtInt(identical)} non-working day${identical > 1 ? 's are' : ' is'} <b>identical</b> in both revisions — no change</td><td class="rc-lchg">not listed</td></tr>`;
-  }
-  return `<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th><th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th><th class="rc-lchg">Change</th></tr></thead><tbody>${rows}${exc}</tbody></table>`;
+  return `<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th><th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th><th class="rc-lchg">Difference</th></tr></thead><tbody>${rows}${exc}</tbody></table>`;
 }
 
 // Round-16 #03c — an ADDED (or removed) calendar has no other revision to diff against, so its own
@@ -1145,8 +1141,9 @@ function calNonworkingTable(p) {
   if (!nd.length) {
     return `<div class="${band}"><div class="rc-nwh">${title}${badge}</div><div class="rc-sec rc-mut" style="margin:4px 0 0">No dated non-working days — this calendar works every day in its weekly pattern (shown above).</div></div>`;
   }
-  const stCls = d => /\(reduced\)/.test(String(d.status)) ? 'rc-chg-a' : (isRemoved ? 'rc-mut' : 'rc-chg-r');
-  const trows = nd.map(d => `<tr><td class="rc-lattr">${esc(d.date)}</td><td class="rc-lchg ${stCls(d)}">${esc(d.status)}${isRemoved ? ' (removed)' : ''}</td></tr>`).join('');
+  const stCls = d => /\(reduced/.test(String(d.status)) ? 'rc-chg-a' : (isRemoved ? 'rc-mut' : 'rc-chg-r');
+  // Round-20 #1 — no redundant "(removed)" on each row; the heading already says the whole calendar is gone.
+  const trows = nd.map(d => `<tr><td class="rc-lattr">${esc(d.date)}</td><td class="rc-lchg ${stCls(d)}">${esc(d.status)}</td></tr>`).join('');
   return `<div class="${band}"><div class="rc-nwh">${title}${badge}</div>
     <table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th><th class="rc-lchg">Status</th></tr></thead><tbody>${trows}</tbody></table></div>`;
 }

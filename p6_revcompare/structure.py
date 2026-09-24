@@ -186,7 +186,8 @@ def _hlabel(h, std=None):
     if not h:
         return 'Non-working'
     if std and h < std - 1e-6:
-        return f'{h:g}h/day (reduced)'
+        # round-20 #1 — name the standard day so "reduced" is unambiguous ("8h/day (reduced from 24h)").
+        return f'{h:g}h/day (reduced from {std:g}h)'
     return f'{h:g}h/day'
 
 

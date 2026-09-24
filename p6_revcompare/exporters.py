@@ -1209,40 +1209,32 @@ def _cal_ledger(p):
     rows = (wk_row('Working days / week', r0.get('days'), r1.get('days'), ' d/wk')
             + wk_row('Hours / day', r0.get('hours'), r1.get('hours'), ' h')
             + wk_row('Hours / week', r0.get('hpw'), r1.get('hpw'), ' h'))
-    excs = p.get('date_exceptions') or []
-    flips = [e for e in excs if e.get('change') != 'unchanged']
-    identical = sum(1 for e in excs if e.get('change') == 'unchanged')
+    # round-20 #2 — list ALL non-working days in the window (chronological); unchanged days are shown
+    # greyed, only the Rev.00↔Rev.01 DIFFERENCES are highlighted (green/red/amber). No collapse row.
+    all_days = sorted((p.get('date_exceptions') or []), key=lambda e: str(e.get('iso') or ''))
+    n_diff = sum(1 for e in all_days if e.get('change') != 'unchanged')
     exc = ''
-    if flips:
-        exc += '<tr class="rc-lband"><td colspan="4">Exception dates — changed only</td></tr>'
-        for e in flips:
+    if all_days:
+        exc += '<tr class="rc-lband"><td colspan="4">Non-working days — all listed, differences highlighted</td></tr>'
+        for e in all_days:
             c = e.get('change')
+            if c == 'unchanged':
+                exc += (f'<tr class="rc-same"><td class="rc-lattr">{_e(e.get("date"))}</td>'
+                        f'<td class="rc-lrev">{_e(e.get("rev0"))}</td><td class="rc-lrev">{_e(e.get("rev1"))}</td>'
+                        f'<td class="rc-lchg">—</td></tr>')
+                continue
             cls = 'g' if c == 'now working' else 'r' if c == 'now non-working' else 'a'
-            # round-18 #02 — a day non-working in Rev.01 that wasn't in Rev.00 is a NEW non-working
-            # day (red highlight + badge); a reduced-hours day/period is amber. Reduced = either
-            # revision reads "(reduced)" OR the change is an hours change (Ah → Bh).
-            is_new = c == 'now non-working'
-            is_reduced = ('(reduced)' in (str(e.get('rev0')) + str(e.get('rev1')))
-                          or (not str(c or '').startswith('now') and '→' in str(c or '')))
-            hi = ' rc-hi-new' if is_new else ' rc-hi-red' if is_reduced else ''
-            badge = (' <span class="rc-flag new">NEW</span>' if is_new
-                     else ' <span class="rc-flag red">REDUCED</span>' if is_reduced else '')
-            note = (('now working, reduced' if is_reduced else 'made working') if c == 'now working'
-                    else 'new non-working' if c == 'now non-working'
-                    else f'hours {_e(c)}') + badge
-            exc += (f'<tr class="{hi.strip()}"><td class="rc-lattr"><span class="rc-dot {cls}"></span>{_e(e.get("date"))}</td>'
+            note = ('now working' if c == 'now working' else 'now non-working' if c == 'now non-working'
+                    else f'hours {_e(c)}')
+            exc += (f'<tr class="rc-hi-{cls}"><td class="rc-lattr"><span class="rc-dot {cls}"></span>{_e(e.get("date"))}</td>'
                     f'<td class="rc-lrev">{_e(e.get("rev0"))}</td><td class="rc-lrev">{_e(e.get("rev1"))}</td>'
-                    f'<td class="rc-lchg rc-chg-{cls}">{note}</td></tr>')
-    if identical:
-        # round-16 #03b — one clear full-width line proving the identical dates were compared (mirrors
-        # the screen's calLedger rc-lident row), with 'not listed' kept in the Change column.
-        exc += (f'<tr class="rc-lident"><td colspan="3"><b>{_num(identical)} non-working '
-                f'day{"s" if identical > 1 else ""}</b> {"are" if identical > 1 else "is"} '
-                f'identical in both revisions — no change</td>'
-                f'<td class="rc-lchg">not listed</td></tr>')
+                    f'<td class="rc-lchg rc-chg-{cls}">{note} <span class="rc-flag {cls}">DIFF</span></td></tr>')
+        exc += (f'<tr class="rc-lsum"><td colspan="4">{_num(len(all_days))} non-working '
+                f'day{"s" if len(all_days) != 1 else ""} in the window &middot; <b>{_num(n_diff)} '
+                f'differ{"s" if n_diff == 1 else ""}</b> between Rev.00 and Rev.01 (highlighted).</td></tr>')
     return (f'<table class="rc-ldg"><thead><tr><th class="rc-lattr">Attribute</th>'
             f'<th class="rc-lrev">Rev.00</th><th class="rc-lrev">Rev.01</th>'
-            f'<th class="rc-lchg">Change</th></tr></thead><tbody>{rows}{exc}</tbody></table>')
+            f'<th class="rc-lchg">Difference</th></tr></thead><tbody>{rows}{exc}</tbody></table>')
 
 
 def _cal_nonworking_table(p):
@@ -1267,11 +1259,12 @@ def _cal_nonworking_table(p):
                 'calendar works every day in its weekly pattern (shown above).</div></div>')
 
     def _st_cls(d):
-        if '(reduced)' in str(d.get('status') or ''):
+        if '(reduced' in str(d.get('status') or ''):
             return 'rc-chg-a'
         return 'rc-mut' if is_removed else 'rc-chg-r'
+    # round-20 #1 — no redundant "(removed)" per row; the heading already says the calendar is gone.
     trows = ''.join(f'<tr><td class="rc-lattr">{_e(d.get("date"))}</td>'
-                    f'<td class="rc-lchg {_st_cls(d)}">{_e(d.get("status"))}{" (removed)" if is_removed else ""}</td></tr>'
+                    f'<td class="rc-lchg {_st_cls(d)}">{_e(d.get("status"))}</td></tr>'
                     for d in nd)
     return (f'<div class="{band}"><div class="rc-nwh">{_e(title)}{badge}</div>'
             f'<table class="rc-ldg rc-nwld"><thead><tr><th class="rc-lattr">Date</th>'
@@ -2338,11 +2331,17 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .rc-nwh .rc-mut { font-weight: 600; text-transform: none; letter-spacing: 0; }
 .rc-ldg.rc-nwld { margin-top: 4px; } .rc-ldg.rc-nwld .rc-lattr { width: 60%; font-weight: 600; }
 .rc-ldg.rc-nwld .rc-lchg { text-align: left; width: 40%; }
-/* round-18 #02 — highlight NEW non-working days (red) and REDUCED-hours periods (amber) */
-.rc-ldg tr.rc-hi-new td { background: var(--rpt-bad-bg); box-shadow: inset 3px 0 0 var(--rpt-bad); }
-.rc-ldg tr.rc-hi-red td { background: var(--rpt-warn-bg); box-shadow: inset 3px 0 0 var(--rpt-warn); }
-.rc-flag { font-size: 8px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 6px; text-transform: uppercase; }
-.rc-flag.new { background: var(--rpt-bad); color: #fff; } .rc-flag.red { background: var(--rpt-warn); color: #fff; }
+/* round-20 #2 — all non-working days listed; unchanged greyed, only differences highlighted (g/r/a) */
+.rc-ldg tr.rc-hi-g td { background: var(--rpt-good-bg); box-shadow: inset 3px 0 0 var(--rpt-good); }
+.rc-ldg tr.rc-hi-r td { background: var(--rpt-bad-bg); box-shadow: inset 3px 0 0 var(--rpt-bad); }
+.rc-ldg tr.rc-hi-a td { background: var(--rpt-warn-bg); box-shadow: inset 3px 0 0 var(--rpt-warn); }
+.rc-ldg tr.rc-same td { color: var(--rpt-muted); }
+.rc-ldg tr.rc-same .rc-lattr { color: var(--rpt-ink-soft); font-weight: 500; }
+.rc-ldg tr.rc-lsum td { background: var(--rpt-surface-2); color: var(--rpt-ink-soft); font-size: 10.5px; padding: 6px 10px; }
+.rc-ldg tr.rc-lsum b { color: var(--rpt-ink); }
+.rc-flag { font-size: 8px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 6px; text-transform: uppercase; color: #fff; }
+.rc-flag.g { background: var(--rpt-good); } .rc-flag.r { background: var(--rpt-bad); } .rc-flag.a { background: var(--rpt-warn); }
+.rc-flag.new { background: var(--rpt-bad); } .rc-flag.red { background: var(--rpt-warn); }
 .rc-nwtbl.new { border: 1px solid var(--rpt-bad); background: var(--rpt-bad-bg); border-radius: 9px; padding: 9px 12px; }
 .rc-nwtbl.new .rc-nwh { color: var(--rpt-bad); }
 .rc-nwtbl.rem { background: var(--rpt-surface-2); }

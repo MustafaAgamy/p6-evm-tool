@@ -3101,10 +3101,17 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rc-dimtab { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink-soft); cursor: pointer; }
 .rc-dimtab.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
 /* round-18 #02 — highlight NEW non-working days (red) and REDUCED-hours periods (amber). */
-.rc-ldg tr.rc-hi-new td { background: var(--danger-bg); box-shadow: inset 3px 0 0 var(--danger); }
-.rc-ldg tr.rc-hi-red td { background: var(--warning-bg); box-shadow: inset 3px 0 0 var(--warning); }
-.rc-flag { font-size: 8.5px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 7px; text-transform: uppercase; vertical-align: 1px; }
-.rc-flag.new { background: var(--danger); color: #fff; } .rc-flag.red { background: var(--warning); color: #fff; }
+/* round-20 #2 — all non-working days listed; unchanged greyed, only differences highlighted (g/r/a) */
+.rc-ldg tr.rc-hi-g td { background: var(--success-bg); box-shadow: inset 3px 0 0 var(--success); }
+.rc-ldg tr.rc-hi-r td { background: var(--danger-bg); box-shadow: inset 3px 0 0 var(--danger); }
+.rc-ldg tr.rc-hi-a td { background: var(--warning-bg); box-shadow: inset 3px 0 0 var(--warning); }
+.rc-ldg tr.rc-same td { color: var(--muted); }
+.rc-ldg tr.rc-same .rc-lattr { color: var(--ink-soft); font-weight: 500; }
+.rc-ldg tr.rc-lsum td { background: var(--bg); color: var(--ink-soft); font-size: 11.5px; padding: 7px 10px; }
+.rc-ldg tr.rc-lsum b { color: var(--ink); }
+.rc-flag { font-size: 8.5px; font-weight: 800; letter-spacing: .3px; padding: 1px 6px; border-radius: 20px; margin-left: 7px; text-transform: uppercase; vertical-align: 1px; color: #fff; }
+.rc-flag.g { background: var(--success); } .rc-flag.r { background: var(--danger); } .rc-flag.a { background: var(--warning); }
+.rc-flag.new { background: var(--danger); } .rc-flag.red { background: var(--warning); }
 .rc-nwtbl.new { border: 1px solid var(--danger-border, var(--danger)); background: var(--danger-bg); border-radius: 9px; padding: 10px 12px; border-top: 1px solid var(--danger-border, var(--danger)); }
 .rc-nwtbl.new .rc-nwh { color: var(--danger); }
 .rc-nwtbl.rem { background: var(--bg); }
