@@ -779,6 +779,353 @@ function wireSetupForm(root) {
   if (gen) gen.addEventListener('click', () => fetchAndRender());
 }
 
+// ══ Conversational guided setup — the smart interview ══════════════════════════
+// Instead of a wall of controls, the planner is walked through the report's inputs one
+// question at a time. The tool pre-reads the file (an initial /api/narrative call returns
+// meta.*_choices + scope_codes_auto) and pre-fills every answer it can detect, so the
+// planner mostly CONFIRMS. It writes into the SAME setup object the classic form used
+// (location, contract_type, revision, *_logo, layout, milestone_keys, key_date_keys,
+// scope_codes, sequence_codes) and, when finished, calls the unchanged generate path.
+// The contract value is never asked — the report derives it automatically from the cost
+// loading — matching the planner's steer that it needs no input.
+
+const CONTRACT_TYPES = ['Lump sum', 'Remeasurable', 'EPC / turnkey', 'Cost plus', 'Unit rate', 'Design and build'];
+const CHAT_STEPS = ['location', 'contract_type', 'revision', 'branding', 'milestones', 'scope', 'sequence', 'generate'];
+const CHAT_Q = {
+  location:      "I've read your schedule. Let's set up your Baseline Narrative Report together. First — where is the project?",
+  contract_type: 'What type of contract is it?',
+  revision:      "And which revision is this? (The contract value I'll take automatically from your cost loading — nothing to enter.)",
+  branding:      'Add the party logos for the page header and your project layout drawing. These are optional — skip any you don’t have.',
+  milestones:    'I found your milestones and key dates and ticked the main ones. Confirm what appears in sections 4 and 5.',
+  scope:         'How should I describe the scope of work (section 7)? I detected this order — reorder it, or add an activity code above or below.',
+  sequence:      'And the sequence of work (section 11)? Same idea — add or remove sequence analyses; each is one code, or two to sequence by building.',
+  generate:      "That's everything I need. I'll build the full report — all sections plus the Critical Path and Mapping Sheet appendix — matched across Word, PDF and on screen.",
+};
+let _chatMeta = {};
+let _chatCur = 0;
+
+function chatCss() {
+  return `<style>
+    .bn-chat{max-width:760px;margin:0 auto;border:1px solid var(--border,#dadee4);border-radius:14px;background:var(--surface-2,#fff);overflow:hidden}
+    .bn-chat-head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border,#e4e8ee)}
+    .bn-chat-av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:#1F4E79;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+    .bn-chat-title{font-size:14px;font-weight:700;color:#1a1d21;line-height:1.15}
+    .bn-chat-sub{font-size:11.5px;color:var(--text-secondary,#5a626b)}
+    .bn-thread{padding:16px 18px 4px;max-height:none}
+    .bn-row{display:flex;gap:9px;margin-bottom:14px}
+    .bn-row.me{justify-content:flex-end}
+    .bn-av{width:26px;height:26px;border-radius:50%;background:#e8f1fb;color:#1F4E79;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px}
+    .bn-bub{background:var(--surface,#f5f8fb);border:1px solid var(--border,#e4e8ee);border-radius:13px;border-top-left-radius:3px;padding:10px 13px;font-size:13.5px;line-height:1.5;color:var(--text-primary,#1a1d21);max-width:84%}
+    .bn-ans{background:#1F4E79;color:#fff;border-radius:13px;border-top-right-radius:3px;padding:8px 13px;font-size:13px;max-width:84%}
+    .bn-ctl{margin:2px 0 6px 35px}
+    .bn-ci{width:80%;max-width:420px;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border,#c7cdd4);border-radius:8px;font:inherit;font-size:13.5px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
+    .bn-chip2{font:inherit;font-size:12.5px;border:1px solid var(--border,#c7cdd4);background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21);border-radius:18px;padding:6px 13px;margin:0 6px 6px 0;cursor:pointer}
+    .bn-chip2:hover{border-color:#1F4E79}
+    .bn-chip2.on{background:#1F4E79;color:#fff;border-color:#1F4E79}
+    .bn-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:460px;margin-bottom:9px}
+    .bn-tile{border:1px dashed #9bb6cc;border-radius:9px;height:56px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;color:#3487ae;cursor:pointer;padding:0 6px;position:relative}
+    .bn-tile.on{border-style:solid;border-color:#1F8f5f;color:#1F8f5f;background:#eef8f1}
+    .bn-tile input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .bn-cklist{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:520px}
+    .bn-cktitle{font-size:11px;font-weight:700;color:#265f7e;margin-bottom:5px}
+    .bn-cktitle a{font-size:11px;font-weight:500;color:#3487ae;cursor:pointer;text-decoration:underline}
+    .bn-ck{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:3px 0;cursor:pointer}
+    .bn-ck input{width:15px;height:15px}
+    .bn-add2{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12px;color:#1F4E79;background:#eaf1f9;border:none;border-radius:16px;padding:6px 12px;cursor:pointer;margin:3px 0}
+    .bn-add2:hover{background:#dbe7f5}
+    .bn-addsel{font:inherit;font-size:12px;border:1px solid #c7cdd4;border-radius:16px;padding:5px 10px;background:var(--surface-2,#fff);color:#1F4E79;margin:3px 0}
+    .bn-cflow{display:flex;flex-direction:column;gap:7px;align-items:flex-start;margin:4px 0}
+    .bn-cchain{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .bn-cchip{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2,#fff);border:1px solid #b7c3d1;color:#1a2b3d;font-size:12px;padding:5px 9px;border-radius:16px}
+    .bn-cchip b{font-weight:700;color:#1F4E79}
+    .bn-ch{color:#7c8794;cursor:pointer;font-size:12px}
+    .bn-ch:hover{color:#1F4E79}
+    .bn-carrow{color:#9aa4b0;font-size:12px}
+    .bn-srow{display:flex;align-items:center;gap:7px;border:1px solid var(--border,#dadee4);border-radius:8px;padding:6px 9px;background:var(--surface-2,#fff);max-width:520px}
+    .bn-sq{flex:1;min-width:0;padding:5px 8px;border:1px solid #c7cdd4;border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
+    .bn-lvl2{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:#1F4E79;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+    .bn-x{color:#b3402f;cursor:pointer;font-size:14px;flex:0 0 auto}
+    .bn-hint2{font-size:11.5px;color:var(--text-muted,#8a9099);margin:4px 0 2px}
+    .bn-sum{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12.5px;max-width:520px;margin:4px 0 12px}
+    .bn-sum .k{color:var(--text-secondary,#5a626b)}
+    .bn-gen{height:40px;padding:0 20px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+    .bn-gen:disabled{opacity:.6;cursor:default}
+    .bn-chat-foot{display:flex;align-items:center;justify-content:space-between;padding:11px 18px 15px;border-top:1px solid var(--border,#e4e8ee)}
+    .bn-back{font:inherit;font-size:12.5px;background:none;border:none;color:var(--text-secondary,#5a626b);cursor:pointer}
+    .bn-back:hover{color:#1F4E79}
+    .bn-continue{font:inherit;font-size:13px;font-weight:600;background:#265f7e;color:#fff;border:none;border-radius:7px;padding:8px 20px;cursor:pointer}
+    .bn-report-bar{max-width:900px;margin:0 auto 10px;text-align:right}
+    .bn-edit-setup{font:inherit;font-size:12.5px;border:1px solid #3487ae;color:#3487ae;background:transparent;border-radius:7px;padding:6px 13px;cursor:pointer}
+    .bn-edit-setup:hover{background:rgba(52,135,174,.08)}
+  </style>`;
+}
+
+// One /api/narrative call that BUILDS the report server-side and returns meta (the detected
+// choices) — used to seed the chat before showing any question. Does not mount the report.
+async function fetchDetected() {
+  if (!state.currentXmlPath && !state.currentCachedPath) return null;
+  try {
+    const resp = await fetch(`http://localhost:${PORT()}/api/narrative`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+        snapshot_id: state.currentSnapshotId || null, setup: setupForSend(),
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) return null;
+    state.narrativeDoc = data.doc;                 // lets scopeDisciplines() + meta resolve
+    _chatMeta = (data.doc && data.doc.meta) || {};
+    return _chatMeta;
+  } catch { return null; }
+}
+
+function chatCodes() { return (_chatMeta.code_choices || []); }
+
+// Current ordered scope codes from the setup (seeded from auto-detect on first open).
+function curScope() {
+  const s = getSetup(), codes = chatCodes();
+  const raw = Array.isArray(s.scope_codes) ? s.scope_codes : null;
+  let sc;
+  if (raw === null) { sc = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c)); s.scope_codes = sc.slice(); saveSetup(); }
+  else { sc = raw.filter(c => codes.includes(c)); }
+  return sc;
+}
+function setScope(sc) { const s = getSetup(); s.scope_codes = sc.slice(); saveSetup(); }
+
+// Current sequence analyses ([{codes:[a]|[a,b]}]) from the setup (seeded from auto-detect).
+function curSeq() {
+  const s = getSetup(), codes = chatCodes();
+  const raw = Array.isArray(s.sequence_codes) ? s.sequence_codes : null;
+  if (raw === null) {
+    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
+    const seeded = [];
+    if (auto[0]) seeded.push({ codes: [auto[0]] });
+    if (auto.length >= 3) seeded.push({ codes: [auto[1], auto[2]] });
+    s.sequence_codes = seeded.map(a => ({ codes: a.codes.slice() })); saveSetup();
+    return seeded;
+  }
+  return raw.map(a => ({ codes: (Array.isArray(a.codes) ? a.codes : []).filter(c => codes.includes(c)).slice(0, 2) }))
+            .filter(a => a.codes.length);
+}
+function setSeq(list) { const s = getSetup(); s.sequence_codes = list.map(a => ({ codes: a.codes.filter(Boolean).slice(0, 2) })); saveSetup(); }
+
+// The interactive control for the current step (returned as an HTML string).
+function chatControl(step) {
+  const s = getSetup();
+  const esc = _esc;
+  if (step === 'location') return `<input class="bn-ci" data-k="location" placeholder="e.g. Ain Sokhna, Egypt" value="${esc(s.location)}">`;
+  if (step === 'contract_type') {
+    const chips = CONTRACT_TYPES.map(t => `<button type="button" class="bn-chip2${s.contract_type === t ? ' on' : ''}" data-ct="${esc(t)}">${esc(t)}</button>`).join('');
+    const custom = CONTRACT_TYPES.includes(s.contract_type) ? '' : (s.contract_type || '');
+    return chips + `<div style="margin-top:4px"><input class="bn-ci" data-k="contract_type" style="width:60%" placeholder="or type another contract type" value="${esc(custom)}"></div>`;
+  }
+  if (step === 'revision') return `<input class="bn-ci" data-k="revision" style="width:40%" placeholder="e.g. REV.03" value="${esc(s.revision)}">`;
+  if (step === 'branding') {
+    const tile = (k, label) => `<label class="bn-tile${s[k] ? ' on' : ''}">${s[k] ? '✓ ' + label : label}<input type="file" accept="image/*" data-logo="${k}"></label>`;
+    return `<div class="bn-tiles">${tile('owner_logo', 'Owner logo')}${tile('consultant_logo', 'Consultant logo')}${tile('contractor_logo', 'Contractor logo')}</div>` +
+      `<label class="bn-tile${s.layout ? ' on' : ''}" style="max-width:460px;height:52px">${s.layout ? '✓ Layout drawing' : 'Project layout drawing — section 2'}<input type="file" accept="image/*" data-logo="layout"></label>`;
+  }
+  if (step === 'milestones') {
+    const col = (title, items, key) => {
+      const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;
+      const rows = items.map(l => `<label class="bn-ck"><input type="checkbox" data-sel="${key}" value="${esc(l)}"${(!sel || sel.has(l)) ? ' checked' : ''}> ${esc(l)}</label>`).join('');
+      return `<div><div class="bn-cktitle">${title} — <a data-all="${key}">all</a> · <a data-none="${key}">none</a></div>${rows || '<span class="bn-hint2">none in the file</span>'}</div>`;
+    };
+    return `<div class="bn-cklist">${col('Major milestones', _chatMeta.milestone_choices || [], 'milestone_keys')}${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
+  }
+  if (step === 'scope') {
+    const sc = curScope(), codes = chatCodes();
+    const remaining = codes.filter(c => !sc.includes(c));
+    const chip = (c, i) => `<span class="bn-cchip"><b>${i + 1}</b> ${esc(c)}` +
+      `<i class="bn-ch" data-smv="up" data-i="${i}" title="up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
+      `<i class="bn-ch" data-smv="down" data-i="${i}" title="down"${i === sc.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
+      `<i class="bn-ch" data-smv="rm" data-i="${i}" title="remove">✕</i></span>`;
+    const chain = sc.map((c, i) => chip(c, i)).join('<span class="bn-carrow">›</span>') ||
+      '<span class="bn-hint2">No codes — the report auto-detects a sensible breakdown.</span>';
+    const addSel = pos => remaining.length
+      ? `<select class="bn-addsel" data-addscope="${pos}"><option value="">+ add code ${pos === 'above' ? 'above' : 'below'}…</option>${remaining.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>` : '';
+    return `<div class="bn-cflow">${addSel('above')}<div class="bn-cchain">${chain}</div>${addSel('below')}</div>` +
+      (sc.length ? `<div class="bn-hint2">The 1st code splits the contract value (section 6); each below drills one level deeper.</div>` : '');
+  }
+  if (step === 'sequence') {
+    const list = curSeq(), codes = chatCodes();
+    const opt = (sel, ph) => [`<option value="">${ph}</option>`].concat(codes.map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+    const rows = list.map((a, i) =>
+      `<div class="bn-srow"><span class="bn-lvl2">${i + 1}</span>` +
+      `<select class="bn-sq" data-si="${i}" data-slot="0">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
+      `<span class="bn-carrow">→</span>` +
+      `<select class="bn-sq" data-si="${i}" data-slot="1">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<i class="bn-x" data-seqrm="${i}" title="remove">✕</i></div>`).join('');
+    return `<button type="button" class="bn-add2" data-seqadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add sequence above</button>` +
+      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No analyses — section 11 auto-detects a sensible sequence.</span>'}</div>` +
+      `<button type="button" class="bn-add2" data-seqadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add sequence below</button>`;
+  }
+  if (step === 'generate') {
+    const codes = chatCodes();
+    const ms = Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length;
+    const kd = Array.isArray(s.key_date_keys) ? s.key_date_keys.length : (_chatMeta.key_date_choices || []).length;
+    const sc = curScope(), sq = curSeq();
+    const logos = ['owner_logo', 'consultant_logo', 'contractor_logo'].filter(k => s[k]).length;
+    const row = (k, v) => `<div class="k">${k}</div><div>${esc(v)}</div>`;
+    return `<div class="bn-sum">` +
+      row('Location', s.location || '—') +
+      row('Contract type', s.contract_type || '—') +
+      row('Revision', s.revision || '—') +
+      row('Header', logos + ' logo(s)' + (s.layout ? ' · layout added' : '')) +
+      row('Milestones · key dates', ms + ' · ' + kd) +
+      row('Scope', sc.length ? sc.join(' › ') : 'auto-detected') +
+      row('Sequence', (sq.length || 'auto') + (sq.length ? ' analysis(es)' : '')) +
+      `</div><button type="button" class="bn-gen" id="bn-gen"><i class="ti ti-wand" style="vertical-align:-2px" aria-hidden="true"></i>&nbsp; Generate report</button>`;
+  }
+  return '';
+}
+
+// Short answer summary shown in the thread once a step is answered.
+function chatSummary(step) {
+  const s = getSetup();
+  if (step === 'location') return s.location || 'Not specified';
+  if (step === 'contract_type') return s.contract_type || 'Not specified';
+  if (step === 'revision') return s.revision || 'Not specified';
+  if (step === 'branding') {
+    const n = ['owner_logo', 'consultant_logo', 'contractor_logo'].filter(k => s[k]).length;
+    return (n ? n + ' logo(s)' : 'No logos') + (s.layout ? ' · layout added' : '');
+  }
+  if (step === 'milestones') {
+    const ms = Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length;
+    const kd = Array.isArray(s.key_date_keys) ? s.key_date_keys.length : (_chatMeta.key_date_choices || []).length;
+    return ms + ' milestones · ' + kd + ' key dates';
+  }
+  if (step === 'scope') { const sc = curScope(); return sc.length ? sc.join(' › ') : 'Auto-detected'; }
+  if (step === 'sequence') { const sq = curSeq(); return sq.length ? sq.length + ' analysis(es)' : 'Auto-detected'; }
+  return '';
+}
+
+function paintActive() {
+  const box = document.getElementById('bn-active');
+  if (!box) return;
+  box.innerHTML = chatControl(CHAT_STEPS[_chatCur]);
+  wireActive();
+}
+
+function renderChat() {
+  const thread = document.getElementById('bn-thread');
+  if (!thread) return;
+  let h = '';
+  for (let i = 0; i < _chatCur; i++) {
+    h += `<div class="bn-row"><div class="bn-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div><div class="bn-bub">${_esc(CHAT_Q[CHAT_STEPS[i]])}</div></div>`;
+    const sum = chatSummary(CHAT_STEPS[i]);
+    if (sum) h += `<div class="bn-row me"><div class="bn-ans">${_esc(sum)}</div></div>`;
+  }
+  h += `<div class="bn-row"><div class="bn-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div><div class="bn-bub">${_esc(CHAT_Q[CHAT_STEPS[_chatCur]])}</div></div>`;
+  h += `<div class="bn-ctl" id="bn-active"></div>`;
+  thread.innerHTML = h;
+  paintActive();
+  const prog = document.getElementById('bn-prog');
+  if (prog) prog.textContent = 'Question ' + (_chatCur + 1) + ' of ' + CHAT_STEPS.length;
+  const back = document.getElementById('bn-back');
+  if (back) back.style.visibility = _chatCur === 0 ? 'hidden' : 'visible';
+  const cont = document.getElementById('bn-continue');
+  if (cont) cont.style.display = CHAT_STEPS[_chatCur] === 'generate' ? 'none' : 'inline-block';
+}
+
+// Wire the events for the ACTIVE step's control (targeted re-render keeps the thread stable).
+function wireActive() {
+  const box = document.getElementById('bn-active');
+  if (!box) return;
+  const s = getSetup();
+  box.querySelectorAll('input[data-k]').forEach(inp => inp.addEventListener('input', () => { s[inp.dataset.k] = inp.value; saveSetup(); }));
+  box.querySelectorAll('[data-ct]').forEach(b => b.addEventListener('click', () => {
+    s.contract_type = b.dataset.ct; saveSetup();
+    box.querySelectorAll('[data-ct]').forEach(x => x.classList.toggle('on', x === b));
+    const ci = box.querySelector('input[data-k="contract_type"]'); if (ci) ci.value = '';
+  }));
+  box.querySelectorAll('input[type=file][data-logo]').forEach(inp => inp.addEventListener('change', async () => {
+    if (!inp.files || !inp.files[0]) return;
+    s[inp.dataset.logo] = await fileToDataUrl(inp.files[0]); saveSetup(); paintActive();
+  }));
+  // milestone / key-date checklists
+  const collect = key => Array.from(box.querySelectorAll(`input[data-sel="${key}"]`)).filter(c => c.checked).map(c => c.value);
+  box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); }));
+  box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); }));
+  box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); }));
+  // scope — reorder / remove / add above|below
+  box.querySelectorAll('[data-smv]').forEach(b => b.addEventListener('click', () => {
+    const sc = curScope(), i = +b.dataset.i, mv = b.dataset.smv;
+    if (mv === 'rm') sc.splice(i, 1);
+    else if (mv === 'up' && i > 0) [sc[i - 1], sc[i]] = [sc[i], sc[i - 1]];
+    else if (mv === 'down' && i < sc.length - 1) [sc[i + 1], sc[i]] = [sc[i], sc[i + 1]];
+    setScope(sc); paintActive();
+  }));
+  box.querySelectorAll('[data-addscope]').forEach(sel => sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    const sc = curScope();
+    if (!sc.includes(sel.value)) { if (sel.dataset.addscope === 'above') sc.unshift(sel.value); else sc.push(sel.value); setScope(sc); }
+    paintActive();
+  }));
+  // sequence — per-analysis code selects, remove, add above|below
+  box.querySelectorAll('.bn-sq').forEach(sel => sel.addEventListener('change', () => {
+    const list = curSeq(), i = +sel.dataset.si, slot = +sel.dataset.slot;
+    if (!list[i]) return;
+    const cc = list[i].codes.slice();
+    if (slot === 0) {
+      if (!sel.value) { list.splice(i, 1); }
+      else list[i].codes = [sel.value].concat(cc[1] && cc[1] !== sel.value ? [cc[1]] : []);
+    } else {
+      const first = cc[0];
+      list[i].codes = first ? (sel.value && sel.value !== first ? [first, sel.value] : [first]) : [];
+    }
+    setSeq(list.filter(a => a.codes.length)); paintActive();
+  }));
+  box.querySelectorAll('[data-seqrm]').forEach(b => b.addEventListener('click', () => { const list = curSeq(); list.splice(+b.dataset.seqrm, 1); setSeq(list); paintActive(); }));
+  box.querySelectorAll('[data-seqadd]').forEach(b => b.addEventListener('click', () => {
+    const list = curSeq(), codes = chatCodes();
+    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
+    const na = { codes: [auto[0] || codes[0]] };
+    if (b.dataset.seqadd === 'above') list.unshift(na); else list.push(na);
+    setSeq(list); paintActive();
+  }));
+  const gen = document.getElementById('bn-gen');
+  if (gen) gen.addEventListener('click', () => finishSetup(gen));
+}
+
+// The planner is done — hide the chat, show the report shell, generate.
+function finishSetup(gen) {
+  if (gen) { gen.disabled = true; gen.innerHTML = 'Building your report…'; }
+  saveSetup();
+  const chat = document.getElementById('bn-chat-wrap');
+  const rep = document.getElementById('bn-report-wrap');
+  if (chat) chat.style.display = 'none';
+  if (rep) rep.style.display = '';
+  fetchAndRender();
+}
+
+// Open (or re-open) the guided interview.
+async function startSetupChat() {
+  const chat = document.getElementById('bn-chat-wrap');
+  const rep = document.getElementById('bn-report-wrap');
+  if (rep) rep.style.display = 'none';
+  if (!chat) return;
+  chat.style.display = '';
+  chat.innerHTML = chatCss() +
+    `<div class="bn-chat">
+       <div class="bn-chat-head"><div class="bn-chat-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div>
+         <div><div class="bn-chat-title">Report setup</div><div class="bn-chat-sub" id="bn-readnote">reading your schedule…</div></div></div>
+       <div class="bn-thread" id="bn-thread"><div class="cmp-loading" style="padding:18px">Reading your schedule…</div></div>
+       <div class="bn-chat-foot"><button class="bn-back" id="bn-back">← Back</button><span class="bn-chat-sub" id="bn-prog"></span><button class="bn-continue" id="bn-continue">Continue →</button></div>
+     </div>`;
+  document.getElementById('bn-continue').addEventListener('click', () => { if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
+  document.getElementById('bn-back').addEventListener('click', () => { if (_chatCur > 0) { _chatCur--; renderChat(); } });
+  const meta = await fetchDetected();
+  const note = document.getElementById('bn-readnote');
+  if (!meta) { document.getElementById('bn-thread').innerHTML = '<p class="ai-empty" style="padding:16px">Open a baseline schedule first — the setup then reads it.</p>'; if (note) note.textContent = ''; return; }
+  const proj = meta.project_name || 'your project';
+  const acts = meta.activity_count ? (' · ' + meta.activity_count + ' activities') : '';
+  if (note) note.textContent = 'read ' + proj + acts;
+  _chatCur = 0;
+  renderChat();
+}
+
 // ── entry point (called by app.js on card/tab open) ────────────────────────────
 let _wired = false;
 export function renderNarrativePanel() {
@@ -801,14 +1148,20 @@ export function renderNarrativePanel() {
     _wired = true;
   }
   state.narrativeSetup = null;
+  _chatMeta = {}; _chatCur = 0;
   const panel = document.getElementById('narrative-body');
   if (panel) {
-    panel.innerHTML = setupFormHtml() +
-      '<div class="bn-layout"><div id="narrative-contents" class="bn-contents"></div>' +
-      '<div id="narrative-doc" style="flex:1;min-width:0"></div></div>';
-    wireSetupForm(panel);
+    panel.innerHTML =
+      '<div id="bn-chat-wrap"></div>' +
+      '<div id="bn-report-wrap" style="display:none">' +
+        '<div class="bn-report-bar"><button type="button" id="bn-edit-setup" class="bn-edit-setup">⚙ Edit setup</button></div>' +
+        '<div class="bn-layout"><div id="narrative-contents" class="bn-contents"></div>' +
+        '<div id="narrative-doc" style="flex:1;min-width:0"></div></div>' +
+      '</div>';
+    const edit = document.getElementById('bn-edit-setup');
+    if (edit) edit.addEventListener('click', () => startSetupChat());
+    startSetupChat();
   }
-  fetchAndRender();
 }
 
 // Aurora+ shell entry points — the shell opens the narrative view via renderNarrative()
