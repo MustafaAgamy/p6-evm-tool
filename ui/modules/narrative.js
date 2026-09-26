@@ -866,12 +866,13 @@ function exportBar(show) {
   document.querySelectorAll('.bn-exportbar').forEach(b => { b.style.display = show ? 'flex' : 'none'; });
 }
 
-// One /api/narrative call that BUILDS the report server-side and returns meta (the detected
-// choices) — used to seed the chat before showing any question. Does not mount the report.
+// One LIGHTWEIGHT /api/narrative/choices call that returns ONLY the detected choices (no
+// section building) — used to seed the chat before showing any question. Does not mount the
+// report. The full report is built once, later, at the Generate step (POST /api/narrative).
 async function fetchDetected() {
   if (!state.currentXmlPath && !state.currentCachedPath) return null;
   try {
-    const resp = await fetch(`http://localhost:${PORT()}/api/narrative`, {
+    const resp = await fetch(`http://localhost:${PORT()}/api/narrative/choices`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
@@ -883,7 +884,8 @@ async function fetchDetected() {
     // NB: do NOT set state.narrativeDoc here — the toolbar export buttons gate on it, so setting it
     // mid-interview (before the report is mounted) would let a premature export write an empty/stale
     // report. Detection only needs the meta (the detected choices); the real generate path sets it.
-    _chatMeta = (data.doc && data.doc.meta) || {};
+    // The choices endpoint returns {ok, meta} (no doc), unlike /api/narrative which returns {ok, doc}.
+    _chatMeta = data.meta || {};
     return _chatMeta;
   } catch { return null; }
 }
