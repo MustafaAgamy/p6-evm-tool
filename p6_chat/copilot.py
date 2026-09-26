@@ -17,6 +17,7 @@ Every public function returns a JSON-ready dict; failures come back as
 when there is no loaded project.
 """
 import os
+import re
 import sys
 
 
@@ -69,7 +70,7 @@ def project_brain(snapshot_id):
         if prev_delay is None and cur_dd is None and len(delayed) >= 2:
             prev_delay = delayed[-2]['delay_days']   # fallback only when the current date is unknown
         from p6_copilot.context import build_context
-        ctx = build_context(result, audit=audit, prev_delay=prev_delay)
+        ctx = weigh_driver(build_context(result, audit=audit, prev_delay=prev_delay))
         # Planned/actual history for the Manager Report S-curve (DB-only — never re-parses).
         ctx['history'] = [{'date': s.get('data_date'),
                            'planned': s.get('overall_planned_pct'),
@@ -79,6 +80,136 @@ def project_brain(snapshot_id):
         return ctx
     except Exception:
         return None
+
+
+# ── chat-side corrections to what the Copilot engine is given and says ────────
+# p6_copilot itself is left unchanged; the chat corrects its inputs and its wording here.
+
+def weigh_driver(ctx):
+    """The Copilot context names the discipline with the widest RAW gap as the one causing the
+    delay — so a 1%-weight design line 74 points behind outranks a 95%-weight construction front
+    21 points behind, although the construction front moves the finish ~27x more. The chat names
+    the WEIGHTED driver (weight x gap) everywhere, so hand the engine that one as
+    ``worst_discipline`` and keep the raw leader as ``widest_gap``."""
+    if not isinstance(ctx, dict):
+        return ctx
+    behind = [d for d in (ctx.get('disciplines') or []) if (d.get('gap') or 0) > 0]
+    ctx['widest_gap'] = max(behind, key=lambda d: d['gap']) if behind else None
+    ctx['worst_discipline'] = (max(behind, key=lambda d: d['gap'] * (d.get('weight') or 0))
+                               if behind else None)
+    return ctx
+
+
+# The engine's sentences call its driver "the biggest gap" / "the furthest behind" — true of the
+# raw leader, not of the weighted driver the chat now hands it. Most specific phrase first.
+_WEIGHTED_WORDING = (
+    ("— the biggest gap on the project.",
+     "— the gap that moves the finish most, once each area's share of the job is weighed in."),
+    ("The largest schedule variance sits in ", "The largest weighted schedule variance sits in "),
+    ("carries the largest variance (", "carries the largest weighted variance ("),
+    ("holds the largest variance (", "holds the largest weighted variance ("),
+    ("— it's already the furthest behind.", "— it's already the biggest drag on the finish."),
+    ("— it's the furthest behind.", "— it's the biggest drag on the finish."),
+    ("is the furthest behind.", "is the biggest drag on the finish."),
+)
+
+
+def chat_wording(obj):
+    """Apply the weighted-driver wording to every string in an engine answer / report dict."""
+    if isinstance(obj, str):
+        for old, new in _WEIGHTED_WORDING:
+            obj = obj.replace(old, new)
+        return obj
+    if isinstance(obj, list):
+        return [chat_wording(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: chat_wording(v) for k, v in obj.items()}
+    return obj
+
+
+_GENERIC_NOUNS = {'system', 'systems', 'equipment', 'structure', 'structures', 'works', 'work', 'trial', 'trials',
+                  'and', 'the', 'for', 'installation', 'install', 'general', 'other'}
+
+
+def _named(names, words):
+    """Activity names containing any of ``words`` at a word start (so 'silo' finds 'Silos')."""
+    pats = [re.compile(r'\b' + re.escape(w)) for w in words if w]
+    return [n for n in names if any(p.search(n.lower()) for p in pats)]
+
+
+_NOT_CONSTRUCTION = re.compile(r'\b(design|engineering|drawings?|submittals?|procure\w*|purchas\w*|'
+                               r'tender\w*|approvals?|permits?)\b', re.I)
+
+
+def project_needs(N):
+    """'What does this project type usually need?' — answered by the chat itself. The Copilot engine
+    guesses the type from the project NAME, which can mislead; the chat reads the file's WBS and
+    activity names against the Knowledge Base (the same read as merged q12) and checks each item the
+    type needs against the file. Construction / execution items only."""
+    nok = bool((N or {}).get('ok'))
+    if not nok:
+        return {'headline': "I need your P6 file to name the project type.",
+                'body': ["I read the project type from the WBS and activity names in the file, not from the project "
+                         "name — a name can mislead. The file couldn't be read for this snapshot."],
+                'advice': ["Send the P6 file (📎) and ask again."], 'evidence': []}
+    try:
+        from p6_chat.merged.q12 import detect_type
+        t = detect_type(N)
+    except Exception:
+        t = None
+    if not t:
+        return {'headline': "None of the Knowledge Base types matches this file strongly enough to name one.",
+                'body': ["I matched the WBS and activity names against every Knowledge Base project type and no type's "
+                         "signatures cover enough of the file to call it."],
+                'advice': ["Open the Knowledge Base, pick the closest type yourself, and compare its reference build "
+                           "order with your WBS."], 'evidence': []}
+    label = (t.get('type') or 'this') + (f" ({t['category']})" if t.get('category') else '')
+    acts = ((N.get('kb_view') or {}).get('activities') or [])
+    names = list({' '.join((a.get('name') or '').split()).lower(): ' '.join((a.get('name') or '').split())
+                  for a in acts if a.get('name')}.values())          # whitespace-normalised, de-duplicated
+    total = N.get('activity_count') or 0
+    read = f"{len(acts):,} activities I read" + (f" (the file has {total:,})" if total > len(acts) else '')
+    body = [f"From your file's WBS and activity names — not the project name — this "
+            f"{'looks like' if t.get('confident') else 'may be'} a **{label}** project: the best fit of "
+            f"{t.get('n_types')} Knowledge Base types, with {t.get('cover', 0):,} of the {read} "
+            f"matching its signatures ({', '.join((t.get('hits') or [])[:4])})"
+            + (f"; {t['runner']} is the runner-up" if t.get('runner') else '') + '.'
+            + ('' if t.get('confident') else " The margin is narrow, so confirm the type in the Knowledge Base.")]
+    needs = [a for a in ((t.get('entry') or {}).get('activities') or [])
+             if a.get('name') and not _NOT_CONSTRUCTION.search(a['name'])]
+    missing = []
+    if needs:
+        body.append("What this type usually needs on site, checked against your file:")
+        for a in needs:
+            words = [w.lower() for w in (a.get('keywords') or []) if w] or [a['name'].lower()]
+            hits = _named(names, words)
+            if hits:
+                body.append(f"• **{a['name']}** — present: {len(hits):,} activit{'y' if len(hits) == 1 else 'ies'}, "
+                            f"e.g. {hits[0]}.")
+                continue
+            missing.append(a['name'])
+            # No activity uses the KB's words — but the same scope may be built another way (a steel
+            # silo has no slipform), so show the closest names by the item's own nouns.
+            nouns = [w for w in re.findall(r'[a-z]{3,}', a['name'].lower()) if w not in _GENERIC_NOUNS]
+            near = _named(names, nouns)
+            looked = ', '.join(words)
+            if near:
+                body.append(f"• **{a['name']}** — no activity uses its usual names ({looked}); closest in your file: "
+                            f"{'; '.join(near[:3])} — confirm that's the same scope built another way.")
+            else:
+                body.append(f"• **{a['name']}** — not in your file: no activity name mentions {looked}. Confirm it's "
+                            "in scope, or add it and tie it into the logic.")
+    issues = [str(i) for i in ((t.get('entry') or {}).get('common_issues') or [])][:4]
+    if issues:
+        body.append("Common pitfalls for this type: " + '; '.join(issues) + '.')
+    advice = [(f"Check the {len(missing)} item{'s' if len(missing) != 1 else ''} without a direct match first — each is "
+               "either built another way, under another name in P6, or missing scope." if missing else
+               "Every item this type usually needs appears in your file — confirm each is logic-linked into the chain."),
+              f"Open the Knowledge Base, pick **{t.get('type')}**, and compare its reference build order with your WBS."]
+    return {'headline': f"What a {label} programme usually needs — checked against your file:",
+            'body': body, 'advice': advice,
+            'evidence': [{'module': 'Knowledge Base', 'plain': 'Best-fit type (from WBS + activity names)',
+                          'value': label}]}
 
 
 # ── ask one repertoire / free-typed question ──────────────────────────────────
@@ -107,7 +238,11 @@ def ask(snapshot_id, question_id=None, question_text=None, mode='management'):
                 return {'ok': True, 'answer': a, 'matched': False,
                         'question_id': None, 'question_label': text}
             interpreted = label_for(qid, mode)
-        a = answer(qid, ctx, mode)
+        if qid == 'project_needs':
+            from p6_chat import analysis
+            a = project_needs(analysis.network(snapshot_id))
+        else:
+            a = chat_wording(answer(qid, ctx, mode))
         return {'ok': True, 'answer': a, 'matched': True, 'question_id': qid,
                 'question_label': interpreted or label_for(qid, mode)}
     except Exception as exc:
@@ -272,7 +407,7 @@ def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, m
         except Exception:
             pass
         from p6_copilot.report import build_manager_report, render_manager_report_html
-        report = build_manager_report(ctx)
+        report = chat_wording(build_manager_report(ctx))
         html_content = render_manager_report_html(report, meta or {})
         if preview:
             return {'ok': True, 'report': report, 'html': html_content}

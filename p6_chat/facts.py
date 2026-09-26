@@ -99,8 +99,8 @@ def build_facts(snapshot_id):
         'actual_pct': ctx.get('actual_pct'),                # overall actual %, whole
         # ── progress by discipline ────────────────────────────────────────
         'disciplines': ctx.get('disciplines') or [],
-        'worst_discipline': ctx.get('worst_discipline'),      # largest raw gap (Copilot context)
-        'widest_gap': ctx.get('widest_gap'),                  # None unless the context supplies it
+        'worst_discipline': ctx.get('worst_discipline'),      # weighted driver (weight x gap) — see copilot.weigh_driver
+        'widest_gap': ctx.get('widest_gap'),                  # largest raw gap
         'top_gaps': [d for d in (ctx.get('disciplines') or []) if (d.get('gap') or 0) > 0][:3],
         # ── trend / history (for S-curve, period comparisons) ─────────────
         'trend': ctx.get('trend'),

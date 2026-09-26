@@ -73,15 +73,19 @@ def _tool_answer(cap, F):
             'advice': ["Send it before the progress meeting so the discussion starts from the recovery decision."]}
 
 
-def _original_answer(o, F, ctx):
+def _original_answer(o, F, ctx, N=None):
     from p6_chat import qa
     cap = o.get('cap')
     try:
         if not cap:
             a = qa.answer(o['id'], F, 'planning')
+        elif cap == 'assistant' and o.get('qid') == 'project_needs':
+            from p6_chat.copilot import project_needs
+            a = project_needs(N)                       # the type from the WBS, not the project name
         elif cap == 'assistant':
             from p6_copilot import answers as copilot_answers
-            a = copilot_answers.answer(o.get('qid'), ctx, o.get('mode') or 'planning')
+            from p6_chat.copilot import chat_wording
+            a = chat_wording(copilot_answers.answer(o.get('qid'), ctx, o.get('mode') or 'planning'))
         else:
             a = _tool_answer(cap, F)
     except Exception:
@@ -144,7 +148,7 @@ def answer_merged(snapshot_id, qid, role='planning', focus=None, followup=None):
     for k_ctx, k_f in (('baseline_finish', 'baseline_finish'), ('forecast_finish', 'forecast_finish')):
         if not ctx.get(k_ctx):
             ctx[k_ctx] = F.get(k_f)
-    a['specific'] = [_original_answer(o, F, ctx) for o in e['originals']]
+    a['specific'] = [_original_answer(o, F, ctx, N) for o in e['originals']]
     a['thinking'] = _thinking(F, N, a.get('thinking'))
     a.update({'id': qid, 'question': e['q'], 'group': e['group'], 'covers': e['covers'],
               'focus': focus, 'followup': followup})

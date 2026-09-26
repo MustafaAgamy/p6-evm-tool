@@ -7,7 +7,9 @@ do (``temp_db`` + ``upsert_project`` / ``insert_snapshot`` / ``insert_metrics`` 
 response SHAPE and its invariants (the exact response contracts the frontend is built to),
 never the fixture's specific numbers.
 """
+import json
 import os
+import re
 
 import pytest
 
@@ -64,6 +66,77 @@ def test_project_brain_same_date_reimport_is_not_a_trend(snap, xml_path):
     db.insert_metrics(sid2, {'pv': 100.0, 'ev': 60.0, 'ac': 70.0, 'spi': 0.6, 'cpi': 0.857, 'delay_days': -47,
                              'overall_planned_pct': 0.614, 'overall_actual_pct': 0.404, 'variance': -40.0})
     assert copilot.project_brain(sid2)['trend'] is None
+
+
+# ── chat-side corrections to the Copilot engine (weighted driver, project type) ─
+RAW_LEADER_WORDING = re.compile(r'biggest gap on the project|the largest variance|largest schedule variance sits|'
+                                r'furthest behind', re.I)
+CATS = {'Construction Works': {'weight': 0.95, 'planned_pct': 0.61, 'actual_pct': 0.40},
+        'MCC Design': {'weight': 0.01, 'planned_pct': 0.74, 'actual_pct': 0.0},
+        'Procurement': {'weight': 0.04, 'planned_pct': 1.0, 'actual_pct': 1.0}}
+
+
+def _weighted_ctx():
+    from p6_copilot.context import build_context
+    return copilot.weigh_driver(build_context({'delay_days': 30, 'project_name': 'Test', 'categories': CATS,
+                                               'spi': 0.66, 'overall_planned_pct': 0.63, 'overall_actual_pct': 0.41},
+                                              audit={'modules': {'out_of_sequence': {'kpis': {'oos_count': 9}},
+                                                                 'float': {'grade': 'Critical'}}}))
+
+
+def test_project_brain_names_the_weighted_driver_not_the_widest_gap(temp_db, xml_path):
+    pid = db.upsert_project('P2', 'Weighted')
+    sid = db.insert_snapshot(pid, '2026-02-01', str(xml_path), str(xml_path), 'h2', 10, 2)
+    db.insert_metrics(sid, {'pv': 100.0, 'ev': 60.0, 'ac': 60.0, 'spi': 0.6, 'cpi': 1.0, 'delay_days': 30,
+                            'overall_planned_pct': 0.63, 'overall_actual_pct': 0.41, 'variance': -40.0})
+    db.insert_category_metrics(sid, {k: dict(v, bac=1, ac=1, activity_count=1, overridden=False) for k, v in CATS.items()})
+    ctx = copilot.project_brain(sid)
+    assert ctx['worst_discipline']['name'] == 'Construction Works'     # 95% x 21 pts moves the finish
+    assert ctx['widest_gap']['name'] == 'MCC Design'                    # 1% x 74 pts is only the widest gap
+
+
+def test_copilot_answers_in_the_chat_never_call_the_driver_the_widest_gap():
+    from p6_copilot.answers import _ANSWERS, answer
+    from p6_copilot.report import build_manager_report
+    ctx = _weighted_ctx()
+    outs = [copilot.chat_wording(answer(qid, ctx, mode)) for (mode, qid) in _ANSWERS if qid != 'project_needs']
+    outs.append(copilot.chat_wording(build_manager_report(ctx)))
+    blob = json.dumps(outs, ensure_ascii=False)
+    assert not RAW_LEADER_WORDING.search(blob), RAW_LEADER_WORDING.findall(blob)
+    assert 'MCC Design** work is causing' not in blob
+    which = copilot.chat_wording(answer('which_wbs', ctx, 'management'))
+    assert 'Construction Works' in which['headline']
+
+
+SILO_N = {'ok': True, 'activity_count': 7, 'kb_view': {'wbs': [], 'activities': [
+    {'name': n, 'wbs_path': 'Phase I / Silos Civil Works / Silo 9'} for n in
+    ('Drilling For Piles', 'Pile Tests', 'Elevated Raft', 'Erection Of Silos Sheets', 'Install Silo Roof',
+     'Bucket Elevator Installation', 'Conveyor Installation')]}}
+
+
+def test_project_type_is_read_from_the_file_not_the_name():
+    a = copilot.project_needs(SILO_N)
+    if a['headline'].startswith('None of the Knowledge Base'):
+        pytest.skip('Construction KB not bundled in this build')
+    blob = json.dumps(a, ensure_ascii=False)
+    assert 'Silos' in a['headline'] and 'Marine' not in blob and 'Ports' not in blob
+    assert 'Erection Of Silos Sheets' in blob          # a steel silo shown as the closest match, not "missing"
+    bullets = [b for b in a['body'] if b.startswith('•')]
+    assert bullets and not any(copilot._NOT_CONSTRUCTION.search(b.split('**')[1]) for b in bullets)
+
+
+def test_project_type_without_the_file_says_so():
+    a = copilot.project_needs({'ok': False})
+    assert 'P6 file' in a['headline']
+
+
+def test_merged_answers_route_the_project_type_question_to_the_chat():
+    from p6_chat.qa_service import _original_answer
+    s = _original_answer({'id': 't01q09', 'q': 'What does this project type usually need?', 'cap': 'assistant',
+                          'qid': 'project_needs', 'mode': 'planning'}, {'ok': True}, {'project_name': 'Harbour Road'},
+                         SILO_N)
+    assert 'Marine' not in s['headline']
+    assert 'checked against your file' in s['headline'] or s['headline'].startswith('None of')
 
 
 def test_project_brain_none_when_no_project(temp_db):
