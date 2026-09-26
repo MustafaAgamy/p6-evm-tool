@@ -280,6 +280,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/narrative/choices':
+            self._handle_narrative_choices(body)
         elif self.path == '/api/narrative/docx':
             self._handle_narrative_docx(body)
         elif self.path == '/api/narrative/pdf':
@@ -3328,6 +3330,27 @@ class Handler(BaseHTTPRequestHandler):
             doc_dict = doc.to_dict()
             self._json(200, {'ok': True, 'doc': doc_dict,
                              'html': render_narrative_html(doc_dict), 'counts': doc.counts()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/choices ────────────────────────────────────────────
+    def _handle_narrative_choices(self, body):
+        """LIGHTWEIGHT detection for the conversational setup — resolve + parse the
+        baseline exactly like ``/api/narrative``, but return ONLY the detected choices
+        (milestones, key dates, activity codes, scope cascade, project name/count,
+        contract value) WITHOUT building any of the report's sections. Lets the chat
+        pre-fill its questions fast; the full report is built once, at Generate."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_narrative import report
+            data = parse_file(resolved)
+            setup = body.get('setup') or {}
+            self._json(200, {'ok': True, 'meta': report.narrative_choices(data, setup)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
