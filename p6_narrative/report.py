@@ -526,6 +526,44 @@ def _mapping_sheet(data):
                                            'appendix by the planner.'})
 
 
+# ── lightweight detection (choices only) ───────────────────────────────────────
+def narrative_choices(data, setup=None):
+    """Detected-choices meta ONLY — the values the conversational setup pre-fills its
+    questions with, without building any of the report's ~18 sections.
+
+    Returns the exact same values ``build_report`` puts on the doc meta for the same
+    file + setup (``project_name``, ``activity_count``, ``milestone_choices``,
+    ``key_date_choices``, ``code_choices``, ``scope_codes_auto``, ``contract_value``),
+    reusing the identical helpers so the pre-fills are byte-for-byte identical. It never
+    calls a section builder and never runs the calendar / resource-loading / productivity
+    / volume-of-work / critical-path engines — the whole point is to be fast, so the chat
+    can ask its first question before any heavy run happens (the real run stays at the
+    final Generate → ``build_report``)."""
+    setup = setup or {}
+    project = data.project or {}
+
+    ctx = build_context(data)  # needed for the milestone anchors (mirrors build_report)
+    all_ms = _all_milestones(ctx)
+    ms_names = [name for _, name, _ in all_ms]
+
+    # Contract value — identical resolution to build_report: setup value else cost sum.
+    cval = setup.get('contract_value')
+    if cval in (None, ''):
+        total_bac = sum(data.bac_by_activity.values()) if data.bac_by_activity else 0.0
+        cval = total_bac or None
+
+    from p6_narrative.scope import default_scope_codes
+    return {
+        'project_name': project.get('name') or 'the project',
+        'activity_count': len(data.activities),
+        'milestone_choices': list(ms_names),
+        'key_date_choices': list(ms_names),
+        'code_choices': list(data.activity_code_types or []),
+        'scope_codes_auto': default_scope_codes(data.activity_code_types, setup),
+        'contract_value': cval,
+    }
+
+
 # ── assembly ──────────────────────────────────────────────────────────────────
 def build_report(data, path=None, meta=None, setup=None, **_ignored):
     """Assemble the redesigned Baseline Narrative Report as a :class:`NarrativeDoc` of the
