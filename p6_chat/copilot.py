@@ -100,45 +100,94 @@ def weigh_driver(ctx):
     return ctx
 
 
-# The engine's sentences call its driver "the biggest gap" / "the furthest behind" — true of the
-# raw leader, not of the weighted driver the chat now hands it. Most specific phrase first.
-_WEIGHTED_WORDING = (
+def engine_view(ctx):
+    """A copy of the context for the engine's text, with the disciplines in weighted order, so its
+    "after that, keep an eye on…" list follows what moves the finish, not the raw gap. The chat's own
+    ctx (and the raw-gap order its facts use) is left as it is."""
+    if not isinstance(ctx, dict):
+        return ctx
+    view = dict(ctx)
+    view['disciplines'] = sorted(ctx.get('disciplines') or [],
+                                 key=lambda d: -((d.get('gap') or 0) * (d.get('weight') or 0)))
+    return view
+
+
+# The engine's sentences call its driver "the biggest gap" / "the furthest behind" — true of the raw
+# leader, not of the weighted driver the chat now hands it. Most specific phrase first. When the
+# project is not behind there is no delay to drag, so the driver is described against its own plan.
+_WORDING_ALWAYS = (
     ("— the biggest gap on the project.",
      "— the gap that moves the finish most, once each area's share of the job is weighed in."),
+    ("— the biggest gap.", "— the gap that moves the finish most."),
     ("The largest schedule variance sits in ", "The largest weighted schedule variance sits in "),
     ("carries the largest variance (", "carries the largest weighted variance ("),
     ("holds the largest variance (", "holds the largest weighted variance ("),
+)
+_WORDING_BEHIND = (
     ("— it's already the furthest behind.", "— it's already the biggest drag on the finish."),
     ("— it's the furthest behind.", "— it's the biggest drag on the finish."),
     ("is the furthest behind.", "is the biggest drag on the finish."),
 )
+_WORDING_NOT_BEHIND = (
+    ("— it's already the furthest behind.", "— it already has the largest weighted shortfall against its own plan."),
+    ("— it's the furthest behind.", "— it has the largest weighted shortfall against its own plan."),
+    ("is the furthest behind.", "has the largest weighted shortfall against its own plan."),
+)
+_BARE_GAP = re.compile(r'\((\d+) behind\)')          # "Design (74 behind)" reads as 74 days beside a wd delay
 
 
-def chat_wording(obj):
-    """Apply the weighted-driver wording to every string in an engine answer / report dict."""
+def chat_wording(obj, behind=True):
+    """Apply the weighted-driver wording to every string in an engine answer / report dict.
+    ``behind`` = the finish is actually late (delay_days > 0)."""
     if isinstance(obj, str):
-        for old, new in _WEIGHTED_WORDING:
+        for old, new in _WORDING_ALWAYS + (_WORDING_BEHIND if behind else _WORDING_NOT_BEHIND):
             obj = obj.replace(old, new)
-        return obj
+        return _BARE_GAP.sub(r'(\1 pts behind)', obj)
     if isinstance(obj, list):
-        return [chat_wording(x) for x in obj]
+        return [chat_wording(x, behind) for x in obj]
     if isinstance(obj, dict):
-        return {k: chat_wording(v) for k, v in obj.items()}
+        return {k: chat_wording(v, behind) for k, v in obj.items()}
     return obj
 
 
-_GENERIC_NOUNS = {'system', 'systems', 'equipment', 'structure', 'structures', 'works', 'work', 'trial', 'trials',
-                  'and', 'the', 'for', 'installation', 'install', 'general', 'other'}
+def engine_answer(qid, ctx, mode):
+    """One Copilot-engine answer as the chat shows it: weighted driver, weighted wording, and no
+    "causing the delay" when the finish isn't late."""
+    from p6_copilot.answers import answer
+    delay = (ctx or {}).get('delay_days')
+    behind = delay is not None and delay > 0
+    worst = (ctx or {}).get('worst_discipline')
+    if qid == 'which_wbs' and not behind:
+        pos = ("the finish is on its planned date" if delay == 0 else
+               f"the finish is about {abs(delay)} working days ahead" if delay is not None else
+               "this update has no finish-milestone delay to attribute")
+        body = [f"There's no delay to completion to put on any area — {pos}."]
+        if worst:
+            body.append(f"The area with the largest weighted shortfall against its own plan is **{worst['name']}**: about "
+                        f"**{worst['actual']}%** done against **{worst['planned']}%** planned. It isn't moving the "
+                        "finish today, but it's the one to watch.")
+        return {'headline': "No part of the project is delaying the finish right now.", 'body': body,
+                'advice': ([f"Keep **{worst['name']}** on the watch list so it doesn't start eating the float."]
+                           if worst else []), 'evidence': []}
+    return chat_wording(answer(qid, engine_view(ctx), mode), behind)
 
 
-def _named(names, words):
-    """Activity names containing any of ``words`` at a word start (so 'silo' finds 'Silos')."""
-    pats = [re.compile(r'\b' + re.escape(w)) for w in words if w]
-    return [n for n in names if any(p.search(n.lower()) for p in pats)]
+_NOT_CONSTRUCTION = re.compile(r'\b(design|engineering|shop drawings?|drawings? (issue|approval|submission)|'
+                               r'submittals?|procure\w*|purchas\w*|tender\w*|approvals?|permits?|FAT|'
+                               r'factory acceptance|right of way|wayleave|land acquisition)\b', re.I)
 
 
-_NOT_CONSTRUCTION = re.compile(r'\b(design|engineering|drawings?|submittals?|procure\w*|purchas\w*|'
-                               r'tender\w*|approvals?|permits?)\b', re.I)
+def _a(word):
+    """'a' or 'an' before a type name — by sound: an Airports, an HVDC, a Silos."""
+    w = (word or '').strip()
+    first = w.split(' ')[0] if w else ''
+    if first.isupper() and len(first) > 1:                        # an acronym is read letter by letter
+        return 'an' if first[0] in 'AEFHILMNORSX' else 'a'
+    return 'an' if first[:1].lower() in 'aeiou' else 'a'
+
+
+def _acts(n):
+    return f"{n:,} activit{'y' if n == 1 else 'ies'}"
 
 
 def project_needs(N):
@@ -153,8 +202,8 @@ def project_needs(N):
                          "name — a name can mislead. The file couldn't be read for this snapshot."],
                 'advice': ["Send the P6 file (📎) and ask again."], 'evidence': []}
     try:
-        from p6_chat.merged.q12 import detect_type
-        t = detect_type(N)
+        from p6_chat.merged import q12
+        t = q12.detect_type(N)
     except Exception:
         t = None
     if not t:
@@ -164,49 +213,47 @@ def project_needs(N):
                 'advice': ["Open the Knowledge Base, pick the closest type yourself, and compare its reference build "
                            "order with your WBS."], 'evidence': []}
     label = (t.get('type') or 'this') + (f" ({t['category']})" if t.get('category') else '')
-    acts = ((N.get('kb_view') or {}).get('activities') or [])
-    names = list({' '.join((a.get('name') or '').split()).lower(): ' '.join((a.get('name') or '').split())
-                  for a in acts if a.get('name')}.values())          # whitespace-normalised, de-duplicated
-    total = N.get('activity_count') or 0
-    read = f"{len(acts):,} activities I read" + (f" (the file has {total:,})" if total > len(acts) else '')
-    body = [f"From your file's WBS and activity names — not the project name — this "
-            f"{'looks like' if t.get('confident') else 'may be'} a **{label}** project: the best fit of "
-            f"{t.get('n_types')} Knowledge Base types, with {t.get('cover', 0):,} of the {read} "
-            f"matching its signatures ({', '.join((t.get('hits') or [])[:4])})"
+    entry = t.get('entry') or {}
+    # The same presence read as the q12 reference-sequence table: your construction activities assigned to the
+    # type's WBS phases; testing / commissioning / handover read from the commissioning words.
+    acts, cacts = q12.file_activities(N)
+    phases, counts = q12.kb_presence(entry, cacts)
+    comm = q12.commissioning_hits([a['name'] for a in cacts], N)
+    idx = {(ph.get('name') or '').strip().lower(): i for i, (ph, _) in enumerate(phases)}
+    by_phase = {}
+    for x in cacts:
+        by_phase.setdefault(q12._assign(x['name'], phases, x['wbs_path']), []).append(x['name'])
+    body = [f"From your file's activities and WBS — not the project name — this "
+            f"{'looks like' if t.get('confident') else 'may be'} {_a(label)} **{label}** project: the best fit of "
+            f"{t.get('n_types')} Knowledge Base types, with {t.get('cover', 0):,} of your {_acts(len(acts))} matching its "
+            f"signatures ({', '.join((t.get('hits') or [])[:4])})"
             + (f"; {t['runner']} is the runner-up" if t.get('runner') else '') + '.'
             + ('' if t.get('confident') else " The margin is narrow, so confirm the type in the Knowledge Base.")]
-    needs = [a for a in ((t.get('entry') or {}).get('activities') or [])
-             if a.get('name') and not _NOT_CONSTRUCTION.search(a['name'])]
+    needs = [a for a in (entry.get('activities') or []) if a.get('name') and not _NOT_CONSTRUCTION.search(a['name'])]
     missing = []
     if needs:
-        body.append("What this type usually needs on site, checked against your file:")
+        body.append("What this type usually needs on site, checked against your construction activities:")
         for a in needs:
-            words = [w.lower() for w in (a.get('keywords') or []) if w] or [a['name'].lower()]
-            hits = _named(names, words)
-            if hits:
-                body.append(f"• **{a['name']}** — present: {len(hits):,} activit{'y' if len(hits) == 1 else 'ies'}, "
-                            f"e.g. {hits[0]}.")
-                continue
-            missing.append(a['name'])
-            # No activity uses the KB's words — but the same scope may be built another way (a steel
-            # silo has no slipform), so show the closest names by the item's own nouns.
-            nouns = [w for w in re.findall(r'[a-z]{3,}', a['name'].lower()) if w not in _GENERIC_NOUNS]
-            near = _named(names, nouns)
-            looked = ', '.join(words)
-            if near:
-                body.append(f"• **{a['name']}** — no activity uses its usual names ({looked}); closest in your file: "
-                            f"{'; '.join(near[:3])} — confirm that's the same scope built another way.")
+            phase = (a.get('wbs') or '').strip().lower()
+            if q12._has(phase, ('test', 'commission', 'handover')):
+                found = comm
             else:
-                body.append(f"• **{a['name']}** — not in your file: no activity name mentions {looked}. Confirm it's "
-                            "in scope, or add it and tie it into the logic.")
-    issues = [str(i) for i in ((t.get('entry') or {}).get('common_issues') or [])][:4]
+                found = by_phase.get(idx[phase], []) if phase in idx else []
+            if found:
+                body.append(f"• **{a['name']}** — present: {_acts(len(found))} in your file, e.g. {found[0]}.")
+            else:
+                missing.append(a['name'])
+                body.append(f"• **{a['name']}** — not visible in your file. Confirm it's in scope, or add it and tie it "
+                            "into the logic.")
+    issues = [str(i) for i in (entry.get('common_issues') or [])][:4]
     if issues:
         body.append("Common pitfalls for this type: " + '; '.join(issues) + '.')
-    advice = [(f"Check the {len(missing)} item{'s' if len(missing) != 1 else ''} without a direct match first — each is "
-               "either built another way, under another name in P6, or missing scope." if missing else
+    n_miss = len(missing)
+    advice = [(f"Check {'the item' if n_miss == 1 else f'the {n_miss} items'} not visible first — "
+               f"{'it is' if n_miss == 1 else 'each is'} either under another name in P6 or missing scope." if missing else
                "Every item this type usually needs appears in your file — confirm each is logic-linked into the chain."),
               f"Open the Knowledge Base, pick **{t.get('type')}**, and compare its reference build order with your WBS."]
-    return {'headline': f"What a {label} programme usually needs — checked against your file:",
+    return {'headline': f"What {_a(label)} {label} programme usually needs — checked against your file:",
             'body': body, 'advice': advice,
             'evidence': [{'module': 'Knowledge Base', 'plain': 'Best-fit type (from WBS + activity names)',
                           'value': label}]}
@@ -242,7 +289,7 @@ def ask(snapshot_id, question_id=None, question_text=None, mode='management'):
             from p6_chat import analysis
             a = project_needs(analysis.network(snapshot_id))
         else:
-            a = chat_wording(answer(qid, ctx, mode))
+            a = engine_answer(qid, ctx, mode)
         return {'ok': True, 'answer': a, 'matched': True, 'question_id': qid,
                 'question_label': interpreted or label_for(qid, mode)}
     except Exception as exc:
@@ -407,7 +454,7 @@ def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, m
         except Exception:
             pass
         from p6_copilot.report import build_manager_report, render_manager_report_html
-        report = chat_wording(build_manager_report(ctx))
+        report = chat_wording(build_manager_report(engine_view(ctx)), (ctx.get('delay_days') or 0) > 0)
         html_content = render_manager_report_html(report, meta or {})
         if preview:
             return {'ok': True, 'report': report, 'html': html_content}

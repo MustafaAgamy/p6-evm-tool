@@ -83,9 +83,8 @@ def _original_answer(o, F, ctx, N=None):
             from p6_chat.copilot import project_needs
             a = project_needs(N)                       # the type from the WBS, not the project name
         elif cap == 'assistant':
-            from p6_copilot import answers as copilot_answers
-            from p6_chat.copilot import chat_wording
-            a = chat_wording(copilot_answers.answer(o.get('qid'), ctx, o.get('mode') or 'planning'))
+            from p6_chat.copilot import engine_answer
+            a = engine_answer(o.get('qid'), ctx, o.get('mode') or 'planning')
         else:
             a = _tool_answer(cap, F)
     except Exception:

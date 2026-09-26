@@ -282,7 +282,13 @@ def detect_type(N):
         entries = load_kb() or []
     except Exception:
         return None
-    texts = [((a.get('name') or '') + ' | ' + (a.get('wbs_path') or '')).lower() for a in acts]
+    # A WBS node carried by (nearly) every activity is the project / facility name, not what is being built —
+    # one word in it ('terminal', 'bulk') would otherwise match every row and outvote the real scope.
+    paths = [(a.get('wbs_path') or '').split(' / ') for a in acts]
+    seg_n = Counter(s for p in paths for s in set(p) if s)
+    common = {s for s, c in seg_n.items() if c >= 0.9 * len(acts)} if len(acts) >= 20 else set()
+    texts = [((a.get('name') or '') + ' | ' + ' / '.join(s for s in p if s not in common)).lower()
+             for a, p in zip(acts, paths)]
     blob = '\n'.join(texts)
     cover = {}
     scored = []
@@ -343,6 +349,30 @@ def _assign(name, phases, wbs=''):
     return best
 
 
+def file_activities(N):
+    """The file's activities (whitespace-normalised) and the construction / execution ones among them — design,
+    procurement, client inputs and milestones don't prove a construction step is in the programme."""
+    acts = [{'name': re.sub(r'\s+', ' ', a.get('name') or '').strip(),
+             'wbs_path': re.sub(r'[ \t]{2,}', ' ', a.get('wbs_path') or '')}
+            for a in (((N or {}).get('kb_view') or {}).get('activities') or [])]
+    cacts = [a for a in acts if not _has(a['wbs_path'].split(' / ')[0] + ' / ' + a['name'], NON_CONSTRUCTION)]
+    return acts, cacts
+
+
+def kb_presence(entry, cacts):
+    """The type's construction phases (testing / handover are read separately) and how many of your
+    construction activities fall in each: ([(phase, words)], Counter{phase index: activities})."""
+    kb_phases = [(ph, _phase_words(ph)) for ph in ((entry or {}).get('wbs') or [])
+                 if not _has(ph.get('name'), ('test', 'commission', 'handover'))]
+    kb_counts = Counter(_assign(a['name'], kb_phases, a['wbs_path']) for a in cacts) if kb_phases else Counter()
+    return kb_phases, kb_counts
+
+
+def commissioning_hits(cnames, N):
+    """Construction activity and milestone names that carry a testing / commissioning / handover step."""
+    return [n for n in list(cnames) + [x['name'] for x in ((N or {}).get('milestones') or [])] if _has(n + ' ', COMM_WORDS)]
+
+
 # ── the answer ────────────────────────────────────────────────────────────────────────────────────
 def build(F, N, role):
     nok = bool(N and N.get('ok'))
@@ -354,13 +384,8 @@ def build(F, N, role):
     chain = list(N.get('chain') or []) if nok else []
     deep = list(N.get('deepest') or []) if nok else []
     tasks = [x for x in chain if 'Milestone' not in (x.get('type') or '')]
-    acts = [{'name': re.sub(r'\s+', ' ', a.get('name') or '').strip(),
-             'wbs_path': re.sub(r'[ \t]{2,}', ' ', a.get('wbs_path') or '')}
-            for a in (((N.get('kb_view') or {}).get('activities')) or [])] if nok else []
+    acts, cacts = file_activities(N) if nok else ([], [])
     names = [a['name'] for a in acts]
-    # construction/execution activities only (design, procurement, client inputs and milestones don't prove a
-    # construction step is in the programme)
-    cacts = [a for a in acts if not _has(a['wbs_path'].split(' / ')[0] + ' / ' + a['name'], NON_CONSTRUCTION)]
     cnames = [a['name'] for a in cacts]
     n_acts = (N.get('activity_count') if nok else None) or F.get('activity_count')
     cal_n = F.get('calendar_count')
@@ -402,7 +427,7 @@ def build(F, N, role):
     survey = next((x for x in install if 'survey' in x['name'].lower()), None)
     first_inst = next((x for x in install if 'survey' not in x['name'].lower()), None)
     survey_gate = bool(survey and first_inst and _dt(survey['finish']) <= _dt(first_inst['finish']))
-    comm_hits = [n for n in cnames + [x['name'] for x in (N.get('milestones') or [])] if _has(n + ' ', COMM_WORDS)] if nok else []
+    comm_hits = commissioning_hits(cnames, N) if nok else []
     no_comm = nok and not comm_hits
     last_task = max(tasks, key=lambda x: _dt(x['finish']) or datetime.min) if tasks else None
     if chain:
@@ -417,9 +442,7 @@ def build(F, N, role):
                         f"best fit: {tname} ({ktype['cover']:,} activities covered)")
     # the type's construction phases (testing / handover are read separately) and how many of your
     # construction activities fall in each
-    kb_phases = [(ph, _phase_words(ph)) for ph in (entry.get('wbs') or [])
-                 if not _has(ph.get('name'), ('test', 'commission', 'handover'))]
-    kb_counts = Counter(_assign(a['name'], kb_phases, a['wbs_path']) for a in cacts) if kb_phases else Counter()
+    kb_phases, kb_counts = kb_presence(entry, cacts)
 
     # WBS tree from the file (level 1 → 2 → 3, activity counts)
     t1, t2, t3 = Counter(), Counter(), Counter()

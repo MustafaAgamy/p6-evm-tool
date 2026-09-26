@@ -119,7 +119,7 @@ def _analyse(path):
         'client_inputs_late_done': [x for x in client if x['done'] and (x['slip_wd'] or 0) > 0],
         'wbs_top': [{'branch': k, 'activities': v} for k, v in wbs_top],
         # a small, name-bearing view for the Knowledge Base detector (reads names, not numbers)
-        'kb_view': {'activities': [{'name': x['name'], 'wbs_path': x['wbs']} for x in rows[:1500]], 'wbs': []},
+        'kb_view': {'activities': [{'name': x['name'], 'wbs_path': x['wbs']} for x in rows], 'wbs': []},
     }
 
 

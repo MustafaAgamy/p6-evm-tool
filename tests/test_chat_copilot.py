@@ -95,23 +95,50 @@ def test_project_brain_names_the_weighted_driver_not_the_widest_gap(temp_db, xml
     assert ctx['widest_gap']['name'] == 'MCC Design'                    # 1% x 74 pts is only the widest gap
 
 
-def test_copilot_answers_in_the_chat_never_call_the_driver_the_widest_gap():
-    from p6_copilot.answers import _ANSWERS, answer
+def _chat_outputs(ctx):
+    from p6_copilot.answers import _ANSWERS
     from p6_copilot.report import build_manager_report
+    outs = [copilot.engine_answer(qid, ctx, mode) for (mode, qid) in _ANSWERS if qid != 'project_needs']
+    outs.append(copilot.chat_wording(build_manager_report(copilot.engine_view(ctx)), (ctx['delay_days'] or 0) > 0))
+    return json.dumps(outs, ensure_ascii=False)
+
+
+def test_copilot_answers_in_the_chat_never_call_the_driver_the_widest_gap():
     ctx = _weighted_ctx()
-    outs = [copilot.chat_wording(answer(qid, ctx, mode)) for (mode, qid) in _ANSWERS if qid != 'project_needs']
-    outs.append(copilot.chat_wording(build_manager_report(ctx)))
-    blob = json.dumps(outs, ensure_ascii=False)
+    blob = _chat_outputs(ctx)
     assert not RAW_LEADER_WORDING.search(blob), RAW_LEADER_WORDING.findall(blob)
     assert 'MCC Design** work is causing' not in blob
-    which = copilot.chat_wording(answer('which_wbs', ctx, 'management'))
-    assert 'Construction Works' in which['headline']
+    assert 'Construction Works' in copilot.engine_answer('which_wbs', ctx, 'management')['headline']
 
 
-SILO_N = {'ok': True, 'activity_count': 7, 'kb_view': {'wbs': [], 'activities': [
-    {'name': n, 'wbs_path': 'Phase I / Silos Civil Works / Silo 9'} for n in
-    ('Drilling For Piles', 'Pile Tests', 'Elevated Raft', 'Erection Of Silos Sheets', 'Install Silo Roof',
-     'Bucket Elevator Installation', 'Conveyor Installation')]}}
+@pytest.mark.parametrize('delay', [-12, 0, None])
+def test_nothing_is_said_to_delay_a_finish_that_is_not_late(delay):
+    ctx = _weighted_ctx()
+    ctx['delay_days'] = delay
+    blob = _chat_outputs(ctx)
+    assert 'drag on the finish' not in blob and 'causing most of the delay' not in blob
+    assert copilot.engine_answer('which_wbs', ctx, 'management')['headline'].startswith('No part of the project')
+
+
+def test_after_the_driver_the_next_areas_follow_their_weight():
+    from p6_copilot.context import build_context
+    cats = {'Construction': {'weight': 0.60, 'planned_pct': 0.91, 'actual_pct': 0.70},
+            'MEP': {'weight': 0.30, 'planned_pct': 0.60, 'actual_pct': 0.40},
+            'Design': {'weight': 0.01, 'planned_pct': 1.0, 'actual_pct': 0.26}}
+    ctx = copilot.weigh_driver(build_context({'delay_days': 30, 'project_name': 'T', 'categories': cats}))
+    body = ' '.join(copilot.engine_answer('which_wbs', ctx, 'management')['body'])
+    assert body.index('MEP') < body.index('Design') and '(74 pts behind)' in body
+
+
+def _n(names_by_wbs, root='Grain Bulk Terminal'):
+    acts = [{'name': n, 'wbs_path': f'{root} / {w} / Area {k}'} for w, names in names_by_wbs.items() for n in names
+            for k in range(3)]
+    return {'ok': True, 'activity_count': len(acts), 'kb_view': {'wbs': [], 'activities': acts}}
+
+
+SILO_N = _n({'Silos Civil Works': ['Drilling For Piles', 'Pile Load Test', 'Elevated Raft'],
+             'Silos Mechanical Installations Works': ['Erection Of Silos Sheets', 'Install Silo Roof',
+                                                      'Install Belt Conveyor', 'Bucket Elevator Installation']})
 
 
 def test_project_type_is_read_from_the_file_not_the_name():
@@ -119,10 +146,26 @@ def test_project_type_is_read_from_the_file_not_the_name():
     if a['headline'].startswith('None of the Knowledge Base'):
         pytest.skip('Construction KB not bundled in this build')
     blob = json.dumps(a, ensure_ascii=False)
-    assert 'Silos' in a['headline'] and 'Marine' not in blob and 'Ports' not in blob
-    assert 'Erection Of Silos Sheets' in blob          # a steel silo shown as the closest match, not "missing"
-    bullets = [b for b in a['body'] if b.startswith('•')]
-    assert bullets and not any(copilot._NOT_CONSTRUCTION.search(b.split('**')[1]) for b in bullets)
+    assert 'Silos' in a['headline'] and 'Marine' not in blob and 'Airports' not in blob
+    bullets = {b.split('**')[1]: b for b in a['body'] if b.startswith('•')}
+    assert 'present' in bullets['Slipform / Silo Structure']           # steel silo erection counts as the structure
+    assert 'present' in bullets['Conveying & Handling Equipment']
+    assert 'not visible' in bullets['Fill Trial / Commissioning']       # a pile load test is not commissioning
+    assert not any(copilot._NOT_CONSTRUCTION.search(k) for k in bullets)
+
+
+def test_a_wbs_root_on_every_row_does_not_decide_the_type():
+    jetty = _n({'Marine Works': ['Marine Piling', 'Fenders Installation', 'Bollards Installation', 'Dredging',
+                                 'Deck Slab', 'Quay Wall', 'Berthing Trial']}, root='Red Sea Passenger Terminal')
+    h = copilot.project_needs(jetty)['headline']
+    if h.startswith('None of the Knowledge Base'):
+        pytest.skip('Construction KB not bundled in this build')
+    assert 'Airports' not in h and 'Marine' in h
+
+
+def test_type_names_take_the_right_article():
+    assert [copilot._a(w) for w in ('Airports', 'Oil & Gas', 'HVDC Link', 'Silos & Storage', 'EV Charging',
+                                    'Road')] == ['an', 'an', 'an', 'a', 'an', 'a']
 
 
 def test_project_type_without_the_file_says_so():
