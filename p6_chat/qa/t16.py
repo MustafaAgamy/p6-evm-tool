@@ -71,6 +71,9 @@ def _cost_note(F):
     cpi = F.get('cpi')
     if cpi is None:
         return "Cost performance (CPI) isn't derivable in this file, so keep the report on the schedule signal."
+    if F.get('cost_derived'):
+        return (f"Cost is **{K.cost_state(F)}** — report cost as 'not measured' until real actuals are loaded; "
+                "**SPI is the real signal**.")
     hold = "holding close to budget" if cpi >= 0.97 else ("running modestly over" if cpi < 0.97 else "on budget")
     return (f"Cost is **{hold}** (CPI {K.ratio(cpi)}) — but read it with care: on this schedule cost is "
             "derived from % complete, so CPI sits near 1.0 by construction. **SPI is the real signal**; "
@@ -185,7 +188,9 @@ def t16q01(F, role):
         "Put the verdict, the forecast date and the one ask above the fold; everything else is an appendix.",
         ("For the planner: keep a one-line logic-quality footnote (" + (_logic_caveat_line(F) or "logic clean")
          + ") so the board knows how bankable the date is." if role == 'planning' else
-         "Don't bury the schedule story under financials — cost is holding, so it's a footnote here."),
+         ("Don't bury the schedule story under financials — cost isn't measured in this file, so it's a footnote here."
+          if F.get('cost_derived') else
+          "Don't bury the schedule story under financials — cost is holding, so it's a footnote here.")),
         K.go_deeper('Reporting Studio', 'To compose and export the one-pager'),
     ]
     return K.A(head, body, advice=advice,
@@ -217,7 +222,8 @@ def t16q02(F, role):
          "consultant tests it, you've already tested it yourself."),
         (_recovery_line(F)),
         ("Balance it so it doesn't read as all bad: " + (
-            "engineering/procurement and the fronts that are on or ahead of plan are holding — "
+            ', '.join(f"**{d.get('name')}**" + (' (complete)' if (d.get('actual') or 0) >= 100 else '')
+                      for d in _on_plan_disciplines(F)[:3]) + " are on plan — "
             if _on_plan_disciplines(F) else "the exposure is contained rather than across the whole job — ")
          + _cost_note(F)),
     ]

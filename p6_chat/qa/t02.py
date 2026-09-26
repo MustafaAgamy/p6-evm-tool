@@ -62,8 +62,9 @@ def t02q00(F, role):
             evidence=[K.ev('EVM', 'Delay', _sd(F)), K.ev('Critical path', 'Driving activities', F.get('driving_path_count'))])
     head = f"The finish is being driven by your critical chain — about **{K.wd(F.get('delay_days'))} behind** to completion."
     body = [
-        (f"The forecast finish sits at about **{F.get('forecast_finish')}** against the **{F.get('baseline_finish')}** "
-         "baseline. That slip is owned by the activities on the longest (driving) path, not by the project as a whole."),
+        ((K.dates(F, "The forecast finish sits at about **{ff}** against the **{bf}** baseline. ") or
+          f"The finish is {K.delay_phrase(F)}. ") +
+         "That slip is owned by the activities on the longest (driving) path, not by the project as a whole."),
     ]
     dl = K.driver_line(F)
     if dl:
@@ -275,7 +276,8 @@ def t02q07(F, role):
         ("The tell is simple: if a hard *finish-on* or *finish-no-later-than* constraint were suppressing the delay, "
          "float would be pinned at zero and the finish would look artificially safe. Instead " +
          (_neg_float_line(F) or "the schedule is calculating float openly") +
-         f" and the finish is calculating right through to about {F.get('forecast_finish')} — the delay isn't being masked."),
+         " and the finish is calculating right through"
+         + (f" to about {F['forecast_finish']}" if F.get('forecast_finish') else '') + " — the delay isn't being masked."),
     ]
     if computable is False:
         body.append("One honest caveat: the contract-milestone constraint check needs your contract dates, which "
@@ -401,7 +403,8 @@ def t02q12(F, role):
          "cross-baseline trace needs those earlier baselines loaded; it isn't computed from a single snapshot."),
         (f"With just the current baseline and this update, what I can tell you is that the "
          f"{('slip of ' + K.wd(F.get('delay_days')) if _behind(F) else 'current position')} is **live-progress "
-         f"movement against the baseline finish of {F.get('baseline_finish')}** — not a baseline change in this file."),
+         "movement against the baseline finish"
+         + (f" of {F['baseline_finish']}" if F.get('baseline_finish') else '') + "** — not a baseline change in this file."),
         ("Load the earlier approved baselines (REV.00, REV.01, …) and I'll show exactly which revision introduced the "
          "movement and how much each one added — the trace your claims consultant will want."),
     ]
@@ -420,8 +423,8 @@ def t02q13(F, role):
     body = [
         ("Yes — **Reporting Studio** composes this into one pack (PDF/Word plus an Excel export) from the results you "
          "pick. Here's the spine I'd assemble for a client / claims-consultant delay report:"),
-        (f"• **Headline** — SPI ≈ {K.ratio(F.get('spi'))}, finish {K.delay_phrase(F)} (forecast ~{F.get('forecast_finish')} "
-         f"vs baseline {F.get('baseline_finish')})."),
+        (f"• **Headline** — SPI ≈ {K.ratio(F.get('spi'))}, finish {K.delay_phrase(F)}"
+         + K.dates(F, " (forecast ~{ff} vs baseline {bf})") + "."),
         ("• **Driving path** — " + (K.driver_line(F) or "the controlling chain and its float") +
          f", with about {F.get('cpli_critical_count') or '—'} activities at critical float."),
         ("• **Root-cause / but-for** — the Consultant Review confirming the slip is genuine (no logic or lag "

@@ -67,8 +67,10 @@ def _bulk_line(F):
 
 
 def _on_plan_names(F):
-    """Names of disciplines that are on or ahead of plan (candidates to smooth off)."""
-    return [d.get('name') for d in (F.get('disciplines') or []) if (d.get('gap') or 0) <= 2]
+    """Disciplines on or ahead of plan that are still IN PROGRESS — the only ones with effort to smooth off.
+    A 100%-complete discipline has nobody left on it."""
+    return [d.get('name') for d in (F.get('disciplines') or [])
+            if (d.get('gap') or 0) <= 2 and (d.get('actual') or 0) < 100]
 
 
 def _cpi_note(F):
@@ -295,7 +297,7 @@ def t09q04(F, role):
     ]
     if behind:
         body.append("Your recovery is exactly where I'd push. Clawing time back tends to lean on **specialist trades** "
-                    "— the marine, piling and mechanical crews you can't just conjure at a week's notice. Before you "
+                    "— the specialist crews and plant you can't just conjure at a week's notice. Before you "
                     "bank any recovery on the finish, confirm those trades are **sourceable** in the window you need "
                     "them; a what-if that assumes them into existence is optimistic, not real.")
     else:
@@ -413,7 +415,7 @@ def t09q07(F, role):
     body.append("The risk usually isn't the baseline plan — it's the **recovery**. The moment you add a shift or a "
                 "second crew to claw back time, you create a second (or third) simultaneous front. Two specialist "
                 "operations running at once only works if you can genuinely crew **both** in the same period — and "
-                "marine, piling and mechanical trades don't stretch on demand.")
+                "specialist trades don't stretch on demand.")
     body.append("This is where the man-hour histogram earns its keep: **Update Analysis** shows how many activities "
                 "run concurrently in each period, and **Productivity & Resource Intelligence** tells you whether the "
                 "**aggregate man-hours across all those fronts** is staffable in that period — or only on paper. "

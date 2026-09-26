@@ -66,8 +66,8 @@ def project_brain(snapshot_id):
             earlier = [s for s in delayed if s.get('data_date') and str(s['data_date']) < str(cur_dd)]
             if earlier:
                 prev_delay = earlier[-1]['delay_days']
-        if prev_delay is None and len(delayed) >= 2:
-            prev_delay = delayed[-2]['delay_days']   # fallback when the current date is unknown
+        if prev_delay is None and cur_dd is None and len(delayed) >= 2:
+            prev_delay = delayed[-2]['delay_days']   # fallback only when the current date is unknown
         from p6_copilot.context import build_context
         ctx = build_context(result, audit=audit, prev_delay=prev_delay)
         # Planned/actual history for the Manager Report S-curve (DB-only — never re-parses).

@@ -298,7 +298,7 @@ def t13q05(F, role):
             "even start.")
     body = [
         "The trap is sequencing your own analysis wrong. Test the levers first and they'll show a gain; "
-        "then you add the missing cure times, fender/steel pre-assembly and commissioning checks, and "
+        "then you add the missing cure times, pre-assembly and commissioning checks, and "
         "half the gain evaporates because those steps sit right on the path you were accelerating. You "
         "end up reporting a recovery you can't actually deliver.",
         _continuity_signal_line(F),

@@ -194,6 +194,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_prodintel_tree()
         elif self.path == '/api/chat/library':
             self._handle_chat_library()
+        elif self.path == '/api/chat/library2':
+            self._handle_chat_library2()
         elif self.path == '/api/chat/status':
             self._handle_chat_status()
         else:
@@ -388,6 +390,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_dashboard(body)
         elif self.path == '/api/chat/qa':
             self._handle_chat_qa(body)
+        elif self.path == '/api/chat/qa2':
+            self._handle_chat_qa2(body)
+        elif self.path == '/api/chat/ask2':
+            self._handle_chat_ask2(body)
         elif self.path == '/api/chat/copilot/ask':
             self._handle_chat_copilot_ask(body)
         elif self.path == '/api/chat/copilot/tia':
@@ -3196,6 +3202,38 @@ class Handler(BaseHTTPRequestHandler):
         if not xml_path and snap is not None:
             xml_path = db.get_snapshot_xml_path(snap)
         return xml_path
+
+    def _handle_chat_library2(self):
+        """The 15 merged questions for the chat drawer (each with its topics and original sub-questions)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.library15())
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_qa2(self, body):
+        """One of the 15 merged questions, answered in full from the DB facts + the network re-read from
+        the P6 file (the sanctioned report exception), no model."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.answer_merged(
+                body.get('snapshot_id'), body.get('question_id'), body.get('mode', 'planning'),
+                focus=body.get('focus'), followup=body.get('followup')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_ask2(self, body):
+        """A typed question: routed to the right merged answer and sub-question, then answered."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            import p6_chat
+            self._json(200, p6_chat.ask_text(
+                body.get('snapshot_id'), body.get('question_text') or '', body.get('mode', 'planning'),
+                last_qid=body.get('last_qid')))
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_chat_qa(self, body):
         """Answer one library question by its id from the offline grounded engine

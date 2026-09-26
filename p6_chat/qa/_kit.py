@@ -78,6 +78,13 @@ def money(x):
     return '—' if v is None else f"{v:,.0f}"
 
 
+def dates(F, fmt):
+    """`fmt` filled with the forecast ({ff}) and baseline ({bf}) finish — or '' when either is unknown,
+    so a sentence never reads 'finish None'."""
+    ff, bf = F.get('forecast_finish'), F.get('baseline_finish')
+    return fmt.format(ff=ff, bf=bf) if ff and bf else ''
+
+
 def delay_phrase(F):
     """One plain clause describing where the finish stands. Uses the signed delay_days."""
     d = F.get('delay_days')
@@ -107,12 +114,30 @@ def spi_verdict(F):
 
 
 def worst_line(F):
-    """A sentence naming the worst-performing discipline, or '' if none stands out."""
-    w = F.get('worst_discipline')
+    """A sentence naming the discipline with the widest raw gap, or '' if none stands out."""
+    w = F.get('widest_gap') or F.get('worst_discipline')
     if not w:
         return ''
+    drv = main_driver(F)
+    tail = (" — the most likely home of the delay." if not drv or drv.get('name') == w.get('name') else
+            f"; by weight, though, **{drv.get('name')}** is what moves the finish.")
     return (f"The widest gap is in **{w.get('name')}** — about **{w.get('actual')}%** done against "
-            f"**{w.get('planned')}%** planned by now (a {w.get('gap')}-point gap), the most likely home of the delay.")
+            f"**{w.get('planned')}%** planned by now (a {w.get('gap')}-point gap){tail}")
+
+
+def cost_state(F):
+    """Honest cost phrase. When actual cost equals earned value the cost is derived from progress, CPI is 1.00
+    by construction, and the file cannot say whether the job is on budget."""
+    cpi = F.get('cpi')
+    if F.get('cost_derived'):
+        return f"not measured in this file (CPI {ratio(cpi)} only because actual cost is derived from progress)"
+    if cpi is None:
+        return "not derivable from this file"
+    if cpi < 0.98:
+        return f"running over budget on the work done (CPI {ratio(cpi)})"
+    if cpi > 1.02:
+        return f"running under budget on the work done (CPI {ratio(cpi)})"
+    return f"close to budget on the work done (CPI {ratio(cpi)})"
 
 
 def main_driver(F):

@@ -362,8 +362,8 @@ def t12q04(F, role):
                     "your top expedite, because it's already eating the completion date, not just at risk of it.")
     dl = K.driver_line(F)
     if dl:
-        body.append("Prioritise deliveries feeding the driver: " + dl + " A fender, a piling-plant or a steel "
-                    "delivery feeding that front outranks a delivery feeding floated work every time.")
+        body.append("Prioritise deliveries feeding the driver: " + dl + " A fabricated-steel, plant or "
+                    "equipment delivery feeding that front outranks a delivery feeding floated work every time.")
     oe = F.get('open_ends')
     if oe:
         body.append(f"One integrity check before you trust the ranking: **{oe} open ends** in this schedule. "
@@ -485,8 +485,8 @@ def t12q07(F, role):
          "The out-of-sequence check comes back clean here, so you're unlikely to have installs statused ahead "
          "of delivery — but eyeball the material-heavy fronts anyway, because a clean audit only proves the "
          "logic order, not that every delivery link exists."),
-        ("Then the completeness side: confirm every major item — fenders, piling/steel, silo steel, "
-         "mechanical plant — has an actual **delivery activity feeding its install**, not an install linked "
+        ("Then the completeness side: confirm every major item — structural steel, precast, "
+         "mechanical and electrical plant — has an actual **delivery activity feeding its install**, not an install linked "
          "straight to a date. A missing delivery link is invisible risk: the install looks ready in the logic "
          "while the material is still on a truck somewhere."),
         _logic_bits_line(F),

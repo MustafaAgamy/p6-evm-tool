@@ -56,13 +56,15 @@ def build_facts(snapshot_id):
     result = ctx.get('_result') or {}
     # Audit modules are read straight from the DB (same read path project_brain used).
     audit = None
+    extras = {}
     try:
         from p6_chat.copilot import _boot
         db = _boot()
         sid = result.get('_snapshot_id') or snapshot_id
         audit = db.get_audit_modules_for_snapshot(sid)
+        extras = db.get_evm_extras(sid) or {}
     except Exception:
-        audit = None
+        audit = audit or None
 
     delay = ctx.get('delay_days')
     F = {
@@ -89,11 +91,16 @@ def build_facts(snapshot_id):
         'ac': _num(result.get('ac')),
         'variance': _num(result.get('variance')),
         'pace_pct': ctx.get('pace_pct'),                    # SPI as whole %
+        # Actual cost that equals earned value is cost DERIVED from progress: CPI is then 1.00 by
+        # construction and must never be read as "on budget".
+        'cost_derived': bool(_num(result.get('ac')) and _num(result.get('ev')) and
+                             abs(_num(result.get('ac')) - _num(result.get('ev'))) <= max(1.0, 1e-6 * _num(result.get('ev')))),
         'planned_pct': ctx.get('planned_pct'),              # overall planned %, whole
         'actual_pct': ctx.get('actual_pct'),                # overall actual %, whole
         # ── progress by discipline ────────────────────────────────────────
         'disciplines': ctx.get('disciplines') or [],
-        'worst_discipline': ctx.get('worst_discipline'),
+        'worst_discipline': ctx.get('worst_discipline'),      # largest raw gap (Copilot context)
+        'widest_gap': ctx.get('widest_gap'),                  # None unless the context supplies it
         'top_gaps': [d for d in (ctx.get('disciplines') or []) if (d.get('gap') or 0) > 0][:3],
         # ── trend / history (for S-curve, period comparisons) ─────────────
         'trend': ctx.get('trend'),
@@ -109,6 +116,10 @@ def build_facts(snapshot_id):
     de = _mod(audit, 'dangling')
     oe = _mod(audit, 'open_ends')
     hc = _mod(audit, 'hard_constraints')
+    # Stored at import: the PV-EV gap split by an activity code (e.g. Type of Works) and engineering
+    # submittal status by trade. Plain dicts/lists or None.
+    F['value_gap'] = extras.get('gap') if isinstance(extras, dict) else None
+    F['submittals'] = extras.get('engineering_p6') if isinstance(extras, dict) else None
     F['has_audit'] = bool(audit and (audit.get('modules')))
     F['audit'] = {
         name: {'grade': m.get('grade'), 'score': m.get('score'),

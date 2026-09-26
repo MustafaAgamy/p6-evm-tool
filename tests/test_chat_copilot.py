@@ -56,6 +56,16 @@ def test_project_brain_returns_ctx_with_expected_keys(snap):
     assert ctx['baseline_finish'] and ctx['forecast_finish']
 
 
+def test_project_brain_same_date_reimport_is_not_a_trend(snap, xml_path):
+    """Re-importing the same update (same data date) is not a previous period — even when the
+    older import stored a different delay (e.g. before the delay-sign fix)."""
+    pid = db.get_project_id_for_snapshot(snap)
+    sid2 = db.insert_snapshot(pid, '2026-01-01', str(xml_path), str(xml_path), 'h1', 10, 2)
+    db.insert_metrics(sid2, {'pv': 100.0, 'ev': 60.0, 'ac': 70.0, 'spi': 0.6, 'cpi': 0.857, 'delay_days': -47,
+                             'overall_planned_pct': 0.614, 'overall_actual_pct': 0.404, 'variance': -40.0})
+    assert copilot.project_brain(sid2)['trend'] is None
+
+
 def test_project_brain_none_when_no_project(temp_db):
     assert copilot.project_brain(999999) is None
     assert copilot.project_brain(None) is None
