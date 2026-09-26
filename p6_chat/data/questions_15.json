@@ -1,0 +1,2028 @@
+{
+ "version": 2,
+ "groups": [
+  "Status & finish",
+  "Delay & critical path",
+  "Recovery",
+  "Schedule quality",
+  "Cost & resources",
+  "Delivery & construction",
+  "Claims & weather",
+  "Reporting"
+ ],
+ "questions": [
+  {
+   "id": "q01",
+   "group": "Status & finish",
+   "q": "Where do we stand — are we ahead or behind, over or under budget?",
+   "covers": [
+    "Are we ahead or behind, over or under budget?"
+   ],
+   "aliases": [
+    "are we behind",
+    "are we ahead",
+    "are we behind schedule",
+    "where are we",
+    "project status",
+    "how are we doing",
+    "status update",
+    "ahead or behind and budget",
+    "spi and cpi",
+    "progress vs plan",
+    "which discipline is worst",
+    "percent complete"
+   ],
+   "originals": [
+    {
+     "id": "t00q00",
+     "q": "Right now, are we ahead or behind, over or under budget? Give me SPI and CPI.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t00q01",
+     "q": "Give me a plain-English status of where this project stands.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Reporting Studio"
+    },
+    {
+     "id": "t00q02",
+     "q": "What's our percent complete overall and by discipline?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t00q07",
+     "q": "Is it getting better or worse since last update — what's the trend?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update vs Update, EVM"
+    },
+    {
+     "id": "t01q01",
+     "q": "Which part of the project is causing the delay?",
+     "cap": "assistant",
+     "qid": "which_wbs",
+     "mode": "management",
+     "status": "today",
+     "grounds": "Copilot assistant · worst discipline by variance"
+    },
+    {
+     "id": "t01q02",
+     "q": "How healthy is the project overall?",
+     "cap": "assistant",
+     "qid": "health",
+     "mode": "management",
+     "status": "today",
+     "grounds": "Copilot assistant · status, progress vs plan"
+    }
+   ]
+  },
+  {
+   "id": "q02",
+   "group": "Status & finish",
+   "q": "When will we finish, will we hit the dates — and what's slipping right now?",
+   "covers": [
+    "When will we finish, and will we hit the contract & sectional dates?",
+    "What's slipping this window, what's blocked, and my 3-week look-ahead?"
+   ],
+   "aliases": [
+    "when will we finish",
+    "when will the project finish",
+    "forecast finish date",
+    "completion date",
+    "will we hit handover",
+    "contract date",
+    "milestones at risk",
+    "sectional completion",
+    "what is slipping this week",
+    "look ahead",
+    "three week look ahead",
+    "what is blocked"
+   ],
+   "originals": [
+    {
+     "id": "t00q03",
+     "q": "How many working days are we behind, and is that the real number or an EVM approximation?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Consultant Review, Critical Path Analyzer"
+    },
+    {
+     "id": "t00q04",
+     "q": "When are we actually going to finish — the forecast completion date?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Update Analysis, EVM"
+    },
+    {
+     "id": "t00q05",
+     "q": "Are we going to hit the contract completion / handover date?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, EVM, Weather Impact"
+    },
+    {
+     "id": "t00q06",
+     "q": "Show me every sectional / interim completion milestone with its forecast date and slip in working days — which contractual dates am I at risk of missing, not just the final one?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, EVM"
+    },
+    {
+     "id": "t05q00",
+     "q": "Which activities were due to start or finish by this data date but haven't — what has quietly slipped in the current window before it reaches the critical path?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Schedule Audit"
+    },
+    {
+     "id": "t05q01",
+     "q": "What is blocking my imminent work — which upcoming activities have incomplete predecessors or unmet constraints and are not ready to start?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Critical Path Analyzer, Schedule Audit"
+    },
+    {
+     "id": "t05q02",
+     "q": "Give me a three-week look-ahead — what's starting and finishing on the driving path?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Critical Path Analyzer"
+    }
+   ]
+  },
+  {
+   "id": "q03",
+   "group": "Delay & critical path",
+   "q": "Is the delay real, how big is it, and how did it build up?",
+   "covers": [
+    "Is this delay genuine or manufactured — and where is it concentrated?",
+    "What's the true, defensible delay number and how did it build up?"
+   ],
+   "aliases": [
+    "why are we late",
+    "why is the project delayed",
+    "cause of delay",
+    "is the delay real",
+    "true delay",
+    "manufactured delay",
+    "but for delay",
+    "window analysis",
+    "where is the delay coming from",
+    "delay root cause"
+   ],
+   "originals": [
+    {
+     "id": "t01q00",
+     "q": "Why is the project delayed?",
+     "cap": "assistant",
+     "qid": "why_delayed",
+     "mode": "management",
+     "status": "today",
+     "grounds": "Copilot assistant · to-date / performance / worst discipline"
+    },
+    {
+     "id": "t02q01",
+     "q": "Is this slip genuine, or was it manufactured by changing logic, lags or constraints in the update?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Baseline Revision Comparison, Schedule Audit"
+    },
+    {
+     "id": "t02q05",
+     "q": "Is the delay in engineering, procurement or construction — where is it concentrated?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis"
+    },
+    {
+     "id": "t02q06",
+     "q": "Is out-of-sequence progress making the schedule look better than it really is?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit"
+    },
+    {
+     "id": "t02q07",
+     "q": "Did someone add a constraint holding the finish date artificially and hiding the real slip?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review, Baseline Revision Comparison"
+    },
+    {
+     "id": "t02q08",
+     "q": "Did a calendar change — extra working days or shifts — absorb the slip instead of showing it?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Calendar Audit, Baseline Revision Comparison"
+    },
+    {
+     "id": "t02q10",
+     "q": "Could open ends or dangling logic be why the delay isn't calculating through to the finish, or is a stale data date understating it?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review, Update Analysis"
+    },
+    {
+     "id": "t02q11",
+     "q": "Are the actual dates realistic, or has progress been back-dated or force-fed to look on track?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Update Analysis"
+    },
+    {
+     "id": "t02q00",
+     "q": "What's driving the finish date — show me the driving path and the top activities pushing completion out.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Update Analysis"
+    },
+    {
+     "id": "t02q02",
+     "q": "If I strip out the logic and lag changes from the last update, what does P6 say the true delay is?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review"
+    },
+    {
+     "id": "t02q03",
+     "q": "Break the delay down window by window — how much slip in each update period and what caused each?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update vs Update, Update Analysis, Claims / TIA reference"
+    },
+    {
+     "id": "t02q04",
+     "q": "Has the critical path shifted since baseline — is the delay coming from a different chain of work than we expected?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Baseline Revision Comparison"
+    },
+    {
+     "id": "t02q09",
+     "q": "SPI says one thing but the finish date says another — why don't they agree?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Critical Path Analyzer"
+    },
+    {
+     "id": "t02q12",
+     "q": "Which baseline revision is where the finish date first blew out — trace when the slip entered?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    }
+   ]
+  },
+  {
+   "id": "q04",
+   "group": "Delay & critical path",
+   "q": "Critical path & float — what's driving the date, and how much room is left?",
+   "covers": [
+    "What's on the critical path, is it believable — longest path and parallel paths?",
+    "Float health — how much, how negative, where, and can I free up crews?"
+   ],
+   "aliases": [
+    "critical path",
+    "driving path",
+    "longest path",
+    "what is driving the finish",
+    "total float",
+    "negative float",
+    "near critical",
+    "float erosion",
+    "cpli"
+   ],
+   "originals": [
+    {
+     "id": "t01q05",
+     "q": "What is driving the finish date?",
+     "cap": "assistant",
+     "qid": "critical_driver",
+     "mode": "planning",
+     "status": "today",
+     "grounds": "Copilot assistant · driving chain + float health"
+    },
+    {
+     "id": "t03q00",
+     "q": "What's actually on the critical path right now, and is it believable — does it run through the work I'd expect?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Schedule Health Review, Constructability Review"
+    },
+    {
+     "id": "t03q01",
+     "q": "Is my finish driven by real logic or by a constraint holding it in place?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Critical Path Analyzer"
+    },
+    {
+     "id": "t03q02",
+     "q": "Show me the longest path to completion — is it the same as the zero-float critical path?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer"
+    },
+    {
+     "id": "t03q03",
+     "q": "What's my CPLI, above or below 1.0, and is it improving or deteriorating across updates?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Critical Path Analyzer"
+    },
+    {
+     "id": "t03q07",
+     "q": "Did the critical path change since the last update — a new driving chain?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update vs Update, Critical Path Analyzer"
+    },
+    {
+     "id": "t03q08",
+     "q": "Are there multiple parallel critical paths I should worry about?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer"
+    },
+    {
+     "id": "t03q04",
+     "q": "How much negative float do I have, on which chain, and how deep is the hole?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Schedule Audit"
+    },
+    {
+     "id": "t03q05",
+     "q": "Which near-critical fronts are close enough that a few days' slip would make them critical?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Schedule Audit"
+    },
+    {
+     "id": "t03q06",
+     "q": "Where did I lose float since the last update — show me float migration by chain?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Update vs Update"
+    },
+    {
+     "id": "t03q09",
+     "q": "Which activities have the most float — can I pull crews off them onto the critical work?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Critical Path Analyzer"
+    },
+    {
+     "id": "t03q10",
+     "q": "Rank my near-critical paths by how likely each is to become the critical one.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — deterministic float thresholds only, no Monte-Carlo/risk simulation"
+    },
+    {
+     "id": "t03q11",
+     "q": "Alert me automatically when total float on the critical path drops below five days.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — float computed on demand per update, no standing alerts"
+    }
+   ]
+  },
+  {
+   "id": "q05",
+   "group": "Recovery",
+   "q": "How do I recover the delay — and model and cost the options?",
+   "covers": [
+    "How much must I recover, and the fastest/best way?",
+    "Model and cost a recovery — crash / crew / shift / fast-track, resourced and ranked.",
+    "Run a what-if scenario (delay / crash / add crew / re-sequence / extend)."
+   ],
+   "aliases": [
+    "how do we recover",
+    "catch up",
+    "claw back",
+    "lost time",
+    "recovery plan",
+    "accelerate",
+    "crash the schedule",
+    "add crews",
+    "night shift",
+    "six day week",
+    "fast track",
+    "what if",
+    "run a what if",
+    "scenario"
+   ],
+   "originals": [
+    {
+     "id": "t01q06",
+     "q": "What are the best recovery options?",
+     "cap": "assistant",
+     "qid": "recovery",
+     "mode": "planning",
+     "status": "today",
+     "grounds": "Copilot assistant · crash / re-sequence / extend time"
+    },
+    {
+     "id": "t04q00",
+     "q": "How many days do I need to claw back to hit the date, and can we still hit the milestone if we start recovery now?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Critical Path Analyzer, What-if / scenario engine"
+    },
+    {
+     "id": "t04q01",
+     "q": "What's the fastest way to pull the finish back — crashing, adding crews, or a 6-day week?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine"
+    },
+    {
+     "id": "t04q03",
+     "q": "Which activities give me the most recovery per day, and what's the minimum set I must accelerate to recover the whole delay?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, What-if / scenario engine, Update Analysis"
+    },
+    {
+     "id": "t04q07",
+     "q": "If I crash this activity, does it just shove the delay downstream, and where does the critical path jump next?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Critical Path Analyzer"
+    },
+    {
+     "id": "t04q02",
+     "q": "If I crash the concrete works by two weeks, how many days does the finish actually move?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Critical Path Analyzer"
+    },
+    {
+     "id": "t04q04",
+     "q": "If I add a second crew to the steel erection, how many days do I gain — and is that realistic against productivity norms?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t04q05",
+     "q": "How many days from a 6-day week vs a night shift, and do I need to change the P6 calendar first?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Calendar Audit"
+    },
+    {
+     "id": "t04q06",
+     "q": "Can I fast-track by overlapping engineering/procurement with construction, and is the re-sequence actually constructable?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Constructability Review"
+    },
+    {
+     "id": "t04q08",
+     "q": "How many days can I recover before I hit a resource ceiling or overtime fatigue stops helping?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t04q09",
+     "q": "Show me a resourced recovery scenario that hits the milestone, and check the resulting manpower peak is staffable.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Critical Path Analyzer, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t04q10",
+     "q": "Rank my recovery options best-to-worst by days recovered per unit of cost, and what does acceleration do to CPI?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, EVM, Reporting Studio"
+    },
+    {
+     "id": "t04q11",
+     "q": "Just find me the cheapest crash plan automatically — which activities and by how much to hit the date at least cost.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — manual what-ifs only, no time-cost optimization"
+    },
+    {
+     "id": "t04q12",
+     "q": "Can I realistically source the extra crews and equipment in this market, and by when?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — labour/plant market data outside the schedule"
+    },
+    {
+     "id": "t01q11",
+     "q": "Run a what-if scenario (delay, crash, add a crew…)",
+     "cap": "whatif",
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Copilot what-if · instant estimate + exact via P6 F9"
+    }
+   ]
+  },
+  {
+   "id": "q06",
+   "group": "Schedule quality",
+   "q": "Is the schedule healthy and reliable — and which logic problems do I fix?",
+   "covers": [
+    "Does it pass DCMA 14-point — logic health, consultant-ready, statused correctly?",
+    "Show my logic problems and fix them.",
+    "Which problems affect completion vs cosmetic — will fixing them move the finish, and is it reliable enough to report off?"
+   ],
+   "aliases": [
+    "schedule health",
+    "dcma",
+    "logic check",
+    "open ends",
+    "dangling activities",
+    "constraints",
+    "lags and leads",
+    "is the schedule reliable",
+    "fix the logic",
+    "out of sequence",
+    "schedule quality",
+    "audit"
+   ],
+   "originals": [
+    {
+     "id": "t06q00",
+     "q": "Does my schedule pass the DCMA 14-point check — what's my overall score?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q01",
+     "q": "Which of the 14 checks am I failing, and by how much am I over threshold?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q02",
+     "q": "Give me a plain-English summary of how healthy the logic actually is.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q03",
+     "q": "Is this clean enough to submit to the consultant, or will they bounce it — and for what?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Constructability Review"
+    },
+    {
+     "id": "t06q04",
+     "q": "Was this update statused correctly before I trust the numbers — activities in progress with no actual start, completed work with no actual dates, remaining duration on finished activities, or a stale data date?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Schedule Audit, Schedule Health Review"
+    },
+    {
+     "id": "t06q05",
+     "q": "Show me every dangling activity and open end, and why each is a problem.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review"
+    },
+    {
+     "id": "t06q06",
+     "q": "Suggest the missing links to close my open ends and give me a corrected XER.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit"
+    },
+    {
+     "id": "t06q07",
+     "q": "How many hard constraints, where are they, and am I over the DCMA 5% limit?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q08",
+     "q": "How much of my logic is Finish-to-Start versus other types — too many SS/FF/SF to convert?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q09",
+     "q": "How many lags and leads do I have, are any excessive, and are they justified or hiding real work?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review, Constructability Review"
+    },
+    {
+     "id": "t06q10",
+     "q": "Which activities run longer than 44 working days that I should break down?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q11",
+     "q": "Do I have any circular logic or loops in the network?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review"
+    },
+    {
+     "id": "t06q12",
+     "q": "Do I have out-of-sequence progress, why did it happen, and can you fix it and hand me a corrected schedule?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit"
+    },
+    {
+     "id": "t06q13",
+     "q": "Are my key milestones properly tied into logic on both sides, or are any dangling or detached?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Schedule Audit"
+    },
+    {
+     "id": "t06q16",
+     "q": "Do I have redundant or duplicate relationships cluttering the logic?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — not in the DCMA set or current audits"
+    },
+    {
+     "id": "t00q09",
+     "q": "How confident are you in this forecast date — what could blow it, and is the schedule even reliable enough to report off?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Critical Path Analyzer, Weather Impact"
+    },
+    {
+     "id": "t06q14",
+     "q": "Of all my logic problems, which affect completion versus cosmetic — give me a prioritized punch list to fix before resubmit.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Schedule Audit, Constructability Review"
+    },
+    {
+     "id": "t06q15",
+     "q": "If I clean up these issues, will my finish date actually change?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Schedule Health Review"
+    }
+   ]
+  },
+  {
+   "id": "q07",
+   "group": "Schedule quality",
+   "q": "What changed in the baseline or update — and is it a genuine re-plan or gaming?",
+   "covers": [
+    "What changed baseline→revision — the headline and slip drivers?",
+    "Full change breakdown — scope, activities, durations, logic, WBS, calendar, milestones.",
+    "Genuine re-plan or gaming — and is the contractor's update honest by F9?"
+   ],
+   "aliases": [
+    "baseline revision",
+    "what changed",
+    "compare baselines",
+    "rebaseline",
+    "is it gaming",
+    "contractor update honest",
+    "update review",
+    "changes since baseline"
+   ],
+   "originals": [
+    {
+     "id": "t07q00",
+     "q": "What actually changed between the approved baseline and the new revision — the headline before I read the whole thing?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q01",
+     "q": "The finish slipped in the revised baseline — break down what pushed it: added scope, longer durations, logic, or calendar?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q07",
+     "q": "Did the critical path re-route to a different chain, and where did float migrate between the two baselines?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Critical Path Analyzer"
+    },
+    {
+     "id": "t07q02",
+     "q": "Which activities got added — real new scope or just re-decomposition — and which were deleted, and were any critical?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Critical Path Analyzer"
+    },
+    {
+     "id": "t07q03",
+     "q": "Did total scope grow — activities, man-hours, budget — between the two baselines?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t07q04",
+     "q": "Show me every logic change — relationships added, removed, retyped — and which sit on the driving path.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q05",
+     "q": "Which durations changed, and were any critical-path durations shortened without a stated reason?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q06",
+     "q": "Did anyone re-sequence work, add new constraints, or inflate the calendar to pull the finish in on paper?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Schedule Health Review, Calendar Audit"
+    },
+    {
+     "id": "t07q09",
+     "q": "Which contract milestones moved and by how many days — and are any 'renamed' ones actually the same milestone?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Critical Path Analyzer"
+    },
+    {
+     "id": "t07q10",
+     "q": "Was the WBS restructured — branches added/removed or activities shuffled between nodes?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q08",
+     "q": "Which changes are material versus cosmetic, and did any activity keep the same work but get a new ID or name?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q11",
+     "q": "Give me a manipulation check — anything that looks like gaming rather than genuine re-planning — and did DCMA quality get worse?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Schedule Health Review"
+    },
+    {
+     "id": "t07q12",
+     "q": "Bottom line — is this revision a genuine recovery re-plan, or a slip dressed up to look better?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison"
+    },
+    {
+     "id": "t07q13",
+     "q": "The contractor's update shows a delay — is it real by P6 F9, and which logic or lag changes did they slip in that aren't in the baseline?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Update vs Update"
+    },
+    {
+     "id": "t07q14",
+     "q": "Between last month's update and this one, what changed on the driving path and did the contractor overstate progress?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update vs Update, Update Analysis, EVM"
+    },
+    {
+     "id": "t07q15",
+     "q": "Was each baseline change approved through a change order, who made it and when, and does the revision still comply with the schedule spec?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — no change-order link, edit attribution, or contract-spec model"
+    }
+   ]
+  },
+  {
+   "id": "q08",
+   "group": "Cost & resources",
+   "q": "Cost & EVM — where do we stand on money, and where will it land?",
+   "covers": [
+    "Earned vs planned, variances, over/under by discipline, over-claiming, cost-loaded?",
+    "Spend S-curve and a one-page cost/EVM dashboard I can export.",
+    "Forecast at completion, CPI trend, and a time-based earned-schedule read."
+   ],
+   "aliases": [
+    "are we over budget",
+    "cost position",
+    "earned value",
+    "cost variance",
+    "schedule variance",
+    "cpi",
+    "eac",
+    "forecast at completion",
+    "cash flow",
+    "s curve",
+    "spend"
+   ],
+   "originals": [
+    {
+     "id": "t08q00",
+     "q": "How much value have I earned versus what I planned to earn by this data date?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q01",
+     "q": "What's my schedule variance and cost variance in cost terms?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q02",
+     "q": "How much have I spent to date versus plan, and is my percent-spent running ahead of percent-complete?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q03",
+     "q": "Which disciplines are over or under budget, and how's the budget split across engineering, procurement and construction?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q04",
+     "q": "Am I over-claiming — where is earned value higher than the cost I've actually spent, by discipline?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q05",
+     "q": "Is my schedule even cost-loaded, or are these percent-only numbers — and which scope has no budget loaded?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q06",
+     "q": "Is Planned Value coming straight from P6 or are you re-deriving it?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t08q08",
+     "q": "Which work fronts are burning budget but not showing progress?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis"
+    },
+    {
+     "id": "t08q07",
+     "q": "Show me the spend S-curve — planned vs actual cumulative cost — and am I burning faster than planned?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, EVM, Consultant Review"
+    },
+    {
+     "id": "t08q09",
+     "q": "Build me a one-page cost/EVM dashboard for the client and export the numbers to Excel.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Reporting Studio, EVM"
+    },
+    {
+     "id": "t08q10",
+     "q": "Is my CPI trending better or worse over the last few updates?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "in-progress",
+     "grounds": "Power BI live dashboards"
+    },
+    {
+     "id": "t08q11",
+     "q": "At this CPI, what will the whole job cost at completion, how much more will I spend, and what CPI do I need to still land on budget?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — EVM has CPI but no EAC/ETC/TCPI tiles"
+    },
+    {
+     "id": "t08q12",
+     "q": "What's the cost of my current delay — how much prolongation am I carrying, and what's my month-by-month forward cashflow?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — delay_days and baseline S-curve are ingredients only"
+    },
+    {
+     "id": "t08q13",
+     "q": "My cost-based SPI will drift back toward 1.0 as I near completion even while running late — give me a time-based / earned-schedule read of schedule performance instead.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — delay-in-working-days is the partial time-based counterpart; a formal earned-schedule SPI(t) index/trend is not produced"
+    }
+   ]
+  },
+  {
+   "id": "q09",
+   "group": "Cost & resources",
+   "q": "Manpower & resources — is it realistic, and is the delay resource-driven?",
+   "covers": [
+    "Is my delay resource-driven, and did resourcing change between revisions?",
+    "Is my manpower realistic — peak, ramp, histogram, staffability, productivity?"
+   ],
+   "aliases": [
+    "manpower",
+    "is manpower enough",
+    "labour histogram",
+    "resources",
+    "productivity",
+    "crew size",
+    "resource loaded",
+    "manpower peak"
+   ],
+   "originals": [
+    {
+     "id": "t09q05",
+     "q": "Is my finish limited by logic or by manpower — is any of the delay resource-driven?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Productivity & Resource Intelligence, What-if / scenario engine, Update Analysis"
+    },
+    {
+     "id": "t09q06",
+     "q": "We're behind on SPI — is it a manpower shortfall or a sequencing problem, and which discipline is worst?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q09",
+     "q": "Did resource loading change between revisions — and did the new revision flatten the manpower peak or just postpone it?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q11",
+     "q": "Are any resources over-allocated, and if I level to a realistic crew cap, how much does the finish slip?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — what-if adds crews but does not detect conflicts or level to a limit"
+    },
+    {
+     "id": "t09q00",
+     "q": "What's my peak manpower, when does it hit, and does it line up with my key milestones?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Productivity & Resource Intelligence, Critical Path Analyzer"
+    },
+    {
+     "id": "t09q01",
+     "q": "Is my manpower histogram realistic, or does it spike unrealistically week to week?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q02",
+     "q": "Is this schedule resource-loaded at all, or just a logic network — and how many man-hours does it assume by discipline?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Productivity & Resource Intelligence, EVM"
+    },
+    {
+     "id": "t09q03",
+     "q": "Given the concrete and rebar quantities, are these durations achievable at normal crew productivity — flag the over-optimistic ones?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q04",
+     "q": "Can this plan be manned — is the peak and ramp-up feasible, and does it demobilize sensibly or fall off a cliff?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Productivity & Resource Intelligence, Baseline Revision Comparison"
+    },
+    {
+     "id": "t09q07",
+     "q": "How many concurrent work-fronts does the driving path assume — can I man them all at once?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q08",
+     "q": "What productivity rates did the planner assume behind these durations, and are they credible?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t09q10",
+     "q": "For the remaining quantities, how many crews and how long will it really take — can that beat the plan?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "in-progress",
+     "grounds": "Duration & Resource Calculation, Productivity & Resource Intelligence, What-if / scenario engine"
+    }
+   ]
+  },
+  {
+   "id": "q10",
+   "group": "Delivery & construction",
+   "q": "Engineering & procurement — design status, critical deliverables, and long-lead items",
+   "covers": [
+    "How's engineering, is it threatening construction, which deliverables are critical, and is late info driving the delay?",
+    "Long-lead items — which are critical, required-on-site dates, and delivery-slip impact?"
+   ],
+   "aliases": [
+    "engineering status",
+    "design progress",
+    "drawings late",
+    "procurement",
+    "long lead items",
+    "deliveries",
+    "required on site",
+    "vendor drawings"
+   ],
+   "originals": [
+    {
+     "id": "t12q00",
+     "q": "How's engineering doing against baseline — isolate the design category's SPI and % complete, separate from construction?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis"
+    },
+    {
+     "id": "t12q01",
+     "q": "Which discipline is dragging my overall SPI down — upstream design/procurement or the field?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM"
+    },
+    {
+     "id": "t12q02",
+     "q": "Show planned vs actual for every IFC drawing activity, and which engineering deliverables sit on the critical path.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, EVM, Critical Path Analyzer"
+    },
+    {
+     "id": "t12q03",
+     "q": "Is design late enough to threaten construction start, or still inside float?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Update Analysis, EVM"
+    },
+    {
+     "id": "t12q09",
+     "q": "The delay's blamed on late vendor drawings — verify it against baseline vs update, and are there EOT indicators for late information?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Claims / TIA reference"
+    },
+    {
+     "id": "t12q04",
+     "q": "Which long-lead items are on the critical path, and rank them by how little float is left?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Schedule Health Review"
+    },
+    {
+     "id": "t12q05",
+     "q": "What's the required-on-site date for each long-lead item, and if a delivery slips 30 days what does it do to the finish?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, What-if / scenario engine"
+    },
+    {
+     "id": "t12q06",
+     "q": "If I air-freight the long-lead item and cut 20 days off delivery, does it pull my finish in?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine"
+    },
+    {
+     "id": "t12q07",
+     "q": "Are any installs scheduled before their material delivery finishes, and does every major item have a delivery activity feeding its installation?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Update Analysis, Constructability Review"
+    },
+    {
+     "id": "t12q08",
+     "q": "Are procurement lead times modeled as real durations or hidden inside FS lags, and are delivery dates logic-driven or hard-constrained?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review"
+    },
+    {
+     "id": "t12q10",
+     "q": "Show completed engineering not yet flowing into procurement — where's the handoff stalling — and is the design-procure-fabricate-deliver-install sequence complete per the playbook?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, Schedule Audit, Construction Knowledge Base"
+    },
+    {
+     "id": "t12q11",
+     "q": "Track my submittal register status and PO/expediting log, and tell me if I'm missing any procurement or submittal activities.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — reads P6 activities, not submittal/PO systems; missing-activity is construction-only"
+    }
+   ]
+  },
+  {
+   "id": "q11",
+   "group": "Delivery & construction",
+   "q": "Subcontractors, interfaces & handover — who's behind, and is commissioning covered?",
+   "covers": [
+    "Rank subcontractors by how far behind; interface handoffs and trade-stacking under control?",
+    "Is commissioning/testing in, tracking, and on the critical path — and are close-out activities present and linked?"
+   ],
+   "aliases": [
+    "subcontractors",
+    "which subcontractor is behind",
+    "interfaces",
+    "handover",
+    "commissioning",
+    "testing and commissioning",
+    "close out",
+    "as built",
+    "punch list"
+   ],
+   "originals": [
+    {
+     "id": "t10q00",
+     "q": "Rank my subcontractors / scope packages by how far behind each is against plan — who needs the pressure this week?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update Analysis, EVM"
+    },
+    {
+     "id": "t10q01",
+     "q": "Which activities are interface handoffs between subcontractors, or between me and the client (free-issue, access handover, permits), and are those interface milestones tied into logic on both sides?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Schedule Audit, Constructability Review + Construction Knowledge Base"
+    },
+    {
+     "id": "t10q02",
+     "q": "Are too many trades stacked in the same work area at the same time on the driving path — is the plan spatially congested and unbuildable?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — schedule has no area-by-time occupancy model; trade-stacking / spatial congestion not computed"
+    },
+    {
+     "id": "t11q00",
+     "q": "How is commissioning and testing tracking against plan, and are the systems-completion / T&C activities now on the critical path to handover?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Critical Path Analyzer, Update Analysis"
+    },
+    {
+     "id": "t11q01",
+     "q": "Does my schedule actually contain the commissioning, testing, pre-comm, punch-list and handover activities it needs for this project type, or does it jump from construction straight to completion?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base, Schedule Audit"
+    },
+    {
+     "id": "t11q02",
+     "q": "Is there enough time between mechanical completion and the handover milestone for testing and commissioning, or has the commissioning tail been compressed to hold the date on paper?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Calendar Audit"
+    },
+    {
+     "id": "t11q03",
+     "q": "Are my close-out activities — as-builts, O&M manuals, final documentation, demobilisation, retention release — in the schedule and tied into logic, or left floating at the end?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Audit, Schedule Health Review, Constructability Review + Construction Knowledge Base"
+    }
+   ]
+  },
+  {
+   "id": "q12",
+   "group": "Delivery & construction",
+   "q": "Constructability — does the logic make sense, what's missing, and is the WBS right?",
+   "covers": [
+    "Does my logic make construction sense, and what is missing?",
+    "Is my WBS sound — and give me the sequence, WBS and starter baseline for this type."
+   ],
+   "aliases": [
+    "constructability",
+    "does the logic make sense",
+    "missing activities",
+    "wbs",
+    "construction sequence",
+    "project type",
+    "starter baseline",
+    "knowledge base"
+   ],
+   "originals": [
+    {
+     "id": "t13q00",
+     "q": "Are there relationships in here that make no construction sense — flag each with a reason?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base"
+    },
+    {
+     "id": "t13q01",
+     "q": "Are there missing construction activities that break the continuity of my logic?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base"
+    },
+    {
+     "id": "t13q04",
+     "q": "If I re-sequence to start Area B before Area A finishes, is that even constructable?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base, What-if / scenario engine"
+    },
+    {
+     "id": "t13q05",
+     "q": "Are there missing activities that, once added, would eat the recovery I think I have?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base"
+    },
+    {
+     "id": "t13q06",
+     "q": "Does the schedule allow time and hold-points for safety-critical sequences and permits — scaffold erect-then-inspect, confined-space entry, heavy-lift exclusion windows, permit-to-work — or are they compressed away?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "Constructability Review + Construction Knowledge Base (partial) — GAP: no HSE-aware / hold-point analysis"
+    },
+    {
+     "id": "t01q09",
+     "q": "What does this project type usually need?",
+     "cap": "assistant",
+     "qid": "project_needs",
+     "mode": "planning",
+     "status": "today",
+     "grounds": "Copilot assistant · Construction KB type read"
+    },
+    {
+     "id": "t13q02",
+     "q": "Is my WBS sound for this project type?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Constructability Review + Construction Knowledge Base"
+    },
+    {
+     "id": "t13q03",
+     "q": "For this project type, give me the construction sequence, a suggested WBS, and a starter baseline I can copy into P6.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Construction Knowledge Base"
+    }
+   ]
+  },
+  {
+   "id": "q13",
+   "group": "Claims & weather",
+   "q": "Claims & EOT — do I have a case, how many days, and how do I build the claim?",
+   "covers": [
+    "Do I have EOT indicators — whose fault, time vs money, notice window, how many days, which method?",
+    "Break the slip into weather / employer / me — and is there concurrency?",
+    "Model a TIA fragnet, find the FIDIC clause, and assemble the claim."
+   ],
+   "aliases": [
+    "can we claim",
+    "extension of time",
+    "eot",
+    "claim",
+    "employer delay",
+    "client delay",
+    "concurrent delay",
+    "fidic",
+    "time impact analysis",
+    "tia",
+    "notice"
+   ],
+   "originals": [
+    {
+     "id": "t01q07",
+     "q": "Is there an EOT / claim case?",
+     "cap": "assistant",
+     "qid": "eot_likely",
+     "mode": "planning",
+     "status": "today",
+     "grounds": "Copilot assistant · honest indicators (never asserts entitlement)"
+    },
+    {
+     "id": "t01q08",
+     "q": "Which delay-analysis method fits?",
+     "cap": "assistant",
+     "qid": "delay_method",
+     "mode": "planning",
+     "status": "today",
+     "grounds": "Copilot assistant · AACE 29R-03 + FIDIC 8.5/8.4"
+    },
+    {
+     "id": "t14q00",
+     "q": "Looking at this update, do I have indicators supporting an EOT claim, and are they owner-caused or my own?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Claims / TIA reference, Consultant Review, Critical Path Analyzer"
+    },
+    {
+     "id": "t14q01",
+     "q": "Which delay analysis method fits my situation — TIA, windows, or as-planned vs as-built — given how progressed my data is?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Claims / TIA reference, Consultant Review"
+    },
+    {
+     "id": "t14q02",
+     "q": "Is this delay excusable or on me — attribute the driving delay to employer/neutral versus contractor cause?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Critical Path Analyzer, Weather Impact"
+    },
+    {
+     "id": "t14q03",
+     "q": "Is this a money claim or just extra time — compensable versus excusable?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Claims / TIA reference"
+    },
+    {
+     "id": "t14q04",
+     "q": "How many working days of delay can I actually justify, and does the corrected but-for schedule back up that number?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Critical Path Analyzer, EVM"
+    },
+    {
+     "id": "t14q05",
+     "q": "The employer's drawings came late — did that push my critical path or just eat float?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Consultant Review, What-if / scenario engine"
+    },
+    {
+     "id": "t14q08",
+     "q": "Show me as-planned versus as-built on the critical path — where did I lose the time?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Update Analysis, EVM"
+    },
+    {
+     "id": "t14q10",
+     "q": "How should I slice this into windows for a windows/time-slice analysis, and can I isolate the events or is it a global claim?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Update vs Update, Critical Path Analyzer, Claims / TIA reference"
+    },
+    {
+     "id": "t14q13",
+     "q": "When did the delay first become foreseeable in the schedule — am I still within my notice window?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Baseline Revision Comparison, Claims / TIA reference"
+    },
+    {
+     "id": "t14q06",
+     "q": "Break my slip into weather, employer and me, and were the weather days worse than a competent contractor should have allowed for?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Weather Impact, Consultant Review, Calendar Audit"
+    },
+    {
+     "id": "t14q07",
+     "q": "Is there concurrent delay here — my delays running at the same time as the employer's — and was I pacing or genuinely behind?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Critical Path Analyzer, Claims / TIA reference"
+    },
+    {
+     "id": "t01q10",
+     "q": "Run a time impact analysis",
+     "cap": "tia",
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Copilot TIA · finish slip: to-date / performance / weather"
+    },
+    {
+     "id": "t14q09",
+     "q": "If the piling or the RFI answer slips N days, model the prospective time impact as a TIA fragnet.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "What-if / scenario engine, Critical Path Analyzer"
+    },
+    {
+     "id": "t14q11",
+     "q": "Which FIDIC clause covers this kind of event?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Claims / TIA reference"
+    },
+    {
+     "id": "t14q12",
+     "q": "Assemble the EOT claim with the schedule evidence and the baseline-vs-impacted-vs-actual S-curve exhibits.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "in-progress",
+     "grounds": "EOT Claim Builder, Consultant Review, Reporting Studio"
+    },
+    {
+     "id": "t14q14",
+     "q": "Which delay events are coming up on their notice deadline, and what's my prolongation cost per day?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "GAP — no contract-date ingest, correspondence, or monetary prolongation model"
+    }
+   ]
+  },
+  {
+   "id": "q14",
+   "group": "Claims & weather",
+   "q": "Weather & calendars — working days, weather lost, and the adjusted finish",
+   "covers": [
+    "What working days do my calendars give me, and how do two compare?",
+    "Weather days lost, weather-adjusted finish, recovery offset — and proving the shutdown wasn't my delay."
+   ],
+   "aliases": [
+    "weather",
+    "weather days",
+    "calendar",
+    "working days",
+    "holidays",
+    "shutdown",
+    "rain days"
+   ],
+   "originals": [
+    {
+     "id": "t15q00",
+     "q": "How many working days do my calendars give me, and what exceptions — holidays, reduced hours, shutdowns — are in them?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Calendar Audit"
+    },
+    {
+     "id": "t15q01",
+     "q": "Compare two calendars — where do they differ?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Calendar Audit"
+    },
+    {
+     "id": "t15q05",
+     "q": "Do my procurement and shipping durations account for holidays and site shutdowns?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Calendar Audit"
+    },
+    {
+     "id": "t15q02",
+     "q": "How many weather days did we lose this month, and what did it do to the finish?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Weather Impact"
+    },
+    {
+     "id": "t15q03",
+     "q": "What's the weather-adjusted finish if weather stays typical for this site, and what recovery offsets the weather days?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Weather Impact, What-if / scenario engine"
+    },
+    {
+     "id": "t15q04",
+     "q": "How many of the crew-days I'm adding will just be lost to weather anyway?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Weather Impact, Calendar Audit, Productivity & Resource Intelligence"
+    },
+    {
+     "id": "t15q06",
+     "q": "How do I show the shutdown period wasn't my delay?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Calendar Audit, Consultant Review"
+    }
+   ]
+  },
+  {
+   "id": "q15",
+   "group": "Reporting",
+   "q": "Reporting — the dashboard, board summary, narrative, and this week's messages",
+   "covers": [
+    "Board/client one-pager, monthly narrative and S-curve — and the headline message.",
+    "Create a professional dashboard.",
+    "This week's focus, risks and good news — plus a RAG and portfolio view."
+   ],
+   "aliases": [
+    "dashboard",
+    "report",
+    "board summary",
+    "monthly report",
+    "narrative",
+    "what should i tell the client",
+    "risks this month",
+    "good news",
+    "focus this week",
+    "manager briefing",
+    "rag"
+   ],
+   "originals": [
+    {
+     "id": "t00q08",
+     "q": "What's the single most important message for this week's report?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Critical Path Analyzer, Update Analysis"
+    },
+    {
+     "id": "t01q12",
+     "q": "Give me a manager's briefing",
+     "cap": "report",
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Copilot manager report · one-page exec briefing + S-curve"
+    },
+    {
+     "id": "t02q13",
+     "q": "Put all of this into one forensic delay report for the client and my claims consultant.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Reporting Studio, Consultant Review, Critical Path Analyzer"
+    },
+    {
+     "id": "t16q01",
+     "q": "Put together a one-page summary I can drop in front of the board.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Reporting Studio, EVM"
+    },
+    {
+     "id": "t16q02",
+     "q": "What do I tell the client in this month's progress meeting?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis, Consultant Review, Reporting Studio"
+    },
+    {
+     "id": "t16q06",
+     "q": "Draft the monthly schedule narrative paragraph for me.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis, Reporting Studio"
+    },
+    {
+     "id": "t16q07",
+     "q": "Give me an S-curve of planned vs actual vs forecast for the client report.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Consultant Review, Baseline Revision Comparison, EVM"
+    },
+    {
+     "id": "t16q00",
+     "q": "Create a professional dashboard",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "In-chat EVM command board — time status, planned vs actual %, Earned Value vs Planned Value and the gap by activity code, SPI/CPI, and the cost-loading S-curve — all as charts."
+    },
+    {
+     "id": "t01q03",
+     "q": "What are the biggest risks right now?",
+     "cap": "assistant",
+     "qid": "risks",
+     "mode": "management",
+     "status": "today",
+     "grounds": "Copilot assistant · slip, out-of-sequence, float"
+    },
+    {
+     "id": "t01q04",
+     "q": "What are the top actions this week?",
+     "cap": "assistant",
+     "qid": "actions",
+     "mode": "management",
+     "status": "today",
+     "grounds": "Copilot assistant · recovery-first action list"
+    },
+    {
+     "id": "t16q03",
+     "q": "What are the top three to five things my team needs to focus on this week to protect the end date?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Critical Path Analyzer, Update Analysis"
+    },
+    {
+     "id": "t16q04",
+     "q": "What are the key risks this month I should flag to management?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "Schedule Health Review, Weather Impact, Critical Path Analyzer, Constructability Review"
+    },
+    {
+     "id": "t16q05",
+     "q": "What good news can I lead the client meeting with?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "today",
+     "grounds": "EVM, Update Analysis"
+    },
+    {
+     "id": "t16q08",
+     "q": "Give me a red-amber-green health view for the steering committee.",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "Reporting Studio, EVM, Schedule Health Review"
+    },
+    {
+     "id": "t16q09",
+     "q": "Give me a portfolio view comparing all my projects, and will our forecast trigger any liquidated damages?",
+     "cap": null,
+     "qid": null,
+     "mode": null,
+     "status": "gap",
+     "grounds": "Power BI live dashboards for portfolio (in progress); LD exposure is a GAP"
+    }
+   ]
+  }
+ ],
+ "gaps": [
+  "Cost forecasting suite — EAC (BAC/CPI), ETC, TCPI, projected overrun in $, and a forward month-by-month cashflow forecast; today only CPI and the planned S-curve shape exist.",
+  "Earned-schedule SPI(t) — a time-based schedule-performance index and trend that stays reliable late in the job when cost-based SPI drifts toward 1.0; today only cost-based SPI and delay-in-working-days exist.",
+  "Monetary delay costing — prolongation / extended-preliminaries cost per day and total; delay is quantified in working days only.",
+  "Value/cost exposure per milestone and the $ of planned value pushed past the original finish date.",
+  "Contingency and margin burn tracked separately from BAC.",
+  "Acceleration pricing inside the what-if engine — it moves dates P6-exact but does not cost crashing / overtime / shifts.",
+  "Automatic least-cost crash optimization (time-cost tradeoff across the network); today only manual what-ifs.",
+  "Automatic resource leveling to a crew cap and its schedule impact; resource over-allocation / double-booking detection; trade-stacking and spatial congestion by area and time (area-by-time occupancy on the driving path).",
+  "HSE-aware scheduling — hold-points and permit-to-work sequencing (scaffold erect-then-inspect, confined-space entry, heavy-lift exclusion windows); constructability can flag missing/illogical safety sequencing but there is no HSE-specific analysis.",
+  "Live on-site roster feed to reconcile planned crew vs actual mobilized headcount; local labour and plant market availability; physical site capacity (access, welfare, laydown, parking) versus peak workforce.",
+  "Probabilistic / Monte-Carlo risk ranking of near-critical paths, free-float (vs total-float) breakdown per activity, and standing float-threshold alerts across updates.",
+  "Redundant / duplicate relationship detection in the logic audit.",
+  "Contract notice-deadline tracking (FIDIC 20.1/8.4) against correspondence, per-event causation/responsibility tagging, and a pacing-vs-culpable determination — today the tool gives concurrency and cause indicators, never fault or entitlement.",
+  "Formal contract-date ingest — comparing forecast finish and sectional/interim milestones against the contractual obligation dates directly (today the tool reads P6 milestone constraints, not the contract dates themselves).",
+  "Baseline-revision governance — link each change to its change-order/approval, per-edit author and timestamp audit trail, and compliance testing against the client's schedule specification.",
+  "Submittal-register and procurement/PO/expediting-log ingestion, plus missing-activity suggestions for procurement/engineering scope (missing-activity is currently construction/execution-only).",
+  "Automatic red-amber-green project-health scoring as a shipped control.",
+  "In-app cross-project portfolio comparison and liquidated-damages / penalty exposure computation against contract terms (portfolio served by the in-progress Power BI dashboards).",
+  "EOT Claim Builder (impacted XML + FIDIC claim) and quantity-driven Duration & Resource Calculation are in progress, not yet shipped."
+ ],
+ "counts": {
+  "questions": 15,
+  "originals": 182
+ }
+}

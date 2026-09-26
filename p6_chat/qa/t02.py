@@ -62,25 +62,31 @@ def t02q00(F, role):
             evidence=[K.ev('EVM', 'Delay', _sd(F)), K.ev('Critical path', 'Driving activities', F.get('driving_path_count'))])
     head = f"The finish is being driven by your critical chain — about **{K.wd(F.get('delay_days'))} behind** to completion."
     body = [
-        (f"The forecast finish sits at about **{F.get('forecast_finish')}** against the **{F.get('baseline_finish')}** "
-         "baseline. That slip is owned by the activities on the longest (driving) path, not by the project as a whole."),
+        ((K.dates(F, "The forecast finish sits at about **{ff}** against the **{bf}** baseline. ") or
+          f"The finish is {K.delay_phrase(F)}. ") +
+         "That slip is owned by the activities on the longest (driving) path, not by the project as a whole."),
     ]
     dl = K.driver_line(F)
     if dl:
         body.append(dl + " That is where the driving chain almost certainly runs — the recovery has to land there.")
-    dp = F.get('driving_path_count')
     cc = F.get('cpli_critical_count')
-    if dp or cc:
-        body.append(f"On the logic: about **{dp or '—'} activities** lie on the driving path and **{cc or '—'}** "
-                    f"({K.pct(F.get('cpli_critical_pct'))}) sit at critical (near-zero or negative) float — a "
-                    f"{('dense' if (F.get('cpli_density_grade') or '').lower().startswith('high') else 'broad')} "
-                    "critical front, so several chains are competing to control the date.")
+    logic = ' '.join(x for x in (K.chain_line(F), K.driving_note(F)) if x)
+    if logic or cc:
+        body.append("On the logic: " + (logic + " " if logic else "")
+                    + (f"**{cc}** activities ({K.pct(F.get('cpli_critical_pct'))}) sit at critical (near-zero or "
+                       f"negative) float — a "
+                       f"{('dense' if (F.get('cpli_density_grade') or '').lower().startswith('high') else 'broad')} "
+                       "critical front, so other paths sit close behind the one that sets the date." if cc else ""))
     nfl = _neg_float_line(F)
     if nfl:
-        body.append(nfl + " Every day lost on those chains moves the finish straight out — there's no float left to absorb it.")
-    body.append("The tool can't name the individual top activities from this snapshot — that ranked driving-path "
-                "list comes from the dedicated engine — but it can tell you which work front carries the slip and "
-                "that the path is real.")
+        body.append(nfl + " Negative float is measured against the baseline finish: a path moves the forecast "
+                    "finish only once its float is as deep as the finish chain's; a shallower one has that much slack "
+                    "left before it drives the date.")
+    body.append("The main answer above lists that chain activity by activity, so you can see exactly which work "
+                "carries the slip." if K.chain_facts(F) else
+                "The tool can't name the individual top activities from this snapshot — that ranked driving-path "
+                "list comes from the Critical Path Analyzer — but it can tell you which work front carries the slip "
+                "and that the path is real.")
     return K.A(head, body,
                advice=["Put every recovery move on the front named above first — nothing off the driving path moves the date.",
                        K.go_deeper('Critical Path Analyzer', 'For the ranked driving-path activities')],
@@ -95,22 +101,26 @@ def t02q01(F, role):
         return _no_project(F)
     lag = _akpi(F, 'lag_lead')
     rel = _akpi(F, 'relationship_types')
-    head = ("The slip reads as **genuine execution under-performance**, not a manufactured, schedule-edited one."
-            if _behind(F) else "There's no slip to explain — the finish is holding.")
+    head = ("The slip reads as **genuine** — the network shows it openly, and nothing points to it being "
+            "manufactured by editing logic, lags or constraints." if _behind(F) else
+            "There's no slip to explain — the finish is holding.")
     body = []
     if _behind(F):
         body.append(f"The finish is {K.delay_phrase(F)}, and the network shows that delay honestly: "
                     + (_neg_float_line(F) or "the driving path is carrying it in the open."))
+        lags = lag.get('lagged_count') or lag.get('lag_count') or lag.get('total_lags')
+        non_fs = rel.get('non_fs') or rel.get('non_fs_count')
+        found = ' and '.join(x for x in (f"{K.money(lags)} lagged links" if K._n(lags) else '',
+                                         f"{K.money(non_fs)} non-FS relationships" if K._n(non_fs) else '') if x)
         body.append("Two things a forensic reviewer looks for as signs of a *manufactured* slip — wholesale "
-                    "logic re-sequencing and padded lags — aren't jumping out of the audit: "
-                    + (f"there are {lag.get('lag_count') or lag.get('total_lags') or '—'} lagged links and "
-                       f"{rel.get('non_fs') or rel.get('non_fs_count') or '—'} non-FS relationships flagged, "
-                       "which is housekeeping to tidy, not evidence the delay was engineered.")
-                    + " The definitive but-for test, though, belongs to the Consultant Review / Baseline Revision engines.")
+                    "logic re-sequencing and padded lags — aren't jumping out of the audit"
+                    + (f": it flags {found}, which is logic to tidy, not evidence the delay was engineered." if found
+                       else ".")
+                    + " The definitive but-for test belongs to the Consultant Review / Baseline Revision engines.")
         dl = K.driver_line(F)
         if dl:
-            body.append("Where the slip actually comes from: " + dl)
-        body.append("Report it straight — an execution slip, not a paper one. That honesty also *strengthens* your "
+            body.append("Where the slip sits: " + dl + " " + K.cause_line(F))
+        body.append("Report it straight — a real slip, not a paper one. That honesty also *strengthens* your "
                     "position if this ever becomes a delay claim; a slip you can defend beats a number someone can pick apart.")
     else:
         body.append(f"The finish is {K.delay_phrase(F)}, so there's nothing to test for manipulation. If a slip "
@@ -183,7 +193,7 @@ def t02q04(F, role):
          f"the critical density is graded {F.get('cpli_grade')}") +
          " Work that once had slack is now controlling — that's what a shifted critical path looks like in the numbers."),
         (f"The driving front today is where the shortfall concentrates: " + (K.driver_line(F) or
-         "spread across the works in progress") + " — if that isn't where the baseline critical path ran, the "
+         "spread across the works in progress.") + " If that isn't where the baseline critical path ran, the "
          "controlling chain has moved."),
         ("Confirming that the *specific* chain differs from baseline — and by how much float — is a Critical Path "
          "Analyzer / Baseline Revision Comparison job (it needs both schedules side by side); that comparison isn't "
@@ -219,10 +229,11 @@ def t02q05(F, role):
         body.append(f"• **{d.get('name')}** — {d.get('actual')}% done vs {d.get('planned')}% planned "
                     f"(~{round((_num(d.get('weight')) or 0)*100)}% of the project by weight): {state}.")
     if dl:
-        body.append("So the concentration is clear: " + dl + " Engineering and procurement, where they carry little "
-                    "weight, aren't the story.")
-    body.append("Read that as a direction for management attention: this is a crews/productivity/site-access problem "
-                "on the front named above, not a design or long-lead issue to escalate to the office.")
+        body.append("So the concentration is clear: " + dl + " Engineering and procurement carry little weight, so "
+                    "they don't move the finish much on their own — but a design line far behind can still hold "
+                    "the construction work it releases, which the engineering & procurement answer checks.")
+    body.append("Read that as a direction for management attention: the slip is on site, on the front named above. "
+                + K.cause_line(F))
     return K.A(head, body,
                advice=["Point recovery and management attention at the weighted driver first — it moves the date most.",
                        K.go_deeper('Update Analysis', 'For the per-discipline detail against baseline')],
@@ -274,8 +285,9 @@ def t02q07(F, role):
     body = [
         ("The tell is simple: if a hard *finish-on* or *finish-no-later-than* constraint were suppressing the delay, "
          "float would be pinned at zero and the finish would look artificially safe. Instead " +
-         (_neg_float_line(F) or "the schedule is calculating float openly") +
-         f" and the finish is calculating right through to about {F.get('forecast_finish')} — the delay isn't being masked."),
+         (_neg_float_line(F).rstrip('.') or "the schedule is calculating float openly") +
+         ", and the finish is calculating right through"
+         + (f" to about {F['forecast_finish']}" if F.get('forecast_finish') else '') + " — the delay isn't being masked."),
     ]
     if computable is False:
         body.append("One honest caveat: the contract-milestone constraint check needs your contract dates, which "
@@ -329,7 +341,7 @@ def t02q09(F, role):
     dl = K.driver_line(F)
     if dl:
         body.append("Here, the gap between them is exactly the concentration of the slip: " + dl +
-                    " — good progress elsewhere lifts SPI without moving the finish.")
+                    " Good progress elsewhere lifts SPI without moving the finish.")
     body.append("Rule of thumb: for the **completion date**, trust the critical path; use **SPI** for overall "
                 "performance and cost-earned pace, not for timing.")
     return K.A(head, body,
@@ -347,10 +359,13 @@ def t02q10(F, role):
     body = [
         (f"Here the delay **is** calculating through — the finish is {K.delay_phrase(F)}, so nothing is swallowing it "
          "in a broken forward pass."),
-        (f"Logic gaps to close as housekeeping: **{oe if oe is not None else '—'} open ends** and "
-         f"**{dg if dg is not None else '—'} dangling logic links**. Open ends and danglers let a chain fail to drive "
-         "its successors, which *can* understate a slip — so close them off so every path is carried through the "
-         "forward pass — but at these counts they aren't hiding the delay in this update."),
+        ((("Logic gaps to close as housekeeping: "
+           + " and ".join(x for x in (f"**{oe} open ends**" if oe else '', f"**{dg} dangling logic links**" if dg else '')
+                          if x)
+           + ". Open ends and danglers let a chain fail to drive its successors, which *can* understate a slip — so "
+             "close them off so every path is carried through the forward pass — but at these counts they aren't "
+             "hiding the delay in this update.") if (oe or dg) else
+          "No open ends or dangling links to close — every path is carried through the forward pass.")),
         (f"On the data date: it's at **{F.get('data_date')}**. If that were stale the slip would read low; a current "
          "data date means the delay isn't being understated by an old cutoff."),
     ]
@@ -401,7 +416,8 @@ def t02q12(F, role):
          "cross-baseline trace needs those earlier baselines loaded; it isn't computed from a single snapshot."),
         (f"With just the current baseline and this update, what I can tell you is that the "
          f"{('slip of ' + K.wd(F.get('delay_days')) if _behind(F) else 'current position')} is **live-progress "
-         f"movement against the baseline finish of {F.get('baseline_finish')}** — not a baseline change in this file."),
+         "movement against the baseline finish"
+         + (f" of {F['baseline_finish']}" if F.get('baseline_finish') else '') + "** — not a baseline change in this file."),
         ("Load the earlier approved baselines (REV.00, REV.01, …) and I'll show exactly which revision introduced the "
          "movement and how much each one added — the trace your claims consultant will want."),
     ]
@@ -420,8 +436,8 @@ def t02q13(F, role):
     body = [
         ("Yes — **Reporting Studio** composes this into one pack (PDF/Word plus an Excel export) from the results you "
          "pick. Here's the spine I'd assemble for a client / claims-consultant delay report:"),
-        (f"• **Headline** — SPI ≈ {K.ratio(F.get('spi'))}, finish {K.delay_phrase(F)} (forecast ~{F.get('forecast_finish')} "
-         f"vs baseline {F.get('baseline_finish')})."),
+        (f"• **Headline** — SPI ≈ {K.ratio(F.get('spi'))}, finish {K.delay_phrase(F)}"
+         + K.dates(F, " (forecast ~{ff} vs baseline {bf})") + "."),
         ("• **Driving path** — " + (K.driver_line(F) or "the controlling chain and its float") +
          f", with about {F.get('cpli_critical_count') or '—'} activities at critical float."),
         ("• **Root-cause / but-for** — the Consultant Review confirming the slip is genuine (no logic or lag "

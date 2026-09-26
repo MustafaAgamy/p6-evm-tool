@@ -29,6 +29,23 @@ def answer_question(snapshot_id, question_id, role='management'):
     return qa_service.answer_question(snapshot_id, question_id, role)
 
 
+def answer_merged(snapshot_id, question_id, role='planning', focus=None, followup=None):
+    """One of the 15 merged questions, answered in full (v2). See p6_chat.qa_service."""
+    from . import qa_service
+    return qa_service.answer_merged(snapshot_id, question_id, role, focus=focus, followup=followup)
+
+
+def ask_text(snapshot_id, text, role='planning', last_qid=None):
+    """A typed question, routed to the right merged answer and sub-question."""
+    from . import qa_service
+    return qa_service.ask_text(snapshot_id, text, role, last_qid=last_qid)
+
+
+def library15():
+    from . import qa_service
+    return qa_service.library15()
+
+
 def brain_status():
     return llm.status()
 

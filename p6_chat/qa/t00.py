@@ -22,13 +22,20 @@ def t00q00(F, role):
         return _no_project(F)
     _, pace = K.spi_verdict(F)
     cpi = F.get('cpi')
-    cpi_txt = (f"CPI is **{K.ratio(cpi)}** — every unit spent is buying about {round((cpi or 0)*100)}% of its "
-               "planned work" + (", a modest overspend" if cpi and cpi < 0.98 else
-                                 (", a slight underrun" if cpi and cpi > 1.02 else ", essentially on budget")) + ".") if cpi is not None else \
-              "Cost performance (CPI) isn't derivable in this file."
+    if F.get('cost_derived'):
+        cpi_txt = (f"CPI is **{K.ratio(cpi)}** — but in this file actual cost equals earned value (cost is derived from "
+                   "progress), so that's an artefact, not a budget signal. The file can't tell you whether you're on budget.")
+    elif cpi is not None:
+        cpi_txt = (f"CPI is **{K.ratio(cpi)}** — every unit spent is buying about {round((cpi or 0)*100)}% of its "
+                   "planned work" + (", a modest overspend" if cpi < 0.98 else
+                                     (", a slight underrun" if cpi > 1.02 else ", essentially on budget")) + ".")
+    else:
+        cpi_txt = "Cost performance (CPI) isn't derivable in this file."
     behind = F.get('behind')
+    cost_head = (", and cost can't be judged from this file" if F.get('cost_derived') else
+                 (", and cost is holding" if cpi and cpi >= 0.97 else (", and modestly over on cost" if cpi else "")))
     head = (f"{F['project_name']} is **{'behind' if behind else ('ahead' if F.get('ahead') else 'on schedule')}** "
-            f"on time" + (", and cost is holding" if cpi and cpi >= 0.97 else (", and modestly over on cost" if cpi else "")) + ".")
+            f"on time" + cost_head + ".")
     body = [
         f"On schedule: {pace}. In date terms the finish is {K.delay_phrase(F)}.",
         cpi_txt,
@@ -62,7 +69,7 @@ def t00q01(F, role):
         body.append(dl + " Engineering and procurement, where they carry little weight, aren't the headline.")
     cpi = F.get('cpi')
     if cpi is not None:
-        body.append(f"Cost is {'holding' if cpi >= 0.97 else 'running modestly over'} (CPI {K.ratio(cpi)}).")
+        body.append(f"Cost is {K.cost_state(F)}.")
     body.append("Bottom line: " + _bottom_line(F))
     return K.A(head, body,
                advice=[K.go_deeper('Reporting Studio', 'To issue this as a one-pager')],
@@ -107,16 +114,15 @@ def t00q03(F, role):
     body = [
         (f"This is the finish milestone measured in its own calendar's working days: forecast finish "
          f"~{F.get('forecast_finish') or 'n/a'} against the {F.get('baseline_finish') or 'baseline'} baseline."),
-        ("It's re-derived by the tool from the schedule (an EVM-side reconstruction), which matches P6 to the day on "
-         "progressed schedules. For a claim-grade, F9-exact figure, run it through the dedicated engine — I won't "
-         "dress an approximation up as the contractual number."),
+        (K.delay_source(F) + " For a claim, the number isn't this whole slip — it's the part a time-impact "
+         "analysis attributes to specific events."),
     ]
     nf = F.get('neg_float_count')
     if nf:
         body.append(f"Corroborating it: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) carry negative total float — "
                     "the network itself is showing the pressure on the finish, not just the EVM conversion.")
     return K.A(head, body,
-               advice=[K.go_deeper('Consultant Review', 'For the F9-exact, dated figure')],
+               advice=[K.go_deeper('Consultant Review', 'For the part of the slip attributable to specific events')],
                evidence=[K.ev('EVM', 'Delay', _kit_delay(F)),
                          K.ev('Float', 'Negative-float activities', F.get('neg_float_count'))])
 
@@ -131,7 +137,9 @@ def t00q04(F, role):
         return K.A("The forecast finish isn't derivable from this file.",
                    body=["I can't read a forecast finish date here. Run the retained-logic forward pass to get it."],
                    advice=[K.go_deeper('Critical Path Analyzer')])
-    head = f"Forecast completion is about **{ff}**" + (f", ~{K.wd(d)} {'late' if d>0 else 'early'} vs the {F.get('baseline_finish')} baseline." if d else ".")
+    head = f"Forecast completion is about **{ff}**" + (f", ~{K.wd(d)} {'late' if d>0 else 'early'} vs the "
+                                                      + (f"{F['baseline_finish']} " if F.get('baseline_finish') else '')
+                                                      + "baseline." if d else ".")
     body = [
         "That's the retained-logic forecast off this update, not an extrapolation of the trend.",
     ]
@@ -157,14 +165,15 @@ def t00q05(F, role):
                    advice=[K.go_deeper('Critical Path Analyzer')])
     hit = d <= 0
     head = ("On today's logic, **yes** — we're on or ahead of the finish milestone." if hit
-            else f"On today's logic, **no** — we land about **{K.wd(d)}** past the {F.get('baseline_finish')} baseline finish (~{F.get('forecast_finish')}).")
+            else f"On today's logic, **no** — we land about **{K.wd(d)}** past the baseline finish"
+                 + K.dates(F, " of {bf} (~{ff})") + ".")
     body = []
     if not hit:
         body.append("If your contractual completion date is that baseline date, you're that far into exposure. "
                      "Confirm the actual contract date — formal contract-date ingest is a known gap, so right now "
                      "I'm measuring against the finish milestone in the file.")
         if 'Weather' in str(_grounds('t00q05')):
-            body.append("Marine/weather-exposed work can widen this further — check the weather effect for the site type.")
+            body.append("Weather-exposed work can widen this further — check the weather effect for the site type.")
         body.append("Recovery is achievable, but only by acting on the driving front now, not next month.")
     else:
         body.append("Keep the driving path protected and watch the near-critical chains so the margin doesn't erode.")
@@ -234,8 +243,8 @@ def t00q08(F, role):
     driver = K.main_driver(F)
     dn = driver.get('name') if driver else 'the driving work front'
     if d and d > 0:
-        head = (f"One line: {F['project_name']} is forecasting **~{K.wd(d)} late** "
-                f"(finish ~{F.get('forecast_finish')} vs the {F.get('baseline_finish')} baseline), the driver is "
+        head = (f"One line: {F['project_name']} is forecasting **~{K.wd(d)} late**"
+                + K.dates(F, " (finish ~{ff} vs the {bf} baseline)") + ", the driver is "
                 f"**{dn}**, and recovery needs a decision this week.")
     elif d is not None and d <= 0:
         head = (f"One line: {F['project_name']} is holding its finish date "
@@ -244,7 +253,9 @@ def t00q08(F, role):
         head = f"One line: {F['project_name']} is at SPI ≈ {K.ratio(F.get('spi'))}; the finish milestone needs confirming."
     body = [
         "That's the message — a dated position, a single named cause, and a clear call to act.",
-        (f"Cost is stable (CPI {K.ratio(F.get('cpi'))}), so don't bury the schedule story in financials."
+        (f"Cost is {K.cost_state(F)}, so keep the schedule story up front."
+         if F.get('cost_derived') else
+         f"Cost is stable (CPI {K.ratio(F.get('cpi'))}), so don't bury the schedule story in financials."
          if F.get('cpi') and F['cpi'] >= 0.95 else
          "Pair it with the cost position so the report reads straight."),
         "Lead with the date and the cause; everything else is supporting detail.",
@@ -310,7 +321,10 @@ def _state_word(F):
     if d is None:
         return "in progress; the finish milestone needs confirming"
     if d > 0:
-        return "behind and losing ground on the finish date"
+        t = (F.get('trend') or {}).get('direction')
+        return ("behind and losing ground on the finish date" if t == 'worse' else
+                "behind on the finish date, but recovering ground since the last update" if t == 'better' else
+                "behind on the finish date")
     if d < 0:
         return "ahead of its finish date"
     return "holding its finish date"
@@ -333,7 +347,9 @@ def _bottom_line(F):
     driver = K.main_driver(F)
     dn = driver.get('name') if driver else 'the driving front'
     if d and d > 0:
-        return f"this is an execution problem on **{dn}**, and it needs a recovery decision now, not next month."
+        why = (" Whose delay it is — the late client inputs or the contractor's own start — needs a time-impact "
+               "analysis; don't call it either way from one update." if K.late_inputs(F) else "")
+        return f"the slip sits on **{dn}**, and it needs a recovery decision now, not next month.{why}"
     if d is not None and d <= 0:
         return "the finish is holding — protect the driving path and keep the near-critical work honest."
     return "confirm the finish milestone, then judge the position against the baseline."

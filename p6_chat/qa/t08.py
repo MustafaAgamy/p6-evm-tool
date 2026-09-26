@@ -95,29 +95,43 @@ def _cpi_word(F):
     return 'on'
 
 
+def _derived(F):
+    """Actual cost equals earned value — cost is derived from progress, so it isn't measured."""
+    return bool(F.get('cost_derived'))
+
+
+def _not_measured(F):
+    return ("In this file actual cost is set equal to earned value — cost is derived from progress, not recorded — "
+            "so **CPI is 1.00 by construction** and says nothing about money.")
+
+
+def _unearned_pct(F):
+    """Share of the value planned by now that hasn't been earned: (PV − EV) ÷ PV, whole %, or None."""
+    pv, ev = _num(F.get('pv')), _num(F.get('ev'))
+    return round((pv - ev) / pv * 100) if pv and ev is not None else None
+
+
 def _cpi_echo_caveat(F):
-    """Rule 4 — the honest CPI clause: near 1.0 by construction, an echo of SPI, not a cost
-    verdict. Always returns a usable sentence."""
+    """The honest CPI clause for this file. Always returns a usable sentence."""
     c = _num(F.get('cpi'))
     spi = K.ratio(F.get('spi'))
+    if _derived(F):
+        return (_not_measured(F) + f" **SPI ≈ {spi}** and the delay to completion are the signals that actually "
+                "move.")
     if c is None:
-        return ("One caveat that governs this whole answer: cost performance (CPI) isn't independently "
-                "derivable from this file, and even where it is, these schedules derive cost from "
-                f"percent-complete — so CPI tracks the schedule rather than standing on its own. **SPI ≈ {spi}** "
-                "and the delay to completion are the signals that actually move.")
-    return ("One caveat that governs this whole answer: in these schedules cost is derived from "
-            f"percent-complete, so **CPI ≈ {K.ratio(c)}** is largely an *echo* of the schedule, not an "
-            f"independent cost verdict. Read it as a sense-check and let **SPI ≈ {spi}** plus the delay to "
-            "completion carry the story.")
+        return (f"Cost performance (CPI) isn't derivable from this file, so **SPI ≈ {spi}** and the delay to "
+                "completion carry the story.")
+    return (f"**CPI ≈ {K.ratio(c)}** is measured from the actual cost in this file — read it alongside "
+            f"**SPI ≈ {spi}** and the delay to completion, which carry the schedule story.")
 
 
 def _rederived_caveat(F):
     """The re-derivation honesty line (P6 omits PV) — reused wherever confidence in the $ matters."""
     return ("Confidence caveat: P6's XML carries no Schedule% or Planned-Value curve, so the tool "
             f"**re-derives** the planned side from the baseline dates and the loaded budget. That makes "
-            f"**SPI ≈ {K.ratio(F.get('spi'))}** directional rather than gospel; the hard schedule position "
-            f"is the delay to completion ({K.delay_phrase(F)}), which is computed from the network, not "
-            "re-derived the same way.")
+            f"**SPI ≈ {K.ratio(F.get('spi'))}** directional rather than gospel. The hard schedule position is the "
+            f"delay to completion ({K.delay_phrase(F)}) — that is P6's own figure: the finish milestone's exported "
+            "forecast date against its baseline, which agrees with its total float.")
 
 
 def _hist_n(F):
@@ -153,10 +167,12 @@ def t08q00(F, role):
     gap = _prog_gap(F)
     have = _have_costs(F)
     dd = F.get('data_date')
-    head = (f"By the {dd} data date you've earned about **{K.pct(F.get('actual_pct'))}** of the value "
-            f"you planned to — against a planned **{K.pct(F.get('planned_pct'))}**"
-            + (f", a **{gap}-point** hole." if gap and gap > 0 else
-               (f", about **{abs(gap)} points ahead** of plan." if gap and gap < 0 else ", right on the curve.")))
+    prog = (f"In progress terms that's **{K.pct(F.get('actual_pct'))}** complete against **{K.pct(F.get('planned_pct'))}**"
+            " planned" + (f" — a **{gap}-point** hole." if gap and gap > 0 else
+                         (f" — about **{abs(gap)} points ahead**." if gap and gap < 0 else " — right on the curve.")))
+    head = ((f"By the {dd} data date you've earned **{K.pct(F.get('pace_pct'))}** of the value you planned to earn by "
+             f"now (EV {K.money(F.get('ev'))} of PV {K.money(F.get('pv'))} — SPI {K.ratio(F.get('spi'))}). " + prog)
+            if have and F.get('pace_pct') is not None else f"By the {dd} data date: " + prog)
     body = [
         ("The two numbers behind that: **Earned Value** is the budgeted cost of the work you've actually "
          "done, **Planned Value** the budgeted cost of the work you should have done by now. "
@@ -168,9 +184,8 @@ def t08q00(F, role):
     ]
     dl = K.driver_line(F)
     if dl:
-        body.append("That hole isn't spread evenly across the job — " + dl + " Treat the shortfall as an "
-                    "execution problem on that front, not a whole-project one; the disciplines carrying little "
-                    "weight aren't where the missing value sits.")
+        body.append("That hole isn't spread evenly across the job — " + dl + " The missing value sits on that "
+                    "front; the disciplines carrying little weight aren't where it sits.")
     else:
         body.append("No single discipline stands out as the driver in this file, so read the value gap "
                     "front by front in the category view rather than pinning it on one area.")
@@ -192,41 +207,43 @@ def t08q01(F, role):
         return _no_project(F)
     sv = _num(F.get('variance'))            # EV - PV
     cv = _cv(F)                              # EV - AC
-    have = _have_costs(F)
     over = _cpi_word(F)
     orp = _overrun_pct(F)
-    head = ("Both variances read negative — and the **schedule** variance is the big one; cost variance is "
-            "the milder story." if (sv is not None and sv < 0) else
-            "Here's the schedule variance and the cost variance, and which one is really driving the report.")
+    un = _unearned_pct(F)
+    if _derived(F):
+        head = ("The schedule variance is the whole story. Cost variance reads **0** — not because cost is on "
+                "track, but because this file sets actual cost equal to earned value.")
+    elif sv is not None and sv < 0 and cv is not None and cv < 0:
+        head = "Both variances are negative — and the **schedule** variance is the bigger story."
+    else:
+        head = "Here's the schedule variance and the cost variance, and which one is really driving the report."
     body = [
-        ("**Schedule variance (EV − PV)** is the headline: "
-         + (f"**{K.money(sv)}** in budget terms" if sv is not None else
-            f"about a **{abs(_prog_gap(F))}-point** gap of planned value not yet earned" if _prog_gap(F) else "negative")
-         + f", i.e. at **SPI ≈ {K.ratio(F.get('spi'))}** you've under-earned roughly a "
-         f"{orp}% slice of what this period planned." if (over == 'over' or (sv is not None and sv < 0)) else
-         ("**Schedule variance (EV − PV)** is "
-          + (f"**{K.money(sv)}**" if sv is not None else "the planned-vs-earned gap")
-          + f" at **SPI ≈ {K.ratio(F.get('spi'))}**.")),
+        ("**Schedule variance (EV − PV)**: "
+         + (f"**{K.money(sv)}** in budget terms" if sv is not None else "the planned-vs-earned gap")
+         + (f" — **{un}%** of the value planned by now hasn't been earned (SPI ≈ {K.ratio(F.get('spi'))})."
+            if un and un > 0 else f" at **SPI ≈ {K.ratio(F.get('spi'))}**.")),
     ]
     if _driver_name(F):
-        body.append("Almost all of that schedule variance is being carried by one front — "
-                    + K.driver_line(F))
-    body.append(
-        "**Cost variance (EV − AC)** is the milder one: "
-        + (f"**{K.money(cv)}**, " if cv is not None else "")
-        + (f"**CPI ≈ {K.ratio(F.get('cpi'))}** says you're spending about **{orp}% "
-           f"{'more' if over == 'over' else ('less' if over == 'under' else 'in line with')}** than you're "
-           "earning." if over else "CPI isn't derivable from this file, so there's no independent cost-variance read."))
-    body.append(_cpi_echo_caveat(F))
-    body.append("So the story reads **schedule problem first, modest cost-efficiency problem second** — don't let "
-                "a near-1.0 CPI reassure anyone while SPI sits below plan. The per-discipline dollar split "
-                "(BAC/AC per category) is in the EVM tab and the Excel export for the client report."
-                if (over == 'over' or over == 'on') else
-                "Read the two variances together, but lead the client report with the schedule position — that's "
-                "the number moving.")
+        body.append("Almost all of that schedule variance is being carried by one front — " + K.driver_line(F))
+    if _derived(F):
+        body.append("**Cost variance (EV − AC)**: **0**. " + _not_measured(F))
+        body.append("So report the schedule variance as the headline and show cost as 'not measured' until real "
+                    "actuals are loaded. The per-discipline split is in the EVM tab and the Excel export.")
+    else:
+        body.append(
+            "**Cost variance (EV − AC)**: "
+            + (f"**{K.money(cv)}**, " if cv is not None else "")
+            + ((f"**CPI ≈ {K.ratio(F.get('cpi'))}** — you're spending about **{orp}% "
+                f"{'more' if over == 'over' else 'less'}** than you're earning." if over in ('over', 'under') else
+                f"**CPI ≈ {K.ratio(F.get('cpi'))}** — spending is in line with what you're earning.")
+               if over else "CPI isn't derivable from this file, so there's no cost-variance read."))
+        body.append(_cpi_echo_caveat(F))
+        body.append("Lead the report with the schedule variance and the delay to completion — that's the number "
+                    "moving — and give cost its own one line.")
     return K.A(head, body,
-               advice=["Report the schedule variance as the headline and the cost variance as the secondary line — "
-                       "in that order.",
+               advice=[("Report the schedule variance as the headline; show cost as 'not measured'." if _derived(F) else
+                        "Report the schedule variance as the headline and the cost variance as the secondary line — "
+                        "in that order."),
                        K.go_deeper('Reporting Studio, EVM', 'For the exact per-discipline dollar figures')],
                evidence=[K.ev('EVM', 'Schedule variance (EV−PV)', _money_chip(sv)),
                          K.ev('EVM', 'Cost variance (EV−AC)', _money_chip(cv)),
@@ -242,6 +259,20 @@ def t08q02(F, role):
     orp = _overrun_pct(F)
     have = _have_costs(F)
     ahead = (over == 'over')
+    if _derived(F):
+        return K.A(
+            "This file can't tell you: actual cost is set equal to earned value, so percent-spent equals "
+            "percent-complete by construction. There's no burn-rate signal to read — good or bad.",
+            [(f"Spend to date: **AC {K.money(F.get('ac'))}** against a planned **PV {K.money(F.get('pv'))}** — "
+              f"AC is lower than plan only because less work has been done ({K.pct(F.get('actual_pct'))} against "
+              f"{K.pct(F.get('planned_pct'))} planned), not because anything is being saved.") if have else None,
+             _not_measured(F),
+             "To see real burn, load actual costs (or resource actuals) into P6 before export — then CPI moves "
+             "on its own and the percent-spent-vs-complete test means something."],
+            advice=["Report cost as 'not measured' until actuals are loaded; track the schedule signal meanwhile.",
+                    K.go_deeper(GROUNDS['t08q02'], 'For AC vs PV by discipline')],
+            evidence=[K.ev('EVM', 'AC', _money_chip(F.get('ac'))), K.ev('EVM', 'PV', _money_chip(F.get('pv'))),
+                      K.ev('EVM', 'CPI', 'not measured (AC = EV)')])
     head = ("Yes, but only slightly — percent-spent is running a few points ahead of percent-complete, a mild "
             "burn-rate warning, not a blow-out." if ahead else
             ("Percent-spent is running **behind** percent-complete — you're earning more than you're spending."
@@ -254,8 +285,8 @@ def t08q02(F, role):
             "the ratios rather than the cash figures. ")
          + (f"**CPI ≈ {K.ratio(F.get('cpi'))}** means each unit of value earned cost about "
             f"{K.ratio(1.0/_num(F.get('cpi')) if _num(F.get('cpi')) else None)} to earn — so percent-spent runs "
-            f"about **{orp}% {'ahead of' if ahead else ('behind' if over == 'under' else 'in step with')}** your "
-            f"**{K.pct(F.get('actual_pct'))}** complete." if over else
+            + (f"about **{orp}% {'ahead of' if ahead else 'behind'}**" if over in ('over', 'under') else "**in step with**")
+            + f" your **{K.pct(F.get('actual_pct'))}** complete." if over else
             "CPI isn't derivable here, so I can't put a burn-rate figure on the spend.")),
     ]
     if ahead:
@@ -284,20 +315,22 @@ def t08q03(F, role):
         return _no_project(F)
     ds = sorted([d for d in (F.get('disciplines') or []) if (_num(d.get('weight')) or 0) > 0],
                 key=lambda d: (_num(d.get('weight')) or 0), reverse=True)
-    head = ("Here's the honest split: I can give you the **budget weight** across your disciplines straight from "
-            "this file; the per-discipline over/under-**budget** ranking (BAC vs AC) lives in the EVM category view.")
+    head = ("Here's the honest split: I can give you each discipline's **weight** and its progress against plan "
+            "straight from this file; the per-discipline over/under-**budget** ranking (BAC vs AC) lives in the EVM "
+            "category view" + (" — and in this file cost isn't measured, so no discipline can show over or under "
+                               "budget yet." if _derived(F) else "."))
     body = []
     if ds:
         top = ds[:6]
-        body.append("**Budget split by weight** — how the money is distributed across the job:")
+        body.append("**Weight by discipline** — the share of the project each carries in the progress "
+                    "calculation (a weight, not a budget):")
         for d in top:
             state = ('behind plan' if (_num(d.get('gap')) or 0) > 2 else
                      ('ahead of plan' if (_num(d.get('gap')) or 0) < -2 else 'on plan'))
             body.append(f"• **{d.get('name')}** — ~{round((_num(d.get('weight')) or 0) * 100)}% of the project by "
                         f"weight; {d.get('actual')}% done vs {d.get('planned')}% planned ({state}).")
-        body.append("The shape is usually the same across projects: the construction/execution categories carry the "
-                    "lion's share of the budget weight, with engineering and procurement a thinner slice — so the cost "
-                    "pressure concentrates where the weight sits (see the split above), not evenly across the board.")
+        body.append("Weight tells you where schedule pressure moves the finish; it isn't where the money sits. The "
+                    "budget (BAC) per discipline is in the EVM category view.")
     else:
         body.append("I can't read a discipline breakdown from this file, so I can't give you the budget split — "
                     "load a WBS/cost-coded schedule and the category view fills in.")
@@ -306,9 +339,8 @@ def t08q03(F, role):
                 "table in the EVM tab and the Excel export; that's where you rank who's genuinely over or under on cost.")
     dl = K.driver_line(F)
     if dl:
-        body.append("Where I'd point the cost review first: " + dl + " Slow progress there is exactly what pulls "
-                    f"**CPI ≈ {K.ratio(F.get('cpi'))}** — so focus the cost conversation on that front, not evenly "
-                    "across every discipline.")
+        body.append("Where I'd point the review first: " + dl + " That's where the unearned value sits — focus the "
+                    "conversation on that front, not evenly across every discipline.")
     return K.A(head, body,
                advice=[("Focus the cost review on the heaviest, most-behind construction front — that's where budget "
                         "and schedule pressure coincide.")
@@ -325,6 +357,25 @@ def t08q04(F, role):
         return _no_project(F)
     over = _cpi_word(F)
     orp = _overrun_pct(F)
+    if _derived(F):
+        oos = F.get('oos_count')
+        dn = _driver_name(F)
+        return K.A(
+            "The cost data can't show an over-claim in this file — and that's not reassurance. Actual cost is set "
+            "equal to earned value, so earned value can never run above cost here.",
+            [_not_measured(F),
+             "So the over-claim test has to be done on **progress**, not money: is the percent-complete booked on "
+             "each activity physically installed and inspected?",
+             (f"Start with the **{oos} out-of-sequence activities**" + (f" ({K.pct(F.get('oos_pct'))} of the schedule)"
+              if F.get('oos_pct') is not None else "") + " — work progressed ahead of its predecessors. Progress "
+              "booked there can be real on paper but not yet installed in the right order.") if oos else None,
+             (f"Then check **{dn}** — it carries most of the project's weight, so an optimistic percent-complete "
+              "there moves earned value the most.") if dn else None],
+            advice=["Reconcile the booked percent-complete against physically installed, inspected work before it "
+                    "reaches a valuation.",
+                    K.go_deeper(GROUNDS['t08q04'], 'For the out-of-sequence activities')],
+            evidence=[K.ev('EVM', 'CPI', 'not measured (AC = EV)'), K.ev('Out-of-sequence', 'Activities', oos),
+                      K.ev('EVM', 'Front to check', dn)])
     head = ("Overall you're the **opposite** of over-claiming — spend is slightly ahead of earned, so there's no "
             "global over-claim." if over == 'over' else
             ("Overall, earned value is running **ahead** of spend — worth a discipline-by-discipline check for "
@@ -415,18 +466,18 @@ def t08q06(F, role):
         ("The practical consequence: treat **SPI ≈ " + K.ratio(F.get('spi')) + "** as **directional** — it tells "
          "you the shape and size of the gap, not a contract-grade figure. Don't quote it to two decimals in a "
          "dispute; quote it as 'about two-thirds of planned pace' and move on to the hard number."),
-        ("The hard number is the delay: the finish is " + K.delay_phrase(F) + ". That's computed from the network "
-         "(a retained-logic forward pass, the F9 logic), not re-derived from a budget curve — so it's the figure "
-         "to lead a report with. For a claim-grade, F9-exact dated version, run it through the dedicated engine."),
+        ("The hard number is the delay: the finish is " + K.delay_phrase(F) + ". That is P6's own figure — the "
+         "finish milestone's exported forecast date (after your F9) against its baseline, which agrees with its "
+         "total float — not something re-derived from a budget curve. So it's the figure to lead a report with."),
     ]
     body.append("So in one line: the EVM percentages and SPI are a good approximation for steering; the **delay to "
                 "completion** is the number you report and defend.")
     return K.A(head, body,
                advice=["Lead reports with the delay to completion; use SPI/PV as the supporting trend, labelled as "
                        "a re-derived approximation.",
-                       K.go_deeper('Consultant Review, EVM', 'For the F9-exact, dated delay')],
+                       K.go_deeper('EVM', 'For the planned-vs-earned read behind SPI')],
                evidence=[K.ev('EVM', 'SPI (directional)', K.ratio(F.get('spi'))),
-                         K.ev('EVM', 'Delay (computed)', _delay_chip(F)),
+                         K.ev('P6', 'Delay (finish milestone)', _delay_chip(F)),
                          K.ev('Forecast', 'Finish', F.get('forecast_finish'))])
 
 
@@ -438,20 +489,37 @@ def t08q07(F, role):
     over = _cpi_word(F)
     orp = _overrun_pct(F)
     gap = _prog_gap(F)
+    hist = (f"You have **{n} updates** stored (different data dates), so the actual curve can be plotted against the "
+            "baseline and the slope compared." if n >= 2 else
+            "Right now only this one update is stored, so the baseline curve is there but you need a couple of updates "
+            "before the actual line means anything — one point isn't a curve.")
+    if _derived(F):
+        return K.A(
+            "In this file the actual-cost curve is the earned-value curve — cost is derived from progress — so the "
+            "S-curve shows **progress**, not spending. It can't tell you whether you're burning faster than planned.",
+            ["What the S-curve is: cumulative planned value (the baseline curve) against what's been earned, period by "
+             "period. " + hist,
+             (f"Read it as progress: you're about **{gap} points** behind the planned curve" if gap and gap > 0 else
+              "Read it as progress against the planned curve") + f" (SPI ≈ {K.ratio(F.get('spi'))}). The line sits "
+             "below plan because less work is done, not because money is being saved.",
+             _not_measured(F)],
+            advice=["Plot it as a progress S-curve and label it that way — don't present it as a cost curve.",
+                    K.go_deeper('EVM', 'To plot the planned-vs-earned curve')],
+            evidence=[K.ev('EVM', 'Earned vs planned', f"{K.pct(F.get('actual_pct'))} vs {K.pct(F.get('planned_pct'))}"),
+                      K.ev('EVM', 'CPI', 'not measured (AC = EV)'),
+                      K.ev('History', 'Updates to plot', n if n else None)])
     head = ("Your actual-cost curve will sit **below** the planned line — but don't read that as underspending; "
             "you're below plan because you're behind on work, not because you're saving money.")
     body = [
         ("What the S-curve is: cumulative planned cost (the baseline curve) against cumulative actual cost, period "
-         "by period. " + (f"You have **{n} snapshots** stored, so the actual curve can be plotted against the "
-                          "baseline and the slope compared." if n >= 2 else
-                          "Right now there's a single snapshot, so the baseline curve is there but you need a couple "
-                          "of updates before the actual trend line means anything — one point isn't a curve.")),
+         "by period. " + hist),
         ("The trap in the picture: the actual line below the planned line looks like an underrun, but with "
          + (f"about **{gap} points** of work still to earn" if gap and gap > 0 else "the current progress gap")
          + " it's simply the cost of work you haven't done yet. The honest metric is **cost per unit of "
            "progress**: "
-         + (f"**CPI ≈ {K.ratio(F.get('cpi'))}** says each bit of work is costing about {orp}% "
-            f"{'more' if over == 'over' else ('less' if over == 'under' else 'the same as')} than budgeted."
+         + ((f"**CPI ≈ {K.ratio(F.get('cpi'))}** says each bit of work is costing about {orp}% "
+             f"{'more' if over == 'over' else 'less'} than budgeted." if over in ('over', 'under') else
+             f"**CPI ≈ {K.ratio(F.get('cpi'))}** says each bit of work is costing about what was budgeted.")
             if over else "CPI isn't derivable here, so read the curve as a progress story, not a savings one.")),
         ("So you're burning **slower in total** (less work done) but "
          + ("**less efficiently per unit** (each unit costs more). " if over == 'over' else
@@ -463,10 +531,10 @@ def t08q07(F, role):
     return K.A(head, body,
                advice=["Read the curve as cost-per-unit-of-progress, not total cash — the gap below plan is deferred "
                        "spend, not savings.",
-                       K.go_deeper(GROUNDS['t08q07'], 'To plot the planned-vs-actual curve')],
+                       K.go_deeper('EVM', 'To plot the planned-vs-actual curve')],
                evidence=[K.ev('EVM', 'Earned vs planned', f"{K.pct(F.get('actual_pct'))} vs {K.pct(F.get('planned_pct'))}"),
                          K.ev('EVM', 'CPI (per-unit cost)', K.ratio(F.get('cpi'))),
-                         K.ev('History', 'Snapshots to plot', n if n else None)])
+                         K.ev('History', 'Updates to plot', n if n else None)])
 
 
 def t08q08(F, role):
@@ -474,6 +542,24 @@ def t08q08(F, role):
     if not F.get('ok'):
         return _no_project(F)
     dn = _driver_name(F)
+    if _derived(F):
+        dl = K.driver_line(F)
+        tg = [d for d in (F.get('top_gaps') or []) if (_num(d.get('gap')) or 0) > 0 and d.get('name') != dn]
+        return K.A(
+            "Nothing in this file can show budget burning without progress: actual cost is set equal to earned value, "
+            "so cost only rises when progress does. The real question is which front is **stalled**"
+            + (f" — and that's **{dn}**." if dn else "."),
+            [_not_measured(F),
+             ("The stalled front: " + dl + " " + K.chain_line(F)) if dl else None,
+             (f"The next front to watch is **{tg[0].get('name')}** — {tg[0].get('actual')}% done against "
+              f"{tg[0].get('planned')}% planned, a {tg[0].get('gap')}-point gap.") if tg else None,
+             "To see crews and plant costing money without output, the file would need real actual costs or "
+             "resource actuals loaded — then this test works."],
+            advice=[(f"Find out on site what's holding **{dn}** — that's the delay in the making." if dn else
+                     "Find out on site which fronts are stalled — that's where the delay is building."),
+                    K.go_deeper(GROUNDS['t08q08'], 'For the overdue / stalled activities')],
+            evidence=[K.ev('EVM', 'Driver front', dn), K.ev('EVM', 'Delay', _delay_chip(F)),
+                      K.ev('EVM', 'CPI', 'not measured (AC = EV)')])
     head = ("Cross the per-category **AC-vs-actual%** view with the **Update Analysis** overdue list — the front "
             "where cost is climbing but percent-complete is flat is the one to grab"
             + (f". On this job that's **{dn}**." if dn else "."))
@@ -485,8 +571,8 @@ def t08q08(F, role):
     ]
     dl = K.driver_line(F)
     if dl:
-        body.append("The front already doing this: " + dl + " It's dragging CPI and sitting on the governing path, "
-                    "so its burn-without-progress is the finish slip, not a side issue.")
+        body.append("The front to check first: " + dl + " It sits on the governing path, so any burn without "
+                    "progress there is the finish slip, not a side issue.")
     tg = [d for d in (F.get('top_gaps') or []) if (_num(d.get('gap')) or 0) > 0]
     second = next((d for d in tg if d.get('name') != dn), None)
     if second:
@@ -515,7 +601,9 @@ def t08q09(F, role):
     head = "**Reporting Studio** does this in one pass — the one-pager and the Excel export come off the same numbers."
     body = [
         ("Compose the one-pager from what's already on this snapshot: the KPI tiles — "
-         f"**SPI {K.ratio(F.get('spi'))}**, **CPI {K.ratio(F.get('cpi'))}**, "
+         f"**SPI {K.ratio(F.get('spi'))}**, "
+         + ("**Cost: not measured** (CPI would read 1.00 only because actual cost equals earned value), "
+            if _derived(F) else f"**CPI {K.ratio(F.get('cpi'))}**, ") +
          f"**{K.pct(F.get('actual_pct'))} vs {K.pct(F.get('planned_pct'))}**, delay **{_delay_chip(F) or 'n/a'}** — "
          "the planned-vs-actual S-curve, and the per-discipline BAC/AC table beneath them."),
         ("Then export the **same content** to Excel — one row per category — so the client's cost team can pivot "
@@ -524,8 +612,10 @@ def t08q09(F, role):
         ("Lead the page with a single line so nobody has to hunt for the message: "
          + (f"*{gap} points behind" if gap and gap > 0 else "*On or ahead of the value curve")
          + (f", driven by {dn}" if dn else "")
-         + (", cost efficiency broadly holding.*" if over in ('on', 'over') else ", cost efficiency running under.*"
-            if over == 'under' else ".*")),
+         + (", cost not measured in this file.*" if _derived(F) else
+            ", cost in line with the work done.*" if over == 'on' else
+            ", cost running over on the work done.*" if over == 'over' else
+            ", cost running under on the work done.*" if over == 'under' else ".*")),
     ]
     body.append(_rederived_caveat(F))
     return K.A(head, body,
@@ -543,6 +633,20 @@ def t08q10(F, role):
     if not F.get('ok'):
         return _no_project(F)
     n = _hist_n(F)
+    if _derived(F):
+        return K.A(
+            "There's no CPI trend to read in this file: actual cost is set equal to earned value, so CPI will show "
+            "1.00 in every update, however the job is doing.",
+            [_not_measured(F),
+             ("Only this one update is stored anyway (re-imports of the same file don't count as history)." if n < 2
+              else f"You have {n} updates stored — but each will show CPI 1.00 for the same reason."),
+             "The trend worth watching is the **SPI and forecast-finish movement** between updates — Update vs "
+             "Update gives you that today, and it's the leading indicator a real CPI trend would only confirm."],
+            advice=["Track the SPI / forecast-finish movement in Update vs Update; load actual costs to make CPI mean "
+                    "something.",
+                    K.go_deeper('Update vs Update', 'For the period-by-period movement')],
+            evidence=[K.ev('EVM', 'CPI', 'not measured (AC = EV)'), K.ev('EVM', 'SPI', K.ratio(F.get('spi'))),
+                      K.ev('History', 'Updates stored', n if n else None)])
     head = (f"Right now I can give you today's CPI — **{K.ratio(F.get('cpi'))}** — but not the trend line yet; "
             "the CPI-over-time view is still in build.")
     body = [
@@ -550,15 +654,13 @@ def t08q10(F, role):
          "over time is landing with the **Power BI live dashboards**, which are still being built. So I won't draw "
          "you a trend I can't yet compute; that would be inventing a shape."),
         ("The interim by hand: open the last "
-         + (f"**{min(n, 3)}** snapshots" if n >= 2 else "two or three snapshots once you have them")
-         + f" and read the CPI off each. If it's sliding from near 1.0 toward **{K.ratio(F.get('cpi'))}** as the "
-           "driving front drags on, that's early cost-efficiency erosion and worth calling out now, before the "
-           "trend view exists to make it obvious."),
+         + (f"**{min(n, 3)}** updates" if n >= 2 else "two or three updates once you have them")
+         + " and read the CPI off each. A CPI falling below 1.0 from one update to the next is early cost-efficiency "
+           "erosion and worth calling out now, before the trend view exists to make it obvious."),
         _cpi_echo_caveat(F),
     ]
-    body.append("Because CPI is largely a schedule echo here, the sharper trend to watch in the meantime is the "
-                "**SPI and forecast-finish movement** between updates — Update vs Update gives you that today, "
-                "and it's the leading indicator the CPI trend will only confirm.")
+    body.append("Meanwhile the sharpest trend to watch is the **SPI and forecast-finish movement** between updates — "
+                "Update vs Update gives you that today.")
     return K.A(head, body,
                advice=["Read CPI off the last few snapshots by hand until the Power BI trend view ships.",
                        "For a live trend you can act on now, use the SPI / forecast-finish movement in Update vs Update.",
@@ -574,6 +676,39 @@ def t08q11(F, role):
         return _no_project(F)
     c = _num(F.get('cpi'))
     orp = _overrun_pct(F)
+    try:
+        from p6_chat.merged.q08 import implied_bac
+        ib = implied_bac(F)
+    except Exception:
+        ib = None
+    if ib and c:
+        bac, ac, ev = ib['bac'], _num(F.get('ac')) or 0, _num(F.get('ev')) or 0
+        eac = bac / c
+        tcpi = (bac - ev) / (bac - ac) if bac > ac else None
+        body = [
+            f"**Budget at completion (BAC) ≈ {K.money(bac)}** — worked out from the planned and earned value against "
+            "each discipline's progress (the same figure the cost answer above shows).",
+            f"• **EAC ≈ BAC ÷ CPI ≈ {K.money(eac)}** — cost at completion if today's efficiency holds.",
+            f"• **ETC = EAC − AC ≈ {K.money(eac - ac)}** — what's left to spend from here.",
+            (f"• **TCPI = (BAC − EV) ÷ (BAC − AC) ≈ {K.ratio(tcpi)}** — the efficiency the remaining work needs to "
+             "land on budget." if tcpi else None),
+            ("These simply restate the budget: " + _not_measured(F) + " They'll become a real forecast once actual "
+             "costs are loaded." if _derived(F) else
+             "Treat them as a first-order forecast — they assume today's CPI holds for the rest of the job."),
+            ("For steering today, lean on the schedule position: **SPI ≈ " + K.ratio(F.get('spi')) + "** and the "
+             "delay to completion (" + K.delay_phrase(F) + ")."),
+        ]
+        return K.A(
+            (f"On this file's budget of about **{K.money(bac)}**, EAC ≈ **{K.money(eac)}**, ETC ≈ **{K.money(eac - ac)}**"
+             + (f" and TCPI ≈ **{K.ratio(tcpi)}**" if tcpi else "") + "."
+             + (" With cost not measured, they only restate the budget — they're not a cost forecast yet."
+                if _derived(F) else "")),
+            body,
+            advice=["Load actual costs into P6 before export to turn these into a real cost forecast."
+                    if _derived(F) else "Re-run these each update — the trend in EAC matters more than one reading.",
+                    K.go_deeper('EVM', 'For the planned and earned value they build on')],
+            evidence=[K.ev('EVM', 'BAC (implied)', K.money(bac)), K.ev('EVM', 'EAC', K.money(eac)),
+                      K.ev('EVM', 'CPI', 'not measured (AC = EV)' if _derived(F) else K.ratio(c))])
     head = ("Honestly, the tool can't ground **EAC, ETC or TCPI** yet — it computes CPI but carries no "
             "cost-forecasting module, so I won't quote a figure it hasn't produced.")
     body = [

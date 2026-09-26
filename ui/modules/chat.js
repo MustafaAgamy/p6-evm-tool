@@ -1,25 +1,31 @@
 // Offline AI Chat — a Claude-style chat that answers as a senior planning manager,
 // grounded in the open project's real analysis and running on the user's PC.
 //
-// The screen: a visible question library categorised by JOB ROLE (Project Manager,
-// Planning Manager, …), a search + status filter, a thread that streams answers
-// word-by-word, and a composer. Answers come from the local brain via
-// /api/chat/ask; when the brain isn't set up yet a clear setup card is shown and
-// questions return an honest grounded snapshot instead of a canned answer.
+// The screen: a slide-in library of the 15 merged questions (grouped, searchable —
+// the search also finds the 182 original library questions inside them), a thread
+// and a composer. A clicked question is answered by /api/chat/qa2; typed text goes
+// through the special intents (dashboard / what-if / time impact / manager's
+// briefing) and then /api/chat/ask2, which routes it to the right merged answer and
+// sub-question and remembers the thread (last_qid). Only when nothing matches does
+// the chat fall back to the optional offline AI brain — or, without it, ask
+// "did you mean…?" with clickable suggestions. Every v2 answer is rendered like a
+// thinking assistant: the analysis steps first, then the answer revealed section by
+// section (instant under prefers-reduced-motion).
 //
-// All styling is self-contained here (a single injected <style>) and reads the
+// All styling is self-contained here (injected <style> blocks) and reads the
 // app's appearance tokens (--card-bg / --border / --text / --accent / --muted),
 // so it themes correctly in all six looks with no edits to style.css.
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { importFile } from './api.js';
 
-let LIB = null;         // {themes, roles, gaps, counts}
+let LIB2 = null;        // the 15 merged questions {groups, questions[{id,group,q,covers,originals}], counts}
 let BRAIN = null;       // brain status
-let ROLE = 'all';       // active role filter
-let SFILT = 'all';      // active status filter (all/today/in-progress/gap)
 let BUSY = false;
 let POLL = null;        // setup status-poll timer
+let LAST_QID = null;    // merged question of the last v2 answer — sent as last_qid so "why?" continues the thread
+let REVEAL = null;      // the in-flight progressive reveal {card, finish()}
+const V2_MODE = 'planning';   // the role split is gone — every answer uses the one planning-manager voice
 
 const api = (path) => `http://localhost:${state.serverPort}${path}`;
 
@@ -108,20 +114,11 @@ function ensureCss() {
   .pchat-chip{border:1px solid var(--border);background:transparent;border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink-soft);font-family:inherit}
   .pchat-chip:hover{border-color:var(--accent);color:var(--accent-dark)}
   .pchat-chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .pchat-chip.role.on{background:var(--accent-dark);border-color:var(--accent-dark)}
   .pchat-search{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;background:var(--bg);color:var(--text);outline:0;margin-bottom:8px}
   .pchat-search:focus{border-color:var(--accent)}
-  .pchat-legend{display:flex;gap:14px;justify-content:center;font-size:11px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
-  .pchat-sdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
-  .pchat-sdot.today{background:#1f8a5b}.pchat-sdot.prog{background:#c98a1e}.pchat-sdot.gap{background:#9aa5b1}
   .pchat-theme{margin-top:14px}
   .pchat-theme h4{font-size:12px;font-weight:800;color:var(--accent-dark);margin:0 0 3px;text-transform:uppercase;letter-spacing:.4px}
   .pchat-theme .tb{font-size:11.5px;color:var(--muted);margin:0 0 6px}
-  .pchat-q{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-radius:9px;cursor:pointer;border:1px solid transparent}
-  .pchat-q:hover{background:var(--hair);border-color:var(--border)}
-  .pchat-q .pchat-sdot{margin-top:6px;flex:0 0 auto}
-  .pchat-q .qt{flex:1;font-size:13px;color:var(--text)}
-  .pchat-q .qg{display:block;color:var(--muted);font-size:11px;margin-top:1px}
   .pchat-nomatch{color:var(--muted);text-align:center;padding:18px 4px;font-size:13px}
   .pchat-charts{display:flex;flex-direction:column;gap:12px;margin:8px 0 4px}
   .pchat-chart{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg)}
@@ -170,9 +167,6 @@ function ensureCss() {
   .pchat-sugcard .t{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
   .pchat-sugcard .s{font-size:11.5px;color:var(--muted);line-height:1.35}
   .pchat-welcome-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px}
-  .pchat-rolepick{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:7px}
-  .pchat-roleselect{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:12.5px;outline:0;cursor:pointer}
-  .pchat-roleselect:focus{border-color:var(--accent)}
   .pchat-browse{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-dark);font:inherit;font-size:12.5px;font-weight:700;border-radius:999px;padding:7px 15px;cursor:pointer}
   .pchat-browse:hover{background:var(--accent);color:#fff}
 
@@ -1125,42 +1119,463 @@ async function askCopilot(cap, qid, mode, question) {
   }
 }
 
-// Answer a library question by its id from the offline grounded engine (/api/chat/qa) —
-// a detailed, senior-planning-engineer answer computed on the PC, no AI model. Same card as
-// the Copilot answers (renderAssistant). `q` is the wording (for the user bubble).
-async function askQA(id, q) {
-  if (BUSY) return;
+// ── v2: the 15 merged questions ──────────────────────────────────────────────
+// One comprehensive, grounded answer per merged question (/api/chat/qa2), rendered like a
+// thinking assistant. The HTML is built by PURE functions (answerV2Html / thinkingHtml /
+// libraryHtml / clarifyHtml — unit-tested in node); the DOM side only animates the reveal.
+function ensureV2Css() {
+  if (document.getElementById('pv2-css')) return;
+  const s = document.createElement('style');
+  s.id = 'pv2-css';
+  s.textContent = `
+  .pv2{color:var(--text);font-size:14px;line-height:1.6;min-width:0}
+  .pv2 p{margin:0 0 9px}
+  .pv2-think{border:1px solid var(--border);border-radius:10px;background:var(--hair);margin:0 0 12px;font-size:12.5px;color:var(--muted);max-width:660px}
+  .pv2-think>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:10px;user-select:none}
+  .pv2-think>summary::-webkit-details-marker{display:none}
+  .pv2-think>summary::before{content:'\\25B8';font-size:11px;color:var(--muted)}
+  .pv2-think[open]>summary::before{content:'\\25BE'}
+  .pv2-think-sum{font-weight:650}
+  .pv2-thinking .pv2-think-sum::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:8px;vertical-align:1px;animation:pchatbob 1s infinite}
+  .pv2-steps{list-style:none;margin:0;padding:0 12px 8px 27px}
+  .pv2-step{display:flex;gap:8px;align-items:baseline;margin:2px 0;color:var(--ink-soft)}
+  .pv2-tick{color:var(--success,#15803d);font-weight:800;flex:0 0 auto}
+  .pv2-kicker{font-size:11.5px;color:var(--muted);margin:0 0 3px}
+  .pv2-kicker .g{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--accent-dark)}
+  .pv2-lead{font-weight:700;color:var(--text);margin:0 0 4px}
+  .pv2-verdict{font-size:16px;font-weight:700;line-height:1.45;margin:0 0 2px;color:var(--text)}
+  .pv2-pills{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+  .pv2-pill{display:inline-flex;align-items:center;font-size:12px;font-weight:650;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--hair);color:var(--ink-soft)}
+  .pv2-pill.danger{color:var(--danger,#c02626);background:color-mix(in srgb,var(--danger,#c02626) 12%,var(--card-bg));border-color:color-mix(in srgb,var(--danger,#c02626) 32%,var(--card-bg))}
+  .pv2-pill.warning{color:var(--warning,#b45309);background:color-mix(in srgb,var(--warning,#b45309) 13%,var(--card-bg));border-color:color-mix(in srgb,var(--warning,#b45309) 32%,var(--card-bg))}
+  .pv2-pill.success{color:var(--success,#15803d);background:color-mix(in srgb,var(--success,#15803d) 12%,var(--card-bg));border-color:color-mix(in srgb,var(--success,#15803d) 32%,var(--card-bg))}
+  .pv2-pill.accent{color:var(--accent-dark);background:color-mix(in srgb,var(--accent) 12%,var(--card-bg));border-color:color-mix(in srgb,var(--accent) 32%,var(--card-bg))}
+  .pv2-covers{margin:12px 0 4px;padding:8px 12px;background:var(--hair);border:1px solid var(--border);border-radius:9px;font-size:12.5px;color:var(--ink-soft);max-width:660px}
+  .pv2-covers .ch{font-size:10.5px;font-weight:750;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .pv2-covers ol{margin:0;padding-left:18px}.pv2-covers li{margin:1px 0}
+  .pv2-seclabel{font-size:12.5px;font-weight:750;color:var(--accent-dark);margin:16px 0 5px}
+  .pv2-tablewrap{overflow-x:auto;margin:4px 0 10px}
+  .pv2-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .pv2-table th{text-align:left;font-weight:700;color:var(--muted);padding:5px 8px;font-size:11.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+  .pv2-table td{padding:6px 8px;border-top:1px solid var(--border);vertical-align:top;color:var(--text)}
+  .pv2-table tbody tr:first-child td{border-top:0}
+  .pv2-table .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pv2-table .nw{white-space:nowrap}
+  .pv2-tnote{font-size:12px;color:var(--muted);margin:7px 2px 0}
+  .pv2-focus{border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));border-left:4px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card-bg));border-radius:10px;padding:11px 14px;margin:0 0 14px}
+  .pv2-focus-q{font-size:12.5px;color:var(--ink-soft);margin-bottom:5px}
+  .pv2-focus-q .k{font-weight:800;color:var(--accent-dark)}
+  .pv2-focus-h{font-weight:700;color:var(--text)}
+  .pv2-focus p:last-child{margin-bottom:0}
+  .pv2-divider{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;color:var(--muted);margin:4px 0 10px}
+  .pv2-divider::before,.pv2-divider::after{content:'';flex:1 1 24px;height:1px;background:var(--border)}
+  .pv2-spec{margin:18px 0 6px}
+  .pv2-sq{border:1px solid var(--border);border-radius:9px;margin:6px 0;background:var(--card-bg)}
+  .pv2-sq>summary{cursor:pointer;list-style:none;padding:8px 12px 8px 30px;position:relative;display:flex;flex-direction:column;gap:2px;border-radius:9px}
+  .pv2-sq>summary::-webkit-details-marker{display:none}
+  .pv2-sq>summary::before{content:'\\25B8';position:absolute;left:12px;top:8px;color:var(--muted);font-size:12px}
+  .pv2-sq[open]>summary::before{content:'\\25BE'}
+  .pv2-sq[open]>summary{border-bottom:1px solid var(--border);border-radius:9px 9px 0 0}
+  .pv2-sq-flat{padding:8px 12px 8px 30px;display:flex;flex-direction:column;gap:2px}
+  .pv2-sq-focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .pv2-sqq{font-size:12.5px;font-weight:650;color:var(--ink-soft)}
+  .pv2-sqa{font-size:13.5px;color:var(--text)}
+  .pv2-sqbody{padding:9px 14px 11px}
+  .pv2-sqbody p{font-size:13.5px}
+  .pv2-sqdo{color:var(--ink-soft)}
+  .pv2-run,.pv2-tool{border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:12.5px;font-weight:700;border-radius:9px;padding:7px 13px;cursor:pointer}
+  .pv2-run:hover,.pv2-tool:hover{background:var(--accent-dark)}
+  .pv2-tools{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+  .pv2-measured{border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card-bg));border-radius:0 8px 8px 0;padding:9px 13px;margin:16px 0 12px}
+  .pv2-mh{font-size:12px;font-weight:750;color:var(--accent-dark);margin-bottom:2px}
+  .pv2-mb{font-size:13px;color:var(--ink-soft)}
+  .pv2-acth{font-size:13px;font-weight:750;margin:4px 0 4px;color:var(--text)}
+  .pv2-actions{margin:0 0 12px;padding-left:20px}.pv2-actions li{margin:0 0 4px}
+  .pv2-evi{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .pv2-chip{font-size:12px;padding:4px 10px;border-radius:7px;background:var(--hair);border:1px solid var(--border);color:var(--ink-soft)}
+  .pv2-chip b{color:var(--text);font-weight:700}
+  .pv2-chiprow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:10px;margin-top:8px}
+  .pv2-chiplbl{font-size:11.5px;font-weight:700;color:var(--muted);margin-right:2px}
+  .pv2-drill,.pv2-also,.pv2-sug{border:1px solid var(--border);background:transparent;color:var(--accent-dark);font:inherit;font-size:12.5px;border-radius:8px;padding:5px 11px;cursor:pointer;text-align:left;line-height:1.4}
+  .pv2-drill:hover,.pv2-also:hover,.pv2-sug:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .pv2-clarify .pv2-chiprow{border-top:0;padding-top:0;margin:4px 0 10px}
+  .pv2-muted{color:var(--muted);font-size:12.5px}
+  .pv2-lq{margin:2px 0}
+  .pv2-lqb{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:9px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--text)}
+  .pv2-lqb:hover{background:var(--hair);border-color:var(--border)}
+  .pv2-lqt{font-size:13px;font-weight:650;color:var(--text);line-height:1.4}
+  .pv2-lqc{font-size:11.5px;color:var(--muted);line-height:1.45}
+  .pv2-lsubs{margin:0 0 6px 14px;border-left:2px solid var(--border);padding-left:8px;display:flex;flex-direction:column;gap:1px}
+  .pv2-lsub{text-align:left;border:0;background:transparent;font:inherit;font-size:12.3px;color:var(--ink-soft);padding:5px 8px;border-radius:7px;cursor:pointer;line-height:1.4}
+  .pv2-lsub:hover{background:var(--hair);color:var(--text)}
+  .pv2-lmore{font-size:11px;color:var(--muted);padding:2px 8px}
+  .pchat-drawer mark,.pv2 mark{background:color-mix(in srgb,var(--accent) 22%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+  .pchat button:focus-visible,.pchat summary:focus-visible,.pchat [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .pv2-pending{display:none!important}
+  .pv2-in{animation:pv2in .26s ease both}
+  @keyframes pv2in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.pv2-in{animation:none}.pv2-thinking .pv2-think-sum::after{animation:none}}
+  `;
+  document.head.appendChild(s);
+}
+
+// The interactive tools an answer can offer, and the words used for them.
+const V2_TOOLS = {
+  dashboard: 'Build the dashboard',
+  whatif: 'Run the what-if',
+  tia: 'Run the time-impact analysis',
+  report: "Manager's briefing",
+};
+const V2_TONES = ['danger', 'warning', 'success', 'accent', 'neutral'];
+const arr = (x) => (Array.isArray(x) ? x : []);
+const md = (s) => mdInline(s == null ? '' : String(s));
+const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+// "Analysed your file · N steps" — the analysis the answer builder actually did. Final
+// (collapsed) state; revealV2 animates it open, one step at a time, then collapses it.
+export function thinkingHtml(steps) {
+  const s = arr(steps).filter((x) => x != null && String(x).trim() !== '');
+  if (!s.length) return '';
+  const n = s.length;
+  return `<details class="pv2-think" data-steps="${n}">`
+    + `<summary><span class="pv2-think-sum">Analysed your file · ${n} step${n === 1 ? '' : 's'}</span></summary>`
+    + `<ol class="pv2-steps">${s.map((x) => `<li class="pv2-step"><span class="pv2-tick" aria-hidden="true">✓</span><span>${md(x)}</span></li>`).join('')}</ol>`
+    + '</details>';
+}
+
+// A table cell that reads as a number ("95%", "40% / 61%", "+60 wd (behind)", "370.4M") —
+// dates ("02-May-2027") and ids ("CM.1020") do not.
+const NUM_CELL = /^[+\-−~≈<>]?\s*\d[\d.,]*\s*(%|wd|d|days?|weeks?|wks?|pts?|M|k|x)?(\s*(\/|→|–|to)\s*[+\-−~≈<>]?\s*\d[\d.,]*\s*(%|wd|d|days?|M|k)?)?(\s*\([^)]*\))?$/i;
+export function numericCols(cols, rows) {
+  const width = Math.max(arr(cols).length, ...arr(rows).map((r) => arr(r).length), 0);
+  const out = [];
+  for (let i = 0; i < width; i++) {
+    if (i === 0) { out.push(false); continue; }           // the row label stays left-aligned
+    let seen = 0, bad = 0;
+    arr(rows).forEach((r) => {
+      const c = String(arr(r)[i] == null ? '' : arr(r)[i]).replace(/\*\*/g, '').trim();
+      if (c === '' || c === '—' || c === '-') return;
+      if (NUM_CELL.test(c)) seen++; else bad++;
+    });
+    out.push(seen > 0 && bad === 0);
+  }
+  return out;
+}
+
+function tableHtml(t) {
+  if (!t || !arr(t.cols).length) return '';
+  const cols = arr(t.cols), rows = arr(t.rows).map(arr);
+  const num = numericCols(cols, rows);
+  const cls = (i) => (num[i] ? ' class="n"' : '');
+  // a single token (a date like 02-May-2027, an activity id) never breaks at its hyphens
+  const tdCls = (i, c) => {
+    const k = [num[i] ? 'n' : '', (!num[i] && c != null && String(c).trim() && !/\s/.test(String(c).trim())) ? 'nw' : ''].filter(Boolean);
+    return k.length ? ` class="${k.join(' ')}"` : '';
+  };
+  const head = num.map((_, i) => `<th scope="col"${cls(i)}>${md(cols[i])}</th>`).join('');
+  const body = rows.map((r) => '<tr>' + num.map((_, i) => `<td${tdCls(i, r[i])}>${md(r[i])}</td>`).join('') + '</tr>').join('');
+  return `<div class="pv2-tablewrap pv2-rv"><table class="pv2-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+    + (t.note ? `<div class="pv2-tnote">${md(t.note)}</div>` : '') + '</div>';
+}
+
+function toolButton(cap, label, cls, text) {
+  if (!V2_TOOLS[cap]) return '';
+  const lab = label || V2_TOOLS[cap];
+  return `<button type="button" class="${cls}" data-v2tool="${escapeHtml(cap)}" data-label="${escapeHtml(lab)}" title="${escapeHtml(lab)}">${escapeHtml(text || lab)} ▸</button>`;
+}
+
+function specificHtml(spec, focusId) {
+  if (!spec.length) return '';
+  const rows = spec.map((s) => {
+    const body = arr(s.body).filter(Boolean).map((p) => `<p>${md(p)}</p>`).join('');
+    const adv = arr(s.advice).filter(Boolean);
+    const run = toolButton(s.tool, null, 'pv2-run', 'Run it');
+    const focused = !!(focusId && s.id === focusId);
+    const qa = `<span class="pv2-sqq">${md(s.q)}</span>${s.headline ? `<span class="pv2-sqa">${md(s.headline)}</span>` : ''}`;
+    if (!body && !adv.length && !run) {                   // nothing to expand — a plain row
+      return `<div class="pv2-sq pv2-sq-flat${focused ? ' pv2-sq-focus' : ''}" data-sid="${escapeHtml(s.id || '')}">${qa}</div>`;
+    }
+    return `<details class="pv2-sq${focused ? ' pv2-sq-focus' : ''}" data-sid="${escapeHtml(s.id || '')}"${focused ? ' open' : ''}>`
+      + `<summary>${qa}</summary><div class="pv2-sqbody">${body}`
+      + (adv.length ? `<p class="pv2-sqdo"><b>What I'd do:</b> ${adv.map(md).join(' ')}</p>` : '')
+      + run + '</div></details>';
+  }).join('');
+  return `<div class="pv2-spec pv2-rv"><div class="pv2-seclabel">Your questions, one by one — ${spec.length} from the library</div>${rows}</div>`;
+}
+
+// The full v2 answer card. `opts.asked` = what the user typed/clicked (the kicker then
+// skips repeating the question when it is the same words).
+export function answerV2Html(a, opts) {
+  a = a || {};
+  opts = opts || {};
+  const spec = arr(a.specific).filter((s) => s && typeof s === 'object');
+  const focusItem = a.focus ? spec.find((s) => s.id === a.focus) : null;
+  const h = [];
+  h.push(thinkingHtml(a.thinking));
+
+  if (focusItem) {
+    h.push(`<div class="pv2-focus pv2-rv" role="note"><div class="pv2-focus-q"><span class="k">You asked:</span> ${md(focusItem.q)}</div>`
+      + (focusItem.headline ? `<p class="pv2-focus-h">${md(focusItem.headline)}</p>` : '')
+      + arr(focusItem.body).filter(Boolean).map((p) => `<p>${md(p)}</p>`).join('')
+      + '</div>');
+    if (a.question) h.push(`<div class="pv2-divider pv2-rv"><span>The full answer — ${md(a.question)}</span></div>`);
+  } else if (a.group || a.question) {
+    const same = opts.asked && norm(opts.asked) === norm(a.question);
+    h.push(`<div class="pv2-kicker pv2-rv">${a.group ? `<span class="g">${md(a.group)}</span>` : ''}`
+      + (a.question && !same ? `${a.group ? ' · ' : ''}${md(a.question)}` : '') + '</div>');
+  }
+
+  if (a.followup === 'cause') h.push(`<p class="pv2-lead pv2-rv">Here's why:</p>`);
+  else if (a.followup === 'expand') h.push(`<p class="pv2-lead pv2-rv">Here's the full picture:</p>`);
+
+  if (a.verdict) h.push(`<p class="pv2-verdict pv2-rv">${md(a.verdict)}</p>`);
+
+  const pills = arr(a.pills).filter((p) => p && p.text);
+  if (pills.length) {
+    h.push(`<div class="pv2-pills pv2-rv">${pills.map((p) =>
+      `<span class="pv2-pill ${V2_TONES.indexOf(p.tone) >= 0 ? p.tone : 'neutral'}">${md(p.text)}</span>`).join('')}</div>`);
+  }
+
+  const covers = arr(a.covers).filter(Boolean);
+  if (covers.length) {
+    h.push(`<div class="pv2-covers pv2-rv"><div class="ch">${covers.length === 1 ? 'Answers this topic' : 'Answers these topics'}</div>`
+      + `<ol>${covers.map((c) => `<li>${md(c)}</li>`).join('')}</ol></div>`);
+  }
+
+  arr(a.sections).filter(Boolean).forEach((s) => {
+    const paras = arr(s.paras).filter(Boolean);
+    const table = tableHtml(s.table);
+    if (!paras.length && !table) return;
+    h.push('<div class="pv2-sec">'
+      + (s.label ? `<div class="pv2-seclabel pv2-rv">${md(s.label)}</div>` : '')
+      + paras.map((p) => `<p class="pv2-rv">${md(p)}</p>`).join('')
+      + table + '</div>');
+  });
+
+  h.push(specificHtml(spec, focusItem ? focusItem.id : null));
+
+  const tools = arr(a.tools).filter((t) => t && V2_TOOLS[t.cap]);
+  if (tools.length) h.push(`<div class="pv2-tools pv2-rv">${tools.map((t) => toolButton(t.cap, t.label, 'pv2-tool')).join('')}</div>`);
+
+  if (a.measured) {
+    h.push(`<div class="pv2-measured pv2-rv"><div class="pv2-mh">How this is measured — from your P6</div><div class="pv2-mb">${md(a.measured)}</div></div>`);
+  }
+  const actions = arr(a.actions).filter(Boolean);
+  if (actions.length) h.push(`<div class="pv2-rv"><div class="pv2-acth">What I'd do</div><ul class="pv2-actions">${actions.map((x) => `<li>${md(x)}</li>`).join('')}</ul></div>`);
+
+  const evidence = arr(a.evidence).filter((e) => e && (e.k || e.v));
+  if (evidence.length) h.push(`<div class="pv2-evi pv2-rv">${evidence.map((e) => `<span class="pv2-chip"><b>${md(e.k)}</b> ${md(e.v)}</span>`).join('')}</div>`);
+
+  const drills = arr(a.drilldowns).filter((d) => d && d.to && d.text);
+  if (drills.length) {
+    h.push(`<div class="pv2-chiprow pv2-rv"><span class="pv2-chiplbl">Drill in</span>${drills.map((d) =>
+      `<button type="button" class="pv2-drill" data-v2ask="${escapeHtml(d.to)}" data-q="${escapeHtml(d.text)}">${md(d.text)} →</button>`).join('')}</div>`);
+  }
+  const also = arr(a.also).filter((x) => x && x.id && x.q);
+  if (also.length) {
+    h.push(`<div class="pv2-chiprow pv2-rv"><span class="pv2-chiplbl">Also related</span>${also.map((x) =>
+      `<button type="button" class="pv2-also" data-v2ask="${escapeHtml(x.id)}" data-q="${escapeHtml(x.q)}">${md(x.q)}</button>`).join('')}</div>`);
+  }
+
+  h.push('<div class="pchat-foot pv2-rv">🔒 <span><b>Grounded</b> — computed on your PC from this project · no AI model needed.</span></div>');
+  return h.join('');
+}
+
+// Nothing matched a typed question — reply like an assistant would: say so, offer the
+// closest merged questions as clickable chips, and point to the library. `opts.related`
+// turns it into a short "I can also answer…" row under a model answer.
+export function clarifyHtml(suggest, opts) {
+  opts = opts || {};
+  const items = arr(suggest).filter((x) => x && x.id && x.q);
+  const n = opts.count || 15;
+  const chips = items.length
+    ? `<div class="pv2-chiprow">${items.map((x) =>
+        `<button type="button" class="pv2-sug" data-v2ask="${escapeHtml(x.id)}" data-q="${escapeHtml(x.q)}">${md(x.q)}</button>`).join('')}</div>`
+    : '';
+  const browse = `<button type="button" class="pchat-linkbtn" data-browse="1">browse all ${n} questions</button>`;
+  if (opts.related) {
+    return items.length ? `<div class="pv2"><div class="pv2-chiprow"><span class="pv2-chiplbl">From your file I can also answer</span>${items.map((x) =>
+      `<button type="button" class="pv2-sug" data-v2ask="${escapeHtml(x.id)}" data-q="${escapeHtml(x.q)}">${md(x.q)}</button>`).join('')}</div></div>` : '';
+  }
+  let html = '<div class="pv2 pv2-clarify">';
+  if (opts.error) html += `<p class="pv2-muted">I couldn't reach the answer engine just now (${escapeHtml(opts.error)}).</p>`;
+  if (items.length) {
+    html += `<p>I'm not sure which you mean — did you mean${items.length === 1 ? ' this' : ' one of these'}?</p>${chips}`
+      + `<p class="pv2-muted">Or say it another way — mention the finish, float, cost, manpower or a claim — or ${browse}.</p>`;
+  } else {
+    html += `<p>I'm not sure which you mean. Could you say it another way — for example mention the finish date, float, cost, manpower or a claim? Or ${browse} and pick the closest.</p>`;
+  }
+  return html + '</div>';
+}
+
+// ── the drawer library (15 questions, searchable down to their 182 sub-questions) ──
+function searchWords(term) {
+  return String(term || '').toLowerCase().replace(/[^\p{L}\p{N}%'’\-\s]+/gu, ' ').split(/\s+/).filter(Boolean);
+}
+const matchAll = (text, words) => { const t = String(text || '').toLowerCase(); return words.every((w) => t.indexOf(w) >= 0); };
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function highlight(text, re) {
+  const s = String(text == null ? '' : text);
+  if (!re) return escapeHtml(s);
+  return s.split(re).map((p, i) => (i % 2 ? `<mark>${escapeHtml(p)}</mark>` : escapeHtml(p))).join('');
+}
+const SUB_HITS_SHOWN = 6;
+
+export function libraryHtml(lib, term) {
+  const qs = arr(lib && lib.questions).filter((q) => q && q.id);
+  if (!qs.length) return '<div class="pchat-nomatch">The question library is empty.</div>';
+  const groups = arr(lib && lib.groups).slice();
+  qs.forEach((q) => { if (groups.indexOf(q.group || 'Other') < 0) groups.push(q.group || 'Other'); });
+  const words = searchWords(term);
+  const re = words.length ? new RegExp('(' + words.slice().sort((x, y) => y.length - x.length).map(reEsc).join('|') + ')', 'gi') : null;
+  let shown = 0;
+  const html = groups.map((g) => {
+    const rows = qs.filter((q) => (q.group || 'Other') === g).map((q) => {
+      const covers = arr(q.covers).filter((c) => c && norm(q.q).indexOf(norm(c)) < 0);
+      const hitQ = !words.length || matchAll(q.q + ' ' + arr(q.covers).join(' '), words);
+      const subs = words.length ? arr(q.originals).filter((o) => o && o.q && matchAll(o.q, words)) : [];
+      if (!hitQ && !subs.length) return '';
+      shown++;
+      const line = covers.length ? highlight(covers.join(' · '), re)
+        : escapeHtml(`Answers ${arr(q.originals).length} questions from the library`);
+      const more = subs.length - SUB_HITS_SHOWN;
+      return `<div class="pv2-lq"><button type="button" class="pv2-lqb" data-v2ask="${escapeHtml(q.id)}" data-q="${escapeHtml(q.q)}">`
+        + `<span class="pv2-lqt">${highlight(q.q, re)}</span><span class="pv2-lqc">${line}</span></button>`
+        + (subs.length ? `<div class="pv2-lsubs">${subs.slice(0, SUB_HITS_SHOWN).map((o) =>
+            `<button type="button" class="pv2-lsub" data-v2ask="${escapeHtml(q.id)}" data-focus="${escapeHtml(o.id || '')}" data-q="${escapeHtml(o.q)}"><span aria-hidden="true">↳</span> ${highlight(o.q, re)}</button>`).join('')}`
+          + (more > 0 ? `<div class="pv2-lmore">+ ${more} more — refine your search</div>` : '') + '</div>' : '')
+        + '</div>';
+    }).join('');
+    return rows ? `<div class="pchat-theme"><h4>${escapeHtml(g)}</h4>${rows}</div>` : '';
+  }).join('');
+  if (shown) return html;
+  const t = String(term || '').trim();
+  return `<div class="pchat-nomatch">Nothing in the library matches “${escapeHtml(t)}”.<br>`
+    + `<button type="button" class="pchat-linkbtn" data-asktext="${escapeHtml(t)}">Ask it in the chat anyway</button> — I'll work out which answer fits.</div>`;
+}
+
+// ── special typed intents (before the v2 router) ─────────────────────────────
+// "run a time impact analysis", "what if we delay the piling 10 days?", "give me a manager's
+// briefing" → the existing interactive Copilot tools. A question that merely mentions a word
+// ("is the briefing date at risk?") still goes to the answer engine.
+export function copilotIntent(q) {
+  const s = String(q || '').trim();
+  if (!s) return null;
+  const verb = '\\b(?:run|do|start|open|create|build|make|generate|give|show|produce|prepare|draw|need|want|perform|try|launch)\\b[\\s\\S]{0,40}';
+  const has = (noun) => new RegExp(verb + noun, 'i').test(s) || new RegExp('^\\s*(?:a|an|the|my)?\\s*' + noun + '\\s*[.!?]*\\s*$', 'i').test(s);
+  if (/\btime[\s-]*impact\b/i.test(s) || /\bTIA\b/.test(s)) return 'tia';
+  if (/\bmanager['’]?s?\s+briefing\b/i.test(s) || has('(?:\\b(?:management|executive|exec|weekly)\\s+)?\\bbriefing\\b')) return 'report';
+  if (has('\\bwhat[\\s-]*if\\b')) return 'whatif';
+  if (/^\s*what[\s-]*if\b[\s\S]*\b(?:delay|shorten|crash|add(?:ed)?\s+(?:a\s+|an?\s+extra\s+|more\s+)?crews?|more\s+crews?|overtime|six[\s-]*day|6[\s-]*day|remove|drop)\b/i.test(s)) return 'whatif';
+  if (/^\s*what[\s-]*if(?:\s+(?:analysis|scenario|study))?\s*[.!?]*\s*$/i.test(s)) return 'whatif';
+  return null;
+}
+
+// ── the reveal (DOM) ─────────────────────────────────────────────────────────
+function reducedMotion() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; }
+}
+// Keep the new content in view while it streams — but stop once the question reaches the
+// top, so a long answer never scrolls its own start away.
+function followTo(anchor) {
+  const t = thread(); if (!t || !anchor) return;
+  const top = t.scrollTop + anchor.getBoundingClientRect().top - t.getBoundingClientRect().top - 8;
+  const bottom = t.scrollHeight - t.clientHeight;
+  t.scrollTop = Math.max(t.scrollTop, Math.min(bottom, top));
+}
+function revealV2(card, anchor) {
+  if (REVEAL) REVEAL.finish();
+  if (reducedMotion()) { followTo(anchor); return; }
+  const think = card.querySelector('.pv2-think');
+  const steps = think ? [...think.querySelectorAll('.pv2-step')] : [];
+  const sum = think ? think.querySelector('.pv2-think-sum') : null;
+  const finalSum = sum ? sum.textContent : '';
+  const units = [...card.querySelectorAll('.pv2-rv')];
+  const timers = [];
+  let done = false;
+  const collapse = () => { if (think) { think.open = false; think.classList.remove('pv2-thinking'); if (sum) sum.textContent = finalSum; } };
+  const finish = () => {
+    if (done) return; done = true;
+    timers.forEach(clearTimeout);
+    steps.concat(units).forEach((u) => u.classList.remove('pv2-pending'));
+    collapse();
+    if (REVEAL && REVEAL.card === card) REVEAL = null;
+  };
+  REVEAL = { card, finish };
+  units.forEach((u) => u.classList.add('pv2-pending'));
+  if (think) {
+    think.open = true; think.classList.add('pv2-thinking');
+    steps.forEach((s) => s.classList.add('pv2-pending'));
+    if (sum) sum.textContent = 'Analysing your file…';
+  }
+  const show = (u) => { u.classList.remove('pv2-pending'); u.classList.add('pv2-in'); followTo(anchor); };
+  const at = (ms, fn) => timers.push(setTimeout(() => { if (!done) fn(); }, ms));
+  let t = 0;
+  steps.forEach((s) => { t += 220; at(t, () => show(s)); });
+  if (think) { t += 280; at(t, collapse); }
+  const gap = units.length ? Math.max(45, Math.min(120, Math.floor(4200 / units.length))) : 120;   // long answers stay under ~4 s
+  units.forEach((u) => { t += gap; at(t, () => show(u)); });
+  at(t + 20, finish);
+  followTo(anchor);
+}
+
+function libCount() {
+  return (LIB2 && LIB2.counts && LIB2.counts.questions) || (LIB2 && arr(LIB2.questions).length) || 15;
+}
+
+// Put a v2 answer into an AI turn and reveal it. Remembers the topic for follow-ups.
+function showV2(bodyEl, resp, asked) {
+  ensureV2Css();
+  const a = (resp && resp.answer) || {};
+  if (resp && resp.matched && a.id) LAST_QID = a.id;
+  const card = document.createElement('div');
+  card.className = 'pv2';
+  card.innerHTML = answerV2Html(a, { asked });
+  bodyEl.appendChild(card);
+  const turn = bodyEl.closest('.pchat-turn');
+  revealV2(card, (turn && turn.previousElementSibling) || turn);
+}
+
+// A merged question (drawer click, drill-in / also-related / suggestion chip) → /api/chat/qa2.
+// `opts.focus` = the original sub-question id when the user picked a sub-question.
+async function askV2(qid, text, opts) {
+  if (BUSY || !qid) return;
+  opts = opts || {};
   BUSY = true; setSendEnabled(false);
   try {
-    addUser(q || '');
+    const asked = text || qid;
+    addUser(asked);
     const bodyEl = addAiShell();
     if (!bodyEl) return;
     const think = bodyEl.querySelector('.pchat-think');
-    if (think) think.innerHTML = '<span class="d"></span><span class="d"></span><span class="d"></span> Analysing your schedule…';
-    ensureCopilotCss();
-    let resp;
-    try {
-      resp = await postJSON('/api/chat/qa', { snapshot_id: state.currentSnapshotId || null, question_id: id, mode: roleMode() });
-    } catch (e) {
-      resp = { ok: false, error: 'The answer engine was unreachable: ' + String((e && e.message) || e) };
+    const body = { snapshot_id: state.currentSnapshotId || null, question_id: qid, mode: V2_MODE };
+    if (opts.focus) body.focus = opts.focus;
+    if (opts.followup) body.followup = opts.followup;
+    let r;
+    try { r = await postJSON('/api/chat/qa2', body); } catch (e) {
+      r = { ok: false, error: 'The answer engine was unreachable: ' + String((e && e.message) || e) };
     }
     if (think) think.remove();
-    if (!resp || !resp.ok) {
+    if (!r || !r.ok || !r.answer) {
       const pe = document.createElement('div'); pe.className = 'pchat-stream';
-      pe.textContent = (resp && resp.error) || 'I could not answer that one.';
+      pe.textContent = (r && r.error) || 'I could not answer that one.';
       bodyEl.appendChild(pe);
+      scrollThread();
     } else {
-      bodyEl.appendChild(renderAssistant(resp.answer || {}));
-      const foot = document.createElement('div'); foot.className = 'pchat-foot';
-      foot.innerHTML = `🔒 <span><b>Grounded</b> — computed on your PC from this project · no AI model needed.</span>`;
-      bodyEl.appendChild(foot);
+      showV2(bodyEl, r, asked);
     }
-    scrollThread();
   } catch (_) {
     /* best-effort — finally frees the composer even if rendering threw */
   } finally {
     BUSY = false; setSendEnabled(true);
   }
+}
+
+// A tool button inside an answer → the existing dashboard / Copilot paths.
+function runV2Tool(cap, label) {
+  if (cap === 'dashboard') return askDashboard(label || 'Create a professional dashboard');
+  if (cap === 'whatif' || cap === 'tia' || cap === 'report') return askCopilot(cap, null, V2_MODE, label || V2_TOOLS[cap]);
+  return null;
 }
 
 function answerFooter(out) {
@@ -1180,18 +1595,17 @@ function setSendEnabled(on) {
   const b = document.getElementById('pchat-send'); if (b) b.disabled = !on;
 }
 
-// Ask a question — streams the answer live (NDJSON) so long, detailed answers
-// appear as they're written, then renders charts + the grounded footer.
-// role → the Copilot answer engine's persona (planning roles get the technical voice).
-function roleMode() {
-  return (ROLE === 'plmgr' || ROLE === 'planner' || ROLE === 'tom' || ROLE === 'contracts')
-    ? 'planning' : 'management';
-}
-
+// Ask a typed question. Special intents first (dashboard → the dashboard; what-if / time
+// impact / manager's briefing → the Copilot tools), then the v2 router (/api/chat/ask2),
+// which lands it on one of the 15 merged answers — with the matching sub-question in focus,
+// and short follow-ups ("why?", "more detail") continuing from LAST_QID. Unmatched: the
+// offline AI brain if it's set up, otherwise an honest "did you mean…?" with suggestions.
 async function ask(question) {
   if (BUSY || !question || !question.trim()) return;
   const question0 = question.trim();
   if (isDashboardIntent(question0)) { return askDashboard(question0); }
+  const cap = copilotIntent(question0);
+  if (cap) { return askCopilot(cap, null, V2_MODE, question0); }
   BUSY = true; setSendEnabled(false);
   try {
     addUser(question0);
@@ -1199,76 +1613,88 @@ async function ask(question) {
     if (!bodyEl) return;
     const think = bodyEl.querySelector('.pchat-think');
 
-    // ── Offline-first: try the deterministic engine (no AI model). If the question maps to a
-    // computed answer (delay / health / risks / recovery / EOT / method / …), answer it here —
-    // no brain, no download. Only truly open-ended questions fall through to the model path.
+    let r;
     try {
-      const cop = await postJSON('/api/chat/copilot/ask', {
-        snapshot_id: state.currentSnapshotId || null,
-        xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || null,
-        question_text: question0, mode: roleMode(),
+      r = await postJSON('/api/chat/ask2', {
+        snapshot_id: state.currentSnapshotId || null, question_text: question0,
+        mode: V2_MODE, last_qid: LAST_QID,
       });
-      if (cop && cop.ok && cop.matched && cop.answer) {
-        if (think) think.remove();
-        bodyEl.appendChild(renderAssistant(cop.answer));
-        const foot = document.createElement('div'); foot.className = 'pchat-foot';
-        foot.innerHTML = '🔒 <span><b>Grounded</b> — computed on your PC from this project · no AI model needed.</span>';
-        bodyEl.appendChild(foot);
-        scrollThread();
-        return;                                   // handled offline; finally frees the composer
-      }
-    } catch (_) { /* engine unreachable → fall through to the model path below */ }
-
-    let ansEl = null, caret = null, raw = '', meta = null;
-    const ensureAns = () => {
-      if (ansEl) return;
-      if (think) think.remove();
-      ansEl = document.createElement('div'); ansEl.className = 'pchat-stream';
-      bodyEl.appendChild(ansEl);
-      caret = document.createElement('span'); caret.className = 'pchat-caret';
-    };
-    const paint = () => { ansEl.textContent = raw; ansEl.appendChild(caret); scrollThread(); };
-    try {
-      const resp = await fetch(api('/api/chat/ask'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question.trim(), role: ROLE === 'all' ? null : ROLE,
-          snapshot_id: state.currentSnapshotId || null, result: state.currentResult || null }),
-      });
-      const ct = resp.headers.get('Content-Type') || '';
-      if (ct.indexOf('ndjson') < 0) {                    // a plain JSON (e.g. validation) reply
-        const j = await resp.json(); ensureAns();
-        raw = (j && (j.answer || j.error)) || 'Something went wrong.'; meta = j; paint();
-      } else {
-        const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
-        for (;;) {
-          const { value, done } = await reader.read(); if (done) break;
-          buf += dec.decode(value, { stream: true });
-          let nl;
-          while ((nl = buf.indexOf('\n')) >= 0) {
-            const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-            if (!line) continue;
-            let obj; try { obj = JSON.parse(line); } catch (_) { continue; }
-            if (obj.delta != null) { ensureAns(); raw += obj.delta; paint(); }
-            else if (obj.done) { meta = obj; }
-          }
-        }
-      }
     } catch (e) {
-      ensureAns(); raw += (raw ? '\n\n' : '') + 'Sorry — the local engine was unreachable: ' + String((e && e.message) || e);
+      r = { ok: false, error: String((e && e.message) || e) };
     }
-    ensureAns();
-    if (caret) caret.remove();
-    ansEl.className = ''; ansEl.innerHTML = mdToHtml(raw);
-    const out = meta || {};
-    if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
-    const foot = answerFooter(out); if (foot) bodyEl.appendChild(foot);
-    if (out.brain) { BRAIN = out.brain; renderBrainPill(); }
+    if (r && r.ok && r.answer) {                     // routed — the full grounded answer
+      if (think) think.remove();
+      showV2(bodyEl, r, question0);
+      return;
+    }
+    const suggest = (r && r.ok && Array.isArray(r.suggest)) ? r.suggest : [];
+    if (BRAIN && BRAIN.ready) {                      // open-ended → the offline AI brain
+      await streamModelAnswer(bodyEl, think, question0);
+      const rel = clarifyHtml(suggest, { related: true });
+      if (rel) { ensureV2Css(); const d = document.createElement('div'); d.innerHTML = rel; bodyEl.appendChild(d.firstElementChild); scrollThread(); }
+      return;
+    }
+    if (think) think.remove();
+    ensureV2Css();
+    const d = document.createElement('div');
+    d.innerHTML = clarifyHtml(suggest, { count: libCount(), error: (r && !r.ok) ? (r.error || 'no reply') : null });
+    bodyEl.appendChild(d.firstElementChild);
     scrollThread();
   } catch (_) {
     /* best-effort — the finally still frees the composer even if rendering threw */
   } finally {
     BUSY = false; setSendEnabled(true);
   }
+}
+
+// The offline AI brain's free-form answer — streamed live (NDJSON) so long answers appear
+// as they're written, then charts + the grounded footer. Caller holds BUSY.
+async function streamModelAnswer(bodyEl, think, question0) {
+  let ansEl = null, caret = null, raw = '', meta = null;
+  const ensureAns = () => {
+    if (ansEl) return;
+    if (think) think.remove();
+    ansEl = document.createElement('div'); ansEl.className = 'pchat-stream';
+    bodyEl.appendChild(ansEl);
+    caret = document.createElement('span'); caret.className = 'pchat-caret';
+  };
+  const paint = () => { ansEl.textContent = raw; ansEl.appendChild(caret); scrollThread(); };
+  try {
+    const resp = await fetch(api('/api/chat/ask'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question0, role: null,
+        snapshot_id: state.currentSnapshotId || null, result: state.currentResult || null }),
+    });
+    const ct = resp.headers.get('Content-Type') || '';
+    if (ct.indexOf('ndjson') < 0) {                    // a plain JSON (e.g. validation) reply
+      const j = await resp.json(); ensureAns();
+      raw = (j && (j.answer || j.error)) || 'Something went wrong.'; meta = j; paint();
+    } else {
+      const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line) continue;
+          let obj; try { obj = JSON.parse(line); } catch (_) { continue; }
+          if (obj.delta != null) { ensureAns(); raw += obj.delta; paint(); }
+          else if (obj.done) { meta = obj; }
+        }
+      }
+    }
+  } catch (e) {
+    ensureAns(); raw += (raw ? '\n\n' : '') + 'Sorry — the local engine was unreachable: ' + String((e && e.message) || e);
+  }
+  ensureAns();
+  if (caret) caret.remove();
+  ansEl.className = ''; ansEl.innerHTML = mdToHtml(raw);
+  const out = meta || {};
+  if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
+  const foot = answerFooter(out); if (foot) bodyEl.appendChild(foot);
+  if (out.brain) { BRAIN = out.brain; renderBrainPill(); }
+  scrollThread();
 }
 
 // ── brain status / setup ─────────────────────────────────────────────────────
@@ -1343,53 +1769,14 @@ function setupCardHtml() {
   </div>`;
 }
 
-// ── library ──────────────────────────────────────────────────────────────────
-function sdotClass(s) { return s === 'today' ? 'today' : s === 'in-progress' ? 'prog' : 'gap'; }
-
-function renderRoles() {
-  const el = document.getElementById('pchat-roles'); if (!el) return;
-  const chips = [`<button class="pchat-chip role ${ROLE === 'all' ? 'on' : ''}" data-role="all">Everyone</button>`]
-    .concat((LIB.roles || []).map((r) =>
-      `<button class="pchat-chip role ${ROLE === r.key ? 'on' : ''}" data-role="${r.key}">${escapeHtml(r.title)} <b style="opacity:.6">${r.count}</b></button>`));
-  el.innerHTML = chips.join('');
-}
-
-function renderLibBody() {
+// ── library (the 15 merged questions, in the drawer) ─────────────────────────
+function renderLib2() {
   const el = document.getElementById('pchat-libbody'); if (!el) return;
-  el.innerHTML = (LIB.themes || []).map((t) => {
-    const qs = (t.questions || []).map((q) => {
-      // Copilot "expert analysis" questions carry a capability + question id + mode
-      // (library.js sets q.cap/q.qid/q.mode). Emit them only when present so the
-      // click handler can route them to the deterministic Copilot backend.
-      const cap = q.cap ? ` data-cap="${escapeHtml(q.cap)}"` : '';
-      const qid = q.qid ? ` data-qid="${escapeHtml(q.qid)}"` : '';
-      const mode = q.mode ? ` data-mode="${escapeHtml(q.mode)}"` : '';
-      const qidAttr = q.id ? ` data-id="${escapeHtml(q.id)}"` : '';
-      return `<div class="pchat-q"${qidAttr} data-q="${escapeHtml(q.q)}" data-status="${q.status}" data-roles="${(q.role_keys || []).join('|')}" data-text="${escapeHtml((q.q + ' ' + (q.grounds || '')).toLowerCase())}"${cap}${qid}${mode}>
-        <span class="pchat-sdot ${sdotClass(q.status)}"></span>
-        <span class="qt">${escapeHtml(q.q)}<span class="qg">${escapeHtml(q.grounds || '')}</span></span>
-      </div>`;
-    }).join('');
-    return `<div class="pchat-theme"><h4>${escapeHtml(t.theme)}</h4><div class="tb">${escapeHtml(t.blurb || '')}</div>${qs}</div>`;
-  }).join('') + `<div class="pchat-nomatch" id="pchat-nomatch" hidden>No questions match your search.</div>`;
-  applyFilter();
-}
-
-function applyFilter() {
-  const q = (document.getElementById('pchat-search')?.value || '').toLowerCase().trim();
-  let any = false;
-  document.querySelectorAll('#pchat-libbody .pchat-theme').forEach((theme) => {
-    let vis = 0;
-    theme.querySelectorAll('.pchat-q').forEach((row) => {
-      const okR = ROLE === 'all' || (row.dataset.roles || '').split('|').indexOf(ROLE) >= 0;
-      const okS = SFILT === 'all' || row.dataset.status === SFILT;
-      const okQ = !q || row.dataset.text.indexOf(q) >= 0;
-      const show = okR && okS && okQ;
-      row.hidden = !show; if (show) { vis++; any = true; }
-    });
-    theme.hidden = vis === 0;
-  });
-  const nm = document.getElementById('pchat-nomatch'); if (nm) nm.hidden = any;
+  if (!LIB2) {
+    el.innerHTML = `<div class="pchat-nomatch">The question library couldn't load just now — you can still type your question below and I'll find the right answer.</div>`;
+    return;
+  }
+  el.innerHTML = libraryHtml(LIB2, (document.getElementById('pchat-search') || {}).value || '');
 }
 
 // ── suggestions (empty-state cards + strip chips) ────────────────────────────
@@ -1421,49 +1808,48 @@ function sugCardsHtml() {
        <span class="s">${escapeHtml(x.sub || '')}</span>
      </button>`).join('');
 }
-function sugStripHtml() {
+function sugStripHtml(count) {
   // Questions live only in the drawer now — the strip above the composer is just a
   // persistent opener for the full library (no on-screen question suggestions).
-  return `<button class="pchat-chipsug browse" data-browse="1">Browse all questions ▸</button>`;
+  return `<button type="button" class="pchat-chipsug browse" data-browse="1"><span>Browse all <span class="pchat-browsecount">${escapeHtml(count || 15)}</span> questions ▸</span></button>`;
 }
-function welcomeHtml() {
+// The greeting — clean: no question cards, no role picker; one way into the library.
+export function welcomeHtml(count) {
   return `<div class="pchat-empty pchat-welcome">
     <div class="pchat-cta-mk">✦</div>
     <div class="pchat-greet">Hi — I'm your offline planning manager.</div>
-    <div class="pchat-greet-sub">Drag a <b>.xer</b> or <b>.xml</b> P6 export anywhere here, or <button class="pchat-linkbtn" id="pchat-attach-cta">📎 choose a file</button>, then open the question library and pick anything. Offline — nothing leaves your PC.</div>
+    <div class="pchat-greet-sub">Drag a <b>.xer</b> or <b>.xml</b> P6 export anywhere here, or <button type="button" class="pchat-linkbtn" id="pchat-attach-cta">📎 choose a file</button>. Then ask me in your own words, or pick one of the questions from the library. Offline — nothing leaves your PC.</div>
     <div class="pchat-welcome-foot">
-      <label class="pchat-rolepick">Show questions for
-        <select class="pchat-roleselect" id="pchat-roleselect"><option value="all">Everyone</option></select>
-      </label>
-      <button class="pchat-browse pchat-browse-lg" data-browse="1">Browse all <span id="pchat-browsecount"></span> questions ▸</button>
+      <button type="button" class="pchat-browse pchat-browse-lg" data-browse="1">Browse all <span class="pchat-browsecount">${escapeHtml(count || 15)}</span> questions ▸</button>
     </div>
   </div>`;
 }
 
-// role <select> in the greeting mirrors the drawer's role chips (populated after LIB loads)
-function renderRoleSelect() {
-  const el = document.getElementById('pchat-roleselect'); if (!el) return;
-  const roles = (LIB && LIB.roles) || [];
-  el.innerHTML = `<option value="all">Everyone</option>`
-    + roles.map((r) => `<option value="${escapeHtml(r.key)}">${escapeHtml(r.title)}</option>`).join('');
-  el.value = ROLE;
-}
-
 // ── question-library drawer ──────────────────────────────────────────────────
+// Closed = inert, so keyboard focus never lands on the off-screen drawer.
 function openDrawer() {
   const d = document.getElementById('pchat-drawer'), s = document.getElementById('pchat-scrim');
-  if (d) d.classList.add('on'); if (s) s.classList.add('on');
+  if (d) { d.classList.add('on'); d.inert = false; d.removeAttribute('aria-hidden'); }
+  if (s) s.classList.add('on');
+  const box = document.getElementById('pchat-search');
+  if (box) setTimeout(() => { try { box.focus({ preventScroll: true }); } catch (_) { /* focus is a nicety */ } }, 60);
 }
 function closeDrawer() {
   const d = document.getElementById('pchat-drawer'), s = document.getElementById('pchat-scrim');
-  if (d) d.classList.remove('on'); if (s) s.classList.remove('on');
+  if (d) {
+    const hadFocus = d.classList.contains('on') && d.contains(document.activeElement);
+    d.classList.remove('on'); d.inert = true; d.setAttribute('aria-hidden', 'true');
+    if (hadFocus) { const inp = document.getElementById('pchat-input'); if (inp) inp.focus(); }
+  }
+  if (s) s.classList.remove('on');
 }
 
 // ── main render ──────────────────────────────────────────────────────────────
 export async function renderChat() {
   const host = document.getElementById('chat-body'); if (!host) return;
-  ensureCss();
-  const loaded = !!state.currentResult;
+  ensureCss(); ensureV2Css();
+  if (REVEAL) REVEAL.finish();
+  LAST_QID = null;                         // a fresh thread — follow-ups start over
   host.innerHTML = `
     <div class="pchat">
       <div class="pchat-head">
@@ -1473,28 +1859,19 @@ export async function renderChat() {
         <span class="pchat-pill" id="pchat-brainpill-top" title="Free-form typed answers use a one-time offline AI brain — click to set it up. The suggestions and analyses work now, no download."><span class="dot"></span>checking…</span>
       </div>
       <div class="pchat-setupwrap" id="pchat-setupwrap" hidden>${setupCardHtml()}</div>
-      <div class="pchat-thread" id="pchat-thread">${welcomeHtml()}</div>
-      <div class="pchat-strip" id="pchat-strip">${sugStripHtml()}</div>
+      <div class="pchat-thread" id="pchat-thread">${welcomeHtml(libCount())}</div>
+      <div class="pchat-strip" id="pchat-strip">${sugStripHtml(libCount())}</div>
       <div class="pchat-composer">
-        <button class="attach" id="pchat-attach" title="Send a P6 file (.xer / .xml) to analyse">📎</button>
-        <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…"></textarea>
-        <button class="send" id="pchat-send" title="Send">↑</button>
+        <button type="button" class="attach" id="pchat-attach" title="Send a P6 file (.xer / .xml) to analyse" aria-label="Send a P6 file">📎</button>
+        <textarea id="pchat-input" rows="1" placeholder="Ask anything about your schedule…" aria-label="Ask a question"></textarea>
+        <button type="button" class="send" id="pchat-send" title="Send" aria-label="Send">↑</button>
       </div>
       <div class="pchat-scrim" id="pchat-scrim"></div>
-      <aside class="pchat-drawer" id="pchat-drawer" aria-label="Question library">
-        <div class="pchat-drawer-head">📚 Question Library — <b id="pchat-total">…</b><span class="sp"></span><button class="pchat-drawer-close" id="pchat-drawer-close" title="Close">✕</button></div>
+      <aside class="pchat-drawer" id="pchat-drawer" aria-label="Question library" aria-hidden="true" inert>
+        <div class="pchat-drawer-head"><span>📚 Question Library — <b id="pchat-total">${escapeHtml(libCount())}</b> questions</span><span class="sp"></span><button type="button" class="pchat-drawer-close" id="pchat-drawer-close" title="Close" aria-label="Close the library">✕</button></div>
         <div class="pchat-drawer-body">
-          <div class="lsub">Click any question — grounded in your data + a planning manager's read.</div>
-          <input class="pchat-search" id="pchat-search" placeholder="Search… (delay, float, EOT, dashboard, manpower)">
-          <span class="pchat-rolelbl">Show questions for</span>
-          <div class="pchat-chips" id="pchat-roles"></div>
-          <div class="pchat-chips" id="pchat-status">
-            <button class="pchat-chip on" data-s="all">All</button>
-            <button class="pchat-chip" data-s="today"><span class="pchat-sdot today"></span>Ready today</button>
-            <button class="pchat-chip" data-s="in-progress"><span class="pchat-sdot prog"></span>In progress</button>
-            <button class="pchat-chip" data-s="gap"><span class="pchat-sdot gap"></span>Future</button>
-          </div>
-          <div class="pchat-legend" id="pchat-legend"></div>
+          <div class="lsub" id="pchat-libsub">Each question is one full answer from your P6 file. Search also finds the library questions inside them.</div>
+          <input class="pchat-search" id="pchat-search" type="search" aria-label="Search the questions and the library questions inside them" placeholder="Search… e.g. handover, float, EOT, manpower">
           <div id="pchat-libbody"></div>
         </div>
       </aside>
@@ -1511,6 +1888,17 @@ export async function renderChat() {
       const sm = e.target.closest('#pchat-scrim'); if (sm) { closeDrawer(); return; }
       // The brain pill reveals the (tucked-away) one-time setup panel.
       const bp = e.target.closest('#pchat-brainpill-top'); if (bp) { const w = document.getElementById('pchat-setupwrap'); if (w) w.hidden = !w.hidden; return; }
+      // v2: a tool inside an answer (dashboard / what-if / time impact / briefing).
+      const tl = e.target.closest('[data-v2tool]'); if (tl) { runV2Tool(tl.dataset.v2tool, tl.dataset.label); return; }
+      // v2: a merged question — drawer row / sub-question (focus), drill-in, also-related,
+      // "did you mean" chip. Close the drawer so the answer is visible.
+      const va = e.target.closest('[data-v2ask]'); if (va) {
+        closeDrawer();
+        askV2(va.dataset.v2ask, va.dataset.q, { focus: va.dataset.focus || null });
+        return;
+      }
+      // "Ask it in the chat anyway" from an empty library search.
+      const tx = e.target.closest('[data-asktext]'); if (tx) { closeDrawer(); ask(tx.dataset.asktext); return; }
       // Suggestion card / strip chip — route like a library question (cap → Copilot, else ask).
       const sug = e.target.closest('[data-sug]'); if (sug) {
         closeDrawer();
@@ -1518,24 +1906,10 @@ export async function renderChat() {
         else ask(sug.dataset.q);
         return;
       }
-      // Library questions live in the drawer now — close it so the answer is visible.
-      // Copilot "expert analysis" questions (data-cap) route to the Copilot engine; every
-      // other question routes by its stable id to the offline grounded engine (askQA); a
-      // question with neither falls back to the free-text path.
-      const cop = e.target.closest('.pchat-q[data-cap]'); if (cop) { closeDrawer(); askCopilot(cop.dataset.cap, cop.dataset.qid, cop.dataset.mode, cop.dataset.q); return; }
-      const q = e.target.closest('.pchat-q'); if (q) { closeDrawer(); if (q.dataset.id) askQA(q.dataset.id, q.dataset.q); else ask(q.dataset.q); return; }
-      const rc = e.target.closest('[data-role]'); if (rc) { ROLE = rc.dataset.role; renderRoles(); renderRoleSelect(); applyFilter(); return; }
-      const sc = e.target.closest('#pchat-status [data-s]'); if (sc) {
-        SFILT = sc.dataset.s;
-        host.querySelectorAll('#pchat-status .pchat-chip').forEach((c) => c.classList.toggle('on', c.dataset.s === SFILT));
-        applyFilter(); return;
-      }
       const mc = e.target.closest('[data-model]'); if (mc) { selectModel(mc.dataset.model); return; }
       const setupBtn = e.target.closest('#pchat-setup-btn'); if (setupBtn) { setupBrain(); return; }
     });
-    host.addEventListener('input', (e) => { if (e.target && e.target.id === 'pchat-search') applyFilter(); });
-    // Role picker in the greeting mirrors the drawer's role chips.
-    host.addEventListener('change', (e) => { if (e.target && e.target.id === 'pchat-roleselect') { ROLE = e.target.value; renderRoles(); applyFilter(); } });
+    host.addEventListener('input', (e) => { if (e.target && e.target.id === 'pchat-search') renderLib2(); });
     // Esc closes the drawer.
     host.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
     // Send a P6 file by dropping it anywhere on the chat (reuses the app's file.path drop).
@@ -1551,24 +1925,23 @@ export async function renderChat() {
     });
   }
   const input = document.getElementById('pchat-input');
+  // Send the composer text — kept in the box while an answer is still being computed.
+  const send = () => { if (BUSY) return; const v = input.value; input.value = ''; input.style.height = 'auto'; ask(v); };
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; });
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const v = input.value; input.value = ''; input.style.height = 'auto'; ask(v); } });
-  document.getElementById('pchat-send').addEventListener('click', () => { const v = input.value; input.value = ''; input.style.height = 'auto'; ask(v); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  document.getElementById('pchat-send').addEventListener('click', send);
 
-  // load library + status
+  // load the 15-question library + brain status
   try {
-    const d = await getJSON('/api/chat/library');
-    if (d && d.ok) {
-      LIB = d;
-      document.getElementById('pchat-total').textContent = (d.counts && d.counts.total) || '';
-      document.getElementById('pchat-legend').innerHTML =
-        `<span><span class="pchat-sdot today"></span>${d.counts.today} ready today</span>` +
-        `<span><span class="pchat-sdot prog"></span>${d.counts.in_progress} in progress</span>` +
-        `<span><span class="pchat-sdot gap"></span>${d.counts.gap} future</span>`;
-      const bc = document.getElementById('pchat-browsecount');
-      if (bc) bc.textContent = (d.counts && d.counts.total) || '';
-      renderRoles(); renderRoleSelect(); renderLibBody();
-    }
-  } catch { /* library missing */ }
+    const d = await getJSON('/api/chat/library2');
+    if (d && d.ok) LIB2 = d;
+  } catch { /* library missing — renderLib2 says so */ }
+  const n = libCount();
+  const tot = document.getElementById('pchat-total'); if (tot) tot.textContent = n;
+  host.querySelectorAll('.pchat-browsecount').forEach((el) => { el.textContent = n; });
+  const sub = document.getElementById('pchat-libsub');
+  const inner = LIB2 && LIB2.counts && LIB2.counts.originals;
+  if (sub && inner) sub.textContent = `Each question is one full answer from your P6 file. Search also finds the ${inner} library questions inside them.`;
+  renderLib2();
   await refreshStatus();
 }

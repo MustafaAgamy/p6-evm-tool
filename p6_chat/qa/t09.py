@@ -67,8 +67,10 @@ def _bulk_line(F):
 
 
 def _on_plan_names(F):
-    """Names of disciplines that are on or ahead of plan (candidates to smooth off)."""
-    return [d.get('name') for d in (F.get('disciplines') or []) if (d.get('gap') or 0) <= 2]
+    """Disciplines on or ahead of plan that are still IN PROGRESS — the only ones with effort to smooth off.
+    A 100%-complete discipline has nobody left on it."""
+    return [d.get('name') for d in (F.get('disciplines') or [])
+            if (d.get('gap') or 0) <= 2 and (d.get('actual') or 0) < 100]
 
 
 def _cpi_note(F):
@@ -295,7 +297,7 @@ def t09q04(F, role):
     ]
     if behind:
         body.append("Your recovery is exactly where I'd push. Clawing time back tends to lean on **specialist trades** "
-                    "— the marine, piling and mechanical crews you can't just conjure at a week's notice. Before you "
+                    "— the specialist crews and plant you can't just conjure at a week's notice. Before you "
                     "bank any recovery on the finish, confirm those trades are **sourceable** in the window you need "
                     "them; a what-if that assumes them into existence is optimistic, not real.")
     else:
@@ -322,15 +324,23 @@ def t09q05(F, role):
     _, pace = K.spi_verdict(F)
     behind = bool((F.get('delay_days') or 0) > 0)
     dl = K.driver_line(F)
+    c = K.chain_facts(F)
+    late_start = bool(c and c[1] == 0)
     if behind:
-        head = "Likely **part resource-driven** — and that matters, because the fix is nothing like a logic fix."
+        head = ("This file can't prove the delay is resource-driven — it carries no labour loading I can read. What it "
+                "shows is a **late start**: the chain that sets the finish hasn't begun." if late_start else
+                "This file can't prove the delay is resource-driven — it carries no labour loading I can read. Test it "
+                "in the what-if before you add crews.")
     else:
         head = "The finish is holding — but here's how to tell a resource-limited finish from a logic-limited one."
     body = []
     if behind and dl:
-        body.append("The slip is being carried on the work front, not in the network. " + dl + " That reads as a "
-                    "**site-execution / production** problem — output below plan on the governing work — rather than a "
-                    "logic error.")
+        body.append("The slip is being carried on the work front, not in the network. " + dl + " "
+                    + (K.chain_line(F) + " A chain that hasn't started isn't short of output inside it — the question "
+                       "is what's holding the start: crews and mobilisation, site access, or late client inputs. "
+                       if late_start else
+                       "Whether that's crews, productivity or access can't be read from this file. ")
+                    + (K.inputs_line(F) if K.late_inputs(F) else ''))
     body.append(_seq_line(F))
     body.append("Here's the clean test, and it's exactly what the **What-if / scenario engine** is for: if **adding "
                 "capacity moves the finish**, the finish was **resource-limited** — production was the constraint. If "
@@ -364,24 +374,23 @@ def t09q06(F, role):
     dl = K.driver_line(F)
     wl = K.worst_line(F)
     if behind or below:
-        head = "It reads as **production, not sequencing** — the pace is being dragged by a front under-performing."
+        head = ("It isn't **sequencing** — the pace is being lost on one front. Whether that front is short of "
+                "**manpower** this file can't prove; find out on site before you add crews.")
     else:
         head = "You're not materially behind on pace — but here's how I'd split production from sequencing."
     body = [f"On pace, {pace}."]
     if dl:
         body.append(dl)
     body.append(_seq_line(F) + " A schedule slipping on **logic** shows a lot of out-of-sequence work and manipulated "
-                "lags; a schedule slipping on **production** shows it in the discipline gaps instead — which is what "
-                "we're seeing.")
-    if wl and (not dl or True):
-        body.append("Naming the worst trade: " + wl + " That's where the manpower and productivity pressure lives "
-                    "this week — the front to put a recovery crew on, not a re-logic exercise.")
-    body.append("So the honest attribution: the pressure is **manpower / productivity on the driving front**, not bad "
-                "sequencing. Confirm the man-hours on that front in **Productivity & Resource Intelligence** and, if "
-                "you want the period-over-period movement, read it in **Update Analysis**.")
+                "lags; this one shows the shortfall in the discipline gaps instead.")
+    if wl:
+        body.append("Naming the worst trade: " + wl + " That front is the one to investigate first.")
+    body.append("So the honest attribution: not bad sequencing — the pressure sits on the driving front. "
+                + K.cause_line(F) + " Confirm the man-hours on that front in **Productivity & Resource "
+                "Intelligence** before you commit a recovery crew to it.")
     return K.A(head, body,
-               advice=["Put the recovery effort on the worst-performing driving front — that's where the SPI is being "
-                       "lost, not in re-sequencing.",
+               advice=["Find out on site why the driving front is behind — crews, access or client inputs — before "
+                       "you choose the recovery lever.",
                        "Confirm the man-hours behind that front are real and sufficient before you promise a recovery "
                        "date.",
                        K.go_deeper(GROUNDS['t09q06'], 'For the attribution')],
@@ -398,11 +407,9 @@ def t09q07(F, role):
     cc = F.get('cpli_critical_count')
     head = "Count the concurrent fronts on the driving path first, then test whether the peak of all of them at once is staffable."
     body = []
-    if dpc:
-        body.append(f"The tool reads **{dpc}** driving path{'s' if dpc != 1 else ''} through this schedule "
-                    "(**Critical Path Analyzer** / CPLI"
-                    + (f", across roughly {cc} critical activities" if cc else "")
-                    + "). The fewer the governing fronts, the less the labour is spread at source: a single governing "
+    if K.chain_facts(F) or dpc:
+        body.append(((K.chain_line(F) + " ") if K.chain_facts(F) else (K.driving_note(F) + " "))
+                    + "The fewer the governing fronts, the less the labour is spread at source: a single governing "
                     "chain is essentially **one front at a time** and hard to over-spread; several parallel driving "
                     "chains mean several specialist crews needed **simultaneously**.")
     else:
@@ -413,7 +420,7 @@ def t09q07(F, role):
     body.append("The risk usually isn't the baseline plan — it's the **recovery**. The moment you add a shift or a "
                 "second crew to claw back time, you create a second (or third) simultaneous front. Two specialist "
                 "operations running at once only works if you can genuinely crew **both** in the same period — and "
-                "marine, piling and mechanical trades don't stretch on demand.")
+                "specialist trades don't stretch on demand.")
     body.append("This is where the man-hour histogram earns its keep: **Update Analysis** shows how many activities "
                 "run concurrently in each period, and **Productivity & Resource Intelligence** tells you whether the "
                 "**aggregate man-hours across all those fronts** is staffable in that period — or only on paper. "

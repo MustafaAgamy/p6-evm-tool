@@ -491,7 +491,7 @@ def t07q12(F, role):
         _dcma_flags_line(F, lead="Before you sign it off, note the schedule still carries") or
         "The logic health on this version looks clean, which supports treating the position as honest.",
         "If the comparison's manipulation roll-up comes back with nothing on the driving path, hold that honest "
-        "position and don't dress it up — an execution loss stated straight is far stronger with a client than a "
+        "position and don't dress it up — a real slip stated straight is far stronger with a client than a "
         "recovery you can't defend. If the roll-up lights up, the 'recovery' is on paper and you say so. That "
         "genuine-vs-dressed verdict is the one part that needs both schedules loaded; the current position above "
         "is grounded in the file you've given me.",
@@ -521,10 +521,9 @@ def t07q13(F, role):
         "network without their changes, let F9 recompute, and read the delay that remains. What survives is real; "
         "what disappears was carried by the edits.",
         _position_line(F),
-        "One honesty line on the numbers: the finish position I read here is **re-derived** from the schedule "
-        "(an EVM-side reconstruction), which matches P6 to the day on progressed schedules but isn't the "
-        "claim-grade figure. The Consultant Review's F9 round-trip is what gives you the exact, defensible number "
-        "— I won't dress an approximation up as the contractual delay.",
+        "One honesty line on the numbers: the finish position I read here is P6's own — the finish milestone's "
+        "exported date against its baseline. What the Consultant Review adds is the but-for: how much of that "
+        "slip survives once the contractor's changes are taken out. That surviving figure is the defensible one.",
         "On any logic/lag change table it produces: present it as **indicators** for the claims discussion. The "
         "tool shows cause and concurrency — it never says 'entitled'. Entitlement is a contractual determination, "
         "not a schedule output, and keeping that line clean is what makes your analysis credible.",
@@ -534,7 +533,7 @@ def t07q13(F, role):
                advice=["Rebuild without the contractor's changes and re-run F9 — report only the delay that survives.",
                        "Present the logic/lag change table as indicators of cause, never as an entitlement finding.",
                        K.go_deeper('Consultant Review', 'For the F9-exact before/after but-for')],
-               evidence=[K.ev('Consultant Review', 'Re-derived finish', _kit_delay(F)),
+               evidence=[K.ev('P6', 'Finish slip', _kit_delay(F)),
                          K.ev('EVM', 'SPI', K.ratio(F.get('spi'))),
                          K.ev('Out-of-sequence', 'On loaded schedule', F.get('oos_count'))])
 
@@ -609,10 +608,12 @@ def _crit_line(F):
     cc = F.get('cpli_critical_count')
     g = F.get('cpli_grade')
     bits = []
-    if dp:
-        bits.append(f"about **{dp}** activities on the driving path")
+    if K.chain_facts(F):
+        bits.append(f"a **{K.chain_facts(F)[0]}-activity chain** setting the finish")
+    elif dp:
+        bits.append(f"about **{dp}** activities flagged as driving (a set, not one line)")
     if cc:
-        bits.append(f"**{cc}** critical")
+        bits.append(f"**{cc}** at critical or negative float")
     if not bits:
         return ''
     tail = f", graded **{g}** for critical-path health" if g else ""
