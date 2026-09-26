@@ -795,7 +795,7 @@ const CHAT_Q = {
   location:      "I've read your schedule. Let's set up your Baseline Narrative Report together. First — where is the project?",
   contract_type: 'What type of contract is it?',
   revision:      "And which revision is this? (The contract value I'll take automatically from your cost loading — nothing to enter.)",
-  branding:      'Add the party logos for the page header and your project layout drawing. These are optional — skip any you don’t have.',
+  branding:      'Add the parties and their logos for the page header, and your project layout drawing. All optional — skip any you don’t have.',
   milestones:    'I found your milestones and key dates and ticked the main ones. Confirm what appears in sections 4 and 5.',
   scope:         'How should I describe the scope of work (section 7)? I detected this order — reorder it, or add an activity code above or below.',
   sequence:      'And the sequence of work (section 11)? Same idea — add or remove sequence analyses; each is one code, or two to sequence by building.',
@@ -860,6 +860,12 @@ function chatCss() {
   </style>`;
 }
 
+// The toolbar Word/PDF/HTML export bar only makes sense once a report is mounted; hide it during
+// the interview so a premature export can't write an empty/stale report.
+function exportBar(show) {
+  document.querySelectorAll('.bn-exportbar').forEach(b => { b.style.display = show ? 'flex' : 'none'; });
+}
+
 // One /api/narrative call that BUILDS the report server-side and returns meta (the detected
 // choices) — used to seed the chat before showing any question. Does not mount the report.
 async function fetchDetected() {
@@ -874,7 +880,9 @@ async function fetchDetected() {
     });
     const data = await resp.json();
     if (!data.ok) return null;
-    state.narrativeDoc = data.doc;                 // lets scopeDisciplines() + meta resolve
+    // NB: do NOT set state.narrativeDoc here — the toolbar export buttons gate on it, so setting it
+    // mid-interview (before the report is mounted) would let a premature export write an empty/stale
+    // report. Detection only needs the meta (the detected choices); the real generate path sets it.
     _chatMeta = (data.doc && data.doc.meta) || {};
     return _chatMeta;
   } catch { return null; }
@@ -922,9 +930,13 @@ function chatControl(step) {
   }
   if (step === 'revision') return `<input class="bn-ci" data-k="revision" style="width:40%" placeholder="e.g. REV.03" value="${esc(s.revision)}">`;
   if (step === 'branding') {
-    const tile = (k, label) => `<label class="bn-tile${s[k] ? ' on' : ''}">${s[k] ? '✓ ' + label : label}<input type="file" accept="image/*" data-logo="${k}"></label>`;
-    return `<div class="bn-tiles">${tile('owner_logo', 'Owner logo')}${tile('consultant_logo', 'Consultant logo')}${tile('contractor_logo', 'Contractor logo')}</div>` +
-      `<label class="bn-tile${s.layout ? ' on' : ''}" style="max-width:460px;height:52px">${s.layout ? '✓ Layout drawing' : 'Project layout drawing — section 2'}<input type="file" accept="image/*" data-logo="layout"></label>`;
+    // Each party: its NAME (feeds the §3 Project Brief owner/consultant/contractor rows — the report
+    // can't derive these) plus its logo (the Word page header). Then the §2 layout drawing.
+    const row = (k, label) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;max-width:480px">` +
+      `<input class="bn-ci" data-k="${k}" style="flex:1;width:auto" placeholder="${label} name" value="${esc(s[k])}">` +
+      `<label class="bn-tile${s[k + '_logo'] ? ' on' : ''}" style="width:116px;height:38px;margin:0;font-size:11px">${s[k + '_logo'] ? '✓ logo' : '+ logo'}<input type="file" accept="image/*" data-logo="${k}_logo"></label></div>`;
+    return row('owner', 'Owner') + row('consultant', 'Consultant') + row('contractor', 'Contractor') +
+      `<label class="bn-tile${s.layout ? ' on' : ''}" style="max-width:480px;height:46px">${s.layout ? '✓ Layout drawing' : 'Project layout drawing — section 2'}<input type="file" accept="image/*" data-logo="layout"></label>`;
   }
   if (step === 'milestones') {
     const col = (title, items, key) => {
@@ -988,8 +1000,9 @@ function chatSummary(step) {
   if (step === 'contract_type') return s.contract_type || 'Not specified';
   if (step === 'revision') return s.revision || 'Not specified';
   if (step === 'branding') {
+    const nm = ['owner', 'consultant', 'contractor'].filter(k => s[k]).length;
     const n = ['owner_logo', 'consultant_logo', 'contractor_logo'].filter(k => s[k]).length;
-    return (n ? n + ' logo(s)' : 'No logos') + (s.layout ? ' · layout added' : '');
+    return (nm ? nm + ' parties' : 'No parties') + (n ? ' · ' + n + ' logo(s)' : '') + (s.layout ? ' · layout' : '');
   }
   if (step === 'milestones') {
     const ms = Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length;
@@ -1097,6 +1110,7 @@ function finishSetup(gen) {
   const rep = document.getElementById('bn-report-wrap');
   if (chat) chat.style.display = 'none';
   if (rep) rep.style.display = '';
+  exportBar(true);                                 // the report is now being mounted — exports apply
   fetchAndRender();
 }
 
@@ -1105,6 +1119,7 @@ async function startSetupChat() {
   const chat = document.getElementById('bn-chat-wrap');
   const rep = document.getElementById('bn-report-wrap');
   if (rep) rep.style.display = 'none';
+  exportBar(false);                                // interview is showing — no exports until generate
   if (!chat) return;
   chat.style.display = '';
   chat.innerHTML = chatCss() +
@@ -1148,7 +1163,9 @@ export function renderNarrativePanel() {
     _wired = true;
   }
   state.narrativeSetup = null;
+  state.narrativeDoc = null; registry = null;      // drop any prior project's report + selection
   _chatMeta = {}; _chatCur = 0;
+  exportBar(false);                                // exports appear only once a report is mounted
   const panel = document.getElementById('narrative-body');
   if (panel) {
     panel.innerHTML =
