@@ -5,6 +5,55 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v2.8.0] - 2026-09-26
+
+### Added — Offline AI Chat: 15 complete answers, read straight from your P6 file
+- **15 questions instead of 182.** The question library is regrouped into **15 comprehensive questions** under eight topics: Status & finish, Delay & critical path, Recovery, Schedule quality, Cost & resources, Delivery & construction, Claims & weather, and Reporting. Each one gives a single full answer in the same order every time:
+  - the **verdict** first, with status tags;
+  - sections with tables, covering the finish chain, key-date slips, client inputs and disciplines;
+  - **How this is measured — from your P6**;
+  - **What I'd do**;
+  - evidence;
+  - drill-ins to the related questions.
+- **Nothing is lost.** Every one of the original 182 questions is still answered inside its merged question, under **"Your questions, one by one"**. The **Browse all 15 questions** drawer also searches all 182 of them. The job-title filter is gone; the drawer is grouped by topic.
+- **Answers read your actual P6 file, not just stored totals.** The chat re-reads the file you sent and names, from your own data:
+  - the chain of activities that sets the finish;
+  - the head of that chain;
+  - the milestone slips;
+  - the late client inputs;
+  - the deepest float;
+  - whether commissioning is programmed at all.
+- **Ask in your own words, and follow up.** A typed question goes to the right one of the 15. "Why?", "How do I fix it?" or "More detail" carries on from your last question. If a question isn't understood, the chat offers the closest questions instead of guessing.
+- **It shows its working.** Each answer opens with the steps it took on your file (for example "Analysed your file · 5 steps"), then reveals section by section.
+- **Every part of an answer agrees with every other part.**
+  - When actual cost equals earned value, cost is shown as **not measured**. It is never called "on budget", "holding" or "green".
+  - Re-importing the same update doesn't count as a trend or as update history.
+  - The delay is always described as P6's own figure: the finish milestone's date against its baseline.
+  - Late client inputs are named as employer-side evidence.
+  - No answer claims a cause, such as manpower or "execution", that one update can't prove.
+- **All offline, no AI model needed.**
+
+### Changed — Offline AI Chat
+- **"Which part of the project is causing the delay?"** now names the discipline that moves the finish most, weighing how far behind it is by its share of the job. It no longer names a small line just because its raw gap is biggest, and when the project isn't late it says no part is delaying the finish.
+- **"What does this project type usually need?"** reads the project type from your file's WBS and activity names (Knowledge Base best fit) instead of the project name, and checks each item the type usually needs against your file (present / not visible).
+- **Manager's briefing:** the finish tile and the trend line keep late and ahead the right way round, and the finish dates are read from the file when an older import has none stored.
+
+### Added — Baseline Narrative Report: conversational guided setup
+- **The setup form is replaced by a guided conversation.** The tool reads your P6 file first, pre-fills everything it can detect (tagged "· detected"), then asks one question at a time:
+  - location;
+  - contract type and revision;
+  - parties, logos and layout;
+  - milestones and key dates;
+  - scope codes;
+  - sequence codes.
+
+  It finishes on a single **Generate report** step. The contract value is never asked; the report works it out from the cost loading.
+- **Scope and sequence code steps** support **add above / add below**, reorder and remove. **Edit setup** re-opens the conversation at any time. Word, PDF and screen stay identical.
+- **The questions appear instantly and the report is built once**, when you press Generate. Detecting your file's values is now about 30× faster.
+
+### Fixed
+- **AI Chat answers no longer show "None"** in place of a finish date when an older import carries no stored baseline or forecast finish; the dates are read from the P6 file instead.
+
 ## [v2.7.0] - 2026-09-24
 
 ### Added — Baseline Narrative Report: Productivity, Volume of Work, and the Critical-Path Appendix
