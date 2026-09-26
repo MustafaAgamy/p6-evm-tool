@@ -644,9 +644,10 @@ def build(F, N, role):
                                 f"forecasts {c0['finish']} at {_sg(c0['tf'])} float. Keep it resourced every day this week.")
             d0 = next((x for x in deepest if x['id'] != c0['id'] and (x.get('tf') or 0) < (c0.get('tf') or 0)), None)
             if d0:
-                wk_items.append(f"Clear the deepest point. {_tag(d0)} ({d0['id']}) is at {d0.get('pct')}% with "
-                                f"{_sg(d0['tf'])} float, the most negative in the network. Everything after it on the "
-                                "finish chain waits on it.")
+                wk_items.append(f"Check the deepest point. {_tag(d0)} ({d0['id']}) sits off the finish chain at "
+                                f"{_sg(d0['tf'])} float — the most negative in the network and deeper than the finish "
+                                "itself, which usually means an intermediate constraint, a lag or a different calendar. "
+                                "Confirm which before anyone quotes that figure.")
         elif drv:
             wk_items.append(f"Put the best resource on {drv['name']} ({drv['actual']}% vs {drv['planned']}% planned, "
                             f"{round((drv.get('weight') or 0) * 100)}% of the weight): it is where the weighted gap sits.")
@@ -982,8 +983,8 @@ def build(F, N, role):
             + (f" against {bf}" if bf else '') + f", about {d} wd late), then where the delay sits"
             + (f" (the {t1_name} chain" + (" and the open client inputs)" if late_open_neg else ')') if t1 else '')
             + ", then the asks.",
-            (f"This week, get a start date for {_tag(chain[0])} ({chain[0]['id']})"
-             + (f" and clear {_tag(d0)} ({d0['id']})" if (chain and d0) else '') + ". They head the finish chain.")
+            (f"This week, get a start date for {_tag(chain[0])} ({chain[0]['id']}) — it heads the finish chain"
+             + (f"; and check why {_tag(d0)} ({d0['id']}) sits deeper than the finish" if (chain and d0) else '') + ".")
             if chain else (f"This week, put the best resource on {drv['name']}." if drv else ''),
             (f"Send a written request for committed dates on the {_word(len(late_open_neg))} open client inputs, led by "
              f"{_join([_brief(x) for x in late_open_neg[:3]])}, and keep the records for the EOT case.")

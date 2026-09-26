@@ -727,7 +727,8 @@ def build(F, N, role):
         (f"Split the {_m(top.get('gap'))} {top['code']} gap by another activity code (area, phase or zone) so the report "
          "names which areas hold it.") if top else
         "Re-import the file so the value gap is stored by activity code, then name the code that holds it.",
-        (f"Show the S-curve on the {budget_word} ({p_c}% planned vs {a_c}% earned, {abs(p_c - a_c)} points), not spent "
+        (f"Show the S-curve on {budget_word if budget_word.startswith('the ') else 'the ' + budget_word} "
+         f"({p_c}% planned vs {a_c}% earned, {abs(p_c - a_c)} points), not spent "
          "against complete, which is flat by design.") if (derived and B) else '',
         "Ask for 'create a professional dashboard' and export the one-pager to Excel for the weekly report"
         + (", with the progress-derived caveat on the page." if derived else '.'),

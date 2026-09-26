@@ -39,6 +39,56 @@ def _mod(audit, name):
     return mods.get(name) or {}
 
 
+def add_network(F, N):
+    """Add what the re-read P6 file shows (``p6_chat.analysis.network``) to the FACTS, so the library
+    answers speak from the same finish chain, client inputs and commissioning read as the 15 merged
+    answers instead of guessing. Keys are prefixed ``net_``; ``net_ok`` is False when the file couldn't
+    be read (answers then fall back to the stored analysis). Also fills a missing baseline / forecast
+    finish from the finish milestone. Stored values always win. Never raises."""
+    F['net_ok'] = bool((N or {}).get('ok'))
+    if not F['net_ok']:
+        return F
+    try:
+        fin = N.get('finish_milestone') or {}
+        if not F.get('baseline_finish') and fin.get('baseline_finish'):
+            F['baseline_finish'] = fin['baseline_finish']
+        if not F.get('forecast_finish') and fin.get('finish'):
+            F['forecast_finish'] = fin['finish']
+        chain = list(N.get('chain') or [])
+        tfs = [x['tf'] for x in chain if x.get('tf') is not None]
+        F.update({
+            'net_finish_name': fin.get('name'),
+            'net_finish_tf': N.get('finish_tf'),
+            'net_chain_count': N.get('chain_count') or len(chain),
+            'net_chain_started': sum(1 for x in chain if (x.get('pct') or 0) > 0),
+            'net_chain_tf_min': min(tfs) if tfs else None,
+            'net_chain_tf_max': max(tfs) if tfs else None,
+            'net_chain_head': chain[0] if chain else None,
+            'net_late_inputs': list(N.get('client_inputs_late_open') or []),
+            'net_late_inputs_done': list(N.get('client_inputs_late_done') or []),
+            'net_client_inputs': len(N.get('client_inputs') or []),
+        })
+        from p6_chat.merged import q12
+        _, cacts = q12.file_activities(N)
+        F['net_commissioning'] = bool(q12.commissioning_hits([a['name'] for a in cacts], N))
+    except Exception:
+        pass
+    try:
+        # the same DCMA scorecard the schedule-health answer shows, so both quote one pass / fail count
+        if F.get('audit'):
+            from p6_chat.merged import q06
+            rows, _ = q06._scorecard(F, N, True, N.get('finish_milestone') or {}, F.get('net_chain_count') or 0)
+            fails = [r for r in rows if r['state'] == 'fail']
+            scored = len(fails) + sum(1 for r in rows if r['state'] == 'pass')
+            plain = {1: 'logic links', 2: 'leads', 3: 'lags', 4: 'relationship mix (FS share)', 5: 'hard constraints',
+                     6: 'high float', 7: 'negative float', 8: 'long durations', 12: 'critical path test', 13: 'CPLI'}
+            F['net_dcma'] = {'scored': scored, 'fails': [r['label'] for r in fails],
+                             'names': [plain.get(r['no'], r['label']) for r in fails]}
+    except Exception:
+        pass
+    return F
+
+
 def build_facts(snapshot_id):
     """Return the grounded FACTS dict for the loaded snapshot's project, or a dict with
     ``ok=False`` when there is no project/result. Never raises."""

@@ -95,13 +95,14 @@ def _weather_split_line(F):
     """The binding honesty split — only the weather-attributable slip is a client-facing indicator."""
     d = F.get('delay_days')
     if d is not None and round(d) > 0:
-        return ("Be scrupulous about the split. The project is " + K.delay_phrase(F) + ", and only the "
-                "**weather-attributable** slice of that is a time-impact indicator you can legitimately put "
-                "in front of the client — the rest is execution. Don't hand over the whole slip labelled "
-                "'weather'; isolate the workable days genuinely lost to conditions and carry only those.")
-    return ("Keep the split honest even with the finish holding: separate the days genuinely lost to weather "
-            "from days lost to execution, because only the weather portion is a defensible time-impact "
-            "indicator to put in front of the client.")
+        return ("Keep weather separate from the schedule slip. The project is " + K.delay_phrase(F) + " — and that "
+                "figure is **weather-blind**: this P6 file doesn't measure weather, so the weather days the tab finds "
+                "come **on top** of it, not out of it. Present the weather effect as its own figure. The slip itself "
+                + ("splits between the employer side (the late client inputs) and the contractor side, and that split "
+                   "is a time-impact analysis — not a weather question." if K.late_inputs(F) else
+                   "is split by cause in a time-impact analysis — not by the weather tab."))
+    return ("Keep weather separate: the forecast here doesn't include weather, so any weather days the tab finds come "
+            "on top of the current position — present them as their own figure.")
 
 
 # ── answers ─────────────────────────────────────────────────────────────────────
@@ -198,15 +199,14 @@ def t15q02(F, role):
          "grievance."),
         ("Honest limit: I can't give you the lost-day count or the exact finish effect from this read — those "
          "are computed in the weather tab off your chosen criteria and site type. What I can do is make sure "
-         "you present them straight, with the execution slip kept separate from the weather slip."),
+         "you present them straight, with the weather effect kept separate from the schedule slip."),
     ]
     if role == 'planning':
         body.append("Planner's cut: check the criteria and the return-period behind the preset before you "
                      "quote a figure — a wind/wave threshold that's too soft under-counts marine downtime, "
                      "and a too-harsh rainfall trigger over-states lost days on civils.")
     advice = [
-        "Split the slip into weather-attributable and execution before it goes to the client — only the "
-        "weather portion is a defensible time-impact indicator.",
+        "Present the weather effect as its own figure, on top of the schedule slip — never as a slice of it.",
         K.go_deeper('Weather Impact', 'For the lost-day count and the finish effect'),
     ]
     return K.A(head, body, advice=advice,

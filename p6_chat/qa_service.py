@@ -104,16 +104,10 @@ def _thinking(F, N, extra):
 
 
 def _backfill_finish(F, N):
-    """Snapshots whose stored EVM extras are missing (older imports, a damaged DB) carry no baseline /
-    forecast finish. The P6 file's finish milestone holds both — fill them from it so no answer says
-    'None'. Stored values always win."""
-    fin = (N or {}).get('finish_milestone') if (N or {}).get('ok') else None
-    if not fin:
-        return
-    if not F.get('baseline_finish') and fin.get('baseline_finish'):
-        F['baseline_finish'] = fin['baseline_finish']
-    if not F.get('forecast_finish') and fin.get('finish'):
-        F['forecast_finish'] = fin['finish']
+    """Fill a missing baseline / forecast finish (older imports, a damaged DB) and the re-read file's
+    network facts into F — see ``facts.add_network``."""
+    from p6_chat.facts import add_network
+    add_network(F, N)
 
 
 def answer_merged(snapshot_id, qid, role='planning', focus=None, followup=None):
@@ -147,6 +141,7 @@ def answer_merged(snapshot_id, qid, role='planning', focus=None, followup=None):
     for k_ctx, k_f in (('baseline_finish', 'baseline_finish'), ('forecast_finish', 'forecast_finish')):
         if not ctx.get(k_ctx):
             ctx[k_ctx] = F.get(k_f)
+    ctx['net_late_inputs'] = F.get('net_late_inputs') or []
     a['specific'] = [_original_answer(o, F, ctx, N) for o in e['originals']]
     a['thinking'] = _thinking(F, N, a.get('thinking'))
     a.update({'id': qid, 'question': e['q'], 'group': e['group'], 'covers': e['covers'],

@@ -388,7 +388,7 @@ def build(F, N, role):
     behind, ahead = (d or 0) > 0, (d or 0) < 0
     fin = ((N or {}).get('finish_milestone') or {}) if nok else {}
     chain = (N.get('chain') or []) if nok else []
-    chain_n = (N.get('chain_count') or len(chain)) + (1 if fin else 0) if chain else 0
+    chain_n = (N.get('chain_count') or len(chain)) if chain else 0      # the chain itself, finish milestone not counted
     fin_tf = N.get('finish_tf') if nok else None
     dd_s = (N.get('data_date') if nok else None) or F.get('data_date')
     dd = _dt(dd_s)

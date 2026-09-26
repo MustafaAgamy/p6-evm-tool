@@ -72,12 +72,31 @@ def _cost_note(F):
     if cpi is None:
         return "Cost performance (CPI) isn't derivable in this file, so keep the report on the schedule signal."
     if F.get('cost_derived'):
-        return (f"Cost is **{K.cost_state(F)}** — report cost as 'not measured' until real actuals are loaded; "
+        return (f"Cost is **{K.cost_state(F)}**. Report cost as 'not measured' until real actuals are loaded — "
                 "**SPI is the real signal**.")
-    hold = "holding close to budget" if cpi >= 0.97 else ("running modestly over" if cpi < 0.97 else "on budget")
-    return (f"Cost is **{hold}** (CPI {K.ratio(cpi)}) — but read it with care: on this schedule cost is "
-            "derived from % complete, so CPI sits near 1.0 by construction. **SPI is the real signal**; "
-            "don't let a near-1.0 CPI reassure anyone while the schedule is behind.")
+    return f"Cost is **{K.cost_state(F)}**. Keep it to that one line — **SPI is the schedule signal**."
+
+
+def _cost_brief(F):
+    """The cost position as a clause to embed mid-sentence (keeps CPI / SPI capitalised)."""
+    if F.get('cpi') is None:
+        return "cost performance isn't derivable in this file"
+    return f"cost is {K.cost_state(F)}"
+
+
+def _also_behind(F):
+    """Other fronts behind plan besides the weighted driver, plus the file's late client inputs — so board and
+    client wording never says 'everything else is on plan' when it isn't. '' when nothing else is behind."""
+    drv = K.main_driver(F)
+    others = [d.get('name') for d in _behind_disciplines(F) if not drv or d.get('name') != drv.get('name')]
+    bits = []
+    if others:
+        bits.append((', '.join(others[:-1]) + ' and ' + others[-1] if len(others) > 1 else others[0])
+                    + (" are" if len(others) > 1 else " is") + " also behind plan")
+    n = len(K.late_inputs(F))
+    if n:
+        bits.append(f"{n} client input{'s are' if n != 1 else ' is'} outstanding and late")
+    return '; '.join(bits)
 
 
 def _behind_disciplines(F):
@@ -175,8 +194,9 @@ def t16q01(F, role):
         ("**One cause line:** " + (K.driver_line(F) if K.driver_line(F) else
                                     "the shortfall isn't concentrated in a single front on this file — read it front by front.")),
         ("**One recovery line:** " + _recovery_line(F)),
-        ("**Keep money qualitative.** " + _cost_note(F) + " A board doesn't need PV/EV to two decimals; it "
-         "needs to know cost isn't the fire."),
+        ("**Keep money qualitative.** " + _cost_note(F) + " A board doesn't need PV/EV to two decimals"
+         + ("; it needs to know this file can't tell them whether cost is on track — so don't call it either way."
+            if F.get('cost_derived') or F.get('cpi') is None else "; one line on where cost stands is enough.")),
         ("**One ask.** Close on the single decision you need from them — the recovery resource, the "
          "re-sequence sign-off, the client conversation — not a list. One page, one verdict, one ask."),
     ]
@@ -212,19 +232,20 @@ def t16q02(F, role):
         ("Tell them where it stands: " + _headline_position(F)
          + (f" P6 forecasts {F.get('forecast_finish')} versus the {F.get('baseline_finish')} baseline."
             if (behind and F.get('forecast_finish') and F.get('baseline_finish')) else "")),
-        ("Then give them the **cause**, because the number without the cause invites the worst reading. "
-         + (K.driver_line(F) + " Make clear it's contained to that front — not the whole job."
+        ("Then tell them **where** it sits, because the number without it invites the worst reading. "
+         + ((K.driver_line(F) + (" State the outstanding client inputs as facts, without blame: " + K.inputs_line(F)
+                                 if K.late_inputs(F) else " Make clear it's contained to that front — not the whole job."))
             if K.driver_line(F) else
             "The slip isn't concentrated in one front on this file, so walk the top movers rather than "
             "naming a single cause.")),
         ("Confirm the slip is **genuine**. Run the **Consultant Review's** but-for check before the meeting "
-         "so you can say the slip is real execution loss, not baseline logic or lag manipulation — if their "
+         "so you can say the slip is real, not the result of baseline logic or lag changes — if their "
          "consultant tests it, you've already tested it yourself."),
         (_recovery_line(F)),
         ("Balance it so it doesn't read as all bad: " + (
             ', '.join(f"**{d.get('name')}**" + (' (complete)' if (d.get('actual') or 0) >= 100 else '')
-                      for d in _on_plan_disciplines(F)[:3]) + " are on plan — "
-            if _on_plan_disciplines(F) else "the exposure is contained rather than across the whole job — ")
+                      for d in _on_plan_disciplines(F)[:3]) + " are on plan. "
+            if _on_plan_disciplines(F) else "")
          + _cost_note(F)),
     ]
     advice = [
@@ -259,14 +280,12 @@ def t16q03(F, role):
         "the only work where a day saved is a day off the finish."))
     nf = F.get('neg_float_count')
     dpc = F.get('driving_path_count')
-    second = []
     if nf:
-        second.append(f"**{nf} activities on negative total float**" + (f" ({K.pct(F.get('neg_float_pct'))})" if F.get('neg_float_pct') is not None else ""))
-    if dpc:
-        second.append(f"a driving path of **{dpc} activities**")
-    if second:
-        items.append("**2. Protect the near-critical front** — " + " and ".join(second) + ". It turns "
-                     "critical the moment the driver slips further, so don't let it drift while you chase item 1.")
+        items.append("**2. Protect the near-critical front** — the paths sitting just behind the chain that sets the "
+                     f"finish (**{nf} activities** are on negative float in all"
+                     + (f", {K.pct(F.get('neg_float_pct'))} of the schedule" if F.get('neg_float_pct') is not None else "")
+                     + "). A path turns critical the moment the driver slips further, so don't let it drift while you "
+                     "chase item 1.")
     else:
         items.append("**2. Protect the near-critical front.** Watch the chain sitting just behind the driver "
                      "on total float — it becomes the next critical path the moment the driver loses more days.")
@@ -353,31 +372,38 @@ def t16q05(F, role):
     head = "Lead with what's **holding** — a balanced report is a believed report, and there's a real story here."
     body = []
     onp = _on_plan_disciplines(F)
+    also = _also_behind(F)
+    contained = not also
     if onp:
-        names = ", ".join(f"**{d.get('name')}**" for d in onp[:3])
-        body.append("The problem is **contained, not general**. " + names + " are on or ahead of their planned "
-                    "curve — so the exposure is one work front, not the whole job. That's the first thing to say, "
-                    "because it reframes the delay from 'the project is failing' to 'one front needs help'.")
-    else:
+        names = ", ".join(f"**{d.get('name')}**" + (' (complete)' if (d.get('actual') or 0) >= 100 else '')
+                          for d in onp[:3])
+        body.append(names + (" are" if len(onp[:3]) > 1 else " is") + " on or ahead of plan — that's genuine good "
+                    "news, and the first thing to say."
+                    + (" The exposure is one work front, not the whole job — that reframes the delay from 'the "
+                       "project is failing' to 'one front needs help'." if contained else ""))
+    elif contained:
         body.append("The problem is **contained to the driving front**, not spread across every discipline — "
                     "so lead by naming what the delay is *not*: it isn't an across-the-board collapse, it's one "
                     "front carrying it.")
     dn = _driver_name(F)
     if dn:
-        body.append(f"Say it plainly: the shortfall lives in **{dn}**, and everything feeding and following it "
-                    "is broadly where it should be — the client hears a managed, localised problem instead of a "
-                    "runaway one.")
-    body.append(_cost_note(F) + " For the client, that's the good-news line on money: it isn't the fire.")
-    body.append("And the recovery isn't hypothetical — " + _recovery_line(F) + " So you can promise a credible "
+        body.append(f"Say it plainly: the shortfall lives in **{dn}**"
+                    + (", and everything feeding and following it is broadly where it should be — the client hears "
+                       "a managed, localised problem instead of a runaway one." if contained else
+                       f". Don't present it as the only issue: {also}. The client's consultant will see those — "
+                       "saying them first keeps your credibility for the good news."))
+    body.append(_cost_note(F) + (" For the client, that's a good-news line on money." if
+                                 (not F.get('cost_derived') and (F.get('cpi') or 0) >= 0.98) else ""))
+    body.append("And the recovery isn't hypothetical. " + _recovery_line(F) + " So you can promise a credible "
                 "route back, on P6-verified dates, rather than a hope.")
-    body.append("This is the mirror image of the status you owe them (the honest slip and its cause) — lead the "
-                "meeting on this, then land the delay against it, so the room hears 'contained and recoverable' "
-                "before it hears the number.")
+    body.append("This is the mirror image of the status you owe them (the honest slip and where it sits) — lead the "
+                "meeting on this, then land the delay against it, so the room hears 'recoverable' before it hears "
+                "the number.")
     advice = [
-        "Open on the contained scope and the credible recovery; then give the honest slip — order matters.",
+        "Open on what's holding and the credible recovery; then give the honest slip — order matters.",
         ("For the planner: back the 'on plan' claim with the discipline bars so it's evidenced, not spin."
          if role == 'planning' else
-         "Keep it to two good-news lines — contained scope, cost holding — then move to the ask."),
+         "Keep it to two good-news lines — what's on plan and the recovery route — then move to the ask."),
         K.go_deeper('Update Analysis, EVM', 'For the discipline-by-discipline read behind the good news'),
     ]
     return K.A(head, body, advice=advice,
@@ -398,8 +424,9 @@ def t16q06(F, role):
                  f"{K.pct(F.get('planned_pct'))}")
     gp = _gap_points(F)
     if gp:
-        parts.append("— " + gp.replace("**", ""))
-    parts.append(f", SPI {K.ratio(F.get('spi'))}, CPI {K.ratio(F.get('cpi'))}.")
+        parts.append(" — " + gp.replace("**", "").lstrip(" —"))
+    parts.append(f", SPI {K.ratio(F.get('spi'))}." if F.get('cost_derived') or F.get('cpi') is None else
+                 f", SPI {K.ratio(F.get('spi'))}, CPI {K.ratio(F.get('cpi'))}.")
     if behind and F.get('forecast_finish') and F.get('baseline_finish'):
         parts.append(f" P6 forecasts completion {F.get('forecast_finish')} versus the {F.get('baseline_finish')} "
                      f"baseline, {K.wd(F.get('delay_days'))} late.")
@@ -407,18 +434,21 @@ def t16q06(F, role):
         parts.append(f" The forecast finish is holding against the {F.get('baseline_finish') or 'baseline'} baseline.")
     driver = K.main_driver(F)
     if driver:
+        also = _also_behind(F)
         parts.append(f" The slip is driven by {driver.get('name')} ({driver.get('actual')}% done against "
-                     f"{driver.get('planned')}% planned); the other fronts remain broadly on plan.")
+                     f"{driver.get('planned')}% planned)"
+                     + (f"; {also}." if also else "; the other fronts remain broadly on plan."))
     parts.append(" Recovery options are under evaluation and being sized in the What-if before commitment.")
     paragraph = "“" + "".join(parts).replace("  ", " ").replace(" ,", ",").replace(" .", ".") + "”"
 
     head = "Here's the monthly narrative paragraph, composed straight from your live numbers."
     body = [
         paragraph,
-        ("That's the plain-English version a non-planner can read aloud — a dated position, a single named "
-         "cause, and an honest recovery posture. It says nothing the numbers don't support."),
+        ("That's the plain-English version a non-planner can read aloud — a dated position, where the slip sits, "
+         "and an honest recovery posture. It says nothing the numbers don't support."),
         ("Note the deliberate restraint on two points: the recovery day-count is left to the What-if (I won't "
-         "state recovered days the schedule hasn't been re-run for), and cost stays a one-liner because " + _cost_note(F).split(" — but")[0].lower() + "."),
+         "state recovered days the schedule hasn't been re-run for), and cost stays out of it or to one line "
+         "because " + _cost_brief(F) + "."),
         ("**Reporting Studio** composes and exports this paragraph straight from the same live figures, so the "
          "narrative in the report always matches the KPIs beside it — no hand-typed number to drift out of date."),
     ]
@@ -454,21 +484,22 @@ def t16q07(F, role):
             "baseline finish." if (behind and F.get('forecast_finish') and F.get('baseline_finish')) else
             "the forecast finish, holding against the baseline.")),
     ]
-    if F.get('has_history'):
+    if K.has_history(F):
         n = len(F.get('history') or [])
-        body.append(f"You've got **{n} snapshots** stored, so the actual leg plots as a real trajectory across "
-                    "the updates, not a single point — the client sees the shape of the slip developing, which "
+        body.append(f"You've got **{n} updates** stored (different data dates), so the actual leg plots as a real "
+                    "trajectory, not a single point — the client sees the shape of the slip developing, which "
                     "is far more persuasive than one month's number.")
     else:
         body.append("This file is a single snapshot, so the actual leg anchors on today's point against the "
                     "planned curve rather than a multi-month trajectory — still the right visual, just import "
                     "the earlier updates when you can and the actual line fills in behind it.")
     body.append("This is the same physical-progress curve that reads the schedule story cleanly here. Keep the "
-                "**cost** S-curve (PV/EV) qualitative unless they ask for it — " + _cost_note(F).split(" — but")[0].lower()
+                "**cost** S-curve (PV/EV) qualitative unless they ask for it — " + _cost_brief(F)
                 + ", so the physical-progress curve carries the message without a cost sub-plot muddying it.")
     body.append("Pair it with one sentence of interpretation so it isn't left to read itself: the gap is the "
-                + (K.driver_line(F).replace("The shortfall is being carried by ", "work on ") if K.driver_line(F)
-                   else "shortfall on the driving front") + " — the curve shows the size, the sentence names the cause.")
+                + (K.driver_line(F).replace("The shortfall is being carried by ", "work on ").rstrip('.')
+                   if K.driver_line(F) else "shortfall on the driving front")
+                + ". The curve shows the size; the sentence says where it sits.")
     advice = [
         "Pull the curve from the EVM / dashboard S-curve panel and drop it straight into the report — don't redraw it by hand.",
         ("For the planner: cross-check the forecast leg against the Consultant Review's dated finish so the "
@@ -495,13 +526,16 @@ def t16q08(F, role):
     sched_colour = "a hard **RED**" if (behind and (F.get('pace_pct') or 100) < 90) else (
         "an **AMBER**" if (behind or (F.get('pace_pct') or 100) < 100) else "a **GREEN**")
     cpi = F.get('cpi')
-    cost_colour = "**GREEN**" if (cpi is not None and cpi >= 0.97) else ("**AMBER**" if cpi is not None else "**grey** (not derivable)")
+    if F.get('cost_derived') or cpi is None:
+        cost_line = ("**Cost:** **GREY — not measurable**. " + _cost_note(F) + " Calling it green would report a "
+                     "result this file doesn't hold.")
+    else:
+        cost_colour = "**GREEN**" if cpi >= 0.98 else ("**AMBER**" if cpi >= 0.9 else "**RED**")
+        cost_line = f"**Cost:** CPI {K.ratio(cpi)} — {cost_colour} on cost ({K.cost_state(F)})."
     body = [
         ("**Schedule:** SPI ≈ " + K.ratio(F.get('spi')) + f" and delay {_delay_chip(F)} — that's " + sched_colour
          + " on schedule; the pace and the finish position are both in it."),
-        ("**Cost:** CPI " + K.ratio(cpi) + " — " + cost_colour + " on cost, but flag the caveat that cost is "
-         "derived from % complete here, so the cost light will almost always sit green/amber and the schedule "
-         "light is the one that matters."),
+        cost_line,
         ("**Logic quality:** the DCMA-style read gives you the third dimension — "
          + (_logic_caveat_line(F) + " (amber until cleaned)" if _logic_caveat_line(F) else "no material logic flags (green)")
          + (f", float graded **{F.get('float_grade')}**" if F.get('float_grade') else "") + ". Colour it from those grades."),

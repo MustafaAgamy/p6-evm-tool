@@ -118,10 +118,14 @@ def build(F, N, role):
         fronts = _fronts(chain)
         not_started = sum(1 for x in chain if x['pct'] == 0)
         head_act = chain[0]
+        by_front = {}
+        for f, n in fronts:                     # runs → one entry per work front, in the order the chain reaches it
+            by_front[f] = by_front.get(f, 0) + n
         dp = [f"The finish ({fin.get('name', 'the finish milestone')}, {fin.get('finish')}) is set by a chain of "
               f"{N['chain_count']} activities within {N['chain_band']} wd of its float ({N['finish_tf']:+d} wd)"
               + (f", {not_started} of them not started." if not_started else '.'),
-              'In order, it runs through: ' + '; '.join(f"{f} ({n})" for f, n in fronts[:8]) + '.']
+              'It runs through these work fronts (activities in each), in the order the chain reaches them: '
+              + '; '.join(f"{f} ({n})" for f, n in by_front.items()) + '.']
         if head_act.get('baseline_finish'):
             dp.append(f"The head of the chain, **{head_act['name']}** ({head_act['id']}), was due {head_act['baseline_finish']} "
                       f"and is now forecast {head_act['finish']} (float {head_act['tf']:+d} wd, {head_act['pct']}% done).")

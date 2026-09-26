@@ -119,8 +119,8 @@ def _neg_float_corroboration(F):
     if not nf:
         return ''
     return (f"The network backs this up: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) are on "
-            "negative total float — the schedule itself is already showing the pressure on the finish, "
-            "so every week you wait adds straight onto the gap rather than sitting in spare float.")
+            "negative total float, and the chain that sets the finish is among them with no spare float left — "
+            "so every week that chain waits adds straight onto the gap.")
 
 
 # ── answers ──────────────────────────────────────────────────────────────────────
@@ -158,8 +158,13 @@ def t04q00(F, role):
     if ncf:
         body.append(ncf)
     if tech and _behind(F):
-        body.append("Planner's note: because the driving front is already eroding float, the gap grows on "
-                    "its own between updates — the recovery has to out-run that drift, not just match today's number.")
+        tr = (F.get('trend') or {}).get('direction')
+        body.append("Planner's note: " + (
+            "the gap grew since the last update — the recovery has to out-run that drift, not just match today's "
+            "number." if tr == 'worse' else
+            "one update can't show whether the gap is growing — but while the chain that sets the finish isn't "
+            "moving, every week it waits adds to it. The next update will show the rate; plan the recovery to "
+            "out-run it, not just match today's number."))
     advice = []
     if _behind(F):
         advice.append(f"Build the recovery scenario now: stack levers on **{_driver_phrase(F)}** in the "
@@ -230,9 +235,9 @@ def t04q02(F, role):
          "eyeball those. Give me the specific activity IDs and I'll compress them by two weeks in the "
          "What-if and hand you the **F9-exact** finish move — including whether the path then jumps to "
          "another front."),
-        ("Worth stating plainly: the delay figure I hold is re-derived from the schedule, day-accurate "
-         "on a progressed plan; the crash-response figure has to be the F9 number, not my approximation, "
-         "before you put it in front of the client."),
+        ("Worth stating plainly: the delay figure I hold is P6's own (the finish milestone after your F9); "
+         "the crash-response figure has to come from a new F9 run too, not from my estimate, before you put "
+         "it in front of the client."),
     ]
     return K.A(head, body,
                advice=["Send me the concrete activity IDs and I'll model the two-week crash to the exact day.",
@@ -485,9 +490,11 @@ def t04q10(F, role):
          "ranking qualitative until you load the rates."),
         (f"On CPI: you're reading **{K.ratio(cpi)}**." if cpi is not None else
          "On CPI: it isn't derivable from this file.") +
-        " One honest caveat that matters here — in these schedules cost is derived from percent-complete, "
-        "so CPI moves with the schedule rather than standing as an independent cost signal. Don't hang a "
-        "cost-efficiency story on it; SPI is the real signal, CPI is largely an echo of it.",
+        (" In this file actual cost is set equal to earned value, so CPI is 1.00 by construction — it doesn't "
+         "move with anything and says nothing about money. Don't hang a cost-efficiency story on it; SPI and "
+         "the delay are the signals." if F.get('cost_derived') else
+         " It's measured from real actual cost here, so it can show whether acceleration is eroding efficiency "
+         "— read it next to SPI."),
         ("What is genuinely true about acceleration and money: overtime, extra crews and extra plant spend "
          "cash faster than they earn value, so a real recovery costs more per unit of work than the base "
          "plan. That trade — money for time — only becomes a number once crash rates are loaded; until "

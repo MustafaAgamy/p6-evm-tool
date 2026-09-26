@@ -127,6 +127,26 @@ def _logic_bits(F):
     return ", ".join(bits[:-1]) + " and " + bits[-1]
 
 
+def _far_behind(F):
+    """Design / procurement lines 30+ points behind plan. Light by weight, but far enough behind to hold the
+    construction work they release — so never call them 'near plan' or 'on track'."""
+    kws = tuple(_ENG_KW) + tuple(_PROC_KW)
+    return [d for d in (F.get('disciplines') or [])
+            if any(k in (d.get('name') or '').lower() for k in kws) and (d.get('gap') or 0) >= 30]
+
+
+def _far_behind_line(F):
+    """'MCC Design & Engineering (0% vs 74%) and Phase II Design (11% vs 77%) are far behind plan …' or ''."""
+    fb = _far_behind(F)
+    if not fb:
+        return ''
+    names = [f"**{d.get('name')}** ({K.pct(d.get('actual'))} vs {K.pct(d.get('planned'))} planned)" for d in fb]
+    lst = ', '.join(names[:-1]) + ' and ' + names[-1] if len(names) > 1 else names[0]
+    return (f"But weight isn't the whole story: {lst} {'are' if len(fb) > 1 else 'is'} far behind plan. A design line "
+            "that far behind can still hold the construction work it releases — check what each one feeds, and "
+            "whether that work sits on the chain that sets the finish.")
+
+
 def _upstream_verdict(F):
     """One honest sentence on whether the upstream office/supply chain is the headline, from the
     weighted driver and (when present) the design/procurement categories' own gaps."""
@@ -143,9 +163,10 @@ def _upstream_verdict(F):
             near.append(f"design at {_state(eng)}")
         if proc:
             near.append(f"procurement at {_state(proc)}")
+        fb = _far_behind_line(F)
         return ("The upstream categories in this file (" + "; ".join(near) + ") are not the weighted driver — "
-                f"that's **{dn or 'the field work front'}** — so the headline problem is downstream of the "
-                "office, not in it.")
+                f"that's **{dn or 'the field work front'}**, where most of the finish is being lost."
+                + (" " + fb if fb else " So the headline problem is downstream of the office, not in it."))
     return ("I can't see a discrete design or procurement branch in this file's category split, so I can't "
             "isolate their numbers here — the weighted driver of the shortfall is "
             f"**{dn or 'the field work front'}**, which is where the finish is being lost.")
@@ -223,15 +244,17 @@ def t12q01(F, role):
     if dl:
         body.append("Ranked that way: " + dl)
     reads = [r for r in (_disc_read(eng), _disc_read(proc)) if r]
+    fb = _far_behind_line(F)
     if reads:
-        body.append("Meanwhile the upstream categories sit here — " + " ".join(reads)
-                    + " — so they're not what's setting the headline.")
+        body.append("Meanwhile the upstream categories sit here: " + " ".join(reads)
+                    + " On weight, they're not what sets the headline SPI." + (" " + fb if fb else ""))
     else:
         body.append("This file doesn't carry discrete design/procurement branches to isolate, so rank the "
                     "per-category SPI in EVM yourself; on the weighted read the office isn't the headline.")
-    body.append("This is the same split as the design-isolation question above — I'm just answering it from "
-                "the other side: point recovery at the driver, and don't let a 'late drawings' story survive "
-                "if the drawings are near plan.")
+    body.append("Point recovery at the driver first"
+                + (" — and close the far-behind design lines at the same time, because the construction work they "
+                   "release can't start without them." if fb else
+                   ", and don't let a 'late drawings' story survive when the drawings are near plan."))
     advice = [
         (f"Direct recovery at **{dn}**, not upstream — that's the front the finish is tracking."
          if dn else "Rank the per-category SPI weighted by cost/weight, then aim recovery at the top line."),
@@ -264,13 +287,11 @@ def t12q02(F, role):
          if eng else
          "This file's split doesn't expose a discrete design branch, so filter Update Analysis to your design "
          "WBS to get the isolated planned-vs-actual by package."),
-        _upstream_verdict(F) + " So expect **few or no engineering deliverables actually governing "
-        "completion** — cross each late package against the Critical Path Analyzer's driving path and judge it "
+        _upstream_verdict(F) + " Cross each late package against the chain that sets the finish and judge it "
         "by whether it feeds that chain.",
-        (f"The network's own read backs this up where it's present: a driving path of "
-         f"**{F.get('driving_path_count')} activities** is what completion is tracking — a late drawing that "
-         "feeds high-float work is not on it, and isn't your problem this week."
-         if F.get('driving_path_count') else
+        (f"The test is concrete here: {K.chain_name(F)} is what completion is tracking — a late drawing that "
+         "releases work on it moves the finish; one that feeds work with float to spare doesn't, yet."
+         if K.chain_facts(F) else
          "Confirm the driving path in the Critical Path Analyzer first, then only the design packages that "
          "feed it are this week's problem — the rest are feeding float."),
     ]
@@ -306,17 +327,18 @@ def t12q03(F, role):
     ]
     dl = K.driver_line(F)
     if dl:
-        body.append("The finish position confirms where the pressure really is: the job is "
-                    + K.delay_phrase(F) + ", and " + dl + " That's execution on a field front, not the "
-                    "drawing office — so on current reads engineering isn't sitting on the driving path.")
+        body.append("The finish position confirms where most of the pressure is: the job is "
+                    + K.delay_phrase(F) + ". " + dl)
     else:
         body.append("In date terms the finish is " + K.delay_phrase(F) + " — measure the late design against "
                     "that, not against its own due date.")
     nf = F.get('neg_float_count')
     if nf:
-        body.append(f"Watch the pressure gauge: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) already "
-                    "carry negative total float — they're past due to the finish. Any late design feeding one "
-                    "of those is already governing, not merely uncomfortable, so check that overlap first.")
+        body.append(f"Read the float the right way: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) carry "
+                    "negative total float, measured against the baseline finish — so negative doesn't by itself mean "
+                    "'driving'. A late design package threatens the finish when the work it releases has float as "
+                    "deep as the finish chain's; shallower than that, it still has that much slack. Check that "
+                    "overlap first.")
     else:
         body.append("The network isn't showing negative float, so most late design is more likely inside "
                     "float than on the driving path — but confirm each package's first successor before you "
@@ -358,8 +380,9 @@ def t12q04(F, role):
     nf = F.get('neg_float_count')
     if nf:
         body.append(f"The ones already in trouble: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) are "
-                    "on negative total float — past due to the finish. Any long-lead delivery among those is "
-                    "your top expedite, because it's already eating the completion date, not just at risk of it.")
+                    "on negative total float — past their baseline dates. Any long-lead delivery among those is a "
+                    "top expedite, and the ones whose float is as deep as the finish chain's come first, because "
+                    "those are already moving the completion date.")
     dl = K.driver_line(F)
     if dl:
         body.append("Prioritise deliveries feeding the driver: " + dl + " A fabricated-steel, plant or "
@@ -406,9 +429,12 @@ def t12q05(F, role):
     ]
     nf = F.get('neg_float_count')
     if nf:
-        body.append(f"With **{nf} activities** already on negative float, several delivery paths have no slack "
-                    "left to give — model those individually, because a 30-day slip on any of them is a "
-                    "30-day slip on the finish.")
+        c = K.chain_facts(F)
+        deep = (f" (here the finish chain sits at {c[3]:+d} wd or deeper)" if c and c[3] is not None else "")
+        body.append(f"Don't read the **{nf} activities** on negative float as all being critical to the finish — "
+                    "negative float here is measured against the baseline finish. A delivery path moves the "
+                    f"finish once its float is as deep as the finish chain's{deep}; a shallower path absorbs the "
+                    "difference first. That's why each 30-day slip needs its own What-if run.")
     body.append("This is the quantified version of the ranking question above: the float sort tells you which "
                 "deliveries are critical; the What-if tells you exactly what each one costs the finish if it "
                 "slips.")
@@ -597,11 +623,15 @@ def t12q09(F, role):
         "baseline against update and tells you whether removing the late-drawing delay actually pulls the "
         "finish back, or whether the finish moved for another reason entirely. That's the difference between "
         "a defensible position and an assertion.",
-        _upstream_verdict(F) + " So on this schedule a 'late drawings' story may not survive the but-for test "
-        "— the finish is being lost on the field front, and blaming the office won't stand up when the "
-        "logic is examined.",
-        (("The design category's own read supports the caution: " + _disc_read(eng) + " If the drawings are "
-          "near plan, they can't be the thing that moved a finish this far.") if eng else
+        _upstream_verdict(F)
+        + ("" if _far_behind(F) else
+           " So on this schedule a 'late drawings' story may not survive the but-for test — most of the finish "
+           "is being lost on the field front."),
+        (("The design category's own read: " + _disc_read(eng)
+          + (" That far behind, late information is a real candidate for the work it releases — the but-for test "
+             "tells you whether that work sits on the chain that moved the finish." if (eng.get('gap') or 0) >= 30
+             else " If the drawings are near plan, they can't be the thing that moved a finish this far."))
+         if eng else
          "This file doesn't isolate a design branch, so confirm the drawings' actual position in EVM before "
          "anyone signs off on a late-information narrative."),
         ("If the deliverables **do** turn out to drive the finish, the **Claims / TIA reference** surfaces "
@@ -649,9 +679,13 @@ def t12q10(F, role):
     ]
     reads = [r for r in (_disc_read(eng), _disc_read(proc)) if r]
     if reads:
-        body.append("On this file the upstream categories read: " + " ".join(reads) + " — broadly on track, "
-                    "so expect **few stalls**. But even one completed drawing not releasing its PO is worth "
-                    "chasing, because that delay compounds all the way down to the install at the field front.")
+        fb = _far_behind(F)
+        body.append("On this file the upstream categories read: " + " ".join(reads)
+                    + (" " + ', '.join(f"**{d.get('name')}**" for d in fb)
+                       + (" is" if len(fb) == 1 else " are") + " far behind, so expect stalls there first — check "
+                       "whether the parts already complete are releasing their procurement." if fb else
+                       " Broadly on track, so expect **few stalls**. But even one completed drawing not releasing "
+                       "its PO is worth chasing, because that delay compounds all the way down to the install."))
     else:
         body.append("This file doesn't isolate design/procurement branches, so filter Update Analysis to "
                     "those WBS paths to spot the stalls; where engineering is broadly on track the stalls are "

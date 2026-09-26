@@ -134,7 +134,7 @@ def view(F, N):
     client = N.get('client_inputs') or []
     client_ids = {x['id'] for x in client}
     v = {'ok': True, 'dd': dd, 'fin': fin, 'fin_tf': fin_tf, 'chain': chain, 'work': work, 'chain_ms': chain_ms,
-         'length': (N.get('chain_count') or len(chain)) + (1 if fin.get('id') else 0), 'band': N.get('chain_band'),
+         'length': N.get('chain_count') or len(chain), 'band': N.get('chain_band'),
          'client': client, 'client_ids': client_ids}
     if fin_tf is None or not work:
         v.update({'work': [], 'fronts': [], 'head': None, 'ladder': [], 'deeper': [], 'sectional': [], 'donors': [],
@@ -477,7 +477,8 @@ def build(F, N, role):
         rest = [x for x in v['chain'] if x not in picked]
         rest_core = [x['tf'] for x in rest if x['tf'] >= fin_tf - 1]
         rest_odd = [x for x in rest if x['tf'] < fin_tf - 1]
-        note = (f"{len(rows)} of the {v['length']} chain activities from your file, in chain order."
+        note = (f"{len(picked)} of the {v['length']} chain activities from your file, in chain order"
+                + (", then the finish milestone." if fin.get('id') else ".")
                 + (f" The other {len(rest)} sit at {rng(min(rest_core), max(rest_core))} wd" if rest_core else '')
                 + (', plus ' + join_and([f"{idn(x)} at {fl(x['tf'])}" for x in rest_odd[:3]]) if rest_odd else '')
                 + ('.' if rest else ''))

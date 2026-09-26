@@ -62,7 +62,8 @@ def _analyse(path):
         cal = data.calendars.get(a.get('calendar_id'))
         slip = signed_working_days(cal, bl, cur) if (cal and bl and cur) else None
         tf = r.get('total_float')
-        return {'id': a['id'], 'name': a.get('name') or '', 'tf': None if tf is None else round(tf),
+        return {'id': a['id'], 'name': ' '.join((a.get('name') or '').split()),   # P6 names carry stray double spaces
+                'tf': None if tf is None else round(tf),
                 'pct': round((a.get('percent_complete') or 0) * 100), 'finish': _fmt(cur),
                 'baseline_finish': _fmt(bl), 'slip_wd': slip, 'wbs': wbs_path(a.get('wbs_id')),
                 'type': a.get('task_type') or '', 'done': (a.get('percent_complete') or 0) >= 1}

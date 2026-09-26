@@ -122,6 +122,38 @@ _MOD_TABLE = [
 ]
 
 
+def _fix_items(F):
+    """The real logic items a reviewer marks up, from the stored audit — named with their counts."""
+    items = []
+    dk = _k(F, 'dangling')
+    if dk.get('total_dangling'):
+        br = [f"{dk[k]} {w}" for k, w in (('start_dangling', 'at the start'), ('finish_dangling', 'at the finish'),
+                                           ('both_dangling', 'at both')) if dk.get(k)]
+        items.append(f"**{_c(dk['total_dangling'], 'dangling activity', 'dangling activities')}** tied at only one end"
+                     + (f" ({', '.join(br)})" if br else ""))
+    if F.get('open_ends'):
+        items.append(f"**{_c(F['open_ends'], 'open end', 'open ends')}**")
+    llk = _k(F, 'lag_lead')
+    if llk.get('long_count'):
+        items.append(f"**{_c(llk['long_count'], 'lag', 'lags')}** longer than {llk.get('long_threshold_days') or 14} "
+                     f"working days" + (f" ({llk['critical_count']} lagged links sit on the critical path)"
+                                         if llk.get('critical_count') else ""))
+    if F.get('oos_count'):
+        items.append(f"**{_c(F['oos_count'], 'activity', 'activities')}** progressed out of sequence"
+                     + (f" ({F['critical_oos']} on the critical path)" if F.get('critical_oos') else ""))
+    return items
+
+
+def _and(items):
+    return items[0] if len(items) == 1 else ', '.join(items[:-1]) + ' and ' + items[-1]
+
+
+def _dcma(F):
+    """(fails, scored, names) from the schedule-health answer's own DCMA scorecard, or None."""
+    d = F.get('net_dcma')
+    return (len(d['fails']), d['scored'], d['names']) if d and d.get('scored') else None
+
+
 def _present_modules(F):
     """Every DCMA module actually stored on this snapshot, with its defect count + grade."""
     a = F.get('audit') or {}
@@ -143,17 +175,21 @@ def _cpli_line(F):
     cpli = _k(F, 'cpli').get('cpli')
     g = F.get('cpli_grade') or _grade(F, 'cpli')
     bits = []
-    if dp is not None:
-        bits.append(f"the driving path runs to about **{int(round(dp)):,} activities**")
+    c = K.chain_facts(F)
+    if c:
+        bits.append(f"the chain that sets the finish is **{c[0]} activities**")
+    elif dp is not None:
+        bits.append(f"P6 flags about **{int(round(dp)):,} activities** as driving (a set, not one line)")
     if cc is not None:
-        bits.append(f"**{int(round(cc)):,}** sit at critical (near-zero) float")
+        bits.append(f"**{int(round(cc)):,}** sit at critical (near-zero or negative) float")
     if not bits and cpli is None and not g:
         return ''
     line = "On the critical path: " + ("; ".join(bits) if bits else "graded on the Health Review")
     if cpli is not None:
         line += (f", and CPLI ≈ **{K.ratio(cpli)}** — "
                  + ("baseline logic is still holding the finish (float ≥ 0)." if cpli >= 1
-                    else "the path is already into negative float, so any further slip moves the finish."))
+                    else "the finish chain is already into negative float, so any further slip on it moves the "
+                         "finish."))
     else:
         line += "."
     return line
@@ -197,6 +233,33 @@ def t06q00(F, role):
         return ", ".join(parts[:-1]) + f" and {parts[-1]}"
 
     n_flag = len(flagged)
+    sc = _dcma(F)
+    if sc:
+        nf_, scored, names = sc
+        head = (f"Reads **clean** — it passes all {scored} DCMA points I can score from this snapshot." if not nf_ else
+                f"**Mixed.** It fails **{nf_} of the {scored}** DCMA points I can score ({_and(names)}) — fix the "
+                "logic ones before you rely on the forecast.")
+        fixes = _fix_items(F)
+        body = [
+            (f"The Health Review runs all 14 DCMA points; {scored} can be scored from this snapshot (invalid dates, "
+             "resources, missed tasks and BEI need data it doesn't hold — read those off the report itself)."),
+            ((f"Across {_acts(F)}, the items behind the logic fails: " + _and(fixes) + ".") if fixes else
+             f"Across {_acts(F)}, no logic item is flagging."),
+            ("The negative-float and CPLI fails are the delay itself showing in the network — logic clean-up won't "
+             "remove them; recovery on the finish chain does." if any(n in ('negative float', 'CPLI') for n in names)
+             else ""),
+            _delay_is_real_line(F),
+        ]
+        cl = _cpli_line(F)
+        if cl and tech:
+            body.append(cl)
+        return K.A(head, [b for b in body if b],
+                   advice=["Fix the logic items, re-run the review, then bank the position.",
+                           K.go_deeper('Schedule Health Review', 'For the exact composite score across all 14 points')],
+                   evidence=[K.ev('Schedule Health', 'DCMA points failing', f"{nf_} of {scored}"),
+                             K.ev('Dangling', 'Activities', F.get('dangling_count')),
+                             K.ev('Out-of-sequence', 'Activities', F.get('oos_count')),
+                             K.ev('EVM', 'Delay', _delay_chip(F))])
     if n_flag == 0 and not minor:
         head = (f"Reads **clean overall** — on the {npts} logic points I can score from this snapshot, "
                 "nothing structural is corrupting the numbers.")
@@ -262,9 +325,12 @@ def t06q01(F, role):
                    evidence=[K.ev('Open ends', 'Count', F.get('open_ends')),
                              K.ev('Out-of-sequence', 'Activities', F.get('oos_count'))])
 
-    head = (f"**{len(failing)} check{'s' if len(failing) != 1 else ''}** stand out — ranked worst-first below, "
+    sc = _dcma(F)
+    head = ((f"It fails **{sc[0]} of the {sc[1]}** DCMA points I can score ({_and(sc[2])}). Below, every check that "
+             "still carries defects, worst-first, with its rate against the DCMA line.") if sc and sc[0] else
+            f"**{len(failing)} check{'s' if len(failing) != 1 else ''}** stand out — ranked worst-first below, "
             "with the actual defect rate against the DCMA line.")
-    lines = ["The checks over the line, in priority order:"]
+    lines = ["The checks carrying defects, in priority order:"]
     for m in failing:
         cnt = _c(m['count'], m['sing'], m['plur'])
         pctxt = f", **{K.pct(m['pct'], 1)}** of the network" if m['pct'] is not None else ""
@@ -307,18 +373,23 @@ def t06q02(F, role):
     else:
         head = "In plain terms: the skeleton is **mostly sound**, with a short list to close before it's client-ready."
 
+    fixes = _fix_items(F)
+    sc = _dcma(F)
+    if sc and sc[0]:
+        head = (f"In plain terms: the network is connected and the delay it shows is real — but it fails "
+                f"**{sc[0]} of the {sc[1]}** DCMA points I can score, and the logic items need fixing before a "
+                "consultant sees it.")
     body = [
-        (f"Out of {_acts(F)}, the only housekeeping items are "
-         + " and ".join([x for x in (oe, oos) if x])
-         + "." if (oe or oos) else
+        ((f"Out of {_acts(F)}, the logic items to fix are " + _and(fixes) + ".") if fixes else
          f"Out of {_acts(F)} the logic reads clean — no loose ends or out-of-order progress worth flagging."),
-        "That's not rot — it's the kind of tidy-up every live schedule needs, not a sign the plan is broken.",
+        ("None of that manufactures the delay — but a reviewer will mark every one of them, so fix them first."
+         if fixes else "That's a clean skeleton — nothing a reviewer will mark up on logic."),
         _delay_is_real_line(F),
-        ("So when we brief the client, the message is simple: the schedule is trustworthy for decisions once the "
-         "loose ends are closed, and the reported position is real — not an artefact of soft logic."),
+        ("So when we brief the client, the message is simple: the reported position is real, and the logic is "
+         "being tidied" + (" (the items above)" if fixes else "") + " so the schedule stands up to review."),
     ]
     return K.A(head, body,
-               advice=["Brief it as: sound network, short tidy-up list, and a real (not manufactured) position.",
+               advice=["Brief it as: a real (not manufactured) position, plus a named list of logic fixes in hand.",
                        K.go_deeper('Schedule Health Review', 'For the graded logic quality behind this')],
                evidence=[K.ev('Open ends', 'Count', F.get('open_ends')),
                          K.ev('Out-of-sequence', 'Activities', F.get('oos_count')),
@@ -337,29 +408,35 @@ def t06q03(F, role):
     flagged = [m for m in mods if _is_flag(m['grade'])]
     heavy = len(flagged) > 2 or (oe or 0) > 0 and (F.get('open_ends_grade') in ('Critical',))
 
-    head = ("**Close, but tidy it first.**" if (oe or oos or flagged)
-            else "**Yes — it will clear review as it stands.**")
+    fixes = _fix_items(F)
+    sc = _dcma(F)
+    llk = _k(F, 'lag_lead')
+    lag_first = bool(llk.get('long_count'))
+    head = (("**Not yet — they'd bounce it"
+             + (" on the lags first" if lag_first else "") + ".** Fix the logic items below, then submit.")
+            if (fixes or flagged) else "**Yes — it will clear review as it stands.**")
     body = [
-        ("A sharp reviewer bounces on open ends every time — every activity bar the final milestone needs a "
-         f"successor, and you're carrying {_c(oe, 'open end', 'open ends') or 'none'}."
-         if oe else
-         "Logic completeness is clean — no open ends for a reviewer to bounce on."),
-        ("They'll also query the out-of-sequence items and want a one-line status note on each — you have "
-         f"{_c(oos, 'out-of-sequence activity', 'out-of-sequence activities') or 'none'}."
-         if oos else
-         "There's no out-of-sequence progress to explain, which removes the usual second query."),
+        ("What a reviewer will mark up: " + _and(fixes) + "." if fixes else
+         "Logic completeness is clean — no open ends or one-ended activities for a reviewer to bounce on."),
     ]
-    if flagged:
+    if sc and sc[0]:
+        body.append(f"On the DCMA scorecard it fails **{sc[0]} of the {sc[1]}** points I can score ({_and(sc[2])}). "
+                    "The logic ones (lags, links, leads, relationship mix) are fixable before you submit; the "
+                    "negative-float and CPLI fails are the delay itself and stay until the recovery lands — explain "
+                    "them in the cover note rather than hide them.")
+    elif flagged:
         names = ", ".join(m['label'].split(' (')[0].lower() for m in flagged)
-        body.append(f"The points still over the DCMA line — {names} — are what a reviewer marks up; none is fatal, "
-                    "but each is a reason to send it back if you submit as-is.")
+        body.append(f"The points still over the DCMA line — {names} — are what a reviewer marks up.")
     body.append(
-        "That's not structural — it's typically half a day of housekeeping. Close the open ends, add the "
-        "status notes, confirm no key milestone is left dangling, and it clears review.")
+        "The fix list: justify each long lag in writing or turn it into a real activity (cure, delivery, permit); "
+        "tie every one-ended activity into logic on both sides; add a one-line status note to each out-of-sequence "
+        "item. That's a focused clean-up, not a rebuild." if fixes else
+        "Add status notes where needed and it clears review.")
     body.append(_delay_is_real_line(F)
-                + " Submitting dirty invites a rejection over cosmetics while the real story gets buried in the markup.")
+                + " Submitting it unfixed invites a rejection over logic while the real story gets buried in the markup.")
     return K.A(head, body,
-               advice=["Half a day of housekeeping now saves a rejection cycle — close the open ends before you send it.",
+               advice=[("Fix the named logic items first — that's what saves a rejection cycle." if fixes else
+                        "Submit — the logic is clean."),
                        K.go_deeper('Schedule Health Review, Constructability Review',
                                    'For the full check list a reviewer will run')],
                evidence=[K.ev('Open ends', 'Count', oe),
@@ -460,19 +537,36 @@ def t06q06(F, role):
     if not F.get('ok'):
         return _no_project(F)
     oe = F.get('open_ends')
+    dk = _k(F, 'dangling')
+    dang = dk.get('total_dangling')
     head = (f"The Schedule Audit will propose links for each of your {_c(oe, 'open end', 'open ends')} and write you "
             "a corrected XER to reimport."
-            if oe else "**No open ends to close** — logic completeness is already clean, so there's nothing to relink.")
+            if oe else
+            (f"**No open ends — but {_c(dang, 'activity is', 'activities are')} tied at only one end**, and those are "
+             "the links to fix." if dang else
+             "**No open ends to close** — logic completeness is already clean, so there's nothing to relink."))
     if not oe:
-        body = [
-            "There are no open-ended activities on this snapshot, so there's no missing link to suggest and no "
-            "corrected file needed for this check.",
-            "If the audit hasn't run yet, run it to confirm — I'm reading the stored open-ends count, and it's zero.",
+        body = ([
+            "There are no open-ended activities on this snapshot (every activity has a predecessor and a successor "
+            "somewhere).",
+            (f"The gap is the **dangling** ones: " + _and([f"{dk[k]} {w}" for k, w in (
+                ('start_dangling', 'with nothing driving their start'), ('finish_dangling', 'with nothing hanging off '
+                 'their finish'), ('both_dangling', 'loose at both ends')) if dk.get(k)] or [str(dang)])
+             + ". Each one can hide work that should drive — or be driven by — the chain."),
+            "**Dangling Resolve & Correct** suggests the missing link for each one from your own file (WBS "
+            "neighbours, codes, naming, construction sequence), re-checks it, and writes a corrected XER/XML you "
+            "re-import into P6. Nothing is applied until you accept it.",
             _delay_is_real_line(F),
-        ]
+        ] if dang else [
+            "There are no open-ended or one-ended activities on this snapshot, so there's no missing link to suggest "
+            "and no corrected file needed for this check.",
+            _delay_is_real_line(F),
+        ])
         return K.A(head, [b for b in body if b],
-                   advice=[K.go_deeper('Schedule Audit', 'To re-confirm and export a corrected file if needed')],
-                   evidence=[K.ev('Open ends', 'Count', oe)])
+                   advice=[("Open Dangling Resolve & Correct, review each suggested link against the real build "
+                            "sequence, then export the corrected file." if dang else
+                            K.go_deeper('Schedule Audit', 'To re-confirm the logic check'))],
+                   evidence=[K.ev('Open ends', 'Count', oe), K.ev('Dangling', 'Activities', dang)])
     body = [
         ("For each open end the audit infers a candidate predecessor/successor from the evidence in your own "
          "file — WBS neighbours, activity codes, naming and the natural construction sequence — and ranks each "
@@ -503,8 +597,8 @@ def t06q07(F, role):
             body=[
                 "I can't read a stored hard-constraint count off this snapshot"
                 + (" (the check reports it as not computable on this file)." if computable is False else " yet."),
-                "What matters on this file: the finish is " + K.delay_phrase(F) + ". "
-                + (_delay_is_real_line(F) if (F.get('delay_days') or 0) > 0 else ""),
+                (_delay_is_real_line(F) if (F.get('delay_days') or 0) > 0 else
+                 "What matters on this file: the finish is " + K.delay_phrase(F) + "."),
                 "The manipulation to watch for is a **Must-Finish-On** or **Mandatory** constraint bolted onto the "
                 "completion milestone to mask negative float — if the review flags one on the driving path, strip it "
                 "so total float shows honestly.",
@@ -607,8 +701,11 @@ def t06q09(F, role):
 
     head = (f"**{_c(lagged, 'lagged link', 'lagged links')}**"
             + (f" ({K.pct(lagged_pct, 1)})" if lagged_pct is not None else "")
-            + (f" and **{_c(leads, 'lead', 'leads')}**" if leads is not None else "")
-            + " — leads are the one to worry about."
+            + (f" and **{_c(leads, 'lead', 'leads')}**" if leads else " and **no leads**" if leads is not None else "")
+            + (" — leads are the ones to worry about first." if leads else
+               (f" — the lags are the issue here: {longs} run longer than {long_days or 14} working days"
+                + (f" and {crit} lagged links sit on the critical path." if crit else ".")) if longs else
+               " — nothing excessive to flag.")
             if lagged is not None else "The audit counts every lag and lead and flags the negatives.")
     body = [
         ("**Leads** — negative lags — are the red flag: they let a successor start *before* its driver is done and "
@@ -832,16 +929,25 @@ def t06q14(F, role):
         driving.append(f"reconcile the **{int(crit_oos)} out-of-sequence items on the critical path**")
     elif oos:
         driving.append(f"reconcile the **{_c(oos, 'out-of-sequence item', 'out-of-sequence items')}** and confirm none sits on the driving path")
-    if neg:
-        driving.append(f"resolve the **{_c(neg, 'negative-float activity', 'negative-float activities')}** — the network's own slip signal")
+    llk = _k(F, 'lag_lead')
+    if llk.get('critical_count'):
+        driving.append(f"justify or convert the **{_c(llk['critical_count'], 'lagged link', 'lagged links')} on the "
+                       "critical path** — a lag there sets the finish directly"
+                       + (f" ({llk['long_count']} lags overall run longer than {llk.get('long_threshold_days') or 14} wd)"
+                          if llk.get('long_count') else ""))
     if oe:
         driving.append(f"close any of the **{_c(oe, 'open end', 'open ends')}** that sits on the driving path")
+    if dang:
+        driving.append(f"tie in any of the **{_c(dang, 'dangling activity', 'dangling activities')}** that feed the "
+                       "chain that sets the finish")
     if hard:
         driving.append(f"strip any of the **{_c(hard, 'hard constraint', 'hard constraints')}** suppressing float on the critical path")
 
     cosmetic = []
-    if oe:
-        cosmetic.append(f"tie in the remaining open ends and **{_c(dang, 'dangling activity', 'dangling activities') or 'any dangling activities'}**")
+    if oe or dang:
+        cosmetic.append("tie in the remaining " + _and([x for x in (_c(oe, 'open end', 'open ends') if oe else '',
+                                                                    _c(dang, 'dangling activity', 'dangling activities')
+                                                                    if dang else '') if x]) + " off the finish chain")
     if hd:
         cosmetic.append(f"break down the **{_c(hd, 'long activity', 'long activities')}** over the duration limit")
     if non_fs:
@@ -856,6 +962,9 @@ def t06q14(F, role):
         ("**Then — cosmetic (housekeeping the reviewer wants, but they don't move the date):** " + "; ".join(cosmetic) + "."
          if cosmetic else
          "**Cosmetic:** the housekeeping items are clean too — little left to tidy."),
+        (f"Not on either list: the **{_c(neg, 'negative-float activity', 'negative-float activities')}**. They're "
+         "the delay itself showing in the network — logic clean-up won't remove them; recovery on the finish chain "
+         "does." if neg else ""),
         _delay_is_real_line(F),
         ("So the completion-driving fixes are a short list; the rest is presentation for the consultant. Don't burn a "
          "week polishing cosmetics while the real recovery work — on the driving front — waits."),
@@ -876,8 +985,11 @@ def t06q15(F, role):
     oe = F.get('open_ends')
     oos = F.get('oos_count')
     d = F.get('delay_days')
-    items = " and ".join([x for x in (_c(oe, 'open end', 'open ends'),
-                                      _c(oos, 'out-of-sequence item', 'out-of-sequence items')) if x]) or "the logic flags"
+    dng = F.get('dangling_count')
+    items = _and([x for x in (_c(oe, 'open end', 'open ends') if oe else '',
+                              _c(dng, 'dangling link', 'dangling links') if dng else '',
+                              _c(oos, 'out-of-sequence item', 'out-of-sequence items') if oos else '') if x]
+                 or ["the logic flags"])
     if d is not None and d > 0:
         head = "**Mostly no — and that's the message.**"
         body = [

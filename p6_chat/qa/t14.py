@@ -120,6 +120,19 @@ def _no_delay_line(F, what):
     return ''
 
 
+def _both_sides(F):
+    """When the file carries late client inputs, the schedule shows evidence on BOTH sides — never call the
+    slip contractor-side on the schedule face. '' when the file shows no late client input."""
+    if not K.late_inputs(F):
+        return ''
+    c = K.chain_facts(F)
+    own = ("the chain that sets the finish hasn't started yet" if c and c[1] == 0 else
+           "the work that sets the finish is behind its plan")
+    return ("The file shows evidence on **both sides**. **Employer side:** " + K.inputs_line(F) + " Each is a "
+            f"potential delay event that needs a notice on record. **Contractor side:** {own}. What one update "
+            "can't show is which of the two actually held the finish — that takes a time-impact analysis.")
+
+
 def _indicator_caveat():
     return ("Stated plainly, because it's the whole point of this theme: this is a schedule-based "
             "**indicator**, never a statement of entitlement. The file reads dates and critical-path "
@@ -143,24 +156,22 @@ def t14q00(F, role):
     body = []
     if _behind(F):
         dl = K.driver_line(F)
+        both = _both_sides(F)
+        body.append(f"The headline indicator is genuine — {_finish_is(F)} — a measured slip on the work that sets "
+                    "the finish, not yet a claim." + (" " + dl if dl else ''))
+        if both:
+            body.append("Here's the split you asked for — owner-caused versus your own. " + both)
+        else:
+            body.append(
+                "Here's the split you asked for — owner-caused versus your own — and the honest answer is that "
+                "the schedule can't settle it. It shows *where* the finish is slipping and *which* front carries "
+                "it; it can't see *why*. Late drawings, RFI turnaround, access, permits and free-issue materials "
+                "only show in P6 if they're programmed as activities — this file doesn't show any of them late, so "
+                "on the schedule face the slip sits with the front doing the work.")
         body.append(
-            f"The headline indicator is genuine — {_finish_is(F)} — a measured critical slip, not a claim. "
-            + (dl + " On the schedule face that reads as a **self-performed execution** shortfall on the "
-               "governing front: nothing in the file itself puts an employer event on the driving path."
-               if dl else
-               "The slip concentrates on the governing work front, which on the schedule face reads as a "
-               "self-performed execution shortfall — the file alone puts no employer event on the driving path."))
-        body.append(
-            "Here's the split you actually asked for — owner-caused versus your own — and the honest answer "
-            "is that the schedule can't settle it. It shows *where* the finish is slipping and *which* front "
-            "carries it; it can't see *why*. Late drawings, RFI turnaround, access, permits, free-issue "
-            "materials — those live in your correspondence, not the P6 export, so the file leans toward the "
-            "front doing the work, not toward whoever caused it to fall behind.")
-        body.append(
-            "So treat this as an indicator to test, not a claim to file. Overlay your causation record "
-            "against these dates with your claims consultant: if an employer event actually sits on the "
-            "driving front, the picture flips toward an excusable — possibly compensable — delay; if it "
-            "doesn't, this reads on the schedule face as your own execution slip.")
+            "So treat this as an indicator to test, not a claim to file. Overlay your causation record against "
+            "these dates with your claims consultant: where an employer event held the work that sets the "
+            "finish, that part is excusable — possibly compensable; where nothing did, it's your own slip.")
     else:
         body.append(_no_delay_line(F, 'support an EOT indicator'))
         body.append(
@@ -251,8 +262,11 @@ def t14q02(F, role):
     """Excusable versus culpable — attribute the driving delay."""
     if not F.get('ok'):
         return _no_project(F)
+    both = _both_sides(F)
     if _behind(F):
-        head = ("On the schedule alone this reads **culpable** (contractor-side) — but that's an indicator, "
+        head = ("It can't be called either way from this file: there's excusable (employer-side) evidence and a "
+                "contractor-side shortfall — splitting them needs a time-impact analysis." if both else
+                "On the schedule alone this reads **culpable** (contractor-side) — but that's an indicator, "
                 "not a verdict, because the file can't see cause.")
     else:
         head = "There's no driving delay on today's schedule to classify — so nothing to call excusable or culpable yet."
@@ -260,12 +274,17 @@ def t14q02(F, role):
     if _behind(F):
         dl = K.driver_line(F)
         body.append(
-            (dl + " With the shortfall concentrated on the governing work front and no employer event "
-             "visible on the driving path, the schedule face points to a contractor-side, culpable read."
+            (dl + " " + both) if both else
+            (dl + " With the shortfall concentrated on the governing work front and no late client input in the "
+             "file, the schedule face points to a contractor-side, culpable read."
              if dl else
-             f"The slip sits on the governing work front — {_finish_is(F)} — with no employer event visible "
-             "on the driving path, so the schedule face points to a contractor-side, culpable read."))
+             f"The slip sits on the governing work front — {_finish_is(F)} — with no late client input in the "
+             "file, so the schedule face points to a contractor-side, culpable read."))
         body.append(
+            "How it resolves: for each late client input, show when it actually held the work that sets the "
+            "finish. The days it held are **excusable**; the days the chain lost for other reasons are "
+            "**culpable**; where both ran at once it's concurrent — the dates don't change, the attribution does."
+            if both else
             "But read the label carefully: 'culpable on the schedule face' is not 'culpable in fact'. The "
             "file reads dates, not reasons. If late employer information, permits, access or free-issue "
             "actually drove that front, the same slip is **excusable** — the schedule dates don't change, "
@@ -273,8 +292,9 @@ def t14q02(F, role):
         body.append(
             "That's the causation overlay only you can supply: line your records against these dates. A "
             "neutral event — exceptional weather, for instance — reads excusable too but points nowhere near "
-            "contractor fault; the Weather tab tests that share against the site-type norms. Everything else "
-            "needs your correspondence to move the label off the front doing the work.")
+            "contractor fault; the Weather tab tests that share against the site-type norms."
+            + ("" if both else " Everything else needs your correspondence to move the label off the front doing "
+               "the work."))
     else:
         body.append(_no_delay_line(F, 'attribute to an excusable or culpable cause'))
         body.append(
@@ -303,8 +323,12 @@ def t14q03(F, role):
     """Money claim or just time — compensable versus excusable."""
     if not F.get('ok'):
         return _no_project(F)
+    both = _both_sides(F)
     if _behind(F):
-        head = ("That split turns entirely on **cause type**, and the tool only indicates — today nothing on "
+        head = ("That split turns on **cause type**. This file shows compensable candidates — late client inputs "
+                "(employer risk: time *and* money) — but whether they held the finish needs a time-impact analysis."
+                if both else
+                "That split turns entirely on **cause type**, and the tool only indicates — today nothing on "
                 "the schedule face points to a compensable (employer-risk) cause.")
     else:
         head = "There's no driving delay on today's schedule, so there's nothing yet that's either compensable or excusable."
@@ -317,21 +341,23 @@ def t14q03(F, role):
             "(time, no money). **Culpable** = your own (neither). The schedule can flag which front is "
             "slipping; only the cause behind it decides the bucket.")
         body.append(
-            (dl + " That slip traces to your own execution front with no employer event on the driving path, "
-             "so on the schedule face nothing points to a compensable cause — it reads as contractor "
-             "performance, which is time-and-money-on-you, not on the employer."
+            both if both else
+            (dl + " That slip traces to your own execution front with no late client input in the file, so on "
+             "the schedule face nothing points to a compensable cause — it reads as contractor performance, "
+             "which is time-and-money-on-you, not on the employer."
              if dl else
-             f"The slip traces to the governing work front — {_finish_is(F)} — with no employer event on the "
-             "driving path, so on the schedule face nothing points to a compensable cause."))
+             f"The slip traces to the governing work front — {_finish_is(F)} — with no late client input in the "
+             "file, so on the schedule face nothing points to a compensable cause."))
         body.append(
             "It moves if the evidence moves it: prove an employer act (late access, a variation, "
             "late free-issue) drove that front and it shifts toward **compensable**; a neutral event like "
             "exceptional weather reads **excusable-only** — time relief, not money. The schedule supports "
             "the *time* picture; the *money* picture is your commercial and claims team's call.")
         body.append(
-            "And ignore CPI for this — in these schedules cost is derived from percent-complete, so CPI is a "
-            "schedule echo, not an independent money signal. Don't let a near-1.0 CPI suggest anything about "
-            "compensability; that's a cause-and-contract question, not a cost-ratio one.")
+            ("And ignore CPI for this — in this file actual cost equals earned value, so CPI is 1.00 by "
+             "construction and says nothing about money. " if F.get('cost_derived') else
+             "And keep CPI out of this — ") +
+            "Compensability is a cause-and-contract question, not a cost-ratio one.")
     else:
         body.append(_no_delay_line(F, 'test for compensable versus excusable'))
         body.append(
@@ -369,8 +395,7 @@ def t14q04(F, role):
     if _behind(F):
         body.append(
             f"Start with what I actually hold and what it is: about **{K.wd(F.get('delay_days'))}** to "
-            "completion. That's an **EVM-side re-derivation** — day-accurate on a progressed plan and fine "
-            "as an *indicator*, but it is not the claim-grade figure, and I won't dress it up as one.")
+            "completion. " + K.delay_source(F) + " But it's the **gross** slip — not the claim-grade figure.")
         body.append(
             "The claim-grade quantum is narrower than that whole figure. It's only the critical delay "
             "*attributable to specific events*, isolated in a corrected but-for run — the whole slip mixes "
@@ -378,7 +403,7 @@ def t14q04(F, role):
             "lot and you're claiming your own slip; a reviewer strips that out on day one.")
         body.append(
             "So the method is: run the Consultant Review's but-for, insert (or remove) the events, and read "
-            "the finish movement on **P6 F9** dates — the exact keystone, not my re-derivation. Whatever "
+            "the finish movement on **P6 F9** dates. Whatever "
             "remains on the driving path after your own slip is taken out is the number you can stand behind. "
             + K.driver_line(F))
         if tech:
@@ -451,8 +476,12 @@ def t14q06(F, role):
     """Split the slip into weather, employer and me — and were the weather days beyond a competent allowance."""
     if not F.get('ok'):
         return _no_project(F)
+    both = _both_sides(F)
     if _behind(F):
-        head = ("On the schedule the slip concentrates on your own execution front — so the *visible* split "
+        head = ("This file already shows two of the three shares: employer-side (late client inputs) and your own "
+                "(the work that sets the finish is behind). Weather isn't measured in it — and how the days split "
+                "needs a time-impact analysis." if both else
+                "On the schedule the slip concentrates on your own execution front — so the *visible* split "
                 "is heavily contractor; the weather and employer shares have to be carved out deliberately.")
     else:
         head = "There's no net slip on today's schedule to split — so nothing yet to apportion across weather, employer and you."
@@ -460,8 +489,9 @@ def t14q06(F, role):
     if _behind(F):
         dl = K.driver_line(F)
         body.append(
+            both if both else
             (dl + " That's the part the schedule sees on its own face — a shortfall on the governing front, "
-             "with no employer event on the driving path — so before any carve-out, the visible split leans "
+             "with no late client input in the file — so before any carve-out, the visible split leans "
              "contractor/execution."
              if dl else
              f"The slip sits on the governing work front — {_finish_is(F)} — so before any carve-out, the "
@@ -472,11 +502,13 @@ def t14q06(F, role):
             "**beyond what a competent contractor should have allowed for** read as potentially excusable. "
             "The days inside the normal allowance are risk you priced, not a claim.")
         body.append(
-            "The **employer** share needs your causation record overlaid on these dates — late information, "
-            "permits, access, free-issue. The schedule can't manufacture it; it can only tell you whether, "
-            "once you point to an employer event, that event sat on the driving path. What's left after "
-            "weather and employer come out is the **contractor** share — and that's the honest arithmetic of "
-            "an apportionment, not an agreed one.")
+            ("The **employer** share starts from the late client inputs above: for each one, show from your "
+             "records when it actually held the work that sets the finish. " if both else
+             "The **employer** share needs your causation record overlaid on these dates — late information, "
+             "permits, access, free-issue. The schedule can only tell you whether, once you point to an "
+             "employer event, that event sat on the driving path. ") +
+            "What's left after weather and employer come out is the **contractor** share — and that's the honest "
+            "arithmetic of an apportionment, not an agreed one.")
     else:
         body.append(_no_delay_line(F, 'split across weather, employer and contractor cause'))
         body.append(

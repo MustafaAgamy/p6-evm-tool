@@ -470,7 +470,7 @@ def build(F, N, role):
                 c += (". One snapshot can't show whether that start is held up by an employer input or by the contractor's "
                       "own mobilisation.")
                 bp.append(c)
-            ch_tf = [x['tf'] for x in chain if x.get('tf') is not None] + [x['tf'] for x in deeper]
+            ch_tf = [x['tf'] for x in chain if x.get('tf') is not None]      # the chain only — deeper ones sit off it
             in_tf = [x['tf'] for x in late_open if x.get('tf') is not None]
             if ch_tf and in_tf:
                 if min(ch_tf) < min(in_tf):

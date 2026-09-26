@@ -244,16 +244,13 @@ def t05q02(F, role):
                     "That's the question the look-ahead exists to answer, week by week.")
     nf = F.get('neg_float_count')
     dpc = F.get('driving_path_count')
-    second = []
-    if dpc:
-        second.append(f"a driving path of about **{dpc} activit{'y' if dpc == 1 else 'ies'}**")
-    if nf:
-        second.append(f"**{nf} activit{'y' if nf == 1 else 'ies'}** on negative total float")
-    if second:
-        body.append("The second front to protect is the near-critical work — " + " and ".join(second) +
-                    ". Treat it as the next thing to watch, because it flips onto the critical path the "
-                    "moment the current driver slips further, and a look-ahead that only tracks today's "
-                    "driver gets overtaken.")
+    if nf or dpc:
+        body.append("The second front to protect is the near-critical work — the paths sitting just behind the "
+                    "chain that sets the finish"
+                    + (f" ({nf} activit{'y is' if nf == 1 else 'ies are'} on negative float in all)" if nf else "")
+                    + ". Treat it as the next thing to watch, because a path flips onto the critical path the "
+                    "moment the current driver slips further, and a look-ahead that only tracks today's driver gets "
+                    "overtaken.")
     # merge-in: the look-ahead is WHERE the overdue list and the readiness check get actioned
     body.append("This is where the other two short-term reads land: every item off the **overdue list** "
                 "carries into the window as work you're already chasing, and the **readiness check** "

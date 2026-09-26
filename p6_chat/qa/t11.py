@@ -141,6 +141,28 @@ def t11q00(F, role):
     driver_is_comm = bool(driver and comm and driver.get('name') == comm.get('name'))
     dpc = F.get('driving_path_count')
 
+    if F.get('net_ok') and F.get('net_commissioning') is False:
+        # the re-read file carries no testing / commissioning / handover step at all — say so, don't describe a tail
+        fin = F.get('net_finish_name') or 'the finish milestone'
+        return K.A(
+            (f"**Commissioning isn't driving the date — because this file has no commissioning or testing activities "
+             f"before {fin} at all.**" + (f" What sets the date today is {dn} on the governing path." if dn else "")),
+            [f"The whole-job read: {pace}. In date terms the finish is {K.delay_phrase(F)}.",
+             (dl + " " if dl else "") + "That forecast assumes testing, commissioning and handover take **zero "
+             "time** — nothing is programmed between the last construction work and the finish milestone.",
+             "That's the bigger risk here: when the commissioning chain is added, it sits downstream of the "
+             "construction chain, so the finish moves out again unless its duration is planned in now.",
+             ("Planner's cut: add the commissioning chain per system — pre-commissioning checks → no-load runs → "
+              "load runs / trials → handover — tied behind the last construction activities, then F9 and see where "
+              "the finish lands." if role == 'planning' else
+              "Ask the planner to add the commissioning and handover steps to the programme before the finish date "
+              "is quoted to anyone.")],
+            advice=["Add the commissioning and handover chain to the programme, tied into logic, before you trust "
+                    "the forecast finish.",
+                    K.go_deeper('Construction Knowledge Base', 'For the reference commissioning sequence for this type')],
+            evidence=[K.ev('P6 file', 'Commissioning activities', 'none found'),
+                      K.ev('EVM', 'Driver', dn), K.ev('EVM', 'Delay', _delay_chip(F))])
+
     if driver_is_comm:
         head = ("**Commissioning is already what's governing the date** — the T&C tail has moved onto "
                 "the driving path, so from here the handover milestone tracks testing, not construction.")
@@ -178,10 +200,9 @@ def t11q00(F, role):
                     "scope (that's the next question) before you trust any handover date off it.")
 
     body.append("Whether the T&C activities are *literally* on the critical path today is a "
-                "**Critical Path Analyzer** read — per-activity path membership isn't in the snapshot I "
-                "hold" + (f", though the tool does read **{dpc}** driving path"
-                          f"{'s' if dpc != 1 else ''} through this schedule" if dpc else "") +
-                ". EVM gives you the category progress, Update Analysis the period-over-period movement, "
+                "**Critical Path Analyzer** read"
+                + (f" — today the chain that sets the finish is {K.chain_name(F)}" if K.chain_facts(F) else "")
+                + ". EVM gives you the category progress, Update Analysis the period-over-period movement, "
                 "and the CPA confirms whether the tail is already governing. Put those three together and "
                 "you have the real answer, not a feel.")
 
@@ -323,6 +344,10 @@ def t11q02(F, role):
                               (dn if _behind(F) else None))])
 
 
+def _and_t(items):
+    return items[0] if len(items) == 1 else ', '.join(items[:-1]) + ' and ' + items[-1]
+
+
 def t11q03(F, role):
     """Close-out activities — in the schedule and tied into logic, or left floating?"""
     if not F.get('ok'):
@@ -334,9 +359,12 @@ def t11q03(F, role):
     close = _match_disc(F, _CLOSEOUT_KEYS)
 
     if oe or dang:
-        head = ("**Check this now — close-out is where your open ends almost certainly live.** As-builts, "
-                "O&M manuals, final documentation, demob and retention release get routinely left "
-                "floating at the end with no driving logic.")
+        loose = _and_t([x for x in (f"{oe} open end{'s' if oe != 1 else ''}" if oe else '',
+                                    f"{dang} activit{'y' if dang == 1 else 'ies'} tied at only one end" if dang else '')
+                        if x])
+        head = (f"**Check the close-out lines against the {loose} the audit found.** As-builts, O&M manuals, final "
+                "documentation, demob and retention release are the scope most often left floating at the end with "
+                "no driving logic.")
     else:
         head = ("**Your structural logic reads clean — so the close-out risk here is a *missing* step, "
                 "not a torn one.** As-builts, O&M manuals, documentation, demob and retention release are "
@@ -361,10 +389,10 @@ def t11q03(F, role):
         tail = f" ({K.pct(dpct)}" + (f", graded {dg}" if dg else "") + ")" if (dpct is not None or dg) else ""
         flags.append(f"**{dang} dangling link{'s' if dang != 1 else ''}**{tail} tied at only one end")
     if flags:
-        body.append("Your own logic audit already points the finger: " + " and ".join(flags) +
-                    ". Filter those findings to your close-out activities and I'd expect a large share of "
-                    "them to land there — a retention-release or as-built line with a predecessor but no "
-                    "successor is the textbook floating close-out. That's the list to fix first.")
+        body.append("Your own logic audit gives you the list to check: " + " and ".join(flags) +
+                    ". Filter those findings to your close-out activities — a retention-release or as-built line "
+                    "with a predecessor but no successor is the textbook floating close-out. Any that land there "
+                    "are the first to fix.")
     else:
         body.append("The mechanical checks are clean here — no open ends or dangling links flagged — which "
                     "is good news but not the whole story: 'clean logic' doesn't prove the close-out scope "

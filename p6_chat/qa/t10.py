@@ -238,8 +238,10 @@ def t10q02(F, role):
     dpc = F.get('driving_path_count')
     nfc = F.get('neg_float_count')
     where = []
-    if dpc:
-        where.append(f"the **{dpc} activities on the driving path**")
+    if K.chain_facts(F):
+        where.append(K.chain_name(F))
+    elif dpc:
+        where.append(f"the **{dpc} activities P6 flags as driving**")
     if nfc:
         where.append(f"the **{nfc} activities on negative float**")
     if where:

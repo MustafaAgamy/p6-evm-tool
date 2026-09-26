@@ -194,7 +194,7 @@ def build(F, N, role):
 
     fin = (N.get('finish_milestone') or {}) if nok else {}
     chain = (N.get('chain') or []) if nok else []
-    chain_n = ((N.get('chain_count') or len(chain)) + (1 if fin else 0)) if chain else 0
+    chain_n = (N.get('chain_count') or len(chain)) if chain else 0      # the chain itself, finish milestone not counted
     fin_tf = N.get('finish_tf') if nok else None
     fin_slip = fin.get('slip_wd')
     bl = fin.get('baseline_finish') or F.get('baseline_finish')
@@ -786,9 +786,9 @@ def build(F, N, role):
               if oos is not None else '')]
     unprog = ((", and every activity on the chain is unprogressed" if not_started == len(chain) else
                f", and {not_started} of the {len(chain)} activities on the chain are unprogressed") if chain and not_started else '')
-    chk.append(f"Second, is the {_pos(d)} what P6 gives on F9? The in-tool scheduler "
-               "matches P6's F9 to the day on progressed schedules but can diverge on unprogressed or constrained work"
-               + unprog + ". Treat its figure as an estimate and confirm with a reschedule in P6.")
+    chk.append(f"Second, was the update actually rescheduled (F9) before it was issued? The {_pos(d)} is P6's own "
+               "figure from the dates in this file, but an update issued without a final F9 carries stale dates"
+               + unprog + ". Reschedule it in P6 and confirm the finish still reads the same.")
     h.append('Two checks remain. ' + ' '.join(chk))
     s11 = K.sec("Is the contractor's update honest by F9?", *h)
 
@@ -840,9 +840,8 @@ def build(F, N, role):
             if (cpli is not None and cpl and ptf is not None and ptf < 0) else '.')) if (behind and bl) else '',
         "At each new revision, compare the quality KPIs (lags, leads, dangling, constraints, out-of-sequence). If they get "
         "worse while the date holds, call it slip dressed up.",
-        (f"Reschedule the update in P6 (F9) to confirm the {_pos(d)}."
-         + (" Most of the finish chain is unprogressed, which is where the tool's forward pass is only an estimate."
-            if chain and not_started >= len(chain) / 2 else ''))]
+        f"Reschedule the update in P6 (F9) and confirm the {_pos(d)} holds — that proves the contractor issued "
+        "a scheduled update, not stale dates."]
     evidence = [K.ev(f"Finish ({fin['id']})" if fin else 'Finish', f"{bl} → {fc} ({_sg(fin_slip)} wd)" if (fin and bl and fc)
                      else K.signed(d)),
                 K.ev('Chain head', f"{head['id']} {_nm(head)}, {head.get('pct')}%, {_sg(head_slip)} wd, TF {_sg(head.get('tf'))}"

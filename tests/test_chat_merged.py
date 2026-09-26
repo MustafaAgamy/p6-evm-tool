@@ -219,6 +219,51 @@ def test_missing_finish_dates_are_filled_from_the_p6_finish_milestone():
     _backfill_finish(F, NO_FILE)                    # no file → nothing invented
 
 
+# A project shaped like the real test file: cost not measured, late client inputs, the finish chain unstarted,
+# no commissioning in the file, one update only. Every library answer must agree with the merged answers on it.
+NET = dict(net_ok=True, net_chain_count=40, net_chain_started=0, net_chain_tf_min=-34, net_chain_tf_max=-29,
+           net_finish_tf=-30, net_finish_name='Scope Completion',
+           net_chain_head={'id': 'A100', 'name': 'Excavation Zone 1', 'tf': -31, 'pct': 0},
+           net_late_inputs=[{'id': 'C1', 'name': 'Area Release', 'slip_wd': 60, 'tf': -20},
+                            {'id': 'C2', 'name': 'Design Approval', 'slip_wd': 45, 'tf': -12}],
+           net_commissioning=False, driving_path_count=410, cpli_critical_count=300, history=[],
+           net_dcma={'scored': 9, 'fails': ['Lags', 'Negative float'], 'names': ['lags', 'negative float']})
+CONTRADICTIONS = re.compile(
+    r'reads \*\*culpable\*\*|contractor-side, culpable read|aren.t in the schedule|execution problem|execution loss|'
+    r'part resource-driven|production, not sequencing|manpower / productivity on the driving front|broadly holding|'
+    r'GREEN\*\* on cost|isn.t the fire|0% slice|in line with\*\* than|snapshots\*\* stored|driving paths through|'
+    r'not carried\s+in this snapshot|can.t name the individual|re-derived by the tool|EVM-side|'
+    r'suppress it, not create it|effectively the same chain|already governing, not merely|only housekeeping items|'
+    r'half a day|leads are the one to worry|near plan, they can.t|broadly on track, so expect|the rest is execution|'
+    r'other fronts remain broadly on plan|broadly where it should be|losing ground|T&C tail hangs off|'
+    r'almost certainly live|(?-i:cpi 1\.00|spi is the real)|numbers\. and|\bthe the\b|Closing 0 ', re.I)
+
+
+def test_library_answers_agree_with_the_merged_answers_on_a_real_shaped_project():
+    from p6_chat import qa
+    F = _facts(**NET)
+    blob = json.dumps([qa.answer(i, F, 'planning') for i in _library_ids()], ensure_ascii=False)
+    assert not CONTRADICTIONS.search(blob), sorted(set(CONTRADICTIONS.findall(blob)))
+    assert 'Area Release' in blob                       # the late client inputs are named, not called absent
+    assert '5 of the 9' not in blob and '2 of the 9' in blob   # one DCMA count, from the shared scorecard
+
+
+def test_cost_answers_say_cost_is_not_measured_when_actual_cost_equals_earned_value():
+    from p6_chat import qa
+    F = _facts(**NET)
+    for qid in ('t08q01', 't08q02', 't08q04', 't08q07', 't08q08', 't08q10'):
+        a = qa.answer(qid, F, 'planning')
+        assert 'actual cost' in json.dumps(a).lower() and 'earned value' in json.dumps(a).lower(), qid
+    un = qa.answer('t08q01', F, 'planning')
+    assert '50%' in ' '.join(un['body'])                 # (PV − EV) ÷ PV = 500 ÷ 1000, not "a 0% slice"
+
+
+def test_commissioning_answer_says_the_file_has_none():
+    from p6_chat import qa
+    a = qa.answer('t11q00', _facts(**NET), 'planning')
+    assert 'no commissioning or testing activities' in a['headline']
+
+
 def test_completed_discipline_is_not_offered_as_spare_effort():
     from p6_chat import qa
     a = qa.answer('t09q01', _facts(), 'planning')

@@ -439,7 +439,7 @@ def build(F, N, role):
             w2 += (f" {_join(hs)}, which {'are' if len(hs) > 1 else 'is'} lifting and work at height, sit"
                    f"{'' if len(hs) > 1 else 's'} just before the finish"
                    + (f", with {len(height) - 2} more erection and steel activities after them." if len(height) > 2 else '.'))
-        tfs = [x['tf'] for x in chain if x.get('tf') is not None] + [x['tf'] for x in deep]
+        tfs = [x['tf'] for x in chain if x.get('tf') is not None]           # the chain only — deeper ones sit off it
         if tfs and max(tfs) < 0:
             w2 += (f" That chain is already at {_sg(max(tfs))} to {_sg(min(tfs))}, so every weather day lost on it goes "
                    "straight onto the finish.")

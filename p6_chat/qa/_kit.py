@@ -166,6 +166,97 @@ def driver_line(F):
             f"a {d.get('gap')}-point gap on the work front that moves the finish date the most.")
 
 
+# ── what the re-read P6 file shows (F['net_*'] — see facts.add_network) ────────────
+# The library answers use these so they say the same thing as the 15 merged answers: the chain that
+# sets the finish, the late client inputs, whether commissioning is in the file. All '' when the file
+# couldn't be read, so an answer falls back to the stored analysis.
+
+def late_inputs(F):
+    return list(F.get('net_late_inputs') or [])
+
+
+def inputs_text(F, k=3):
+    """'Layout Approval (+122 wd), Road Level (+114 wd) and 5 more' — the late, still-open client inputs."""
+    late = late_inputs(F)
+    names = [' '.join(str(x['name']).split()) + (f" ({x['slip_wd']:+d} wd)" if x.get('slip_wd') is not None else '')
+             for x in late[:k]]
+    more = len(late) - len(names)
+    return ', '.join(names) + (f" and {more} more" if more > 0 else '')
+
+
+def inputs_line(F):
+    """'**7 client inputs** are late and still open — …' or ''."""
+    n = len(late_inputs(F))
+    if not n:
+        return ''
+    return f"**{n} client input{'s' if n != 1 else ''}** {'are' if n != 1 else 'is'} late and still open — {inputs_text(F)}."
+
+
+def chain_facts(F):
+    """(count, started, tf_min, tf_max) of the chain that sets the finish, or None without the file."""
+    if not F.get('net_ok') or not F.get('net_chain_count'):
+        return None
+    return (F['net_chain_count'], F.get('net_chain_started') or 0, F.get('net_chain_tf_min'), F.get('net_chain_tf_max'))
+
+
+def chain_line(F):
+    """'The finish is set by a chain of **52 activities**, none of them started, at −59 to −64 wd of float.' or ''."""
+    c = chain_facts(F)
+    if not c:
+        return ''
+    n, started, lo, hi = c
+    st = ("none of them started" if started == 0 else f"{started} of them started")
+    fl = (f", at {lo:+d} to {hi:+d} wd of float" if lo is not None and hi is not None and lo != hi else
+          f", at {lo:+d} wd of float" if lo is not None else '')
+    return f"The finish is set by a chain of **{n} activities**, {st}{fl}."
+
+
+def delay_source(F):
+    """Where the delay figure comes from — said the same way in every answer."""
+    return ("That figure is P6's own: the finish milestone's exported forecast date (after your F9) against its "
+            "baseline, counted in working days — it agrees with the milestone's total float.")
+
+
+def chain_name(F):
+    """'the **52-activity chain** that sets the finish' or '' without the file."""
+    c = chain_facts(F)
+    return f"the **{c[0]}-activity chain** that sets the finish" if c else ''
+
+
+def driving_note(F):
+    """P6's driving-path count said honestly: a wide SET of activities tied to the finish date, not one line —
+    with the actual finish chain named beside it when the file was read. '' when the count isn't stored."""
+    dp = F.get('driving_path_count')
+    if dp is None:
+        return ''
+    c = chain_facts(F)
+    return (f"P6's driving-path flag marks about **{dp} activities** — everything tied to the finish date, a far "
+            "wider set than one line of work"
+            + (f"; the chain that actually sets the finish is **{c[0]} activities**, listed in the main answer" if c
+               else "") + ".")
+
+
+def cause_line(F):
+    """The honest read of WHOSE delay it is — what the file shows on each side, and that one update can't
+    split it. Never asserts a manpower / productivity / contractor cause the file can't prove."""
+    parts = []
+    c = chain_facts(F)
+    if c and c[1] == 0:
+        parts.append("the chain that sets the finish hasn't started yet — that reads as a **late start**, not slow "
+                     "production inside the chain")
+    if late_inputs(F):
+        parts.append(f"{len(late_inputs(F))} client inputs are late and still open ({inputs_text(F)}) — "
+                     "employer-side evidence")
+    head = ("What the file shows: " + '; '.join(parts) + '. ') if parts else ''
+    return (head + "One update can't prove whose delay it is — whether the start was held by client inputs or by "
+            "the contractor's own mobilisation and resources needs a time-impact analysis and the site records.")
+
+
+def has_history(F):
+    """True only with two or more DIFFERENT updates (data dates) stored — re-imports of the same file don't count."""
+    return len(F.get('history') or []) >= 2
+
+
 # ── feature pointers (merged, in-progress, and honest gaps) ─────────────────────
 # Keyed by the canonical feature name as it appears in each question's `grounds`.
 # `open` = where to find it in the tool; used to route the user to the exact figure.

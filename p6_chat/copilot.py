@@ -72,10 +72,14 @@ def project_brain(snapshot_id):
         from p6_copilot.context import build_context
         ctx = weigh_driver(build_context(result, audit=audit, prev_delay=prev_delay))
         # Planned/actual history for the Manager Report S-curve (DB-only — never re-parses).
-        ctx['history'] = [{'date': s.get('data_date'),
-                           'planned': s.get('overall_planned_pct'),
-                           'actual': s.get('overall_actual_pct')}
-                          for s in all_snaps if s.get('data_date')]
+        # One point per UPDATE (data date): re-importing the same file adds snapshots, not history.
+        by_date = {}
+        for s in all_snaps:
+            if s.get('data_date'):
+                by_date[str(s['data_date'])] = {'date': s.get('data_date'),
+                                                'planned': s.get('overall_planned_pct'),
+                                                'actual': s.get('overall_actual_pct')}
+        ctx['history'] = list(by_date.values())
         ctx['_result'] = result
         return ctx
     except Exception:
@@ -134,25 +138,87 @@ _WORDING_NOT_BEHIND = (
     ("is the furthest behind.", "has the largest weighted shortfall against its own plan."),
 )
 _BARE_GAP = re.compile(r'\((\d+) behind\)')          # "Design (74 behind)" reads as 74 days beside a wd delay
+_WORKS_WORK = re.compile(r'(\*\*[^*]*\bWorks?\*\*) work\b')   # "**Construction Works** work" → "**Construction Works**"
 
 
-def chat_wording(obj, behind=True):
-    """Apply the weighted-driver wording to every string in an engine answer / report dict.
-    ``behind`` = the finish is actually late (delay_days > 0)."""
+def _inputs_text(late, k=3):
+    """'Layout Approval (+122 wd), Design Road Level (+114 wd) and 5 more' from late client-input rows."""
+    names = [' '.join(str(x['name']).split()) + (f" ({x['slip_wd']:+d} wd)" if x.get('slip_wd') is not None else '')
+             for x in late[:k]]
+    more = len(late) - len(names)
+    return ', '.join(names) + (f" and {more} more" if more > 0 else '')
+
+
+def _client_wording(late):
+    """The engine says client-caused delays 'aren't in the schedule'. When the P6 file carries late client
+    inputs, that is false — name them instead."""
+    n = len(late)
+    what = f"{n} client input{'s are' if n != 1 else ' is'} late and still open — {_inputs_text(late)}"
+    return (
+        ("What the schedule itself shows leans execution-side (progress and out-of-order work). Any client-caused "
+         "delays — late access, late drawings, variations — aren't in the schedule and must be added to judge who "
+         "owns the delay.",
+         f"The schedule shows evidence on both sides. On the employer side, {what}. On the contractor side, the work "
+         "that sets the finish hasn't progressed as planned. Who owns each part of the delay needs a time-impact "
+         "analysis — one update can't split it."),
+        ("Any client-side causes (e.g. late access, late information) aren't in the schedule — note them in the "
+         "Claims tool to complete the ownership picture.",
+         f"The schedule also shows {what}. Log each as a potential delay event and make sure a notice is on record."),
+    )
+
+
+def chat_wording(obj, behind=True, late=None):
+    """Apply the chat's corrections to every string in an engine answer / report dict.
+    ``behind`` = the finish is actually late (delay_days > 0); ``late`` = the file's late, still-open
+    client inputs (so client-side delays are named, not called absent)."""
     if isinstance(obj, str):
-        for old, new in _WORDING_ALWAYS + (_WORDING_BEHIND if behind else _WORDING_NOT_BEHIND):
+        for old, new in (_WORDING_ALWAYS + (_WORDING_BEHIND if behind else _WORDING_NOT_BEHIND)
+                         + (_client_wording(late) if late else ())):
             obj = obj.replace(old, new)
-        return _BARE_GAP.sub(r'(\1 pts behind)', obj)
+        return _WORKS_WORK.sub(r'\1', _BARE_GAP.sub(r'(\1 pts behind)', obj))
     if isinstance(obj, list):
-        return [chat_wording(x, behind) for x in obj]
+        return [chat_wording(x, behind, late) for x in obj]
     if isinstance(obj, dict):
-        return {k: chat_wording(v, behind) for k, v in obj.items()}
+        return {k: chat_wording(v, behind, late) for k, v in obj.items()}
     return obj
 
 
+def _state(days):
+    """Signed plain position: 'about 3 months late' / 'about 2 weeks ahead' / 'on the planned date'."""
+    if days is None:
+        return None
+    if days == 0:
+        return "on the planned date"
+    d = abs(days)
+    months, weeks = round(d / 21), max(1, round(d / 5))
+    size = (f"about {months} months" if months >= 2 else f"about {weeks} weeks" if weeks >= 2 else
+            f"about {d} working day{'s' if d != 1 else ''}")
+    return f"{size} {'late' if days > 0 else 'ahead'}"
+
+
+def fix_report(report, ctx):
+    """The engine's briefing drops the delay's sign in its trend line and finish tile (a project 20 wd
+    ahead read as '4 weeks late'). Rebuild those from the signed delay; tidy the forecast note."""
+    delay = ctx.get('delay_days')
+    t = ctx.get('trend')
+    if report.get('trend') and t and delay is not None:
+        head = {'worse': 'Getting worse', 'better': 'Improving'}.get(t.get('direction'), 'About the same')
+        report['trend'] = dict(report['trend'],
+                               text=f"{head} — {_state(t.get('prev_delay'))} last update, {_state(delay)} now.")
+    if report.get('finish') and delay is not None:
+        report['finish'] = dict(report['finish'], later=_state(delay))
+    det = report.get('detail') or {}
+    if det.get('forecast_note') and delay and delay > 0:
+        drv = (ctx.get('worst_discipline') or {}).get('name') or 'the works in progress'
+        report['detail'] = dict(det, forecast_note=(
+            f"The forecast — {_state(delay)} — assumes {drv} finishes on its current dates. To see the finish date "
+            "if it slips further, the what-if gives the exact number."))
+    return report
+
+
 def engine_answer(qid, ctx, mode):
-    """One Copilot-engine answer as the chat shows it: weighted driver, weighted wording, and no
-    "causing the delay" when the finish isn't late."""
+    """One Copilot-engine answer as the chat shows it: weighted driver, weighted wording, the file's late
+    client inputs named, and no "causing the delay" when the finish isn't late."""
     from p6_copilot.answers import answer
     delay = (ctx or {}).get('delay_days')
     behind = delay is not None and delay > 0
@@ -169,7 +235,7 @@ def engine_answer(qid, ctx, mode):
         return {'headline': "No part of the project is delaying the finish right now.", 'body': body,
                 'advice': ([f"Keep **{worst['name']}** on the watch list so it doesn't start eating the float."]
                            if worst else []), 'evidence': []}
-    return chat_wording(answer(qid, engine_view(ctx), mode), behind)
+    return chat_wording(answer(qid, engine_view(ctx), mode), behind, (ctx or {}).get('net_late_inputs'))
 
 
 _NOT_CONSTRUCTION = re.compile(r'\b(design|engineering|shop drawings?|drawings? (issue|approval|submission)|'
@@ -285,10 +351,12 @@ def ask(snapshot_id, question_id=None, question_text=None, mode='management'):
                 return {'ok': True, 'answer': a, 'matched': False,
                         'question_id': None, 'question_label': text}
             interpreted = label_for(qid, mode)
+        from p6_chat import analysis
+        N = analysis.network(snapshot_id)
         if qid == 'project_needs':
-            from p6_chat import analysis
-            a = project_needs(analysis.network(snapshot_id))
+            a = project_needs(N)
         else:
+            ctx['net_late_inputs'] = N.get('client_inputs_late_open') or [] if N.get('ok') else []
             a = engine_answer(qid, ctx, mode)
         return {'ok': True, 'answer': a, 'matched': True, 'question_id': qid,
                 'question_label': interpreted or label_for(qid, mode)}
@@ -454,8 +522,24 @@ def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, m
         except Exception:
             pass
         from p6_copilot.report import build_manager_report, render_manager_report_html
-        report = chat_wording(build_manager_report(engine_view(ctx)), (ctx.get('delay_days') or 0) > 0)
+        try:
+            from p6_chat import analysis
+            N = analysis.network(snapshot_id)
+            ctx['net_late_inputs'] = N.get('client_inputs_late_open') or []
+            fin = N.get('finish_milestone') or {}
+            if not ctx.get('baseline_finish') and fin.get('baseline_finish'):
+                ctx['baseline_finish'] = fin['baseline_finish']       # stored extras missing → P6's own dates
+            if not ctx.get('forecast_finish') and fin.get('finish'):
+                ctx['forecast_finish'] = fin['finish']
+        except Exception:
+            ctx['net_late_inputs'] = []
+        report = fix_report(chat_wording(build_manager_report(engine_view(ctx)), (ctx.get('delay_days') or 0) > 0,
+                                         ctx['net_late_inputs']), ctx)
         html_content = render_manager_report_html(report, meta or {})
+        if (report.get('finish') or {}).get('later'):
+            import html as _h
+            later = _h.escape(report['finish']['later'])
+            html_content = html_content.replace(f"· {later} later</div>", f"· {later}</div>")
         if preview:
             return {'ok': True, 'report': report, 'html': html_content}
         import subprocess

@@ -112,14 +112,16 @@ def t03q00(F, role):
     dpc = F.get('driving_path_count')
     dens = F.get('cpli_density_grade') or F.get('cpli_grade')
     ctf = _crit_tf(F)
-    head = ("Here's the honest read: I can tell you the **shape** of the critical path and whether it's "
+    head = (f"The critical path is {K.chain_name(F)} — listed activity by activity in the main answer — and it "
+            "looks believable." if K.chain_facts(F) else
+            "Here's the honest read: I can tell you the **shape** of the critical path and whether it's "
             "believable, but the individual activities are drawn by the Critical Path Analyzer, not carried "
             "in this snapshot.")
     body = []
+    if K.chain_facts(F):
+        body.append(K.chain_line(F))
     if dpc is not None:
-        body.append(f"The driving path runs through about **{dpc} activities** (including its milestones)"
-                    + (f", and the critical-path density grades **{dens}**" if dens else "") + ". That's the "
-                    "size of the chain controlling your finish.")
+        body.append(K.driving_note(F) + (f" Critical-path density grades **{dens}**." if dens else ""))
     if ctf is not None:
         if ctf < 0:
             body.append(f"It's carrying **{K.wd(ctf)} of negative total float** — the network is genuinely "
@@ -178,8 +180,11 @@ def t03q01(F, role):
     if real:
         if nf:
             body.append(f"The tell is the negative float: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) "
-                        "carry negative total float, and negative float only appears when the logic genuinely "
-                        "drives the date — a mandatory or finish-on constraint would suppress it, not create it.")
+                        "carry negative total float. In P6, negative float appears when the logic pushes work past "
+                        "a date it's measured against — here the finish milestone's baseline date — so it shows the "
+                        "network openly carrying the slip. One check before you quote the deepest figures: an "
+                        "activity sitting deeper than the finish chain usually has an intermediate constraint, a lag "
+                        "or a different calendar behind it.")
         if ctf is not None and ctf < 0:
             body.append(f"The critical path itself is at **{K.wd(ctf)} of negative float**, which is authentic "
                         "network behaviour — the chain is longer than the time left, so the date moves.")
@@ -217,8 +222,10 @@ def t03q02(F, role):
     nf = F.get('neg_float_count')
     ctf = _crit_tf(F)
     dpc = F.get('driving_path_count')
-    head = ("On this schedule the longest path and the true critical path are effectively the same chain — "
-            "but which set defines 'critical' depends on your float position, and that's the subtlety.")
+    head = ("They're not the same thing. The longest path is one continuous line of work to the finish; the "
+            "critical (negative-float) set is every activity that has slipped past its dates — "
+            + (f"here {K.chain_name(F)} against **{nf} activities** on negative float." if (K.chain_facts(F) and nf) else
+               "usually far bigger than the one line."))
     body = [
         "The distinction matters. The **longest continuous path** is the physical chain of work from the data "
         "date to completion. The **zero-total-float path** is the classic critical path — activities with no "
@@ -226,10 +233,10 @@ def t03q02(F, role):
     ]
     if (nf or 0) > 0 or (ctf is not None and ctf < 0):
         body.append(f"Here you're in **negative float** ({(str(nf) + ' activities') if nf else 'the path is below zero'}"
-                    + (f", the path at {K.wd(ctf)}" if ctf is not None and ctf < 0 else "") + "), so there is no "
-                    "zero-float path — the true critical path is the **negative-float set**, and the longest path "
-                    "runs through it. Filtering on TF = 0 would show you nothing; you have to read the most-negative "
-                    "chain as critical.")
+                    + (f", the finish at {K.wd(ctf)}" if ctf is not None and ctf < 0 else "") + "), so a TF = 0 "
+                    "filter shows you nothing useful. The longest path is the chain at the most negative float that "
+                    "runs continuously to the finish; the rest of the negative-float set has also slipped past its "
+                    "dates but isn't on that line.")
     elif ctf is not None and ctf == 0:
         body.append("Here the finish is at **zero float**, so the zero-float critical path and the longest path "
                     "line up — the classic case.")
@@ -243,14 +250,13 @@ def t03q02(F, role):
                     "the longest continuous chain regardless; on a slipped schedule that's what governs, not a "
                     "TF = 0 filter.")
     if dpc is not None:
-        body.append(f"The driving set the tool holds spans about **{dpc} activities** — that's the chain to trace "
-                    "end-to-end for the longest path.")
+        body.append(K.driving_note(F))
     body.append("One thing to watch either way: a **near-parallel** longest-path candidate. If a second chain is "
                 "only a few days behind the governing one, it becomes co-controlling the moment the leader slips — "
                 "manage both as driving, not just the top chain.")
     return K.A(head, body,
                advice=["In the Critical Path Analyzer, view the **longest path** and the **negative-float** set "
-                       "together — on a slipped schedule they're the same chain, and TF = 0 will mislead you.",
+                       "side by side — the longest path is one line inside that set, and TF = 0 will mislead you.",
                        K.go_deeper('Critical Path Analyzer', 'For the drawn longest path')],
                evidence=[K.ev('Critical path', 'Driving-path activities', dpc),
                          K.ev('Critical path', 'Total float on path', K.wd(ctf) if ctf is not None else None),
@@ -295,9 +301,9 @@ def t03q03(F, role):
     body.append("On the trend — one snapshot only gives me today's value, not a direction. Load two or three "
                 "consecutive updates and I'll show you whether CPLI is clawing back or eroding.")
     _, pace = K.spi_verdict(F)
-    if (F.get('pace_pct') or 100) < 90:
-        body.append(f"Given {pace}, I'd assume it's still deteriorating until an update proves otherwise — a hole "
-                    "this size doesn't self-correct.")
+    if (F.get('pace_pct') or 100) < 90 and not (F.get('trend') or {}).get('direction'):
+        body.append(f"With {pace}, the hole won't close on its own — but whether it's growing or shrinking needs the "
+                    "next update; one snapshot can't show the direction.")
     return K.A(head, body,
                advice=["Load consecutive updates so CPLI can be trended — a single value can't tell you if the "
                        "plan is recovering.",
@@ -333,20 +339,23 @@ def t03q04(F, role):
                    advice=[K.go_deeper('Schedule Audit', 'For the float distribution')],
                    evidence=[K.ev('Negative float', 'Activities', nf),
                              K.ev('Float', 'Grade', F.get('float_grade'))])
+    c = K.chain_facts(F)
     head = (f"**{nf} activities** ({K.pct(nfp)}) are on negative total float"
-            + (f", and the deepest point on the driving chain is **{K.wd(ctf)}**." if ctf is not None and ctf < 0
-               else ".") + " That's the size of the recovery you owe.")
+            + (f", and the finish milestone is at **{K.wd(ctf)}** of negative float." if ctf is not None and ctf < 0
+               else ".") + " The finish figure is the size of the recovery you owe.")
     body = [
-        (f"Read straight across: the governing hole is **{K.wd(ctf)}** of negative float on the critical path, "
-         f"so you need to claw back around **{K.wd(ctf)}** to pull the finish back to zero float."
+        (f"Read straight across: the finish is at **{K.wd(ctf)}** of negative float, so you need to claw back around "
+         f"**{K.wd(ctf)}** on the chain that sets it to pull the finish back to its baseline date."
          if ctf is not None and ctf < 0 else
          f"**{nf} activities** are underwater — the depth per activity is in the audit's findings, sorted most-"
          "negative first."),
         f"Negative-float health grades **{grade or 'n/a'}** — that's the network's own severity read on how big "
         "the recovery is.",
-        "Which chain? This snapshot gives me the extent and the depth, but not the named chain — the Schedule "
-        "Audit lists every negative-float activity ranked deepest-first, and the Critical Path Analyzer shows which "
-        "chain they belong to. Expect them to cluster on one or two fronts, not scatter evenly.",
+        ("Which chain? " + K.chain_line(F) + " The main answer lists it activity by activity; activities deeper than "
+         "that chain sit off it and usually carry an intermediate constraint, a lag or a different calendar." if c else
+         "Which chain? This snapshot gives me the extent and the depth, but not the named chain — the Schedule "
+         "Audit lists every negative-float activity ranked deepest-first, and the Critical Path Analyzer shows which "
+         "chain they belong to. Expect them to cluster on one or two fronts, not scatter evenly."),
         "Watch for a **second** underwater front: if the negative float isn't all on one chain, you're recovering "
         "on two fronts at once, and accelerating only the deepest one won't move the finish.",
     ]
@@ -454,11 +463,9 @@ def t03q07(F, role):
         "controls now. That's the whole point of the period compare — it catches the migration before it surprises "
         "the team on site.",
     ]
-    if dpc is not None:
-        body.append(f"Today's controlling chain spans about **{dpc} activities** on the driving path"
-                    + (f", density graded **{F.get('cpli_density_grade') or F.get('cpli_grade')}**"
-                       if (F.get('cpli_density_grade') or F.get('cpli_grade')) else "") + ". That's your current "
-                    "driver; the question is whether it's the same one as last month.")
+    if K.chain_facts(F) or dpc is not None:
+        body.append(("Today's controlling chain is " + K.chain_name(F) + ". " if K.chain_facts(F) else "")
+                    + K.driving_note(F) + " The question is whether that's the same driver as last month.")
     if tr and tr.get('direction'):
         direction = tr.get('direction')
         body.append(f"The one directional signal I do hold: the finish is **{'worsening' if direction=='worse' else ('improving' if direction=='better' else 'flat')}** "
@@ -497,7 +504,10 @@ def t03q08(F, role):
                             " — even so, I'd confirm whether one chain or several govern once the audit is in.")],
                    advice=[K.go_deeper('Critical Path Analyzer', 'To see the parallel chains')],
                    evidence=[K.ev('EVM', 'Delay', _delay_chip(F))])
-    head = ("Likely **yes — plan for more than one.** This snapshot doesn't enumerate the parallel chains, but the "
+    head = (f"**Plan for more than one.** One chain sets the finish — {K.chain_name(F)} — but other paths sit close "
+            "behind it (the main answer lists them with their float), so any recovery has to hold them too."
+            if K.chain_facts(F) else
+            "Likely **yes — plan for more than one.** This snapshot doesn't enumerate the parallel chains, but the "
             "negative-float spread tells me whether the finish is controlled by one front or several.")
     body = []
     if (nf or 0) > 0:
@@ -509,8 +519,7 @@ def t03q08(F, role):
                     "de-facto parallel critical path — close enough that fixing only the leader lets the other one "
                     "quietly take over the finish.")
     if dpc is not None:
-        body.append(f"The driving set spans about **{dpc} activities**; the Critical Path Analyzer resolves whether "
-                    "that's one continuous chain or two-plus running side by side.")
+        body.append(K.driving_note(F))
     body.append("That's the classic terminal trap: accelerate the top front, and the second one controls the date "
                 "instead. **Any recovery plan has to hold every underwater front above water at once** — model it "
                 "against all of them, not just the deepest.")

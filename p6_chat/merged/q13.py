@@ -204,7 +204,7 @@ def build(F, N, role):
     head_act = tasks[0] if tasks else None
     deep0 = deep[0] if deep else None
     started = sum(1 for x in tasks if (x.get('pct') or 0) > 0)
-    chain_tf = [x['tf'] for x in tasks if x.get('tf') is not None] + [x['tf'] for x in deep if x.get('tf') is not None]
+    chain_tf = [x['tf'] for x in tasks if x.get('tf') is not None]      # the chain only — deeper activities sit off it
     chain_rng = _frng(chain_tf)
     head_late = bool(head_act and head_act.get('baseline_finish') and _dt(head_act['baseline_finish']) and _dt(dd)
                      and _dt(head_act['baseline_finish']) < _dt(dd) and (head_act.get('pct') or 0) == 0)
@@ -463,8 +463,10 @@ def build(F, N, role):
                       (f"; the other sits at {others[0]:+d}" if others else '')) + '. '
                    + f"The finish path is at {fin_tf:+d}"
                    + (f" ({_label(head_act)} is {head_act['tf']:+d}" if head_act and head_act.get('tf') is not None else '')
-                   + (f"; {_label(deep0)} is {deep0['tf']:+d})" if deep0 and deep0 is not head_act and deep0.get('tf') is not None
-                      else (')' if head_act else '')) + '. '
+                   + (')' if head_act else '')
+                   + (f"; {_label(deep0)} sits off that chain at {deep0['tf']:+d}"
+                      if deep0 and deep0 is not head_act and deep0.get('tf') is not None
+                      and deep0['id'] not in {x['id'] for x in tasks} else '') + '. '
                    "A predecessor that drives an activity carries float at least as negative as that activity. ")
             if not driving:
                 txt += (f"So, allowing for calendar differences, none of the open client inputs is driving the finish path "
@@ -641,8 +643,7 @@ def build(F, N, role):
             fams.setdefault(parts[1] if len(parts) > 1 else parts[0], []).append(x)
         for fam, rows in list(fams.items())[:3]:
             st, _ = chain_steps(rows, limit=4)
-            tfam = [x['tf'] for x in rows if x.get('tf') is not None] + \
-                   [x['tf'] for x in deep if x.get('tf') is not None and fam in (x.get('wbs') or '')]
+            tfam = [x['tf'] for x in rows if x.get('tf') is not None]     # this front's chain activities only
             s_n = sum(1 for x in rows if (x.get('pct') or 0) > 0)
             last = max(rows, key=lambda x: _dt(x.get('finish')) or _dt('01-Jan-1900'))
             rows8.append([fam + (f" ({front_seg})" if front_seg and front_seg not in fam else ''),

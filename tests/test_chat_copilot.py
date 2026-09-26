@@ -182,6 +182,29 @@ def test_merged_answers_route_the_project_type_question_to_the_chat():
     assert 'checked against your file' in s['headline'] or s['headline'].startswith('None of')
 
 
+def test_reimports_of_one_update_are_not_update_history(snap, xml_path):
+    pid = db.get_project_id_for_snapshot(snap)
+    for h in ('h2', 'h3'):
+        s = db.insert_snapshot(pid, '2026-01-01', str(xml_path), str(xml_path), h, 10, 2)
+        db.insert_metrics(s, {'pv': 100.0, 'ev': 60.0, 'ac': 70.0, 'spi': 0.6, 'cpi': 0.857, 'delay_days': 47,
+                              'overall_planned_pct': 0.614, 'overall_actual_pct': 0.404, 'variance': -40.0})
+    assert len(copilot.project_brain(s)['history']) == 1
+
+
+@pytest.mark.parametrize('delay,prev,want_trend,want_tile', [
+    (-12, 10, 'about 2 weeks ahead now', 'about 2 weeks ahead'),
+    (-3, -20, 'about 4 weeks ahead last update', 'about 3 working days ahead'),
+    (30, 10, 'about 6 weeks late now', 'about 6 weeks late')])
+def test_briefing_trend_and_finish_keep_the_delay_sign(delay, prev, want_trend, want_tile):
+    from p6_copilot.context import build_context
+    from p6_copilot.report import build_manager_report
+    ctx = copilot.weigh_driver(build_context({'delay_days': delay, 'project_name': 'T', 'categories': CATS,
+                                              'baseline_finish': '2027-03-01', 'expected_finish': '2027-02-10'},
+                                             prev_delay=prev))
+    rep = copilot.fix_report(build_manager_report(ctx), ctx)
+    assert want_trend in rep['trend']['text'] and rep['finish']['later'] == want_tile
+
+
 def test_project_brain_none_when_no_project(temp_db):
     assert copilot.project_brain(999999) is None
     assert copilot.project_brain(None) is None

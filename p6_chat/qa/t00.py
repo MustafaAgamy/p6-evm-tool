@@ -114,16 +114,15 @@ def t00q03(F, role):
     body = [
         (f"This is the finish milestone measured in its own calendar's working days: forecast finish "
          f"~{F.get('forecast_finish') or 'n/a'} against the {F.get('baseline_finish') or 'baseline'} baseline."),
-        ("It's re-derived by the tool from the schedule (an EVM-side reconstruction), which matches P6 to the day on "
-         "progressed schedules. For a claim-grade, F9-exact figure, run it through the dedicated engine — I won't "
-         "dress an approximation up as the contractual number."),
+        (K.delay_source(F) + " For a claim, the number isn't this whole slip — it's the part a time-impact "
+         "analysis attributes to specific events."),
     ]
     nf = F.get('neg_float_count')
     if nf:
         body.append(f"Corroborating it: **{nf} activities** ({K.pct(F.get('neg_float_pct'))}) carry negative total float — "
                     "the network itself is showing the pressure on the finish, not just the EVM conversion.")
     return K.A(head, body,
-               advice=[K.go_deeper('Consultant Review', 'For the F9-exact, dated figure')],
+               advice=[K.go_deeper('Consultant Review', 'For the part of the slip attributable to specific events')],
                evidence=[K.ev('EVM', 'Delay', _kit_delay(F)),
                          K.ev('Float', 'Negative-float activities', F.get('neg_float_count'))])
 
@@ -322,7 +321,10 @@ def _state_word(F):
     if d is None:
         return "in progress; the finish milestone needs confirming"
     if d > 0:
-        return "behind and losing ground on the finish date"
+        t = (F.get('trend') or {}).get('direction')
+        return ("behind and losing ground on the finish date" if t == 'worse' else
+                "behind on the finish date, but recovering ground since the last update" if t == 'better' else
+                "behind on the finish date")
     if d < 0:
         return "ahead of its finish date"
     return "holding its finish date"
@@ -345,7 +347,9 @@ def _bottom_line(F):
     driver = K.main_driver(F)
     dn = driver.get('name') if driver else 'the driving front'
     if d and d > 0:
-        return f"this is an execution problem on **{dn}**, and it needs a recovery decision now, not next month."
+        why = (" Whose delay it is — the late client inputs or the contractor's own start — needs a time-impact "
+               "analysis; don't call it either way from one update." if K.late_inputs(F) else "")
+        return f"the slip sits on **{dn}**, and it needs a recovery decision now, not next month.{why}"
     if d is not None and d <= 0:
         return "the finish is holding — protect the driving path and keep the near-critical work honest."
     return "confirm the finish milestone, then judge the position against the baseline."
