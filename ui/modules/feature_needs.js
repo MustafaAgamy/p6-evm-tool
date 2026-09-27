@@ -31,6 +31,14 @@
 
 const XER_OR_XML = 'XER or XML';
 
+// What to do when an update carries no baseline for Update Analysis. Shown on the Update Analysis
+// screen (update.js, code 'no_baseline') AND in the Help note below, so the two can never disagree.
+// /api/update/analyze reads only the one update file — it never uses a baseline attached on the
+// Earned Value screen — so the only fixes are a re-export with the baseline, or the XER.
+export const UPDATE_NO_BASELINE_ADVICE =
+  'Re-export this update from P6 as XML with its baseline project included, or import the update as an XER — ' +
+  'an XER uses the update’s own Planned dates as the baseline (approximate).';
+
 export const FEATURE_NEEDS = [
   {
     id: 'home', name: 'Import a schedule', group: '',
@@ -144,7 +152,7 @@ export const FEATURE_NEEDS = [
     what: 'This update measured against the baseline carried inside the same file.',
     hint: '1 update — XML exported with its baseline (XER: approximate)',
     files: [{ n: 1, role: 'Current update — the imported file; the baseline must be INSIDE it', formats: XER_OR_XML, k: 'p6',
-      note: 'XML: export it from P6 with the baseline project included — an XML without it stops with "no baseline inside it". XER: an XER never carries its baseline, so the tool uses the update’s own Planned dates as the baseline (approximate). A baseline attached on the Earned Value screen is not used here.' }],
+      note: 'XML: export it from P6 with the baseline project included — an XML without it stops with "no baseline inside it". XER: an XER never carries its baseline, so the tool uses the update’s own Planned dates as the baseline (approximate). A baseline attached on the Earned Value screen is not used here. If the screen says there is no baseline: ' + UPDATE_NO_BASELINE_ADVICE }],
     other: [],
     recommend: 'XML exported from P6 with its baseline — the only way this feature reads the true baseline.',
     produces: 'Time status, planned vs actual by activity code, activity counts, scope weights and the critical path.',

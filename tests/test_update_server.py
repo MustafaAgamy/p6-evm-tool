@@ -112,3 +112,19 @@ def test_update_scope(test_server, tmp_path):
 def test_update_analyze_missing_file(test_server):
     _, data = _post_json(test_server, '/api/update/analyze', {'xml_path': 'nope.xml'})
     assert data['ok'] is False and 'not' in data['error'].lower()
+
+
+def test_update_analyze_no_baseline_advice_matches_help(test_server, tmp_path):
+    """An XML exported WITHOUT its baseline project stops with code no_baseline. The advice must
+    be what the tool truly accepts (SHELL-1): this route only reads the one update file — it never
+    uses a baseline attached on the Earned Value screen — so the planner is told to re-export the
+    XML with its baseline, or import the XER (whose own Planned dates stand in as the baseline)."""
+    src = open(_sample(tmp_path), encoding='utf-8').read()
+    start, end = src.index('<BaselineProject>'), src.index('</BaselineProject>') + len('</BaselineProject>')
+    p = tmp_path / 'update_no_baseline.xml'
+    p.write_text(src[:start] + src[end:], encoding='utf-8')
+    _, data = _post_json(test_server, '/api/update/analyze', {'xml_path': str(p)})
+    assert data['ok'] is False and data['code'] == 'no_baseline', data
+    err = data['error']
+    assert 'Attach a baseline' not in err and 'EVM' not in err
+    assert 'XML' in err and 'XER' in err and 'baseline' in err

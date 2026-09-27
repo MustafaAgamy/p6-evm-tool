@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   FEATURE_NEEDS, featureNeeds, needsHint, needsTooltip, needsSearchText, filterNeeds,
-  needsGroups, requiredFileCount,
+  needsGroups, requiredFileCount, UPDATE_NO_BASELINE_ADVICE,
 } from '../../ui/modules/feature_needs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -144,16 +144,77 @@ test('Update Analysis reads ONE file — the baseline must be inside it', () => 
   assert.match(xerSrc, /data\.baseline_by_id\[task_code\]/);
   assert.match(f.files[0].note, /XER never carries its baseline/);
 });
+test('Update Analysis: the screen and the server give the SAME advice as Help (SHELL-1)', () => {
+  // The handler never reads an attached / saved baseline, so "attach a baseline on the EVM tab"
+  // is advice that changes nothing. Screen, server and Help must all say: re-export the XML
+  // with its baseline, or import the XER.
+  const upd = read('ui', 'modules', 'update.js');
+  const at = upd.indexOf("data.code === 'no_baseline'");
+  assert.ok(at > 0, 'no_baseline branch not found in update.js');
+  const block = upd.slice(at, upd.indexOf('return;', at));
+  assert.ok(!/EVM|Earned Value/.test(block), 'update.js no_baseline text still sends the planner to the EVM tab');
+  assert.ok(!/Attach a baseline/i.test(block), 'update.js no_baseline text still says "Attach a baseline"');
+  assert.match(block, /UPDATE_NO_BASELINE_ADVICE/, 'update.js should show the shared UPDATE_NO_BASELINE_ADVICE');
+  assert.match(upd, /import[^;]*UPDATE_NO_BASELINE_ADVICE[^;]*['"]\.\/feature_needs\.js['"]/);
+  const h = serverSrc.slice(serverSrc.indexOf('def _handle_update_analyze'), serverSrc.indexOf('def _handle_update_counts'));
+  const lit = (h.match(/'code': 'no_baseline'[\s\S]{0,160}?'error':\s*((?:'[^']*'\s*)+)\}/) || [])[1] || '';
+  const err = [...lit.matchAll(/'([^']*)'/g)].map(x => x[1]).join('');   // Python joins adjacent literals
+  assert.ok(err, 'no_baseline error text not found in _handle_update_analyze');
+  assert.ok(!/Attach a baseline/i.test(err), `server no_baseline error still says "Attach a baseline": ${err}`);
+  assert.match(err, /XML/); assert.match(err, /XER/);
+  assert.match(UPDATE_NO_BASELINE_ADVICE, /Re-export[\s\S]*XML[\s\S]*baseline[\s\S]*XER/);
+  assert.ok(featureNeeds('update').files[0].note.includes(UPDATE_NO_BASELINE_ADVICE),
+    'the Help note should carry the same advice the screen shows');
+});
 test('Consultant Review: the but-for file needs an XML update (server extension check)', () => {
   const h = serverSrc.slice(serverSrc.indexOf('def _handle_corrected_xml'), serverSrc.indexOf('def _handle_before_after'));
   assert.match(h, /endswith\('\.xml'\)/);
   assert.match(featureNeeds('compare').files[0].note, /XML update/);
+});
+test('Consultant Review: the RESCHEDULED but-for file is read as XER or XML (SHELL-5)', () => {
+  const impact = read('p6_compare', 'impact.py');
+  const at = impact.indexOf('def before_after_from_paths');
+  assert.match(impact.slice(at, at + 900), /corrected = parse_file\(corrected_path\)/);   // parse_file takes .xer and .xml
+  assert.match(read('ui', 'modules', 'compare.js'),
+    /loadRescheduledAndCompare\(\)\s*\{\s*const path = await window\.pywebview\.api\.choose_file\(\)/);   // the *.xml;*.xer picker
+  const f = featureNeeds('compare').files[2];
+  assert.match(f.role, /rescheduled in P6/);
+  assert.equal(f.formats, 'XER or XML');
+  const studio = featureNeeds('special').files[1].note;
+  assert.ok(!/needs the rescheduled corrected file as XML/.test(studio), 'Reporting Studio note still says the rescheduled file must be XML');
+  assert.match(studio, /XER or XML/);
 });
 test('Earned Value: a XER update is prompted for its baseline (evm.js) and the upload route exists', () => {
   const evm = read('ui', 'modules', 'evm.js');
   assert.match(evm, /isXer[\s\S]{0,200}hasBaseline/);
   assert.match(serverSrc, /'\/api\/baseline\/upload'/);
   assert.ok(featureNeeds('evm').files.some(x => x.k === 'optional' && /baseline/i.test(x.role)));
+});
+test('Earned Value: no baseline prompt / Attach button for an XML — Help says so (SHELL-2)', () => {
+  const evm = read('ui', 'modules', 'evm.js');
+  // The prompt returns early unless the file is an XER; the banner is null for every XML.
+  assert.match(evm, /if \(!isXer \|\| hasBaseline \|\| _blPromptDone\) return;/,
+    'maybePromptBaseline changed — if an XML can now get a baseline, update the evm entry in feature_needs.js');
+  assert.match(evm, /return null;\s*\/\/ XML — baseline is embedded, nothing to attach/,
+    'baselineBannerState changed — if an XML can now get an Attach button, update the evm entry in feature_needs.js');
+  const bl = featureNeeds('evm').files.find(x => x.k === 'optional' && /baseline/i.test(x.role));
+  assert.match(bl.role, /only for an XER update/);
+  assert.ok(!/or an XML exported without its baseline/.test(bl.role), 'still claims the tool asks for a baseline for an XML');
+  assert.match(bl.note, /cannot be attached to an XML/);
+});
+test('Knowledge Base: every file the screen saves is listed (SHELL-7)', () => {
+  const kb = read('ui', 'modules', 'database.js');
+  assert.match(kb, /example_with_gaps/);                                   // exportExample(…, gappy)
+  assert.match(kb, /clean_baseline/);                                      // exportExample(…, clean)
+  assert.match(kb, /function downloadContributed[\s\S]{0,120}filename\.split\('\.'\)\.pop\(\)/);   // own format
+  assert.match(kb, /\/api\/kb\/raw\/download/);                            // raw learned project
+  assert.match(kb, /\/api\/kb\/starter-xml/);
+  assert.match(kb, /\/api\/kb\/knowledge\/export/);
+  assert.match(read('p6_kb', 'pattern_learning.py'), /ext = os\.path\.splitext\(src_path\)\[1\]\.lower\(\)/);  // raw kept as learned
+  const ex = featureNeeds('kb').exports.join(' | ');
+  for (const w of ['Starter baseline', 'with typical gaps', 'Clean reference baseline', 'Contributed schedules', 'learned project', 'Knowledge file (.json)']) {
+    assert.ok(ex.includes(w), `kb exports missing "${w}": ${ex}`);
+  }
 });
 test('Earned Value: the E1 log picker is Excel (.xlsx / .xlsm)', () => {
   assert.match(appPy, /Excel Files \(\*\.xlsx;\*\.xlsm\)/);

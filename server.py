@@ -1054,7 +1054,9 @@ class Handler(BaseHTTPRequestHandler):
             report['file'] = os.path.basename(curr_path)
             if not report.get('has_baseline'):
                 self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
-                                 'error': 'This update has no baseline inside it. Attach a baseline, then run Update Analysis.'})
+                                 'error': 'This update has no baseline inside it. Re-export it from P6 as XML with its '
+                                          'baseline project included, or import the update as an XER '
+                                          '(it uses the update’s own Planned dates as the baseline).'})
                 return
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
