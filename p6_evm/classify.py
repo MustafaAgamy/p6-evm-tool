@@ -183,8 +183,14 @@ def _code_text(raw):
         if raw != raw:                       # NaN
             return ''
         return str(int(raw)) if float(raw).is_integer() else str(raw)
+    m = _DEC_ZERO.match(str(raw))
+    if m:                                    # '2.0' typed as text reads as the number 2
+        return m.group(1).lstrip('0') or '0'
     s = re.sub(r'[^a-z0-9/&]+', ' ', str(raw).lower())
     return ' '.join(s.split())
+
+
+_DEC_ZERO = re.compile(r'^\s*(\d+)\.0+\s*$')
 
 
 # Statuses that say the drawing has NOT gone to the consultant yet. They are not review
@@ -205,9 +211,23 @@ _WITH_REVIEWER = re.compile(
     r'\b(?:under|in|for|pending|awaiting|awaited|waiting for) (?:review|approval|comments?)\b'
     r'|\bunder approv|\bawaiting (?:reply|response|consultant)\b|\bwith (?:the )?consultant\b'
     r'|\b(?:re ?)?submitted\b|\bsent (?:to|for)\b|\bissued for (?:review|approval|comments?)\b')
+# Still with the reviewer — only explicit wording (a bare 'review' / 'reviewed' says nothing
+# about the outcome: "Reviewed & approved" is a finished review).
 _UNDER_REVIEW = re.compile(
-    r'\breview\b|\bunder (?:review|approv|consultant)|\bpend(?:ing)?\b|\bawait|\bwaiting\b'
-    r'|\bwith (?:the )?consultant\b')
+    r'\b(?:under|in|for|pending|awaiting|awaited) review\b|\breviewing\b'
+    r'|\bunder (?:approv|consultant)|\bpend(?:ing)?\b|\bawait|\bwaiting\b'
+    r'|\bwith (?:the )?consultant\b|\b(?:re ?)?submitted\b|\bissued for (?:review|approval|comments?)\b')
+# Waiting for an approval that has not come yet — read BEFORE the word 'approv' itself.
+_PENDING_APPROVAL = re.compile(
+    r'\b(?:under|for|pending|awaiting|awaited|waiting for|subject to) approv'
+    r'|\bnot yet (?:been )?(?:approv|review|repl|return)')
+# A consultant's instruction to resubmit ("to be resubmitted") is a rejection; a log entry
+# saying it WAS resubmitted means it is back with the reviewer.
+_RESUBMIT_ORDER = re.compile(r'\b(?:to|shall|must|should|will|needs? to) be re ?submitted\b')
+_RESUBMITTED = re.compile(r'\bre ?submitted\b')
+_FINISHED_OK = re.compile(r'\bapprov|\bas noted\b|\bcorrections? noted\b|\baccepted\b'
+                          r'|\breviewed\b.*\bcomments?\b')
+_CLAUSE = re.compile(r'[,;:\n]|\s[-\u2013\u2014]+\s|\u2014|\.\s')
 
 
 def is_not_sent_status(raw):
@@ -240,11 +260,15 @@ def classify_action_code(raw):
         return None
     words = c.split()
     if len(words) > 8:
-        # long free text (a comment): only trust an explicit "status: X" inside it
+        # long free text (a comment): an explicit "status: X" inside it, else its FIRST
+        # clause ("Approved as noted, please incorporate …" → "Approved as noted")
         m = re.search(r'\bstatus\b(.*)', c)
-        if not m or not m.group(1).split():
-            return None
-        c = ' '.join(m.group(1).split()[:6])
+        if m and m.group(1).split():
+            c = ' '.join(m.group(1).split()[:6])
+        else:
+            c = _code_text(_CLAUSE.split(str(raw), 1)[0])
+            if not c or len(c.split()) > 8:
+                return None
         words = c.split()
     compact = c.replace(' ', '')
     if compact in _EXACT:
@@ -257,17 +281,25 @@ def classify_action_code(raw):
     # not sent yet ('Under preparation', 'Pending submission', 'In progress') — no review
     if _NOT_SENT.search(c):
         return None
-    # order matters: "no exceptions" / "no objection" before "review"/"not";
-    # "not approved" before "approv"
+    # order matters: "no exceptions" / "no objection" before "not"; "not approved" before
+    # "approv"; "resubmitted" (sent again) before "resubmit" (an instruction); "awaiting
+    # approval" before "approv"; every finished-review wording before "review"
     if 'no exception' in c or 'no objection' in c:
         return 'approved'
-    if ('not approv' in c or 'disapprov' in c or 'not accepted' in c or 'reject' in c
-            or 'resubmit' in c or 'revise' in c):
+    if 'not approv' in c or 'disapprov' in c or 'unapprov' in c or 'not accepted' in c or 'reject' in c:
         return 'not_approved'
+    if _RESUBMIT_ORDER.search(c):
+        return 'not_approved'
+    if _RESUBMITTED.search(c):
+        return 'under_review'
+    if 'resubmit' in c or 'revise' in c:
+        return 'not_approved'
+    if _PENDING_APPROVAL.search(c):
+        return 'under_review'
+    if _FINISHED_OK.search(c):
+        return 'approved'
     if _UNDER_REVIEW.search(c):
         return 'under_review'
-    if 'approv' in c or 'as noted' in c or 'accepted' in c:
-        return 'approved'
     # an explicit code inside the text: "Code 2", "code-c"
     m = re.search(r'\bcode ?([a-d1-4pw])\b', c)
     if m:
@@ -289,6 +321,9 @@ def legend_code_candidates(raw):
         if raw != raw:
             return []
         return [str(int(raw)) if float(raw).is_integer() else str(raw)]
+    m = _DEC_ZERO.match(str(raw))
+    if m:                                    # '2.0' typed as text
+        return [m.group(1).lstrip('0') or '0']
     s = ' '.join(str(raw).upper().split())
     out = []
     compact = re.sub(r'[^A-Z0-9]', '', s)

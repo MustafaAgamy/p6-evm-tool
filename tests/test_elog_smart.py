@@ -765,3 +765,25 @@ def test_headerless_running_number_is_a_serial_not_a_question(tmp_path):
     col_a = _sheet(es.inspect_log(str(p)), 'O&M LOG')['columns'][0]
     assert col_a['index'] == 0 and col_a['field'] == 'ignore'
     assert col_a['level'] == 'high' and 'serial' in col_a['reason']
+
+
+def test_text_code_with_decimal_zero_is_one_code_in_the_panel(tmp_path):
+    # ELOG-3: '2.0' typed as text and the number 2 are the same review code
+    p = tmp_path / 'dec.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Register'
+    ws.append(['Document No', 'Discipline', 'Document Type', 'Date Submitted', 'Review Code'])
+    d = datetime(2025, 5, 1)
+    for r in [['DOC-1', 'MEP', 'Shop Drawing', d, 2], ['DOC-2', 'MEP', 'Shop Drawing', d, '2.0'],
+              ['DOC-3', 'MEP', 'Shop Drawing', d, '3.0'], ['DOC-4', 'MEP', 'Shop Drawing', d, 'Resubmitted']]:
+        ws.append(r)
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    codes = {c['value']: c for c in prop['codes']}
+    assert codes['2']['count'] == 2 and codes['2']['verdict'] == 'approved'
+    assert '2.0' not in codes
+    assert codes['Resubmitted']['verdict'] == 'under_review'
+    g = _summary(p, prop)[('MEP', 'Shop Drawing')]
+    # DOC-1, DOC-2 approved; DOC-3 not approved; DOC-4 resubmitted → under review
+    assert (g['req'], g['approved_rows'], g['not_approved_rows'], g['under_review_rows']) == (4, 2, 1, 1)

@@ -932,6 +932,9 @@ def _code_key(raw):
     s = ' '.join(str(raw).split())
     if not s or _is_blank(s):
         return None
+    m = re.match(r'^(\d+)\.0+$', s)
+    if m:                                     # '2.0' typed as text = code 2
+        return m.group(1).lstrip('0') or '0'
     return s.upper() if len(re.sub(r'[^A-Za-z0-9]', '', s)) <= 3 and len(s) <= 5 else s
 
 

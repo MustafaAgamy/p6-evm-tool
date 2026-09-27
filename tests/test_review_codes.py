@@ -109,3 +109,48 @@ def test_legend_empty_or_none_is_default_rule():
     assert classify_action_code_with_legend('B', None) == 'approved'
     assert classify_action_code_with_legend('3', {}) == 'not_approved'
     assert classify_action_code_with_legend(None, {'A': 'approved'}) is None
+
+
+# ── ELOG-3: finished reviews worded with 'reviewed', resubmitted, long text, '2.0' ──────
+@pytest.mark.parametrize('raw', [
+    'Reviewed & approved', 'Reviewed and Approved', 'Reviewed - make corrections noted',
+    'Make corrections noted', 'Reviewed with comments', 'Reviewed – with comments',
+    'Approved as noted, please incorporate all the comments in the next issue',
+    'Approved; all comments to be incorporated in the next issue of the drawing set',
+    '2.0', '1.0', ' 2 ',
+])
+def test_finished_reviews_read_as_approved(raw):
+    assert classify_action_code(raw) == 'approved', raw
+
+
+@pytest.mark.parametrize('raw', [
+    'Reviewed - revise and resubmit', 'Revise and resubmit', 'Make corrections noted and resubmit',
+    'Rejected - resubmitted', 'To be resubmitted', 'Shall be resubmitted', '3.0',
+    'Please revise and resubmit, the drawings do not comply with the specification section',
+])
+def test_resubmit_instructions_read_as_not_approved(raw):
+    assert classify_action_code(raw) == 'not_approved', raw
+
+
+@pytest.mark.parametrize('raw', [
+    'Resubmitted', 'Re-submitted', 'Resubmitted (Rev 01)', 'Re submitted', 'Submitted',
+    'Submitted for approval', 'For review', 'Not yet approved', 'Issued for approval',
+])
+def test_resubmitted_and_sent_read_as_under_review(raw):
+    # 'Resubmitted' = sent again, waiting for the reply (not a rejection)
+    assert classify_action_code(raw) == 'under_review', raw
+
+
+@pytest.mark.parametrize('raw', ['Reviewed', 'Not reviewed', 'Review', '2.5',
+                                 'The consultant returned the drawing with his remarks attached here'])
+def test_ambiguous_review_wording_is_not_guessed(raw):
+    # a bare 'Reviewed' / 'Not reviewed' says nothing about the outcome → shown as
+    # "not recognised" so the planner decides; never silently "under review"
+    assert classify_action_code(raw) is None, raw
+
+
+def test_text_codes_with_decimal_zero_match_the_number():
+    assert classify_action_code('2.0') == classify_action_code(2.0) == 'approved'
+    assert classify_action_code('4.0') == classify_action_code(4) == 'not_approved'
+    legend = {'2': 'not_approved'}
+    assert classify_action_code_with_legend('2.0', legend) == 'not_approved'
