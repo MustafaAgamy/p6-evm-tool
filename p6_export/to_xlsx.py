@@ -151,8 +151,10 @@ def section_blocks(blocks, default_title='', part_labels=None):
         notes.clear()
         return n[:900]
 
+    prev = cur = None
     for b in blocks:
         k = b.kind
+        prev, cur = cur, b         # prev = the block before this one
         if k == 'heading':
             if notes:
                 out.append({'title': take_title() or 'Notes', 'headers': [], 'rows': [],
@@ -165,6 +167,12 @@ def section_blocks(blocks, default_title='', part_labels=None):
             if txt and txt not in ('■',):
                 notes.append(txt)
             continue
+        # a short label line right above the content (a sub-heading like "Key Dates") names
+        # the block instead of repeating as a note
+        label = None
+        if (notes and len(notes[-1]) <= 80 and prev is not None and prev.kind == 'paragraph'
+                and getattr(prev, 'keep_with_next', False)):
+            label = notes.pop()
         blk = None
         if k == 'table':
             blk = _table_block(b, None, None)
@@ -182,9 +190,11 @@ def section_blocks(blocks, default_title='', part_labels=None):
         if b.part and b.part not in seen_parts:
             seen_parts.add(b.part)
             plabel = part_labels.get(b.part) or None
-        if not own and plabel and used_title:
-            own = plabel
+        if not own and used_title and (label or plabel):
+            own, label = label or plabel, None
         blk['title'] = own or take_title() or plabel or blk.get('title') or 'Table'
+        if label:
+            notes.insert(0, label)
         n = take_note()
         if n:
             blk['note'] = n
