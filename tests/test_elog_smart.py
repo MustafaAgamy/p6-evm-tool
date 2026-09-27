@@ -624,3 +624,34 @@ def test_ai_hook_absent_brain_changes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(es, 'local_ai_ready', lambda: False)
     out = es.suggest_columns_with_local_ai(prop)
     assert out == prop
+
+
+# ── 11. regressions found on a real closure log ───────────────────────────────────────
+def test_group_titles_and_copy_counts_are_not_review_codes(tmp_path):
+    # 'As-Built\nProgress' above the headings is a group title, not a legend 'AS = …';
+    # a 'NUMBER OF COPIES' column full of 1s is not a column of review codes '1'.
+    p = tmp_path / 'closure.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'O&M LOG'
+    ws.append([None, 'As-Built\nProgress'])
+    ws.append(['Dwg No', 'Discipline', 'Title', 'Date Sent', 'Status', 'NUMBER OF COPIES'])
+    d = datetime(2025, 5, 1)
+    for r in [['M-1', 'HVAC', 'Chiller manual', d, 'A', 1],
+              ['M-2', 'HVAC', 'Pump manual', d, 'C', 1],
+              ['M-3', 'HVAC', 'Fan manual', None, None, 1]]:
+        ws.append(r)
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    assert 'AS' not in prop['legend']
+    sh = _sheet(prop, 'O&M LOG')
+    copies = next(c for c in sh['columns'] if c['header'] == 'NUMBER OF COPIES')
+    assert copies['field'] == 'ignore' and 'Review code' not in copies['reason']
+    g = _summary(p, prop)[('HVAC', 'O&M')]
+    assert (g['req'], g['submitted_rows'], g['approved_rows'], g['not_approved_rows']) == (3, 2, 1, 1)
+
+
+def test_sheet_name_label_drops_log_even_when_glued_to_brackets():
+    assert es._sheet_label('SPARE PARTS LOG(Arch)') == 'SPARE PARTS (Arch)'
+    assert es._sheet_label('O&M LOG') == 'O&M'
+    assert es._sheet_label('Civil Drawings') == 'Civil'

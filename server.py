@@ -306,6 +306,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_gap(body)
         elif self.path == '/api/e1/upload':
             self._handle_e1_upload(body)
+        elif self.path == '/api/e1/inspect':
+            self._handle_e1_inspect(body)
+        elif self.path == '/api/e1/preview':
+            self._handle_e1_preview(body)
+        elif self.path == '/api/e1/ai-suggest':
+            self._handle_e1_ai_suggest(body)
         elif self.path == '/api/baseline/upload':
             self._handle_baseline_upload(body)
         elif self.path == '/api/baseline/clear':
@@ -2572,17 +2578,89 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/e1/inspect · /api/e1/preview · /api/e1/ai-suggest ─────────────
+    @staticmethod
+    def _elog_store_dir():
+        """Per-user memory of confirmed engineering-log layouts (next to the DB)."""
+        return os.path.join(db.app_data_dir(), 'elog_layouts')
+
+    @staticmethod
+    def _e1_paths(body):
+        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
+        return [p for p in paths if isinstance(p, str) and p and os.path.isfile(p)]
+
+    def _handle_e1_inspect(self, body):
+        """Read the chosen log file(s) and PROPOSE how to count them — sheets, what each
+        column means (with how sure), the review codes and a preview per discipline.
+        Nothing is saved; the planner confirms (or corrects) before /api/e1/upload."""
+        paths = self._e1_paths(body)
+        if not paths:
+            self._json(200, {'ok': False, 'error': 'No log file found.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            files = []
+            for p in paths:
+                try:
+                    files.append(elog_smart.inspect_log(p, store_dir=self._elog_store_dir()))
+                except Exception as exc:              # one unreadable file must not hide the rest
+                    files.append({'file': os.path.basename(p), 'path': p, 'error': str(exc)})
+            self._json(200, {'ok': True, 'files': files, 'ai_ready': elog_smart.local_ai_ready()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_e1_preview(self, body):
+        """Re-count one file with the planner's edited layout (column / sheet / code changes)."""
+        paths = self._e1_paths(body)
+        layout = body.get('layout')
+        if not paths or not isinstance(layout, dict):
+            self._json(200, {'ok': False, 'error': 'No log file or layout given.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            self._json(200, {'ok': True, 'layout': elog_smart.refresh_layout(paths[0], layout)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_e1_ai_suggest(self, body):
+        """Optional second opinion from the OFFLINE AI brain on low-confidence columns only.
+        Never a cloud call; with no brain installed the layout comes back unchanged."""
+        layout = body.get('layout')
+        if not isinstance(layout, dict):
+            self._json(200, {'ok': False, 'error': 'No layout given.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            if not elog_smart.local_ai_ready():
+                self._json(200, {'ok': False, 'error': 'The offline AI brain is not set up on this PC.'})
+                return
+            self._json(200, {'ok': True, 'layout': elog_smart.suggest_columns_with_local_ai(layout)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/e1/upload ─────────────────────────────────────────────────────
     def _handle_e1_upload(self, body):
         """Read one or more E1 / Design / Shop-drawing log Excels → combined drawings
         summary (Mode A); store per snapshot. A whole file whose NAME says Shop/Design
-        tags all its rows to that bucket; a combined log is split by drawing type."""
-        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
-        paths = [p for p in paths if p and os.path.isfile(p)]
+        tags all its rows to that bucket; a combined log is split by drawing type.
+        Optional ``layouts`` ({path: layout} or a list aligned with ``paths``) = the
+        planner's CONFIRMED reading from /api/e1/inspect: those files are read with the
+        format-agnostic reader (p6_evm.elog_smart) and the layout is remembered for next
+        time; files without one keep the original reader."""
+        paths = self._e1_paths(body)
         snapshot_id = body.get('snapshot_id')
         if not paths:
             self._json(200, {'ok': False, 'error': 'No Excel log file found.'})
             return
+        layouts = body.get('layouts') or {}
+        if isinstance(layouts, list):
+            raw = body.get('paths') or []
+            layouts = {raw[i]: lay for i, lay in enumerate(layouts) if i < len(raw)}
+        if not isinstance(layouts, dict):
+            layouts = {}
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.e1_log import read_e1_rows, summarize_e1
@@ -2591,7 +2669,16 @@ class Handler(BaseHTTPRequestHandler):
             eng_rows = []
             for p in paths:
                 bucket = e1_file_bucket(os.path.basename(p))   # 'design' | 'engineering' | None
-                summ = summarize_e1(read_e1_rows(p))
+                layout = layouts.get(p)
+                if isinstance(layout, dict) and layout.get('sheets'):
+                    from p6_evm import elog_smart
+                    summ = summarize_e1(elog_smart.read_rows(p, layout))
+                    try:
+                        elog_smart.remember_layout(layout, store_dir=self._elog_store_dir(), path=p)
+                    except Exception:
+                        pass                          # memory is a convenience, never a blocker
+                else:
+                    summ = summarize_e1(read_e1_rows(p))
                 for (t, ty), vals in sorted(summ.items()):
                     row = {'trade': t, 'submittal_type': ty, **vals}
                     if bucket:
