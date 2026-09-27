@@ -787,3 +787,62 @@ def test_text_code_with_decimal_zero_is_one_code_in_the_panel(tmp_path):
     g = _summary(p, prop)[('MEP', 'Shop Drawing')]
     # DOC-1, DOC-2 approved; DOC-3 not approved; DOC-4 resubmitted → under review
     assert (g['req'], g['approved_rows'], g['not_approved_rows'], g['under_review_rows']) == (4, 2, 1, 1)
+
+
+# ── ELOG-2: words typed in a date column ───────────────────────────────────────────────
+def test_negative_words_in_the_submitted_column_are_not_submissions(tmp_path):
+    # 5 drawings: 2 sent with dates (A, B), then 'Not submitted', 'Not yet', 'No' typed in
+    # the Date Submitted column. True % Submitted = 2 ÷ 5 = 40% (not 100%), nothing under
+    # review, and the sheet says which words were read and how.
+    p = tmp_path / 'notsub.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Shop Log'
+    ws.append(['Discipline', 'Drawing Title', 'Type of submittal', 'Date Submitted', 'Action Code'])
+    ws.append(['Civil', 'Raft', 'Shop Drawing', datetime(2025, 1, 5), 'A'])
+    ws.append(['Civil', 'Walls', 'Shop Drawing', datetime(2025, 1, 6), 'B'])
+    ws.append(['Civil', 'Slab', 'Shop Drawing', 'Not submitted', None])
+    ws.append(['Civil', 'Stair', 'Shop Drawing', 'Not yet', None])
+    ws.append(['Civil', 'Roof', 'Shop Drawing', 'No', None])
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    g = _summary(p, prop)[('Civil', 'Shop Drawing')]
+    assert (g['req'], g['submitted_rows'], g['approved_rows'], g['under_review_rows']) == (5, 2, 2, 0)
+    assert g['submitted_pct'] == 40.0
+    sh = _sheet(prop, 'Shop Log')
+    note = next(w for w in sh['warnings'] if 'words, not dates' in w)
+    assert '"Date Submitted"' in note and '"Not submitted"' in note and 'not sent' in note
+    assert any('words, not dates' in w for w in prop['warnings'])
+
+
+def test_positive_marks_in_the_submitted_column_still_count(tmp_path):
+    # 'Yes' / 'Done' / a tick = it happened (no date typed); 'see remarks' is not a date
+    # and not a clear yes → not counted as sent, and reported.
+    p = tmp_path / 'marks.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Shop Log'
+    ws.append(['Discipline', 'Drawing Title', 'Type of submittal', 'Date Submitted', 'Action Code'])
+    ws.append(['Civil', 'Raft', 'Shop Drawing', datetime(2025, 1, 5), None])
+    ws.append(['Civil', 'Walls', 'Shop Drawing', 'Yes', None])
+    ws.append(['Civil', 'Slab', 'Shop Drawing', 'Done', None])
+    ws.append(['Civil', 'Stair', 'Shop Drawing', '✓', None])
+    ws.append(['Civil', 'Roof', 'Shop Drawing', 'see remarks', None])
+    ws.append(['Civil', 'Beam', 'Shop Drawing', 'Pending', None])
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    g = _summary(p, prop)[('Civil', 'Shop Drawing')]
+    # sent = Raft, Walls, Slab, Stair = 4 (each sent with no reply → under review)
+    assert (g['req'], g['submitted_rows'], g['under_review_rows']) == (6, 4, 4)
+    note = next(w for w in _sheet(prop, 'Shop Log')['warnings'] if 'words, not dates' in w)
+    assert '"Yes"' in note and '"see remarks"' in note and '"Pending"' in note
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('Not submitted', 'no'), ('Not yet', 'no'), ('No', 'no'), ('N/S', 'no'), ('NS', 'no'),
+    ('Pending', 'no'), ('Awaiting', 'no'), ('To be submitted', 'no'), ('Under prep.', 'no'),
+    ('Yes', 'yes'), ('Y', 'yes'), ('Done', 'yes'), ('Submitted', 'yes'), ('✓', 'yes'), ('OK', 'yes'),
+    ('see remarks', 'word'), ('27-3-2024', 'date'), (None, 'blank'), ('N/A', 'blank'), ('-', 'blank'),
+])
+def test_read_mark_kinds(text, expected):
+    assert es._read_mark(text, True)[1] == expected

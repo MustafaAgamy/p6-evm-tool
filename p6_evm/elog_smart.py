@@ -432,7 +432,8 @@ def _profile(values, legend_verdicts):
     total = max(1, len(values))
     p = {'n': n, 'rows': len(values), 'fill': len(raw_filled) / total, 'empty': n == 0,
          'date': 0.0, 'text_date': 0.0, 'num': 0.0, 'verdict': 0.0, 'codeish': 0.0, 'id': 0.0,
-         'long': 0.0, 'disc': 0.0, 'sub': 0.0, 'short': 0.0, 'distinct': 0, 'samples': []}
+         'long': 0.0, 'disc': 0.0, 'sub': 0.0, 'short': 0.0, 'mark': 0.0, 'distinct': 0,
+         'samples': []}
     if not n:
         return p
     c = Counter()
@@ -443,6 +444,8 @@ def _profile(values, legend_verdicts):
             c['date'] += 1
             if isinstance(v, str):
                 c['text_date'] += 1
+        elif isinstance(v, str) and _mark_kind(v) in ('yes', 'no'):
+            c['mark'] += 1                     # 'Yes' / 'Done' / 'Not submitted' in a date column
         if _looks_number(v):
             c['num'] += 1
         if _verdict_of(v, legend_verdicts) is not None or is_not_sent_status(v):
@@ -464,7 +467,7 @@ def _profile(values, legend_verdicts):
             seen.add(s)
             if len(samples) < 8:
                 samples.append(s[:60])
-    for k in ('date', 'text_date', 'num', 'verdict', 'codeish', 'id', 'long', 'disc', 'sub', 'short'):
+    for k in ('date', 'text_date', 'num', 'verdict', 'codeish', 'id', 'long', 'disc', 'sub', 'short', 'mark'):
         p[k] = c[k] / n
     p['distinct'] = len(seen)
     p['samples'] = samples
@@ -487,10 +490,13 @@ def _fit(field, p):
                 'the column is empty so far')
     heavy = p['date'] > 0.5 or p['num'] > 0.8
     if field in DATE_FIELDS:
-        if p['date'] < 0.2:
+        dm = p['date'] + 0.8 * p['mark']
+        if dm < 0.2:
             return 0.0, f'its values are not dates{_eg(p)}'
         extra = ' — text dates read day-first' if p['text_date'] > 0.2 else ''
-        return p['date'], f'{_pct(p["date"])} of its values are dates{extra}'
+        if p['mark'] >= 0.05:
+            extra += f'; {_pct(p["mark"])} are words like "yes" / "not yet" instead of a date'
+        return min(1.0, dm), f'{_pct(p["date"])} of its values are dates{extra}'
     if p['date'] > 0.5:
         return 0.05, 'its values are dates'
     if field == 'action_code':
@@ -1016,6 +1022,7 @@ def _build_rows(sheet_grids, layout, filename=''):
                     for f in DATE_FIELDS if f in fields}
         note = {'inferred_sent': 0, 'no_trade': 0, 'no_type': 0, 'multi_sheet': 0, 'multi_tr': 0,
                 'by_transmittal': 0, 'tracked': 0, 'not_sent': Counter(),
+                'words': {'submitted': Counter(), 'returned': Counter()},
                 'unknown_codes': Counter(), 'rows': 0}
 
         def get(row, f):
@@ -1056,6 +1063,12 @@ def _build_rows(sheet_grids, layout, filename=''):
                 continue
             action = get(row, 'action_code')
             action = None if _is_blank(action) else action
+            marks = {}
+            for f in ('submitted', 'returned'):
+                raw = get(row, f)
+                marks[f], kind = _read_mark(raw, dayfirst.get(f, True))
+                if kind in ('yes', 'no', 'word'):
+                    note['words'][f][('yes' if kind == 'yes' else 'no', _disp(raw)[:40])] += 1
             rec = {
                 'trade': trade_s,
                 'submittal_type': typ_s,
@@ -1064,8 +1077,8 @@ def _build_rows(sheet_grids, layout, filename=''):
                 'drawing_no': None if _is_blank(get(row, 'drawing_no')) else _disp(get(row, 'drawing_no')),
                 'revision': None if _is_blank(get(row, 'revision')) else _disp(get(row, 'revision')),
                 'reference': None if _is_blank(get(row, 'reference')) else _disp(get(row, 'reference')),
-                'submitted': _date_or_mark(get(row, 'submitted'), dayfirst.get('submitted', True)),
-                'returned': _date_or_mark(get(row, 'returned'), dayfirst.get('returned', True)),
+                'submitted': marks['submitted'],
+                'returned': marks['returned'],
                 'planned': _as_date(get(row, 'planned'), dayfirst.get('planned', True)),
                 'action_code': action,
                 'verdict': verdict_for(action),
@@ -1104,13 +1117,45 @@ def _build_rows(sheet_grids, layout, filename=''):
     return all_rows, notes
 
 
-def _date_or_mark(v, dayfirst):
-    """A submitted / returned cell: its date; a non-date note ('Yes', 'Done') is kept as-is
-    (it still says 'happened'); a placeholder (N/A, TBD, -) is nothing."""
+# Words typed in a date column instead of a date. Only a clear YES counts as "it happened";
+# a no / not-yet word, or any other text, is nothing (and the sheet notes list them).
+_NEG_MARK = re.compile(r'^(?:not\b|no\b|non\b|pending|await|waiting|to be\b|tbs\b|under\s*prep|in\s*prep'
+                       r'|prep|yet\b|n\s*/?\s*s\b|n\.\s*s\b|outstanding|on\s*hold|hold\b|cancel|withdrawn)',
+                       re.I)
+_POS_MARK = re.compile(r'^(?:yes|y|done|ok|okay|(?:re-?\s?)?submitted|sent|issued|delivered|received'
+                       r'|returned|replied|[\u2713\u2714\u221a\u2611])(?:\W|$)', re.I)
+
+
+def _mark_kind(s):
+    s = ' '.join(str(s).split())
+    if _NEG_MARK.match(s):
+        return 'no'
+    if _POS_MARK.match(s):
+        return 'yes'
+    return 'word'
+
+
+def _read_mark(v, dayfirst):
+    """A submitted / returned cell → (value, kind). kind: 'blank' (empty, N/A, TBD, -),
+    'date' (value = the date), 'yes' ('Yes', 'Done', 'Submitted', a tick — value kept: it
+    happened, no date), 'no' ('Not submitted', 'Not yet', 'No', 'Pending' — value None) or
+    'word' (any other text — value None: not a date and not a clear yes)."""
     if _is_blank(v):
-        return None
+        return None, 'blank'
     d = _as_date(v, dayfirst)
-    return d if d is not None else v
+    if d is not None:
+        return d, 'date'
+    if isinstance(v, bool):
+        return (v, 'yes') if v else (None, 'no')
+    if isinstance(v, (int, float)):
+        return (v, 'yes') if v else (None, 'no')
+    kind = _mark_kind(v)
+    return (v if kind == 'yes' else None), kind
+
+
+def _date_or_mark(v, dayfirst):
+    """A submitted / returned cell: its date, a clear yes-word kept as-is, else None."""
+    return _read_mark(v, dayfirst)[0]
 
 
 def _title_key(v):
@@ -1279,6 +1324,21 @@ def _finalize(prop, sheet_grids):
                 w.append('Nothing on this sheet has a submission date or a review code yet — its items '
                          'count as not submitted. Switch the sheet off if it is not part of the log, or '
                          'pick the column that holds the status.')
+            for f, said_yes, said_no in (('submitted', 'sent', 'not sent'),
+                                         ('returned', 'replied', 'no reply yet')):
+                cnt = n['words'][f]
+                if not cnt:
+                    continue
+                col = next((c for c in sh['columns'] if c.get('field') == f), None)
+                name = (col.get('header') or f'column {col.get("letter", "")}') if col else f
+                parts = []
+                for kind, label in (('no', said_no), ('yes', said_yes)):
+                    ws_ = [(wd, k) for (kk, wd), k in cnt.most_common() if kk == kind][:5]
+                    if ws_:
+                        parts.append(f'read as {label}: ' + ', '.join(
+                            f'"{wd}"' + (f' ×{k}' if k > 1 else '') for wd, k in ws_))
+                w.append(f'{sum(cnt.values())} cell(s) in the "{name}" column are words, not dates — '
+                         + '; '.join(parts) + '. Type a date in the log (or pick another column) if that is wrong.')
             if n['no_trade']:
                 w.append(f'{n["no_trade"]} row(s) have no discipline — not counted.')
             if n['no_type']:
