@@ -846,3 +846,40 @@ def test_positive_marks_in_the_submitted_column_still_count(tmp_path):
 ])
 def test_read_mark_kinds(text, expected):
     assert es._read_mark(text, True)[1] == expected
+
+
+# ── ELOG-4 (owner decision pending): rejected, then resubmitted and still under review ──
+def _rejected_then_resent(path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Steel'
+    ws.append(['Drawings No', 'Discipline', 'Type', 'Rev.', 'Sent Date', 'Received Date', 'Action'])
+    d = datetime
+    for r in [['BT-1', 'Steel', 'SD', 0, d(2025, 1, 5), d(2025, 1, 9), 'C'],
+              ['BT-1', 'Steel', 'SD', 1, d(2025, 2, 5), None, 'W'],        # C → W (resubmitted)
+              ['BT-2', 'Steel', 'SD', 0, d(2025, 1, 6), d(2025, 1, 9), 'C'],
+              ['BT-2', 'Steel', 'SD', 1, d(2025, 2, 6), None, None],       # C → sent, no reply
+              ['BT-3', 'Steel', 'SD', 0, d(2025, 1, 7), d(2025, 1, 9), 'C'],
+              ['BT-3', 'Steel', 'SD', 1, d(2025, 2, 7), d(2025, 2, 9), 'B'],  # C → B = approved
+              ['BT-4', 'Steel', 'SD', 0, d(2025, 1, 8), d(2025, 1, 9), 'D']]:  # D only
+        ws.append(r)
+    wb.save(path)
+
+
+def test_rejected_then_resubmitted_keeps_the_current_rule_and_says_so(tmp_path):
+    # CURRENT RULE (unchanged, awaiting Ibrahim's decision — ELOG-4): a drawing ever returned
+    # C/D counts Not approved until it is approved, even while its newer revision is under
+    # review. BT-1 (C→W) and BT-2 (C→sent) = not approved; BT-3 approved; BT-4 not approved.
+    # % Submitted = (4 − 3) ÷ 4 = 25.0.  (Latest-revision reading would give 1 not approved,
+    # 2 under review → (4 − 1) ÷ 4 = 75.0.)
+    p = tmp_path / 'steel.xlsx'
+    _rejected_then_resent(p)
+    prop = es.inspect_log(str(p))
+    g = _summary(p, prop)[('Steel', 'SD')]
+    assert (g['req'], g['submitted_rows'], g['approved_rows'], g['not_approved_rows'],
+            g['under_review_rows']) == (4, 4, 1, 3, 0)
+    assert g['submitted_pct'] == 25.0
+    # … and the planner is told, in plain words, how many drawings this affects
+    note = next(w for w in _sheet(prop, 'Steel')['warnings'] if 'resubmitted' in w)
+    assert note.startswith('2 drawing(s)')
+    assert 'Not approved until an approval comes back' in note

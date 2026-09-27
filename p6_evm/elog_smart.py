@@ -1193,6 +1193,38 @@ def _drawing_keys(recs, note):
             r['drawing_key'] = chain + ('|' + _title_key(r['description']) if chain in multi else '')
 
 
+def _rev_order(r):
+    """Sort key for the submissions of one drawing: revision number, then date sent, then row."""
+    rev = r.get('revision')
+    m = re.search(r'(\d+)\s*$', str(rev)) if rev is not None else None
+    sent = r.get('submitted') if isinstance(r.get('submitted'), datetime) else datetime.min
+    return (int(m.group(1)) if m else -1, sent, r.get('row') or 0)
+
+
+def _rejected_then_resent(rows):
+    """{sheet: number of drawings} returned Not approved (C/D) whose LATEST submission is
+    back under review (a W / pending code, or sent with no reply yet) and that have not been
+    approved. The counting rule is unchanged — they count as Not approved until approved;
+    this only tells the planner how many drawings that rule is holding back."""
+    per = defaultdict(list)
+    for r in rows:
+        dk = r.get('drawing_key') or (str(r.get('building') or '').strip(),
+                                      str(r.get('description') or '').strip())
+        per[(r.get('sheet'), r['trade'], r['submittal_type'], dk)].append(r)
+    out = Counter()
+    for (sheet, *_), rs in per.items():
+        verdicts = {r.get('verdict') for r in rs}
+        if 'not_approved' not in verdicts or 'approved' in verdicts:
+            continue
+        last = max(rs, key=_rev_order)
+        pending = last.get('verdict') == 'under_review' or (
+            last.get('verdict') is None and last.get('submitted') is not None
+            and last.get('action_code') is None and last.get('returned') is None)
+        if pending:
+            out[sheet] += 1
+    return out
+
+
 # ── proposal assembly ───────────────────────────────────────────────────────────────────
 def _signature(sheet_grids, sheets, fmt):
     parts = []
@@ -1299,9 +1331,14 @@ def _finalize(prop, sheet_grids):
     prop['codes'] = codes
 
     rows, notes = _build_rows(sheet_grids, prop, filename)
+    resent = _rejected_then_resent(rows)
     for sh in prop['sheets']:
         w = []
         n = notes.get(sh['sheet'])
+        if resent.get(sh['sheet']):
+            w.append(f'{resent[sh["sheet"]]} drawing(s) came back Not approved (C/D) and have been '
+                     f'resubmitted — the latest revision is under review. They count as Not approved '
+                     f'until an approval comes back, so % Submitted does not rise on resubmission.')
         if n:
             if n['inferred_sent']:
                 w.append(f'{n["inferred_sent"]} row(s) have a reply (a review code or a reply date) or a status '
