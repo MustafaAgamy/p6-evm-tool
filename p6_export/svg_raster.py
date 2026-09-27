@@ -300,12 +300,17 @@ def _slices(box, rects, max_h):
     out, y = [], box.y0
     while box.y1 - y > max_h:
         target = y + max_h
-        cut = None
-        for c in sorted({r.y1 for r in inner if y + max_h * 0.5 < r.y1 <= target}, reverse=True):
-            if not any(r.y0 < c - 0.5 and r.y1 > c + 0.5 for r in inner):
-                cut = min(c + 2, target)
-                break
-        cut = cut or target
+        # the clean line (nothing drawn across it) with the WIDEST blank band below it —
+        # i.e. between two blocks (months, cards), not between two rows of one block
+        best = None
+        for c in {r.y1 for r in inner if y + max_h * 0.5 < r.y1 <= target}:
+            if any(r.y0 < c - 0.5 and r.y1 > c + 0.5 for r in inner):
+                continue
+            nxt = min((r.y0 for r in inner if r.y0 >= c - 0.5), default=box.y1)
+            key = (round(nxt - c, 1), c)
+            if best is None or key > best[0]:
+                best = (key, c)
+        cut = min(best[1] + 2, target) if best else target
         out.append(pymupdf.Rect(box.x0, y, box.x1, cut))
         y = cut
     out.append(pymupdf.Rect(box.x0, y, box.x1, box.y1))

@@ -303,3 +303,14 @@ def test_tall_pictures_are_sliced_at_blank_lines():
     for r in out[:-1]:                                        # never cut through a drawn row
         assert not any(x.y0 < r.y1 - 0.5 and x.y1 > r.y1 + 0.5 for x in rows)
     assert svg_raster._slices(pymupdf.Rect(0, 0, 10, 100), [], 450) == [pymupdf.Rect(0, 0, 10, 100)]
+
+
+def test_slices_prefer_the_gap_between_blocks_over_the_gap_between_rows():
+    import pymupdf
+    # two-row blocks: rows 3pt apart inside a block, 20pt between blocks
+    rows, y = [], 0
+    for _ in range(4):
+        rows += [pymupdf.Rect(0, y, 100, y + 90), pymupdf.Rect(0, y + 93, 100, y + 183)]
+        y += 203
+    out = svg_raster._slices(pymupdf.Rect(0, 0, 100, rows[-1].y1), rows, 300)
+    assert out[0].y1 == 185                       # after block 1 (gap 20), not after row 3 (gap 3)
