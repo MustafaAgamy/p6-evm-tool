@@ -254,6 +254,8 @@ def parse_date(value, dayfirst=True):
         return datetime(value.year, value.month, value.day)
     if not isinstance(value, str):
         return None
+    if len(value) > 60 or not any(ch.isdigit() for ch in value):
+        return None                                   # every date form carries digits
     s = ' '.join(value.split())
     if not s or len(s) > 40:
         return None
@@ -512,7 +514,7 @@ def _content_only(p):
             out['trade'] = (0.7 * p['disc'], f'its values are disciplines{_eg(p)}')
         if p['sub'] >= 0.8 and p['disc'] < 0.5:
             out['submittal_type'] = (0.65 * p['sub'], f'its values are submittal types{_eg(p)}')
-        if p['verdict'] >= 0.9 and p['short'] >= 0.8:
+        if p['verdict'] >= 0.9 and p['short'] >= 0.8 and p['num'] < 0.5:
             out['action_code'] = (0.55, f'its values are review codes{_eg(p, 4)}')
     return out
 
@@ -681,9 +683,13 @@ _LEG2 = re.compile(r'^(?:code\s*)?(?P<c>[A-Za-z0-9]{1,3})\s*[-–—=:)]\s*(?P<m
 _LEG3 = re.compile(r'^(?P<m>[A-Za-z][A-Za-z &/,.\'-]*?)\s*[-–—=:]\s*(?:code\s*)?(?P<c>[A-Za-z0-9]{1,3})$', re.I)
 
 
+_REVIEW_WORDS = re.compile(r'approv|reject|resubmit|revise|pending|review|objection|accept|await|'
+                           r'comment|noted|exception|hold|waiting', re.I)
+
+
 def _legend_verdict(meaning):
     m = ' '.join(str(meaning).split())
-    if len(re.sub(r'[^A-Za-z]', '', m)) < 3:
+    if len(re.sub(r'[^A-Za-z]', '', m)) < 3 or not _REVIEW_WORDS.search(m):
         return None
     first = re.split(r'[,;(]|\s[-–—]\s', m)[0]
     return classify_action_code(first) or classify_action_code(m)
@@ -728,6 +734,12 @@ def _numeric_share(rows):
 
 
 # ── per-sheet analysis ───────────────────────────────────────────────────────────────────
+def _sheet_label(title):
+    """Discipline / type named by a sheet: noise words dropped ('Civil Drawings' → 'Civil',
+    'O&M LOG' → 'O&M', 'SPARE PARTS LOG(Arch)' → 'SPARE PARTS (Arch)')."""
+    return _sheet_trade(re.sub(r'\s*\(', ' (', str(title or '')).strip())
+
+
 def _col_letter(i):
     s, i = '', i + 1
     while i:
@@ -972,12 +984,13 @@ def _build_rows(sheet_grids, layout, filename=''):
         start = min(max(start, 0), len(grid))
         hr0 = s['header_rows'][0] if s['header_rows'] else 0
         hdr_norm = [_norm_text(v) for v in grid[hr0 - 1]] if 1 <= hr0 <= len(grid) else []
-        sheet_trade = _sheet_trade(s['sheet'])
+        sheet_trade = _sheet_label(s['sheet'])
         generic_name = bool(_GENERIC_SHEET.match(s['sheet'].strip()))
         body = grid[start:]
         dayfirst = {f: detect_dayfirst([r[fields[f]] for r in body if fields[f] < len(r)])
                     for f in DATE_FIELDS if f in fields}
-        note = {'inferred_sent': 0, 'no_trade': 0, 'no_type': 0, 'multi_sheet': 0, 'by_transmittal': 0,
+        note = {'inferred_sent': 0, 'no_trade': 0, 'no_type': 0, 'multi_sheet': 0, 'multi_tr': 0,
+                'by_transmittal': 0, 'tracked': 0,
                 'unknown_codes': Counter(), 'rows': 0}
 
         def get(row, f):
@@ -1039,6 +1052,8 @@ def _build_rows(sheet_grids, layout, filename=''):
             if rec['submitted'] is None and (rec['verdict'] is not None or isinstance(rec['returned'], datetime)):
                 rec['submitted'] = rec['returned'] if isinstance(rec['returned'], datetime) else True
                 note['inferred_sent'] += 1
+            if rec['submitted'] is not None or rec['verdict'] is not None:
+                note['tracked'] += 1
             recs.append(rec)
         note['rows'] = len(recs)
 
@@ -1093,7 +1108,8 @@ def _drawing_keys(recs, note):
                    '' if r['reference'] else _disp(r['submitted']) if isinstance(r['submitted'], datetime) else '')
             subs[(chain, sub)].add(_title_key(r['description']))
     multi = {chain for (chain, _), titles in subs.items() if len(titles) > 1}
-    note['multi_sheet'] = len(multi)
+    note['multi_sheet'] = sum(1 for c in multi if c.startswith('dwg:'))
+    note['multi_tr'] = len(multi) - note['multi_sheet']
     for r in recs:
         chain = r.pop('_chain')
         if chain:
@@ -1151,7 +1167,7 @@ def _finalize(prop, sheet_grids):
         fields = {c['field']: c for c in sorted(sh['columns'], key=lambda c: c['index'])[::-1]
                   if c['field'] in FIELDS}
         tcol, ycol = fields.get('trade'), fields.get('submittal_type')
-        sheet_trade = _sheet_trade(sh['sheet'])
+        sheet_trade = _sheet_label(sh['sheet'])
         generic = bool(_GENERIC_SHEET.match(sh['sheet'].strip()))
         if tcol:
             sh['trade_source'] = {'kind': 'column', 'value': tcol['header'] or f'column {tcol["letter"]}'}
@@ -1213,9 +1229,16 @@ def _finalize(prop, sheet_grids):
             if n['multi_sheet']:
                 w.append(f'{n["multi_sheet"]} drawing number(s) cover several sheets in one submission '
                          f'— each sheet title counted as its own drawing.')
+            if n['multi_tr']:
+                w.append(f'{n["multi_tr"]} transmittal(s) without drawing numbers list several sheets '
+                         f'— each sheet title counted as its own drawing.')
             if n['by_transmittal']:
                 w.append(f'{n["by_transmittal"]} row(s) have no drawing number — grouped by their '
                          f'transmittal and its revisions.')
+            if n['rows'] and not n['tracked']:
+                w.append('Nothing on this sheet has a submission date or a review code yet — its items '
+                         'count as not submitted. Switch the sheet off if it is not part of the log, or '
+                         'pick the column that holds the status.')
             if n['no_trade']:
                 w.append(f'{n["no_trade"]} row(s) have no discipline — not counted.')
             if n['no_type']:
