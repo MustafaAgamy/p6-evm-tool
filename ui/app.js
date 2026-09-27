@@ -23,7 +23,7 @@ import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
-import { openHelp }                              from './modules/help.js';
+import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
 import { needsHint, needsTooltip }              from './modules/feature_needs.js';
 import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
@@ -460,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     palette: () => showPalette(),                                         // Ctrl+K command palette
     prevFeature: () => stepFeature(-1),                                   // Ctrl+[ previous navigator item
     nextFeature: () => stepFeature(1),                                    // Ctrl+] next navigator item
-    recent: () => runMenuCmd('recent'),                                   // Open Recent Projects
+    recent: () => { closeHelp(); runMenuCmd('recent'); },                 // Open Recent Projects
     toggleNav: () => toggleNav(),                                        // Show / hide the Project Navigator (Ctrl+B)
     goto:   (s) => gotoNav(s.nav),                                        // Alt+1…Alt+0 jump to a feature
     cycleAppearance: () => cycleAppearance(),                             // Cycle all 6 appearance modes
@@ -506,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Alt+number / palette / Ctrl+[ ] — open a navigator item exactly as a click on it would
   // (same import gate, same Run gate); the AI Chat lives on the menu bar.
   function gotoNav(id) {
+    closeHelp();                     // a jump from inside Help lands on the feature, not behind the overlay
     if (id === 'chat') { openChat(); return; }
     const btn = navTree.querySelector(`.tnode[data-nav="${id}"]`);
     if (btn) btn.click();
@@ -565,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Ctrl+K — every navigator feature (+ AI Chat) and every menu command, searchable.
   function showPalette() {
-    closeMenus();
+    closeMenus(); closeHelp();
     const items = buildPaletteItems({ nav: NAV, menus: MENUS, extraFeatures: [{ id: 'chat', label: 'AI Chat', group: 'Menu bar' }] });
     openPalette(items, (it) => { if (it.kind === 'feature') gotoNav(it.id); else runMenuCmd(it.cmd); });
   }
