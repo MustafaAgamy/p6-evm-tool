@@ -23,21 +23,36 @@ def summarize_e1(rows, cutoff=None):
     is unique by title/name (building + description). Once it is Approved (A/B) at any
     revision, later resubmissions of the same drawing — methodology-change reissues — are
     NOT counted again. So every count is a distinct-drawing count and % never exceeds 100%.
+
+    Optional per-row keys (set by the format-agnostic reader, p6_evm.elog_smart):
+      * 'drawing_key' — the drawing's identity (e.g. its Drawing No.); rows without it keep
+        the (building, description) key, so ROOTS-style logs count exactly as before;
+      * 'verdict'     — the review code already classified with the log's own legend
+        ('approved' | 'not_approved' | 'under_review' | None); else classify_action_code;
+      * 'returned'    — the consultant's reply date.
+    A drawing SUBMITTED with no reply and no code yet counts as Under Review (owner-approved
+    review-code rule, Tool-Wide Enhancement scope §2).
     """
     groups = {}   # (trade, typ) -> { drawing_key -> {submitted, approved, rejected, under_review, planned} }
     for r in rows:
-        trade = (r.get('trade') or '').strip()
-        typ = (r.get('submittal_type') or '').strip()
+        trade = str(r.get('trade') or '').strip()
+        typ = str(r.get('submittal_type') or '').strip()
         if not trade or not typ:
             continue
-        dk = (str(r.get('building') or '').strip(), str(r.get('description') or '').strip())
+        dk = r.get('drawing_key')
+        if not dk:
+            dk = (str(r.get('building') or '').strip(), str(r.get('description') or '').strip())
         d = groups.setdefault((trade, typ), {}).setdefault(
             dk, {'submitted': False, 'approved': False, 'rejected': False,
                  'under_review': False, 'planned': False})
 
-        if _has(r.get('submitted')):
+        submitted = _has(r.get('submitted'))
+        if submitted:
             d['submitted'] = True
-        act = classify_action_code(r.get('action_code'))
+        act = r['verdict'] if 'verdict' in r else classify_action_code(r.get('action_code'))
+        if (act is None and submitted and not _has(r.get('action_code'))
+                and not _has(r.get('returned'))):
+            act = 'under_review'                  # sent, no reply yet
         if act == 'approved':
             d['approved'] = True
         elif act == 'not_approved':
