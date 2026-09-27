@@ -125,8 +125,8 @@ export const FEATURE_NEEDS = [
     hint: '1 update (XML with its baseline, or XER + baseline file) · optional E1 log (.xlsx)',
     files: [
       { n: 1, role: 'Current update (progressed, with a data date) — the imported file', formats: XER_OR_XML, k: 'p6' },
-      { n: 1, role: 'Baseline — only for an XER update (or an XML exported without its baseline); the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
-        note: 'An XER never carries its baseline, so without it Planned Value, SPI and Delay are approximate.' },
+      { n: 1, role: 'Baseline — only for an XER update; the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
+        note: 'An XER never carries its baseline, so without it Planned Value, SPI and Delay are approximate. An XML must be exported from P6 with its baseline project included — a separate baseline cannot be attached to an XML (an XML without it shows no Planned Value or SPI).' },
     ],
     other: [
       'Project Setup (✎ on the Earned Value screen) — category weights and Actual Cost.',
