@@ -148,18 +148,19 @@ def _lev1(a, b):
 
 def _looks_serial(values):
     """A running number column (1, 2, 3 … restarting at 1 per section) with no heading."""
-    nums = []
+    nums, other = [], 0
     for v in values:
         if _empty(v):
             continue
         try:
             f = float(str(v).strip()) if not isinstance(v, bool) else None
         except ValueError:
-            return False
+            f = None
         if f is None or not f.is_integer():
-            return False
+            other += 1                       # a stray banner / note in the column
+            continue
         nums.append(int(f))
-    if len(nums) < 3:
+    if len(nums) < 3 or other > 0.1 * (len(nums) + other):
         return False
     steps = sum(1 for a, b in zip(nums, nums[1:]) if b == a + 1 or b == 1)
     return steps >= 0.8 * (len(nums) - 1)
