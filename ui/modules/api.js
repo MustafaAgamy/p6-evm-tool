@@ -210,6 +210,11 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   }
 }
 
+// The full one-document export bar (PDF · Word · HTML · Excel). OPT-IN per feature: pass it
+// only from a feature whose report is ADOPTED (data-sec / data-part annotated, charts marked —
+// docs/report-picker-adoption.md); every other preview keeps the PDF-only bar.
+const ADOPTED_EXPORTS = ['pdf', 'docx', 'html', 'xlsx'];
+
 // Shared "Save as PDF" from a preview: pick a path, POST the same body with output_path.
 // Returns true on success (preview closes), false if the user cancelled or it failed.
 async function _savePdf(route, reqBody, defaultName, ext) {
@@ -360,6 +365,7 @@ export async function generateCalendarPdf() {
       sections, selected, storageKey,
       feature: 'P6 Calendar Audit', exportName: 'P6_Calendar_Audit',
       meta: { project: reqBody.meta.project_name },   // data date: read from the report head (same text as the PDF)
+      exports: ADOPTED_EXPORTS,                       // report annotated (data-sec/data-part) → full export bar
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
@@ -447,6 +453,7 @@ export async function generatePdf() {
       sections: EVM_SECTIONS, selected, storageKey, initialMode: mode,
       feature: 'Earned Value (EVM)', exportName: 'EVM_report',
       meta: { project: reqBody.meta.project_name },   // data date: read from the report head (same text as the PDF)
+      exports: ADOPTED_EXPORTS,                       // report annotated (data-sec/data-part) → full export bar
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, keys) => _savePdf('api/report/evm', { ...reqBody, theme: m, sections: keys }, 'EVM_report.pdf', 'pdf'),

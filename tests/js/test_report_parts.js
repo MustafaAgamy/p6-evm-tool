@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   scanElements, scanReport, buildTree, restoreState, sectionCheck, partChecked, toggleSection,
   togglePart, selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml, textOf, NO_DATA_HTML,
+  needsRerender, canReorder, exportKinds, EXPORT_KINDS, fmtDataDate,
 } from '../../ui/modules/report_parts.js';
 
 let passed = 0, failed = 0;
@@ -196,6 +197,48 @@ test('a section the picker does not manage is left alone', () => {
   const out = pruneHtml(html, toggleSection(restoreState(null, t), t, 'a', false), { knownSections: ['a'] });
   assert.ok(out.includes('<div data-sec="x">X</div>'));
   assert.ok(!out.includes('data-sec="a"'));
+});
+
+console.log('\nexport bar (opt-in)');
+test('no `exports` → the legacy PDF-only bar (an unadopted feature never offers Word/Excel)', () => {
+  assert.deepEqual(exportKinds(undefined), ['pdf']);
+  assert.deepEqual(exportKinds(null), ['pdf']);
+});
+test('an adopted feature lists the full bar; order is always PDF · Word · HTML · Excel', () => {
+  assert.deepEqual(exportKinds(['xlsx', 'pdf', 'html', 'docx']), EXPORT_KINDS);
+  assert.deepEqual(exportKinds(['pdf']), ['pdf']);
+  assert.deepEqual(exportKinds(['pdf', 'bogus']), ['pdf']);
+});
+
+console.log('\nreorder reaches every output');
+test('drag is offered only for [data-sec] reports or a server render that honours key order', () => {
+  assert.equal(canReorder(true, false), true);
+  assert.equal(canReorder(false, true), true);
+  assert.equal(canReorder(false, false), false);
+  assert.equal(canReorder(false, undefined), false);
+});
+test('needsRerender: a wrapped report refetches only for a section it has not rendered', () => {
+  assert.equal(needsRerender(['a', 'b'], ['a', 'b', 'c'], { wraps: true }), false);     // prune
+  assert.equal(needsRerender(['b', 'a'], ['a', 'b'], { wraps: true }), false);          // reorder
+  assert.equal(needsRerender(['a', 'd'], ['a', 'b'], { wraps: true }), true);           // new
+});
+test('needsRerender: an unwrapped report refetches when the set changes', () => {
+  assert.equal(needsRerender(['a'], ['a', 'b']), true);
+  assert.equal(needsRerender(['a', 'b'], ['a', 'b']), false);
+  assert.equal(needsRerender(['b', 'a'], ['a', 'b']), false);                            // order ignored…
+  assert.equal(needsRerender(['b', 'a'], ['a', 'b'], { serverOrder: true }), true);      // …unless honoured
+  assert.equal(needsRerender(['a'], undefined), true);
+});
+
+console.log('\ndata date');
+test('fmtDataDate: ISO date / datetime → 11-Dec-2025; other text unchanged', () => {
+  assert.equal(fmtDataDate('2025-12-11 08:00:00'), '11-Dec-2025');
+  assert.equal(fmtDataDate('2025-12-11T08:00:00'), '11-Dec-2025');
+  assert.equal(fmtDataDate('2025-01-05'), '05-Jan-2025');
+  assert.equal(fmtDataDate('11-Dec-2025'), '11-Dec-2025');
+  assert.equal(fmtDataDate(''), '');
+  assert.equal(fmtDataDate(null), '');
+  assert.equal(fmtDataDate('2025-13-01'), '2025-13-01');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

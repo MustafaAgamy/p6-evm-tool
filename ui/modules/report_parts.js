@@ -10,6 +10,9 @@
 //   toggleSection / togglePart / selectAll / clearAll / moveSection   (return a NEW state)
 //   sectionCheck(state, tree, key)   → 'all' | 'some' | 'none'   (tri-state checkbox)
 //   serverKeys(state, tree)          → ticked section keys, in the user's order
+//   needsRerender / canReorder       → when to re-render on the server; when drag is offered
+//   exportKinds(exports)             → the Save buttons offered (opt-in; default PDF only)
+//   fmtDataDate(v)                   → 11-Dec-2025 (the reports' data-date format)
 //   pruneHtml(html, state, opts)     → the FINAL report: unticked parts/sections REMOVED
 //                                      (absent, not hidden), sections in the chosen order,
 //                                      a ticked-but-empty part shows "No data available".
@@ -278,6 +281,46 @@ export function moveSection(state, from, to) {
 
 export function serverKeys(state) {
   return state.order.filter(k => state.sections.includes(k));
+}
+
+// Does the preview need a new server render for these ticked keys? `lastKeys` = what the
+// current HTML was rendered for. A [data-sec]-wrapped report (`wraps`) is pruned + reordered
+// on the client, so it only refetches for a section it has not rendered yet; any other
+// renderer must refetch whenever the set changes — and, when it honours the order of the keys
+// it is given (`serverOrder`), whenever the order changes too.
+export function needsRerender(keys, lastKeys, { wraps = false, serverOrder = false } = {}) {
+  const last = lastKeys || [];
+  if (keys.some(k => !last.includes(k))) return true;
+  if (wraps) return false;
+  if (keys.length !== last.length) return true;
+  return !!serverOrder && keys.some((k, i) => last[i] !== k);
+}
+
+// Drag-to-reorder is offered ONLY when the new order reaches every output (Preview · PDF ·
+// Word · HTML · Excel · Print): the renderer wraps its sections in [data-sec] (pruneHtml
+// reorders them) or the caller's server render honours the key order (serverOrder).
+export function canReorder(wraps, serverOrder) {
+  return !!(wraps || serverOrder);
+}
+
+// The export bar is OPT-IN per feature. Word / HTML / Excel are offered only when the caller
+// lists them — i.e. once its report is adopted (data-sec / data-part annotated, charts marked;
+// docs/report-picker-adoption.md). Until then a feature keeps the legacy PDF-only bar, because
+// an unannotated report's CSS charts reach Word / Excel as bare text.
+export const EXPORT_KINDS = ['pdf', 'docx', 'html', 'xlsx'];
+export function exportKinds(exports) {
+  if (!Array.isArray(exports)) return ['pdf'];
+  return EXPORT_KINDS.filter(k => exports.includes(k));
+}
+
+// A data date as the reports print it: 2025-12-11 / 2025-12-11 08:00:00 / 2025-12-11T08:00 →
+// 11-Dec-2025. Anything that is not an ISO date is returned unchanged ('' for nothing).
+const _MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function fmtDataDate(v) {
+  if (v == null || v === '') return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(String(v).trim());
+  if (!m || +m[2] < 1 || +m[2] > 12) return String(v);
+  return `${m[3]}-${_MON3[+m[2] - 1]}-${m[1]}`;
 }
 
 export function countTicked(state, tree) {

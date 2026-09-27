@@ -20,14 +20,19 @@
 //               from the report's own "Project: / Data Date:" line)
 //   legacyPdf — true = "PDF" calls the caller's onSave (its own server route) instead of the
 //               generic one-document PDF. Default false: the generic PDF honours part ticks.
-//   exports   — which Save buttons to offer (default ['pdf','docx','html','xlsx']); a feature
-//               with its own richer Word/Excel screen export (Reporting Studio) can pass ['pdf'].
+//   exports   — which Save buttons to offer. OPT-IN: default ['pdf'] (the legacy bar). Only an
+//               ADOPTED feature (report annotated with data-sec / data-part, charts marked —
+//               docs/report-picker-adoption.md) passes ['pdf','docx','html','xlsx']; an
+//               unannotated report's CSS charts would reach Word / Excel as bare text.
+//   serverOrder — true when onRerender honours the ORDER of the keys it is given. Without it
+//               (and without [data-sec] wrappers the picker can reorder itself) drag-to-reorder
+//               is not offered, because the new order could not reach the outputs.
 import { escapeHtml } from './format.js';
 import { buildAppearancePicker, getSavedMode, backdropColor } from './appearance.js';
 import { state as appState } from './state.js';
 import {
   scanReport, buildTree, restoreState, sectionCheck, partChecked, toggleSection, togglePart,
-  selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml,
+  selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml, exportKinds,
 } from './report_parts.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
@@ -48,8 +53,9 @@ function _slug(s) {
 }
 
 export function showReportPreview({ title, subtitle, html, onSave, sections, selected, onRerender, storageKey,
-  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports }) {
+  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports, serverOrder }) {
   let mode = initialMode || getSavedMode();
+  const offered = EXPORTS.filter(e => exportKinds(exports).includes(e.kind));
   const featureName = feature || String(title || 'Report').replace(/\s+(report\s+)?preview$/i, '').replace(/^Report\s+—\s+/i, '');
   const baseName = exportName || _slug(featureName);
 
@@ -74,8 +80,8 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
       <div class="rpv-sh">Report contents</div>
       <div class="rpv-tools"><a id="rpv-all" role="button" tabindex="0">Select all</a><i>·</i><a id="rpv-none" role="button" tabindex="0">Clear all</a></div>
       <ul class="rpv-tree" id="rpv-secs"></ul>
-      <div class="rpv-note">Tick a whole section, or open it (▸) and tick single tables / charts. Drag ⋮⋮ to reorder.
-        <b>Preview = PDF = Word = HTML = Excel = Print.</b></div>
+      <div class="rpv-note">Tick a whole section, or open it (▸) and tick single tables / charts.<span class="rpv-drag-hint"></span>
+        <b>${['Preview', ...offered.map(e => e.label), 'Print'].join(' = ')}.</b></div>
     </div>` : '';
   overlay.innerHTML = `
     <div class="rpv-shell" role="dialog" aria-label="${escapeHtml(title)}">
@@ -87,7 +93,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
         <div class="rpv-actions rpv-export-bar" role="toolbar" aria-label="Save or print the report">
           <button class="btn-mini" id="rpv-close">Close</button>
           <button class="btn-mini" id="rpv-print" title="Print exactly what the preview shows">🖨 Print</button>
-          ${EXPORTS.filter(e => !Array.isArray(exports) || exports.includes(e.kind)).map(e => `<button class="btn-mini${e.kind === 'pdf' ? ' primary' : ''}" data-exp="${e.kind}" id="rpv-save-${e.kind}"
+          ${offered.map(e => `<button class="btn-mini${e.kind === 'pdf' ? ' primary' : ''}" data-exp="${e.kind}" id="rpv-save-${e.kind}"
             title="Save the previewed report as ${e.label}">⬇ ${e.label}</button>`).join('')}
         </div>
       </div>
