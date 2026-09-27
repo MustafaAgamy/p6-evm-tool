@@ -111,7 +111,9 @@ def resolve_svg(svg_el, resolver, bg_rgb=(255, 255, 255)):
                 if got[1] < 0.999:
                     decl[p + '-opacity'] = f'{got[1] * _num(st.get(p + "-opacity"), 1.0):.3f}'
         if tag == 'stop':
-            sc = s.get('stop-color') or st.get('stop-color')
+            sc = st.get('stop-color') or s.get('stop-color')
+            if sc and 'var(' in sc:
+                sc = C.resolve_vars(sc, st.get('_custom', {}))
             got = _paint(sc, current) if sc else None
             if got:
                 decl['stop-color'] = got[0]

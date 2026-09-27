@@ -195,8 +195,14 @@ def section_blocks(blocks, default_title='', part_labels=None):
 
 
 def _sheet_name(title, fallback):
-    name = re.sub(r'^\s*\d+\s*[·.)\-–]\s*', '', title or '').strip() or fallback or 'Report'
-    return name[:31]
+    name = re.sub(r'^\s*\d+\s*[·.)\-–]\s*', '', title or '').strip()
+    name = re.split(r'\s+[—–]\s+', name)[0].strip() or fallback or 'Report'   # drop a sub-caption
+    name = re.sub(r'[\[\]:*?/\\]', '-', name)
+    if len(name) > 28:                  # the shared writer keeps 28 chars — cut at a word, not mid-word
+        cut = name[:29].rsplit(' ', 1)[0] if ' ' in name[:29] else name[:28]
+        cut = re.sub(r'(\s+(&|and|vs|of|the|by|to|—|–|-|·))+$', '', cut.strip(), flags=re.I)
+        name = cut.strip() or name[:28]
+    return name
 
 
 def build_sheets(rep):

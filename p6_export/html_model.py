@@ -874,6 +874,16 @@ class _Walker:
         return ImageBlock(data=data, mime=m.group(1), width_px=w, height_px=h,
                           alt=el.get('alt') or '', part=part)
 
+    def _part_is_visual(self, el, part):
+        """True when ``el`` is the only content of its part (so the part label names it)."""
+        p = el.getparent()
+        while p is not None and p.get('data-part') != part:
+            p = p.getparent()
+        if p is None:
+            return False
+        txt = _norm_ws(p.text_content()).strip()
+        return txt == _norm_ws(el.text_content()).strip()
+
     def visual(self, el, part):
         from . import svg_raster
         tag = C.tag_of(el)
@@ -907,7 +917,8 @@ class _Walker:
                         w = h * vw / vh
                 except ValueError:
                     pass
-        title = el.get('data-part-label') or el.get('aria-label') or ''
+        title = (el.get('data-part-label') or el.get('aria-label')
+                 or (self.part_labels.get(part) if part and self._part_is_visual(el, part) else '') or '')
         lines = [t for t in (_norm_ws(x).strip() for x in el.itertext()) if t]
         return Visual(html=etree.tostring(el, encoding='unicode', method='html', with_tail=False),
                       svg=svg, width_px=w, height_px=h, title=title,
