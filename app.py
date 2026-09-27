@@ -17,7 +17,8 @@ class Api:
         logs); returns a list of paths (empty if cancelled)."""
         result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG, allow_multiple=True,
-            file_types=('Excel Files (*.xlsx;*.xlsm)', 'All Files (*.*)')
+            file_types=('Engineering logs (*.xlsx;*.xlsm;*.csv)', 'Excel Files (*.xlsx;*.xlsm)',
+                        'CSV Files (*.csv)', 'All Files (*.*)')
         )
         return list(result) if result else []
 
