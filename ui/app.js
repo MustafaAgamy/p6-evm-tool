@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     overview: { xls: 'ov-excel-btn' },
     wbs:      { xls: 'wbs-excel-btn' },
     schedule: { xls: 'sched-excel-btn' },
-    narrative:{ xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },
+    narrative:{ pdf: 'narrative-pdf-btn', xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },   // its own guarded exports (narrativePrint() is null)
     special:  { pdf: 'sr-pdf',           xls: 'sr-xls', docx: 'sr-word' },
   };
   // Screen views (Overview, WBS, Narrative) print

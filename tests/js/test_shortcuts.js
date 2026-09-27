@@ -336,6 +336,16 @@ test('app.js closes the Help Center before screen actions (SHELL-4)', () => {
   assert.match(appSrc, /createShortcutHandler\(\s*withHelpClosedFirst\(\s*SHORTCUT_ACTIONS\s*,\s*closeHelp\s*\)\s*\)/,
     'the key handler must be built from withHelpClosedFirst(SHORTCUT_ACTIONS, closeHelp)');
 });
+test('app.js: Ctrl+P / File ▸ Print on the Baseline Narrative runs its own PDF export', () => {
+  // narrativePrint() returns null (the narrative prints through its own Export PDF button), so
+  // without this mapping Ctrl+P always said "Open this view and let it finish loading".
+  const m = appSrc.match(/\n\s*narrative:\{([^}]*)\},/);
+  assert.ok(m, 'REPORT_BTN.narrative not found');
+  assert.match(m[1], /pdf:\s*'narrative-pdf-btn'/);
+  assert.match(m[1], /docx:\s*'narrative-word-btn'/);
+  assert.match(read('ui', 'index.html'), /id="narrative-pdf-btn"/);
+  assert.match(read('ui', 'modules', 'narrative.js'), /if \(!state\.narrativeDoc\) \{ showError\('Generate the narrative first\.'\); return; \}/);
+});
 test('app.js: Ctrl+R never re-renders the Baseline Narrative (SHELL-3)', () => {
   const m = appSrc.match(/const NO_GENERIC_RERUN = \{([\s\S]*?)\};/);
   assert.ok(m, 'NO_GENERIC_RERUN not found in app.js');
