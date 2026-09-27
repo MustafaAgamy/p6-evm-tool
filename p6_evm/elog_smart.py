@@ -1442,6 +1442,8 @@ def local_ai_ready():
     """True only when the OFFLINE brain (p6_chat.llm, in-process llama.cpp) is set up."""
     try:
         from p6_chat import llm
+        if not llm._model_ready():        # no model downloaded → never load the engine DLL
+            return False
         return bool(llm.status().get('ready'))
     except Exception:
         return False
