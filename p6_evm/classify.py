@@ -11,6 +11,7 @@ One meaning-based matcher used everywhere so a project's own vocabulary doesn't 
 Matching is case/space/punctuation-insensitive and matches when the text CONTAINS an
 accepted phrase. See vault: 01 Scope — Auto Project Setup, 07 Calculation Rules.
 """
+import re
 
 # ── Categories (priority order — first match wins; Construction is the fallback) ──
 CATEGORY_RULES = [
@@ -152,28 +153,129 @@ def auto_categories(data, saved_weights=None):
     return cats
 
 
+# ── Review codes (the owner-approved rule, Tool-Wide Enhancement scope §2) ──────────────
+# Approved     = A, B, Code 1, Code 2, approved (as noted / with comments), no objection,
+#                reviewed – no exceptions (taken)
+# Not approved = C, D, Code 3, Code 4, revise and resubmit, rejected, not approved
+# Under review = W, P, pending, under review, in review (+ submitted with no reply yet —
+#                that part is a row rule, applied in e1_log.summarize_e1)
+# A legend printed in the log itself overrides these defaults — see
+# classify_action_code_with_legend.
+VERDICTS = ('approved', 'not_approved', 'under_review')
+_CODE_VERDICT = {
+    'a': 'approved', 'b': 'approved', '1': 'approved', '2': 'approved',
+    'c': 'not_approved', 'd': 'not_approved', '3': 'not_approved', '4': 'not_approved',
+    'p': 'under_review', 'w': 'under_review',
+}
+_EXACT = {
+    'aan': 'approved', 'aab': 'approved', 'noc': 'approved',
+    'rns': 'not_approved', 'rr': 'not_approved', 'r&r': 'not_approved',
+    'ur': 'under_review', 'ua': 'under_review', 'u/a': 'under_review', 'u/r': 'under_review',
+}
+
+
+def _code_text(raw):
+    """Lower-case text with punctuation → spaces (keeps '/' and '&', which carry meaning in
+    codes like 'B/C' and 'R&R'). Whole-number floats from Excel read as ints ('1.0' → '1')."""
+    if raw is None or isinstance(raw, bool):
+        return ''
+    if isinstance(raw, (int, float)):
+        if raw != raw:                       # NaN
+            return ''
+        return str(int(raw)) if float(raw).is_integer() else str(raw)
+    s = re.sub(r'[^a-z0-9/&]+', ' ', str(raw).lower())
+    return ' '.join(s.split())
+
+
 def classify_action_code(raw):
-    """Read an E1 approval status by MEANING, not one fixed coding scheme — different
-    projects use A/B/C/P, or words ('Approved', 'Rejected', 'Under Review'), or 'AAN'
-    (approved as noted), 'RNS' (revise & resubmit). Returns
-    'approved' | 'not_approved' | 'under_review' | None."""
-    c = _norm(raw)
+    """Read an engineering-log review status by MEANING, not one fixed coding scheme —
+    projects use A/B/C/D/W/P, 1/2/3/4, 'Code 2', words ('Approved as noted', 'Revise and
+    resubmit', 'Pending'), or short forms ('AAN', 'RNS', 'U.A'). Returns
+    'approved' | 'not_approved' | 'under_review' | None (unknown / blank / ambiguous)."""
+    c = _code_text(raw)
     if not c:
         return None
-    # order matters: "not approved" contains "approv"
-    if 'not approv' in c or 'reject' in c or 'resubmit' in c or 'revise' in c or c in ('c', 'rns', 'rr'):
-        return 'not_approved'
-    if 'under' in c or 'review' in c or 'pend' in c or 'progress' in c or c in ('p', 'ur'):
-        return 'under_review'
-    if 'approv' in c or 'as noted' in c or 'accepted' in c or c in ('a', 'b', 'aan', 'aab'):
+    words = c.split()
+    if len(words) > 8:
+        # long free text (a comment): only trust an explicit "status: X" inside it
+        m = re.search(r'\bstatus\b(.*)', c)
+        if not m or not m.group(1).split():
+            return None
+        c = ' '.join(m.group(1).split()[:6])
+        words = c.split()
+    compact = c.replace(' ', '')
+    if compact in _EXACT:
+        return _EXACT[compact]
+    if compact in _CODE_VERDICT:
+        return _CODE_VERDICT[compact]
+    # two codes at once ('B/C', '2/3') — ambiguous, don't guess
+    if re.fullmatch(r'[a-d1-4pw](/[a-d1-4pw])+', compact):
+        return None
+    # order matters: "no exceptions" / "no objection" before "review"/"not";
+    # "not approved" before "approv"
+    if 'no exception' in c or 'no objection' in c:
         return 'approved'
-    # standalone letter-code fallback (A/B = approved, C = not, P = pending) — token-based
-    # so "Code A" reads as A, not as a word starting with C
-    toks = set(c.split())
-    for letter, verdict in (('a', 'approved'), ('b', 'approved'), ('c', 'not_approved'), ('p', 'under_review')):
-        if letter in toks:
-            return verdict
+    if ('not approv' in c or 'disapprov' in c or 'not accepted' in c or 'reject' in c
+            or 'resubmit' in c or 'revise' in c):
+        return 'not_approved'
+    if ('under' in c or 'review' in c or 'pend' in c or 'progress' in c
+            or 'await' in c or 'waiting' in c):
+        return 'under_review'
+    if 'approv' in c or 'as noted' in c or 'accepted' in c:
+        return 'approved'
+    # an explicit code inside the text: "Code 2", "code-c"
+    m = re.search(r'\bcode ?([a-d1-4pw])\b', c)
+    if m:
+        return _CODE_VERDICT[m.group(1)]
+    # a short cell holding a standalone letter code ("Code A" style handled above)
+    if len(words) <= 3:
+        for w in words:
+            if w in _CODE_VERDICT and not w.isdigit():
+                return _CODE_VERDICT[w]
     return None
+
+
+def legend_code_candidates(raw):
+    """The code(s) a cell could be quoting, upper-case: 'B', '(B)', 'Code B',
+    'Approved (Code B)', 'B - approved as noted', 1.0 → ['B'] / ['1']."""
+    if raw is None or isinstance(raw, bool):
+        return []
+    if isinstance(raw, (int, float)):
+        if raw != raw:
+            return []
+        return [str(int(raw)) if float(raw).is_integer() else str(raw)]
+    s = ' '.join(str(raw).upper().split())
+    out = []
+    compact = re.sub(r'[^A-Z0-9]', '', s)
+    if 1 <= len(compact) <= 3:
+        out.append(compact)
+    for m in re.finditer(r'\(\s*(?:CODE\s*)?([A-Z0-9]{1,3})\s*\)', s):
+        out.append(m.group(1))
+    for m in re.finditer(r'\bCODE\s*[-:]?\s*([A-Z0-9]{1,3})\b', s):
+        out.append(m.group(1))
+    m = re.match(r'^([A-Z0-9]{1,3})\s*[-–=:]\s*\S', s)
+    if m:
+        out.append(m.group(1))
+    seen, uniq = set(), []
+    for x in out:
+        if x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    return uniq
+
+
+def classify_action_code_with_legend(raw, legend=None):
+    """Scheme-aware review code: a legend found in the log ({code: verdict}, verdict one of
+    'approved' | 'not_approved' | 'under_review' | 'ignore') wins for any code it lists;
+    everything else falls back to the default rule (classify_action_code). 'ignore' → None
+    (the planner chose not to count that code)."""
+    if legend:
+        leg = {str(k).strip().upper(): v for k, v in legend.items() if str(k).strip()}
+        for code in legend_code_candidates(raw):
+            if code in leg:
+                v = leg[code]
+                return v if v in VERDICTS else None
+    return classify_action_code(raw)
 
 
 def e1_file_bucket(filename):
