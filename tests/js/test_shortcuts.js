@@ -102,8 +102,12 @@ test('no two entries collide through the matcher (each combo resolves to itself)
 test('text-editing chords are never taken (Ctrl+A/C/V/X/Z/Y, Ctrl+Backspace/Delete/Home/End)', () => {
   for (const k of ['a', 'c', 'v', 'x', 'z', 'y', 'backspace', 'delete', 'home', 'end', 'arrowleft', 'arrowright']) {
     assert.equal(matchShortcut(ev(k, { ctrl: true })), null, `Ctrl+${k} is registered`);
+    // Ctrl+Shift+A = the Appearance picker (asked for); it is not an edit-box chord on Windows,
+    // and like every non-Esc shortcut it pauses while the planner is typing (checked below).
+    if (k === 'a') continue;
     assert.equal(matchShortcut(ev(k, { ctrl: true, shift: true })), null, `Ctrl+Shift+${k} is registered`);
   }
+  assert.equal(shortcutDecision(matchShortcut(ev('A', { ctrl: true, shift: true })), el('INPUT', { type: 'text' })), 'pass');
 });
 test('browser/WebView2 combos we must not hijack stay free (Ctrl+W/T/N/Tab, Ctrl+Shift+I, Alt+F4, Alt+Left/Right)', () => {
   assert.equal(matchShortcut(ev('w', { ctrl: true })), null);
