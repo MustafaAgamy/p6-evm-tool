@@ -32,6 +32,10 @@ const PRINT_CSS = `
   .wbst-colpick, #wbst-colbtn, .cp-ai, #aireview-body, .wbst-toolbar .wbst-seg { display: none !important; }
   .ov-note, .dash-trend-sub, .cp-sub { color:#64748b; }
   @page { margin: 14mm; }
+  /* The inlined app stylesheet carries a print safety net (body > *:not(.rpv-overlay) →
+     display:none) meant for the app window; in THIS document it hid the whole report, so
+     every printView PDF / Print came out blank. The report body must always print. */
+  @media print { body > .pr-doc { display: block !important; } }
 `;
 
 function composeDoc(css, title, subtitle, sections, selectedKeys) {

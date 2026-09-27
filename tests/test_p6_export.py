@@ -314,3 +314,21 @@ def test_slices_prefer_the_gap_between_blocks_over_the_gap_between_rows():
         y += 203
     out = svg_raster._slices(pymupdf.Rect(0, 0, 100, rows[-1].y1), rows, 300)
     assert out[0].y1 == 185                       # after block 1 (gap 20), not after row 3 (gap 3)
+
+
+def test_printview_documents_are_not_hidden_by_the_app_print_safety_net():
+    """printView() inlines the app stylesheet, whose @media print rule hides every body child
+    except the preview overlay — it made every Overview/WBS/Narrative PDF blank. The html_model
+    applies print media like Chrome does, so a hidden report would come out empty here too."""
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    css = (root / 'ui' / 'style.css').read_text(encoding='utf-8')
+    js = (root / 'ui' / 'modules' / 'printview.js').read_text(encoding='utf-8')
+    print_css = re.search(r'const PRINT_CSS = `(.*?)`;', js, re.S).group(1)
+    html = (f'<!doctype html><html class="light"><head><meta charset="utf-8"><style>{css}\n{print_css}'
+            '</style></head><body><div class="pr-doc"><div class="pr-head"><h1>WBS Summary</h1></div>'
+            '<section class="pr-sec"><h2 class="pr-h">WBS</h2><table><tr><th>Code</th></tr>'
+            '<tr><td>HELLO-CELL</td></tr></table></section></div></body></html>')
+    rep = HM.parse_report(html)
+    tables = [b for b in rep.all_blocks() if b.kind == 'table']
+    assert tables and tables[0].rows[1][0].text == 'HELLO-CELL'
