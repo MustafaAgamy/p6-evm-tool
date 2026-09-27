@@ -1,6 +1,7 @@
 import threading
+import webbrowser
 import webview
-from utils import resource_path, APP_TITLE
+from utils import resource_path, APP_TITLE, is_allowed_external_url
 
 
 class Api:
@@ -52,6 +53,16 @@ class Api:
             save_filename=default_name
         )
         return result[0] if result else None
+
+    def open_external(self, url):
+        """Open an allow-listed https link (Help ▸ Contact / About LinkedIn) in the user's
+        default browser instead of inside the app window. Returns True when handed over."""
+        if not is_allowed_external_url(url):
+            return False
+        try:
+            return bool(webbrowser.open(url.strip(), new=2))
+        except Exception:
+            return False
 
     def quit(self):
         """Close the application window (File ▸ Exit)."""
