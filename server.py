@@ -294,6 +294,9 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_copilot(body)
         elif self.path == '/api/report/html':
             self._handle_report_html(body)
+        elif self.path in ('/api/export/pdf', '/api/export/html', '/api/export/docx',
+                           '/api/export/xlsx'):
+            self._handle_export_document(body, self.path.rsplit('/', 1)[-1])
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -3028,6 +3031,56 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    # ── /api/export/{pdf,html,docx,xlsx} — ONE-DOCUMENT exports ─────────────
+    def _handle_export_document(self, body, kind):
+        """Every output of the Report Contents picker is built from the ONE final report
+        HTML the preview shows (feature render + appearance mode + ticked parts, in the
+        chosen order) — so PDF · Word · HTML · Excel cannot diverge (p6_export).
+
+        body: {html, output_path, title?, meta?: {feature?, project?, data_date?}, sections?}
+        Returns {ok, path} or {ok: False, error}."""
+        output_path = (body.get('output_path') or '').strip()
+        html_content = body.get('html') or ''
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not html_content.strip():
+            self._json(200, {'ok': False, 'error': 'Nothing to export — the report is empty.'})
+            return
+        meta = body.get('meta') or {}
+        title = (body.get('title') or meta.get('feature') or '').strip()
+        feature = (meta.get('feature') or title or '').strip()
+        project = (meta.get('project') or '').strip()
+
+        def chrome():
+            try:
+                return _find_chrome()
+            except Exception:
+                return None
+        try:
+            sys.path.insert(0, resource_path('.'))
+            if kind == 'pdf':
+                from p6_export.pdf import html_to_pdf
+                html_to_pdf(html_content, output_path, chrome=chrome())
+            elif kind == 'html':
+                from p6_export.to_html import write_html
+                write_html(html_content, output_path, title=title or APP_NAME)
+            elif kind == 'docx':
+                from p6_export.to_docx import html_to_docx
+                html_to_docx(html_content, output_path, app_name=APP_NAME, feature=feature,
+                             project=project, chrome=chrome(), sections=body.get('sections'))
+            elif kind == 'xlsx':
+                from p6_export.to_xlsx import html_to_xlsx
+                html_to_xlsx(html_content, output_path, app_name=APP_NAME, feature=feature,
+                             project=project, data_date=(meta.get('data_date') or ''),
+                             sections=body.get('sections'))
+            else:
+                self._json(200, {'ok': False, 'error': f'Unknown export type: {kind}'})
+                return
+            self._json(200, {'ok': True, 'path': output_path})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_report_html(self, body):
         """Generic 'print this view' → PDF. The client composes a self-contained HTML
         document (app stylesheet inlined, light theme, only the ticked sections) so
