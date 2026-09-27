@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     view:    [['Command palette…','palette'], ['sep'], ['Previous feature','prev-feature'], ['Next feature','next-feature'], ['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance…','appearance'], ['Cycle appearance mode','cycle-appearance']],
     analysis:[['Choose module…','showchooser'], ['Run the current feature again','rerun'], ['Back to import','load-another']],
     tools:   [['Knowledge Base','kb'], ['Productivity & Resources','prodintel']],
-    help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About Controlyx','help-about']],
+    help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About ' + (window.__APP_NAME__ || 'Controlyx'),'help-about']],
   };
   // A menu row with its keyboard shortcut printed on the right — the hint comes from the
   // SHORTCUTS registry (shortcuts.js), the same entry the key handler fires, so a menu can
