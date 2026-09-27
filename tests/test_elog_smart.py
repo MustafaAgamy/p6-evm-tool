@@ -655,3 +655,21 @@ def test_sheet_name_label_drops_log_even_when_glued_to_brackets():
     assert es._sheet_label('SPARE PARTS LOG(Arch)') == 'SPARE PARTS (Arch)'
     assert es._sheet_label('O&M LOG') == 'O&M'
     assert es._sheet_label('Civil Drawings') == 'Civil'
+
+
+def test_headerless_running_number_is_a_serial_not_a_question(tmp_path):
+    p = tmp_path / 'om.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'O&M LOG'
+    ws.append([None, 'MANUAL TITLE', 'DISCIPLINE', 'ACTUAL DATE OF SUBMISSION', 'CURRENT STATUS'])
+    ws.append(['Electrical'])
+    for i, t in enumerate(['Transformer', 'UPS', 'ATS'], 1):
+        ws.append([i, f'O&M for {t}', 'Electrical', '20-3-2024', 'Approved (Code B)'])
+    ws.append(['Mechanical'])
+    for i, t in enumerate(['Pumps', 'Fans'], 1):
+        ws.append([i, f'O&M for {t}', 'Mechanical', '21-3-2024', 'U.A'])
+    wb.save(p)
+    col_a = _sheet(es.inspect_log(str(p)), 'O&M LOG')['columns'][0]
+    assert col_a['index'] == 0 and col_a['field'] == 'ignore'
+    assert col_a['level'] == 'high' and 'serial' in col_a['reason']

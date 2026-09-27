@@ -146,6 +146,25 @@ def _lev1(a, b):
     return False
 
 
+def _looks_serial(values):
+    """A running number column (1, 2, 3 … restarting at 1 per section) with no heading."""
+    nums = []
+    for v in values:
+        if _empty(v):
+            continue
+        try:
+            f = float(str(v).strip()) if not isinstance(v, bool) else None
+        except ValueError:
+            return False
+        if f is None or not f.is_integer():
+            return False
+        nums.append(int(f))
+    if len(nums) < 3:
+        return False
+    steps = sum(1 for a, b in zip(nums, nums[1:]) if b == a + 1 or b == 1)
+    return steps >= 0.8 * (len(nums) - 1)
+
+
 def _is_serial_header(header):
     return _norm_text(header) in _SERIAL_HEADERS or str(header or '').strip() == '#'
 
@@ -818,9 +837,11 @@ def _analyze_sheet(title, grid, legend_all, fmt):
         for f, (s, why) in _content_only(prof).items():
             if s > scored.get(f, (0.0, ''))[0]:
                 scored[f] = (s, why)
+        serial = _is_serial_header(header) if header else _looks_serial(
+            [r[j] if j < len(r) else None for r in data[:PROFILE_ROWS]])
         cols.append({'index': j, 'letter': _col_letter(j), 'header': header,
                      'samples': prof['samples'][:6], '_scored': scored, '_prof': prof,
-                     '_serial': _is_serial_header(header) if header else False})
+                     '_serial': serial})
 
     taken = {}
     ranked = sorted(((s, c['index'], f, why, c) for c in cols for f, (s, why) in c['_scored'].items()),

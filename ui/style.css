@@ -3691,3 +3691,5 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .elog-spacer { flex: 1; }
 .elog-actions .btn-mini:disabled { opacity: .55; cursor: default; }
 @media (max-width: 900px) { .elog-codegrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.elog-prevwrap { overflow-x: auto; }
+@media (max-width: 560px) { .elog-codegrid { grid-template-columns: minmax(0, 1fr); } .elog-colname { min-width: 120px; } .elog-samp { max-width: 180px; } }
