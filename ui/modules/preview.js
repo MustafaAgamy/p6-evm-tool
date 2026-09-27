@@ -1,30 +1,81 @@
-// the window width. Optional report-content selector (tick which sections to include) AND an
-// Appearance picker (6 modes) — both re-render the preview server-side from one source, so
-// Preview = PDF = Print. Save as PDF / Print / Close. Used by the EVM, Calendar,
-// Constructability and Schedule Health Review report flows.
+// Report preview overlay — the ONE Report Contents picker every feature's File ▸ Print /
+// "Generate … PDF" opens. The page is scaled to fit the window width.
+//
+// TWO LEVELS: the caller's SECTIONS (tick a whole sub-feature) and the PARTS inside each one
+// (tick just one table / chart / summary) — parts are discovered from the rendered HTML
+// ([data-sec] › [data-part], see docs/report-picker-adoption.md). Select all / Clear all,
+// drag a section to reorder, remembered per storageKey. Unticked parts are REMOVED from the
+// report (not hidden); a ticked part with nothing to show says "No data available".
+//
+// ONE DOCUMENT: the preview frame holds the exact final report (feature render for the
+// ticked sections + appearance mode, pruned + ordered by report_parts.js). Save as PDF ·
+// Word · HTML · Excel and Print are ALL made from that one HTML string (POST
+// /api/export/<kind>), so the outputs cannot diverge.
+//
+// Backward compatible: showReportPreview({ title, subtitle, html, onSave, sections, selected,
+// onRerender, storageKey, onThemeChange, initialMode }) works as before. New optional opts:
+//   feature   — the name used in the Word header / Excel title (default: title minus "preview")
+//   exportName— base file name for the save dialogs (default: from the title)
+//   meta      — { project, data_date } for the Word header / Excel header block (else read
+//               from the report's own "Project: / Data Date:" line)
+//   legacyPdf — true = "PDF" calls the caller's onSave (its own server route) instead of the
+//               generic one-document PDF. Default false: the generic PDF honours part ticks.
+//   exports   — which Save buttons to offer (default ['pdf','docx','html','xlsx']); a feature
+//               with its own richer Word/Excel screen export (Reporting Studio) can pass ['pdf'].
 import { escapeHtml } from './format.js';
 import { buildAppearancePicker, getSavedMode, backdropColor } from './appearance.js';
+import { state as appState } from './state.js';
+import {
+  scanReport, buildTree, restoreState, sectionCheck, partChecked, toggleSection, togglePart,
+  selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml,
+} from './report_parts.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
 
-export function showReportPreview({ title, subtitle, html, onSave, sections, selected, onRerender, storageKey, onThemeChange, initialMode }) {
-  const hasSel = Array.isArray(sections) && sections.length > 0;
-  const defaultKeys = (sections || []).filter(s => !s.empty).map(s => s.key);
-  const sel = new Set(selected && selected.length ? selected.filter(k => (sections || []).some(s => s.key === k && !s.empty)) : defaultKeys);
+const EXPORTS = [
+  { kind: 'pdf',  label: 'PDF',   ext: 'pdf'  },
+  { kind: 'docx', label: 'Word',  ext: 'docx' },
+  { kind: 'html', label: 'HTML',  ext: 'html' },
+  { kind: 'xlsx', label: 'Excel', ext: 'xlsx' },
+];
+
+function _port() {
+  return appState.serverPort || (typeof window !== 'undefined' && window.__SERVER_PORT__) || '';
+}
+
+function _slug(s) {
+  return String(s || 'report').replace(/\s+preview$/i, '').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '') || 'report';
+}
+
+export function showReportPreview({ title, subtitle, html, onSave, sections, selected, onRerender, storageKey,
+  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports }) {
   let mode = initialMode || getSavedMode();
+  const featureName = feature || String(title || 'Report').replace(/\s+(report\s+)?preview$/i, '').replace(/^Report\s+—\s+/i, '');
+  const baseName = exportName || _slug(featureName);
+
+  // ── picker model ──
+  let serverHtml = html || '';
+  let lastKeys = Array.isArray(selected) && selected.length ? selected.slice()
+    : (sections || []).filter(s => !s.empty).map(s => s.key);
+  let scan = scanReport(serverHtml);
+  let wraps = scan.sections.length > 0;                  // the renderer wraps sections in [data-sec]
+  let tree = buildTree(sections || [], scan);
+  const hasSel = tree.length > 0;
+  let saved = null;
+  if (storageKey) { try { saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch { saved = null; } }
+  let st = restoreState(saved, tree, selected);
+  const expanded = new Set();
+  const finalHtml = () => (hasSel ? pruneHtml(serverHtml, st, { knownSections: tree.map(s => s.key) }) : serverHtml);
 
   const overlay = document.createElement('div');
   overlay.className = 'rpv-overlay';
   const sidebar = hasSel ? `
-    <div class="rpv-sidebar">
+    <div class="rpv-sidebar rpv-tree-side">
       <div class="rpv-sh">Report contents</div>
-      <div class="rpv-tools"><a id="rpv-all">Select all</a><i>·</i><a id="rpv-none">Clear all</a></div>
-      <div id="rpv-secs">${sections.map(s => `
-        <label class="rpv-sec${s.empty ? ' empty' : ''}">
-          <input type="checkbox" data-key="${escapeHtml(s.key)}"${sel.has(s.key) ? ' checked' : ''}${s.empty ? ' disabled' : ''}>
-          <span>${escapeHtml(s.label)}</span>${s.empty ? '<i class="rpv-skip">no data</i>' : ''}
-        </label>`).join('')}</div>
-      <div class="rpv-note">Ticked = in the report. <b>Preview = PDF = Print.</b> Empty sections are skipped.</div>
+      <div class="rpv-tools"><a id="rpv-all" role="button" tabindex="0">Select all</a><i>·</i><a id="rpv-none" role="button" tabindex="0">Clear all</a></div>
+      <ul class="rpv-tree" id="rpv-secs"></ul>
+      <div class="rpv-note">Tick a whole section, or open it (▸) and tick single tables / charts. Drag ⋮⋮ to reorder.
+        <b>Preview = PDF = Word = HTML = Excel = Print.</b></div>
     </div>` : '';
   overlay.innerHTML = `
     <div class="rpv-shell" role="dialog" aria-label="${escapeHtml(title)}">
@@ -33,10 +84,11 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
           <span>${escapeHtml(title)}</span>
           ${subtitle ? `<span class="rpv-sub">${escapeHtml(subtitle)} · fit to width</span>` : ''}</div>
         <div class="rpv-appearance-slot"></div>
-        <div class="rpv-actions">
+        <div class="rpv-actions rpv-export-bar" role="toolbar" aria-label="Save or print the report">
           <button class="btn-mini" id="rpv-close">Close</button>
-          <button class="btn-mini" id="rpv-print">🖨 Print</button>
-          <button class="btn-mini primary" id="rpv-save">⬇ Save as PDF</button>
+          <button class="btn-mini" id="rpv-print" title="Print exactly what the preview shows">🖨 Print</button>
+          ${EXPORTS.filter(e => !Array.isArray(exports) || exports.includes(e.kind)).map(e => `<button class="btn-mini${e.kind === 'pdf' ? ' primary' : ''}" data-exp="${e.kind}" id="rpv-save-${e.kind}"
+            title="Save the previewed report as ${e.label}">⬇ ${e.label}</button>`).join('')}
         </div>
       </div>
       <div class="rpv-main">
@@ -45,6 +97,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
           <div class="rpv-canvas"><div class="rpv-page"><iframe class="rpv-frame" title="Report preview"></iframe></div></div>
         </div>
       </div>
+      <div class="rpv-toast" role="status" aria-live="polite"></div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -52,8 +105,17 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   const canvas = overlay.querySelector('.rpv-canvas');
   const page   = overlay.querySelector('.rpv-page');
   const frame  = overlay.querySelector('.rpv-frame');
+  const toastEl = overlay.querySelector('.rpv-toast');
   page.style.width = frame.style.width = PAGE_W + 'px';
   page.style.transformOrigin = 'top left';
+
+  let toastTimer = null;
+  const toast = (msg, kind = 'ok') => {
+    toastEl.textContent = msg;
+    toastEl.className = `rpv-toast show ${kind}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.className = 'rpv-toast'; }, kind === 'err' ? 7000 : 3500);
+  };
 
   const paintBackdrop = () => { page.style.background = frame.style.background = backdropColor(mode); };
   paintBackdrop();
@@ -74,8 +136,107 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
     page.style.height = frame.style.height = contentH + 'px';
     relayout();
   });
-  frame.srcdoc = html;
+  const showFinal = () => { frame.srcdoc = finalHtml(); };
   window.addEventListener('resize', relayout);
+
+  const persist = () => { if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(st)); } catch { /* ignore */ } } };
+  const adopt = (newHtml, keys) => {
+    serverHtml = newHtml;
+    lastKeys = keys.slice();
+    scan = scanReport(serverHtml);
+    wraps = wraps || scan.sections.length > 0;
+    tree = buildTree(sections || [], scan, tree);
+    st = restoreState(st, tree);                         // keep ticks/order; learn new parts
+  };
+  // Server re-render only when the report needs a section it has not rendered yet (or the
+  // renderer cannot be pruned client-side); part ticks + reordering are instant.
+  const needFetch = (keys) => {
+    if (typeof onRerender !== 'function') return false;
+    if (!wraps) return keys.length !== lastKeys.length || keys.some(k => !lastKeys.includes(k));
+    return keys.some(k => !lastKeys.includes(k));
+  };
+  let busy = 0;
+  const refresh = async () => {
+    persist();
+    paintTree();
+    const keys = serverKeys(st);
+    if (needFetch(keys)) {
+      const ticket = ++busy;
+      try {
+        const newHtml = await onRerender(keys, mode);
+        if (ticket !== busy) return;                    // a newer request superseded this one
+        if (typeof newHtml === 'string' && newHtml) { adopt(newHtml, keys); paintTree(); }
+      } catch { /* keep the current preview */ }
+    }
+    showFinal();
+  };
+
+  // ── the two-level tree (sections ▸ parts) ──
+  const listEl = overlay.querySelector('#rpv-secs');
+  let dragKey = null;
+  function paintTree() {
+    if (!listEl) return;
+    const counter = overlay.querySelector('.rpv-sh');
+    if (counter) counter.textContent = `Report contents · ${countTicked(st, tree)} selected`;
+    listEl.innerHTML = '';
+    st.order.forEach(key => {
+      const s = tree.find(x => x.key === key);
+      if (!s) return;
+      const chk = sectionCheck(st, tree, key);
+      const li = document.createElement('li');
+      li.className = 'rpv-node' + (s.empty ? ' empty' : '') + (chk === 'none' ? ' off' : '');
+      li.dataset.key = key;
+      li.draggable = !s.empty;
+      const open = expanded.has(key);
+      const hasParts = s.parts.length > 0;
+      li.innerHTML = `
+        <div class="rpv-sec-row">
+          <span class="rpv-grip" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
+          <button class="rpv-twisty${hasParts ? '' : ' none'}" aria-label="Show parts" aria-expanded="${open}" ${hasParts ? '' : 'tabindex="-1"'}>${hasParts ? (open ? '▾' : '▸') : ''}</button>
+          <label class="rpv-sec"><input type="checkbox" class="rpv-sec-cb" data-key="${escapeHtml(key)}"${chk !== 'none' ? ' checked' : ''}${s.empty ? ' disabled' : ''}>
+            <span>${escapeHtml(s.label)}</span></label>
+          ${s.empty ? '<i class="rpv-skip">no data</i>' : (hasParts ? `<i class="rpv-count">${s.parts.filter(p => partChecked(st, tree, p.id)).length}/${s.parts.length}</i>` : '')}
+        </div>
+        ${hasParts && open ? `<ul class="rpv-parts">${s.parts.map(p => `
+          <li><label class="rpv-part${p.empty ? ' empty' : ''}"><input type="checkbox" class="rpv-part-cb" data-part="${escapeHtml(p.id)}"${partChecked(st, tree, p.id) ? ' checked' : ''}${s.empty ? ' disabled' : ''}>
+            <span>${escapeHtml(p.label)}</span>${p.empty ? '<i class="rpv-skip">no data</i>' : ''}</label></li>`).join('')}</ul>` : ''}`;
+      const cb = li.querySelector('.rpv-sec-cb');
+      cb.indeterminate = chk === 'some';
+      cb.addEventListener('change', () => { st = toggleSection(st, tree, key, cb.checked); refresh(); });
+      li.querySelector('.rpv-twisty').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!hasParts) return;
+        if (expanded.has(key)) expanded.delete(key); else expanded.add(key);
+        paintTree();
+      });
+      li.querySelectorAll('.rpv-part-cb').forEach(pcb => pcb.addEventListener('change', () => {
+        st = togglePart(st, tree, pcb.dataset.part, pcb.checked); refresh();
+      }));
+      li.addEventListener('dragstart', (e) => { dragKey = key; li.classList.add('drag'); try { e.dataTransfer.setData('text/plain', key); } catch { /* ignore */ } });
+      li.addEventListener('dragend', () => { dragKey = null; li.classList.remove('drag'); });
+      li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('drop'); });
+      li.addEventListener('dragleave', () => li.classList.remove('drop'));
+      li.addEventListener('drop', (e) => {
+        e.preventDefault(); li.classList.remove('drop');
+        let from = dragKey;
+        try { from = e.dataTransfer.getData('text/plain') || dragKey; } catch { /* ignore */ }
+        if (!from || from === key) return;
+        st = moveSection(st, from, key); refresh();
+      });
+      listEl.appendChild(li);
+    });
+  }
+
+  if (hasSel) {
+    const all = overlay.querySelector('#rpv-all');
+    const none = overlay.querySelector('#rpv-none');
+    const act = (el, fn) => {
+      el.addEventListener('click', fn);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+    };
+    act(all, () => { st = selectAll(st, tree); refresh(); });
+    act(none, () => { st = clearAll(st); refresh(); });
+  }
 
   // Appearance picker — only when the caller can re-render the preview for a new mode.
   if (typeof onThemeChange === 'function') {
@@ -86,8 +247,13 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
         mode = m;
         paintBackdrop();
         try {
-          const newHtml = await onThemeChange(m, hasSel ? [...sel] : undefined);
-          if (typeof newHtml === 'string') frame.srcdoc = newHtml;
+          const keys = hasSel ? serverKeys(st) : undefined;
+          const newHtml = await onThemeChange(m, keys);
+          if (typeof newHtml === 'string' && newHtml) {
+            if (hasSel) adopt(newHtml, keys); else serverHtml = newHtml;
+            paintTree();
+            showFinal();
+          }
         } catch { /* keep the current preview if the re-render fails */ }
       },
     });
@@ -101,43 +267,62 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
   });
 
-  // ── Content selector (optional) — toggling re-renders the preview from the same source ──
-  if (hasSel) {
-    const persist = () => { if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify([...sel])); } catch { /* ignore */ } } };
-    const rerender = async () => {
-      persist();
-      try {
-        const newHtml = await onRerender([...sel], mode);
-        if (newHtml) { frame.srcdoc = newHtml; }
-      } catch { /* keep current preview */ }
-    };
-    const syncChecks = () => overlay.querySelectorAll('#rpv-secs input').forEach(cb => { cb.checked = sel.has(cb.dataset.key); });
-    overlay.querySelectorAll('#rpv-secs input').forEach(cb => cb.addEventListener('change', () => {
-      if (cb.checked) sel.add(cb.dataset.key); else sel.delete(cb.dataset.key);
-      rerender();
-    }));
-    overlay.querySelector('#rpv-all').addEventListener('click', () => { defaultKeys.forEach(k => sel.add(k)); syncChecks(); rerender(); });
-    overlay.querySelector('#rpv-none').addEventListener('click', () => { sel.clear(); syncChecks(); rerender(); });
-  }
-
-  // ── Print — prints the same HTML the preview shows (Preview = Print) ──
+  // ── Print — prints the same final HTML the preview shows (Preview = Print) ──
   overlay.querySelector('#rpv-print').addEventListener('click', () => {
-    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { /* pop-up blocked */ }
+    if (hasSel && !serverKeys(st).length) { toast('Tick at least one section to print.', 'err'); return; }
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { toast('Print is unavailable here.', 'err'); }
   });
 
-  const saveBtn = overlay.querySelector('#rpv-save');
-  saveBtn.addEventListener('click', async () => {
-    saveBtn.disabled = true;
-    const label = saveBtn.textContent;
-    saveBtn.textContent = 'Saving…';
-    try {
-      const ok = await onSave(mode, hasSel ? [...sel] : undefined);   // mode + current selection → the PDF
-      if (ok !== false) { saveBtn.textContent = '✓ Saved'; setTimeout(close, 900); }
-      else { saveBtn.disabled = false; saveBtn.textContent = label; }
-    } catch {
-      saveBtn.disabled = false; saveBtn.textContent = label;
+  // ── Save as PDF · Word · HTML · Excel — all from the ONE final HTML ──
+  const choosePath = async (ext) => {
+    const api = typeof window !== 'undefined' && window.pywebview && window.pywebview.api;
+    if (!api || typeof api.choose_save_path !== 'function') {
+      toast('Saving files is available in the desktop app.', 'err');
+      return null;
     }
+    return api.choose_save_path(`${baseName}.${ext}`, ext);
+  };
+  const exportDoc = async (kind, ext, btn) => {
+    if (hasSel && !serverKeys(st).length) { toast('Tick at least one section for the report.', 'err'); return; }
+    const label = btn.textContent;
+    btn.disabled = true;
+    try {
+      if (kind === 'pdf' && legacyPdf && typeof onSave === 'function') {
+        btn.textContent = 'Saving…';
+        const ok = await onSave(mode, hasSel ? serverKeys(st) : undefined);
+        if (ok !== false) toast('PDF saved.');
+        return;
+      }
+      const outputPath = await choosePath(ext);
+      if (!outputPath) return;
+      btn.textContent = 'Saving…';
+      const resp = await fetch(`http://localhost:${_port()}/api/export/${kind}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: finalHtml(), output_path: outputPath, title: featureName,
+          meta: { feature: featureName, ...(meta || {}) },
+          sections: tree.map(s => ({ key: s.key, label: s.label })),
+        }),
+      });
+      const data = await resp.json();
+      if (data && data.ok) toast(`Saved ${ext.toUpperCase()} — ${String(outputPath).split(/[\\/]/).pop()}`);
+      else toast(`${ext.toUpperCase()} export failed: ${(data && data.error) || 'unknown error'}`, 'err');
+    } catch (e) {
+      toast(`${ext.toUpperCase()} export failed: ${e && e.message ? e.message : 'could not reach the local server'}`, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  };
+  overlay.querySelectorAll('[data-exp]').forEach(btn => {
+    const e = EXPORTS.find(x => x.kind === btn.dataset.exp);
+    btn.addEventListener('click', () => exportDoc(e.kind, e.ext, btn));
   });
+
+  // first paint: the tree, then the final (pruned + ordered) report — refetching only if the
+  // remembered selection needs a section the caller did not render
+  paintTree();
+  refresh();
+  return { close, finalHtml, getState: () => st };
 }
 
 

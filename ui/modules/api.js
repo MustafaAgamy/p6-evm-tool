@@ -358,6 +358,8 @@ export async function generateCalendarPdf() {
     showReportPreview({
       title: 'P6 Calendar Audit preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
       sections, selected, storageKey,
+      feature: 'P6 Calendar Audit', exportName: 'P6_Calendar_Audit',
+      meta: { project: reqBody.meta.project_name },   // data date: read from the report head (same text as the PDF)
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),
@@ -443,6 +445,8 @@ export async function generatePdf() {
     showReportPreview({
       title: 'EVM report preview', subtitle: reqBody.meta.source_file, html,
       sections: EVM_SECTIONS, selected, storageKey, initialMode: mode,
+      feature: 'Earned Value (EVM)', exportName: 'EVM_report',
+      meta: { project: reqBody.meta.project_name },   // data date: read from the report head (same text as the PDF)
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, keys) => _savePdf('api/report/evm', { ...reqBody, theme: m, sections: keys }, 'EVM_report.pdf', 'pdf'),

@@ -883,13 +883,48 @@ body.dng-fs-body #results-section { transform: none !important; }
 .rpv-skip { font-size: 9px; font-style: normal; color: var(--warning); background: rgba(251,191,36,.14); border-radius: 4px; padding: 1px 6px; }
 .rpv-note { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
 .rpv-note b { color: var(--text); }
+/* Two-level Report Contents tree (sections ▸ parts) + export bar + in-overlay toast.
+   Every colour is an app token → themed in all 6 appearance modes. */
+.rpv-tree-side { flex-basis: 268px; }
+.rpv-tree { list-style: none; margin: 0; padding: 0; }
+.rpv-node { border: 1px solid transparent; border-radius: 7px; margin-bottom: 2px; }
+.rpv-node.off > .rpv-sec-row .rpv-sec span { color: var(--muted); }
+.rpv-node.drag { opacity: .45; }
+.rpv-node.drop { border-color: var(--accent); background: var(--accent-soft); }
+.rpv-sec-row { display: flex; align-items: center; gap: 2px; }
+.rpv-sec-row .rpv-sec { flex: 1 1 auto; min-width: 0; padding: 5px 4px; }
+.rpv-sec-row .rpv-sec span { overflow-wrap: anywhere; }
+.rpv-tree .rpv-grip { flex: none; font-size: 11px; padding: 0 2px; }
+.rpv-node.empty .rpv-grip { visibility: hidden; }
+.rpv-twisty { flex: none; width: 18px; height: 20px; border: 0; background: none; color: var(--muted);
+  cursor: pointer; font-size: 11px; padding: 0; border-radius: 4px; }
+.rpv-twisty:hover { color: var(--accent); background: var(--card-bg); }
+.rpv-twisty.none { cursor: default; visibility: hidden; }
+.rpv-count { flex: none; font-size: 9.5px; font-style: normal; color: var(--muted); padding-right: 4px; font-variant-numeric: tabular-nums; }
+.rpv-parts { list-style: none; margin: 0 0 4px 36px; padding: 0 0 0 8px; border-left: 1px solid var(--border); }
+.rpv-part { display: flex; align-items: center; gap: 7px; padding: 4px 4px; font-size: 11.5px; color: var(--ink-soft);
+  cursor: pointer; border-radius: 5px; }
+.rpv-part:hover { background: var(--card-bg); color: var(--text); }
+.rpv-part input { width: 13px; height: 13px; accent-color: var(--accent); flex: none; }
+.rpv-part span { flex: 1; overflow-wrap: anywhere; }
+.rpv-part.empty span { color: var(--muted); }
+.rpv-tools a:focus-visible, .rpv-twisty:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rpv-export-bar { flex-wrap: wrap; justify-content: flex-end; }
+.rpv-export-bar .btn-mini[disabled] { opacity: .6; cursor: progress; }
+.rpv-shell { position: relative; }
+.rpv-toast { position: absolute; right: 18px; bottom: 16px; max-width: min(520px, 80%); padding: 10px 14px;
+  border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: var(--success-bg); color: var(--success);
+  border: 1px solid var(--success); box-shadow: 0 6px 20px rgba(0,0,0,.25); opacity: 0; transform: translateY(8px);
+  pointer-events: none; transition: opacity .18s, transform .18s; z-index: 5; }
+.rpv-toast.show { opacity: 1; transform: none; }
+.rpv-toast.err { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 /* Print safety net — the Print button prints the report iframe directly (its own print
    styles apply); this keeps an accidental Ctrl+P on the app from printing the whole UI. */
 @media print {
   body > *:not(.rpv-overlay) { display: none !important; }
   .rpv-overlay { position: static; padding: 0; background: #fff; }
   .rpv-shell { width: 100%; height: auto; border: 0; box-shadow: none; }
-  .rpv-bar, .rpv-sidebar { display: none !important; }
+  .rpv-bar, .rpv-sidebar, .rpv-toast { display: none !important; }
   .rpv-main, .rpv-scroll { overflow: visible; background: #fff; padding: 0; display: block; }
   .rpv-page { transform: none !important; box-shadow: none; width: auto !important; }
   .rpv-frame { width: 100% !important; height: auto !important; }
