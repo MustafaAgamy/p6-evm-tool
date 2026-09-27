@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SHORTCUTS, shortcutRows, shortcutGroups, comboSignature, keysText, shortcutForCmd,
   shortcutForNav, matchShortcut, isTextEntry, shortcutDecision, createShortcutHandler,
+  KEEPS_HELP_OPEN, closesHelpFirst, withHelpClosedFirst,
 } from '../../ui/modules/shortcuts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -258,6 +259,39 @@ test('typing in a box: Esc still closes', () => {
   assert.equal(ran, true);
 });
 
+// ── SHELL-4: shortcuts that act on the screen close the Help Center first ────
+console.log('\nHelp Center is closed before a screen action (SHELL-4)');
+test('only Help / guide / shortcuts list / Esc / Ctrl+D keep Help open', () => {
+  assert.deepEqual([...KEEPS_HELP_OPEN].sort(), ['close', 'cycleAppearance', 'guide', 'help', 'keys']);
+  for (const id of ['pdf', 'excel', 'word', 'html', 'run', 'rerun', 'appearance', 'import', 'toggleNav',
+                    'goto', 'palette', 'prevFeature', 'nextFeature', 'recent']) {
+    assert.equal(closesHelpFirst(id), true, id);
+  }
+  // every registry id is decided one way or the other
+  [...new Set(SHORTCUTS.map(s => s.id))].forEach(id => assert.equal(typeof closesHelpFirst(id), 'boolean'));
+});
+test('withHelpClosedFirst: closes Help BEFORE the action runs, with the matched entry', () => {
+  const log = [];
+  const wrapped = withHelpClosedFirst({
+    pdf: (s) => log.push(['pdf', s.key]), help: () => log.push(['help']), cycleAppearance: () => log.push(['cycle']),
+  }, () => log.push(['closeHelp']));
+  wrapped.pdf({ key: 'p' });
+  wrapped.help();
+  wrapped.cycleAppearance();
+  assert.deepEqual(log, [['closeHelp'], ['pdf', 'p'], ['help'], ['cycle']]);
+});
+test('withHelpClosedFirst: a failing close never stops the action', () => {
+  let ran = false;
+  withHelpClosedFirst({ excel: () => { ran = true; } }, () => { throw new Error('no overlay'); }).excel({});
+  assert.equal(ran, true);
+});
+test('through the real handler: Ctrl+Shift+W with Help open → close Help, then export', () => {
+  const log = [];
+  const h = createShortcutHandler(withHelpClosedFirst({ word: () => log.push('word') }, () => log.push('closeHelp')), () => el('BODY'));
+  h(ev('W', { ctrl: true, shift: true }));
+  assert.deepEqual(log, ['closeHelp', 'word']);
+});
+
 // ── #6 Derived views of the registry ───────────────────────────────────────
 console.log('\nderived rows, groups, hints');
 
@@ -297,6 +331,18 @@ test('help.js has no hardcoded shortcut row literal', () =>
 test('app.js dispatches through createShortcutHandler on WINDOW in the CAPTURE phase', () => {
   assert.match(appSrc, /createShortcutHandler\(/);
   assert.match(appSrc, /window\.addEventListener\(\s*'keydown'\s*,\s*[^,]+,\s*true\s*\)/);
+});
+test('app.js closes the Help Center before screen actions (SHELL-4)', () => {
+  assert.match(appSrc, /createShortcutHandler\(\s*withHelpClosedFirst\(\s*SHORTCUT_ACTIONS\s*,\s*closeHelp\s*\)\s*\)/,
+    'the key handler must be built from withHelpClosedFirst(SHORTCUT_ACTIONS, closeHelp)');
+});
+test('app.js: Ctrl+R never re-renders the Baseline Narrative (SHELL-3)', () => {
+  const m = appSrc.match(/const NO_GENERIC_RERUN = \{([\s\S]*?)\};/);
+  assert.ok(m, 'NO_GENERIC_RERUN not found in app.js');
+  assert.match(m[1], /narrative\s*:/);
+  const fn = appSrc.slice(appSrc.indexOf('function runCurrentFeature'), appSrc.indexOf('function cycleAppearance'));
+  assert.ok(fn.indexOf('NO_GENERIC_RERUN') > 0 && fn.indexOf('NO_GENERIC_RERUN') < fn.indexOf('runFeature(view)'),
+    'runCurrentFeature must check NO_GENERIC_RERUN before the generic runFeature(view)');
 });
 test('app.js wires an action for every shortcut id', () => {
   const m = appSrc.match(/const SHORTCUT_ACTIONS = \{([\s\S]*?)\n  \};/);

@@ -149,6 +149,32 @@ export function shortcutDecision(s, el) {
   return s.guard ? 'block' : 'pass';
 }
 
+// The Help Center (help.js) is a full-screen overlay on top of everything (z-index 99999). A
+// shortcut that acts on the SCREEN — print / export, run, jump, the Appearance picker, import —
+// would otherwise open its result (PDF preview, in-page message, picker, feature) UNDERNEATH
+// Help, so nothing seems to happen. Those close Help first. Kept open: the Help shortcuts
+// themselves, Esc (Help closes itself), and Ctrl+D — the appearance change re-themes the Help
+// Center itself, so its result is visible without leaving Help.
+export const KEEPS_HELP_OPEN = new Set(['help', 'guide', 'keys', 'close', 'cycleAppearance']);
+
+export function closesHelpFirst(id) {
+  return !KEEPS_HELP_OPEN.has(id);
+}
+
+// Wrap an actions map (id → fn) so every action that works on the screen behind the Help
+// Center calls `closeOverlay()` (help.js closeHelp) before it runs. A failing close never
+// stops the action.
+export function withHelpClosedFirst(actions, closeOverlay) {
+  const out = {};
+  for (const [id, fn] of Object.entries(actions || {})) {
+    out[id] = !closesHelpFirst(id) ? fn : (s) => {
+      try { if (closeOverlay) closeOverlay(); } catch (e) { /* no overlay to close */ }
+      return fn(s);
+    };
+  }
+  return out;
+}
+
 // Build the window-level keydown handler. `actions` maps a shortcut id to a function
 // (called with the matched entry); `getActive` returns the focused element (injectable
 // for tests). app.js attaches the result on WINDOW in the CAPTURE phase.

@@ -24,7 +24,7 @@ import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
-import { createShortcutHandler, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
+import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
 import { needsHint, needsTooltip }              from './modules/feature_needs.js';
 import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
 import { playBoot }                            from './modules/boot.js';
@@ -472,8 +472,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   // Match → "typing?" decision → preventDefault → action — all in shortcuts.js (unit-tested):
   // shortcuts pause while the planner types in a box (Esc still works) and a stray
-  // Ctrl+R / Ctrl+P / Ctrl+S in a box can never reload or print the page.
-  const handleShortcut = createShortcutHandler(SHORTCUT_ACTIONS);
+  // Ctrl+R / Ctrl+P / Ctrl+S in a box can never reload or print the page. Every action that
+  // works on the screen closes the Help Center first, so its result (PDF preview, message,
+  // picker, feature) is not hidden under the Help overlay (shortcuts.js KEEPS_HELP_OPEN).
+  const handleShortcut = createShortcutHandler(withHelpClosedFirst(SHORTCUT_ACTIONS, closeHelp));
   // Attach on WINDOW, CAPTURE phase (not document/bubble). A physical keydown is
   // dispatched to document.activeElement and must bubble up to reach a document
   // listener — so it is lost whenever focus sits inside the report-preview <iframe>
@@ -525,6 +527,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Ctrl+↵ runs what is on screen; Ctrl+R runs the current feature again. The Run button is
   // the feature's own: the generic Run gate, or the Run of a multi-file feature's panel.
   const PANEL_RUN = { compare: 'cmp-run-review', revcompare: 'rc-run', period: 'per-run-compare', critpath: 'cpa-run', weather: 'thr-apply' };
+  // Views whose render RESETS the planner's own work, so a generic re-render would throw it away:
+  // the Baseline Narrative's render drops the generated report, its Printing Selection and the
+  // setup answers (narrative.js renderNarrativePanel). Ctrl+R there explains the view's own
+  // rebuild instead of silently wiping the page (a WebView2 confirm() cannot guard it).
+  const NO_GENERIC_RERUN = {
+    narrative: 'Run again (Ctrl+R) does not rebuild the Baseline Narrative — that would clear the report and your setup answers. To rebuild it, use ⚙ Edit setup, then Generate.',
+  };
   function runCurrentFeature(again) {
     const gate = document.getElementById('feature-gate');
     const gateRun = gate && !gate.classList.contains('hidden') ? gate.querySelector('.fg-run') : null;
@@ -538,6 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (!again) return;
+    if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
     if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) { runFeature(view); return; }
     showError(onResults && SELF_GATING.has(view)
       ? 'Use this feature’s own Run button to run it again.'
