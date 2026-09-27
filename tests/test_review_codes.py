@@ -5,6 +5,8 @@
   Not approved  = C, D, Code 3, Code 4, "revise and resubmit", "rejected", "not approved"
   Under review  = W, P, "pending", "under review", "in review" (and a row submitted with no
                   reply yet — that part lives in summarize_e1)
+  Not sent yet  = "under preparation", "in progress", "pending / awaiting submission",
+                  "not yet submitted", "to be submitted" → None (not a review status at all)
 
 A code legend found in the log itself overrides these defaults (classify_action_code_with_legend).
 """
@@ -35,7 +37,8 @@ def test_not_approved(raw):
 
 @pytest.mark.parametrize('raw', [
     'W', 'P', 'w', 'Pending', 'Pending\n( W )', 'Pending (W)', 'Under Review', 'In Review',
-    'In Progress', 'U.A', 'UA', 'Under approval', 'Awaiting reply',
+    'U.A', 'UA', 'Under approval', 'Awaiting reply', 'Awaiting approval', 'Awaiting review',
+    'Pending review', 'Pending approval', 'Pending with consultant',
 ])
 def test_under_review(raw):
     assert classify_action_code(raw) == 'under_review', raw
@@ -47,6 +50,29 @@ def test_unknown_or_ambiguous(raw):
     # 'B/C' is two codes at once; 'S'/'L' are superseded/latest flags, not review codes;
     # a long free-text comment must not be read as a code just because it contains 'a'.
     assert classify_action_code(raw) is None, raw
+
+
+@pytest.mark.parametrize('raw', [
+    'Under preparation', 'Under Preparation by subcontractor', 'In preparation', 'In progress',
+    'Work in progress', 'Pending submission', 'Awaiting submission', 'Pending Submittal',
+    'Not yet submitted', 'Not yet', 'To be submitted', 'Yet to submit', 'Not submitted',
+])
+def test_not_sent_yet_is_not_a_review_status(raw):
+    # ELOG-1: these mean the drawing has NOT gone to the consultant — they are not
+    # "under review" (the old bare 'under' / 'progress' / 'pend' matches read them so, and
+    # the reader then counted those drawings as submitted). None = shown as "not recognised".
+    assert classify_action_code(raw) is None, raw
+
+
+def test_status_says_sent_only_for_explicit_reviewer_side_wording():
+    from p6_evm.classify import status_says_sent
+    for raw in ('Under Review', 'In review', 'Under approval', 'U.A', 'Awaiting reply',
+                'Awaiting approval', 'Pending review', 'Submitted for approval'):
+        assert status_says_sent(raw), raw
+    # a bare code / 'Pending' does not prove the drawing went out; nor does "not sent" wording
+    for raw in ('W', 'P', 'Pending', 'Pending (W)', None, '', 'Pending submission',
+                'Under preparation', 'Not yet submitted', 'In progress'):
+        assert not status_says_sent(raw), raw
 
 
 def test_reviewed_no_exceptions_is_not_under_review():

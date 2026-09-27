@@ -515,6 +515,98 @@ def test_alternative_header_fixtures_old_equals_new(tmp_path):
         {k: v for k, v in o.items() if k not in ('submitted_rows', 'submitted_pct')}
 
 
+def _roots_status_style(path):
+    """ROOTS-style log whose review column is a word STATUS (not a letter code), including
+    statuses that mean the drawing has NOT been sent yet (ELOG-1)."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'E1 Log'
+    ws.append(['ROOTS — SHOP DRAWING LOG'])
+    ws.append([])
+    ws.append(['No.', 'Descipline', 'Building', 'Description', 'Type of submittal', 'REV',
+               'Date Submitted', 'Date Returned', 'Status', 'Planned Submission'])
+    d = datetime
+    for r in [
+        [1, 'Civil', 'Main Silos', 'Raft', 'Shop Drawing', 0, d(2025, 1, 5), d(2025, 1, 9), 'Approved', d(2025, 1, 1)],
+        [2, 'Civil', 'Main Silos', 'Walls', 'Shop Drawing', 0, None, None, 'Under preparation', d(2025, 2, 1)],
+        [3, 'Civil', 'Towers', 'Slab', 'Shop Drawing', 0, None, None, 'Pending submission', d(2025, 3, 1)],
+        [4, 'Civil', 'Towers', 'Stair', 'Shop Drawing', 0, None, None, 'In progress', d(2025, 4, 1)],
+        [5, 'Civil', 'Towers', 'Roof', 'Shop Drawing', 0, d(2025, 2, 2), None, 'Under review', d(2025, 2, 1)],
+        [6, 'Civil', 'Towers', 'Beams', 'Shop Drawing', 0, d(2025, 2, 3), d(2025, 2, 9), 'Revise & Resubmit', d(2025, 2, 1)],
+        [7, 'MEP', 'Towers', 'Duct', 'Shop Drawing', 0, d(2025, 2, 4), None, 'Pending', d(2025, 2, 1)],
+        [8, 'MEP', 'Towers', 'Cable', 'Shop Drawing', 0, None, None, 'Not yet submitted', d(2025, 5, 1)],
+    ]:
+        ws.append(r)
+    wb.save(path)
+
+
+def test_roots_style_status_column_not_sent_statuses_old_equals_new(tmp_path):
+    p = tmp_path / 'roots_status.xlsx'
+    _roots_status_style(p)
+    new, old = _summary(p), summarize_e1(read_e1_rows(str(p)))
+    assert new == old
+    c = new[('Civil', 'Shop Drawing')]
+    # 6 drawings. Sent: Raft (approved), Roof (under review), Beams (revise & resubmit) = 3.
+    # Walls / Slab / Stair are not sent yet → not submitted, not under review.
+    # % Submitted = (3 − 1) ÷ 6 = 33.3 ; % Approved = 1 ÷ 6 = 16.7
+    assert (c['req'], c['submitted_rows'], c['approved_rows'], c['not_approved_rows'],
+            c['under_review_rows']) == (6, 3, 1, 1, 1)
+    assert (c['submitted_pct'], c['approved_pct']) == (33.3, 16.7)
+    m = new[('MEP', 'Shop Drawing')]
+    # Duct sent + 'Pending' → under review; Cable 'Not yet submitted' → nothing
+    assert (m['req'], m['submitted_rows'], m['under_review_rows']) == (2, 1, 1)
+    assert m['submitted_pct'] == 50.0
+
+
+def test_not_sent_status_without_a_date_is_not_counted_as_submitted(tmp_path):
+    # ELOG-1 reproduction: 1 approved with a date, then three "not sent yet" statuses with
+    # no date. The reader must say 1 of 4 submitted (25%), not 4 of 4 (100%).
+    p = tmp_path / 'prep.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Shop Log'
+    ws.append(['Discipline', 'Drawing Title', 'Type of submittal', 'Date Submitted', 'Planned Submission', 'Status'])
+    ws.append(['Civil', 'Raft', 'Shop Drawing', datetime(2025, 1, 5), datetime(2025, 1, 1), 'Approved'])
+    ws.append(['Civil', 'Walls', 'Shop Drawing', None, datetime(2025, 2, 1), 'Under preparation'])
+    ws.append(['Civil', 'Slab', 'Shop Drawing', None, datetime(2025, 3, 1), 'Pending submission'])
+    ws.append(['Civil', 'Stair', 'Shop Drawing', None, datetime(2025, 4, 1), 'In progress'])
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    g = _summary(p, prop)[('Civil', 'Shop Drawing')]
+    assert (g['req'], g['submitted_rows'], g['approved_rows'], g['under_review_rows']) == (4, 1, 1, 0)
+    assert g['submitted_pct'] == 25.0
+    assert g == summarize_e1(read_e1_rows(str(p)))[('Civil', 'Shop Drawing')]
+    # the panel explains these statuses instead of listing them as unknown codes
+    codes = {c['value']: c for c in prop['codes']}
+    assert codes['Under preparation']['verdict'] == 'ignore'
+    assert codes['Under preparation']['known'] is True
+    assert 'not sent' in codes['Under preparation']['meaning'].lower()
+    sh = _sheet(prop, 'Shop Log')
+    assert not any('no submission date' in w for w in sh['warnings'])
+    assert any('not sent yet' in w for w in sh['warnings'])
+
+
+def test_bare_pending_code_without_a_date_does_not_prove_it_was_sent(tmp_path):
+    # ELOG-1 (a): W / P / 'Pending' alone is not a reply — only a real reply (approved /
+    # not approved, or a reply date) or wording that puts the drawing WITH the consultant
+    # ('Under review', 'U.A') shows it was sent.
+    p = tmp_path / 'pend.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Log'
+    ws.append(['Dwg No', 'Discipline', 'Type', 'Date Sent', 'Reply Date', 'Code'])
+    for r in [['S-1', 'Steel', 'Shop', None, None, 'W'],             # not sent (no proof)
+              ['S-2', 'Steel', 'Shop', None, None, 'P'],             # not sent (no proof)
+              ['S-3', 'Steel', 'Shop', None, None, 'Under review'],  # with the consultant → sent
+              ['S-4', 'Steel', 'Shop', None, datetime(2025, 3, 1), 'W'],   # a reply date → sent
+              ['S-5', 'Steel', 'Shop', None, None, 'C']]:            # a reply → sent
+        ws.append(r)
+    wb.save(p)
+    g = _summary(p)[('Steel', 'Shop')]
+    # sent = S-3, S-4, S-5 = 3; not approved = S-5; under review = S-1..S-4 = 4
+    assert (g['req'], g['submitted_rows'], g['not_approved_rows'], g['under_review_rows']) == (5, 3, 1, 4)
+
+
 # ── 9. layout plumbing ────────────────────────────────────────────────────────────────
 def test_planner_override_of_a_column_changes_the_count(tmp_path):
     p = tmp_path / 'shop_log.xlsx'

@@ -187,11 +187,54 @@ def _code_text(raw):
     return ' '.join(s.split())
 
 
+# Statuses that say the drawing has NOT gone to the consultant yet. They are not review
+# codes at all: a drawing "under preparation" is required but neither submitted nor under
+# review. (The old bare 'under' / 'progress' / 'pend' matches read them as under review.)
+_NOT_SENT = re.compile(
+    r'\bprep(?:aration|aring)?\b|\bin progress\b|\bwip\b|\bnot started\b'
+    r'|^not yet$|\bnot yet (?:been )?(?:submitted|sent|issued|prepared|started|ready)\b'
+    r'|\byet to (?:be )?(?:submit|sent|send|issue|prepare)'
+    r'|\bnot (?:been )?(?:submitted|sent|issued)\b'
+    r'|\bto be (?:submitted|sent|issued|prepared)\b'
+    r'|\b(?:pending|awaiting|awaited|waiting(?: for)?) (?:the )?(?:submission|submittal|to submit|issue|issuance)\b'
+    r'|\b(?:pending|awaiting|waiting) (?:from|by|on) (?:the )?(?:contractor|sub ?contractor|supplier|vendor)\b')
+# Wording that puts the drawing WITH the reviewer — proof it was sent even when the log
+# has no date for it. A bare W / P / 'Pending' is not such proof (it can mean "pending
+# submission" too).
+_WITH_REVIEWER = re.compile(
+    r'\b(?:under|in|for|pending|awaiting|awaited|waiting for) (?:review|approval|comments?)\b'
+    r'|\bunder approv|\bawaiting (?:reply|response|consultant)\b|\bwith (?:the )?consultant\b'
+    r'|\b(?:re ?)?submitted\b|\bsent (?:to|for)\b|\bissued for (?:review|approval|comments?)\b')
+_UNDER_REVIEW = re.compile(
+    r'\breview\b|\bunder (?:review|approv|consultant)|\bpend(?:ing)?\b|\bawait|\bwaiting\b'
+    r'|\bwith (?:the )?consultant\b')
+
+
+def is_not_sent_status(raw):
+    """True for a status that says the drawing has not been sent yet ('Under preparation',
+    'Pending submission', 'Not yet submitted', 'In progress', 'To be submitted')."""
+    c = _code_text(raw)
+    return bool(c) and bool(_NOT_SENT.search(c))
+
+
+def status_says_sent(raw):
+    """True when the status wording itself shows the drawing is with the reviewer
+    ('Under review', 'In review', 'Under approval', 'U.A', 'Awaiting reply', 'Submitted
+    for approval'). A bare code (W / P) or 'Pending' is not enough."""
+    c = _code_text(raw)
+    if not c or _NOT_SENT.search(c):
+        return False
+    if c.replace(' ', '') in ('ua', 'u/a', 'ur', 'u/r'):
+        return True
+    return bool(_WITH_REVIEWER.search(c))
+
+
 def classify_action_code(raw):
     """Read an engineering-log review status by MEANING, not one fixed coding scheme —
     projects use A/B/C/D/W/P, 1/2/3/4, 'Code 2', words ('Approved as noted', 'Revise and
     resubmit', 'Pending'), or short forms ('AAN', 'RNS', 'U.A'). Returns
-    'approved' | 'not_approved' | 'under_review' | None (unknown / blank / ambiguous)."""
+    'approved' | 'not_approved' | 'under_review' | None (unknown / blank / ambiguous, or a
+    status saying the drawing has not been sent yet — see is_not_sent_status)."""
     c = _code_text(raw)
     if not c:
         return None
@@ -211,6 +254,9 @@ def classify_action_code(raw):
     # two codes at once ('B/C', '2/3') — ambiguous, don't guess
     if re.fullmatch(r'[a-d1-4pw](/[a-d1-4pw])+', compact):
         return None
+    # not sent yet ('Under preparation', 'Pending submission', 'In progress') — no review
+    if _NOT_SENT.search(c):
+        return None
     # order matters: "no exceptions" / "no objection" before "review"/"not";
     # "not approved" before "approv"
     if 'no exception' in c or 'no objection' in c:
@@ -218,8 +264,7 @@ def classify_action_code(raw):
     if ('not approv' in c or 'disapprov' in c or 'not accepted' in c or 'reject' in c
             or 'resubmit' in c or 'revise' in c):
         return 'not_approved'
-    if ('under' in c or 'review' in c or 'pend' in c or 'progress' in c
-            or 'await' in c or 'waiting' in c):
+    if _UNDER_REVIEW.search(c):
         return 'under_review'
     if 'approv' in c or 'as noted' in c or 'accepted' in c:
         return 'approved'

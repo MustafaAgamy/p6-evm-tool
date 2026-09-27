@@ -43,7 +43,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 
 from p6_evm.classify import (E1_FIELD_SYNONYMS, VERDICTS, classify_action_code,
-                             legend_code_candidates)
+                             is_not_sent_status, legend_code_candidates, status_says_sent)
 from p6_evm.e1_log import _sheet_trade, summarize_e1
 
 # ── fields ────────────────────────────────────────────────────────────────────────────────
@@ -445,8 +445,8 @@ def _profile(values, legend_verdicts):
                 c['text_date'] += 1
         if _looks_number(v):
             c['num'] += 1
-        if _verdict_of(v, legend_verdicts) is not None:
-            c['verdict'] += 1
+        if _verdict_of(v, legend_verdicts) is not None or is_not_sent_status(v):
+            c['verdict'] += 1                 # a status ('Approved', 'Under preparation')
         if _is_codeish(v):
             c['codeish'] += 1
         if _is_idlike(v):
@@ -1012,7 +1012,7 @@ def _build_rows(sheet_grids, layout, filename=''):
         dayfirst = {f: detect_dayfirst([r[fields[f]] for r in body if fields[f] < len(r)])
                     for f in DATE_FIELDS if f in fields}
         note = {'inferred_sent': 0, 'no_trade': 0, 'no_type': 0, 'multi_sheet': 0, 'multi_tr': 0,
-                'by_transmittal': 0, 'tracked': 0,
+                'by_transmittal': 0, 'tracked': 0, 'not_sent': Counter(),
                 'unknown_codes': Counter(), 'rows': 0}
 
         def get(row, f):
@@ -1068,10 +1068,17 @@ def _build_rows(sheet_grids, layout, filename=''):
                 'verdict': verdict_for(action),
                 'sheet': s['sheet'], 'row': start + off + 1, 'section': section,
             }
-            if action is not None and rec['verdict'] is None and _code_key(action) not in code_map:
-                note['unknown_codes'][_code_key(action)] += 1
-            # a reply means it was sent (a review code, or a reply date)
-            if rec['submitted'] is None and (rec['verdict'] is not None or isinstance(rec['returned'], datetime)):
+            if action is not None and rec['verdict'] is None:
+                if is_not_sent_status(action):            # 'Under preparation', 'Pending submission'
+                    note['not_sent'][_code_key(action)] += 1
+                elif _code_key(action) not in code_map:
+                    note['unknown_codes'][_code_key(action)] += 1
+            # proof it was sent although the log has no date: a REPLY (approved / not
+            # approved, or a reply date) or wording that puts it WITH the consultant
+            # ('Under review', 'U.A'). A bare W / P / 'Pending' is not a reply.
+            replied = rec['verdict'] in ('approved', 'not_approved') or isinstance(rec['returned'], datetime)
+            with_reviewer = rec['verdict'] == 'under_review' and status_says_sent(action)
+            if rec['submitted'] is None and (replied or with_reviewer):
                 rec['submitted'] = rec['returned'] if isinstance(rec['returned'], datetime) else True
                 note['inferred_sent'] += 1
             if rec['submitted'] is not None or rec['verdict'] is not None:
@@ -1229,10 +1236,13 @@ def _finalize(prop, sheet_grids):
             auto = classify_action_code(raw_of[k])
             source = 'rule' if auto else 'unknown'
             meaning = VERDICT_LABELS[auto] if auto else 'Not recognised — choose what it means'
+        not_sent = not auto and is_not_sent_status(raw_of[k])
+        if not_sent:
+            source, meaning = 'rule', 'Not sent yet — counted as required, not submitted'
         verdict = code_map.get(k) or auto or 'ignore'
         code_map.setdefault(k, verdict)
         codes.append({'value': k, 'count': n, 'verdict': code_map[k], 'auto': auto or 'ignore',
-                      'source': source, 'meaning': meaning, 'known': bool(auto)})
+                      'source': source, 'meaning': meaning, 'known': bool(auto) or not_sent})
     for k, v in legend.items():
         if k not in counts:
             code_map.setdefault(k, v['verdict'])
@@ -1246,8 +1256,13 @@ def _finalize(prop, sheet_grids):
         n = notes.get(sh['sheet'])
         if n:
             if n['inferred_sent']:
-                w.append(f'{n["inferred_sent"]} row(s) have a reply or review code but no submission date '
-                         f'— counted as submitted (a reply means it was sent).')
+                w.append(f'{n["inferred_sent"]} row(s) have a reply (a review code or a reply date) or a status '
+                         f'placing them with the consultant, but no submission date — counted as submitted '
+                         f'(a reply means it was sent).')
+            if n['not_sent']:
+                ks = ', '.join(f'"{k}"' for k, _ in n['not_sent'].most_common(3))
+                w.append(f'{sum(n["not_sent"].values())} row(s) say the drawing is not sent yet ({ks}) — '
+                         f'counted as required, not submitted and not under review.')
             if n['multi_sheet']:
                 w.append(f'{n["multi_sheet"]} drawing number(s) cover several sheets in one submission '
                          f'— each sheet title counted as its own drawing.')
