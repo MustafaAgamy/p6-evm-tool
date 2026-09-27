@@ -480,7 +480,17 @@ def test_alternative_header_fixtures_old_equals_new(tmp_path):
     ws.append(['Civil', 'Silo 1', 'Rebar layout', 'Shop Drawing', datetime(2026, 2, 1), datetime(2026, 1, 20), 'B'])
     ws.append(['MEP', 'Silo 2', 'Duct routing', 'Shop Drawing', None, datetime(2026, 3, 1), 'C'])
     wb.save(p)
-    assert _summary(p) == summarize_e1(read_e1_rows(str(p)))
+    new, old = _summary(p), summarize_e1(read_e1_rows(str(p)))
+    assert set(new) == set(old)
+    assert new[('Civil', 'Detailed Design')] == old[('Civil', 'Detailed Design')]
+    assert new[('Civil', 'Shop Drawing')] == old[('Civil', 'Shop Drawing')]
+    # one deliberate improvement: 'Duct routing' came back with code C but has no
+    # submission date. A reply means it was sent, so it now counts as submitted (and
+    # rejected): % Submitted = (1 - 1) / 1 = 0%, where the old reader said -100%.
+    n, o = new[('MEP', 'Shop Drawing')], old[('MEP', 'Shop Drawing')]
+    assert (o['submitted_rows'], o['submitted_pct']) == (0, -100.0)
+    assert (n['submitted_rows'], n['submitted_pct']) == (1, 0.0)
+    assert n['not_approved_rows'] == o['not_approved_rows'] == 1
 
     p2 = tmp_path / 'e1_multisheet.xlsx'
     wb = openpyxl.Workbook()

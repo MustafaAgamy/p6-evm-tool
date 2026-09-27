@@ -80,6 +80,7 @@ hiddenimports = [
     # graph can miss — force every submodule (engine, report, exporters, modules/lag_lead, …).
     *collect_submodules('p6_audit'),
     'p6_evm.e1_log',
+    'p6_evm.elog_smart',        # format-agnostic engineering-log reader (lazy import in server.py)
     'p6_evm.gap',
     'p6_evm.evm_report',
     'p6_evm.engineering_p6',
