@@ -291,3 +291,15 @@ def test_standalone_html_keeps_the_report_unchanged(tmp_path):
     out = to_html.standalone_html(src, 'EVM')
     assert out.count('<meta charset="utf-8">') == 1
     assert 'data-part="category.table"' in out and 'rpt-theme' in out
+
+
+def test_tall_pictures_are_sliced_at_blank_lines():
+    import pymupdf
+    box = pymupdf.Rect(0, 0, 100, 1000)
+    rows = [pymupdf.Rect(0, y, 100, y + 80) for y in range(0, 1000, 100)]   # drawn rows, 20pt gaps
+    out = svg_raster._slices(box, rows, 450)
+    assert len(out) == 3 and all(r.height <= 450 for r in out)
+    assert out[0].y0 == 0 and out[-1].y1 == 1000
+    for r in out[:-1]:                                        # never cut through a drawn row
+        assert not any(x.y0 < r.y1 - 0.5 and x.y1 > r.y1 + 0.5 for x in rows)
+    assert svg_raster._slices(pymupdf.Rect(0, 0, 10, 100), [], 450) == [pymupdf.Rect(0, 0, 10, 100)]

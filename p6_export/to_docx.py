@@ -254,6 +254,7 @@ class _Writer:
         sec.left_margin, sec.right_margin = Mm(l), Mm(r)
         sec.header_distance, sec.footer_distance = Mm(6), Mm(6)
         self.content_emu = sec.page_width - sec.left_margin - sec.right_margin
+        self.max_h_emu = int(sec.page_height - sec.top_margin - sec.bottom_margin - Mm(12))
         normal = doc.styles['Normal']
         normal.font.name = rep.font_family or 'Segoe UI'
         rpr = normal.element.get_or_add_rPr()
@@ -414,7 +415,7 @@ class _Writer:
         elif k == 'kpis':
             self.kpis(blk, c)
         elif k == 'image':
-            self.picture(blk.data, blk.width_px, c)
+            self.picture(blk.data, blk.width_px, c, blk.height_px)
         elif k == 'visual':
             self.visual(blk, c)
 
@@ -426,11 +427,15 @@ class _Writer:
         r.font.size = Pt(pts)
         return p
 
-    def picture(self, data, width_px, c):
+    def picture(self, data, width_px, c, height_px=None):
         if not data:
             return
         max_emu = int(self.content_emu)
         width = Emu(min(max_emu, int((width_px or 600) * 9525))) if width_px else Emu(max_emu)
+        if width_px and height_px and self.max_h_emu:
+            h = width * height_px / width_px            # keep the aspect; never taller than a page
+            if h > self.max_h_emu:
+                width = Emu(int(width * self.max_h_emu / h))
         p = c.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         try:
@@ -439,8 +444,12 @@ class _Writer:
             p.add_run('[picture]')
 
     def visual(self, v, c):
+        if v.slices:
+            for png, w, h in v.slices:
+                self.picture(png, w, c, h)
+            return
         if v.png:
-            self.picture(v.png, v.width_px, c)
+            self.picture(v.png, v.width_px, c, v.height_px)
             return
         if v.data_headers and v.data_rows:
             rows = [[HM.Cell(runs=[HM.Run(text=str(h), bold=True)], header=True) for h in v.data_headers]]

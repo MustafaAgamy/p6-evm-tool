@@ -164,7 +164,9 @@ export function buildTree(sections, scan, prev) {
   }
   for (const s of (scan && scan.sections) || []) {
     if (!byKey.has(s.key)) {
-      const node = { key: s.key, label: s.label || s.key, empty: false, parts: [] };
+      // a section the caller did not list (a data-driven add-on such as EVM Engineering):
+      // the renderer showed it, so it is IN the report unless the user unticks it
+      const node = { key: s.key, label: s.label || s.key, empty: false, extra: true, parts: [] };
       tree.push(node); byKey.set(s.key, node);
     }
   }
@@ -192,12 +194,15 @@ const secOfPart = (tree, id) => (tree.find(s => s.parts.some(p => p.id === id)) 
 export function restoreState(saved, tree, selected) {
   const keys = tree.map(s => s.key);
   const usable = new Set(tree.filter(s => !s.empty).map(s => s.key));
+  const extra = tree.filter(s => s.extra).map(s => s.key);
   let order = keys.slice();
-  let secs = Array.isArray(selected) && selected.length ? selected : keys;
+  let secs = [...(Array.isArray(selected) && selected.length ? selected : keys), ...extra];
   let off = [];
-  if (Array.isArray(saved)) secs = saved;
+  if (Array.isArray(saved)) secs = [...saved, ...extra];
   else if (saved && typeof saved === 'object' && saved.v === 2) {
-    if (Array.isArray(saved.sections)) secs = saved.sections;
+    const known = Array.isArray(saved.order) ? saved.order : [];
+    // a section that was not in the report when the choice was saved starts ticked
+    if (Array.isArray(saved.sections)) secs = [...saved.sections, ...keys.filter(k => !known.includes(k))];
     if (Array.isArray(saved.offParts)) off = saved.offParts;
     if (Array.isArray(saved.order)) order = uniq([...saved.order.filter(k => keys.includes(k)), ...keys]);
   }

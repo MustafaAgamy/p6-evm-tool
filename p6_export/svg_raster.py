@@ -222,12 +222,14 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
     margins = page.get('margins_mm') or (10, 10, 10, 10)
     content_mm = (page.get('width_mm') or 210) - margins[1] - margins[3]
     content_px = content_mm * 96 / 25.4
+    # a picture taller than one Word page is cut into page-high slices (at a blank line)
+    max_h_pt = ((page.get('height_mm') or 297) - max(margins[0], 16) - max(margins[2], 14) - 12) * 72 / 25.4
     blocks = ''.join(
         f'<div class="__xcap" style="width:{(v.width_px or content_px):.0f}px">{v.html}</div>'
         for v in visuals)
     html = (f'<!DOCTYPE html><html class="{rep.html_class}"><head><meta charset="utf-8">'
             f'<style>{rep.head_css}</style>'
-            '<style>@page{size:' f'{content_px + 16:.0f}px 1800px;margin:0}}'
+            '<style>@page{size:' f'{content_px + 16:.0f}px 7000px;margin:0}}'
             'html,body{margin:0!important;padding:0!important}'
             '.__xcap{padding:6px;box-sizing:content-box;break-after:page;page-break-after:always;'
             'break-inside:avoid;overflow:hidden}'
@@ -251,18 +253,23 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
                 pg = doc[i]
                 full = pg.rect
                 box = None
+                rects = []
                 for _kind, r in pg.get_bboxlog():
                     rect = pymupdf.Rect(r)
                     if rect.is_empty or rect.width * rect.height >= full.width * full.height * 0.9:
                         continue
+                    rects.append(rect)
                     box = rect if box is None else box | rect
                 if box is None:
                     continue
                 box = (box + (-4, -4, 4, 4)) & full
-                pix = pg.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=box, alpha=False)
-                v.png = pix.tobytes('png')
-                v.width_px = box.width
-                v.height_px = box.height
+                pieces = []
+                for clip in _slices(box, rects, max_h_pt):
+                    pix = pg.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip, alpha=False)
+                    # PDF points → CSS px (96 dpi) so Word sizes the picture like the PDF
+                    pieces.append((pix.tobytes('png'), clip.width * 96 / 72, clip.height * 96 / 72))
+                v.png, v.width_px, v.height_px = pieces[0]
+                v.slices = pieces if len(pieces) > 1 else None
                 drawn += 1
         finally:
             doc.close()
@@ -279,6 +286,30 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
                 pass
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _slices(box, rects, max_h):
+    """Split ``box`` into clips no taller than ``max_h``, cutting where nothing is drawn."""
+    try:
+        import pymupdf
+    except ImportError:                                   # pragma: no cover
+        import fitz as pymupdf
+    if box.height <= max_h * 1.02:
+        return [box]
+    inner = [r for r in rects if r.height < box.height * 0.9]
+    out, y = [], box.y0
+    while box.y1 - y > max_h:
+        target = y + max_h
+        cut = None
+        for c in sorted({r.y1 for r in inner if y + max_h * 0.5 < r.y1 <= target}, reverse=True):
+            if not any(r.y0 < c - 0.5 and r.y1 > c + 0.5 for r in inner):
+                cut = min(c + 2, target)
+                break
+        cut = cut or target
+        out.append(pymupdf.Rect(box.x0, y, box.x1, cut))
+        y = cut
+    out.append(pymupdf.Rect(box.x0, y, box.x1, box.y1))
+    return out
 
 
 def rasterize(rep, chrome=None, use_chrome=True):

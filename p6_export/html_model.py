@@ -178,6 +178,7 @@ class Visual:
     part: str = None
     kind: str = 'visual'
     png: bytes = None          # filled by a rasteriser
+    slices: list = None        # [(png, w_px, h_px)] when the picture is taller than a page
 
 
 @dataclass

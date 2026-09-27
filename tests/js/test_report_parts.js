@@ -84,12 +84,20 @@ test('restoreState: default = every non-empty section ticked, all parts on, natu
   assert.deepEqual(st.offParts, []);
   assert.deepEqual(st.order, ['progress', 'category', 'dashboard', 'gap']);
 });
-test('restoreState: legacy saved array of section keys still works', () => {
+test('restoreState: legacy saved array of section keys still works (HTML-only add-ons stay in)', () => {
   const st = restoreState(['category'], tree);
-  assert.deepEqual(st.sections, ['category']);
+  assert.deepEqual(st.sections, ['category', 'gap']);
+});
+test('a section found only in the HTML (data-driven add-on) is ticked by default', () => {
+  const st = restoreState(null, tree, ['progress']);
+  assert.deepEqual(st.sections, ['progress', 'gap']);
+});
+test('v2: a section that was not in the report when the choice was saved starts ticked', () => {
+  const st = restoreState({ v: 2, order: ['progress', 'category'], sections: ['progress'], offParts: [] }, tree);
+  assert.deepEqual(st.sections, ['progress', 'gap']);
 });
 test('restoreState: v2 remembers sections + parts + order; drops unknown keys, appends new sections', () => {
-  const st = restoreState({ v: 2, order: ['gap', 'zzz', 'progress'], sections: ['gap', 'progress', 'dashboard'], offParts: ['progress.chart', 'zzz.x'] }, tree);
+  const st = restoreState({ v: 2, order: ['gap', 'zzz', 'progress', 'category', 'dashboard'], sections: ['gap', 'progress', 'dashboard'], offParts: ['progress.chart', 'zzz.x'] }, tree);
   assert.deepEqual(st.order, ['gap', 'progress', 'category', 'dashboard']);
   assert.deepEqual(st.sections, ['gap', 'progress']);        // empty 'dashboard' never ticked
   assert.deepEqual(st.offParts, ['progress.chart']);
