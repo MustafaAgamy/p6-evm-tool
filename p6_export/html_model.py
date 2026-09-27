@@ -209,6 +209,7 @@ class ReportDoc:
     tail: list = field(default_factory=list)
     meta: dict = field(default_factory=dict)
     head_css: str = ''                              # every <style> (for rasterising visuals)
+    part_labels: dict = field(default_factory=dict)  # data-part id → label
     html_class: str = ''
     body_class: str = ''
 
@@ -288,6 +289,7 @@ class _Walker:
         self.page_bg_rgb = page_bg_rgb
         self.content_width_px = content_width_px
         self._eff_bg = {}
+        self.part_labels = {}           # data-part id → data-part-label (picker / Excel titles)
 
     # ── colour helpers ──
     def eff_bg_rgb(self, el):
@@ -525,7 +527,10 @@ class _Walker:
     def convert(self, el, part=None):
         if self.hidden(el):
             return []
-        part = el.get('data-part') or part
+        own_part = el.get('data-part')
+        if own_part:
+            self.part_labels.setdefault(own_part, (el.get('data-part-label') or '').strip())
+        part = own_part or part
         tag = C.tag_of(el)
         st = self.r.style(el)
         blocks = self._convert(el, tag, st, part)
@@ -1003,6 +1008,7 @@ def parse_report(html, sections=None):
                     head_css='\n'.join(style_texts), html_class=html_el.get('class') or '',
                     body_class=body.get('class') or '')
     _reattach_between(rep, blocks)
+    rep.part_labels = dict(walker.part_labels)
     t = doc.find('.//title')
     rep.title = _norm_ws(t.text_content()).strip() if t is not None else ''
     if not rep.title:

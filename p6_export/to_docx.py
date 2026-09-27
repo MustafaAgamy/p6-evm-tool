@@ -1,0 +1,618 @@
+"""The final report HTML → a REAL Word document (.docx) that matches the PDF.
+
+Built from the SAME HTML string the preview shows and Chrome prints (via the neutral
+block model of :mod:`p6_export.html_model`), so Word carries exactly the ticked parts,
+in the chosen order, in the chosen appearance mode:
+
+* page size / orientation / margins from the report's ``@page``;
+* the page colour of the appearance mode (dark modes keep their dark page);
+* a running header (app · feature · project) and a "Page X of Y" footer;
+* headings kept with what follows them (no orphaned titles), paragraphs of styled runs,
+  bullet / numbered lists;
+* tables with the header row repeated on every page, concrete cell colours, column widths
+  from the report, merged cells;
+* KPI / stat tiles → a small grid table (label · value · note);
+* charts → PNG pictures (:mod:`p6_export.svg_raster`), or — when no picture can be made —
+  the numbers behind the chart as a table;
+* ``<img>`` data URIs embedded.
+
+Every colour written is a concrete hex — Word ignores ``var(--x)``.
+"""
+import io
+import re
+
+from docx import Document
+from docx.enum.section import WD_ORIENT
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Emu, Mm, Pt, RGBColor
+
+from . import html_model as HM
+
+_ALIGN = {'left': WD_ALIGN_PARAGRAPH.LEFT, 'center': WD_ALIGN_PARAGRAPH.CENTER,
+          'right': WD_ALIGN_PARAGRAPH.RIGHT, 'justify': WD_ALIGN_PARAGRAPH.JUSTIFY}
+_HEX_RE = re.compile(r'^[0-9A-Fa-f]{6}$')
+_BAD_XML = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+
+def _hex(v):
+    if not v:
+        return None
+    v = str(v).lstrip('#')
+    return v.upper() if _HEX_RE.match(v) else None
+
+
+def _clean(t):
+    return _BAD_XML.sub('', t or '')
+
+
+def _lum(hexv):
+    h = _hex(hexv) or 'FFFFFF'
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+# ── low-level XML helpers ──────────────────────────────────────────────────────
+def _shade(pr, fill):
+    fill = _hex(fill)
+    if not fill:
+        return
+    for old in pr.findall(qn('w:shd')):
+        pr.remove(old)
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), fill)
+    pr.append(shd)
+
+
+def _cell_shade(cell, fill):
+    _shade(cell._tc.get_or_add_tcPr(), fill)
+
+
+def _borders(tag, spec):
+    """spec: {side: (size_eighths_pt, 'RRGGBB') | None}"""
+    el = OxmlElement(tag)
+    for side in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+        if side not in spec:
+            continue
+        b = OxmlElement(f'w:{side}')
+        v = spec[side]
+        if not v or not _hex(v[1]):
+            b.set(qn('w:val'), 'nil')
+        else:
+            b.set(qn('w:val'), 'single')
+            b.set(qn('w:sz'), str(max(2, int(v[0]))))
+            b.set(qn('w:space'), '0')
+            b.set(qn('w:color'), _hex(v[1]))
+        el.append(b)
+    return el
+
+
+def _cell_borders(cell, spec):
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn('w:tcBorders')):
+        tcPr.remove(old)
+    tcPr.append(_borders('w:tcBorders', spec))
+
+
+def _cell_margins(cell, top=40, bottom=40, left=80, right=80):
+    tcPr = cell._tc.get_or_add_tcPr()
+    mar = OxmlElement('w:tcMar')
+    for side, v in (('top', top), ('bottom', bottom), ('left', left), ('right', right)):
+        e = OxmlElement(f'w:{side}')
+        e.set(qn('w:w'), str(v))
+        e.set(qn('w:type'), 'dxa')
+        mar.append(e)
+    tcPr.append(mar)
+
+
+def _cell_width(cell, emu):
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn('w:tcW')):
+        tcPr.remove(old)
+    w = OxmlElement('w:tcW')
+    w.set(qn('w:w'), str(int(emu / 635)))          # EMU → twentieths of a point
+    w.set(qn('w:type'), 'dxa')
+    tcPr.insert(0, w)
+
+
+def _repeat_header(row):
+    trPr = row._tr.get_or_add_trPr()
+    h = OxmlElement('w:tblHeader')
+    h.set(qn('w:val'), 'true')
+    trPr.append(h)
+
+
+def _cant_split(row):
+    trPr = row._tr.get_or_add_trPr()
+    trPr.append(OxmlElement('w:cantSplit'))
+
+
+def _fixed_layout(table):
+    tblPr = table._tbl.tblPr
+    lay = OxmlElement('w:tblLayout')
+    lay.set(qn('w:type'), 'fixed')
+    tblPr.append(lay)
+
+
+def _para_border(p, side, width_pt, color):
+    color = _hex(color)
+    if not color:
+        return
+    pPr = p._p.get_or_add_pPr()
+    bdr = pPr.find(qn('w:pBdr'))
+    if bdr is None:
+        bdr = OxmlElement('w:pBdr')
+        pPr.append(bdr)
+    b = OxmlElement(f'w:{side}')
+    b.set(qn('w:val'), 'single')
+    b.set(qn('w:sz'), str(max(2, int(round((width_pt or 0.75) * 8)))))
+    b.set(qn('w:space'), '4')
+    b.set(qn('w:color'), color)
+    bdr.append(b)
+
+
+def _field(run, instr):
+    for kind, text in (('begin', None), (None, instr), ('separate', None), (None, '1'), ('end', None)):
+        if kind:
+            f = OxmlElement('w:fldChar')
+            f.set(qn('w:fldCharType'), kind)
+            run._r.append(f)
+        elif text == instr:
+            it = OxmlElement('w:instrText')
+            it.set(qn('xml:space'), 'preserve')
+            it.text = f' {instr} '
+            run._r.append(it)
+        else:
+            t = OxmlElement('w:t')
+            t.text = text
+            run._r.append(t)
+
+
+# OOXML is order-sensitive inside *Pr elements — Word rejects a file whose children are
+# out of schema order. Everything above appends freely; _normalize_order() fixes it once.
+_SETTINGS_BEFORE_BG = ('writeProtection', 'view', 'zoom', 'removePersonalInformation',
+                       'removeDateAndTime', 'doNotDisplayPageBoundaries')
+_ORDER = {
+    'pPr': ('pStyle', 'keepNext', 'keepLines', 'pageBreakBefore', 'framePr', 'widowControl',
+            'numPr', 'suppressLineNumbers', 'pBdr', 'shd', 'tabs', 'suppressAutoHyphens',
+            'kinsoku', 'wordWrap', 'overflowPunct', 'topLinePunct', 'autoSpaceDE', 'autoSpaceDN',
+            'bidi', 'adjustRightInd', 'snapToGrid', 'spacing', 'ind', 'contextualSpacing',
+            'mirrorIndents', 'suppressOverlap', 'jc', 'textDirection', 'textAlignment',
+            'textboxTightWrap', 'outlineLvl', 'divId', 'cnfStyle', 'rPr', 'sectPr', 'pPrChange'),
+    'rPr': ('rStyle', 'rFonts', 'b', 'bCs', 'i', 'iCs', 'caps', 'smallCaps', 'strike', 'dstrike',
+            'outline', 'shadow', 'emboss', 'imprint', 'noProof', 'snapToGrid', 'vanish',
+            'webHidden', 'color', 'spacing', 'w', 'kern', 'position', 'sz', 'szCs', 'highlight',
+            'u', 'effect', 'bdr', 'shd', 'fitText', 'vertAlign', 'rtl', 'cs', 'em', 'lang',
+            'eastAsianLayout', 'specVanish', 'oMath'),
+    'tcPr': ('cnfStyle', 'tcW', 'gridSpan', 'hMerge', 'vMerge', 'tcBorders', 'shd', 'noWrap',
+             'tcMar', 'textDirection', 'tcFitText', 'vAlign', 'hideMark'),
+    'tblPr': ('tblStyle', 'tblpPr', 'tblOverlap', 'bidiVisual', 'tblStyleRowBandSize',
+              'tblStyleColBandSize', 'tblW', 'jc', 'tblCellSpacing', 'tblInd', 'tblBorders', 'shd',
+              'tblLayout', 'tblCellMar', 'tblLook'),
+    'trPr': ('cnfStyle', 'divId', 'gridBefore', 'gridAfter', 'wBefore', 'wAfter', 'cantSplit',
+             'trHeight', 'tblHeader', 'tblCellSpacing', 'jc', 'hidden'),
+}
+
+
+def _normalize_order(root):
+    rank = {qn('w:' + k): {qn('w:' + n): i for i, n in enumerate(v)} for k, v in _ORDER.items()}
+    for el in root.iter(*rank.keys()):
+        order = rank[el.tag]
+        kids = list(el)
+        if len(kids) < 2:
+            continue
+        # keep only the last of duplicated singletons (e.g. two tcMar)
+        seen, uniq = set(), []
+        for ch in reversed(kids):
+            if ch.tag in seen and ch.tag in order:
+                continue
+            seen.add(ch.tag)
+            uniq.append(ch)
+        uniq.reverse()
+        srt = sorted(uniq, key=lambda ch: order.get(ch.tag, len(order)))
+        if srt != kids:
+            for ch in kids:
+                el.remove(ch)
+            for ch in srt:
+                el.append(ch)
+
+
+# ── the writer ─────────────────────────────────────────────────────────────────
+class _Writer:
+    def __init__(self, rep, app_name='', feature='', project=''):
+        self.rep = rep
+        self.doc = Document()
+        self.app_name = app_name
+        self.feature = feature
+        self.project = project
+        self.ink = _hex(rep.ink) or '000000'
+        self.bg = _hex(rep.bg) or 'FFFFFF'
+        self.dark = _lum(self.bg) < 110
+        theme = rep.theme or {}
+        self.hair = _hex(theme.get('rpt-hair')) or ('3A4656' if self.dark else 'D5DCE6')
+        self.muted = _hex(theme.get('rpt-muted')) or ('9AA7B8' if self.dark else '6B7686')
+        self.accent = _hex(theme.get('rpt-accent')) or '1F4E79'
+        self.base_pt = max(7.0, min(float(rep.base_pt or 8.25), 12.0))
+        self._last_break = True
+        self._setup()
+
+    # page, fonts, background, header / footer
+    def _setup(self):
+        doc, rep = self.doc, self.rep
+        page = rep.page or {}
+        sec = doc.sections[0]
+        w, h = page.get('width_mm') or 210.0, page.get('height_mm') or 297.0
+        sec.orientation = WD_ORIENT.LANDSCAPE if w > h else WD_ORIENT.PORTRAIT
+        sec.page_width, sec.page_height = Mm(w), Mm(h)
+        t, r, b, l = page.get('margins_mm') or (15, 12, 15, 12)
+        # the running header/footer sit inside the top/bottom margins → keep room for them
+        sec.top_margin, sec.bottom_margin = Mm(max(t, 16)), Mm(max(b, 14))
+        sec.left_margin, sec.right_margin = Mm(l), Mm(r)
+        sec.header_distance, sec.footer_distance = Mm(6), Mm(6)
+        self.content_emu = sec.page_width - sec.left_margin - sec.right_margin
+        normal = doc.styles['Normal']
+        normal.font.name = rep.font_family or 'Segoe UI'
+        rpr = normal.element.get_or_add_rPr()
+        fonts = rpr.find(qn('w:rFonts'))
+        if fonts is None:
+            fonts = OxmlElement('w:rFonts')
+            rpr.append(fonts)
+        for k in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+            fonts.set(qn(k), rep.font_family or 'Segoe UI')
+        normal.font.size = Pt(self.base_pt)
+        normal.font.color.rgb = RGBColor.from_string(self.ink)
+        normal.paragraph_format.space_after = Pt(3)
+        normal.paragraph_format.space_before = Pt(0)
+        normal.paragraph_format.line_spacing = 1.1
+        for i in range(1, 7):
+            try:
+                hs = doc.styles[f'Heading {i}']
+            except KeyError:
+                continue
+            hs.font.name = rep.font_family or 'Segoe UI'
+            hs.font.color.rgb = RGBColor.from_string(self.accent)
+            hs.paragraph_format.keep_with_next = True
+            hs.paragraph_format.space_before = Pt(10 if i <= 2 else 6)
+            hs.paragraph_format.space_after = Pt(4)
+            hrpr = hs.element.get_or_add_rPr()
+            hf = hrpr.find(qn('w:rFonts'))
+            if hf is None:
+                hf = OxmlElement('w:rFonts')
+                hrpr.append(hf)
+            for k in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+                hf.set(qn(k), rep.font_family or 'Segoe UI')
+            for k in ('w:asciiTheme', 'w:hAnsiTheme', 'w:cstheme', 'w:eastAsiaTheme'):
+                if hf.get(qn(k)) is not None:
+                    del hf.attrib[qn(k)]
+        if self.bg != 'FFFFFF':
+            bgel = OxmlElement('w:background')
+            bgel.set(qn('w:color'), self.bg)
+            doc.element.insert(0, bgel)
+            settings = doc.settings.element
+            if settings.find(qn('w:displayBackgroundShape')) is None:
+                idx = 0
+                for i, ch in enumerate(list(settings)):
+                    if ch.tag in {qn('w:' + n) for n in _SETTINGS_BEFORE_BG}:
+                        idx = i + 1
+                settings.insert(idx, OxmlElement('w:displayBackgroundShape'))
+        # running header: app — feature · project ; footer: Page X of Y
+        bits = [x for x in (self.app_name, self.feature) if x]
+        head = ' — '.join(bits)
+        if self.project:
+            head = f'{head} · {self.project}' if head else self.project
+        hp = sec.header.paragraphs[0]
+        hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run = hp.add_run(_clean(head))
+        run.font.size = Pt(7.5)
+        run.font.color.rgb = RGBColor.from_string(self.muted)
+        _para_border(hp, 'bottom', 0.5, self.hair)
+        fp = sec.footer.paragraphs[0]
+        fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for txt, instr in (('Page ', None), (None, 'PAGE'), (' of ', None), (None, 'NUMPAGES')):
+            r = fp.add_run(txt or '')
+            r.font.size = Pt(7.5)
+            r.font.color.rgb = RGBColor.from_string(self.muted)
+            if instr:
+                _field(r, instr)
+
+    # runs
+    def _run(self, p, r, base_pt=None, force_bold=None, force_color=None):
+        if r.br:
+            p.add_run().add_break()
+            return
+        text = _clean(r.text)
+        if not text:
+            return
+        run = p.add_run(text)
+        f = run.font
+        if r.bold or force_bold:
+            f.bold = True
+        if r.italic:
+            f.italic = True
+        if r.underline:
+            f.underline = True
+        if r.strike:
+            f.strike = True
+        if r.caps:
+            f.all_caps = True
+        if r.sup:
+            f.superscript = True
+        if r.sub:
+            f.subscript = True
+        size = r.size_pt or base_pt
+        if size:
+            f.size = Pt(max(5.0, min(float(size), 40.0)))
+        col = _hex(force_color) or _hex(r.color)
+        if col:
+            f.color.rgb = RGBColor.from_string(col)
+        if r.bg and _hex(r.bg):
+            _shade(run._r.get_or_add_rPr(), r.bg)
+        if r.font and r.font.lower() not in ('segoe ui', 'arial', 'sans-serif', 'system-ui'):
+            f.name = r.font
+
+    def _runs(self, p, runs, base_pt=None, **kw):
+        for r in runs:
+            self._run(p, r, base_pt, **kw)
+
+    def _para_fmt(self, p, blk):
+        pf = p.paragraph_format
+        p.alignment = _ALIGN.get(getattr(blk, 'align', 'left'), WD_ALIGN_PARAGRAPH.LEFT)
+        if getattr(blk, 'keep_with_next', False):
+            pf.keep_with_next = True
+        bg = getattr(blk, 'bg', None)
+        if bg and _hex(bg) and _hex(bg) != self.bg:
+            _shade(p._p.get_or_add_pPr(), bg)
+        bl = getattr(blk, 'border_left', None)
+        if bl:
+            _para_border(p, 'left', bl[0], bl[1])
+        bb = getattr(blk, 'border_bottom', None)
+        if bb:
+            _para_border(p, 'bottom', bb[0], bb[1])
+
+    # blocks
+    def emit(self, blk, container=None):
+        c = container or self.doc
+        k = blk.kind
+        if k == 'pagebreak':
+            if container is None and not self._last_break:
+                self.doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+                self._last_break = True
+            return
+        if k == 'section':
+            for b in blk.blocks:
+                self.emit(b, container)
+            return
+        self._last_break = False
+        if k == 'heading':
+            lvl = max(1, min(int(blk.level or 2), 6))
+            p = c.add_paragraph(style=f'Heading {lvl}') if container is None else c.add_paragraph()
+            self._runs(p, blk.runs, blk.size_pt)
+            self._para_fmt(p, blk)
+            p.paragraph_format.keep_with_next = True
+        elif k == 'paragraph':
+            p = c.add_paragraph()
+            self._runs(p, blk.runs, blk.size_pt)
+            self._para_fmt(p, blk)
+            if blk.role == 'pre':
+                for r in p.runs:
+                    r.font.name = 'Consolas'
+        elif k == 'list':
+            for i, item in enumerate(blk.items):
+                style = 'List Number' if blk.ordered else 'List Bullet'
+                try:
+                    p = c.add_paragraph(style=style)
+                except KeyError:
+                    p = c.add_paragraph()
+                    p.add_run(f'{i + 1}. ' if blk.ordered else '• ')
+                self._runs(p, item, blk.size_pt)
+        elif k == 'table':
+            self.table(blk, c)
+        elif k == 'kpis':
+            self.kpis(blk, c)
+        elif k == 'image':
+            self.picture(blk.data, blk.width_px, c)
+        elif k == 'visual':
+            self.visual(blk, c)
+
+    def _space(self, c, pts=3):
+        p = c.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+        r = p.add_run('')
+        r.font.size = Pt(pts)
+        return p
+
+    def picture(self, data, width_px, c):
+        if not data:
+            return
+        max_emu = int(self.content_emu)
+        width = Emu(min(max_emu, int((width_px or 600) * 9525))) if width_px else Emu(max_emu)
+        p = c.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        try:
+            p.add_run().add_picture(io.BytesIO(data), width=width)
+        except Exception:
+            p.add_run('[picture]')
+
+    def visual(self, v, c):
+        if v.png:
+            self.picture(v.png, v.width_px, c)
+            return
+        if v.data_headers and v.data_rows:
+            rows = [[HM.Cell(runs=[HM.Run(text=str(h), bold=True)], header=True) for h in v.data_headers]]
+            for r in v.data_rows:
+                rows.append([HM.Cell(runs=[HM.Run(text='' if x is None else str(x))]) for x in r])
+            self.table(HM.Table(rows=rows, header_rows=1), c)
+            return
+        for line in v.text_lines or []:
+            p = c.add_paragraph()
+            p.add_run(_clean(line))
+
+    def table(self, t, c):
+        rows = [r for r in t.rows if r]
+        if not rows:
+            return
+        ncols = max(1, t.ncols)
+        # occupancy grid for row/col spans
+        grid = []
+        placed = []                       # (r, c, rowspan, colspan, cell)
+        for ri, row in enumerate(rows):
+            while len(grid) <= ri:
+                grid.append([None] * ncols)
+            ci = 0
+            for cell in row:
+                while ci < ncols and grid[ri][ci] is not None:
+                    ci += 1
+                if ci >= ncols:
+                    break
+                cs = max(1, min(cell.colspan, ncols - ci))
+                rs = max(1, min(cell.rowspan, len(rows) - ri))
+                for dr in range(rs):
+                    while len(grid) <= ri + dr:
+                        grid.append([None] * ncols)
+                    for dc in range(cs):
+                        grid[ri + dr][ci + dc] = cell
+                placed.append((ri, ci, rs, cs, cell))
+                ci += cs
+        nrows = len(grid)
+        table = c.add_table(rows=nrows, cols=ncols)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.autofit = False
+        _fixed_layout(table)
+        weights = list(t.col_weights or [])
+        if len(weights) != ncols or not all(isinstance(w, (int, float)) and w > 0 for w in weights):
+            weights = [1.0] * ncols
+        total = sum(weights)
+        widths = [int(self.content_emu * w / total) for w in weights]
+        hair = _hex(t.border_color) or self.hair
+        tblPr = table._tbl.tblPr
+        tblPr.append(_borders('w:tblBorders', {
+            'top': (4, hair), 'bottom': (4, hair), 'left': None, 'right': None,
+            'insideH': (4, hair), 'insideV': None}))
+        trs = table.rows
+        for ri in range(nrows):
+            if ri < t.header_rows:
+                _repeat_header(trs[ri])
+            if nrows < 60 or ri < t.header_rows:
+                _cant_split(trs[ri])
+        cells_by_row = [trs[ri].cells for ri in range(nrows)]
+        for ri in range(nrows):
+            for ci in range(ncols):
+                _cell_width(cells_by_row[ri][ci], widths[ci])
+        base = t.size_pt or self.base_pt
+        for ri, ci, rs, cs, cell in placed:
+            dcell = cells_by_row[ri][ci]
+            if rs > 1 or cs > 1:
+                dcell = dcell.merge(cells_by_row[ri + rs - 1][ci + cs - 1])
+            _cell_margins(dcell)
+            if cell.bg:
+                _cell_shade(dcell, cell.bg)
+            p = dcell.paragraphs[0]
+            p.paragraph_format.space_after = Pt(0)
+            p.alignment = _ALIGN.get(cell.align, WD_ALIGN_PARAGRAPH.LEFT)
+            first = True
+            chunks = [[]]
+            for r in cell.runs:
+                if r.br:
+                    chunks.append([])
+                else:
+                    chunks[-1].append(r)
+            for chunk in chunks:
+                if not first:
+                    p = dcell.add_paragraph()
+                    p.paragraph_format.space_after = Pt(0)
+                    p.alignment = _ALIGN.get(cell.align, WD_ALIGN_PARAGRAPH.LEFT)
+                first = False
+                for r in chunk:
+                    self._run(p, r, cell.size_pt or base,
+                              force_bold=cell.bold or cell.header or None,
+                              force_color=None if r.color else cell.color)
+        self._space(c, 4)
+
+    def kpis(self, g, c):
+        tiles = [t for t in g.tiles if (t.label or t.value or t.note)]
+        if not tiles:
+            return
+        cols = max(1, min(int(g.columns or 4), len(tiles), 6))
+        nrows = (len(tiles) + cols - 1) // cols
+        table = c.add_table(rows=nrows, cols=cols)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.autofit = False
+        _fixed_layout(table)
+        gap_col = self.bg
+        tblPr = table._tbl.tblPr
+        tblPr.append(_borders('w:tblBorders', {
+            'top': None, 'bottom': None, 'left': None, 'right': None,
+            'insideH': (24, gap_col), 'insideV': (24, gap_col)}))
+        width = int(self.content_emu / cols)
+        for i in range(nrows * cols):
+            cell = table.cell(i // cols, i % cols)
+            _cell_width(cell, width)
+            if i >= len(tiles):
+                _cell_borders(cell, {'top': None, 'bottom': None, 'left': None, 'right': None})
+                continue
+            tile = tiles[i]
+            edge = _hex(tile.border) or self.hair
+            left = (18, _hex(tile.accent)) if _hex(tile.accent) else (6, edge)
+            _cell_borders(cell, {'top': (6, edge), 'bottom': (6, edge), 'right': (6, edge), 'left': left})
+            _cell_margins(cell, 70, 70, 110, 90)
+            if tile.bg and _hex(tile.bg) != self.bg:
+                _cell_shade(cell, tile.bg)
+            p = cell.paragraphs[0]
+            p.paragraph_format.space_after = Pt(1)
+            if tile.label:
+                r = p.add_run(_clean(tile.label).upper())
+                r.font.size = Pt(tile.label_pt or max(6.0, self.base_pt - 1.5))
+                r.font.bold = True
+                r.font.color.rgb = RGBColor.from_string(_hex(tile.label_color) or self.muted)
+            if tile.value:
+                p2 = cell.add_paragraph()
+                p2.paragraph_format.space_after = Pt(1)
+                r = p2.add_run(_clean(tile.value))
+                r.font.size = Pt(min(tile.value_pt or 14.0, 22.0))
+                r.font.bold = True
+                r.font.color.rgb = RGBColor.from_string(_hex(tile.value_color) or self.ink)
+            if tile.note:
+                p3 = cell.add_paragraph()
+                p3.paragraph_format.space_after = Pt(0)
+                r = p3.add_run(_clean(tile.note))
+                r.font.size = Pt(max(6.0, self.base_pt - 1.5))
+                r.font.color.rgb = RGBColor.from_string(_hex(tile.note_color) or self.muted)
+        self._space(c, 4)
+
+    def write(self, path):
+        rep = self.rep
+        for b in rep.front:
+            self.emit(b)
+        for s in rep.sections:
+            self.emit(s)
+        for b in rep.tail:
+            self.emit(b)
+        self.doc.core_properties.title = _clean(rep.title or self.feature or '')
+        if self.app_name:
+            self.doc.core_properties.author = self.app_name
+        _normalize_order(self.doc.element)
+        for part in (self.doc.sections[0].header, self.doc.sections[0].footer):
+            _normalize_order(part._element)
+        _normalize_order(self.doc.styles.element)
+        self.doc.save(path)
+        return path
+
+
+def build_docx(rep, path, app_name='', feature='', project=''):
+    """Write a parsed :class:`html_model.ReportDoc` (visuals already rasterised) to ``path``."""
+    return _Writer(rep, app_name=app_name, feature=feature, project=project).write(path)
+
+
+def html_to_docx(html, path, app_name='', feature='', project='', chrome=None,
+                 use_chrome=True, sections=None):
+    """The one-call path used by ``POST /api/export/docx``."""
+    from . import svg_raster
+    rep = HM.parse_report(html, sections=sections)
+    svg_raster.rasterize(rep, chrome=chrome, use_chrome=use_chrome)
+    project = project or (rep.meta or {}).get('project', '')
+    return build_docx(rep, path, app_name=app_name, feature=feature or rep.title, project=project)
