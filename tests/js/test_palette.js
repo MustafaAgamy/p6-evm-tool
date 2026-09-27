@@ -4,7 +4,13 @@
  * Run: node tests/js/test_palette.js
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildPaletteItems, filterPaletteItems, movePaletteIndex } from '../../ui/modules/palette.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'ui', 'app.js'), 'utf8');
 
 let passed = 0;
 let failed = 0;
@@ -28,7 +34,8 @@ const items = buildPaletteItems({ nav: NAV, menus: MENUS, extraFeatures: [{ id: 
 console.log('\nbuildPaletteItems');
 test('features first (navigator order + extras), then commands', () => {
   assert.deepEqual(items.filter(i => i.kind === 'feature').map(i => i.id), ['home', 'evm', 'update', 'revcompare', 'recent', 'chat']);
-  assert.deepEqual(items.filter(i => i.kind === 'command').map(i => i.cmd), ['import', 'export-excel', 'export-word', 'recent', 'help-keys']);
+  // File ▸ "Recent projects" (cmd 'recent') opens the Recent Projects FEATURE — listed once, as the feature.
+  assert.deepEqual(items.filter(i => i.kind === 'command').map(i => i.cmd), ['import', 'export-excel', 'export-word', 'help-keys']);
   const firstCmd = items.findIndex(i => i.kind === 'command');
   assert.ok(items.slice(firstCmd).every(i => i.kind === 'command'));
 });
@@ -63,10 +70,41 @@ test('every word must match', () => {
   assert.deepEqual(filterPaletteItems(items, 'export word').map(i => i.cmd), ['export-word']);
   assert.deepEqual(filterPaletteItems(items, 'zz top'), []);
 });
-test('a feature beats a command with the same label ("recent")', () => {
+test('a menu command that opens a navigator feature is listed once, as the feature ("recent")', () => {
   const r = filterPaletteItems(items, 'recent');
+  assert.equal(r.length, 1);
   assert.equal(r[0].kind, 'feature');
-  assert.equal(r[1].kind, 'command');
+  assert.equal(r[0].id, 'recent');
+});
+test('a feature beats a command on the same words', () => {
+  const r = filterPaletteItems(buildPaletteItems({ nav: NAV, menus: { file: [['Earned Value summary', 'evm-sum']] } }), 'earned');
+  assert.deepEqual(r.map(i => i.kind), ['feature', 'command']);
+});
+
+// ── The REAL navigator + menus (parsed out of ui/app.js) — SHELL-6 ──────────
+console.log('\nreal app.js lists');
+const lit = (re) => { const m = appSrc.match(re); assert.ok(m, `not found: ${re}`); return m[1]; };
+const REAL_NAV = new Function(`return ${lit(/const NAV = (\[[\s\S]*?\n  \]);/)};`)();
+const REAL_MENUS = new Function('window', `return ${lit(/const MENUS = (\{[\s\S]*?\n  \});/)};`)({ __APP_NAME__: 'Controlyx' });
+const real = buildPaletteItems({ nav: REAL_NAV, menus: REAL_MENUS, extraFeatures: [{ id: 'chat', label: 'AI Chat', group: 'Menu bar' }] });
+test('parsed the real lists', () => {
+  assert.ok(real.filter(i => i.kind === 'feature').length >= 22);
+  assert.ok(real.filter(i => i.kind === 'command').length >= 15);
+});
+test('no label appears twice in the real palette (case-insensitive)', () => {
+  const seen = new Map();
+  const dups = [];
+  for (const i of real) {
+    const k = i.label.toLowerCase();
+    if (seen.has(k)) dups.push(`${i.label} (${seen.get(k)} + ${i.kind})`); else seen.set(k, i.kind);
+  }
+  assert.deepEqual(dups, []);
+});
+test('no command merely re-opens a navigator feature (kb / prodintel / recent)', () => {
+  const featureIds = new Set(real.filter(i => i.kind === 'feature').map(i => i.id));
+  const dup = real.filter(i => i.kind === 'command' && featureIds.has(i.cmd)).map(i => i.cmd);
+  assert.deepEqual(dup, []);
+  for (const id of ['kb', 'prodintel', 'recent']) assert.equal(real.filter(i => i.id === id || i.cmd === id).length, 1, id);
 });
 test('case-insensitive', () => assert.equal(filterPaletteItems(items, 'EARNED')[0].id, 'evm'));
 

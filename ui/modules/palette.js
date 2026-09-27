@@ -35,11 +35,14 @@ export function buildPaletteItems({ nav = [], menus = {}, extraFeatures = [] } =
   }
   extraFeatures.forEach(f => addFeature(f.id, f.label, f.group || ''));
 
+  // A menu command whose cmd IS a feature id (Tools ▸ Knowledge Base / Productivity & Resources,
+  // File ▸ Recent projects) only re-opens that feature — it is already listed as the feature row,
+  // so it is skipped rather than shown twice.
   const seenCmd = new Set();
   for (const [menu, list] of Object.entries(menus)) {
     for (const it of list || []) {
       const [label, cmd] = it;
-      if (label === 'sep' || !cmd || seenCmd.has(cmd)) continue;
+      if (label === 'sep' || !cmd || seenCmd.has(cmd) || seenFeature.has(cmd)) continue;
       seenCmd.add(cmd);
       const sc = shortcutForCmd(cmd);
       items.push({ kind: 'command', cmd, label: String(label).replace(/…$/, ''),
