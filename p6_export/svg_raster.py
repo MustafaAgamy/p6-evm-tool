@@ -20,7 +20,6 @@ No network; Chrome is only launched when a visual actually needs it.
 import copy
 import os
 import re
-import subprocess
 import tempfile
 
 from . import css as C
@@ -197,11 +196,11 @@ def svg_to_png(svg_markup, width_px=None, scale=2.0):
 
 
 def _find_chrome():
-    try:
-        import server
-        return server._find_chrome()
-    except Exception:
-        return None
+    """Only when the caller passed no browser: the first installed Chromium we know of
+    (never imports the server — keeps this module usable from tests / the CLI)."""
+    from .pdf import chrome_candidates
+    found = chrome_candidates(None)
+    return found[0] if found else None
 
 
 def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
@@ -238,12 +237,9 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
     try:
         with open(html_path, 'w', encoding='utf-8') as fh:
             fh.write(html)
-        subprocess.run([
-            chrome, '--headless', '--disable-gpu', '--no-sandbox',
-            f'--user-data-dir={os.path.join(tmpdir, "prof")}',
-            f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
-            'file:///' + html_path.replace(os.sep, '/'),
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
+        from .pdf import run_chrome
+        run_chrome(chrome, [f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
+                            'file:///' + html_path.replace(os.sep, '/')], timeout=timeout)
         doc = pymupdf.open(pdf_path)
         drawn = 0
         try:
@@ -270,6 +266,8 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
             doc.close()
         return drawn
     except Exception:
+        if os.environ.get('CX_EXPORT_DEBUG'):
+            raise
         return 0
     finally:
         for name in ('v.html', 'v.pdf'):
