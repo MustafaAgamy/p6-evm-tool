@@ -54,6 +54,63 @@ def _lum(hexv):
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _solid_png(hexv, size=8):
+    """A tiny opaque PNG of one colour (stdlib only) — stretched to the page it is the page colour."""
+    import struct
+    import zlib
+    rgb = bytes.fromhex(_hex(hexv) or 'FFFFFF')
+    raw = b''.join(b'\x00' + rgb * size for _ in range(size))
+
+    def chunk(tag, data):
+        return (struct.pack('>I', len(data)) + tag + data
+                + struct.pack('>I', zlib.crc32(tag + data) & 0xFFFFFFFF))
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+
+
+def _page_fill(paragraph, hexv, width_emu, height_emu):
+    """Paint the page colour as a full-page picture anchored BEHIND the text, from the header, so it
+    repeats on every page. Word does not print ``w:background`` (nor keep it in Save as PDF) by
+    default — on a dark theme that would leave near-white ink on white paper. A picture prints."""
+    run = paragraph.add_run()
+    run.add_picture(io.BytesIO(_solid_png(hexv)), width=Emu(width_emu), height=Emu(height_emu))
+    inline = run._r.find('.//' + qn('wp:inline'))
+    anchor = OxmlElement('wp:anchor')
+    for k, v in (('distT', '0'), ('distB', '0'), ('distL', '0'), ('distR', '0'), ('simplePos', '0'),
+                 ('relativeHeight', '0'), ('behindDoc', '1'), ('locked', '1'),
+                 ('layoutInCell', '1'), ('allowOverlap', '1')):
+        anchor.set(k, v)
+    sp = OxmlElement('wp:simplePos')
+    sp.set('x', '0')
+    sp.set('y', '0')
+    anchor.append(sp)
+    for tag, rel in (('wp:positionH', 'page'), ('wp:positionV', 'page')):
+        pos = OxmlElement(tag)
+        pos.set('relativeFrom', rel)
+        off = OxmlElement('wp:posOffset')
+        off.text = '0'
+        pos.append(off)
+        anchor.append(pos)
+    kids = {c.tag: c for c in inline}
+    anchor.append(kids[qn('wp:extent')])
+    eff = kids.get(qn('wp:effectExtent'))
+    if eff is None:
+        eff = OxmlElement('wp:effectExtent')
+        for k in ('l', 't', 'r', 'b'):
+            eff.set(k, '0')
+    anchor.append(eff)
+    anchor.append(OxmlElement('wp:wrapNone'))
+    for tag in ('wp:docPr', 'wp:cNvGraphicFramePr', 'a:graphic'):
+        if kids.get(qn(tag)) is not None:
+            anchor.append(kids[qn(tag)])
+    doc_pr = anchor.find(qn('wp:docPr'))
+    if doc_pr is not None:              # header ids restart at 1 → keep clear of body picture ids
+        doc_pr.set('id', '9000')
+        doc_pr.set('name', 'Page colour')
+    inline.getparent().replace(inline, anchor)
+    return anchor
+
+
 # ── low-level XML helpers ──────────────────────────────────────────────────────
 def _shade(pr, fill):
     fill = _hex(fill)
@@ -311,6 +368,9 @@ class _Writer:
         run.font.size = Pt(7.5)
         run.font.color.rgb = RGBColor.from_string(self.muted)
         _para_border(hp, 'bottom', 0.5, self.hair)
+        if self.bg != 'FFFFFF':
+            # w:background shows on screen only; this prints (and survives Word's Save as PDF)
+            _page_fill(hp, self.bg, sec.page_width, sec.page_height)
         fp = sec.footer.paragraphs[0]
         fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for txt, instr in (('Page ', None), (None, 'PAGE'), (' of ', None), (None, 'NUMPAGES')):

@@ -179,6 +179,37 @@ def test_docx_is_word_ready_headers_colours_no_css_vars(tmp_path):
     assert 'displayBackgroundShape' in _xml(out, 'word/settings.xml')
 
 
+def test_dark_docx_prints_its_page_colour_so_light_ink_never_lands_on_white_paper(tmp_path):
+    """F5: w:background is screen-only — Word does not print it and Save as PDF drops it, so the
+    dark theme's near-white ink printed on white paper. The page colour must also be a full-page
+    picture anchored behind the text (from the header → every page), which always prints."""
+    import pymupdf
+    out = _docx(evm_html('dark'), tmp_path)
+    d = docx.Document(str(out))
+    sec = d.sections[0]
+    ink = d.styles['Normal'].font.color.rgb
+    assert to_docx._lum(str(ink)) > 180                             # the dark theme's light ink
+    anchors = sec.header._element.findall('.//' + to_docx.qn('wp:anchor'))
+    assert len(anchors) == 1
+    a = anchors[0]
+    assert a.get('behindDoc') == '1'
+    for tag in ('wp:positionH', 'wp:positionV'):
+        pos = a.find(to_docx.qn(tag))
+        assert pos.get('relativeFrom') == 'page'
+        assert pos.find(to_docx.qn('wp:posOffset')).text == '0'
+    ext = a.find(to_docx.qn('wp:extent'))
+    assert (int(ext.get('cx')), int(ext.get('cy'))) == (sec.page_width, sec.page_height)
+    assert a.find(to_docx.qn('wp:wrapNone')) is not None
+    rid = a.find('.//' + to_docx.qn('a:blip')).get(to_docx.qn('r:embed'))
+    pix = pymupdf.Pixmap(sec.header.part.related_parts[rid].blob)
+    r, g, b = pix.pixel(pix.width // 2, pix.height // 2)[:3]
+    assert '%02X%02X%02X' % (r, g, b) == '131922'                   # the dark page, printable
+    assert to_docx._lum('%02X%02X%02X' % (r, g, b)) < 60
+    # the light build keeps a plain white page — no picture behind its dark ink
+    light = docx.Document(str(_docx(evm_html('light'), tmp_path, name='l.docx')))
+    assert not light.sections[0].header._element.findall('.//' + to_docx.qn('wp:anchor'))
+
+
 def test_docx_page_follows_the_report_at_page(tmp_path):
     html = ('<html><head><style>@page{size:A4 landscape;margin:10mm}</style></head><body>'
             '<h1>Wide</h1><table><tr><th>A</th></tr><tr><td>1</td></tr></table></body></html>')
