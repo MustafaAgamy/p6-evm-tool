@@ -135,8 +135,10 @@ def test_action_code_by_meaning():
         assert classify_action_code(a) == 'approved', a
     for a in ['C', 'Rejected', 'Not Approved', 'Revise and Resubmit', 'RNS']:
         assert classify_action_code(a) == 'not_approved', a
-    for a in ['P', 'Under Review', 'Pending', 'In Progress']:
+    for a in ['P', 'Under Review', 'Pending']:
         assert classify_action_code(a) == 'under_review', a
+    # ELOG-1: 'In Progress' means the drawing has not been sent yet - not a review code
+    assert classify_action_code('In Progress') is None
     assert classify_action_code('') is None and classify_action_code(None) is None
 
 
