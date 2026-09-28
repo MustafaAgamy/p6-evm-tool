@@ -6,6 +6,7 @@ optional Engineering Progress. EVM only — never mixed with the audit modules.
 render_evm_report() returns HTML; the caller renders it to PDF via Chrome.
 """
 import html as _html
+import json
 from datetime import datetime
 
 import report_theme
@@ -45,6 +46,28 @@ def spi_status(spi):
     if spi >= 0.95:
         return 'Slightly Behind', report_theme.var('rpt-warn')
     return 'Behind Schedule', report_theme.var('rpt-bad')
+
+
+def _part(key, label, html, export=None, headers=None, rows=None):
+    """Wrap one selectable report PART (Report Contents picker, 2nd level).
+
+    ``data-part="<section>.<part>"`` + ``data-part-label`` let the picker list it and remove
+    it when unticked; ``data-export="image"`` marks a CSS chart that Word receives as a
+    picture, with the numbers behind it (``data-chart-*``) for Excel."""
+    if not html:
+        return ''
+    attrs = f' data-part="{key}" data-part-label="{_esc(label)}"'
+    if export:
+        attrs += f' data-export="{export}"'
+    if headers is not None and rows is not None:
+        attrs += (f" data-chart-headers='{_esc(json.dumps(headers))}'"
+                  f" data-chart-data='{_esc(json.dumps(rows))}'")
+    return f'<div{attrs}>{html}</div>'
+
+
+def _sec(key, html):
+    """One top-level report SECTION (the picker's 1st level)."""
+    return f'<div data-sec="{key}">{html}</div>' if html else ''
 
 
 def _tile(label, value, note='', accent=None):
@@ -100,7 +123,8 @@ def _dashboard(result, meta):
         _tile('Expected Finish', _fmt_date(meta.get('expected_finish'))),
         _tile('Delay', f"{result.get('delay_days')} days" if result.get('delay_days') is not None else '—'),
     ]
-    return f'<div class="dash-grid">{"".join(tiles)}</div>'
+    return _part('dashboard.kpis', 'Executive dashboard tiles (SPI, PV, EV, CPI, dates)',
+                 f'<div class="dash-grid">{"".join(tiles)}</div>')
 
 
 def _pv_ev_bar(result):
@@ -112,8 +136,11 @@ def _pv_ev_bar(result):
         return (f'<div class="bar-row"><div class="bar-label">{label}</div>'
                 f'<div class="bar-track"><div class="bar-fill" style="width:{w:.1f}%;background:{color}"></div></div>'
                 f'<div class="bar-val">{_egp(val)}</div></div>')
-    return (row('Planned Value (PV)', pv, report_theme.var('rpt-series-1'))
-            + row('Earned Value (EV)', ev, report_theme.var('rpt-series-2')))
+    return _part('value.chart', 'Planned Value vs Earned Value — bar chart',
+                 row('Planned Value (PV)', pv, report_theme.var('rpt-series-1'))
+                 + row('Earned Value (EV)', ev, report_theme.var('rpt-series-2')),
+                 export='image', headers=['Measure', 'Value (EGP)'],
+                 rows=[['Planned Value (PV)', round(pv, 2)], ['Earned Value (EV)', round(ev, 2)]])
 
 
 def _progress_band(result):
@@ -141,8 +168,12 @@ def _progress_band(result):
                 f'<div class="bar-track"><div class="bar-fill" style="width:{w:.1f}%;background:{color}"></div></div>'
                 f'<div class="bar-val">{val * 100:.2f}%</div></div>')
     bars = bar('Planned', planned, report_theme.var('rpt-series-1')) + bar('Actual', actual, report_theme.var('rpt-series-2'))
-    return (f'<div class="dash-grid" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>'
-            f'<div style="margin-top:10px">{bars}</div>')
+    return (_part('progress.kpis', 'Planned % / Actual % / Variance tiles',
+                  f'<div class="dash-grid" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>')
+            + _part('progress.chart', 'Planned vs Actual — bar chart',
+                    f'<div style="margin-top:10px">{bars}</div>', export='image',
+                    headers=['Measure', 'Progress %'],
+                    rows=[['Planned', round(planned * 100, 2)], ['Actual', round(actual * 100, 2)]]))
 
 
 def _category_table(result):
@@ -164,11 +195,11 @@ def _category_table(result):
     rows.append(
         f'<tr class="tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>'
         f'<td class="num">—</td><td class="num">{tot_pw:.2f}%</td><td class="num">{tot_wa:.2f}%</td></tr>')
-    return (
+    return _part('category.table', 'Category weights table', (
         '<table><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
         '<th class="num">Planned %</th><th class="num">Actual %</th>'
         '<th class="num">Planned Weight %</th><th class="num">Weighted Actual %</th></tr></thead>'
-        f'<tbody>{"".join(rows)}</tbody></table>')
+        f'<tbody>{"".join(rows)}</tbody></table>'))
 
 
 def _gap_section(gap):
@@ -182,10 +213,11 @@ def _gap_section(gap):
             f'<td class="num">{abs(g["pct_of_gap"]):.0f}%</td></tr>')
     return (
         f'<h2 class="sec">PV vs EV Gap Analysis — by {_esc(gap.get("dimension", ""))}</h2>'
-        f'<p class="note">Total gap (PV − EV) = {_gap_val(gap.get("total_gap"), _egp)} EGP, showing where the slippage concentrates.</p>'
-        '<table><thead><tr><th>Group</th><th class="num">PV</th><th class="num">EV</th>'
-        '<th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>'
-        f'<tbody>{"".join(rows)}</tbody></table>')
+        + _part('gap.table', 'PV vs EV gap table', (
+            f'<p class="note">Total gap (PV − EV) = {_gap_val(gap.get("total_gap"), _egp)} EGP, showing where the slippage concentrates.</p>'
+            '<table><thead><tr><th>Group</th><th class="num">PV</th><th class="num">EV</th>'
+            '<th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')))
 
 
 def _engineering_section(engineering):
@@ -257,32 +289,36 @@ def _engineering_section(engineering):
             f'<td class="num">{t.get("approved_rows", "")}</td><td class="num">{t.get("not_approved_rows", "")}</td>'
             f'<td class="num">{t.get("submitted_pct", "")}%</td><td class="num">{t.get("approved_pct", "")}%</td></tr>'
             for t in by_trade)
-        trade_html = (
+        trade_html = _part('engineering.by_trade', 'Totals by trade', (
             '<h2 class="sec">Engineering — Totals by Trade</h2>'
             '<table><thead><tr><th>Trade</th><th class="num">Req</th><th class="num">Submitted</th>'
             '<th class="num">Approved</th><th class="num">Not Appr</th><th class="num">Sub %</th>'
-            f'<th class="num">Appr %</th></tr></thead><tbody>{trows}</tbody></table>')
+            f'<th class="num">Appr %</th></tr></thead><tbody>{trows}</tbody></table>'))
 
     # Engineering Gap — same logic as the PV-EV gap (Planned − Approved, share of total),
     # split into Design and Engineering(Shop).
     gaps = engineering.get('gaps') or {}
 
-    def _gap_table(title, groups):
+    def _gap_table(key, label, title, groups):
         if not groups:
             return ''
         grows = ''.join(
             f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned", "")}</td>'
             f'<td class="num">{g.get("approved", "")}</td><td class="num">{_gap_val(g.get("gap"), lambda n: f"{n:g}")}</td>'
             f'<td class="num">{abs(g.get("pct_of_gap", 0)):.0f}%</td></tr>' for g in groups)
-        return (
+        return _part(key, label, (
             f'<h2 class="sec">{_esc(title)}</h2>'
             '<table><thead><tr><th>Trade</th><th class="num">Planned</th>'
             '<th class="num">Approved</th><th class="num">Gap</th><th class="num">% of Gap</th>'
-            f'</tr></thead><tbody>{grows}</tbody></table>')
-    gap_html = (_gap_table('Engineering Gap — Design Drawings (Planned vs Approved by Trade)', gaps.get('design'))
-                + _gap_table('Engineering Gap — Shop Drawings (Planned vs Approved by Trade)', gaps.get('engineering')))
-    return (f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
-            f'<p class="note">{_esc(note)}</p>{table}{trade_html}{gap_html}')
+            f'</tr></thead><tbody>{grows}</tbody></table>'))
+    gap_html = (_gap_table('engineering.gap_design', 'Engineering gap — design drawings',
+                           'Engineering Gap — Design Drawings (Planned vs Approved by Trade)', gaps.get('design'))
+                + _gap_table('engineering.gap_shop', 'Engineering gap — shop drawings',
+                             'Engineering Gap — Shop Drawings (Planned vs Approved by Trade)', gaps.get('engineering')))
+    drawings = _part('engineering.drawings', 'Drawings by trade table',
+                     f'<h2 class="sec">Engineering Progress — Drawings by Trade</h2>'
+                     f'<p class="note">{_esc(note)}</p>{table}')
+    return f'{drawings}{trade_html}{gap_html}'
 
 
 def render_evm_report(result, meta, gap=None, engineering=None, theme='light', sections=None):
@@ -293,10 +329,15 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
     _inc = (lambda _k: True) if not sections else (lambda _k: _k in sections)
     gap_html = _gap_section(gap)
     eng_html = _engineering_section(engineering)
-    progress_html  = (f'<h2 class="sec">Project Progress — Planned vs Actual</h2>\n  {_progress_band(result)}' if _inc('progress') else '')
-    dashboard_html = (f'<h2 class="sec">Executive Dashboard</h2>\n  {_dashboard(result, meta)}' if _inc('dashboard') else '')
-    value_html     = (f'<h2 class="sec">Planned Value vs Earned Value</h2>\n  {_pv_ev_bar(result)}' if _inc('value') else '')
-    category_html  = (f'<h2 class="sec">Category Weights &amp; Overall Progress</h2>\n  {_category_table(result)}' if _inc('category') else '')
+    # Every block is a [data-sec] SECTION made of [data-part] PARTS — the two levels of the
+    # Report Contents picker (docs/report-picker-adoption.md). The client removes unticked
+    # parts / reorders sections; PDF · Word · HTML · Excel are all built from that result.
+    progress_html  = _sec('progress', f'<h2 class="sec">Project Progress — Planned vs Actual</h2>\n  {_progress_band(result)}') if _inc('progress') else ''
+    dashboard_html = _sec('dashboard', f'<h2 class="sec">Executive Dashboard</h2>\n  {_dashboard(result, meta)}') if _inc('dashboard') else ''
+    value_html     = _sec('value', f'<h2 class="sec">Planned Value vs Earned Value</h2>\n  {_pv_ev_bar(result)}') if _inc('value') else ''
+    category_html  = _sec('category', f'<h2 class="sec">Category Weights &amp; Overall Progress</h2>\n  {_category_table(result)}') if _inc('category') else ''
+    gap_html = _sec('gap', gap_html)
+    eng_html = _sec('engineering', eng_html)
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
@@ -308,7 +349,9 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
   .subtitle {{ font-size:12px; color:var(--rpt-ink-soft); }}
   .meta {{ display:flex; flex-wrap:wrap; gap:3px 26px; margin-top:10px; font-size:11px; }}
   .meta span {{ color:var(--rpt-muted); }}
-  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--rpt-accent); border-bottom:1px solid var(--rpt-hair); padding-bottom:4px; margin:22px 0 10px; }}
+  h2.sec {{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--rpt-accent); border-bottom:1px solid var(--rpt-hair); padding-bottom:4px; margin:22px 0 10px; break-after:avoid; page-break-after:avoid; }}
+  [data-part] {{ break-inside:avoid-page; }}
+  .rpt-nodata {{ font-size:10px; color:var(--rpt-muted); font-style:italic; padding:6px 0; }}
   .dash-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }}
   .kpi {{ border:1px solid var(--rpt-edge); border-radius:8px; padding:12px 13px; min-height:62px; display:flex; flex-direction:column; justify-content:center; }}
   .kpi .k {{ font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:var(--rpt-muted); font-weight:700; }}

@@ -219,6 +219,7 @@ async function doPreview() {
       return r.ok ? r.html : `<p>${esc(r.error || 'error')}</p>`;
     },
     onSave: (mode) => saveFile('pdf', mode),
+    legacyPdf: true, exports: ['pdf'],      // its own PDF route; Word / Excel live on the Studio screen
   });
 }
 
