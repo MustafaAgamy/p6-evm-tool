@@ -5,7 +5,8 @@ difficulty seen in real consultant logs; every expected count is worked out by h
 comment next to it, using the owner's counting rules:
   * a drawing counts ONCE (by its Drawing No. when the log has one);
   * once Approved (A/B) at any revision it stays approved;
-  * Not approved / Under review only while not yet approved; rejected wins over pending;
+  * otherwise the LATEST revision decides: awaiting a reply = Under review (and Submitted),
+    C / D = Not approved (owner decision ELOG-4, 2026-09-27);
   * % Submitted = (Submitted − Rejected) ÷ Req;  % Approved = Approved ÷ Req.
 """
 import csv
@@ -402,8 +403,9 @@ def test_no_drawing_number_uses_the_transmittal_revision_chain(tmp_path):
         ws.append(r)
     wb.save(p)
     g = _summary(p)[('Civil', 'BBS')]
-    # T-9 approved; T-11 C→B approved; T-12 C then W (re-titled) = one document, not approved
-    assert (g['req'], g['approved_rows'], g['not_approved_rows']) == (3, 2, 1)
+    # T-9 approved; T-11 C→B approved; T-12 C then W (re-titled) = one document, and its
+    # latest revision (W) decides → Under review (owner decision ELOG-4)
+    assert (g['req'], g['approved_rows'], g['not_approved_rows'], g['under_review_rows']) == (3, 2, 0, 1)
 
 
 # ── 7. CSV input ──────────────────────────────────────────────────────────────────────
@@ -848,7 +850,7 @@ def test_read_mark_kinds(text, expected):
     assert es._read_mark(text, True)[1] == expected
 
 
-# ── ELOG-4 (owner decision pending): rejected, then resubmitted and still under review ──
+# ── ELOG-4 (owner decision 2026-09-27): rejected, then resubmitted → latest revision decides ──
 def _rejected_then_resent(path):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -866,20 +868,20 @@ def _rejected_then_resent(path):
     wb.save(path)
 
 
-def test_rejected_then_resubmitted_keeps_the_current_rule_and_says_so(tmp_path):
-    # CURRENT RULE (unchanged, awaiting Ibrahim's decision — ELOG-4): a drawing ever returned
-    # C/D counts Not approved until it is approved, even while its newer revision is under
-    # review. BT-1 (C→W) and BT-2 (C→sent) = not approved; BT-3 approved; BT-4 not approved.
-    # % Submitted = (4 − 3) ÷ 4 = 25.0.  (Latest-revision reading would give 1 not approved,
-    # 2 under review → (4 − 1) ÷ 4 = 75.0.)
+def test_rejected_then_resubmitted_latest_revision_decides_and_says_so(tmp_path):
+    # OWNER DECISION ELOG-4 (2026-09-27): once approved it stays approved; otherwise the LATEST
+    # revision decides. BT-1 (C→W) and BT-2 (C→sent, no reply) = Under review (and Submitted);
+    # BT-3 (C→B) approved; BT-4 (D only) not approved.
+    # % Submitted = (4 − 1) ÷ 4 = 75.0;  % Approved = 1 ÷ 4 = 25.0.
     p = tmp_path / 'steel.xlsx'
     _rejected_then_resent(p)
     prop = es.inspect_log(str(p))
     g = _summary(p, prop)[('Steel', 'SD')]
     assert (g['req'], g['submitted_rows'], g['approved_rows'], g['not_approved_rows'],
-            g['under_review_rows']) == (4, 4, 1, 3, 0)
-    assert g['submitted_pct'] == 25.0
+            g['under_review_rows']) == (4, 4, 1, 1, 2)
+    assert (g['submitted_pct'], g['approved_pct']) == (75.0, 25.0)
     # … and the planner is told, in plain words, how many drawings this affects
     note = next(w for w in _sheet(prop, 'Steel')['warnings'] if 'resubmitted' in w)
     assert note.startswith('2 drawing(s)')
-    assert 'Not approved until an approval comes back' in note
+    assert 'latest revision decides' in note and 'Under review' in note
+    assert 'until an approval comes back' not in note

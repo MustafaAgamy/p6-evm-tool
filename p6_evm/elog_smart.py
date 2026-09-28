@@ -14,7 +14,9 @@ This module reads such a log the way a planner would — offline, deterministic,
   read_rows(path, layout)  → the row dicts ``e1_log.summarize_e1`` already counts, so the
                              owner's counting rules are unchanged: a drawing counts ONCE (by its
                              drawing number when the log has one); once approved at any revision
-                             it stays approved; % Submitted = (Submitted − Rejected) ÷ Req.
+                             it stays approved, otherwise its LATEST revision decides (awaiting
+                             a reply = Under review and Submitted; C / D = Not approved);
+                             % Submitted = (Submitted − Rejected) ÷ Req.
   refresh_layout(path, l)  → re-derives the preview / codes / notes after the planner edits
                              a column, a sheet switch or a code.
   remember_layout(layout)  → stores the planner's confirmed layout keyed by a signature of the
@@ -44,7 +46,7 @@ from datetime import date, datetime
 
 from p6_evm.classify import (E1_FIELD_SYNONYMS, VERDICTS, classify_action_code,
                              is_not_sent_status, legend_code_candidates, status_says_sent)
-from p6_evm.e1_log import _sheet_trade, summarize_e1
+from p6_evm.e1_log import _as_dt, _latest, _rev_key, _sheet_trade, summarize_e1
 
 # ── fields ────────────────────────────────────────────────────────────────────────────────
 FIELDS = ('drawing_no', 'description', 'trade', 'submittal_type', 'building', 'revision',
@@ -1193,34 +1195,31 @@ def _drawing_keys(recs, note):
             r['drawing_key'] = chain + ('|' + _title_key(r['description']) if chain in multi else '')
 
 
-def _rev_order(r):
-    """Sort key for the submissions of one drawing: revision number, then date sent, then row."""
-    rev = r.get('revision')
-    m = re.search(r'(\d+)\s*$', str(rev)) if rev is not None else None
-    sent = r.get('submitted') if isinstance(r.get('submitted'), datetime) else datetime.min
-    return (int(m.group(1)) if m else -1, sent, r.get('row') or 0)
-
-
 def _rejected_then_resent(rows):
     """{sheet: number of drawings} returned Not approved (C/D) whose LATEST submission is
     back under review (a W / pending code, or sent with no reply yet) and that have not been
-    approved. The counting rule is unchanged — they count as Not approved until approved;
-    this only tells the planner how many drawings that rule is holding back."""
+    approved. Owner decision ELOG-4 (2026-09-27): the latest revision decides, so these count
+    as Under review (and Submitted), not Not approved — this tells the planner how many.
+    "Latest" is judged exactly as summarize_e1 judges it."""
     per = defaultdict(list)
-    for r in rows:
+    for i, r in enumerate(rows):
         dk = r.get('drawing_key') or (str(r.get('building') or '').strip(),
                                       str(r.get('description') or '').strip())
-        per[(r.get('sheet'), r['trade'], r['submittal_type'], dk)].append(r)
+        per[(r.get('sheet'), r['trade'], r['submittal_type'], dk)].append((i, r))
     out = Counter()
     for (sheet, *_), rs in per.items():
-        verdicts = {r.get('verdict') for r in rs}
-        if 'not_approved' not in verdicts or 'approved' in verdicts:
-            continue
-        last = max(rs, key=_rev_order)
-        pending = last.get('verdict') == 'under_review' or (
-            last.get('verdict') is None and last.get('submitted') is not None
-            and last.get('action_code') is None and last.get('returned') is None)
-        if pending:
+        subs = []
+        for i, r in rs:
+            v = r.get('verdict')
+            if (v is None and r.get('submitted') is not None and r.get('action_code') is None
+                    and r.get('returned') is None):
+                v = 'under_review'                   # sent, no reply yet
+            if v == 'approved':
+                subs = None
+                break
+            if v in ('not_approved', 'under_review'):
+                subs.append((_rev_key(r.get('revision')), _as_dt(r.get('submitted')), i, v))
+        if subs and any(s[3] == 'not_approved' for s in subs) and _latest(subs)[3] == 'under_review':
             out[sheet] += 1
     return out
 
@@ -1337,8 +1336,8 @@ def _finalize(prop, sheet_grids):
         n = notes.get(sh['sheet'])
         if resent.get(sh['sheet']):
             w.append(f'{resent[sh["sheet"]]} drawing(s) came back Not approved (C/D) and have been '
-                     f'resubmitted — the latest revision is under review. They count as Not approved '
-                     f'until an approval comes back, so % Submitted does not rise on resubmission.')
+                     f'resubmitted — the latest revision decides, so they count as Under review '
+                     f'(and Submitted), not Not approved.')
         if n:
             if n['inferred_sent']:
                 w.append(f'{n["inferred_sent"]} row(s) have a reply (a review code or a reply date) or a status '

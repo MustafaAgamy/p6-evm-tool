@@ -1,7 +1,7 @@
 """summarize_e1 counting rules added with the format-agnostic engineering-log reader.
 
-The owner's rules are unchanged (a drawing counts once; once approved at any revision it stays
-approved; % Submitted = (Submitted − Rejected) ÷ Req; % Approved = Approved ÷ Req). New:
+The owner's rules (a drawing counts once; once approved at any revision it stays approved,
+otherwise its LATEST revision decides — ELOG-4, 2026-09-27; % Submitted = (Submitted − Rejected) ÷ Req; % Approved = Approved ÷ Req). New:
   * a row may carry its own distinct-drawing key ('drawing_key', e.g. from a Drawing No.
     column) — otherwise the key stays (building, description) exactly as before;
   * a row may carry a pre-classified 'verdict' (from the log's own code legend);
@@ -52,10 +52,55 @@ def test_submitted_with_reply_date_but_no_code_is_not_under_review():
     assert g['under_review_rows'] == 0
 
 
-def test_rejected_then_resubmitted_without_reply_stays_rejected():
-    # existing rule: Not Approved while not yet approved (rejected wins over under review)
-    g = summarize_e1([_r('D1', 'C'), _r('D1', '')])[('Civil', 'SD')]
-    assert g['not_approved_rows'] == 1 and g['under_review_rows'] == 0
+# ── ELOG-4 owner decision (2026-09-27, option b): once approved it stays approved; otherwise
+# the LATEST revision decides (awaiting a reply = Under review AND Submitted; C/D = Not approved)
+def _st(g):
+    return (g['req'], g['submitted_rows'], g['approved_rows'], g['not_approved_rows'],
+            g['under_review_rows'], g['submitted_pct'], g['approved_pct'])
+
+
+def test_c_then_w_is_under_review_and_submitted():
+    g = summarize_e1([_r('D1', 'C', revision='0'), _r('D1', 'W', revision='1')])[('Civil', 'SD')]
+    assert _st(g) == (1, 1, 0, 0, 1, 100.0, 0.0)
+
+
+def test_c_then_sent_without_reply_is_under_review():
+    g = summarize_e1([_r('D1', 'C', revision='0'), _r('D1', '', revision='1')])[('Civil', 'SD')]
+    assert _st(g) == (1, 1, 0, 0, 1, 100.0, 0.0)
+
+
+def test_c_then_c_is_not_approved():
+    g = summarize_e1([_r('D1', 'C', revision='0'), _r('D1', 'C', revision='1')])[('Civil', 'SD')]
+    assert _st(g) == (1, 1, 0, 1, 0, 0.0, 0.0)
+
+
+def test_w_then_c_is_not_approved():
+    g = summarize_e1([_r('D1', 'W', revision='0'), _r('D1', 'C', revision='1')])[('Civil', 'SD')]
+    assert _st(g) == (1, 1, 0, 1, 0, 0.0, 0.0)
+
+
+def test_b_then_c_and_c_then_b_are_approved():
+    for codes in (('B', 'C'), ('C', 'B')):
+        g = summarize_e1([_r('D1', codes[0], revision='0'),
+                          _r('D1', codes[1], revision='1')])[('Civil', 'SD')]
+        assert _st(g) == (1, 1, 1, 0, 0, 100.0, 100.0), codes
+
+
+def test_w_only_is_under_review():
+    g = summarize_e1([_r('D1', 'W')])[('Civil', 'SD')]
+    assert _st(g) == (1, 1, 0, 0, 1, 100.0, 0.0)
+
+
+def test_latest_by_revision_not_row_order():
+    # rows out of order in the log: Rev 1 (W) listed above Rev 0 (C) → latest = Rev 1 = W
+    g = summarize_e1([_r('D1', 'W', revision='Rev.01'), _r('D1', 'C', revision='Rev.00')])[('Civil', 'SD')]
+    assert (g['not_approved_rows'], g['under_review_rows']) == (0, 1)
+
+
+def test_latest_by_date_sent_when_no_revision():
+    g = summarize_e1([_r('D1', 'W', submitted=datetime(2025, 3, 1)),
+                      _r('D1', 'C', submitted=datetime(2025, 1, 1))])[('Civil', 'SD')]
+    assert (g['not_approved_rows'], g['under_review_rows']) == (0, 1)
 
 
 def test_row_verdict_overrides_default_classification():
