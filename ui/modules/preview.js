@@ -35,6 +35,7 @@ import {
   selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml, exportKinds,
   needsRerender, canReorder,
 } from './report_parts.js';
+import { takeDocExport, pendingExportPlan } from './export_intent.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
 
@@ -333,7 +334,20 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   // first paint: the tree, then the final (pruned + ordered) report — refetching only if the
   // remembered selection needs a section the caller did not render
   paintTree();
-  refresh();
+  const firstPaint = refresh();
+  // File ▸ Export to Word / HTML opened this preview (export_intent.js): press this bar's own
+  // ⬇ Word / ⬇ HTML once the report is painted — or say, in the page, that this report has
+  // no Word / HTML export yet.
+  const plan = pendingExportPlan(takeDocExport(), offered.map(e => e.kind), featureName);
+  if (plan && plan.click) {
+    toast(`Saving as ${plan.click === 'docx' ? 'Word' : 'HTML'} — choose where to save it.`);
+    Promise.resolve(firstPaint).catch(() => {}).then(() => {
+      const b = overlay.isConnected && overlay.querySelector(`#rpv-save-${plan.click}`);
+      if (b && !b.disabled) b.click();
+    });
+  } else if (plan && plan.message) {
+    toast(plan.message, 'err');
+  }
   return { close, finalHtml, getState: () => st };
 }
 
@@ -350,6 +364,9 @@ export function showReportContentsPreview(opts) {
   const { feature, report, title, subtitle, serverPort } = opts;
   const onError = opts.onError || (() => {});
   const LS_KEY = `p6_report_sel_${feature}`;
+  // File ▸ Export to Word / HTML opened this preview: it saves PDF only (export_intent.js)
+  const pendDoc = pendingExportPlan(takeDocExport(), ['pdf'], title || feature);
+  if (pendDoc && pendDoc.message) onError(pendDoc.message);
   let mode = getSavedMode();                       // shared appearance mode (6 themes)
   const api = (path, body) => fetch(`http://localhost:${serverPort}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

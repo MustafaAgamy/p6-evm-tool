@@ -134,7 +134,7 @@ export const FEATURE_NEEDS = [
     ],
     recommend: 'XML exported from P6 with its baseline project included — one file, exact Planned Value.',
     produces: 'PV, EV, AC, SPI, CPI, delay in days and category progress.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],   // the preview's export bar (report adopted: docs/report-picker-adoption.md)
     start: 'Navigator ▸ Progress & Performance ▸ Earned Value (Alt+1)',
   },
   {
@@ -229,7 +229,7 @@ export const FEATURE_NEEDS = [
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: ['Optional: a note against each reduced-hours working period (saved with the project, printed in the PDF).'],
     produces: 'Calendar register, net-working-days histogram and a side-by-side calendar comparison.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],   // the preview's export bar (report adopted: docs/report-picker-adoption.md)
     start: 'Navigator ▸ Calendars & Weather ▸ P6 Calendar Audit (Alt+6)',
   },
   {

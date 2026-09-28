@@ -26,6 +26,7 @@ import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
 import { needsHint, needsTooltip }              from './modules/feature_needs.js';
+import { DOC_KINDS, docExportRoute, requestDocExport, clearDocExport, noDocExportMessage } from './modules/export_intent.js';
 import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
@@ -313,6 +314,36 @@ document.addEventListener('DOMContentLoaded', () => {
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
+    if (DOC_KINDS[kind]) { runDocExport(kind); return; }
+    clearDocExport();                                      // a fresh PDF / Excel command drops any pending Word / HTML
+    openReport(kind);
+  }
+  // File ▸ Export to Word / HTML (Ctrl+Shift+W / Ctrl+Shift+H). A view with its own richer
+  // Word / HTML (Baseline Narrative, Reporting Studio: REPORT_BTN docx / html) runs it. Every
+  // other report opens the SAME preview as File ▸ Print (openReport('pdf')) with a pending
+  // export: the preview presses its own ⬇ Word / ⬇ HTML when the feature has opted in
+  // (docs/report-picker-adoption.md), or says in the page that it has not yet (export_intent.js).
+  function runDocExport(kind) {
+    const view = state.currentView;
+    const map = REPORT_BTN[view];
+    const pv = PRINT_VIEW[view];
+    const what = CRUMB[view] || 'This view';
+    const route = docExportRoute({ kind, map, printView: !!pv, standalone: !!(pv && pv.standalone),
+      hasResult: !!state.currentResult, what });
+    if (route.action === 'click') {
+      const el = document.getElementById(route.id);
+      if (el) { el.click(); return; }
+      showError(noDocExportMessage(kind, what, { hasPdf: !!((map && map.pdf) || pv), hasExcel: !!(map && map.xls) }));
+      return;
+    }
+    if (route.action === 'preview') {
+      requestDocExport(kind, { what, hasExcel: route.hasExcel });
+      openReport('pdf');
+      return;
+    }
+    if (route.action === 'error') showError(route.msg);
+  }
+  function openReport(kind) {
     // Standalone library views (no imported schedule required) print through the shared path too.
     const pvSolo = PRINT_VIEW[state.currentView];
     if (pvSolo && pvSolo.standalone) {
@@ -327,14 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (map && map[kind]) {                                // module has a button for this kind
       const el = document.getElementById(map[kind]);
       if (el) { el.click(); return; }                      // opens the module's Preview + Printing Selection
-    }
-    // Word / HTML (File ▸ Export to Word / HTML, Ctrl+Shift+W / Ctrl+Shift+H): only the views
-    // registered above have them today — every other view says so in the page (no dialog).
-    if (kind === 'docx' || kind === 'html') {
-      const what = CRUMB[state.currentView] || 'This view';
-      const alt = ['File ▸ Print / Export to PDF'].concat(map && map.xls ? ['Export to Excel'] : []).join(' or ');
-      showError(`${what} has no ${kind === 'docx' ? 'Word' : 'HTML'} export yet — use ${alt}.`);
-      return;
     }
     const pv = PRINT_VIEW[state.currentView];
     if (map && !pv) {                                      // registered here only — no screen-print fallback
