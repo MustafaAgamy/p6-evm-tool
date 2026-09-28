@@ -535,6 +535,14 @@ async function attachBaseline(result) {
     state.baselineName = data.baseline_name;
     state.baselineMatched = data.matched;
     state.baselineTotal = data.total;
+    // …and on the result itself (as a re-opened project carries it), so a re-render — Ctrl+R /
+    // Analysis ▸ Run again → renderEvm(result) — restores the attachment instead of showing
+    // "No baseline attached", re-prompting and dropping the baseline from the PDF.
+    // (removeBaseline clears the same fields.)
+    result.baseline_name = data.baseline_name;
+    result.baseline_path = data.baseline_cached;
+    result.baseline_matched = data.matched;
+    result.baseline_total = data.total;
     _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
     renderBaselineBanner(result);
   } catch {
@@ -557,6 +565,7 @@ async function removeBaseline(result) {
     state.baselinePath = null; state.baselineName = null;
     state.baselineMatched = null; state.baselineTotal = null;
     result.baseline_name = null; result.baseline_path = null;
+    result.baseline_matched = null; result.baseline_total = null;
     _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
     renderBaselineBanner(result);
   } catch {
