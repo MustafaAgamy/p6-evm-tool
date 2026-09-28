@@ -71,3 +71,17 @@ def test_printview_sections_are_picker_managed():
     assert 'data-sec="${_attr(s.key)}"' in src
     # sections are emitted in the SELECTED order (selectedKeys drives the map), not the caller's
     assert '(selectedKeys || []).map((k) => byKey.get(k))' in src
+
+
+# ── F6: every audit check exports under its own name ─────────────────────────
+def test_module_exports_carry_the_check_name_file_name_and_meta():
+    body = _fn_body(_read('api.js'), 'generateModulePdf')
+    # the feature name is the check's own (Lag, OOS…); only the roll-up is "Schedule Health Review"
+    assert re.search(r"module === '__summary__' \? 'Schedule Health Review' : \(mod\.name \|\| module\)", body)
+    assert re.search(r'^\s*feature: featureName,', body, re.M)
+    # file name back to `${module}_report` (not the shared title slug)
+    assert re.search(r"exportName: `\$\{module\.replace\([^`]+\}_report`", body)
+    # Word header / Excel header block get the project and a FORMATTED data date
+    assert 'project: reqBody.meta.project_name' in body
+    assert re.search(r'data_date: reqBody\.meta\.data_date \? fmtDate\(', body)
+    assert "import { fmtDate }" in _read('api.js')

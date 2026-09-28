@@ -5,6 +5,7 @@ import { showReportPreview }                                     from './preview
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
+import { fmtDate }                                               from './format.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -197,9 +198,19 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
     const html = await fetchPreview(selected, mode);
     btn.reset();
     if (!html) { showError('Preview failed — please retry.'); return; }
+    // Each check (Lag, Out-of-Sequence, Float…) exports under ITS OWN name, not the review's:
+    // the Word running header, the Excel title and the save file name all come from these.
+    const featureName = module === '__summary__' ? 'Schedule Health Review' : (mod.name || module);
     showReportPreview({
       title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
       sections, selected, storageKey, initialMode: mode,
+      feature: featureName,
+      exportName: `${module.replace(/^_+|_+$/g, '') || 'summary'}_report`,
+      meta: {
+        project: reqBody.meta.project_name,
+        // '2025-12-11 08:00:00' → '11 Dec 2025' (the raw report-head text is not a date a planner reads)
+        data_date: reqBody.meta.data_date ? fmtDate(String(reqBody.meta.data_date).slice(0, 10) + 'T00:00:00') : '',
+      },
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, keys) => _savePdf('api/report/module', { ...reqBody, theme: m, sections: keys }, `${module}_report.pdf`, 'pdf'),
