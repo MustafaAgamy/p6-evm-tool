@@ -914,6 +914,8 @@ def test_register_with_nothing_submitted_is_switched_off_with_the_reason(tmp_pat
     _sheet(prop, 'SPARE PARTS LOG')['include'] = True
     again = es.refresh_layout(str(p), prop)
     assert again['preview']['drawings'] == 9
+    back = _sheet(again, 'SPARE PARTS LOG')
+    assert 'auto_off' not in back and 'switched off' not in back['reason']      # no stale reason
     assert any(w.startswith('SPARE PARTS LOG: Nothing on this sheet') for w in again['warnings'])
 
 

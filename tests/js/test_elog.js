@@ -1,7 +1,7 @@
 /** Unit tests for the pure helpers in ui/modules/elog.js — run: node tests/js/test_elog.js */
 import assert from 'node:assert/strict';
 import {
-  sureLevel, setColumnField, setCodeVerdict, firstCheckColumn, codeGroups, previewTotals, readableLayouts,
+  sureLevel, setColumnField, setCodeVerdict, firstCheckColumn, codeGroups, previewTotals, readableLayouts, otherSheetNotes,
 } from '../../ui/modules/elog.js';
 
 let passed = 0, failed = 0;
@@ -112,6 +112,19 @@ test('files that failed to open are left out', () => {
   const ok = { path: 'C:/a.xlsx', sheets: [{ sheet: 'Civil' }] };
   const out = readableLayouts([ok, { path: 'C:/b.xls', error: 'old xls' }, { path: 'C:/c.xlsx', sheets: [] }]);
   assert.deepEqual(Object.keys(out), ['C:/a.xlsx']);
+});
+
+test('otherSheetNotes: other counted sheets\' notes carry their sheet name; auto-off registers listed', () => {
+  const lay = { sheets: [
+    { sheet: 'O&M LOG', include: true, kind: 'register', warnings: ['open-tab note'] },
+    { sheet: 'Civil', include: true, kind: 'register', warnings: ['2 row(s) have no drawing number'] },
+    { sheet: 'SPARE PARTS LOG', include: false, kind: 'register', auto_off: 'untracked', warnings: [] },
+    { sheet: 'Summary', include: false, kind: 'summary', warnings: ['ignored'] },
+  ] };
+  const out = otherSheetNotes(lay, 'O&M LOG');
+  assert.deepEqual(out.notes, ['Civil: 2 row(s) have no drawing number']);
+  assert.deepEqual(out.switchedOff, ['SPARE PARTS LOG']);
+  assert.deepEqual(otherSheetNotes(null, 'x'), { notes: [], switchedOff: [] });
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

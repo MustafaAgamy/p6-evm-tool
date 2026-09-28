@@ -1455,6 +1455,7 @@ def _switch_off_untracked(sheets):
     for s in off:
         s['include'] = False
         s['auto_off'] = 'untracked'
+        s['on_reason'] = s.get('reason') or ''
         s['reason'] = ('Nothing on this sheet has a submission date or a review code yet — switched off '
                        'so its items do not pull % Approved down. Switch it on if it is part of the log.')
     return bool(off)
@@ -1478,6 +1479,9 @@ def refresh_layout(path, layout):
         clean = known[s['sheet']]
         by_idx = {c['index']: c['field'] for c in clean['columns']}
         s['include'] = clean['include']
+        if s['include'] and s.get('auto_off') == 'untracked':    # switched back on by the planner
+            s.pop('auto_off')
+            s['reason'] = s.pop('on_reason', '') or s.get('reason')
         s['columns'] = [dict(c, field=by_idx.get(c.get('index'), 'ignore')) for c in s.get('columns') or []
                         if isinstance(c, dict)]
         s.setdefault('sections', [])
