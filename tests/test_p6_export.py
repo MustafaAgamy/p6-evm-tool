@@ -332,3 +332,34 @@ def test_printview_documents_are_not_hidden_by_the_app_print_safety_net():
     rep = HM.parse_report(html)
     tables = [b for b in rep.all_blocks() if b.kind == 'table']
     assert tables and tables[0].rows[1][0].text == 'HELLO-CELL'
+
+
+def _chrome_or_skip():
+    from p6_export.pdf import chrome_candidates
+    found = chrome_candidates(None)
+    if not found:
+        pytest.skip('no Chromium installed')
+    return found[0]
+
+
+def test_chrome_raster_gives_every_chart_its_own_picture_even_after_a_very_tall_one():
+    """F3: the Chrome raster printed every chart into ONE PDF (pages W x 7000px) and took page i
+    as chart i. A chart taller than a page spilled onto the next page: it was cut off, and every
+    later chart got the previous chart's overflow instead of its own picture."""
+    from types import SimpleNamespace
+    chrome = _chrome_or_skip()
+    boxes = ''.join('<div style="height:170px;margin:0 0 18px;background:#1f4e79;color:#fff">'
+                    f'Month {i}</div>' for i in range(60))                       # ~11,300 px
+    tall = HM.Visual(html=f'<div style="width:600px">{boxes}</div>')
+    small = HM.Visual(html='<div style="width:600px;height:50px;background:#ff0000;color:#fff">'
+                           'SMALL-CHART</div>')
+    rep = SimpleNamespace(page={'width_mm': 210, 'height_mm': 297, 'margins_mm': (10, 10, 10, 10)},
+                          html_class='light', head_css='', body_class='')
+    assert svg_raster.chrome_raster([tall, small], rep, chrome=chrome) == 2
+    total_h = sum(h for _png, _w, h in (tall.slices or [(tall.png, tall.width_px, tall.height_px)]))
+    assert total_h > 60 * 188 - 40, total_h                   # the whole tall chart, not ~7000px
+    assert small.slices is None and 40 < small.height_px < 90, small.height_px
+    import pymupdf
+    pix = pymupdf.Pixmap(small.png)
+    r, g, b = pix.pixel(pix.width // 2, pix.height // 2)[:3]
+    assert r > 200 and g < 60 and b < 60, (r, g, b)           # the red chart, not month boxes
