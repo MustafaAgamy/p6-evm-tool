@@ -3659,6 +3659,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .elog-link { background: none; border: 0; color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 700; text-decoration: underline; }
 .elog-notes { margin: 8px 0 0 0; padding-left: 18px; font-size: 11.5px; color: var(--ink-soft); }
 .elog-notes li { margin: 2px 0; }
+.elog-othernotes { margin: 6px 0 8px 0; }
 .elog-h { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
   margin: 14px 0 6px; break-after: avoid; page-break-after: avoid; }
 .elog-h small { text-transform: none; letter-spacing: 0; font-weight: 600; }

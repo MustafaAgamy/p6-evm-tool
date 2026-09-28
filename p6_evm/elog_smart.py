@@ -1334,6 +1334,8 @@ def _finalize(prop, sheet_grids):
     for sh in prop['sheets']:
         w = []
         n = notes.get(sh['sheet'])
+        sh['tracked_rows'] = n['tracked'] if n else 0
+        sh['untracked'] = bool(n and n['rows'] and not n['tracked'])
         if resent.get(sh['sheet']):
             w.append(f'{resent[sh["sheet"]]} drawing(s) came back Not approved (C/D) and have been '
                      f'resubmitted — the latest revision decides, so they count as Under review '
@@ -1434,7 +1436,28 @@ def inspect_log(path, store_dir=None):
         sh['sig'] = _sheet_sig(sh)
     if store_dir:
         _apply_remembered(prop, store_dir)
-    return _finalize(prop, sheet_grids)
+    prop = _finalize(prop, sheet_grids)
+    if not prop.get('remembered') and _switch_off_untracked(prop['sheets']):
+        prop['code_map'] = {}
+        prop = _finalize(prop, sheet_grids)
+    return prop
+
+
+def _switch_off_untracked(sheets):
+    """A register with rows but nothing submitted or coded (an empty spare-parts list beside
+    the real O&M log) would pull % approved down with no visible reason: switch it off — with
+    the reason, so the planner can switch it back on — when another counted register does
+    carry submissions. A log where nothing at all is submitted yet stays as it is."""
+    on = [s for s in sheets if s['kind'] == 'register' and s['include']]
+    if not any(s.get('tracked_rows') for s in on):
+        return False
+    off = [s for s in on if s.get('untracked')]
+    for s in off:
+        s['include'] = False
+        s['auto_off'] = 'untracked'
+        s['reason'] = ('Nothing on this sheet has a submission date or a review code yet — switched off '
+                       'so its items do not pull % Approved down. Switch it on if it is part of the log.')
+    return bool(off)
 
 
 def refresh_layout(path, layout):

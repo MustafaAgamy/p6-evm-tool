@@ -885,3 +885,55 @@ def test_rejected_then_resubmitted_latest_revision_decides_and_says_so(tmp_path)
     assert note.startswith('2 drawing(s)')
     assert 'latest revision decides' in note and 'Under review' in note
     assert 'until an approval comes back' not in note
+
+
+def _om_with_empty_spare_parts(path, spare_submitted=False):
+    """The real O&M register plus a SPARE PARTS LOG listing items that nothing has been
+    submitted for yet (MDF closure log)."""
+    _om_style(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb.create_sheet('SPARE PARTS LOG')
+    ws.append(['SN', 'SPARE PARTS DESCRIPTION', 'DISCIPLINE', 'PLANNED DATE', 'ACTUAL DATE OF SUBMISSION',
+               'CONSULTANT REPLY DATE', 'CURRENT STATUS'])
+    for i, item in enumerate(('Spare fuses', 'Spare contactors', 'Spare filters', 'Spare belts'), 1):
+        ws.append([i, item, 'Mechanical', '1-9-2024', '2-9-2024' if spare_submitted and i == 1 else None,
+                   None, None])
+    wb.save(path)
+
+
+def test_register_with_nothing_submitted_is_switched_off_with_the_reason(tmp_path):
+    p = tmp_path / 'closure.xlsx'
+    _om_with_empty_spare_parts(p)
+    prop = es.inspect_log(str(p))
+    sp = _sheet(prop, 'SPARE PARTS LOG')
+    assert sp['kind'] == 'register' and sp['include'] is False and sp['auto_off'] == 'untracked'
+    assert 'nothing on this sheet' in sp['reason'].lower() and 'switch it on' in sp['reason'].lower()
+    assert _sheet(prop, 'O&M LOG')['include'] is True
+    assert prop['preview']['drawings'] == 5                      # the O&M register alone
+    # the planner can switch it back on: its 4 items then count as not submitted
+    _sheet(prop, 'SPARE PARTS LOG')['include'] = True
+    again = es.refresh_layout(str(p), prop)
+    assert again['preview']['drawings'] == 9
+    assert any(w.startswith('SPARE PARTS LOG: Nothing on this sheet') for w in again['warnings'])
+
+
+def test_register_with_a_submission_stays_counted(tmp_path):
+    p = tmp_path / 'closure.xlsx'
+    _om_with_empty_spare_parts(p, spare_submitted=True)
+    prop = es.inspect_log(str(p))
+    assert _sheet(prop, 'SPARE PARTS LOG')['include'] is True
+    assert 'auto_off' not in _sheet(prop, 'SPARE PARTS LOG')
+
+
+def test_log_with_nothing_submitted_anywhere_stays_counted(tmp_path):
+    p = tmp_path / 'empty.xlsx'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'SPARE PARTS LOG'
+    ws.append(['SN', 'SPARE PARTS DESCRIPTION', 'DISCIPLINE', 'PLANNED DATE', 'ACTUAL DATE OF SUBMISSION',
+               'CONSULTANT REPLY DATE', 'CURRENT STATUS'])
+    for i, item in enumerate(('Spare fuses', 'Spare contactors', 'Spare filters'), 1):
+        ws.append([i, item, 'Mechanical', '1-9-2024', None, None, None])
+    wb.save(p)
+    prop = es.inspect_log(str(p))
+    assert _sheet(prop, 'SPARE PARTS LOG')['include'] is True

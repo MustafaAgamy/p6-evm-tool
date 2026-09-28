@@ -163,6 +163,18 @@ function previewHtml(layout) {
     <div class="elog-foot">${pv.rows_read || 0} rows read → ${pv.drawings || 0} drawings (each drawing counted once; once approved it stays approved).</div>`;
 }
 
+/** What the planner must see without opening every tab: the notes of the OTHER counted
+ *  sheets (each prefixed with its sheet name) and the registers switched off because
+ *  nothing on them is submitted yet. */
+export function otherSheetNotes(layout, openSheet) {
+  const sheets = (layout && layout.sheets) || [];
+  return {
+    notes: sheets.filter((s) => s.include && s.sheet !== openSheet)
+      .flatMap((s) => (s.warnings || []).map((w) => `${s.sheet}: ${w}`)),
+    switchedOff: sheets.filter((s) => !s.include && s.auto_off === 'untracked').map((s) => s.sheet),
+  };
+}
+
 function fileHtml(layout, ui, aiReady) {
   if (layout.error) {
     return `<div class="elog-file"><div class="elog-fname">${esc(layout.file || '')}</div>
@@ -180,7 +192,11 @@ function fileHtml(layout, ui, aiReady) {
     sh.header_rows && sh.header_rows.length ? chip(`${sh.sheet}: headings on row ${sh.header_rows.join(' + ')}`) : '',
     legendCodes.length ? chip(`Code legend found: ${legendCodes.join(' ')}`, 'ok') : '',
     layout.remembered ? chip(`Layout remembered from ${layout.remembered.file || 'an earlier log'}`, 'ok') : '',
-  ].join('');
+  ];
+  const other = otherSheetNotes(layout, ui.sheet);
+  if (other.switchedOff.length) {
+    chips.push(chip(`${other.switchedOff.length} switched off — nothing submitted yet: ${other.switchedOff.join(', ')}`, 'warn'));
+  }
   const tabs = sheets.map((s) => {
     const can = s.kind === 'register' || s.include;
     const why = s.reason || '';
@@ -193,7 +209,8 @@ function fileHtml(layout, ui, aiReady) {
   const notes = [sh.reason, ...(sh.warnings || [])].filter(Boolean);
   return `<div class="elog-file">
     <div class="elog-fname"><span class="elog-ficon" aria-hidden="true">▤</span>${esc(layout.file || '')}</div>
-    <div class="elog-chips">${chips}</div>
+    <div class="elog-chips">${chips.join('')}</div>
+    ${other.notes.length ? `<ul class="elog-notes elog-othernotes" aria-label="Notes on the other counted sheets">${other.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     <div class="elog-sheets">${tabs}</div>
     ${sh.columns && sh.columns.length ? `
     <div class="elog-src">${esc(sourceText(sh))}</div>
