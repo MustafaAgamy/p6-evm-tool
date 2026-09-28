@@ -266,7 +266,7 @@ export function openElogConfirm(host, files, opts = {}) {
 
   async function refresh() {
     const f = cur();
-    if (!f || f.error || !port) return;
+    if (!f || f.error || !port || !host.querySelector('#elog-panel')) return;
     const seq = ++ui.seq, idx = ui.file;
     msg('Re-counting…');
     try {
@@ -276,6 +276,7 @@ export function openElogConfirm(host, files, opts = {}) {
       });
       const data = await resp.json();
       if (seq !== ui.seq) return;                         // a newer change is on its way
+      if (!host.querySelector('#elog-panel')) return;     // panel closed (Confirm/Cancel) — never redraw it
       if (!data.ok) { msg(`Could not re-count: ${data.error || 'unknown error'}`, 'err'); return; }
       files[idx] = data.layout;
       const active = document.activeElement;
@@ -331,12 +332,13 @@ export function openElogConfirm(host, files, opts = {}) {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout: f }),
         });
         const data = await resp.json();
+        if (!host.querySelector('#elog-panel')) return;   // panel closed while the AI was answering
         if (!data.ok) { msg(data.error || 'The offline AI could not answer.', 'err'); return; }
         files[ui.file] = data.layout; render();
         msg('Suggestions shown under the unsure columns — nothing changes until you pick one.', 'ok');
       } catch (e) { msg(`The offline AI could not answer: ${e.message || e}`, 'err'); }
     });
-    q('#elog-cancel').addEventListener('click', () => { clearTimeout(ui.timer); if (opts.onCancel) opts.onCancel(); });
+    q('#elog-cancel').addEventListener('click', () => { clearTimeout(ui.timer); ui.seq++; if (opts.onCancel) opts.onCancel(); });
     q('#elog-confirm').addEventListener('click', async () => {
       if (ui.busy) return;
       const layouts = readableLayouts(files);
@@ -344,7 +346,7 @@ export function openElogConfirm(host, files, opts = {}) {
       if (!Object.values(layouts).some((l) => (l.sheets || []).some((s) => s.include))) {
         msg('Switch on at least one sheet to count.', 'err'); return;
       }
-      ui.busy = true; clearTimeout(ui.timer);
+      ui.busy = true; clearTimeout(ui.timer); ui.seq++;   // cancel any preview still in flight
       host.querySelectorAll('.elog-actions button').forEach((b) => { b.disabled = true; });
       msg('Counting…');
       try {

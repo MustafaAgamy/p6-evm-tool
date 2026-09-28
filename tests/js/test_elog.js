@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   sureLevel, setColumnField, setCodeVerdict, firstCheckColumn, codeGroups, previewTotals, readableLayouts, otherSheetNotes,
+  openElogConfirm,
 } from '../../ui/modules/elog.js';
 
 let passed = 0, failed = 0;
@@ -126,6 +127,44 @@ test('otherSheetNotes: other counted sheets\' notes carry their sheet name; auto
   assert.deepEqual(out.switchedOff, ['SPARE PARTS LOG']);
   assert.deepEqual(otherSheetNotes(null, 'x'), { notes: [], switchedOff: [] });
 });
+
+// ── ELOG-8: a preview still running when Confirm/Cancel is clicked must not bring the panel back ──
+function fakeHost() {
+  const stubs = {};
+  const stub = () => ({ handlers: {}, dataset: {}, classList: { add() {} }, disabled: false,
+    addEventListener(t, fn) { this.handlers[t] = fn; }, focus() {}, scrollIntoView() {} });
+  return {
+    html: '', renders: 0, stubs,
+    set innerHTML(v) { this.html = v; if (v.includes('id="elog-panel"')) this.renders++; else for (const k in stubs) delete stubs[k]; },
+    get innerHTML() { return this.html; },
+    querySelector(sel) {
+      if (!this.html.includes('id="elog-panel"')) return null;
+      return (stubs[sel] = stubs[sel] || stub());
+    },
+    querySelectorAll() { return []; },
+    contains() { return false; },
+  };
+}
+async function lateAfterClose(button) {
+  globalThis.document = { activeElement: null };
+  let release;
+  globalThis.fetch = () => new Promise((res) => { release = () => res({ json: async () => ({ ok: true, layout: { ...layout(), path: 'x.xlsx' } }) }); });
+  const host = fakeHost();
+  const close = async () => { host.innerHTML = '<div id="e1-results">counted</div>'; };
+  const panel = openElogConfirm(host, [{ ...layout(), path: 'x.xlsx' }], { port: 1, onConfirm: close, onCancel: close });
+  const pending = panel.refresh();                         // preview request in flight
+  await host.stubs[button].handlers.click();               // Confirm/Cancel closes the panel
+  release(); await pending;                                // …then the old preview answers
+  return host;
+}
+for (const button of ['#elog-confirm', '#elog-cancel']) {
+  try {
+    const host = await lateAfterClose(button);
+    assert.equal(host.innerHTML, '<div id="e1-results">counted</div>');
+    assert.equal(host.renders, 1);
+    console.log(`  ✓ a late preview after ${button} does not redraw the closed panel`); passed++;
+  } catch (e) { console.error(`  ✗ a late preview after ${button} does not redraw the closed panel\n    ${e.message}`); failed++; }
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
