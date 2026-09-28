@@ -46,3 +46,28 @@ def test_only_adopted_features_offer_word_html_excel():
         src = _read(name)
         assert not re.search(r"exports:\s*\[[^\]]*'(docx|xlsx|html)'", src), name
         assert 'ADOPTED_EXPORTS' not in src, name
+
+
+# ── F2: drag-to-reorder only where the new order reaches the outputs ─────────
+def test_drag_is_gated_on_can_reorder():
+    src = _read('preview.js')
+    body = src[src.index('function paintTree()'):src.index("if (hasSel) {\n    const all")]
+    assert 'const reorder = canReorder(wraps, serverOrder);' in body
+    assert 'li.draggable = reorder && !s.empty;' in body
+    # the grip is only drawn when a drag is possible, and the drag listeners only bound then
+    assert re.search(r"\$\{reorder \? '<span class=\"rpv-grip\"", body)
+    assert body.index('if (reorder) {') < body.index("addEventListener('dragstart'")
+    # the old unconditional grip/draggable are gone
+    assert 'li.draggable = !s.empty;' not in body
+
+
+def test_refetch_uses_needs_rerender_with_server_order():
+    src = _read('preview.js')
+    assert 'needsRerender(keys, lastKeys, { wraps, serverOrder: !!serverOrder })' in src
+
+
+def test_printview_sections_are_picker_managed():
+    src = _read('printview.js')
+    assert 'data-sec="${_attr(s.key)}"' in src
+    # sections are emitted in the SELECTED order (selectedKeys drives the map), not the caller's
+    assert '(selectedKeys || []).map((k) => byKey.get(k))' in src

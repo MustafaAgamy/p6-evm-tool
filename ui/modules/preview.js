@@ -33,6 +33,7 @@ import { state as appState } from './state.js';
 import {
   scanReport, buildTree, restoreState, sectionCheck, partChecked, toggleSection, togglePart,
   selectAll, clearAll, moveSection, serverKeys, countTicked, pruneHtml, exportKinds,
+  needsRerender, canReorder,
 } from './report_parts.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
@@ -156,11 +157,9 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   };
   // Server re-render only when the report needs a section it has not rendered yet (or the
   // renderer cannot be pruned client-side); part ticks + reordering are instant.
-  const needFetch = (keys) => {
-    if (typeof onRerender !== 'function') return false;
-    if (!wraps) return keys.length !== lastKeys.length || keys.some(k => !lastKeys.includes(k));
-    return keys.some(k => !lastKeys.includes(k));
-  };
+  // A renderer that honours key order (serverOrder) also refetches on a pure reorder.
+  const needFetch = (keys) => typeof onRerender === 'function'
+    && needsRerender(keys, lastKeys, { wraps, serverOrder: !!serverOrder });
   let busy = 0;
   const refresh = async () => {
     persist();
@@ -185,6 +184,11 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
     const counter = overlay.querySelector('.rpv-sh');
     if (counter) counter.textContent = `Report contents · ${countTicked(st, tree)} selected`;
     listEl.innerHTML = '';
+    // Drag-to-reorder only when the new order reaches every output (F2): [data-sec] wrappers
+    // (pruneHtml reorders them) or a server render that honours the key order.
+    const reorder = canReorder(wraps, serverOrder);
+    const hint = overlay.querySelector('.rpv-drag-hint');
+    if (hint) hint.textContent = reorder ? ' Drag ⋮⋮ to reorder.' : '';
     st.order.forEach(key => {
       const s = tree.find(x => x.key === key);
       if (!s) return;
@@ -192,12 +196,12 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
       const li = document.createElement('li');
       li.className = 'rpv-node' + (s.empty ? ' empty' : '') + (chk === 'none' ? ' off' : '');
       li.dataset.key = key;
-      li.draggable = !s.empty;
+      li.draggable = reorder && !s.empty;
       const open = expanded.has(key);
       const hasParts = s.parts.length > 0;
       li.innerHTML = `
         <div class="rpv-sec-row">
-          <span class="rpv-grip" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
+          ${reorder ? '<span class="rpv-grip" aria-hidden="true" title="Drag to reorder">⋮⋮</span>' : ''}
           <button class="rpv-twisty${hasParts ? '' : ' none'}" aria-label="Show parts" aria-expanded="${open}" ${hasParts ? '' : 'tabindex="-1"'}>${hasParts ? (open ? '▾' : '▸') : ''}</button>
           <label class="rpv-sec"><input type="checkbox" class="rpv-sec-cb" data-key="${escapeHtml(key)}"${chk !== 'none' ? ' checked' : ''}${s.empty ? ' disabled' : ''}>
             <span>${escapeHtml(s.label)}</span></label>
@@ -218,6 +222,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
       li.querySelectorAll('.rpv-part-cb').forEach(pcb => pcb.addEventListener('change', () => {
         st = togglePart(st, tree, pcb.dataset.part, pcb.checked); refresh();
       }));
+      if (reorder) {
       li.addEventListener('dragstart', (e) => { dragKey = key; li.classList.add('drag'); try { e.dataTransfer.setData('text/plain', key); } catch { /* ignore */ } });
       li.addEventListener('dragend', () => { dragKey = null; li.classList.remove('drag'); });
       li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('drop'); });
@@ -229,6 +234,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
         if (!from || from === key) return;
         st = moveSection(st, from, key); refresh();
       });
+      }
       listEl.appendChild(li);
     });
   }

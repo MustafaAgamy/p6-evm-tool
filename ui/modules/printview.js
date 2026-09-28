@@ -9,6 +9,8 @@
 import { showReportPreview } from './preview.js';
 import { state } from './state.js';
 
+const _attr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 let _cssCache = null;
 async function appCss() {
   if (_cssCache != null) return _cssCache;
@@ -38,10 +40,14 @@ const PRINT_CSS = `
   @media print { body > .pr-doc { display: block !important; } }
 `;
 
-function composeDoc(css, title, subtitle, sections, selectedKeys) {
-  const picked = sections.filter((s) => selectedKeys.includes(s.key) && s.html);
+// Sections come out in the SELECTED order (selectedKeys), each wrapped in [data-sec] so the
+// shared picker prunes + reorders them on the client — the order the owner drags is the
+// order of the Preview, PDF and Print (F2).
+export function composeDoc(css, title, subtitle, sections, selectedKeys) {
+  const byKey = new Map(sections.map((s) => [s.key, s]));
+  const picked = (selectedKeys || []).map((k) => byKey.get(k)).filter((s) => s && s.html);
   const body = picked.map((s) =>
-    `<section class="pr-sec"><h2 class="pr-h">${s.label}</h2>${s.html}</section>`).join('');
+    `<section class="pr-sec" data-sec="${_attr(s.key)}"><h2 class="pr-h">${s.label}</h2>${s.html}</section>`).join('');
   const brand = (typeof window !== 'undefined' && window.__APP_TITLE__) || 'Controlyx';
   return `<!doctype html><html class="light"><head><meta charset="utf-8">
     <style>${css}\n${PRINT_CSS}</style></head>
