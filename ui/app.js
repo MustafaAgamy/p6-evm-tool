@@ -119,7 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
     : `<div class="tgrp">${sec.group}</div>` + sec.items.map(it => tnode(it[0], it[1], it[2] || it[0], { preview: it[3] === 'preview', soon: it[3] === 'soon' })).join('')
   ).join('');
 
-  const setCrumb = (id) => { const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
+  // Every navigation re-labels the crumb — it also drops any pending File ▸ Export to Word / HTML
+  // note, so a note left on one feature can never make another feature's report save a file.
+  const setCrumb = (id) => { clearDocExport(); const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
   const markNav = (id) => document.querySelectorAll('#nav-tree .tnode[data-nav]')
     .forEach(n => n.classList.toggle('on', n.dataset.nav === id));
 
@@ -218,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Open a feature from the navigator — routes through the launch flow above.
   function openView(view) {
     state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
+    clearDocExport();                  // a pending Word / HTML note belongs to the view it was asked on
     const gate = document.getElementById('feature-gate');
     // Multi-input features present their own required-inputs + Run inside the panel.
     if (SELF_GATING.has(view)) { gate.classList.add('hidden'); switchView(view); runFeature(view); return; }
@@ -303,6 +306,11 @@ document.addEventListener('DOMContentLoaded', () => {
     narrative:{ pdf: 'narrative-pdf-btn', xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },   // its own guarded exports (narrativePrint() is null)
     special:  { pdf: 'sr-pdf',           xls: 'sr-xls', docx: 'sr-word' },
   };
+  // Reports whose PDF button opens the module's OWN preview overlay (critpath.js / period.js /
+  // update.js 'per-preview-overlay') rather than showReportPreview / showReportContentsPreview.
+  // That overlay never reads a pending Word / HTML note, so File ▸ Export to Word / HTML says
+  // "not yet" in the page for these instead of opening it (export_intent.js ownPreview).
+  const OWN_PREVIEW = new Set(['critpath', 'period', 'update']);
   // Screen views (Overview, WBS, Narrative) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the
@@ -329,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pv = PRINT_VIEW[view];
     const what = CRUMB[view] || 'This view';
     const route = docExportRoute({ kind, map, printView: !!pv, standalone: !!(pv && pv.standalone),
-      hasResult: !!state.currentResult, what });
+      hasResult: !!state.currentResult, ownPreview: OWN_PREVIEW.has(view), what });
     if (route.action === 'click') {
       const el = document.getElementById(route.id);
       if (el) { el.click(); return; }
@@ -338,11 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (route.action === 'preview') {
       requestDocExport(kind, { what, hasExcel: route.hasExcel });
-      openReport('pdf');
+      if (!openReport('pdf')) clearDocExport();          // no preview opened → leave no note behind
       return;
     }
     if (route.action === 'error') showError(route.msg);
   }
+  // → true when a preview / report opened; falsy when it only showed a message.
   function openReport(kind) {
     // Standalone library views (no imported schedule required) print through the shared path too.
     const pvSolo = PRINT_VIEW[state.currentView];
@@ -351,13 +360,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const sections = pvSolo.get && pvSolo.get();
       if (!sections || !sections.length) { showError('Open a work item first, then File ▸ Print / Export to PDF.'); return; }
       printView({ module: pvSolo.module, title: pvSolo.title, subtitle: '', sections });
-      return;
+      return true;
     }
     if (!state.currentResult) { showError('Import a P6 schedule and open a module first.'); return; }
     const map = REPORT_BTN[state.currentView];
     if (map && map[kind]) {                                // module has a button for this kind
       const el = document.getElementById(map[kind]);
-      if (el) { el.click(); return; }                      // opens the module's Preview + Printing Selection
+      if (el) { el.click(); return true; }                 // opens the module's Preview + Printing Selection
     }
     const pv = PRINT_VIEW[state.currentView];
     if (map && !pv) {                                      // registered here only — no screen-print fallback
@@ -373,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
       printView({ module: pv.module, title: pv.title, subtitle, sections });
-      return;
+      return true;
     }
     showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.');
   }

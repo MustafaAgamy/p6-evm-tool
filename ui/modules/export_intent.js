@@ -30,16 +30,21 @@ export function noDocExportMessage(kind, what, { hasPdf = true, hasExcel = false
 //   printView  — the view prints through PRINT_VIEW (printView → showReportPreview)
 //   standalone — a library view that needs no imported schedule
 //   hasResult  — a schedule is imported
+//   ownPreview — the view's PDF button opens the module's OWN preview overlay (Critical Path,
+//                Update vs Update, Update Analysis), which never reads a pending note — so say
+//                "not yet" now instead of leaving a note another report would pick up and save
 // → {action:'click', id}           the view's own Word / HTML button (Narrative, Reporting Studio)
 //   {action:'preview', kind, hasExcel} open the preview (same path as PDF) with a pending export
 //   {action:'error', msg}           a friendly in-page message
-export function docExportRoute({ kind, map, printView = false, standalone = false, hasResult = false, what = 'This view' }) {
+export function docExportRoute({ kind, map, printView = false, standalone = false, hasResult = false,
+                                ownPreview = false, what = 'This view' }) {
   if (!DOC_KINDS[kind]) return { action: 'none' };
   if (!standalone && !hasResult) return { action: 'error', msg: 'Import a P6 schedule and open a module first.' };
   const hasExcel = !!(map && map.xls);
   if (map && map[kind]) return { action: 'click', id: map[kind] };
-  if ((map && map.pdf) || printView) return { action: 'preview', kind, hasExcel };
-  return { action: 'error', msg: noDocExportMessage(kind, what, { hasPdf: false, hasExcel }) };
+  const hasPdf = !!((map && map.pdf) || printView);
+  if (hasPdf && !ownPreview) return { action: 'preview', kind, hasExcel };
+  return { action: 'error', msg: noDocExportMessage(kind, what, { hasPdf, hasExcel }) };
 }
 
 let _pending = null;

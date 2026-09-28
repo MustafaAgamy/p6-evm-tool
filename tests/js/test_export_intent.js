@@ -45,6 +45,14 @@ test('Excel-only view → message that never offers a PDF it does not have', () 
   assert.equal(r.action, 'error');
   assert.equal(r.msg, 'Schedule (Gantt) has no Word export yet — use File ▸ Export to Excel.');
 });
+test('own-preview reports (Critical Path, Update vs Update, Update Analysis) say "not yet" up front', () => {
+  EI.clearDocExport();
+  const r = EI.docExportRoute({ kind: 'docx', map: { pdf: 'p', xls: 'x' }, hasResult: true, ownPreview: true,
+    what: 'Critical Path Analyzer' });
+  assert.deepEqual(r, { action: 'error',
+    msg: 'Critical Path Analyzer has no Word export yet — use File ▸ Print / Export to PDF or File ▸ Export to Excel.' });
+  assert.equal(EI.takeDocExport(), null);
+});
 test('pdf / xls are not doc kinds', () => assert.equal(EI.docExportRoute({ kind: 'pdf', hasResult: true }).action, 'none'));
 
 console.log('\npending export');
@@ -73,7 +81,8 @@ function harness(view, { result = true, missing = [] } = {}) {
   const log = { clicked: [], errors: [], printed: [] };
   const state = { currentView: view, currentResult: result ? { project_name: 'P', data_date: '2025-12-11' } : null };
   const document = { getElementById: (id) => (missing.includes(id) ? null : { click: () => log.clicked.push(id) }) };
-  const CRUMB = { evm: 'Earned Value', lag: 'Lag Report', schedule: 'Schedule (Gantt)', overview: 'Overview', prodintel: 'Productivity & Resources' };
+  const CRUMB = { evm: 'Earned Value', lag: 'Lag Report', schedule: 'Schedule (Gantt)', overview: 'Overview', prodintel: 'Productivity & Resources',
+    critpath: 'Critical Path Analyzer', period: 'Update vs Update', update: 'Update Analysis' };
   const sec = () => [{ key: 's', label: 'S', html: '<p>x</p>' }];
   const fn = new Function('state', 'document', 'CRUMB', 'showError', 'printView', 'prodintelPrint', 'overviewPrint',
     'wbsPrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage',
@@ -125,6 +134,29 @@ test('Excel-only view and no-schedule say so in the page, no pending note', () =
   assert.deepEqual(z.log.errors, ['Import a P6 schedule and open a module first.']);
   assert.equal(EI.takeDocExport(), null);
 });
+test('Critical Path / Update vs Update / Update Analysis: message in the page, preview NOT opened, no note left', () => {
+  // Their ⬇ PDF opens the module's own overlay, which never reads the note — the note would
+  // otherwise linger 60 s and make the next report the planner opens save Word / HTML unasked.
+  for (const [view, name] of [['critpath', 'Critical Path Analyzer'], ['period', 'Update vs Update'], ['update', 'Update Analysis']]) {
+    for (const [kind, label] of [['docx', 'Word'], ['html', 'HTML']]) {
+      EI.clearDocExport();
+      const h = harness(view);
+      h.runReport(kind);
+      assert.deepEqual(h.log.clicked, [], `${view} ${kind}: must not open its own PDF preview`);
+      assert.deepEqual(h.log.errors,
+        [`${name} has no ${label} export yet — use File ▸ Print / Export to PDF or File ▸ Export to Excel.`]);
+      assert.equal(EI.takeDocExport(), null, `${view} ${kind}: no pending note`);
+    }
+  }
+});
+test('Word / HTML asked on a report that cannot open its preview leaves no note behind', () => {
+  EI.clearDocExport();
+  const h = harness('evm', { missing: ['pdf-btn'] });        // analysis not run → no PDF button
+  h.runReport('docx');
+  assert.deepEqual(h.log.clicked, []);
+  assert.equal(h.log.errors.length, 1);
+  assert.equal(EI.takeDocExport(), null);
+});
 test('a later File ▸ Print drops a stale pending Word export', () => {
   const h = harness('evm');
   h.runReport('docx');
@@ -137,6 +169,20 @@ const previewSrc = read('ui', 'modules', 'preview.js');
 test('showReportPreview takes the pending export and presses its own bar button', () => {
   assert.match(previewSrc, /pendingExportPlan\(takeDocExport\(\), offered\.map\(e => e\.kind\), featureName\)/);
   assert.match(previewSrc, /querySelector\(`#rpv-save-\$\{plan\.click\}`\)/);
+});
+test('moving to another feature drops a pending Word / HTML note (openView + setCrumb)', () => {
+  const ov = appSrc.slice(appSrc.indexOf('  function openView(view) {'));
+  assert.match(ov.slice(0, ov.indexOf('\n  }\n')), /clearDocExport\(\)/);
+  assert.match(appSrc, /const setCrumb = \(id\) => \{ clearDocExport\(\);/);
+});
+test('OWN_PREVIEW lists exactly the reports whose preview does not read the note', () => {
+  // If one of these adopts showReportPreview / takes the note, drop it from OWN_PREVIEW in app.js.
+  assert.match(appSrc, /const OWN_PREVIEW = new Set\(\['critpath', 'period', 'update'\]\);/);
+  for (const m of ['critpath', 'period', 'update']) {
+    const src = read('ui', 'modules', `${m}.js`);
+    assert.ok(!/takeDocExport|showReportPreview|showReportContentsPreview/.test(src), `${m}.js now reads the note`);
+    assert.match(src, /per-preview-overlay/);
+  }
 });
 test('feature_needs lists Word / HTML exactly where they exist', () => {
   // Adopted previews (api.js passes exports: ADOPTED_EXPORTS) — update when a feature adopts.
