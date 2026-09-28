@@ -11,6 +11,10 @@ import os
 APP_NAME = 'Controlyx'                     # brand / product name
 APP_EDITION = '2026'                       # edition (year)
 APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 2026"
+# Release version shown in the UI (Help Center / About). Bump it with the
+# CHANGELOG.md section on every release — tests/test_app_version.py fails
+# if it drifts from the newest `## [vX.Y.Z]` heading.
+APP_VERSION = '2.8.0'
 
 # ── External links ──────────────────────────────────────────────────────────
 # The only web pages the app may hand to the user's default browser (Help ▸ Contact /

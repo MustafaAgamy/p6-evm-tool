@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, date
-from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE
+from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
 import db
 import report_theme
 
@@ -592,6 +592,7 @@ class Handler(BaseHTTPRequestHandler):
                     ('__APP_NAME__', APP_NAME),
                     ('__APP_EDITION__', APP_EDITION),
                     ('__APP_TITLE__', APP_TITLE),
+                    ('__APP_VERSION__', APP_VERSION),
                 )
             )
             brand_script = (

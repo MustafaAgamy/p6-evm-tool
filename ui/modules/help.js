@@ -18,6 +18,9 @@ import { filterNeeds, needsGroups, fileTag, requiredFileCount, FEATURE_NEEDS } f
 // Product name from the server-injected brand (utils.APP_NAME / APP_TITLE) — never hardcoded.
 const APP_NAME = (typeof window !== 'undefined' && window.__APP_NAME__) || 'Controlyx';
 const APP_TITLE = (typeof window !== 'undefined' && window.__APP_TITLE__) || APP_NAME;
+// Edition + release version from the same injected source (utils.APP_EDITION / APP_VERSION).
+const APP_EDITION = (typeof window !== 'undefined' && window.__APP_EDITION__) || '';
+const APP_VERSION = (typeof window !== 'undefined' && window.__APP_VERSION__) || '';
 
 const STYLE_ID = 'hc-help-style';
 const OVERLAY_ID = 'hc-help-overlay';
@@ -467,7 +470,7 @@ function screenWhatsNew() {
       <div class="hc-wn">
         <div class="hc-wn-dot">${svg('<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>')}</div>
         <div class="hc-wn-body">
-          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">v2.2.0</span></h4>
+          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">Since v2.2.0</span></h4>
           <p>Importing a file no longer auto-runs anything. You pick a feature, confirm its inputs, then Run — clearer intent and no surprise recalculations.</p>
         </div>
       </div>
@@ -557,7 +560,7 @@ function screenAbout() {
         <div class="hc-brandmark">${mark}</div>
         <div class="hc-tagline">${esc(APP_TITLE)} · Project Control Intelligence Platform</div>
         <div class="hc-forp6">for Primavera P6</div>
-        <div class="hc-ver"><span class="g"></span>Version 2.2.0 · 2026 Edition</div>
+        <div class="hc-ver"><span class="g"></span>${[APP_VERSION ? 'Version ' + esc(APP_VERSION) : '', APP_EDITION ? esc(APP_EDITION) + ' Edition' : ''].filter(Boolean).join(' · ')}</div>
         <p class="hc-desc">${esc(APP_NAME)} turns Primavera P6 exports into clear, board-ready schedule intelligence — earned value, DCMA-style health checks, forensic delay analysis, calendar and weather audits, and custom reports — all computed offline on your machine, straight from your project files.</p>
         <div class="hc-credits">
           <div class="hc-credit">
@@ -685,7 +688,7 @@ export function openHelp(section) {
       <div class="hc-body">
         <nav class="hc-nav">
           ${navItems}
-          <div class="hc-nav-foot">${esc(APP_TITLE)} · v2.2.0</div>
+          <div class="hc-nav-foot">${esc(APP_TITLE)}${APP_VERSION ? ' · v' + esc(APP_VERSION) : ''}</div>
         </nav>
         <div class="hc-content">${allScreens()}</div>
       </div>
