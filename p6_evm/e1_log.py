@@ -95,7 +95,8 @@ def summarize_e1(rows, cutoff=None):
         if not dk:
             dk = (str(r.get('building') or '').strip(), str(r.get('description') or '').strip())
         d = groups.setdefault((trade, typ), {}).setdefault(
-            dk, {'submitted': False, 'approved': False, 'subs': [], 'planned': False})
+            dk, {'submitted': False, 'approved': False, 'subs': [], 'planned': False,
+                 'plan_dated': False})
 
         submitted = _has(r.get('submitted'))
         if submitted:
@@ -109,8 +110,10 @@ def summarize_e1(rows, cutoff=None):
         elif act in ('not_approved', 'under_review'):
             d['subs'].append((_rev_key(r.get('revision')), _as_dt(r.get('submitted')), i, act))
         planned = r.get('planned')
-        if _has(planned) and (cutoff is None or planned <= cutoff):
-            d['planned'] = True
+        if _has(planned):
+            d['plan_dated'] = True        # has a plan date at all (even if still in the future)
+            if cutoff is None or planned <= cutoff:
+                d['planned'] = True
 
     result = {}
     for key, draws in groups.items():
@@ -126,6 +129,7 @@ def summarize_e1(rows, cutoff=None):
         result[key] = {
             'req': req,
             'planned': planned,
+            'plan_dated': sum(1 for d in draws.values() if d['plan_dated']),
             'submitted_rows': submitted,
             'approved_rows': approved,
             'not_approved_rows': rejected,

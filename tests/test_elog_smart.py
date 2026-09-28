@@ -939,3 +939,16 @@ def test_log_with_nothing_submitted_anywhere_stays_counted(tmp_path):
     wb.save(p)
     prop = es.inspect_log(str(p))
     assert _sheet(prop, 'SPARE PARTS LOG')['include'] is True
+
+
+def test_log_without_a_planned_column_warns_the_gap_cannot_be_measured(tmp_path):
+    """ELOG-7: the SG-style log has no planned-date column → the panel must say the
+    Engineering Gap can't be measured, and the summary carries no plan dates."""
+    p = tmp_path / 'shop_log.xlsx'
+    _sg_style(p)
+    prop = es.inspect_log(str(p))
+    assert _col_with(_sheet(prop, 'Civil'), 'planned') is None
+    assert any('No planned-date column' in w for w in _sheet(prop, 'Civil')['warnings'])
+    assert any('Civil: No planned-date column' in w for w in prop['warnings'])
+    g = _summary(p, prop)[('Civil', 'SD')]
+    assert g['planned'] == 0 and g['plan_dated'] == 0

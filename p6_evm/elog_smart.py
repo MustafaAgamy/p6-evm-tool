@@ -1391,6 +1391,9 @@ def _finalize(prop, sheet_grids):
         if sh['include'] and sh['type_source'] and sh['type_source']['kind'] == 'sheet-name':
             w.append(f'No submittal-type column — the type is taken from the sheet name '
                      f'("{sh["type_source"]["value"]}").')
+        if sh['include'] and not any(c.get('field') == 'planned' for c in sh['columns']):
+            w.append("No planned-date column — the Engineering Gap can't be measured for this log "
+                     "(pick one if the log has it).")
         sh['warnings'] = w
 
     summ = summarize_e1(rows)

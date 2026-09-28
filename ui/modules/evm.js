@@ -347,7 +347,7 @@ function engGaps(gaps) {
         <th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>
       <tbody>${groups.map(g => `<tr><td>${escapeHtml(g.trade)}</td>
         <td class="num">${g.planned}</td><td class="num">${g.approved}</td>
-        <td class="num">${gapText(g.gap)}</td><td class="num">${Math.round(Math.abs(g.pct_of_gap))}%</td></tr>`).join('')}</tbody>
+        <td class="num">${g.no_plan ? 'No plan dates' : gapText(g.gap)}</td><td class="num">${Math.round(Math.abs(g.pct_of_gap))}%</td></tr>`).join('')}</tbody>
     </table></div>`;
   return one('Engineering Gap — Design Drawings (Planned vs Approved)', gaps.design)
        + one('Engineering Gap — Shop Drawings (Planned vs Approved)', gaps.engineering);
