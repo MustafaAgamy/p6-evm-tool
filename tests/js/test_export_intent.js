@@ -171,6 +171,19 @@ test('Excel-only view and no-schedule say so in the page, no pending note', () =
   assert.deepEqual(z.log.errors, ['Import a P6 schedule and open a module first.']);
   assert.equal(EI.takeDocExport(), null);
 });
+test('F6: File ▸ Print on Schedule (Gantt) says it is Excel-only — never "run the analysis first"', () => {
+  const g = harness('schedule');
+  g.runReport('pdf');
+  assert.deepEqual(g.log.clicked, []);
+  assert.deepEqual(g.log.errors, ['Schedule (Gantt) has no PDF export — use File ▸ Export to Excel.']);
+  g.runReport('xls');                                           // its Excel still works
+  assert.deepEqual(g.log.clicked, ['sched-excel-btn']);
+  // "Run first" stays for a report whose button is registered but not on screen yet.
+  const e = harness('evm', { missing: ['pdf-btn', 'evm-excel-btn'] });
+  e.runReport('pdf'); e.runReport('xls');
+  assert.deepEqual(e.log.errors, ['Run this module’s analysis first, then File ▸ Print / Export to PDF.',
+    'Run this module’s analysis first, then File ▸ Export to Excel.']);
+});
 test('Critical Path / Update vs Update / Update Analysis: message in the page, preview NOT opened, no note left', () => {
   // Their ⬇ PDF opens the module's own overlay, which never reads the note — the note would
   // otherwise linger 60 s and make the next report the planner opens save Word / HTML unasked.

@@ -370,9 +370,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const pv = PRINT_VIEW[state.currentView];
     if (map && !pv) {                                      // registered here only — no screen-print fallback
-      showError(kind === 'pdf'
+      if (!map[kind]) {                                    // the view has no such export at all (Schedule (Gantt) is Excel-only)
+        const alt = kind === 'pdf' ? (map.xls && 'File ▸ Export to Excel') : (map.pdf && 'File ▸ Print / Export to PDF');
+        showError(`${CRUMB[state.currentView] || 'This view'} has no ${kind === 'pdf' ? 'PDF' : 'Excel'} export`
+          + (alt ? ` — use ${alt}.` : '.'));
+        return;
+      }
+      showError(kind === 'pdf'                             // button registered but not on screen yet
         ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
-        : 'This module has no Excel export.');
+        : 'Run this module’s analysis first, then File ▸ Export to Excel.');
       return;
     }
     if (pv) {
