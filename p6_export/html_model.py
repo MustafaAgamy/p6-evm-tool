@@ -982,6 +982,7 @@ def parse_report(html, sections=None):
     doc = _load(html)
     style_texts = [s.text or '' for s in doc.iter('style')]
     sheet = C.StyleSheet(style_texts, page_width_px=720)
+    sheet.prune_to(doc)          # F4: only rules this document can match (app CSS is ~300 KB)
     page = C.page_setup(sheet)
     content_w_px = (page['width_mm'] - page['margins_mm'][1] - page['margins_mm'][3]) * 96 / 25.4
     sheet.page_width_px = content_w_px
@@ -996,6 +997,7 @@ def parse_report(html, sections=None):
     page_bg_rgb = C.blend(page_bg, (255, 255, 255))
     walker = _Walker(resolver, page_bg_rgb, content_w_px)
     blocks = walker.convert(body)
+    C.clear_sibling_cache()      # release the per-parent sibling index (holds tree refs)
     # theme tokens (from :root custom properties)
     theme = {k[2:]: v for k, v in hst.get('_custom', {}).items() if k.startswith('--rpt-')}
     labels = {s.get('key'): s.get('label') for s in (sections or []) if isinstance(s, dict)}

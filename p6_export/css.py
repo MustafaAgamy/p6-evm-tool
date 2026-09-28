@@ -419,6 +419,29 @@ class StyleSheet:
         else:
             self._by_tag.setdefault(key, []).append(rule)
 
+    def prune_to(self, doc):
+        """Drop every rule that can never match ``doc`` because a compound of its selector needs
+        a class or id no element of the document carries. printView documents inline the whole
+        app stylesheet (~300 KB, ~1,800 class buckets); this cuts it to the rules the report can
+        actually use before any matching. Returns the number of rules dropped."""
+        classes, ids = set(), set()
+        for el in doc.iter():
+            if is_element(el):
+                c = el.get('class')
+                if c:
+                    classes.update(c.split())
+                i = el.get('id')
+                if i:
+                    ids.add(i)
+        keep = [r for r in self.rules if _can_match(r.selector, classes, ids)]
+        dropped = len(self.rules) - len(keep)
+        if dropped:
+            self.rules = keep
+            self._by_id, self._by_class, self._by_tag, self._universal = {}, {}, {}, []
+            for r in keep:
+                self._index(r)
+        return dropped
+
     def candidates(self, el):
         out = list(self._universal)
         out += self._by_tag.get(tag_of(el), ())
@@ -455,11 +478,57 @@ def is_element(node):
     return node is not None and isinstance(node.tag, str)
 
 
-def _elem_siblings(el):
+def _can_match(sel, classes, ids):
+    """False when some compound of ``sel`` needs a class / id absent from the document
+    (conservative: ``:not``/``:is`` arguments and attribute selectors are never used to drop)."""
+    for _comb, comp in sel.parts:
+        if comp.never:
+            return False
+        if comp.classes and not all(c in classes for c in comp.classes):
+            return False
+        if comp.ids and not any(i in ids for i in comp.ids):
+            return False
+    return True
+
+
+# Element-only child list + each child's index, built ONCE per parent and shared by every
+# structural pseudo-class check (:nth-child, :first/:last-child, …-of-type) of every rule.
+# Rebuilding the list per check made matching quadratic in a big table's row count (F4).
+# An entry is checked against the parent's child count and the element's own slot, so a
+# changed tree just rebuilds it. Resolver() and parse_report() clear it (no stale refs).
+_SIB_CACHE = {}
+
+
+def clear_sibling_cache():
+    _SIB_CACHE.clear()
+
+
+def _sib_entry(p, el):
+    ent = _SIB_CACHE.get(p)
+    if ent is not None and ent[0] == len(p):
+        i = ent[2].get(el)
+        if i is not None and ent[1][i] is el:
+            return ent, i
+    sibs = [c for c in p if is_element(c)]
+    ent = (len(p), sibs, {c: k for k, c in enumerate(sibs)}, {})
+    _SIB_CACHE[p] = ent
+    return ent, ent[2][el]
+
+
+def _sib_position(el, of_type=False):
+    """``(1-based index, count)`` of ``el`` among its element siblings (of its tag)."""
     p = el.getparent()
     if p is None:
-        return [el]
-    return [c for c in p if is_element(c)]
+        return 1, 1
+    (_n, sibs, _pos, typed), i = _sib_entry(p, el)
+    if not of_type:
+        return i + 1, len(sibs)
+    t = tag_of(el)
+    tent = typed.get(t)
+    if tent is None:
+        same = [s for s in sibs if tag_of(s) == t]
+        tent = typed[t] = ({s: k for k, s in enumerate(same)}, len(same))
+    return tent[0][el] + 1, tent[1]
 
 
 class Compound:
@@ -560,12 +629,7 @@ def _pseudo_matches(el, name, arg):
         return len([c for c in el if is_element(c)]) == 0 and not (el.text or '').strip()
     if name in ('first-child', 'last-child', 'only-child', 'nth-child', 'nth-last-child',
                 'first-of-type', 'last-of-type', 'nth-of-type', 'only-of-type', 'nth-last-of-type'):
-        sibs = _elem_siblings(el)
-        if name.endswith('of-type'):
-            t = tag_of(el)
-            sibs = [s for s in sibs if tag_of(s) == t]
-        idx = next(i for i, s in enumerate(sibs) if s is el) + 1
-        cnt = len(sibs)
+        idx, cnt = _sib_position(el, name.endswith('of-type'))
         if name in ('first-child', 'first-of-type'):
             return idx == 1
         if name in ('last-child', 'last-of-type'):
@@ -864,6 +928,7 @@ class Resolver:
         self.sheet = sheet
         self.root_font_px = root_font_px
         self._memo = {}
+        clear_sibling_cache()
 
     def style(self, el):
         key = el

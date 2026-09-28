@@ -363,3 +363,50 @@ def test_chrome_raster_gives_every_chart_its_own_picture_even_after_a_very_tall_
     pix = pymupdf.Pixmap(small.png)
     r, g, b = pix.pixel(pix.width // 2, pix.height // 2)[:3]
     assert r > 200 and g < 60 and b < 60, (r, g, b)           # the red chart, not month boxes
+
+
+def test_structural_pseudo_classes_stay_right_after_the_sibling_index_and_rule_pruning():
+    """F4: :nth-child / :last-child / :nth-of-type read a per-parent sibling index built once,
+    and rules needing a class/id the document never uses are dropped before matching."""
+    from p6_export import css as C
+    css = ('.absent td{color:#ff0000} #nope td{color:#ff0000} html.dark td{color:#ff0000}'
+           '.grid tr:nth-child(even) td{background:#eeeeee} .grid td:last-child{font-weight:bold}'
+           '.grid td:nth-of-type(2){color:#0000ff} .grid td:first-child{font-style:italic}')
+    rows = ''.join(f'<tr><td>a{i}</td><td>b{i}</td><td>c{i}</td></tr>' for i in range(6))
+    html = (f'<html class="light"><head><style>{css}</style></head><body>'
+            f'<table class="grid">{rows}</table></body></html>')
+    doc = HM._load(html)
+    sheet = C.StyleSheet([css])
+    assert sheet.prune_to(doc) == 3 and len(sheet.rules) == 4      # .absent / #nope / html.dark
+    tb = [b for b in HM.parse_report(html).all_blocks() if b.kind == 'table'][0]
+    for i, row in enumerate(tb.rows):
+        a, b, c = row
+        assert a.italic and not b.italic and not c.italic
+        assert (b.color or '').upper() in ('#0000FF', '0000FF') and a.color != b.color
+        assert c.bold and not a.bold and not b.bold
+        shaded = i % 2 == 1                                           # rows 2, 4, 6 (1-based even)
+        assert ((a.bg or '').upper().lstrip('#') == 'EEEEEE') == shaded, (i, a.bg)
+        assert all((x.color or '').upper().lstrip('#') != 'FF0000' for x in row)
+
+
+def test_a_big_printview_table_parses_in_linear_time_with_the_whole_app_stylesheet():
+    """F4: printView inlines ui/style.css (~300 KB). Rebuilding each element's sibling list per
+    structural pseudo-class check made parsing quadratic — 4,000 rows took ~300 s ('Saving…'
+    forever). With the sibling index + rule pruning it is a couple of seconds."""
+    import time
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    css = (root / 'ui' / 'style.css').read_text(encoding='utf-8')
+    js = (root / 'ui' / 'modules' / 'printview.js').read_text(encoding='utf-8')
+    print_css = re.search(r'const PRINT_CSS = `(.*?)`;', js, re.S).group(1)
+    n = 2000
+    rows = ''.join('<tr>' + ''.join(f'<td>r{i}c{j}</td>' for j in range(8)) + '</tr>' for i in range(n))
+    html = (f'<!doctype html><html class="light"><head><style>{css}\n{print_css}</style></head>'
+            '<body><div class="pr-doc"><section class="pr-sec"><h2 class="pr-h">Activities</h2>'
+            f'<table><tr>{"<th>H</th>" * 8}</tr>{rows}</table></section></div></body></html>')
+    t0 = time.perf_counter()
+    rep = HM.parse_report(html)
+    took = time.perf_counter() - t0
+    tb = [b for b in rep.all_blocks() if b.kind == 'table'][0]
+    assert len(tb.rows) == n + 1 and tb.rows[-1][-1].text == f'r{n - 1}c7'
+    assert took < 20, f'parse_report took {took:.1f}s for {n} rows (was ~75 s before F4)'
