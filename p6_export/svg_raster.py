@@ -224,15 +224,20 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
     content_px = content_mm * 96 / 25.4
     # a picture taller than one Word page is cut into page-high slices (at a blank line)
     max_h_pt = ((page.get('height_mm') or 297) - max(margins[0], 16) - max(margins[2], 14) - 12) * 72 / 25.4
+    # each chart opens with an empty link to _MARK+i: Chrome writes it as a PDF link
+    # annotation on the page where that chart STARTS (nothing is drawn), so a chart taller
+    # than one 7000px page keeps all its pages and the next chart still gets its own picture
     blocks = ''.join(
-        f'<div class="__xcap" style="width:{(v.width_px or content_px):.0f}px">{v.html}</div>'
-        for v in visuals)
+        f'<div class="__xcap" style="width:{(v.width_px or content_px):.0f}px">'
+        f'<a class="__xmk" href="{_MARK}{i}"></a>{v.html}</div>'
+        for i, v in enumerate(visuals))
     html = (f'<!DOCTYPE html><html class="{rep.html_class}"><head><meta charset="utf-8">'
             f'<style>{rep.head_css}</style>'
             '<style>@page{size:' f'{content_px + 16:.0f}px 7000px;margin:0}}'
             'html,body{margin:0!important;padding:0!important}'
             '.__xcap{padding:6px;box-sizing:content-box;break-after:page;page-break-after:always;'
             'break-inside:avoid;overflow:hidden}'
+            '.__xmk{position:absolute;display:block;width:1px;height:1px}'
             '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>'
             f'</head><body class="{rep.body_class}">{blocks}</body></html>')
     tmpdir = tempfile.mkdtemp(prefix='cx_raster_')
@@ -247,27 +252,18 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
         doc = pymupdf.open(pdf_path)
         drawn = 0
         try:
+            starts = _chart_start_pages(doc, len(visuals))
+            firsts = sorted(set(p for p in starts if p is not None))
             for i, v in enumerate(visuals):
-                if i >= doc.page_count:
-                    break
-                pg = doc[i]
-                full = pg.rect
-                box = None
-                rects = []
-                for _kind, r in pg.get_bboxlog():
-                    rect = pymupdf.Rect(r)
-                    if rect.is_empty or rect.width * rect.height >= full.width * full.height * 0.9:
-                        continue
-                    rects.append(rect)
-                    box = rect if box is None else box | rect
-                if box is None:
+                first = starts[i]
+                if first is None:
                     continue
-                box = (box + (-4, -4, 4, 4)) & full
+                last = next((p for p in firsts if p > first), doc.page_count)
                 pieces = []
-                for clip in _slices(box, rects, max_h_pt):
-                    pix = pg.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip, alpha=False)
-                    # PDF points → CSS px (96 dpi) so Word sizes the picture like the PDF
-                    pieces.append((pix.tobytes('png'), clip.width * 96 / 72, clip.height * 96 / 72))
+                for pno in range(first, last):          # every page this chart runs onto
+                    pieces.extend(_page_pieces(doc[pno], max_h_pt, scale, pymupdf))
+                if not pieces:
+                    continue
                 v.png, v.width_px, v.height_px = pieces[0]
                 v.slices = pieces if len(pieces) > 1 else None
                 drawn += 1
@@ -286,6 +282,48 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
                 pass
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+_MARK = 'https://xcap.invalid/'
+
+
+def _chart_start_pages(doc, n):
+    """Page index where chart i starts, read from its link marker. Without markers (an old
+    Chromium that drops empty links) fall back to page i only when there is exactly one
+    page per chart — never guess when a chart ran onto several pages."""
+    starts = [None] * n
+    for pno in range(doc.page_count):
+        for link in doc[pno].get_links():
+            uri = link.get('uri') or ''
+            if uri.startswith(_MARK) and uri[len(_MARK):].isdigit():
+                i = int(uri[len(_MARK):])
+                if i < n and starts[i] is None:
+                    starts[i] = pno
+    if all(p is None for p in starts) and doc.page_count == n:
+        starts = list(range(n))
+    return starts
+
+
+def _page_pieces(pg, max_h_pt, scale, pymupdf):
+    """Crop what is drawn on one page into (png, width_px, height_px) slices."""
+    full = pg.rect
+    box = None
+    rects = []
+    for _kind, r in pg.get_bboxlog():
+        rect = pymupdf.Rect(r)
+        if rect.is_empty or rect.width * rect.height >= full.width * full.height * 0.9:
+            continue
+        rects.append(rect)
+        box = rect if box is None else box | rect
+    if box is None:
+        return []
+    box = (box + (-4, -4, 4, 4)) & full
+    pieces = []
+    for clip in _slices(box, rects, max_h_pt):
+        pix = pg.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip, alpha=False)
+        # PDF points → CSS px (96 dpi) so Word sizes the picture like the PDF
+        pieces.append((pix.tobytes('png'), clip.width * 96 / 72, clip.height * 96 / 72))
+    return pieces
 
 
 def _slices(box, rects, max_h):
