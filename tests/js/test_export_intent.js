@@ -136,6 +136,24 @@ test('Reporting Studio: File ▸ Print and Ctrl+Shift+H open the Studio preview,
   assert.match(pv, /showReportPreview\(/);
   assert.match(pv, /exports: \['pdf'\]/);
 });
+test('every File menu button id in REPORT_BTN exists in the UI (F3: Studio Excel was sr-xls, button is sr-excel)', () => {
+  const { REPORT_BTN } = harness('special');
+  const ui = [read('ui', 'index.html'), appSrc]
+    .concat(fs.readdirSync(path.join(ROOT, 'ui', 'modules')).filter((f) => f.endsWith('.js')).map((f) => read('ui', 'modules', f)))
+    .join('\n')
+    .replace(appSrc.slice(a, b), '');                          // the REPORT_BTN map itself does not count
+  const missing = [];
+  for (const [view, btns] of Object.entries(REPORT_BTN)) {
+    for (const [kind, id] of Object.entries(btns)) {
+      if (!ui.includes(`"${id}"`) && !ui.includes(`'${id}'`)) missing.push(`${view}.${kind}=${id}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+  assert.equal(REPORT_BTN.special.xls, 'sr-excel');
+  const s = harness('special'); s.runReport('xls');
+  assert.deepEqual(s.log.clicked, ['sr-excel']);
+  assert.deepEqual(s.log.errors, []);
+});
 test('screen views (Overview) and library views print through printView with the note', () => {
   EI.clearDocExport();
   const o = harness('overview'); o.runReport('docx');
