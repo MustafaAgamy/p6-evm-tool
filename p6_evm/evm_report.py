@@ -304,7 +304,7 @@ def _engineering_section(engineering):
             return ''
         grows = ''.join(
             f'<tr><td>{_esc(g.get("trade"))}</td><td class="num">{g.get("planned", "")}</td>'
-            f'<td class="num">{g.get("approved", "")}</td><td class="num">{_gap_val(g.get("gap"), lambda n: f"{n:g}")}</td>'
+            f'<td class="num">{g.get("approved", "")}</td><td class="num">{"No plan dates" if g.get("no_plan") else _gap_val(g.get("gap"), lambda n: f"{n:g}")}</td>'
             f'<td class="num">{abs(g.get("pct_of_gap", 0)):.0f}%</td></tr>' for g in groups)
         return _part(key, label, (
             f'<h2 class="sec">{_esc(title)}</h2>'

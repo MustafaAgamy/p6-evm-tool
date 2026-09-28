@@ -11,6 +11,7 @@ One meaning-based matcher used everywhere so a project's own vocabulary doesn't 
 Matching is case/space/punctuation-insensitive and matches when the text CONTAINS an
 accepted phrase. See vault: 01 Scope — Auto Project Setup, 07 Calculation Rules.
 """
+import re
 
 # ── Categories (priority order — first match wins; Construction is the fallback) ──
 CATEGORY_RULES = [
@@ -152,28 +153,209 @@ def auto_categories(data, saved_weights=None):
     return cats
 
 
+# ── Review codes (the owner-approved rule, Tool-Wide Enhancement scope §2) ──────────────
+# Approved     = A, B, Code 1, Code 2, approved (as noted / with comments), no objection,
+#                reviewed – no exceptions (taken)
+# Not approved = C, D, Code 3, Code 4, revise and resubmit, rejected, not approved
+# Under review = W, P, pending, under review, in review (+ submitted with no reply yet —
+#                that part is a row rule, applied in e1_log.summarize_e1)
+# A legend printed in the log itself overrides these defaults — see
+# classify_action_code_with_legend.
+VERDICTS = ('approved', 'not_approved', 'under_review')
+_CODE_VERDICT = {
+    'a': 'approved', 'b': 'approved', '1': 'approved', '2': 'approved',
+    'c': 'not_approved', 'd': 'not_approved', '3': 'not_approved', '4': 'not_approved',
+    'p': 'under_review', 'w': 'under_review',
+}
+_EXACT = {
+    'aan': 'approved', 'aab': 'approved', 'noc': 'approved',
+    'rns': 'not_approved', 'rr': 'not_approved', 'r&r': 'not_approved',
+    'ur': 'under_review', 'ua': 'under_review', 'u/a': 'under_review', 'u/r': 'under_review',
+}
+
+
+def _code_text(raw):
+    """Lower-case text with punctuation → spaces (keeps '/' and '&', which carry meaning in
+    codes like 'B/C' and 'R&R'). Whole-number floats from Excel read as ints ('1.0' → '1')."""
+    if raw is None or isinstance(raw, bool):
+        return ''
+    if isinstance(raw, (int, float)):
+        if raw != raw:                       # NaN
+            return ''
+        return str(int(raw)) if float(raw).is_integer() else str(raw)
+    m = _DEC_ZERO.match(str(raw))
+    if m:                                    # '2.0' typed as text reads as the number 2
+        return m.group(1).lstrip('0') or '0'
+    s = re.sub(r'[^a-z0-9/&]+', ' ', str(raw).lower())
+    return ' '.join(s.split())
+
+
+_DEC_ZERO = re.compile(r'^\s*(\d+)\.0+\s*$')
+
+
+# Statuses that say the drawing has NOT gone to the consultant yet. They are not review
+# codes at all: a drawing "under preparation" is required but neither submitted nor under
+# review. (The old bare 'under' / 'progress' / 'pend' matches read them as under review.)
+_NOT_SENT = re.compile(
+    r'\bprep(?:aration|aring)?\b|\bin progress\b|\bwip\b|\bnot started\b'
+    r'|^not yet$|\bnot yet (?:been )?(?:submitted|sent|issued|prepared|started|ready)\b'
+    r'|\byet to (?:be )?(?:submit|sent|send|issue|prepare)'
+    r'|\bnot (?:been )?(?:submitted|sent|issued)\b'
+    r'|\bto be (?:submitted|sent|issued|prepared)\b'
+    r'|\b(?:pending|awaiting|awaited|waiting(?: for)?) (?:the )?(?:submission|submittal|to submit|issue|issuance)\b'
+    r'|\b(?:pending|awaiting|waiting) (?:from|by|on) (?:the )?(?:contractor|sub ?contractor|supplier|vendor)\b')
+# Wording that puts the drawing WITH the reviewer — proof it was sent even when the log
+# has no date for it. A bare W / P / 'Pending' is not such proof (it can mean "pending
+# submission" too).
+_WITH_REVIEWER = re.compile(
+    r'\b(?:under|in|for|pending|awaiting|awaited|waiting for) (?:review|approval|comments?)\b'
+    r'|\bunder approv|\bawaiting (?:reply|response|consultant)\b|\bwith (?:the )?consultant\b'
+    r'|\b(?:re ?)?submitted\b|\bsent (?:to|for)\b|\bissued for (?:review|approval|comments?)\b')
+# Still with the reviewer — only explicit wording (a bare 'review' / 'reviewed' says nothing
+# about the outcome: "Reviewed & approved" is a finished review).
+_UNDER_REVIEW = re.compile(
+    r'\b(?:under|in|for|pending|awaiting|awaited) review\b|\breviewing\b'
+    r'|\bunder (?:approv|consultant)|\bpend(?:ing)?\b|\bawait|\bwaiting\b'
+    r'|\bwith (?:the )?consultant\b|\b(?:re ?)?submitted\b|\bissued for (?:review|approval|comments?)\b')
+# Waiting for an approval that has not come yet — read BEFORE the word 'approv' itself.
+_PENDING_APPROVAL = re.compile(
+    r'\b(?:under|for|pending|awaiting|awaited|waiting for|subject to) approv'
+    r'|\bnot yet (?:been )?(?:approv|review|repl|return)')
+# A consultant's instruction to resubmit ("to be resubmitted") is a rejection; a log entry
+# saying it WAS resubmitted means it is back with the reviewer.
+_RESUBMIT_ORDER = re.compile(r'\b(?:to|shall|must|should|will|needs? to) be re ?submitted\b')
+_RESUBMITTED = re.compile(r'\bre ?submitted\b')
+_FINISHED_OK = re.compile(r'\bapprov|\bas noted\b|\bcorrections? noted\b|\baccepted\b'
+                          r'|\breviewed\b.*\bcomments?\b')
+_CLAUSE = re.compile(r'[,;:\n]|\s[-\u2013\u2014]+\s|\u2014|\.\s')
+
+
+def is_not_sent_status(raw):
+    """True for a status that says the drawing has not been sent yet ('Under preparation',
+    'Pending submission', 'Not yet submitted', 'In progress', 'To be submitted')."""
+    c = _code_text(raw)
+    return bool(c) and bool(_NOT_SENT.search(c))
+
+
+def status_says_sent(raw):
+    """True when the status wording itself shows the drawing is with the reviewer
+    ('Under review', 'In review', 'Under approval', 'U.A', 'Awaiting reply', 'Submitted
+    for approval'). A bare code (W / P) or 'Pending' is not enough."""
+    c = _code_text(raw)
+    if not c or _NOT_SENT.search(c):
+        return False
+    if c.replace(' ', '') in ('ua', 'u/a', 'ur', 'u/r'):
+        return True
+    return bool(_WITH_REVIEWER.search(c))
+
+
 def classify_action_code(raw):
-    """Read an E1 approval status by MEANING, not one fixed coding scheme — different
-    projects use A/B/C/P, or words ('Approved', 'Rejected', 'Under Review'), or 'AAN'
-    (approved as noted), 'RNS' (revise & resubmit). Returns
-    'approved' | 'not_approved' | 'under_review' | None."""
-    c = _norm(raw)
+    """Read an engineering-log review status by MEANING, not one fixed coding scheme —
+    projects use A/B/C/D/W/P, 1/2/3/4, 'Code 2', words ('Approved as noted', 'Revise and
+    resubmit', 'Pending'), or short forms ('AAN', 'RNS', 'U.A'). Returns
+    'approved' | 'not_approved' | 'under_review' | None (unknown / blank / ambiguous, or a
+    status saying the drawing has not been sent yet — see is_not_sent_status)."""
+    c = _code_text(raw)
     if not c:
         return None
-    # order matters: "not approved" contains "approv"
-    if 'not approv' in c or 'reject' in c or 'resubmit' in c or 'revise' in c or c in ('c', 'rns', 'rr'):
-        return 'not_approved'
-    if 'under' in c or 'review' in c or 'pend' in c or 'progress' in c or c in ('p', 'ur'):
-        return 'under_review'
-    if 'approv' in c or 'as noted' in c or 'accepted' in c or c in ('a', 'b', 'aan', 'aab'):
+    words = c.split()
+    if len(words) > 8:
+        # long free text (a comment): an explicit "status: X" inside it, else its FIRST
+        # clause ("Approved as noted, please incorporate …" → "Approved as noted")
+        m = re.search(r'\bstatus\b(.*)', c)
+        if m and m.group(1).split():
+            c = ' '.join(m.group(1).split()[:6])
+        else:
+            c = _code_text(_CLAUSE.split(str(raw), 1)[0])
+            if not c or len(c.split()) > 8:
+                return None
+        words = c.split()
+    compact = c.replace(' ', '')
+    if compact in _EXACT:
+        return _EXACT[compact]
+    if compact in _CODE_VERDICT:
+        return _CODE_VERDICT[compact]
+    # two codes at once ('B/C', '2/3') — ambiguous, don't guess
+    if re.fullmatch(r'[a-d1-4pw](/[a-d1-4pw])+', compact):
+        return None
+    # not sent yet ('Under preparation', 'Pending submission', 'In progress') — no review
+    if _NOT_SENT.search(c):
+        return None
+    # order matters: "no exceptions" / "no objection" before "not"; "not approved" before
+    # "approv"; "resubmitted" (sent again) before "resubmit" (an instruction); "awaiting
+    # approval" before "approv"; every finished-review wording before "review"
+    if 'no exception' in c or 'no objection' in c:
         return 'approved'
-    # standalone letter-code fallback (A/B = approved, C = not, P = pending) — token-based
-    # so "Code A" reads as A, not as a word starting with C
-    toks = set(c.split())
-    for letter, verdict in (('a', 'approved'), ('b', 'approved'), ('c', 'not_approved'), ('p', 'under_review')):
-        if letter in toks:
-            return verdict
+    if 'not approv' in c or 'disapprov' in c or 'unapprov' in c or 'not accepted' in c or 'reject' in c:
+        return 'not_approved'
+    if _RESUBMIT_ORDER.search(c):
+        return 'not_approved'
+    if _RESUBMITTED.search(c):
+        return 'under_review'
+    if 'resubmit' in c or 'revise' in c:
+        return 'not_approved'
+    if _PENDING_APPROVAL.search(c):
+        return 'under_review'
+    if _FINISHED_OK.search(c):
+        return 'approved'
+    if _UNDER_REVIEW.search(c):
+        return 'under_review'
+    # an explicit code inside the text: "Code 2", "code-c"
+    m = re.search(r'\bcode ?([a-d1-4pw])\b', c)
+    if m:
+        return _CODE_VERDICT[m.group(1)]
+    # a short cell holding a standalone letter code ("Code A" style handled above)
+    if len(words) <= 3:
+        for w in words:
+            if w in _CODE_VERDICT and not w.isdigit():
+                return _CODE_VERDICT[w]
     return None
+
+
+def legend_code_candidates(raw):
+    """The code(s) a cell could be quoting, upper-case: 'B', '(B)', 'Code B',
+    'Approved (Code B)', 'B - approved as noted', 1.0 → ['B'] / ['1']."""
+    if raw is None or isinstance(raw, bool):
+        return []
+    if isinstance(raw, (int, float)):
+        if raw != raw:
+            return []
+        return [str(int(raw)) if float(raw).is_integer() else str(raw)]
+    m = _DEC_ZERO.match(str(raw))
+    if m:                                    # '2.0' typed as text
+        return [m.group(1).lstrip('0') or '0']
+    s = ' '.join(str(raw).upper().split())
+    out = []
+    compact = re.sub(r'[^A-Z0-9]', '', s)
+    if 1 <= len(compact) <= 3:
+        out.append(compact)
+    for m in re.finditer(r'\(\s*(?:CODE\s*)?([A-Z0-9]{1,3})\s*\)', s):
+        out.append(m.group(1))
+    for m in re.finditer(r'\bCODE\s*[-:]?\s*([A-Z0-9]{1,3})\b', s):
+        out.append(m.group(1))
+    m = re.match(r'^([A-Z0-9]{1,3})\s*[-–=:]\s*\S', s)
+    if m:
+        out.append(m.group(1))
+    seen, uniq = set(), []
+    for x in out:
+        if x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    return uniq
+
+
+def classify_action_code_with_legend(raw, legend=None):
+    """Scheme-aware review code: a legend found in the log ({code: verdict}, verdict one of
+    'approved' | 'not_approved' | 'under_review' | 'ignore') wins for any code it lists;
+    everything else falls back to the default rule (classify_action_code). 'ignore' → None
+    (the planner chose not to count that code)."""
+    if legend:
+        leg = {str(k).strip().upper(): v for k, v in legend.items() if str(k).strip()}
+        for code in legend_code_candidates(raw):
+            if code in leg:
+                v = leg[code]
+                return v if v in VERDICTS else None
+    return classify_action_code(raw)
 
 
 def e1_file_bucket(filename):

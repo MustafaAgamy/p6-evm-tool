@@ -11,7 +11,7 @@ CSS = open(os.path.join(os.path.dirname(__file__), '..', 'ui', 'style.css'), enc
 MODES = ('light', 'dark', 'midnight', 'sepia', 'contrast', 'blueprint')
 TOKENS = (
     '--bg', '--sidebar-bg', '--sidebar-ink', '--sidebar-ink-dim', '--card-bg', '--border', '--hair',
-    '--text', '--ink-soft', '--muted', '--accent', '--accent-dark', '--accent-soft',
+    '--text', '--ink-soft', '--muted', '--accent', '--accent-ink', '--accent-dark', '--accent-soft',
     '--danger', '--danger-bg', '--success', '--success-bg', '--warning', '--warning-bg', '--row-hover',
     '--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5', '--chart-6', '--chart-grid', '--chart-axis',
 )
@@ -59,3 +59,26 @@ def test_old_light_class_system_fully_migrated():
 
 def test_dead_toggle_css_removed():
     assert '.theme-toggle' not in CSS and '.icon-moon' not in CSS, 'dead sun/moon toggle CSS remains'
+
+
+def _lum(hexcol):
+    h = hexcol.lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    ch = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in ch]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def test_primary_button_text_readable_in_every_mode():
+    # ELOG-5: .btn-mini.primary had fixed white text -> ~1.5:1 on blueprint's light-cyan accent.
+    assert re.search(r'\.btn-mini\.primary\s*\{[^}]*color:\s*var\(--accent-ink\)', CSS), \
+        '.btn-mini.primary must use var(--accent-ink) for its text'
+    for mode in MODES:
+        body = _block(mode)
+        acc = re.search(r'--accent\s*:\s*(#[0-9a-fA-F]{3,6})\s*;', body).group(1)
+        ink = re.search(r'--accent-ink\s*:\s*(#[0-9a-fA-F]{3,6})\s*;', body)
+        assert ink, f'{mode} palette is missing --accent-ink'
+        a, b = sorted((_lum(acc), _lum(ink.group(1))), reverse=True)
+        ratio = (a + 0.05) / (b + 0.05)
+        assert ratio >= 4.5, f'{mode}: --accent-ink on --accent contrast {ratio:.2f}:1 < 4.5:1'

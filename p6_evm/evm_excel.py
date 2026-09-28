@@ -265,7 +265,7 @@ def _engineering_blocks(engineering):
                 'title': title,
                 'headers': ['Trade', 'Planned', 'Approved', 'Gap', '% of Gap'],
                 'rows': [[g.get('trade', ''), g.get('planned', ''), g.get('approved', ''),
-                          g.get('gap', ''),
+                          'No plan dates' if g.get('no_plan') else g.get('gap', ''),
                           f"{abs(g.get('pct_of_gap', 0)):.0f}%"] for g in groups],
             })
     return blocks

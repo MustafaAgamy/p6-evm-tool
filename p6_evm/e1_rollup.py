@@ -91,16 +91,23 @@ def _gap_groups(rows):
     by_trade = {}
     for r in rows:
         t = r.get('trade') or ''
-        g = by_trade.setdefault(t, {'trade': t, 'planned': 0, 'approved': 0})
+        g = by_trade.setdefault(t, {'trade': t, 'planned': 0, 'approved': 0, 'req': 0,
+                                    'plan_dated': 0})
         g['planned'] += r.get('planned') or 0
         g['approved'] += r.get('approved_rows') or 0
+        g['req'] += r.get('req') or 0
+        # rows cached before 'plan_dated' existed: fall back to the due-by-now count
+        g['plan_dated'] += r.get('plan_dated', r.get('planned')) or 0
     groups = []
     for g in by_trade.values():
         g['gap'] = g['planned'] - g['approved']
+        # No plan dates at all for a trade that has drawings -> the gap can't be measured
+        # (Planned 0 would otherwise read as "Ahead"). Kept out of the % of gap.
+        g['no_plan'] = bool(g['req'] and not g['plan_dated'])
         groups.append(g)
-    total = sum(g['gap'] for g in groups)
+    total = sum(g['gap'] for g in groups if not g['no_plan'])
     for g in groups:
-        g['pct_of_gap'] = (100.0 * g['gap'] / total) if total else 0.0
+        g['pct_of_gap'] = (100.0 * g['gap'] / total) if total and not g['no_plan'] else 0.0
     groups.sort(key=lambda g: g['gap'], reverse=True)
     return groups
 
