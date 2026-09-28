@@ -16,7 +16,9 @@ Design notes baked in:
     legible (WCAG-ish contrast) on light AND dark grounds.
   * ``print-color-adjust: exact`` is emitted so Chrome ``--print-to-pdf`` keeps the
     background fills of the dark modes instead of dropping them to white.
+  * Word and Excel are ALWAYS light (:func:`force_light`) — the mode is a screen + PDF choice.
 """
+import re
 
 # ── Canonical token vocabulary (every mode must define every key) ────────────
 #   surfaces / text / lines / accent / table header / semantic / charts
@@ -150,6 +152,29 @@ def theme_style_tag(mode=DEFAULT_MODE):
         'html, body { background: var(--rpt-bg); color: var(--rpt-ink); }\n'
         '</style>'
     )
+
+
+# OWNER DECISION (Tool-Wide Enhancement, comment 30): the appearance mode is reflected on
+# SCREEN and in the PDF only. Word (.docx / .doc) and Excel ALWAYS use the standard LIGHT
+# style — the Word page is never dark — with the same structure and values as the PDF.
+DOCUMENT_MODE = 'light'
+
+_THEME_TAG_RE = re.compile(r'<style\b[^>]*\bid=["\']rpt-theme["\'][^>]*>.*?</style>',
+                           re.IGNORECASE | re.DOTALL)
+
+
+def force_light(html):
+    """Return ``html`` re-themed to the standard light palette (for Word / Excel).
+
+    Every report reads its colours from the ONE ``<style id="rpt-theme">`` block
+    (:func:`theme_style_tag`), so swapping that block for the light one re-colours the whole
+    report — tables, tiles, SVG charts — while every section, heading, table, column, value
+    and number / date format stays exactly as the preview / PDF shows it. HTML without the
+    block (a report that never used the tokens) is returned unchanged."""
+    if not isinstance(html, str) or 'rpt-theme' not in html:
+        return html
+    light = theme_style_tag(DOCUMENT_MODE)
+    return _THEME_TAG_RE.sub(lambda _m: light, html)
 
 
 def var(token, fallback=None):

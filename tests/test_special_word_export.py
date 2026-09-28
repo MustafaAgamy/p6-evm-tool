@@ -145,3 +145,13 @@ def test_resolve_theme_colors_unit():
     mixed = _resolve_theme_colors(
         'b{background:color-mix(in srgb, var(--rpt-warn) 45%, transparent)}', 'midnight')
     assert 'var(' not in mixed and 'color-mix' not in mixed and '#' in mixed
+
+
+def test_word_is_always_light_whatever_the_mode():
+    """OWNER DECISION (comment 30): the appearance mode shows on screen and in the PDF only —
+    the Reporting Studio Word is the standard LIGHT style (never a dark page), same content."""
+    light = _doc('light')
+    for mode in MODES:
+        assert _doc(mode) == light, mode
+    dark_bg = report_theme.theme_vars('dark')['rpt-bg'].lower()
+    assert dark_bg not in light.lower()

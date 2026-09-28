@@ -17,6 +17,7 @@ from p6_calendar.report import render_calendar_report
 from p6_evm.evm_report import render_evm_report
 from p6_evm.parser import parse_file
 from p6_export import html_model as HM
+import report_theme
 from p6_export import svg_raster, to_docx, to_html, to_xlsx
 
 RESULT = {
@@ -168,7 +169,7 @@ def test_docx_is_word_ready_headers_colours_no_css_vars(tmp_path):
     out = _docx(evm_html('dark'), tmp_path)
     doc_xml = _xml(out)
     assert 'var(' not in doc_xml
-    assert '<w:background w:color="131922"' in doc_xml             # dark page kept
+    assert '<w:background' not in doc_xml                          # Word is always light (owner)
     assert '<w:tblHeader' in doc_xml                               # header row repeats
     assert 'w:keepNext' in _xml(out, 'word/styles.xml') or 'w:keepNext' in doc_xml
     assert re.search(r'w:fill="[0-9A-F]{6}"', doc_xml)             # concrete cell shading
@@ -176,38 +177,62 @@ def test_docx_is_word_ready_headers_colours_no_css_vars(tmp_path):
     footers = ''.join(_xml(out, n) for n in zipfile.ZipFile(out).namelist() if 'footer' in n)
     assert 'Controlyx — Earned Value · Grain Bulk Terminal' in headers
     assert 'PAGE' in footers and 'NUMPAGES' in footers
-    assert 'displayBackgroundShape' in _xml(out, 'word/settings.xml')
 
 
-def test_dark_docx_prints_its_page_colour_so_light_ink_never_lands_on_white_paper(tmp_path):
-    """F5: w:background is screen-only — Word does not print it and Save as PDF drops it, so the
-    dark theme's near-white ink printed on white paper. The page colour must also be a full-page
-    picture anchored behind the text (from the header → every page), which always prints."""
-    import pymupdf
-    out = _docx(evm_html('dark'), tmp_path)
+def _docx_content(path):
+    d = docx.Document(str(path))
+    return ([p.text for p in d.paragraphs],
+            [[c.text for c in row.cells] for t in d.tables for row in t.rows])
+
+
+@pytest.mark.parametrize('mode', ['dark', 'midnight', 'blueprint', 'contrast', 'sepia'])
+def test_any_mode_exports_a_light_word_page_with_the_same_content(tmp_path, mode):
+    """OWNER DECISION (comment 30): the appearance mode shows on screen and in the PDF only.
+    Word ALWAYS uses the standard light style (never a dark page) and keeps the same
+    sections, headings, tables, columns, values and formats as the light report."""
+    light = report_theme.theme_vars('light')
+    out = _docx(evm_html(mode), tmp_path, name=f'{mode}.docx')
+    ref = _docx(evm_html('light'), tmp_path, name='light.docx')
+    assert _docx_content(out) == _docx_content(ref)                 # same content, same order
+    doc_xml = _xml(out)
+    assert '<w:background' not in doc_xml                          # no page colour at all
     d = docx.Document(str(out))
     sec = d.sections[0]
+    assert not sec.header._element.findall('.//' + to_docx.qn('wp:anchor'))   # no dark page picture
     ink = d.styles['Normal'].font.color.rgb
-    assert to_docx._lum(str(ink)) > 180                             # the dark theme's light ink
-    anchors = sec.header._element.findall('.//' + to_docx.qn('wp:anchor'))
-    assert len(anchors) == 1
-    a = anchors[0]
-    assert a.get('behindDoc') == '1'
-    for tag in ('wp:positionH', 'wp:positionV'):
-        pos = a.find(to_docx.qn(tag))
-        assert pos.get('relativeFrom') == 'page'
-        assert pos.find(to_docx.qn('wp:posOffset')).text == '0'
-    ext = a.find(to_docx.qn('wp:extent'))
-    assert (int(ext.get('cx')), int(ext.get('cy'))) == (sec.page_width, sec.page_height)
-    assert a.find(to_docx.qn('wp:wrapNone')) is not None
-    rid = a.find('.//' + to_docx.qn('a:blip')).get(to_docx.qn('r:embed'))
-    pix = pymupdf.Pixmap(sec.header.part.related_parts[rid].blob)
-    r, g, b = pix.pixel(pix.width // 2, pix.height // 2)[:3]
-    assert '%02X%02X%02X' % (r, g, b) == '131922'                   # the dark page, printable
-    assert to_docx._lum('%02X%02X%02X' % (r, g, b)) < 60
-    # the light build keeps a plain white page — no picture behind its dark ink
-    light = docx.Document(str(_docx(evm_html('light'), tmp_path, name='l.docx')))
-    assert not light.sections[0].header._element.findall('.//' + to_docx.qn('wp:anchor'))
+    assert ink is None or to_docx._lum(str(ink)) < 100              # dark ink on white paper
+    fills = set(re.findall(r'w:fill="([0-9A-F]{6})"', doc_xml))
+    assert light['rpt-th-bg'].lstrip('#').upper() in fills          # the LIGHT table header
+    dark = report_theme.theme_vars(mode)
+    assert dark['rpt-th-bg'].lstrip('#').upper() not in fills       # never the mode's header
+    assert dark['rpt-bg'].lstrip('#').upper() not in fills
+    assert doc_xml == _xml(ref)                                     # byte-identical body
+
+
+def test_any_mode_exports_the_same_excel_as_light(tmp_path):
+    """Excel is also always the standard light style — identical workbook for every mode."""
+    import openpyxl
+    def cells(mode):
+        out = tmp_path / f'{mode}.xlsx'
+        to_xlsx.html_to_xlsx(evm_html(mode), str(out), app_name='Controlyx', feature='Earned Value')
+        wb = openpyxl.load_workbook(str(out))
+        return {ws.title: [[c.value for c in row] for row in ws.iter_rows()] for ws in wb.worksheets}
+    ref = cells('light')
+    for mode in ('dark', 'midnight'):
+        got = cells(mode)
+        for ws in ref:
+            rows = [r for r in ref[ws] if not any(isinstance(v, str) and 'Generated' in v for v in r)]
+            rows2 = [r for r in got[ws] if not any(isinstance(v, str) and 'Generated' in v for v in r)]
+            assert rows == rows2, (mode, ws)
+
+
+def test_force_light_swaps_only_the_theme_block():
+    html = evm_html('dark')
+    out = report_theme.force_light(html)
+    assert 'data-rpt-theme="light"' in out and 'data-rpt-theme="dark"' not in out
+    strip = lambda h: re.sub(r'<style[^>]*id="rpt-theme".*?</style>', '', h, flags=re.S)
+    assert strip(out) == strip(html)                                # nothing else touched
+    assert report_theme.force_light('<p>x</p>') == '<p>x</p>'
 
 
 def test_docx_page_follows_the_report_at_page(tmp_path):

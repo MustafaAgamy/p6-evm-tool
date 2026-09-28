@@ -249,8 +249,10 @@ def build_meta(rep, app_name='', feature='', project='', data_date='', generated
 
 
 def html_to_xlsx(html, path, app_name='', feature='', project='', data_date='', sections=None):
-    """The one-call path used by ``POST /api/export/xlsx``."""
-    rep = HM.parse_report(html, sections=sections)
+    """The one-call path used by ``POST /api/export/xlsx``. Excel always uses the standard
+    light style, whatever appearance mode the preview is in (report_theme.force_light)."""
+    import report_theme
+    rep = HM.parse_report(report_theme.force_light(html), sections=sections)
     sheets = build_sheets(rep)
     XW.write_sections_xlsx(path, sheets, meta=build_meta(rep, app_name, feature, project, data_date))
     return path

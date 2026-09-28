@@ -2,10 +2,12 @@
 
 Built from the SAME HTML string the preview shows and Chrome prints (via the neutral
 block model of :mod:`p6_export.html_model`), so Word carries exactly the ticked parts,
-in the chosen order, in the chosen appearance mode:
+in the chosen order — ALWAYS in the standard LIGHT style (owner decision: the appearance
+mode is a screen + PDF choice; the Word page is never dark — see
+:func:`report_theme.force_light`), with the same sections, tables, values and formats:
 
 * page size / orientation / margins from the report's ``@page``;
-* the page colour of the appearance mode (dark modes keep their dark page);
+* a white page (a report that paints a non-white page WITHOUT the theme tokens keeps it);
 * a running header (app · feature · project) and a "Page X of Y" footer;
 * headings kept with what follows them (no orphaned titles), paragraphs of styled runs,
   bullet / numbered lists;
@@ -679,9 +681,11 @@ def build_docx(rep, path, app_name='', feature='', project=''):
 
 def html_to_docx(html, path, app_name='', feature='', project='', chrome=None,
                  use_chrome=True, sections=None):
-    """The one-call path used by ``POST /api/export/docx``."""
+    """The one-call path used by ``POST /api/export/docx``. Whatever appearance mode the
+    preview is in, Word is written in the standard light style (report_theme.force_light)."""
+    import report_theme
     from . import svg_raster
-    rep = HM.parse_report(html, sections=sections)
+    rep = HM.parse_report(report_theme.force_light(html), sections=sections)
     svg_raster.rasterize(rep, chrome=chrome, use_chrome=use_chrome)
     project = project or (rep.meta or {}).get('project', '')
     return build_docx(rep, path, app_name=app_name, feature=feature or rep.title, project=project)
