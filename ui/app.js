@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wbs:      { xls: 'wbs-excel-btn' },
     schedule: { xls: 'sched-excel-btn' },
     narrative:{ pdf: 'narrative-pdf-btn', xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },   // its own guarded exports (narrativePrint() is null)
-    special:  { pdf: 'sr-pdf',           xls: 'sr-xls', docx: 'sr-word' },
+    special:  { pdf: 'sr-preview',       xls: 'sr-xls', docx: 'sr-word' },   // 'sr-preview' = the Studio preview (reads a pending HTML note); 'sr-pdf' is a direct save
   };
   // Reports whose PDF button opens the module's OWN preview overlay (critpath.js / period.js /
   // update.js 'per-preview-overlay') rather than showReportPreview / showReportContentsPreview.

@@ -117,6 +117,25 @@ test('Baseline Narrative / Reporting Studio keep their own Word', () => {
   assert.deepEqual(s.log.clicked, ['sr-word']);
   assert.equal(EI.takeDocExport(), null);                      // no pending note left behind
 });
+test('Reporting Studio: File ▸ Print and Ctrl+Shift+H open the Studio preview, never the direct PDF save', () => {
+  EI.clearDocExport();
+  const s = harness('special');
+  s.runReport('pdf');
+  assert.deepEqual(s.log.clicked, ['sr-preview']);             // not 'sr-pdf' (straight to a save dialog)
+  s.runReport('html');
+  assert.deepEqual(s.log.clicked, ['sr-preview', 'sr-preview']);
+  assert.deepEqual(s.log.errors, []);
+  // The Studio preview offers PDF only → the pending HTML becomes an in-page "not yet" line.
+  const plan = EI.pendingExportPlan(EI.takeDocExport(), ['pdf'], 'Reporting Studio');
+  assert.match(plan.message, /has no HTML export yet — use ⬇ PDF in this preview/);
+  // Wiring: sr-preview is the preview (showReportPreview reads the note); sr-pdf is the direct save.
+  const src = read('ui', 'modules', 'special.js');
+  assert.match(src, /getElementById\('sr-preview'\)\.addEventListener\('click', doPreview\)/);
+  assert.match(src, /getElementById\('sr-pdf'\)\.addEventListener\('click', \(\) => doExport\('pdf'\)\)/);
+  const pv = src.slice(src.indexOf('async function doPreview'), src.indexOf('async function doExport'));
+  assert.match(pv, /showReportPreview\(/);
+  assert.match(pv, /exports: \['pdf'\]/);
+});
 test('screen views (Overview) and library views print through printView with the note', () => {
   EI.clearDocExport();
   const o = harness('overview'); o.runReport('docx');
