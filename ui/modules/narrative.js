@@ -8,6 +8,7 @@
 import { state }                 from './state.js';
 import { showError, clearError } from './render.js';
 import { createReportRegistry }  from './report_registry.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const PORT = () => state.serverPort;
 let registry = null;
@@ -1113,7 +1114,12 @@ function finishSetup(gen) {
   if (chat) chat.style.display = 'none';
   if (rep) rep.style.display = '';
   exportBar(true);                                 // the report is now being mounted — exports apply
-  fetchAndRender();
+  // Shared Run presentation: the report builds + mounts UNDER the bar, which reaches 100%
+  // only once it is on screen (owner comment 36 — no wait after 100%, no visible jump).
+  return revealAndRun(document.getElementById('narrative-body'), 'Baseline Narrative', () => {
+    revealStage('Writing the baseline narrative');
+    return fetchAndRender();
+  });
 }
 
 // Open (or re-open) the guided interview.

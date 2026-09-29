@@ -107,6 +107,7 @@ export function oosBulkOutcome(touchedIds, freshAfter) {
 
 import { state } from './state.js';
 import { escapeHtml } from './format.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
 let _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
@@ -1987,6 +1988,15 @@ async function submitMilestones(am) {
   if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
   const runBtn = document.getElementById('ms-run');
   runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  // Shared Run presentation: the review saves + renders UNDER the bar, which reaches 100%
+  // only once the review is on screen (owner comment 36 — no wait after 100%).
+  return revealAndRun(document.getElementById('audit-body'), 'Schedule Health', async () => {
+    revealStage('Checking your contract milestones');
+    await _submitMilestonesWork(am, milestones, hint, runBtn);
+  });
+}
+
+async function _submitMilestonesWork(am, milestones, hint, runBtn) {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
