@@ -17,11 +17,59 @@ APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 
 APP_VERSION = '2.8.0'
 
 # ── External links ──────────────────────────────────────────────────────────
-# The only web pages the app may hand to the user's default browser (Help ▸ Contact /
-# About LinkedIn profiles). The packaged WebView calls Api.open_external(url) (app.py);
+# The only web pages the app may hand to the user's default browser. The packaged WebView
+# calls Api.open_external(url) (app.py) for every link click (ui/modules/external_links.js);
 # anything not https on one of these hosts is refused, so page content can never make the
-# app launch an arbitrary URL or a local program.
-EXTERNAL_LINK_HOSTS = frozenset({'www.linkedin.com', 'linkedin.com'})
+# app launch an arbitrary URL or a local program. Every host the UI links to:
+#   * LinkedIn          — Help ▸ Contact / About profiles
+#   * Leaflet           — the map's attribution ("Leaflet") in Bad Weather ▸ location
+#   * OpenStreetMap     — the map's "© OpenStreetMap contributors" copyright link
+#   * Open-Meteo        — Bad Weather ▸ "Where the numbers come from" (weather source)
+EXTERNAL_LINK_HOSTS = frozenset({
+    'www.linkedin.com', 'linkedin.com',
+    'leafletjs.com', 'www.leafletjs.com',
+    'www.openstreetmap.org', 'openstreetmap.org',
+    'open-meteo.com', 'www.open-meteo.com',
+})
+
+# Identifies the app to the free online services it calls (OpenStreetMap Nominatim,
+# Open-Meteo, the Hugging Face model download) — their usage policies ask for an honest,
+# identifying User-Agent. Built from the brand constants, never hardcoded.
+USER_AGENT = f'{APP_NAME}/{APP_VERSION} (desktop P6 schedule analysis)'
+
+
+def network_error_message(exc, service='this online service', needs=''):
+    """One plain-English sentence for an online call that failed — shown in the page.
+
+    Distinguishes "no internet / cannot reach it" from "the service answered with an
+    error" so the planner knows whether to check the connection or try later. ``needs``
+    is appended as the reason the internet is needed (e.g. "the weather history")."""
+    import socket
+    import urllib.error
+    import http.client
+    code = getattr(exc, 'code', None)
+    if isinstance(exc, urllib.error.HTTPError) or (isinstance(code, int) and 100 <= code < 600):
+        if code == 429:
+            return (f'{service} is busy (too many requests) — wait a minute and try again.')
+        if code in (401, 403):
+            return (f'{service} refused the request (HTTP {code}) — a firewall or proxy may be '
+                    f'blocking it; try again later or from another network.')
+        if code == 404:
+            return f'{service} could not find the requested item (HTTP 404).'
+        if isinstance(code, int) and code >= 500:
+            return f'{service} is temporarily unavailable (HTTP {code}) — try again later.'
+        return f'{service} answered with an error (HTTP {code}) — try again later.'
+    reason = getattr(exc, 'reason', exc)
+    why = f' {needs[0].upper()}{needs[1:]} needs the internet.' if needs else ''
+    if isinstance(reason, (TimeoutError, socket.timeout)) or isinstance(exc, (TimeoutError, socket.timeout)):
+        return (f'{service} did not answer in time — the internet connection looks slow or '
+                f'blocked.{why} Check the connection and try again.')
+    if isinstance(exc, (urllib.error.URLError, OSError, http.client.HTTPException)):
+        return (f'No internet connection — could not reach {service}.{why} '
+                f'Connect to the internet and try again.')
+    if isinstance(exc, ValueError):
+        return f'{service} sent an answer the app could not read — try again later.'
+    return f'Could not reach {service} ({exc}).'
 
 
 def is_allowed_external_url(url):
