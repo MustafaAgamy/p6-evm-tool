@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.9.0] - 2026-09-29
 
 ### Changed — Knowledge Base is now Construction Project Knowledge (Project Type Playbooks)
 - **Navigator ▸ Library ▸ Knowledge Base (and Tools ▸ Knowledge Base) opens the new Playbooks page**, which replaces the previous Knowledge Base page. There is one playbook for each of **77 project types**, covering the brief and components, MEP systems, the construction sequence by trade (with a Focus filter), a suggested WBS in P6 tree style, and the Basis of Planning.
