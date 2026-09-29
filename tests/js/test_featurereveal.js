@@ -216,6 +216,21 @@ await test('self-gating features call revealAndRun with a host inside their .vie
   assert.doesNotMatch(fr, /DUR \+ \(gate \? 20000/, 'no fixed 20 s cap that lifts the overlay onto a placeholder');
   assert.doesNotMatch(fr, /setTimeout\(finish, 80\)/, 'no hold after 100%');
 });
+await test('second-step Runs (Schedule Health milestones, Narrative Generate) also go through the gated bar', () => {
+  const audit = read('ui', 'modules', 'audit.js');
+  assert.match(audit, /return revealAndRun\(document\.getElementById\('audit-body'\), 'Schedule Health'/);
+  const nar = read('ui', 'modules', 'narrative.js');
+  assert.match(nar, /return revealAndRun\(document\.getElementById\('narrative-body'\), 'Baseline Narrative'/);
+  assert.match(nar, /return fetchAndRender\(\);/);
+});
+await test('every feature that waits on the server names its real stage on the bar (revealStage)', () => {
+  for (const mod of ['calendar.js', 'compare.js', 'critpath.js', 'period.js', 'revcompare.js', 'special.js',
+    'update.js', 'construct.js', 'audit.js', 'narrative.js']) {
+    const src = read('ui', 'modules', mod);
+    assert.match(src, /import \{[^}]*\brevealStage\b[^}]*\}\s+from '\.\/featurereveal\.js'/, mod);
+    assert.match(src, /revealStage\('[^']+'\)/, mod);
+  }
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
