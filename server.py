@@ -703,6 +703,9 @@ class Handler(BaseHTTPRequestHandler):
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
+            # Does this file carry its own baseline? (the same test /api/update/analyze makes) —
+            # lets Update Analysis answer "no baseline inside it" at once, without a re-read.
+            safe_result['has_embedded_baseline'] = bool(getattr(data, 'baseline_by_id', None))
 
             # ── Schedule audit — isolated modules (never break EVM import) ──
             audit_modules_result = None
@@ -953,6 +956,7 @@ class Handler(BaseHTTPRequestHandler):
                 'gap': safe_result.get('gap'),
                 'baseline_finish': safe_result.get('baseline_finish'),
                 'expected_finish': safe_result.get('expected_finish'),
+                'has_embedded_baseline': safe_result.get('has_embedded_baseline'),
             })
             # ──────────────────────────────────────────────────────────────
 
@@ -2376,6 +2380,7 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
+        result['has_embedded_baseline'] = extras.get('has_embedded_baseline')   # None = older snapshot (unknown)
         # Re-apply an attached baseline (re-parse update + baseline) so PV/SPI/Delay stay correct.
         bl_path = extras.get('baseline_path')
         if bl_path and os.path.isfile(bl_path) and cached_path and os.path.isfile(cached_path):
