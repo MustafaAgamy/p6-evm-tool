@@ -331,7 +331,23 @@ def _mark_headings(pages, body, hints):
             hinted = bool(hints) and any(
                 n == h or (len(n) >= 8 and (h.startswith(n) or n.startswith(h[:max(12, len(h) // 2)])))
                 for h in hints)
-            b.heading = styled or hinted
+            b.heading = (styled and not _card_value(P, b, body)) or hinted
+
+
+def _card_value(P, b, body):
+    """A KPI tile's value ("0 days" under the label "DELAY"): a big / numeric line inside a card
+    box that also holds a smaller label above it — card content, not a heading (STUDIO-PDF-2)."""
+    if not re.search(r'[0-9]', b.text) and b.size < 1.8 * body:
+        return False
+
+    def inside(o, d):
+        return d.x0 - 1 <= o.x0 and o.x1 <= d.x1 + 1 and d.y0 - 1 <= o.y0 and o.y1 <= d.y1 + 1
+    for d in P.draws:
+        if d.thin or d.img or d.h > 170 or not inside(b, d):
+            continue
+        if any(o is not b and o.y1 <= b.y0 + 1 and o.size < 0.8 * b.size and inside(o, d) for o in P.bands):
+            return True
+    return False
 
 
 def _col_match(a_lines, b_lines):
@@ -574,6 +590,24 @@ def _table_split(A, B, a_reg, b_reg, area, flags):
                            f'{a_reg.rows[0].text[:40]!r}'))
 
 
+def _opens_new_table(a_reg, B):
+    """Page B opens a NEW table / grid rather than continuing A's: its own bold title row(s)
+    (side-by-side month titles "Feb 2026  Mar 2026" — not a heading, so they start the region)
+    sit on top of a row repeating A's column header ("Mon Tue ... Sun"). The next row of whole
+    month calendars is a new grid, not a table continuing with 1 row (CAL-PDF-1 / STUDIO-PDF-3);
+    a real continuation starts with the repeated header itself, or with body rows."""
+    sigs = {_sig(r) for r in a_reg.rows[:3] if r.bold and re.search('[a-z]', _sig(r))}
+    head = _row_clusters(B.bands)[:3]
+    if not sigs or len(head) < 2 or not head[0].bold or _sig(head[0]) in sigs:
+        return False
+    for r in head[1:]:
+        if not r.bold:
+            return False
+        if _sig(r) in sigs:
+            return True
+    return False
+
+
 def _figure_cut(A, B, area_top, area_bottom):
     """A chart / diagram cut at the break between page A and page B (Chrome clips each part to
     its page: the part on A ends exactly on A's clip line, the part on B starts on B's)."""
@@ -689,7 +723,8 @@ def _analyze_pages(pages, hints=()):
             a_reg, b_reg = P.regions[-1], nxt.regions[0]
             tail = [it for it in _below(P, a_reg.y1 + 1) if it[2] != 'rule']
             if (not tail and abs(b_reg.y0 - nxt.bands[0].y0) < 0.5
-                    and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2):
+                    and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2
+                    and not _opens_new_table(a_reg, nxt)):
                 _table_split(P, nxt, a_reg, b_reg, area, flags)
         # a chart / diagram cut by the break
         cut = _figure_cut(P, nxt, area_top, area_bottom)
