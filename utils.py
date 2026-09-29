@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 # ── Branding ────────────────────────────────────────────────────────────────
 # Single source of truth for the product name shown to users (window title,
@@ -11,10 +12,38 @@ import os
 APP_NAME = 'Controlyx'                     # brand / product name
 APP_EDITION = '2026'                       # edition (year)
 APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 2026"
-# Release version shown in the UI (Help Center / About). Bump it with the
-# CHANGELOG.md section on every release — tests/test_app_version.py fails
-# if it drifts from the newest `## [vX.Y.Z]` heading.
-APP_VERSION = '2.8.0'
+
+
+_RELEASE_HEADING = re.compile(r'## \[v(\d+\.\d+\.\d+)\]')
+
+
+def release_version(changelog_path=None):
+    """Newest released version ("X.Y.Z") read from CHANGELOG.md — the ONE version source.
+
+    The release process already starts by adding a ``## [vX.Y.Z] - date`` section to
+    CHANGELOG.md, so the version is read from there rather than typed a second time.
+    ``## [Unreleased]`` is skipped. By default the changelog is found at the project
+    root — in the packaged one-file exe that is ``sys._MEIPASS`` (controlyx.spec ships
+    CHANGELOG.md there). Returns '' when there is no changelog or no release heading:
+    the UI then simply hides the version line rather than show an invented number.
+    """
+    if changelog_path is None:
+        root = getattr(sys, '_MEIPASS', None) or os.path.dirname(os.path.abspath(__file__))
+        changelog_path = os.path.join(root, 'CHANGELOG.md')
+    try:
+        with open(changelog_path, encoding='utf-8') as f:
+            for line in f:
+                m = _RELEASE_HEADING.match(line)
+                if m:
+                    return m.group(1)
+    except (OSError, UnicodeDecodeError):
+        pass
+    return ''
+
+
+# Release version shown in the UI (Help ▸ About, Help footer), /api/health and the
+# User-Agent. Injected into every page as window.__APP_VERSION__ (server.py).
+APP_VERSION = release_version()
 
 # ── External links ──────────────────────────────────────────────────────────
 # The only web pages the app may hand to the user's default browser. The packaged WebView
@@ -35,7 +64,7 @@ EXTERNAL_LINK_HOSTS = frozenset({
 # Identifies the app to the free online services it calls (OpenStreetMap Nominatim,
 # Open-Meteo, the Hugging Face model download) — their usage policies ask for an honest,
 # identifying User-Agent. Built from the brand constants, never hardcoded.
-USER_AGENT = f'{APP_NAME}/{APP_VERSION} (desktop P6 schedule analysis)'
+USER_AGENT = f'{APP_NAME}/{APP_VERSION or "dev"} (desktop P6 schedule analysis)'
 
 
 def network_error_message(exc, service='this online service', needs=''):

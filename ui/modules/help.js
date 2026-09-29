@@ -379,7 +379,7 @@ function screenGettingStarted() {
       <p>${esc(APP_NAME)} reads your Primavera P6 exports and turns them into clear schedule intelligence — earned value, health checks, delay analysis and board-ready reports. No spreadsheets, no manual number-crunching. Follow four steps.</p>
     </div>
     <div class="hc-flow">
-      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML/XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
+      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML or XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
       <div class="hc-step"><div class="num">2</div><h4>Choose a feature</h4><p>Pick what you need — Earned Value, Schedule Health, Consultant Review and more.</p></div>
       <div class="hc-step"><div class="num">3</div><h4>Run</h4><p>Confirm the inputs and click Run. Every analysis is explicit — nothing fires until you ask.</p></div>
       <div class="hc-step"><div class="num">4</div><h4>Results</h4><p>Read the KPIs on screen, then export a polished one-page PDF or a custom report.</p></div>

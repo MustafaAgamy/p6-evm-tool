@@ -26,6 +26,9 @@ datas = [
                                           # which PyInstaller's graph can miss, so ship the whole
                                           # package (see collect_submodules below).
     ('config.json',    '.'),              # Config at root of bundle
+    ('CHANGELOG.md',   '.'),              # Release notes at the bundle root — utils.APP_VERSION
+                                          # (Help ▸ About, footer, /api/health) is read from its
+                                          # newest `## [vX.Y.Z]` heading: one version source.
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
     ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
