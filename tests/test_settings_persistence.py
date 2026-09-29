@@ -363,3 +363,27 @@ def test_contract_milestones_save_reports_db_busy_and_unchecked(test_server, xml
     r = _post(test_server, '/api/milestones/save', {'snapshot_id': sid, 'milestones': good})
     assert r['ok'] is True and r['saved'] is True and r['milestone_module'] is None
     assert 'could not be found' in r['error']
+
+
+# ── Lag & Lead justifications ───────────────────────────────────────────────
+
+def test_lag_justification_survives_reopen_and_restart(test_server, tmp_path):
+    from tests.test_server import _UPDATE_XML        # carries A050 --FS lag--> A100
+    p = tmp_path / 'lag.xml'
+    p.write_text(_UPDATE_XML, encoding='utf-8')
+    d = _import(test_server, p)
+    key = d['result']['audit_modules']['modules']['lag_lead']['findings'][0]['rel_key']
+    r = _post(test_server, '/api/lag/justification',
+              {'snapshot_id': d['snapshot_id'], 'rel_key': key, 'text': 'Cure 28 days per MS-07'})
+    assert r['ok'] is True
+
+    def reason(result):
+        lag = result['audit_modules']['modules']['lag_lead']
+        return {f['rel_key']: f['justification'] for f in lag['findings']}[key]
+
+    assert reason(_reopen(test_server)['result']) == 'Cure 28 days per MS-07'
+    httpd = _restart()
+    try:
+        assert reason(_reopen(httpd.server_address[1])['result']) == 'Cure 28 days per MS-07'
+    finally:
+        httpd.shutdown()
