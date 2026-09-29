@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
     chat:      { title:'AI Chat',                 icon:'ai',        verb:'Open AI Chat',          desc:'Ask a senior planning manager anything about this schedule, run a time-impact analysis, a what-if, or a manager’s briefing — offline, grounded in your data.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
+    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its baseline — inside the file, or attached (XER or XML).' },
     special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 

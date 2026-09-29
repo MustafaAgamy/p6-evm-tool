@@ -30,6 +30,11 @@ function _adopt(fresh) {
   const old = state.currentResult || {};
   for (const k of _CARRY) if (fresh[k] === undefined && old[k] !== undefined) fresh[k] = old[k];
   state.currentResult = fresh;
+  // Every OTHER feature already run on this import was drawn from the old baseline: forget it,
+  // so opening it runs again from the fresh result instead of showing stale numbers.
+  if (state.ranFeatures && typeof state.ranFeatures.forEach === 'function') {
+    [...state.ranFeatures].forEach(v => { if (v !== state.currentView) state.ranFeatures.delete(v); });
+  }
   return fresh;
 }
 
