@@ -34,6 +34,10 @@ Defects (``flags``):
                                 with a pushed block (not a new section)
   stranded_fragment             a page holds only a small tail of a chart / cards block
   empty_page                    a page with nothing on it besides the running header/footer
+  picture_truncated             (Word) a picture's content runs into its bottom edge - a
+                                report section embedded as a picture was cut off
+  picture_mostly_blank          (Word) a picture is mostly white (< 50 % painted, >= 2 in
+                                of white on the page)
 
 Informational (``info``, never counted): ``section_break_blank`` — a page ends early because
 the next page starts a new top-level section (a page break by design).
@@ -84,7 +88,7 @@ DEFECT_TYPES = (
     'picture_separated_from_caption', 'table_split_few_rows', 'small_table_split',
     'table_header_not_repeated', 'graphic_cut', 'text_cut', 'content_in_margin',
     'large_blank_then_continuation',
-    'stranded_fragment', 'empty_page',
+    'stranded_fragment', 'empty_page', 'picture_truncated', 'picture_mostly_blank',
 )
 INFO_TYPES = ('section_break_blank',)
 
@@ -789,6 +793,83 @@ def docx_headings(path):
     return out
 
 
+PIC_BLANK_EXTENT = 0.5    # a picture whose painted part spans < 50 % of its height …
+PIC_BLANK_PT = 144.0      # … and wastes >= 2 in of white on the page is "mostly blank"
+PIC_MIN_PX = 40           # icons / logos / bullets are not checked
+PIC_RULE = 0.9            # a bottom row painted across >= 90 % of the width is a rule / border
+
+
+def docx_picture_flags(path, pic_pages=None):
+    """Pictures in a .docx body that are CUT or MOSTLY BLANK (STUDIO-WORD-2).
+
+    A report section embedded as a picture must hold the whole section and nothing but it:
+
+      picture_truncated     the painted content runs into the picture's bottom edge (the
+                            last pixel rows cut through text / a diagram) — the rest of the
+                            section never reached Word. A picture that ends on a full-width
+                            rule (a table's bottom border) ends cleanly and is not flagged.
+      picture_mostly_blank  the painted part spans < 50 % of the picture's height and the
+                            white left over is >= 2 in on the page.
+
+    ``pic_pages``: the page of each body picture in reading order (Word's layout), used to
+    stamp the page when it lists exactly the pictures found; otherwise the page is 0 and the
+    detail names the heading the picture sits under.
+    Needs PyMuPDF + numpy (both ship in the bundle); returns [] without them."""
+    try:
+        import numpy as np
+        import pymupdf
+        from docx import Document
+        from docx.oxml.ns import qn
+    except Exception:
+        return []
+    try:
+        d = Document(path)
+    except Exception:
+        return []
+    rels = d.part.rels
+    found, k, head = [], 0, ''
+    for p in d.element.body.iter(qn('w:p')):
+        st = p.find(qn('w:pPr') + '/' + qn('w:pStyle'))
+        sv = str(st.get(qn('w:val')) or '') if st is not None else ''
+        if sv.lower().startswith(('heading', 'title')):
+            head = ' '.join(''.join(t.text or '' for t in p.iter(qn('w:t'))).split())[:60]
+        for ext, blip in zip(p.iter(qn('wp:extent')), p.iter(qn('a:blip'))):
+            k += 1
+            try:
+                pix = pymupdf.Pixmap(rels[blip.get(qn('r:embed'))].target_part.blob)
+                if pix.alpha or pix.n > 3:
+                    pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
+                    if pix.alpha:
+                        pix = pymupdf.Pixmap(pix, 0)
+                a = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+            except Exception:
+                continue
+            H, W = a.shape[0], a.shape[1]
+            if H < PIC_MIN_PX or W < PIC_MIN_PX:
+                continue
+            ink = (a[:, :, :3] < 244).any(axis=2) if a.shape[2] >= 3 else (a[:, :, 0] < 244)
+            rows = np.nonzero(ink.any(axis=1))[0]
+            if not len(rows):
+                continue
+            where = f'picture {k}' + (f" under {head!r}" if head else '')
+            last = int(rows[-1])
+            if H - 1 - last <= max(2, H * 0.001) and float(ink[last].mean()) < PIC_RULE:
+                found.append((k, 'picture_truncated',
+                                   f'{where}: its content runs into the bottom edge of the picture '
+                                   '(cut off - the rest never reached the page)'))
+            extent = (last + 1 - int(rows[0])) / H
+            try:
+                h_pt = int(ext.get('cy') or 0) / 12700.0
+            except ValueError:
+                h_pt = 0.0
+            if extent < PIC_BLANK_EXTENT and h_pt * (1 - extent) >= PIC_BLANK_PT:
+                found.append((k, 'picture_mostly_blank',
+                                   f'{where}: only {extent:.0%} of the picture is painted - '
+                                   f'~{h_pt * (1 - extent):.0f} pt of white on the page'))
+    pages = list(pic_pages) if pic_pages and len(pic_pages) == k else None
+    return [_flag(kind, (pages[n - 1] if pages else 0) or 0, detail) for n, kind, detail in found]
+
+
 def word_available():
     try:
         import win32com.client  # noqa: F401
@@ -1102,6 +1183,9 @@ def check_docx(path, engine='auto', timeout=1800):
                 else:
                     layout = _word_layout_subprocess(path, timeout)
                 flags, info, npages = analyze_word_layout(layout)
+                if fmt == 'docx':             # the pictures themselves: cut / mostly blank
+                    flags += docx_picture_flags(path, [it['page'] for it in layout.get('items') or []
+                                                       if it.get('k') == 'pic'])
                 return _result(path, fmt, 'word-com', npages, flags, info,
                                message="Word's own pagination (COM layout)")
             except Exception as exc:          # fall through to Spire
@@ -1114,6 +1198,11 @@ def check_docx(path, engine='auto', timeout=1800):
             try:
                 pdf = _spire_to_pdf(path)
                 res = check_pdf(pdf, headings=docx_headings(path) if fmt == 'docx' else None)
+                if fmt == 'docx':             # the pictures themselves: cut / mostly blank
+                    extra = docx_picture_flags(path)
+                    if extra:
+                        res = _result(path, fmt, 'spire', res['pages'], res['flags'] + extra,
+                                      res['info'], message=res.get('message', ''))
                 res.update(file=path, format=fmt, engine='spire')
                 res['message'] = ('rendered with Spire.Doc (its free edition converts only the first 10 '
                                   'pages; Word may paginate slightly differently)'
