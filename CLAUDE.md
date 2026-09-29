@@ -11,7 +11,9 @@ standalone `.exe` (`Controlyx.exe`) — no Python required on the target machine
 `APP_EDITION` / `APP_TITLE` in `utils.py`. **Never hardcode the product name in a feature:**
 Python code does `from utils import APP_NAME` (or `APP_TITLE`); UI code reads
 `window.__APP_NAME__` / `window.__APP_TITLE__`, which `server.py` injects into every served
-page (the `<title>` and the `#app-title` toolbar element update from it automatically). A new
+page (the `<title>` and the `#app-title` toolbar element update from it automatically; static
+markup in `ui/index.html` leaves the name out and marks the element `data-brand="name|edition|title"`,
+which `server._fill_brand` fills before the page is sent). A new
 feature — or an edition bump to 2027 (one edit to `APP_EDITION`) — then inherits the name
 everywhere with no extra work. Some identifiers intentionally keep their original
 names (they are **not** product branding — renaming them would break imports or orphan user
