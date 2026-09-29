@@ -57,5 +57,13 @@ test('section keys are attribute-escaped', () => {
   assert.ok(html.includes('data-sec="a&quot;b"'));
 });
 
+test('the shared pagination layer rides in the head; sections are measured by the composer', () => {
+  const pg = '<style id="rpt-pagination">@media print{h2{break-after:avoid}}</style>';
+  const html = composeDoc('', 'T', '', SECS, ['kpi'], pg);
+  assert.ok(html.indexOf('id="rpt-pagination"') > 0 && html.indexOf('id="rpt-pagination"') < html.indexOf('</head>'));
+  assert.ok(html.includes('class="pr-sec rpt-measure"'));
+  assert.ok(!composeDoc('', 'T', '', SECS, ['kpi']).includes('rpt-pagination'));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
