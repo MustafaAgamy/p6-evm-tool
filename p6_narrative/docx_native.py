@@ -1615,18 +1615,25 @@ _HTREE_BOX_W, _HTREE_BOX_H = 140, 32
 _H_MAX_NODES, _H_MAX_LABEL, _H_MAX_DEPTH = 10, 24, 3
 
 
-def _wbs_vertical(document, seq, base, max_depth):
+def _wbs_vertical(document, seq, base, max_depth, r0=0, r1=None):
     """VERTICAL indented WBS tree (the approved overview / big-branch layout): every node on its
     own ROW, indented by ``level - base``, joined to its children by one gutter ELBOW (a single
     vertical line down the gutter plus a horizontal stub into each child's left edge). ``seq`` is
-    the DFS record list (``{'node','level','row'}``). Returns the drawing element or ``None``."""
+    the DFS record list (``{'node','level','row'}``). Returns the drawing element or ``None``.
+
+    ``r0`` / ``r1`` draw only the rows ``[r0, r1)`` — one PART of a tall tree (see
+    :func:`_wbs_vertical_parts`): a connector that comes from a parent in an earlier part runs
+    in from the part's top edge, one that goes on to a child in a later part runs out of its
+    bottom edge, so the stacked parts read as one continuous tree."""
     rec_by_id = {id(r['node']): r for r in seq}
+    r1 = len(seq) if r1 is None else r1
+    total_h = _TREE_PAD + (r1 - r0 - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
 
     def x_of(level):
         return _TREE_PAD + (level - base) * _TREE_INDENT
 
     def y_of(row):
-        return _TREE_PAD + row * _TREE_ROW_H
+        return _TREE_PAD + (row - r0) * _TREE_ROW_H
 
     counter = [_next_id(document)]
     base_id = counter[0]
@@ -1637,21 +1644,25 @@ def _wbs_vertical(document, seq, base, max_depth):
     for rec in seq:
         kids = rec['node'].get('children') or []
         child_recs = [rec_by_id[id(k)] for k in kids if id(k) in rec_by_id]
-        if not child_recs:
-            continue
+        if not child_recs or rec['row'] >= r1 or child_recs[-1]['row'] < r0:
+            continue                    # no link, or the link lies wholly in another part
         gutter_x = x_of(rec['level']) + _TREE_GUTTER
-        parent_bottom = y_of(rec['row']) + _TREE_BOX_H
-        last_center = y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+        parent_bottom = y_of(rec['row']) + _TREE_BOX_H if rec['row'] >= r0 else 0
+        last_center = (y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+                       if child_recs[-1]['row'] < r1 else total_h)
         # vertical line: just below the parent → last child's vertical centre
-        shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
-                                0, _emu(last_center - parent_bottom), _WBS_LINE))
+        if last_center > parent_bottom:
+            shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
+                                    0, _emu(last_center - parent_bottom), _WBS_LINE))
         # horizontal stub into each child's left edge
         for cr in child_recs:
+            if not r0 <= cr['row'] < r1:
+                continue
             cy = y_of(cr['row']) + _TREE_BOX_H / 2.0
             shapes.append(_wps_line(counter, _emu(gutter_x), _emu(cy),
                                     _emu(x_of(cr['level']) - gutter_x), 0, _WBS_LINE))
     # boxes (colour-coded by ABSOLUTE WBS level: lv0 navy … lv4 white, clamped)
-    for rec in seq:
+    for rec in seq[r0:r1]:
         lvl = rec['level']
         fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
         nm = rec['node'].get('name') or ''
@@ -1660,8 +1671,60 @@ def _wbs_vertical(document, seq, base, max_depth):
             _emu(_TREE_BOX_W), _emu(_TREE_BOX_H), fill, border, tcol, nm, sz=10))
 
     total_w = _TREE_PAD + max_depth * _TREE_INDENT + _TREE_BOX_W + _TREE_PAD
-    total_h = _TREE_PAD + (len(seq) - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
     return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
+
+def _tree_part_rows(document):
+    """Rows one PART of a tall vertical tree may hold: about a third of the page body (the
+    shared pagination FIT), so a part that does not fit the rest of a page moves to the next
+    one leaving at most a third of a page blank (owner point 14)."""
+    try:
+        from p6_export.docx_pagination import FIT, _body_height_pt
+        limit_px = _body_height_pt(document) * FIT / 0.75
+    except Exception:                       # pragma: no cover - the shared layer ships
+        limit_px = 340.0
+    return max(6, int((limit_px - 2 * _TREE_PAD - _TREE_BOX_H) / _TREE_ROW_H) + 1)
+
+
+def _tree_parts(seq, max_rows):
+    """Split the DFS rows into balanced parts of at most ~``max_rows``: a part never ends on a
+    node whose first child would open the next part (a label stays with its first child) and
+    never leaves a tail of 1-2 rows."""
+    n = len(seq)
+    if n <= max_rows:
+        return [(0, n)]
+    size = int(math.ceil(n / math.ceil(n / float(max_rows))))
+    parts, r0 = [], 0
+    while r0 < n:
+        r1 = min(n, r0 + size)
+        while r1 < n and r1 - r0 > 3 and seq[r1 - 1]['node'].get('children'):
+            r1 -= 1
+        if n - r1 < 3:
+            r1 = n
+        parts.append((r0, r1))
+        r0 = r1
+    return parts
+
+
+def _wbs_vertical_parts(document, seq, base, max_depth):
+    """The vertical tree as ONE drawing when it is short, else as stacked PARTS (each about a
+    third of a page, joined edge to edge with no paragraph spacing) so Word can continue a
+    tall tree on the next page instead of pushing the whole drawing there and leaving the page
+    above it blank (the Word twin of the PDF rule, finding NARR-PDF-4). Returns the first
+    drawing or ``None``."""
+    parts = _tree_parts(seq, _tree_part_rows(document))
+    if len(parts) == 1:
+        return _wbs_vertical(document, seq, base, max_depth)
+    first = None
+    for r0, r1 in parts:
+        drawing = _wbs_vertical(document, seq, base, max_depth, r0, r1)
+        if drawing is None:
+            return first
+        pf = document.paragraphs[-1].paragraph_format
+        pf.space_before = pf.space_after = Emu(0)
+        pf.line_spacing = 1.0
+        first = first if first is not None else drawing
+    return first
 
 
 def _wbs_horizontal(document, root):
@@ -1801,6 +1864,6 @@ def add_wbs_tree(document, nodes):
                 if drawing is not None:
                     return drawing
 
-        return _wbs_vertical(document, seq, base, max_depth)
+        return _wbs_vertical_parts(document, seq, base, max_depth)
     except Exception:                       # pragma: no cover - never crash the export
         return None
