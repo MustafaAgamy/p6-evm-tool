@@ -29,7 +29,18 @@ The markers live in TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL (search for the
 e.g. "_P13") and on the variant tests at the bottom (P17, P22).
 Run:  pytest tests/test_parser_parity.py -p no:cacheprovider -q -rxX
 Genuine format differences (what P6 itself writes differently) are documented as plain tests,
-not xfails: see test_tf_from_hours_* below.
+not xfails: see test_tf_from_hours_* (float), test_free_float_* (P24), test_xer_money_to_4dp_*
+(G2: XER money to 4 decimals - compare real-file money with money_tolerance()) and
+test_no_baseline_* (G3: a P6 XER update export carries only the BASELINE_EXPORT pointer, never
+the baseline rows - the attached baseline fills it, in both formats).
+
+Real-file parity pairs (client files, local only - never committed): SG_UPDATE_22AUG2025 and
+ALSTOM_UP006 are STRICT pairs (one P6 database, both formats). The GBT_REV03 XML and XER were
+exported from TWO DIFFERENT P6 databases (genuine finding G1): every ObjectId differs, the XML
+<Name> carries a "REV.03" suffix the XER root-WBS name lacks, the one extra (resource-only)
+calendar has a different name in each, and six "Type of Works" code assignments plus one
+resource assignment exist only in the XML file - compare GBT by activity code / names, never by
+ObjectId, and expect exactly those differences.
 """
 from datetime import date, datetime
 from xml.sax.saxutils import escape
