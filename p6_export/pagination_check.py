@@ -914,13 +914,30 @@ def word_layout(path):
                 spans.append((r.Start, r.End))
                 rows = []
                 try:
+                    objs = []
                     for row in tb.Rows:
                         rr = row.Range
                         at = doc.Range(rr.Start, rr.Start)
+                        objs.append(row)
                         rows.append({'page': at.Information(3), 'y': at.Information(6),
                                      'hdr': bool(row.HeadingFormat), 'n': row.Cells.Count,
                                      'bold': rr.Font.Bold == -1,
                                      't': rr.Text.replace('\r\x07', ' | ').replace('\x07', '').strip()[:60]})
+                    # the row that ENDS a page fragment: where its tallest cell's last line sits
+                    # (a wrapped last row is taller than the table's usual row step, so the
+                    # fragment height is not under-counted - a table of 40 % of a page read as
+                    # "small" was a false small_table_split)
+                    for i, rw in enumerate(rows):
+                        if i + 1 < len(rows) and rows[i + 1]['page'] == rw['page']:
+                            continue
+                        try:
+                            last = []
+                            for c in objs[i].Cells:
+                                e = max(c.Range.Start, c.Range.End - 1)
+                                last.append(doc.Range(e, e).Information(6))
+                            rw['y_last'] = max(last)
+                        except Exception:
+                            pass
                 except Exception:              # merged cells: rows not addressable one by one
                     at = doc.Range(r.Start, r.Start)
                     rows = [{'page': at.Information(3), 'y': at.Information(6), 'hdr': False, 'n': 1,
@@ -1101,8 +1118,10 @@ def analyze_word_layout(layout):
                 if not it['rows'][nh - 1]['hdr']:
                     break
             frags = []
+            tail = {}              # per fragment: its last row's extra lines (a wrapped last row)
             first = True
             for p, rows in by.items():
+                tail[p] = max(0.0, (rows[-1].get('y_last') or rows[-1]['y']) - rows[-1]['y'])
                 body = len([r for r in rows if not r['hdr']]) - (nh if (first and not hdr_rep) else 0)
                 ys = [r['y'] for r in rows]
                 frags.append((p, max(body, 0), ys))
@@ -1111,7 +1130,7 @@ def analyze_word_layout(layout):
                 continue
             steps = [b - a for _, _, ys in frags for a, b in zip(ys, ys[1:]) if b - a > 1]
             step = sorted(steps)[len(steps) // 2] if steps else 16.0
-            height = sum((ys[-1] - ys[0]) + step for _, _, ys in frags)
+            height = sum((ys[-1] - ys[0]) + tail.get(p, 0.0) + step for p, _, ys in frags)
             desc = ', '.join(f'p{p}: {b} body row(s)' for p, b, _ in frags)
             what = f"table {it['t'][:40]!r} ({len(it['rows'])} rows)"
             small = [f for f in frags if f[1] < MIN_ROWS]
