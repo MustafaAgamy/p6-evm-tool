@@ -1711,7 +1711,7 @@ function renderBrainPill() {
   const note = document.getElementById('pchat-setup-note');
   if (note && BRAIN) {
     note.classList.toggle('pchat-setup-err', !BRAIN.downloading && !!BRAIN.error);
-    if (BRAIN.downloading) note.textContent = 'Downloading the AI model… ' + (BRAIN.progress != null ? BRAIN.progress + '%' : '');
+    if (BRAIN.downloading) note.textContent = brainDownloadNote(BRAIN);
     // A failed download (offline, cut short, no disk space) says why — plainly, in the page.
     else if (BRAIN.error) note.textContent = '⚠ ' + BRAIN.error + ' The built-in analyses keep working without it.';
     else if (BRAIN.detail) note.textContent = BRAIN.detail;
@@ -1754,6 +1754,14 @@ async function selectModel(key) {
 async function refreshStatus() {
   try { const d = await getJSON('/api/chat/status'); BRAIN = d.brain || BRAIN; } catch { /* offline */ }
   renderBrainPill();
+}
+
+// The line under the brain choices while the model downloads: the progress, or — when the
+// connection dropped — that it is retrying and the part already downloaded is kept (the
+// download resumes from there, it never starts again from zero). (Exported for tests.)
+export function brainDownloadNote(b) {
+  if (b && b.retrying && b.detail) return b.detail;
+  return 'Downloading the AI model… ' + (b && b.progress != null ? b.progress + '%' : '');
 }
 
 // True once a setup attempt is over: the brain is ready, or the download stopped with an

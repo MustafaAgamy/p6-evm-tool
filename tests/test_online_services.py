@@ -309,6 +309,8 @@ def brain(tmp_path, monkeypatch):
                      'parts': [{**p, 'min': 10} for p in llm.MODELS['detailed']['parts']]},
     }
     monkeypatch.setattr(llm, 'MODELS', small)
+    llm.SLEPT = []                                   # retry waits, recorded instead of slept
+    monkeypatch.setattr(llm, '_sleep', llm.SLEPT.append)
     return llm
 
 
@@ -347,7 +349,12 @@ def test_brain_download_cut_short_is_never_installed(brain, tmp_path, monkeypatc
     r = brain.setup('fast')
     assert r['ok'] is False and 'cut short' in r['error']
     assert not brain._model_ready('fast')
-    assert not any((tmp_path / 'ai' / 'models').iterdir())
+    models = tmp_path / 'ai' / 'models'
+    assert not (models / 'qwen2.5-3b-instruct-q4_k_m.gguf').exists(), 'never installed'
+    # ...but the part already downloaded is kept for the next Set up (it resumes, see below)
+    assert (models / 'qwen2.5-3b-instruct-q4_k_m.gguf.part').stat().st_size == 40
+    assert 'is kept' in r['error'] and '40.0%' in r['error']
+    assert brain.SLEPT == list(brain._RETRY_DELAYS), 'retried with backoff before giving up'
 
 
 def test_brain_download_both_7b_parts_with_the_brand_user_agent(brain, tmp_path, monkeypatch):
@@ -393,3 +400,153 @@ def test_brain_http_404_says_not_found(brain, monkeypatch):
     monkeypatch.setattr(brain.urllib.request, 'urlopen', nf)
     r = brain.setup('fast')
     assert r['ok'] is False and 'HTTP 404' in r['error']
+
+
+# ── NET-1: the brain download resumes instead of restarting 2-4.7 GB from zero ─────────
+FAST_FILE = 'qwen2.5-3b-instruct-q4_k_m.gguf'
+
+
+class _RangeResp(_FakeResp):
+    """A download-server answer: 200 with the whole file, or 206 from a Range start."""
+
+    def __init__(self, data, start=0, etag='"v1"', cut=None):
+        body = data[start:]
+        if cut is not None:                          # the connection drops after `cut` bytes
+            body = body[:cut]
+        super().__init__(body, length=len(data) - start)
+        self.status = 206 if start else 200
+        self.headers['ETag'] = etag
+        if start:
+            self.headers['Content-Range'] = 'bytes %d-%d/%d' % (start, len(data) - 1, len(data))
+
+
+class _Server:
+    """Stands in for Hugging Face: honours Range, can drop the connection or go offline.
+    `plan` holds one step per request: an int = drop after that many bytes, 'offline'."""
+
+    def __init__(self, data, etag='"v1"', plan=()):
+        self.data, self.etag, self.plan, self.ranges = data, etag, list(plan), []
+
+    def __call__(self, req, timeout=None):
+        rng = req.get_header('Range')
+        self.ranges.append(rng)
+        step = self.plan.pop(0) if self.plan else None
+        if step == 'offline':
+            raise OFFLINE
+        start = int(rng.split('=')[1].rstrip('-')) if rng else 0
+        if start >= len(self.data):
+            raise urllib.error.HTTPError(req.full_url, 416, 'Range Not Satisfiable', {}, None)
+        return _RangeResp(self.data, start, etag=self.etag,
+                          cut=step if isinstance(step, int) else None)
+
+
+def _models(tmp_path):
+    return tmp_path / 'ai' / 'models'
+
+
+def test_brain_download_resumes_from_the_part_already_downloaded(brain, tmp_path, monkeypatch):
+    data = bytes(range(100))
+    monkeypatch.setattr(brain.urllib.request, 'urlopen',
+                        _Server(data, plan=[40, 'offline', 'offline', 'offline']))
+    r = brain.setup('fast')
+    assert r['ok'] is False and 'is kept' in r['error']
+    st = brain.status()
+    assert st['resume_pct'] == 40.0 and 'continues from there' in st['detail']
+    # the internet is back: Set up again asks only for the rest and installs the whole file
+    second = _Server(data)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', second)
+    assert brain.setup('fast') == {'ok': True}
+    assert second.ranges == ['bytes=40-']
+    assert (_models(tmp_path) / FAST_FILE).read_bytes() == data
+    assert sorted(p.name for p in _models(tmp_path).iterdir()) == [FAST_FILE], 'no part/note left'
+    assert brain.status()['resume_pct'] is None
+
+
+def test_brain_download_retries_a_dropped_connection_in_the_same_setup(brain, tmp_path, monkeypatch):
+    data = bytes(range(200))
+    srv = _Server(data, plan=['offline', 90, 50])
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', srv)
+    assert brain.setup('fast') == {'ok': True}
+    assert srv.ranges == [None, None, 'bytes=90-', 'bytes=140-']
+    # every try that got further resets the backoff, so a patchy line keeps going
+    assert brain.SLEPT == [3, 3, 3]
+    assert (_models(tmp_path) / FAST_FILE).read_bytes() == data
+
+
+def test_brain_download_gives_up_after_the_backoff_when_offline(brain, tmp_path, monkeypatch):
+    srv = _Server(b'z' * 100, plan=['offline'] * 10)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', srv)
+    r = brain.setup('fast')
+    assert r['ok'] is False and r['error'].startswith('No internet connection')
+    assert brain.SLEPT == [3, 10, 30] and len(srv.ranges) == 4
+    assert not any(_models(tmp_path).iterdir()), 'nothing downloaded, nothing left behind'
+    assert brain.status()['downloading'] is False
+
+
+def test_brain_http_404_is_final_not_retried(brain, monkeypatch):
+    def nf(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 404, 'Not Found', {}, None)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', nf)
+    assert brain.setup('fast')['ok'] is False
+    assert brain.SLEPT == []
+
+
+def test_brain_changed_file_is_never_stitched_onto_an_old_part(brain, tmp_path, monkeypatch):
+    old = b'o' * 100
+    monkeypatch.setattr(brain.urllib.request, 'urlopen',
+                        _Server(old, etag='"v1"', plan=[40] + ['offline'] * 3))
+    assert brain.setup('fast')['ok'] is False
+    new = b'n' * 120                                 # the publisher replaced the file
+    srv = _Server(new, etag='"v2"')
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', srv)
+    assert brain.setup('fast') == {'ok': True}
+    assert srv.ranges == ['bytes=40-', None], 'resume refused (other ETag/size), then from zero'
+    assert (_models(tmp_path) / FAST_FILE).read_bytes() == new
+
+
+def test_brain_part_past_the_end_of_the_file_starts_again(brain, tmp_path, monkeypatch):
+    models = _models(tmp_path)
+    models.mkdir(parents=True)
+    url = brain.MODELS['fast']['url']
+    (models / (FAST_FILE + '.part')).write_bytes(b'q' * 150)
+    (models / (FAST_FILE + '.part.json')).write_text(json.dumps({'url': url, 'total': 150, 'etag': ''}))
+    data = b'd' * 100
+    srv = _Server(data)                              # resume point 150 >= 100 -> HTTP 416
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', srv)
+    assert brain.setup('fast') == {'ok': True}
+    assert srv.ranges == ['bytes=150-', None]
+    assert (models / FAST_FILE).read_bytes() == data
+
+
+def test_brain_part_from_another_address_is_not_resumed(brain, tmp_path, monkeypatch):
+    models = _models(tmp_path)
+    models.mkdir(parents=True)
+    (models / (FAST_FILE + '.part')).write_bytes(b'q' * 30)
+    (models / (FAST_FILE + '.part.json')).write_text(
+        json.dumps({'url': 'https://example.invalid/x', 'total': 99}))
+    data = b'd' * 100
+    srv = _Server(data)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', srv)
+    assert brain.setup('fast') == {'ok': True}
+    assert srv.ranges == [None]
+    assert (models / FAST_FILE).read_bytes() == data
+
+
+def test_brain_file_smaller_than_the_model_is_never_installed(brain, tmp_path, monkeypatch):
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', _Server(b'<html>'))  # min is 10 bytes
+    r = brain.setup('fast')
+    assert r['ok'] is False and 'smaller than expected' in r['error']
+    assert not any(_models(tmp_path).iterdir())
+
+
+def test_brain_status_while_retrying_says_so(brain):
+    brain._DL.update({'active': True, 'pct': 12.5,
+                      'note': 'The internet connection dropped — trying again in 10 s (try 3 of 4); '
+                              'the part already downloaded is kept.'})
+    try:
+        st = brain.status()
+        assert st['retrying'] is True and st['downloading'] is True
+        assert 'trying again in 10 s' in st['detail'] and 'Downloaded so far: 12.5%' in st['detail']
+        assert st['resume_pct'] is None
+    finally:
+        brain._DL.update({'active': False, 'pct': None, 'note': None})

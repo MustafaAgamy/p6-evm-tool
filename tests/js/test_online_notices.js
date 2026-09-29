@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { brainSetupSettled } from '../../ui/modules/chat.js';
+import { brainSetupSettled, brainDownloadNote } from '../../ui/modules/chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..');
@@ -35,6 +35,13 @@ test('brain setup: ready, failed or no engine → stop polling, give the buttons
   assert.equal(brainSetupSettled({ ready: true }), true);
   assert.equal(brainSetupSettled({ downloading: false, error: 'No internet connection — …' }), true);
   assert.equal(brainSetupSettled({ downloading: false, engine: false }), true);
+});
+
+test('brain download: progress, or a plain retrying line that says the part is kept', () => {
+  assert.equal(brainDownloadNote({ downloading: true, progress: 12.5 }), 'Downloading the AI model… 12.5%');
+  assert.equal(brainDownloadNote({ downloading: true, progress: null }), 'Downloading the AI model… ');
+  const retry = 'The internet connection dropped — trying again in 10 s (try 3 of 4); the part already downloaded is kept. Downloaded so far: 40%.';
+  assert.equal(brainDownloadNote({ downloading: true, retrying: true, detail: retry, progress: 40 }), retry);
 });
 
 const chat = read('ui', 'modules', 'chat.js');
