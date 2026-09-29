@@ -5,7 +5,9 @@ so a XER-built Calendar measures working time exactly like an XML one.
 clndr_data format (P6):
   (0||CalendarData()(0||DaysOfWeek()(0||1()(...shifts...))...(0||7()()))(0||Exceptions()(0||K(d|SERIAL)(...shifts...))...))
   - DaysOfWeek entries keyed 1..7 where 1 = Sunday .. 7 = Saturday; a day with no shift is non-working.
-  - each shift is  s|HH:MM|f|HH:MM  (start / finish, 24h; 24:00 = end of day).
+  - each shift is  s|HH:MM|f|HH:MM  (start / finish, 24h). A finish of 00:00 (or 24:00) is
+    MIDNIGHT at the END of the day: P6 writes a 24-hour day as s|00:00|f|00:00 and a shift that
+    runs to midnight as s|16:00|f|00:00 — both work up to 24:00 (the XML writes them 23:59).
   - Exceptions carry an Excel-style date serial (days since 1899-12-30); with shifts = an added
     working day, without shifts = a holiday.
 Parsing is defensive: anything unrecognised is skipped, an empty/None blob yields empty sets so the
@@ -32,23 +34,15 @@ def _intervals(segment):
         # groups 1/2 = s|start|f|finish ; groups 3/4 = f|finish|s|start
         start, finish = (m.group(1), m.group(2)) if m.group(1) is not None else (m.group(4), m.group(3))
         sm, em = hhmmss_to_min(start), hhmmss_to_min(finish)
+        # A finish of 00:00 is midnight at the END of the day (P6's 24-hour day is
+        # s|00:00|f|00:00, a shift to midnight s|16:00|f|00:00) — the XML writes it 23:59.
+        # Reading it as 0 minutes dropped the shift, so a 24-h weekday became NON-working and
+        # a 24-h exception day a holiday (finding P4).
+        if em == 0 and sm is not None and sm < 1440:
+            em = 1440
         if sm is not None and em is not None and em > sm:
-            out.append((sm, em))
+            out.append((sm, min(em, 1440)))
     return out
-
-
-def _is_full_day(segment):
-    """True when a day carries P6's 24-hour working shift, encoded midnight-to-midnight
-    as ``s|00:00|f|00:00``. ``_intervals`` drops that as zero-length (em == sm), so a day
-    that works a full 24 h would otherwise look non-working. Used only to count the day in
-    the weekly working-day pattern (days/week) — it never adds a measurable interval, so
-    working-time math is unchanged. (P6's other 24-h form, ``s|00:00|f|24:00``, has em > sm
-    and is already parsed as a real interval by ``_intervals``.)"""
-    for m in _SHIFT_RE.finditer(segment):
-        start, finish = (m.group(1), m.group(2)) if m.group(1) is not None else (m.group(4), m.group(3))
-        if hhmmss_to_min(start) == 0 and hhmmss_to_min(finish) == 0:
-            return True
-    return False
 
 
 def parse_clndr_data(blob):
@@ -74,14 +68,7 @@ def parse_clndr_data(blob):
             result['work_intervals'][dow] = ivs
             result['weekly_working_days'].add(dow)
         else:
-            # No measurable interval → non-working for all working-time math, exactly as
-            # before. But a P6 24-hour day (midnight-to-midnight shift) works a full day
-            # despite carrying no interval — count it in the weekly working-day pattern so
-            # days/week reflects the real number of working weekdays (7 for a 24/7, 6 for a
-            # 24/6, …). A truly empty day (no shift at all) stays non-working here.
-            result['nonworking_days'].add(dow)
-            if _is_full_day(seg):
-                result['weekly_working_days'].add(dow)
+            result['nonworking_days'].add(dow)          # a day with no shift at all
 
     # Exceptions: each d|SERIAL owns every shift up to the next d|.
     exc = list(_EXC_RE.finditer(exc_part))

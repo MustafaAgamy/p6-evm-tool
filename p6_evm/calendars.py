@@ -69,10 +69,9 @@ class Calendar:
     def days_per_week(self) -> int:
         """Working days per week — the number of weekdays that carry working hours.
 
-        Prefers the explicit weekly working-day set, which correctly counts a P6 24-hour
-        day (stored as a midnight-to-midnight shift that carries no measurable interval and
-        would otherwise look non-working). Falls back to 7 minus the non-working weekdays
-        for calendars built without that set (the XML path or a bare XER)."""
+        Prefers the explicit weekly working-day set (a P6 24-hour day, s|00:00|f|00:00 in an
+        XER, is read as the interval 00:00-24:00, so it counts). Falls back to 7 minus the
+        non-working weekdays for calendars built without that set (the XML path or a bare XER)."""
         if self.weekly_working_days:
             return len(self.weekly_working_days)
         return 7 - len(self.nonworking_days)
