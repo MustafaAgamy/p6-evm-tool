@@ -270,6 +270,26 @@ def _line_groups(toks):
     return keep
 
 
+def _unsplit_rows(toks):
+    """Token ranges of the table rows set never to split (inline ``page-break-inside:avoid``)."""
+    out, i = [], 0
+    while i < len(toks):
+        kind, tag, raw, _ = toks[i]
+        if kind == 'start' and tag == 'tr' and 'page-break-inside:avoid' in raw.replace(' ', '').lower():
+            depth, j = 1, i + 1
+            while j < len(toks) and depth:
+                if toks[j][1] == 'tr' and toks[j][0] == 'start':
+                    depth += 1
+                elif toks[j][1] == 'tr' and toks[j][0] == 'end':
+                    depth -= 1
+                j += 1
+            out.append((i, j - 1))
+            i = j
+            continue
+        i += 1
+    return out
+
+
 def paginate_word_html(html):
     """Return ``html`` (an Office-HTML body or whole document) with the Word keep rules
     written in as inline styles / ``<thead>`` — see the module docstring."""
@@ -348,6 +368,18 @@ def paginate_word_html(html):
                 break
         if j < len(toks) and toks[j][0] in ('start', 'startend') and toks[j][1] in ('table', 'img', 'svg'):
             repl[start] = _with_kwn(repl.get(start, toks[start][2]))
+
+    # inside a layout row that never splits (``<tr style="page-break-inside:avoid">`` — a row of
+    # month calendars) nothing needs keeping: Word keeps a row whose paragraphs keep-with-next
+    # with the NEXT row, so keep rules inside chain every such row into one block that is
+    # pushed whole, leaving a page nearly blank
+    for a, b in _unsplit_rows(toks):
+        for i in range(a, b + 1):
+            if i in repl and repl[i] and repl[i] != toks[i][2] and repl[i] == _with_kwn(toks[i][2]):
+                del repl[i]
+            for d in (before, after):
+                if i in d:
+                    d[i] = d[i].replace(KWN_OPEN, '').replace(KWN_CLOSE, '')
 
     out = []
     for i, tok in enumerate(toks):
