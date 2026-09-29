@@ -2716,10 +2716,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/baseline/upload ───────────────────────────────────────────────
+    @staticmethod
+    def _evm_numbers(result):
+        """The EVM figures the baseline banner merges (from compute() or a refreshed import)."""
+        cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                    'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                    'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                for n, c in (result.get('categories') or {}).items()}
+        out = {k: result.get(k) for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
+                                          'overall_planned_pct', 'overall_actual_pct')}
+        out['categories'] = cats
+        return out
+
+    def _refresh_snapshot(self, sid, resolved, out):
+        """Recompute the snapshot IN PLACE through the import pipeline (same code as an import,
+        now reading the attached / removed baseline) and hand the fresh result to the UI, so
+        every view — EVM, WBS, gap, calendar, audits — and every later feature agree."""
+        full = self._parse_pipeline({'refresh_snapshot_id': sid, 'path': resolved})
+        if not full.get('ok'):
+            raise RuntimeError(full.get('error') or 'recompute failed')
+        out.update(self._evm_numbers(full['result']))
+        out['result'] = full['result']
+        return out
+
     def _handle_baseline_upload(self, body):
-        """Attach a baseline schedule (XER/XML) so Planned Value uses the TRUE baseline
-        dates. A XER update doesn't embed its baseline, so its PV is wrong without this;
-        matching by Activity ID, we override the update's baseline and recompute."""
+        """Attach a baseline schedule (XER or XML) to the open update — an XER update (P6 never
+        writes the baseline rows into an XER) or an XML exported WITHOUT its baseline project.
+        Matched by Activity Id, remembered for the snapshot, and the snapshot is recomputed in
+        place, so EVERY feature reads the same baseline (p6_evm.baseline: embedded > attached >
+        self) — XML-with-baseline == XML + attached baseline == XER + attached baseline."""
         bl_path = body.get('path', '')
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not bl_path or not os.path.isfile(bl_path):
@@ -2733,62 +2758,59 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            from p6_evm.baseline import apply_baseline
-            bl = parse_file(bl_path)
-            with open(resource_path('config.json')) as f:
-                config = json.load(f)
+            from p6_evm.baseline import resolve_baseline, display_name
             data = parse_file(resolved)
-            report = apply_baseline(data, bl)       # baseline dates + budget, matched by Activity Id
-            config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=build_wbs_classifier(data))
+            if getattr(data, 'baseline_source', None) == 'embedded':
+                self._json(200, {'ok': False, 'code': 'embedded', 'error': (
+                    'This XML already carries its baseline project inside it, and that baseline '
+                    'is the one used — there is nothing to attach.')})
+                return
+            info = resolve_baseline(data, bl_path, parse_file)
+            out = {'ok': True, 'baseline_name': display_name(bl_path), 'matched': info.get('matched') or 0,
+                   'total': len(data.activities)}
+            if not out['matched']:                    # the wrong project's baseline — never remembered
+                self._json(200, out)
+                return
             bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
-            if body.get('snapshot_id'):
-                db.save_baseline(body['snapshot_id'], bl_cached)   # remember per project
-            matched = report['matched']
-            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
-                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
-                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
-                    for n, c in result['categories'].items()}
-            self._json(200, {'ok': True, 'baseline_name': os.path.basename(bl_path),
-                             'baseline_cached': bl_cached, 'matched': matched,
-                             'total': len(data.activities),
-                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
-                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
-                             'overall_planned_pct': result['overall_planned_pct'],
-                             'overall_actual_pct': result['overall_actual_pct'],
-                             'categories': cats})
+            out['baseline_cached'] = bl_cached
+            sid = body.get('snapshot_id')
+            if sid and db.snapshot_exists(sid):
+                db.save_baseline(sid, bl_cached)       # remember per snapshot (and re-imports)
+                self._refresh_snapshot(sid, resolved, out)
+            else:
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                config['categories'] = auto_categories(data)
+                out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
+            self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/baseline/clear ────────────────────────────────────────────────
     def _handle_baseline_clear(self, body):
-        """Remove an attached baseline: forget it for this snapshot and recompute the plain
-        (no-baseline, approximate) EVM so the UI can revert the numbers."""
+        """Remove an attached baseline: forget it for this snapshot and recompute the snapshot
+        in place — back to the file's own baseline (embedded, else its own Planned dates)."""
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not resolved:
             self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            with open(resource_path('config.json')) as f:
-                config = json.load(f)
-            if body.get('snapshot_id'):
-                db.save_baseline(body['snapshot_id'], None)   # forget the attached baseline
-            data = parse_file(resolved)
-            config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=build_wbs_classifier(data))
-            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
-                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
-                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
-                    for n, c in result['categories'].items()}
-            self._json(200, {'ok': True,
-                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
-                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
-                             'overall_planned_pct': result['overall_planned_pct'],
-                             'overall_actual_pct': result['overall_actual_pct'], 'categories': cats})
+            from p6_evm.baseline import load_schedule
+            out = {'ok': True}
+            sid = body.get('snapshot_id')
+            if sid and db.snapshot_exists(sid):
+                db.save_baseline(sid, None)            # forget the attached baseline
+                self._refresh_snapshot(sid, resolved, out)
+            else:
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                data = load_schedule(resolved)
+                config['categories'] = auto_categories(data)
+                out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
+            self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
