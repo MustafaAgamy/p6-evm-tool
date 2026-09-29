@@ -24,6 +24,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
 - The version shown in Help and About now comes from one place.
 
+### Changed — One baseline rule for XER and XML
+- **Every feature finds the baseline the same way:** the baseline inside the file (an XML exported with its baseline project), otherwise the baseline you attached for that update. An update plus its attached baseline now gives the same results as the XML exported with its baseline, whether the update is XER or XML.
+- **Attach a baseline (XER or XML) to an XML update too**, not only to an XER. Before this, an XML exported without its baseline showed zero Planned Value and no SPI, and there was no way to fix it except re-exporting.
+- **The attached baseline is used everywhere,** not only in Earned Value. Update Analysis, the weekly report, the gap chart, WBS, P6 Calendar Audit, Bad Weather, Update vs Update, Critical Path, Reporting Studio and AI Chat all use it. It stays attached when you re-open the project or import the same file again.
+- **Update Analysis:** an update with no baseline inside it and none attached is no longer measured against its own planned dates. The screen says so and offers **Attach baseline (XER or XML)** on the spot.
+- Without a baseline, an XML now shows the same approximate figures as the XER, marked approximate, where it used to show zeros.
+- A baseline from another project (no Activity IDs match) is refused and never remembered.
+- "Import baseline XER" (Earned Value) and "Baseline XER" (Reporting Studio) are now labelled **XER or XML**.
+
 ### Fixed
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
 - Overview, WBS, Narrative and Productivity PDFs and prints could come out blank.
