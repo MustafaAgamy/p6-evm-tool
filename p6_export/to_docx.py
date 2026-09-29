@@ -13,6 +13,9 @@ mode is a screen + PDF choice; the Word page is never dark — see
   bullet / numbered lists;
 * tables with the header row repeated on every page, concrete cell colours, column widths
   from the report, merged cells;
+* the shared Word pagination rules (:mod:`p6_export.docx_pagination`): small tables kept
+  whole, long tables never strand 1-2 rows, headings / intros / captions kept with the
+  first block;
 * KPI / stat tiles → a small grid table (label · value · note);
 * charts → PNG pictures (:mod:`p6_export.svg_raster`), or — when no picture can be made —
   the numbers behind the chart as a table;
@@ -31,6 +34,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Emu, Mm, Pt, RGBColor
 
+from . import docx_pagination
 from . import html_model as HM
 
 _ALIGN = {'left': WD_ALIGN_PARAGRAPH.LEFT, 'center': WD_ALIGN_PARAGRAPH.CENTER,
@@ -666,6 +670,7 @@ class _Writer:
         self.doc.core_properties.title = _clean(rep.title or self.feature or '')
         if self.app_name:
             self.doc.core_properties.author = self.app_name
+        docx_pagination.paginate_docx(self.doc)      # the shared Word page-composition rules
         _normalize_order(self.doc.element)
         for part in (self.doc.sections[0].header, self.doc.sections[0].footer):
             _normalize_order(part._element)

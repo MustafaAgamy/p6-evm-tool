@@ -1520,6 +1520,13 @@ def write_docx(doc, output_path, chrome=None):
     # Final safety pass: guarantee every drawing object has a document-wide unique id
     # (header logos vs. body charts/org-charts) so Word never "repairs" the file on open.
     _dedupe_drawing_ids(document)
+    # The shared Word page-composition rules (owner point 14): headings / intros / captions
+    # kept with their first block, small tables whole, long tables never strand 1-2 rows.
+    try:
+        from p6_export import docx_pagination
+        docx_pagination.paginate_docx(document)
+    except Exception:
+        pass
 
     document.save(output_path)
     return output_path

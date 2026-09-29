@@ -1189,5 +1189,13 @@ def build_docx(path, report_name, meta, rendered, letterhead=None, chrome=None, 
         except Exception:
             continue
 
+    # The shared Word page-composition rules (owner point 14): headings / captions kept with
+    # their first block, small tables whole, long tables never strand 1-2 rows.
+    try:
+        from p6_export import docx_pagination
+        docx_pagination.paginate_docx(document)
+    except Exception:
+        pass
+
     document.save(str(path))
     return str(path)
