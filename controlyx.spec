@@ -196,9 +196,40 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# ── Startup splash (startup DB-2) ─────────────────────────────────────────
+# The one-file exe unpacks ~1,000 files (~230 MB) into %TEMP%\_MEI* before Python even
+# starts; nothing was visible for those seconds, so the owner clicked again. The bootloader
+# shows this picture at once (its text line names each file being unpacked, then the start-up
+# stage) and app.py closes it as soon as the app window is on screen
+# (app_startup.close_splash). Not always-on-top. Picture: packaging/splash.png (made from
+# packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE).
+# If Tcl/Tk is missing on the build machine the exe is simply built without a splash.
+splash_parts = []
+if sys.platform == 'win32':
+    try:
+        sys.path.insert(0, SPECPATH)
+        from utils import APP_TITLE as _SPLASH_TITLE
+    except Exception:
+        _SPLASH_TITLE = ''
+    _splash_kw = dict(text_pos=(22, 256), text_size=9, text_color='#8a99bd',
+                      text_default=('Starting %s...' % _SPLASH_TITLE).replace('  ', ' '),
+                      minify_script=True, always_on_top=False)
+    for _drop in ((), ('always_on_top',)):          # older PyInstaller: no always_on_top
+        try:
+            _kw = {k: v for k, v in _splash_kw.items() if k not in _drop}
+            splash = Splash(str(Path(SPECPATH) / 'packaging' / 'splash.png'), binaries=a.binaries, datas=a.datas, **_kw)
+            splash_parts = [splash, splash.binaries]
+            break
+        except TypeError:
+            continue
+        except Exception as _exc:                   # e.g. no Tcl/Tk on the build machine
+            print('WARNING: startup splash not built (%r)' % (_exc,))
+            break
+
 exe = EXE(
     pyz,
     a.scripts,
+    *splash_parts,          # the startup splash (empty when not built)
     a.binaries,
     a.zipfiles,
     a.datas,
