@@ -125,6 +125,8 @@ def _core_blocks(result, weights, actual_cost, meta):
     pv = result.get('pv')
 
     # ── progress ────────────────────────────────────────────────────────────
+    from p6_evm.baseline import baseline_approx
+    ax = ' · approx' if baseline_approx(result) else ''   # own Planned dates stand in (as on screen)
     var = actual - planned
     behind = var < 0
     var_txt = f"{'−' if behind else '+'}{abs(var) * 100:.2f}%"
@@ -132,7 +134,7 @@ def _core_blocks(result, weights, actual_cost, meta):
         'title': 'Project Progress — Planned vs Actual',
         'headers': ['Metric', 'Value', 'Note'],
         'rows': [
-            ['Planned %', _pct2(planned), 'Overall Planned Weight %'],
+            ['Planned %', _pct2(planned), 'Overall Planned Weight %' + ax],
             ['Actual %', _pct2(actual), 'Overall Weighted Actual %'],
             ['Variance', var_txt, 'behind plan' if behind else 'ahead of plan'],
         ],
@@ -141,14 +143,12 @@ def _core_blocks(result, weights, actual_cost, meta):
     # ── dashboard (the 10 KPI tiles, in screen order) ─────────────────────────
     ac_note = 'entered' if actual_cost is not None else 'from P6'
     delay = result.get('delay_days')
-    from p6_evm.baseline import baseline_approx
-    ax = ' · approx' if baseline_approx(result) else ''
     dashboard = {
         'title': 'Executive Dashboard',
         'headers': ['KPI', 'Value', 'Detail'],
         'rows': [
             ['SPI · Schedule', _as_pct(spi), _spi_status(spi) + ax],
-            ['Overall Planned %', _pct2(planned), 'weighted table'],
+            ['Overall Planned %', _pct2(planned), 'weighted table' + ax],
             ['Overall Actual %', _pct2(actual), 'weighted table'],
             ['Planned Value', _egp_exact(pv), 'EGP' + ax],
             ['Earned Value', _egp_exact(ev), 'EGP'],
@@ -191,8 +191,8 @@ def _core_blocks(result, weights, actual_cost, meta):
         cat_rows = [['No weighted categories', '—', '—', '—', '—', '—']]
     category = {
         'title': 'Category Weights & Overall Progress',
-        'headers': ['WBS Category', 'Weight %', 'Planned %', 'Actual %',
-                    'Planned Weight %', 'Weighted Actual %'],
+        'headers': ['WBS Category', 'Weight %', 'Planned %' + ax, 'Actual %',
+                    'Planned Weight %' + ax, 'Weighted Actual %'],
         'rows': cat_rows,
     }
 

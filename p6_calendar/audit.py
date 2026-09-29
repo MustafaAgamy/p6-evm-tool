@@ -92,7 +92,11 @@ def _project_window(data):
 def _baseline_flags(data):
     try:
         from p6_evm.baseline import schedule_baseline
-        return schedule_baseline(data)
+        f = schedule_baseline(data)
+        # the line is only printed when approximate — keep it None otherwise, so the audit of an
+        # XML with its baseline == the same update + that baseline attached (R4)
+        return {'baseline_approx': f['baseline_approx'],
+                'baseline_label': f['baseline_label'] if f['baseline_approx'] else None}
     except Exception:
         return {'baseline_approx': False, 'baseline_label': None}
 

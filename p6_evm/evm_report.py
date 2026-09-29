@@ -115,7 +115,7 @@ def _dashboard(result, meta):
     oa = sum((c.get('weight') or 0) * (c.get('actual_pct') or 0) for c in cats.values())
     tiles = [
         _tile('SPI · Schedule', _pct(spi), status + ax, accent=color),
-        _tile('Overall Planned %', f'{op * 100:.1f}%', 'weighted table'),
+        _tile('Overall Planned %', f'{op * 100:.1f}%', 'weighted table' + ax),
         _tile('Overall Actual %', f'{oa * 100:.1f}%', 'weighted table'),
         _tile('Planned Value', _egp(result.get('pv')), 'EGP' + ax),
         _tile('Earned Value', _egp(result.get('ev')), 'EGP'),
@@ -147,7 +147,7 @@ def _pv_ev_bar(result):
                  rows=[['Planned Value (PV)', round(pv, 2)], ['Earned Value (EV)', round(ev, 2)]])
 
 
-def _progress_band(result):
+def _progress_band(result, approx=False):
     """Top-of-report 'Project Progress · Planned vs Actual' summary.
 
     Planned % / Actual % are the Overall totals of the Category Weights table
@@ -160,7 +160,7 @@ def _progress_band(result):
     var = actual - planned
     behind = var < 0
     var_txt = f"{'−' if behind else '+'}{abs(var) * 100:.2f}%"
-    tiles = (_tile('Planned %', f'{planned * 100:.2f}%', 'Overall Planned Weight %')
+    tiles = (_tile('Planned %', f'{planned * 100:.2f}%', 'Overall Planned Weight %' + (' · approx' if approx else ''))
              + _tile('Actual %', f'{actual * 100:.2f}%', 'Overall Weighted Actual %')
              + _tile('Variance', var_txt, 'behind plan' if behind else 'ahead of plan',
                      accent=report_theme.var('rpt-bad') if behind else report_theme.var('rpt-good')))
@@ -180,7 +180,8 @@ def _progress_band(result):
                     rows=[['Planned', round(planned * 100, 2)], ['Actual', round(actual * 100, 2)]]))
 
 
-def _category_table(result):
+def _category_table(result, approx=False):
+    ax = ' · approx' if approx else ''            # measured against the update's own Planned dates
     cats = result.get('categories', {})
     rows = []
     tot_pw = tot_wa = 0.0
@@ -201,8 +202,8 @@ def _category_table(result):
         f'<td class="num">—</td><td class="num">{tot_pw:.2f}%</td><td class="num">{tot_wa:.2f}%</td></tr>')
     return _part('category.table', 'Category weights table', (
         '<table><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
-        '<th class="num">Planned %</th><th class="num">Actual %</th>'
-        '<th class="num">Planned Weight %</th><th class="num">Weighted Actual %</th></tr></thead>'
+        f'<th class="num">Planned %{ax}</th><th class="num">Actual %</th>'
+        f'<th class="num">Planned Weight %{ax}</th><th class="num">Weighted Actual %</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table>'))
 
 
@@ -332,14 +333,15 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
     # add-ons (empty string when absent), so they are always shown when present.
     _inc = (lambda _k: True) if not sections else (lambda _k: _k in sections)
     gap_html = _gap_section(gap)
+    _bl_approx = bool((meta or {}).get("baseline_approx"))   # own Planned dates stand in → approx
     eng_html = _engineering_section(engineering)
     # Every block is a [data-sec] SECTION made of [data-part] PARTS — the two levels of the
     # Report Contents picker (docs/report-picker-adoption.md). The client removes unticked
     # parts / reorders sections; PDF · Word · HTML · Excel are all built from that result.
-    progress_html  = _sec('progress', f'<h2 class="sec">Project Progress — Planned vs Actual</h2>\n  {_progress_band(result)}') if _inc('progress') else ''
+    progress_html  = _sec('progress', f'<h2 class="sec">Project Progress — Planned vs Actual</h2>\n  {_progress_band(result, _bl_approx)}') if _inc('progress') else ''
     dashboard_html = _sec('dashboard', f'<h2 class="sec">Executive Dashboard</h2>\n  {_dashboard(result, meta)}') if _inc('dashboard') else ''
     value_html     = _sec('value', f'<h2 class="sec">Planned Value vs Earned Value</h2>\n  {_pv_ev_bar(result)}') if _inc('value') else ''
-    category_html  = _sec('category', f'<h2 class="sec">Category Weights &amp; Overall Progress</h2>\n  {_category_table(result)}') if _inc('category') else ''
+    category_html  = _sec('category', f'<h2 class="sec">Category Weights &amp; Overall Progress</h2>\n  {_category_table(result, _bl_approx)}') if _inc('category') else ''
     gap_html = _sec('gap', gap_html)
     eng_html = _sec('engineering', eng_html)
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">

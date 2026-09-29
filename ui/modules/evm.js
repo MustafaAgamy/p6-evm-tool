@@ -196,7 +196,7 @@ function renderSlicer(result) {
   box.innerHTML = `
     <div class="evm-slice-scope">Showing: <b>${escapeHtml(scope)}</b></div>
     <div class="evm-slice-ro">
-      <div class="evm-ro plan"><div class="k">Planned %</div><div class="v">${pct(planned)}</div><div class="n">${escapeHtml(subP)}</div></div>
+      <div class="evm-ro plan"><div class="k">Planned %${_evmApprox(result) ? ' · approx' : ''}</div><div class="v">${pct(planned)}</div><div class="n">${escapeHtml(subP)}</div></div>
       <div class="evm-ro act"><div class="k">Actual %</div><div class="v">${pct(actual)}</div><div class="n">${escapeHtml(subA)}</div></div>
       <div class="evm-ro var"><div class="k">Variance</div><div class="v ${behind ? 'behind' : 'ahead'}">${vTxt}</div><div class="n">${behind ? 'behind plan' : 'ahead of plan'}</div></div>
     </div>
@@ -233,7 +233,7 @@ function renderDashboard(result) {
   // Overall %: 2 decimals so the tile matches the Category Weights table's Overall row exactly.
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
     ${tile('SPI · Schedule', asPct(spi), noBaseline ? `${st.label} · approx` : st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
-    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, 'weighted table')}
+    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, noBaseline ? 'weighted table · approx' : 'weighted table')}
     ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(2)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
     ${tile('Planned Value', egpExact(result.pv), noBaseline ? 'EGP · approx' : 'EGP')}
     ${tile('Earned Value', egpExact(result.ev), 'EGP')}
@@ -272,8 +272,8 @@ function renderCats(result) {
       <td class="num">${pw.toFixed(2)}%</td><td class="num">${wa.toFixed(2)}%</td></tr>`;
   }
   document.getElementById('evm-cats').innerHTML = `<div class="tblwrap"><table class="evm-table">
-    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %</th>
-    <th class="num">Actual %</th><th class="num">Planned Wt %</th><th class="num">Weighted Act %</th></tr></thead>
+    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %${_evmApprox(result) ? ' · approx' : ''}</th>
+    <th class="num">Actual %</th><th class="num">Planned Wt %${_evmApprox(result) ? ' · approx' : ''}</th><th class="num">Weighted Act %</th></tr></thead>
     <tbody>${rows}<tr class="evm-tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>
     <td class="num">—</td><td class="num">${totPW.toFixed(2)}%</td><td class="num">${totWA.toFixed(2)}%</td></tr></tbody></table></div>`;
 }
@@ -417,6 +417,13 @@ function openInputsEditor(result) {
     renderDashboard(result);
     renderCats(result);
   });
+}
+
+// The update's own Planned dates stand in for its baseline (none in the file, none attached):
+// Planned % / PV / SPI / Delay / Baseline Finish are approximate — the same rule as the tiles.
+function _evmApprox(result) {
+  return !(state.baselineName || (result && result.baseline_name))
+    && baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
 }
 
 // ── Baseline banner (attach / replace / remove) ─────────────────────────────
