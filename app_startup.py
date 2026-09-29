@@ -51,6 +51,15 @@ def data_dir():
 
 _LOGGER = None
 _LOG_LOCK = threading.Lock()
+_FILE_LOG = False           # only the desktop app (app.py) writes the log file; tests,
+                            # the CLI and harnesses importing server.py stay silent
+
+
+def enable_file_log():
+    """Turn on the startup.log file (app.py calls this first thing)."""
+    global _FILE_LOG
+    _FILE_LOG = True
+    reset_logger()
 
 
 def log_path():
@@ -69,6 +78,8 @@ def get_logger():
         for h in list(lg.handlers):
             lg.removeHandler(h)
         try:
+            if not _FILE_LOG:
+                raise RuntimeError('file log not enabled')
             path = log_path()
             os.makedirs(os.path.dirname(path), exist_ok=True)
             h = RotatingFileHandler(path, maxBytes=256 * 1024, backupCount=2,

@@ -26,14 +26,22 @@ def _isolated_startup(tmp_path, monkeypatch):
     """app_startup writes its log/flags under the per-user data folder: point it at tmp."""
     monkeypatch.setattr(app_startup, 'data_dir', lambda: str(tmp_path))
     monkeypatch.delenv(app_startup.SAFE_GRAPHICS_ENV, raising=False)
-    app_startup.reset_logger()
+    app_startup.enable_file_log()
     app_startup.READY.clear()
     app_startup.STATE.update(ready_after_s=None, graphics='normal', watchdog=None)
     with app_startup._LAUNCH_LOCK:
         app_startup._LAUNCH.clear()
     yield
-    app_startup.reset_logger()
+    app_startup._FILE_LOG = False        # plain assignment: a monkeypatch undo would run
+    app_startup.reset_logger()           # later and switch the file log back on
     app_startup.READY.clear()
+
+
+def test_no_log_file_unless_the_app_enables_it(tmp_path, monkeypatch):
+    app_startup._FILE_LOG = False
+    app_startup.reset_logger()
+    app_startup.log('from a test / the CLI')
+    assert not (tmp_path / 'logs').exists()
 
 
 def _get(port, path, host='127.0.0.1'):

@@ -89,6 +89,7 @@ if __name__ == '__main__':
     import app_startup
     from utils import APP_NAME, APP_EDITION, APP_VERSION
 
+    app_startup.enable_file_log()      # <app data>/logs/startup.log
     app_startup.log('%s %s starting (pid %s, frozen=%s)', APP_TITLE, APP_VERSION,
                     os.getpid(), bool(getattr(sys, 'frozen', False)))
     # One running copy: a second launch brings the running window to the front instead of
