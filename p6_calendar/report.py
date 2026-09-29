@@ -455,6 +455,10 @@ def _weather_section(weather, dashboard=None, scope=''):
         ]
         if loc:
             ref_pairs.append(('Location', loc))
+        # What the estimate ran without (the online forecast / dust feed was unavailable) —
+        # the same lines the screen shows, so the reader knows the gap.
+        for g in (ref.get('gaps') or []):
+            ref_pairs.append(('Data gap', _esc(str(g))))
         ref_rows = ''.join(f'<tr><td>{_esc(k)}</td><td>{v}</td></tr>' for k, v in ref_pairs)
         source_ref = (
             f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-good")}">Where These Bad-Weather Days Come From</span></div>'

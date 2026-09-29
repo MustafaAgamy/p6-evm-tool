@@ -1236,6 +1236,15 @@ body.dng-fs-body #results-section { transform: none !important; }
 .cal-map { width: 100%; height: 240px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .cal-map-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 12px; background: var(--bg); }
 .cal-map-hint { font-size: 11px; margin-top: 6px; }
+/* Online-service notices (offline / service down) — visible, themed in every appearance mode. */
+.cal-map-offline { position: absolute; left: 10px; right: 10px; top: 10px; z-index: 1000; pointer-events: none;
+  padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4;
+  background: var(--warning-bg); color: var(--text); border: 1px solid var(--warning); }
+.cal-loc-err { font-size: 12px; line-height: 1.45; padding: 7px 9px; border-radius: 8px;
+  background: var(--warning-bg); color: var(--text); border: 1px solid var(--warning); }
+.cal-wx-notice { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
+  background: var(--warning-bg); color: var(--text); border: 1px solid var(--warning); }
+.cal-wx-notice.info { background: var(--hair); border-color: var(--border); }
 .cal-pin { background: transparent !important; border: none !important; font-size: 22px; line-height: 1; text-align: center; }
 .leaflet-container { font: inherit; background: var(--bg); }
 

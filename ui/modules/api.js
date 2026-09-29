@@ -331,7 +331,7 @@ export async function geocodePlace(q) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ q }),
     });
-  } catch { return { ok: false, error: 'offline' }; }
+  } catch { return { ok: false, error: 'The app could not reach its own local service — try the search again.' }; }
 }
 
 // Reverse-geocode a dropped/dragged pin → a friendly place name.
@@ -341,7 +341,7 @@ export async function reverseGeocode(lat, lon) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat, lon }),
     });
-  } catch { return { ok: false, error: 'offline' }; }
+  } catch { return { ok: false, error: 'The app could not reach its own local service.' }; }
 }
 
 export async function computeWeather(lat, lon, placeName, thresholds, siteType) {
