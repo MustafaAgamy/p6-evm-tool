@@ -26,7 +26,7 @@ Fields that fail TODAY are marked xfail(strict=True) with the parity-audit findi
 (D:/twe-scratch/phase2/parser/findings.json, commit "[parser:AUDIT]"). strict=True means a fix
 that makes one pass turns it into an XPASS failure - remove the marker when you fix the finding.
 The markers live in TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL (search for the finding id,
-e.g. "_P10") and on the variant tests at the bottom (no-baseline pair, P9, P17, P22, P23).
+e.g. "_P12") and on the variant tests at the bottom (no-baseline pair, P9, P17, P22, P23).
 Run:  pytest tests/test_parser_parity.py -p no:cacheprovider -q -rxX
 Genuine format differences (what P6 itself writes differently) are documented as plain tests,
 not xfails: see test_tf_from_hours_* below.
@@ -725,7 +725,8 @@ def truth(entity, field):
                 'data_date': _d(p['data_date']), 'baseline_object_id': BASELINE['object_id'],
                 'planned_start': _d(p['planned_start']),
                 'scheduled_finish': _d(p['scheduled_finish']),
-                'must_finish_by': _d(p['must_finish_by']), 'baseline_name': BASELINE['name']}[field]
+                'must_finish_by': _d(p['must_finish_by']), 'baseline_name': BASELINE['name'],
+                'wbs_root_id': p['wbs_root'], 'total_float_type': 'finish'}[field]
     if entity == 'data':
         if field == 'activity_code_types':
             tnames, _ = _code_names()
@@ -882,7 +883,7 @@ def parsed(files):
 FIELDS = (
     [('project', f) for f in ('object_id', 'id', 'name', 'data_date', 'baseline_object_id',
                               'planned_start', 'scheduled_finish', 'must_finish_by',
-                              'baseline_name')]
+                              'baseline_name', 'wbs_root_id', 'total_float_type')]
     + [('data', f) for f in ('activity_code_types', 'baseline_by_id', 'baseline_bac_by_activity',
                              'bac_by_activity', 'ac_by_activity', 'baseline_source')]
     + [('calendar', f) for f in ('ids', 'name', 'day_hours', 'nonworking_days', 'holidays',
@@ -905,13 +906,10 @@ FIELDS = (
 )
 
 # FIXED (markers removed): P1 XER baseline rows / pointer / name read like the XML's
-# <BaselineProject>; P4 XER 24-h shift s|00:00|f|00:00 read as working to 24:00.
-_P5 = 'P5: XER imports the PROJWBS project-root node (proj_node_flag=Y)'
-_P6 = 'P6: XER status kept as TK_* codes instead of the P6 status words'
-_P7 = 'P7: XER constraint kept as CS_* codes'
-_P7B = 'P7: secondary constraint (cstr_type2/cstr_date2, SecondaryConstraintType/Date) not read'
-_P8 = 'P8: XML total float reconstructed as whole START-float days, not P6 finish float in hours/day (needs P10 too)'
-_P10 = 'P10: XML <WorkTime><Finish> is the last working minute (11:59 = 12:00, 23:59 = 24:00)'
+# <BaselineProject>; P4 XER 24-h shift s|00:00|f|00:00 read as working to 24:00; P5 XER project-root
+# WBS node kept out of data.wbs; P6 XER TK_* status / P7 CS_* constraint read as P6's words, and the
+# secondary constraint read in both; P8 XML total float rebuilt as P6 finish float in working hours
+# (with P10: the XML <WorkTime><Finish> last working minute read back as the shift end).
 _P11 = 'P11: XML adds the <BaselineProject> calendars to the project calendar list'
 _P12 = 'P12: calendar metadata one-sided (XER type/is_default, XML weekly_working_days)'
 _P13 = 'P13: project window / must-finish-by / baseline pointer not read'
@@ -929,13 +927,8 @@ _P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or do
 TRUTH_XFAIL = {
     ('xml', 'project.must_finish_by'): _P13,
     ('xml', 'calendar.ids'): _P11,
-    ('xml', 'calendar.work_intervals'): _P10,
-    ('xml', 'calendar.exception_intervals'): _P10,
     ('xml', 'calendar.weekly_working_days'): _P12,
-    ('xml', 'activity.total_float_days'): _P8,
     ('xml', 'activity.free_float_days'): _P24,
-    ('xml', 'activity.secondary_constraint_type'): _P7B,
-    ('xml', 'activity.secondary_constraint_date'): _P7B,
     ('xml', 'relationship.lag_days'): _P16,
     ('xml', 'assignment.rate'): _P20,
     ('xer', 'project.planned_start'): _P13,
@@ -945,40 +938,25 @@ TRUTH_XFAIL = {
     ('xer', 'calendar.ids'): _P23,
     ('xer', 'calendar.type'): _P12,
     ('xer', 'calendar.is_default'): _P12,
-    ('xer', 'wbs.ids'): _P5,
-    ('xer', 'wbs.parent_object_id'): _P5,
     ('xer', 'activity.name'): _P14 + ' / ' + _P15,
-    ('xer', 'activity.status'): _P6,
     ('xer', 'activity.percent_complete'): _P19,
-    ('xer', 'activity.constraint_type'): _P7,
-    ('xer', 'activity.secondary_constraint_type'): _P7B,
-    ('xer', 'activity.secondary_constraint_date'): _P7B,
-    ('xer', 'activity.wbs_path'): _P5,
     ('xer', 'relationship.lag_days'): _P16,
     ('xer', 'resource.name'): _P14,
     ('xer', 'assignment.resource_name'): _P14,
 }
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
-# wrong the SAME way - P7 secondary constraint, P11/P23 calendar ids, P13 must-finish-by, P16 lag
+# wrong the SAME way - P11/P23 calendar ids, P13 must-finish-by, P16 lag
 # days - passes parity and is caught by test_truth only.)
 PARITY_XFAIL = {
     'project.planned_start': _P13,
     'project.scheduled_finish': _P13,
     'data.activity_code_types': _P18,
-    'calendar.work_intervals': _P10,
-    'calendar.exception_intervals': _P10,
     'calendar.weekly_working_days': _P12,
     'calendar.type': _P12,
     'calendar.is_default': _P12,
-    'wbs.ids': _P5,
-    'wbs.parent_object_id': _P5,
     'activity.name': _P14 + ' / ' + _P15,
-    'activity.status': _P6,
     'activity.percent_complete': _P19,
-    'activity.total_float_days': _P8,
     'activity.free_float_days': _P24,
-    'activity.constraint_type': _P7,
-    'activity.wbs_path': _P5,
     'resource.name': _P14,
     'assignment.resource_name': _P14,
     'assignment.rate': _P20,
