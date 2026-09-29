@@ -75,28 +75,15 @@ def _short_unit(abbrev, name):
     return min(cands, key=len) if cands else None
 
 
+_ENGINE_TYPE = {'Labour': 'RT_Labor', 'Equipment': 'RT_Equip', 'Material': 'RT_Mat'}
+
+
 def _norm_type(raw):
-    """Normalise a raw resource-type string to the P6 XER enum used across the engine."""
-    s = str(raw or '').strip().lower()
-    if not s:
-        return None
-    if s.startswith('rt_'):                       # already an XER enum
-        if 'labor' in s or 'labour' in s:
-            return 'RT_Labor'
-        if 'equip' in s:
-            return 'RT_Equip'
-        if 'mat' in s:
-            return 'RT_Mat'
-        return raw
-    if 'nonlabor' in s or 'nonlabour' in s or 'non-labor' in s:  # XML Nonlabor ⇒ equipment
-        return 'RT_Equip'
-    if s.startswith('labor') or s.startswith('labour'):
-        return 'RT_Labor'
-    if s.startswith('mat'):
-        return 'RT_Mat'
-    if 'equip' in s:
-        return 'RT_Equip'
-    return None
+    """Normalise a raw resource-type string to the P6 XER enum used across the engine, through
+    the ONE resource-type vocabulary the parsers use (p6_evm.parser.resource_type_label - finding
+    P21), so the narrative classes a resource exactly as every other feature does."""
+    from p6_evm.parser import resource_type_label
+    return _ENGINE_TYPE.get(resource_type_label(raw))
 
 
 def _res_from_xer(path):

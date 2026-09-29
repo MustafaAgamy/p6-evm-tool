@@ -1,6 +1,7 @@
-from datetime import datetime
 from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_calendar_id,
-                           lag_day_hours, sort_relationships, units_percent_complete)
+                           lag_day_hours, sort_relationships, units_percent_complete,
+                           parse_p6_datetime, collect_unparsed_dates, resource_type_label,
+                           resource_unit)
 from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis
 from p6_evm.clndr import parse_clndr_data
 
@@ -89,14 +90,9 @@ def _num(s, default=None):
 
 
 def _dt(s):
-    if not s:
-        return None
-    for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
-        try:
-            return datetime.strptime(s.strip(), fmt)
-        except ValueError:
-            continue
-    return None
+    # The one tolerant P6 date reader shared with the XML path (finding P22): a value it cannot
+    # read is recorded in data.unparsed_dates instead of silently dropped.
+    return parse_p6_datetime(s)
 
 
 def _pct_complete(t):
@@ -125,6 +121,13 @@ def _pct_complete(t):
 
 
 def parse_xer(path):
+    with collect_unparsed_dates() as unparsed:
+        data = _parse_xer(path)
+    data.unparsed_dates = dict(unparsed)
+    return data
+
+
+def _parse_xer(path):
     tables = read_xer_tables(path)
     data = ScheduleData()
 
@@ -317,14 +320,17 @@ def parse_xer(path):
     # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.
     # 'code' is P6's human Resource Id (rsrc_short_name — the short code the planner sees), distinct
     # from the internal rsrc_id; the UI shows the code so the table matches P6.
-    _RSRC_TYPE = {'RT_Labor': 'Labour', 'RT_Nonlabor': 'Equipment', 'RT_Equip': 'Equipment',
-                  'RT_Mat': 'Material'}
+    # Type and Unit of Measure read with the SAME vocabulary / rule as parser.py (finding P21).
+    uom = {u.get('unit_id'): resource_unit(u.get('unit_abbrev'), u.get('unit_name'))
+           for u in tables.get('UMEASURE', []) if u.get('unit_id')}
     for rr in tables.get('RSRC', []):
         rid = rr.get('rsrc_id')
         if rid:
+            unit, unit_name = uom.get(rr.get('unit_id'), (None, None))
             data.resources[rid] = {'name': rr.get('rsrc_name') or rr.get('rsrc_short_name') or rid,
                                    'code': rr.get('rsrc_short_name'),
-                                   'type': _RSRC_TYPE.get(rr.get('rsrc_type'))}
+                                   'type': resource_type_label(rr.get('rsrc_type')),
+                                   'unit': unit, 'unit_name': unit_name}
 
     for ra in tables.get('TASKRSRC', []):
         tid = ra.get('task_id')

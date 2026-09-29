@@ -1,3 +1,5 @@
+import contextlib
+import contextvars
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -18,10 +20,55 @@ XML_REL_TYPE = {
 }
 
 
-def parse_datetime(s):
-    if not s:
+# ONE date reader for both formats (finding P22). The XML path used strptime (it CRASHED the whole
+# import on a date with fractional seconds or a time-zone suffix) and the XER path tried three
+# formats and silently returned None on anything else. Both now accept what P6 and other P6
+# exporters write - 'YYYY-MM-DD', 'YYYY-MM-DD HH:MM[:SS]', 'YYYY-MM-DDTHH:MM[:SS]', optional
+# fractional seconds ('.000') and an optional time-zone designator ('Z', '+03:00', '-0500'), which
+# is IGNORED: P6 dates are the project's wall-clock times, so the clock time written is kept, the
+# same for every date in the file. A value that is still not a date gives None (never a crash)
+# and is recorded in data.unparsed_dates {raw value: count} so the import can SAY so.
+_P6_DT_RE = re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})'
+                       r'(?:[T ](\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?'
+                       r'(?:\s*(?:Z|[+-]\d{2}(?::?\d{2})?))?')
+_UNPARSED_DATES = contextvars.ContextVar('p6_unparsed_dates', default=None)
+
+
+@contextlib.contextmanager
+def collect_unparsed_dates():
+    """Collect every date value parse_p6_datetime could not read while the block runs
+    ({raw value: count}); each parser attaches it to its ScheduleData.unparsed_dates."""
+    sink = {}
+    token = _UNPARSED_DATES.set(sink)
+    try:
+        yield sink
+    finally:
+        _UNPARSED_DATES.reset(token)
+
+
+def parse_p6_datetime(s):
+    """A P6 date/time from an XML element or an XER field -> naive datetime, or None."""
+    if s is None:
         return None
-    return datetime.strptime(s, DATETIME_FMT)
+    v = str(s).strip()
+    if not v:
+        return None
+    m = _P6_DT_RE.fullmatch(v)
+    if m:
+        y, mo, d, h, mi, sec, frac = m.groups()
+        try:
+            return datetime(int(y), int(mo), int(d), int(h or 0), int(mi or 0), int(sec or 0),
+                            int((frac or '0')[:6].ljust(6, '0')))
+        except ValueError:
+            pass
+    sink = _UNPARSED_DATES.get()
+    if sink is not None:
+        sink[v] = sink.get(v, 0) + 1
+    return None
+
+
+def parse_datetime(s):
+    return parse_p6_datetime(s)
 
 
 def parse_float(s, default=0.0):
@@ -30,20 +77,39 @@ def parse_float(s, default=0.0):
     return float(s)
 
 
-def _res_type_label(raw):
-    """Human resource-type label from P6's ResourceType field. P6 uses Labor / Nonlabor /
-    Material; return a plain word (Labour / Equipment / Material) or None when absent so the
-    UI shows an honest '—' rather than a fabricated type."""
-    if not raw:
+# ONE resource-type vocabulary for both formats (finding P21): P6 writes the XML's <ResourceType>
+# as Labor / Nonlabor / Material and the XER's RSRC.rsrc_type as RT_Labor / RT_Equip / RT_Mat
+# (older exports RT_Nonlabor). Both read as the plain words Labour / Equipment / Material. A value
+# that is none of these is kept as written in BOTH formats (honest, never guessed - it used to be
+# None from an XER but the raw word from an XML); absent -> None so the UI shows '-'.
+RESOURCE_TYPE = {'labor': 'Labour', 'labour': 'Labour', 'rt_labor': 'Labour', 'rt_labour': 'Labour',
+                 'nonlabor': 'Equipment', 'non-labor': 'Equipment', 'nonlabour': 'Equipment',
+                 'non-labour': 'Equipment', 'rt_nonlabor': 'Equipment', 'rt_equip': 'Equipment',
+                 'equipment': 'Equipment',
+                 'material': 'Material', 'rt_mat': 'Material', 'rt_material': 'Material'}
+
+
+def resource_type_label(raw):
+    """Labour / Equipment / Material from either format's resource type (see RESOURCE_TYPE)."""
+    if raw is None:
         return None
-    r = str(raw).strip().lower()
-    if r.startswith('labor') or r.startswith('labour'):
-        return 'Labour'
-    if r.startswith('nonlabor') or r.startswith('non-labor') or r.startswith('nonlabour'):
-        return 'Equipment'
-    if r.startswith('material'):
-        return 'Material'
-    return str(raw).strip()
+    r = str(raw).strip()
+    if not r:
+        return None
+    return RESOURCE_TYPE.get(r.lower(), r)
+
+
+_res_type_label = resource_type_label   # former name (tests / callers)
+
+
+def resource_unit(abbrev, name):
+    """(unit, unit_name) of a resource's Unit of Measure - P6's Unit Abbreviation (falling back to
+    the Unit Name when blank) and the Unit Name, read the same from the XML's <UnitOfMeasure>
+    (Abbreviation / Name) and the XER's UMEASURE (unit_abbrev / unit_name) (finding P21: the
+    parsers kept no unit, so p6_narrative re-read the file for it)."""
+    a = (abbrev or '').strip() or None
+    n = (name or '').strip() or None
+    return (a or n), n
 
 
 class ScheduleData:
@@ -72,9 +138,14 @@ class ScheduleData:
         # Resource-loading detail (additive; populated only when the export carries it — a bare
         # XER/XML has none). Used by the optional Baseline Revision resource/cost comparison;
         # never read by EVM/metrics, which keep using bac_by_activity / ac_by_activity.
-        self.resources = {}                # resource ObjectId -> {'name', 'code' (P6 Id), 'type'}
+        self.resources = {}                # resource ObjectId -> {'name', 'code' (P6 Id), 'type'
+                                           #   (Labour/Equipment/Material, resource_type_label),
+                                           #   'unit' / 'unit_name' (Unit of Measure, resource_unit)}
         self.assignments_by_activity = {}  # activity ObjectId -> [{resource_id, resource_code, resource_name,
                                            #   resource_type, budget_units, actual_units, budget_cost, rate}]
+        # Date values the file holds that are not a date (parse_p6_datetime) -> {raw value: count}.
+        # Empty for every real export; a non-empty dict means those dates were read as blank.
+        self.unparsed_dates = {}
 
 
 def _activity_calendar(data, cid, spare=None):
@@ -180,6 +251,13 @@ def parse_file(path) -> ScheduleData:
     if path.lower().endswith('.xer'):
         from p6_evm.xer import parse_xer
         return parse_xer(path)
+    with collect_unparsed_dates() as unparsed:
+        data = _parse_xml(path)
+    data.unparsed_dates = dict(unparsed)
+    return data
+
+
+def _parse_xml(path) -> ScheduleData:
     # ---- existing XML parsing continues unchanged below ----
     ns_uri = _detect_namespace(path)
     ns = f'{{{ns_uri}}}' if ns_uri else ''
@@ -421,14 +499,18 @@ def parse_file(path) -> ScheduleData:
 
     # Resource names (additive) — resources sit at document root in P6 XML. Best-effort:
     # any export without them simply yields no resource comparison.
+    uom = {text(u, 'ObjectId'): resource_unit(text(u, 'Abbreviation'), text(u, 'Name'))
+           for u in root.iter(tag('UnitOfMeasure')) if text(u, 'ObjectId')}
     for res_el in root.iter(tag('Resource')):
         rid = text(res_el, 'ObjectId')
         if rid:
             # 'code' is P6's human Resource Id (the short code the planner sees, e.g. "LAB-01") —
             # distinct from the internal ObjectId. Display uses the code; ObjectId stays the key.
+            unit, unit_name = uom.get(text(res_el, 'UnitOfMeasureObjectId'), (None, None))
             data.resources[rid] = {'name': text(res_el, 'Name') or text(res_el, 'Id') or rid,
                                    'code': text(res_el, 'Id'),
-                                   'type': _res_type_label(text(res_el, 'ResourceType'))}
+                                   'type': resource_type_label(text(res_el, 'ResourceType')),
+                                   'unit': unit, 'unit_name': unit_name}
 
     res_rates = None   # ResourceObjectId -> [(EffectiveDate, {RateType: price})], read on demand
 
