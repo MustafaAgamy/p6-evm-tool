@@ -152,7 +152,7 @@ def _codes_doc(sizes):
         {'number': 10, 'title': 'Activity Codes', 'kind': 'codes', 'payload': {'tables': tables}}]}
 
 
-_FLOW_JS = "if(hg>fit&&hg<=flow&&!el.closest('td,th'))"
+_FLOW_JS = "if(hg>fit&&hg<=flow&&!inCell(el))"
 
 
 def _blank_flags(pdf):

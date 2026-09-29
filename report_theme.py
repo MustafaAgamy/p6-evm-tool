@@ -349,6 +349,18 @@ def pagination_script():
         "return getComputedStyle(r).backgroundColor+'|'+(c?getComputedStyle(c).backgroundColor:'');}\n"
         "var SKIP={SCRIPT:1,STYLE:1,TEMPLATE:1,LINK:1,META:1,BR:1,WBR:1};\n"
         "function hOf(e){return e.getBoundingClientRect().height;}\n"
+        # a document SHELL (the Reporting Studio wraps its whole body in one table cell so
+        # the running header / footer repeat) is not a data table: a cell taller than a page
+        # is a page container, so the rules apply inside it as in the body (STUDIO-PDF-1)
+        "var FLOWPX=1e9;\n"
+        "function inCell(e){var c=e.parentElement&&e.parentElement.closest('td,th');"
+        "while(c){if(hOf(c)<=FLOWPX)return true;c=c.parentElement&&c.parentElement.closest('td,th');}"
+        "return false;}\n"
+        "function shell(t){if(t.tagName!=='TABLE'||t.rows.length>6||hOf(t)<=FLOWPX||inCell(t))return false;"
+        "for(var i=0;i<t.rows.length;i++){if(hOf(t.rows[i])>FLOWPX)return true;}return false;}\n"
+        "function shellReserve(){var r=0,ts=document.querySelectorAll('table');"
+        "for(var i=0;i<ts.length;i++){if(!shell(ts[i]))continue;"
+        "r=Math.max(r,(ts[i].tHead?hOf(ts[i].tHead):0)+(ts[i].tFoot?hOf(ts[i].tFoot):0));}return r;}\n"
         "function visible(e){return !!e&&!SKIP[e.tagName]&&hOf(e)>0;}\n"
         "function nextBlock(h){var n=h;for(var up=0;up<4&&n&&n!==document.body;up++){"
         "var s=n.nextElementSibling;while(s&&!visible(s))s=s.nextElementSibling;"
@@ -363,10 +375,11 @@ def pagination_script():
         "TEXTAREA:1,BUTTON:1,SCRIPT:1,STYLE:1,TEMPLATE:1};\n"
         "function headings(){var out=[],seen=new Set(),i,n;\n"
         "try{var hs=document.querySelectorAll(HSEL);for(i=0;i<hs.length;i++){"
-        "if(!hs[i].closest('td,th')){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"
+        "if(!inCell(hs[i])){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"
         "var bfs=parseFloat(getComputedStyle(document.body).fontSize)||12;"
         "var tw=document.createTreeWalker(document.body,1,{acceptNode:function(x){"
-        "return (NOHEAD[x.tagName]||NOHEAD[x.localName])?2:1;}});\n"
+        "if(x.tagName==='THEAD'||x.tagName==='TFOOT')return 2;"
+        "return (NOHEAD[x.tagName]||NOHEAD[x.localName])?(shell(x)?3:2):1;}});\n"
         "while((n=tw.nextNode())){if(seen.has(n)||n.childElementCount>4)continue;var hg=hOf(n);"
         "if(!hg||hg>HMAX)continue;var tx=n.textContent;if(!tx||tx.length>HTXT*3)continue;tx=tx.trim();"
         "if(!tx||tx.length>HTXT)continue;var cs=getComputedStyle(n);"
@@ -377,11 +390,18 @@ def pagination_script():
         "function pairHeads(todo,fit){var hs=headings();for(var i=0;i<hs.length;i++){"
         "var h=hs[i][0],b=nextBlock(h);if(!b)continue;var hh=hOf(h);"
         "if(!hs[i][1])todo.push([h,'rpt-head']);"
-        "for(var c=b,d=0;c&&d<4;d++){var ch=hOf(c),tg=c.tagName;"
+        "for(var c=b,d=0,led=0;c&&d<4;d++){var ch=hOf(c),tg=c.tagName;"
+        # a short lead-in paragraph ("The major milestones ... are listed below") belongs to
+        # the heading: it may not end the page either, so heading + lead-in + the start of
+        # the next block (a table's first rows, a chart) travel together (STUDIO-PDF-1)
+        "if(!led&&tg==='P'&&ch<=HMAX*2&&hh+ch<=fit){var s=c.nextElementSibling;"
+        "while(s&&!visible(s))s=s.nextElementSibling;"
+        "if(s){todo.push([c,'rpt-head']);hh+=ch;led=1;c=s;continue;}}"
         "if(hh+ch<=fit){if(tg!=='TR'&&tg!=='TBODY'&&tg!=='THEAD')todo.push([c,'rpt-fit']);break;}"
         "if(tg==='TABLE'||tg==='P'||tg==='UL'||tg==='OL'||tg==='PRE')break;"
         "c=firstBlock(c);}}}\n"
-        "function compose(){undo();var H=pageHeight(),fit=H*FIT,flow=H*FLOW,todo=[],i;\n"
+        "function compose(){undo();var H=pageHeight();FLOWPX=H*FLOW;"
+        "H=Math.max(200,H-shellReserve());var fit=H*FIT,flow=H*FLOW,todo=[],i;FLOWPX=flow;\n"
         "var els=document.querySelectorAll(SEL);\n"
         "for(i=0;i<els.length;i++){var el=els[i],r=el.getBoundingClientRect(),hg=r.height;if(!hg)continue;"
         "if(hg>flow)todo.push([el,'rpt-flow']);"
@@ -392,7 +412,7 @@ def pagination_script():
         # never pushed whole to leave the page above it half blank. The renderer's own
         # keep-whole on the table and on its thin wrappers (label + table blocks, flex
         # pairs) is lifted; rows still never split and never strand 1-2 rows.
-        "if(hg>fit&&hg<=flow&&!el.closest('td,th')){todo.push([el,'rpt-flow']);"
+        "if(hg>fit&&hg<=flow&&!inCell(el)){todo.push([el,'rpt-flow']);"
         "for(var a=el.parentElement,d=0;a&&a!==document.body&&d<3;d++,a=a.parentElement){"
         "if(hOf(a)>flow)break;todo.push([a,'rpt-flow']);}}"
         "var host=el.parentElement,cs=host?getComputedStyle(host):null,"
