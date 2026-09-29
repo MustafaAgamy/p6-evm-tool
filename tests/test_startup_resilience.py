@@ -453,3 +453,122 @@ def test_attach_library_loggers_routes_pywebview_errors(tmp_path):
     assert 'WebView2 initialization failed' in (tmp_path / 'logs' / 'startup.log').read_text(encoding='utf-8')
     for h in app_startup.get_logger().handlers:
         logging.getLogger('pywebview-test').removeHandler(h)
+
+
+# ── [startup:F1] BLACK-3: WebView2 never shows the page -> relaunch once in safe graphics ──
+
+def test_any_page_message_counts_as_page_contact():
+    app_startup.PAGE_CONTACT.clear()
+    app_startup.client_log({'kind': 'booted'})
+    assert app_startup.PAGE_CONTACT.is_set()
+    app_startup.PAGE_CONTACT.clear()
+
+
+def test_pywebview_init_failure_is_detected_from_its_log(tmp_path):
+    import logging
+    app_startup.WEBVIEW_INIT_FAILED.clear()
+    app_startup.attach_library_loggers(('pywebview-test2',))
+    lg = logging.getLogger('pywebview-test2')
+    try:
+        lg.error('some other pywebview error')
+        assert not app_startup.WEBVIEW_INIT_FAILED.is_set()
+        lg.error('WebView2 initialization failed with exception:\n System.Exception: 0x8007139F')
+        assert app_startup.WEBVIEW_INIT_FAILED.is_set()
+    finally:
+        for h in list(lg.handlers):
+            lg.removeHandler(h)
+        app_startup.WEBVIEW_INIT_FAILED.clear()
+
+
+def test_watchdog_gives_up_at_once_when_webview2_failed_to_start(tmp_path):
+    app_startup.begin_launch()
+    failed = threading.Event()
+    failed.set()
+    w = _FakeWindow()
+    t = time.monotonic()
+    assert app_startup.watch_startup(w, 'u', ready=threading.Event(), first_s=30, second_s=30,
+                                     abort=failed, contact=threading.Event()) == 'failed'
+    assert time.monotonic() - t < 3
+    assert w.loads == []                                # no point reloading a dead WebView
+    assert app_startup.safe_graphics_enabled()
+    assert app_startup.STATE['page_contact'] is False
+
+
+def test_watchdog_reloads_early_when_the_page_never_made_contact():
+    ev = threading.Event()
+    w = _FakeWindow(on_load=ev.set)
+    t = time.monotonic()
+    assert app_startup.watch_startup(w, 'u', ready=ev, first_s=30, second_s=1, no_contact_s=0.1,
+                                     contact=threading.Event()) == 'ready-after-reload'
+    assert time.monotonic() - t < 3 and w.loads == ['u']
+
+
+def test_watchdog_reports_a_running_page_so_app_py_does_not_relaunch(tmp_path):
+    """The page is alive (its own Retry card is on screen) but never ready: the watchdog
+    still reloads once and records the failure, but reports page_contact=True, so app.py
+    does not relaunch over the page's own card. A running page keeps the full first_s."""
+    app_startup.begin_launch()
+    contact = threading.Event()
+    contact.set()
+    w = _FakeWindow()
+    t = time.monotonic()
+    assert app_startup.watch_startup(w, 'u', ready=threading.Event(), first_s=0.6,
+                                     second_s=0.05, no_contact_s=0.01, contact=contact) == 'failed'
+    assert time.monotonic() - t >= 0.55
+    assert w.loads == ['u'] and app_startup.STATE['page_contact'] is True
+
+
+def test_relaunch_in_safe_graphics_once_with_a_clean_environment(tmp_path):
+    app_startup.begin_launch()
+    calls = []
+
+    def fake_popen(cmd, **kw):
+        calls.append((cmd, kw))
+    env = {'PATH': 'x', '_PYI_APPLICATION_HOME_DIR': r'C:\T\_MEI1', '_MEIPASS2': r'C:\T\_MEI1',
+           '_PYI_PARENT_PROCESS_LEVEL': '1'}
+    assert app_startup.relaunch_safe_graphics('never showed the page', popen=fake_popen, env=env)
+    (cmd, kw), = calls
+    child = kw['env']
+    assert child[app_startup.RELAUNCH_ENV] == '1' and child[app_startup.SAFE_GRAPHICS_ENV] == '1'
+    assert child['PYINSTALLER_RESET_ENVIRONMENT'] == '1' and child['PATH'] == 'x'
+    assert not [k for k in child if k.startswith('_PYI_') or k == '_MEIPASS2']
+    assert cmd == app_startup.relaunch_command()
+    assert app_startup.safe_graphics_enabled()
+    state = json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8'))
+    assert state['watchdog'] == 'failed' and state['relaunched'] is True
+    # this copy hands over: closing its window must not overwrite the new copy's record
+    (tmp_path / 'launch_state.json').write_text(json.dumps({'pid': 99, 'ready': True}), encoding='utf-8')
+    app_startup.end_launch()
+    assert json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8')) == {'pid': 99, 'ready': True}
+    # a relaunched copy never relaunches again (no loop)
+    assert app_startup.relaunch_safe_graphics('again', popen=fake_popen, env=child) is False
+    assert len(calls) == 1
+
+
+def test_relaunch_command_frozen_and_dev(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(sys, 'argv', [r'C:\A\Controlyx.exe'])
+    monkeypatch.setattr(sys, 'executable', r'C:\A\Controlyx.exe')
+    assert app_startup.relaunch_command() == [r'C:\A\Controlyx.exe']
+    monkeypatch.setattr(sys, 'frozen', False)
+    monkeypatch.setattr(sys, 'argv', ['app.py'])
+    cmd = app_startup.relaunch_command()
+    assert cmd[0] == sys.executable and cmd[1].endswith('app.py') and os.path.isabs(cmd[1])
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='named mutex is Windows-only')
+def test_a_relaunched_copy_does_not_wait_on_the_copy_it_replaces(monkeypatch):
+    name = r'Local\cx-test3-%d-%d' % (os.getpid(), int(time.time() * 1000))
+    assert app_startup.single_instance(name, 't', wait_s=0) is True
+    monkeypatch.setenv(app_startup.RELAUNCH_ENV, '1')
+    t = time.monotonic()
+    assert app_startup.single_instance(name, 'cx-no-window', wait_s=5, poll_s=0.05) is True
+    assert time.monotonic() - t < 1
+
+
+def test_app_py_relaunches_only_when_the_page_never_made_contact():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app.py'),
+               encoding='utf-8').read()
+    assert 'abort=app_startup.WEBVIEW_INIT_FAILED' in src and 'contact=app_startup.PAGE_CONTACT' in src
+    assert 'app_startup.relaunch_safe_graphics(' in src and 'PAGE_CONTACT.is_set()' in src

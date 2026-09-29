@@ -83,8 +83,19 @@ def _watch_startup(window, url):
 
     def run():
         closed = window.events.closed
-        if app_startup.watch_startup(window, url, closed=closed) == 'closed':
+        res = app_startup.watch_startup(window, url, closed=closed, second_s=20.0,
+                                        abort=app_startup.WEBVIEW_INIT_FAILED,
+                                        contact=app_startup.PAGE_CONTACT)
+        if res == 'closed':
             return
+        # WebView2 never ran the page at all (it failed to start, or stayed blank through a
+        # reload): start ONE fresh copy in safe graphics mode and close this black window,
+        # instead of leaving the owner to close and reopen it. A page that runs but fails
+        # shows its own Retry card, so it is never relaunched over.
+        if res == 'failed' and not app_startup.PAGE_CONTACT.is_set() and not closed.is_set():
+            if app_startup.relaunch_safe_graphics('WebView2 never showed the page'):
+                window.destroy()
+                return
         if not closed.is_set() and window.events.loaded.wait(5):
             app_startup.hook_renderer_recovery(window)
 

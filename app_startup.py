@@ -31,7 +31,11 @@ from logging.handlers import RotatingFileHandler
 
 T0 = time.monotonic()
 READY = threading.Event()                 # set when the page reports its shell is built
-STATE = {'ready_after_s': None, 'graphics': 'normal', 'watchdog': None}
+PAGE_CONTACT = threading.Event()          # set by ANY message from the page: WebView2 is
+                                          # rendering our page (even if it then fails)
+WEBVIEW_INIT_FAILED = threading.Event()   # pywebview logged 'WebView2 initialization failed'
+STATE = {'ready_after_s': None, 'graphics': 'normal', 'watchdog': None, 'page_contact': None}
+RELAUNCH_ENV = 'CONTROLYX_RELAUNCHED'     # set in a copy started by relaunch_safe_graphics()
 
 # pywebview sets its own AdditionalBrowserArguments; WebView2 lets the environment variable
 # override that value, so the safe-graphics value repeats pywebview's flag.
@@ -124,14 +128,31 @@ def attach_library_loggers(names=('pywebview',)):
     """Route a library's own logger (pywebview reports 'WebView2 initialization failed'
     there) into the startup log — in the windowed exe it otherwise goes nowhere."""
     try:
-        handlers = get_logger().handlers
+        handlers = list(get_logger().handlers)
         for name in names:
             lg = logging.getLogger(name)
-            for h in handlers:
-                if h not in lg.handlers:
+            for h in handlers + [_InitFailureWatcher()]:
+                if h not in lg.handlers and not (isinstance(h, _InitFailureWatcher) and any(
+                        isinstance(x, _InitFailureWatcher) for x in lg.handlers)):
                     lg.addHandler(h)
     except Exception:
         pass
+
+
+class _InitFailureWatcher(logging.Handler):
+    """pywebview's EdgeChromium backend logs 'WebView2 initialization failed' and simply
+    returns: the window then stays on its (black) background forever. Turn that log line
+    into WEBVIEW_INIT_FAILED so the watchdog can act at once instead of after a timeout."""
+
+    def __init__(self):
+        super().__init__(level=logging.ERROR)
+
+    def emit(self, record):
+        try:
+            if 'initialization failed' in record.getMessage():
+                WEBVIEW_INIT_FAILED.set()
+        except Exception:
+            pass
 
 
 # ── Page → app messages (POST /api/client-log) ─────────────────────────────
@@ -148,6 +169,7 @@ def _clip(v, n=600):
 def client_log(payload):
     """Record a message from the page's startup guard. ``kind == 'ready'`` completes the
     readiness handshake. Returns the normalised record (for tests)."""
+    PAGE_CONTACT.set()                    # the page is running (whatever it says next)
     p = payload if isinstance(payload, dict) else {}
     kind = str(p.get('kind') or 'info')
     kind = kind if kind in _CLIENT_KINDS else 'info'
@@ -289,50 +311,122 @@ def apply_graphics_mode(env=None):
 
 # ── Readiness watchdog (app.py runs this on a daemon thread) ──────────────
 
-def _wait(ready, seconds, closed, step=0.25):
-    """ready.wait(seconds), but give up as soon as the window is closed."""
+def _wait(ready, seconds, closed, step=0.25, abort=None):
+    """ready.wait(seconds), but give up as soon as the window is closed (None) or
+    ``abort`` is set ('abort')."""
     deadline = time.monotonic() + seconds
+    poll = closed is not None or abort is not None
     while True:
+        if abort is not None and abort.is_set() and not ready.is_set():
+            return 'abort'
         left = deadline - time.monotonic()
         if left <= 0:
             return ready.is_set()
-        if ready.wait(min(step, left) if closed is not None else left):
+        if ready.wait(min(step, left) if poll else left):
             return True
         if closed is not None and closed.is_set():
             return None
 
 
-def watch_startup(window, url, ready=None, first_s=45.0, second_s=30.0, closed=None):
+def watch_startup(window, url, ready=None, first_s=45.0, second_s=30.0, closed=None,
+                  abort=None, contact=None, no_contact_s=20.0):
     """Wait for the page's ``ready``. If it never comes (WebView2 failed to initialise,
     the renderer died, the page never loaded), reload the page once; if that also never
     becomes ready, record the failure so the next launch uses safe graphics. Stops
-    quietly ('closed') when ``closed`` (the window's closed event) is set first."""
+    quietly ('closed') when ``closed`` (the window's closed event) is set first.
+
+    ``abort`` (WEBVIEW_INIT_FAILED) ends the wait at once: WebView2 never started, so a
+    reload cannot help. ``contact`` (PAGE_CONTACT): while the page has said nothing at
+    all, the reload comes after ``no_contact_s`` instead of ``first_s`` (a running page
+    that is merely slow keeps the full ``first_s``). STATE['page_contact'] tells the
+    caller whether WebView2 ever ran the page (app.py relaunches only when it did not)."""
     ready = READY if ready is None else ready
-    got = _wait(ready, first_s, closed)
+    t_start = time.monotonic()
+    if contact is not None and no_contact_s < first_s:
+        got = _wait(ready, no_contact_s, closed, abort=abort)
+        if got is False and contact.is_set():
+            got = _wait(ready, first_s - no_contact_s, closed, abort=abort)
+    else:
+        got = _wait(ready, first_s, closed, abort=abort)
     if got is None:
         return 'closed'
+    if got == 'abort':
+        return _startup_failed('WebView2 failed to start (the pywebview error is logged above)',
+                               contact)
     if got:
         log('page ready after %ss', STATE.get('ready_after_s'))
         STATE['watchdog'] = 'ready'
         return 'ready'
-    log('page not ready after %.0fs: reloading it once', first_s, level=logging.WARNING)
+    log('page not ready after %.0fs (%s): reloading it once', time.monotonic() - t_start,
+        'no word from the page' if contact is not None and not contact.is_set()
+        else 'the page is running', level=logging.WARNING)
     try:
         window.load_url(url)
     except Exception:
         log_exception('reload failed')
-    got = _wait(ready, second_s, closed)
+    got = _wait(ready, second_s, closed, abort=abort)
     if got is None:
         return 'closed'
-    if got:
+    if got is True:
         log('page ready after the reload (%ss)', STATE.get('ready_after_s'))
         STATE['watchdog'] = 'ready-after-reload'
         return 'ready-after-reload'
-    log('page never became ready (%.0fs)', first_s + second_s, level=logging.ERROR)
+    return _startup_failed('WebView2 failed to start (the pywebview error is logged above)'
+                           if got == 'abort' else
+                           'the page never became ready in %.0fs' % (time.monotonic() - t_start),
+                           contact)
+
+
+def _startup_failed(reason, contact):
+    STATE['page_contact'] = None if contact is None else contact.is_set()
+    log('%s%s', reason, '' if contact is None else (
+        ' - the page is running (its own Retry card is on screen)' if contact.is_set()
+        else ' - the page never ran'), level=logging.ERROR)
     STATE['watchdog'] = 'failed'
     _update_launch_state(watchdog='failed')
     if not safe_graphics_enabled():
-        enable_safe_graphics('the page never became ready in %.0fs' % (first_s + second_s))
+        enable_safe_graphics(reason)
     return 'failed'
+
+
+def relaunch_command():
+    """The command that starts this app again: the exe itself when frozen, else
+    ``python app.py``."""
+    if getattr(sys, 'frozen', False):
+        return [sys.executable] + list(sys.argv[1:])
+    return [sys.executable, os.path.abspath(sys.argv[0])] + list(sys.argv[1:])
+
+
+def relaunch_safe_graphics(reason, popen=None, env=None):
+    """Start ONE fresh copy of the app in safe graphics mode and hand over to it (the
+    caller then closes its window). Used when WebView2 never showed the page at all, so
+    the owner does not have to close and reopen by hand. A copy that is itself a relaunch
+    never relaunches again. Returns True when the new copy was started."""
+    env = dict(os.environ if env is None else env)
+    if env.get(RELAUNCH_ENV) == '1':
+        log('not relaunching (this copy is already a relaunch): %s', reason, level=logging.ERROR)
+        return False
+    try:
+        if not safe_graphics_enabled():
+            enable_safe_graphics(reason)
+        _update_launch_state(watchdog='failed', relaunched=True)
+        with _LAUNCH_LOCK:                 # hand over: closing this window must not
+            _LAUNCH.clear()                # overwrite the new copy's launch record
+        for k in [k for k in env if k.startswith('_PYI_') or k == '_MEIPASS2']:
+            env.pop(k, None)               # the new copy unpacks its own files (PyInstaller)
+        env['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+        env[RELAUNCH_ENV] = '1'
+        env[SAFE_GRAPHICS_ENV] = '1'
+        if popen is None:
+            import subprocess
+            popen = subprocess.Popen
+        cmd = relaunch_command()
+        popen(cmd, env=env, close_fds=True)
+        log('relaunched in safe graphics mode (%s): %s', reason, cmd, level=logging.WARNING)
+        return True
+    except Exception:
+        log_exception('relaunch failed')
+        return False
 
 
 def hook_renderer_recovery(window):
@@ -421,10 +515,13 @@ def single_instance(name, title, wait_s=12.0, poll_s=0.25):
     brought to the front instead. Only a copy whose page is WORKING is brought forward;
     a copy that is still starting is waited for up to ``wait_s``, and one that never
     became ready (a black or blank window), is hung, or has no window at all never
-    blocks this launch."""
+    blocks this launch. A copy started by relaunch_safe_graphics() does not wait on the
+    copy it replaces (that one is closing its never-shown window)."""
     global _MUTEX
     if sys.platform != 'win32':
         return True
+    if os.environ.get(RELAUNCH_ENV) == '1':
+        wait_s = 0.0
     try:
         import ctypes
         kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
