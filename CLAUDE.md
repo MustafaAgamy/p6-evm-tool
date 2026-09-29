@@ -185,6 +185,12 @@ via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section
 or manual release note inputs**; the changelog is the single source of truth.
 
 **Never tag without updating `CHANGELOG.md` first.**
+The workflow enforces it: before building it runs `tests/test_app_version.py` and fails when the
+tag differs from the newest `## [vX.Y.Z]` heading (the version the exe shows).
+
+**Online calls** (Nominatim, Open-Meteo) go through `utils.open_url(req, timeout)` — a short
+connect timeout (`utils.CONNECT_TIMEOUT`, 6 s) with the caller's longer read timeout, so a blocked
+network is reported in seconds; errors become plain English via `utils.network_error_message`.
 
 ---
 

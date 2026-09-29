@@ -24,6 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
 - The version shown in Help and About now comes from one place: it is read from the newest release in this changelog, so it can no longer show an old number (it said 2.2.0 while the release was 2.8.0).
 - Help ▸ Getting started now says "P6 XML or XER export".
+- The release build now stops if the version being released has no matching section at the top of this changelog, so the app can never ship showing an old version number.
 
 ### Fixed — The app sometimes opened on a black screen
 - **Cause:** the start-up screen was only removed once every program file had loaded. If one file failed to load (for example while antivirus was scanning the freshly unpacked app), the window stayed black with no message, and only closing and reopening helped.
@@ -50,6 +51,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Place search without internet** says you are offline, not "no match". Typed coordinates (for example `31.26, 32.30`) and the map pin still work offline. When the map tiles cannot load, a note says so.
 - **AI Chat brain download:** the larger (7B) brain pointed at a file the download site does not have, so it always failed. It now downloads the two published parts. A download that is cut short is never installed. The tool checks free disk space first. When offline it shows a plain message, and the setup buttons come back.
 - **AI Chat brain download continues where it stopped.** If the internet drops, the tool tries again by itself after a short wait (3, 10 and 30 seconds) and keeps what it has already downloaded. If the connection is still down, it says so and keeps the downloaded part. Press **Set up the AI brain** again when you are back online and it continues from that point, not from zero (the brain is 2 to 4.7 GB). A file that changed on the download site is started again, never joined onto an old part.
+- **No long waits on a blocked network.** When the internet is blocked rather than simply off (a firewall, a hotel or site Wi-Fi login page, a broken proxy), place search and Bad Weather now give up connecting after about 6 seconds and say the connection looks slow or blocked. Before, the place search waited 15 seconds and Bad Weather 20 seconds. A slow but working weather service still has time to send five years of history. The dust data is now fetched at the same time as the weather history, not after it.
+- **The map says when the connection is lost after it has drawn.** Before, the "no internet" note only appeared if no part of the map had ever loaded. Now it also appears when you move the map after the internet drops, and it goes away when the map pictures load again.
+- **AI Review:** when the AI service does not answer in time, the message now says so. Before, it said the service "returned an unexpected response". A connection that drops mid-answer gives the same plain network message.
 - The online services identify the app honestly, as their usage rules ask. All addresses were checked: the 3 web pages, the 6 online-service calls and the 3 brain downloads answered HTTP 200. LinkedIn answered with its usual reply to automated checks (999), which means the site is up.
 
 ### Fixed — Your settings are kept
