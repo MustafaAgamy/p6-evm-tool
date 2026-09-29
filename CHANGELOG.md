@@ -32,6 +32,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Without a baseline, an XML now shows the same approximate figures as the XER, marked approximate, where it used to show zeros.
 - A baseline from another project (no Activity IDs match) is refused and never remembered.
 - "Import baseline XER" (Earned Value) and "Baseline XER" (Reporting Studio) are now labelled **XER or XML**.
+- **An XER that includes its baseline project is read like the XML with it:** the baseline dates and baseline budget come from the baseline project inside the file, so Planned Value, SPI and Delay match the XML. A normal XER update export (which carries only a pointer to its baseline) still names the baseline it needs, so you know which file to attach.
+- **24-hour calendars in XER files:** a 24-hour working day (and a shift that runs to midnight) was read as a non-working day, and a 24-hour exception day as a holiday. They now count as working, the same as in the XML, so working hours, float in days, lags and P6 Calendar Audit figures match.
 
 ### Fixed
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
