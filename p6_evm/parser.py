@@ -209,6 +209,8 @@ def parse_file(path) -> ScheduleData:
         'name': text(project_el, 'Name'),
         'data_date': parse_datetime(text(project_el, 'DataDate')),
         'baseline_object_id': text(project_el, 'CurrentBaselineProjectObjectId'),
+        # The embedded baseline's name (None when the file does not carry it) — same key as xer.py.
+        'baseline_name': text(baseline_el, 'Name') if baseline_el is not None else None,
         # Calendar Audit: project window (additive). P6 exports vary — take the first present.
         'planned_start': parse_datetime(
             text(project_el, 'PlannedStartDate') or text(project_el, 'StartDate')

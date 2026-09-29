@@ -26,7 +26,7 @@ Fields that fail TODAY are marked xfail(strict=True) with the parity-audit findi
 (D:/twe-scratch/phase2/parser/findings.json, commit "[parser:AUDIT]"). strict=True means a fix
 that makes one pass turns it into an XPASS failure - remove the marker when you fix the finding.
 The markers live in TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL (search for the finding id,
-e.g. "_P4") and on the variant tests at the bottom (no-baseline pair, P9, P17, P22, P23).
+e.g. "_P10") and on the variant tests at the bottom (no-baseline pair, P9, P17, P22, P23).
 Run:  pytest tests/test_parser_parity.py -p no:cacheprovider -q -rxX
 Genuine format differences (what P6 itself writes differently) are documented as plain tests,
 not xfails: see test_tf_from_hours_* below.
@@ -904,8 +904,8 @@ FIELDS = (
                                    'budget_units', 'actual_units', 'budget_cost', 'rate')]
 )
 
-_P1 = 'P1: baseline not read from the export (XER self-baseline / no baseline_source / name)'
-_P4 = 'P4: XER 24-h shift s|00:00|f|00:00 dropped -> 24-h weekdays non-working, 24-h exception = holiday'
+# FIXED (markers removed): P1 XER baseline rows / pointer / name read like the XML's
+# <BaselineProject>; P4 XER 24-h shift s|00:00|f|00:00 read as working to 24:00.
 _P5 = 'P5: XER imports the PROJWBS project-root node (proj_node_flag=Y)'
 _P6 = 'P6: XER status kept as TK_* codes instead of the P6 status words'
 _P7 = 'P7: XER constraint kept as CS_* codes'
@@ -928,7 +928,6 @@ _P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or do
 # they stood at commit "[parser:AUDIT]" (every failure checked against the finding's evidence).
 TRUTH_XFAIL = {
     ('xml', 'project.must_finish_by'): _P13,
-    ('xml', 'project.baseline_name'): _P1,
     ('xml', 'calendar.ids'): _P11,
     ('xml', 'calendar.work_intervals'): _P10,
     ('xml', 'calendar.exception_intervals'): _P10,
@@ -939,21 +938,11 @@ TRUTH_XFAIL = {
     ('xml', 'activity.secondary_constraint_date'): _P7B,
     ('xml', 'relationship.lag_days'): _P16,
     ('xml', 'assignment.rate'): _P20,
-    ('xer', 'project.baseline_object_id'): _P13 + ' / ' + _P1,
     ('xer', 'project.planned_start'): _P13,
     ('xer', 'project.scheduled_finish'): _P13,
     ('xer', 'project.must_finish_by'): _P13,
-    ('xer', 'project.baseline_name'): _P1,
     ('xer', 'data.activity_code_types'): _P18,
-    ('xer', 'data.baseline_by_id'): _P1 + ' / ' + _P23,
-    ('xer', 'data.baseline_bac_by_activity'): _P1 + ' / ' + _P23,
-    ('xer', 'data.baseline_source'): _P1,
     ('xer', 'calendar.ids'): _P23,
-    ('xer', 'calendar.nonworking_days'): _P4,
-    ('xer', 'calendar.holidays'): _P4,
-    ('xer', 'calendar.added_work_days'): _P4,
-    ('xer', 'calendar.work_intervals'): _P4,
-    ('xer', 'calendar.exception_intervals'): _P4,
     ('xer', 'calendar.type'): _P12,
     ('xer', 'calendar.is_default'): _P12,
     ('xer', 'wbs.ids'): _P5,
@@ -971,20 +960,13 @@ TRUTH_XFAIL = {
 }
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
 # wrong the SAME way - P7 secondary constraint, P11/P23 calendar ids, P13 must-finish-by, P16 lag
-# days, P1 baseline name - passes parity and is caught by test_truth only.)
+# days - passes parity and is caught by test_truth only.)
 PARITY_XFAIL = {
-    'project.baseline_object_id': _P13 + ' / ' + _P1,
     'project.planned_start': _P13,
     'project.scheduled_finish': _P13,
     'data.activity_code_types': _P18,
-    'data.baseline_by_id': _P1 + ' / ' + _P23,
-    'data.baseline_bac_by_activity': _P1 + ' / ' + _P23,
-    'data.baseline_source': _P1 + ' (XML embedded vs XER self: the XER baseline rows are not read)',
-    'calendar.nonworking_days': _P4,
-    'calendar.holidays': _P4,
-    'calendar.added_work_days': _P4,
-    'calendar.work_intervals': _P4 + ' / ' + _P10,
-    'calendar.exception_intervals': _P4 + ' / ' + _P10,
+    'calendar.work_intervals': _P10,
+    'calendar.exception_intervals': _P10,
     'calendar.weekly_working_days': _P12,
     'calendar.type': _P12,
     'calendar.is_default': _P12,
@@ -1130,7 +1112,6 @@ def test_no_baseline_pair_has_no_baseline_budget(parsed_nobl):
     assert parsed_nobl['xer'].baseline_bac_by_activity == {}
 
 
-@pytest.mark.xfail(strict=True, reason=_P13 + ' (XER PROJECT.sum_base_proj_id / BASELINE_EXPORT)')
 def test_no_baseline_pair_names_the_missing_baseline(parsed_nobl):
     """Both formats still know WHICH baseline is missing, so the UI can ask for it by name/id."""
     for fmt in ('xml', 'xer'):
@@ -1139,7 +1120,6 @@ def test_no_baseline_pair_names_the_missing_baseline(parsed_nobl):
 
 # ── XER / date edge cases ─────────────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=True, reason=_P23 + ' (PROJECT[0] wins)')
 def test_xer_with_baseline_project_first_still_reads_the_current_project(files):
     d = parse_file(files['xer_bl_first'])
     assert d.project.get('object_id') == PROJECT['object_id']
@@ -1163,3 +1143,12 @@ def test_xer_blank_total_float_is_reconstructed(files):
 def test_date_with_fractional_seconds_parses(files, fmt):
     d = parse_file(files[f'{fmt}_frac_dd'])
     assert d.project.get('data_date') == _d(PROJECT['data_date'])
+
+
+def test_no_baseline_xer_names_the_baseline_from_baseline_export(parsed_nobl):
+    """A P6 XER update export carries only BASELINE_EXPORT (id + name) - still name it, flag the
+    stand-in dates 'self', and carry no baseline budget (finding P1, real SG / ALSTOM exports)."""
+    d = parsed_nobl['xer']
+    assert d.project.get('baseline_object_id') == BASELINE['object_id']
+    assert d.project.get('baseline_name') == BASELINE['name']
+    assert d.baseline_source == 'self' and d.baseline_bac_by_activity == {}

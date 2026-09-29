@@ -92,8 +92,9 @@ def parse_xer(path):
     tables = read_xer_tables(path)
     data = ScheduleData()
 
-    proj = (tables.get('PROJECT') or [{}])[0]
+    proj, bl_proj = _current_and_baseline_project(tables)
     proj_id = proj.get('proj_id')
+    bl_proj_id = bl_proj.get('proj_id') if bl_proj else None
 
     # Derive the human-readable project name from this project's root WBS node (proj_node_flag='Y')
     root_wbs = next((w for w in tables.get('PROJWBS', [])
@@ -104,7 +105,11 @@ def parse_xer(path):
         'id': proj.get('proj_short_name'),
         'name': root_wbs.get('wbs_name') or proj.get('proj_short_name'),
         'data_date': _dt(proj.get('last_recalc_date')),
-        'baseline_object_id': None,
+        # The project's current baseline — named even when its rows are not in the file (a
+        # P6 XER update export carries only the BASELINE_EXPORT pointer), like the XML's
+        # CurrentBaselineProjectObjectId, so the screen can ask for THAT baseline (finding P1).
+        'baseline_object_id': proj.get('sum_base_proj_id') or None,
+        'baseline_name': _baseline_name(tables, proj, bl_proj),
     }
 
     for c in tables.get('CALENDAR', []):
@@ -192,13 +197,6 @@ def parse_xer(path):
             'actual_start': _dt(t.get('act_start_date')),
             'actual_finish': _dt(t.get('act_end_date')),
         }
-        # Populate baseline_by_id so EVM compute() can derive planned percentages
-        task_code = t.get('task_code')
-        if task_code:
-            data.baseline_by_id[task_code] = {
-                'planned_start': planned_start,
-                'planned_finish': planned_finish,
-            }
 
     for r in tables.get('TASKPRED', []):
         succ = r.get('task_id')
@@ -249,8 +247,79 @@ def parse_xer(path):
             'rate': _num(ra.get('cost_per_qty'), None),
         })
 
-    # A P6 XER export carries only a BASELINE_EXPORT pointer, not the baseline rows, so the
-    # baseline above is the update's own Planned dates - flag it (same vocabulary as parser.py).
-    if data.baseline_by_id and not getattr(data, 'baseline_source', None):
+    if bl_proj_id:
+        _read_embedded_baseline(tables, bl_proj_id, data)
+    if data.baseline_by_id:
+        data.baseline_source = 'embedded'
+    else:
+        # A P6 XER update export carries only the BASELINE_EXPORT pointer, not the baseline
+        # rows: the activities' own Planned dates stand in, flagged 'self' - exactly as
+        # parser.py does for an XML without <BaselineProject>; an attached baseline
+        # (p6_evm.baseline.resolve_baseline) replaces it.
+        for a in data.activities.values():
+            if a.get('id'):
+                data.baseline_by_id[a['id']] = {'planned_start': a.get('planned_start'),
+                                                'planned_finish': a.get('planned_finish')}
         data.baseline_source = 'self'
     return data
+
+
+def _current_and_baseline_project(tables):
+    """(current PROJECT row, its baseline PROJECT row or None).
+
+    A multi-project XER can carry the baseline project's own rows (PROJECT / PROJWBS / TASK /
+    TASKRSRC ...) beside the update - the XER twin of the XML's <BaselineProject>. The current
+    project is the first row that is NOT another row's baseline (sum_base_proj_id), wherever the
+    baseline row sits; its baseline is the row whose proj_id is its sum_base_proj_id."""
+    rows = tables.get('PROJECT') or [{}]
+    ids = {r.get('proj_id') for r in rows}
+    baselines = {r.get('sum_base_proj_id') for r in rows
+                 if r.get('sum_base_proj_id') and r.get('sum_base_proj_id') != r.get('proj_id')}
+    current = next((r for r in rows if r.get('proj_id') not in baselines), rows[0])
+    bl_id = current.get('sum_base_proj_id')
+    bl_row = None
+    if bl_id and bl_id != current.get('proj_id') and bl_id in ids:
+        bl_row = next(r for r in rows if r.get('proj_id') == bl_id)
+    return current, bl_row
+
+
+def _baseline_name(tables, proj, bl_proj):
+    """The baseline's project name: BASELINE_EXPORT.proj_name for the project's baseline (P6
+    writes it even when the baseline rows are not exported), else the baseline project's own
+    root-WBS name (what the XML's <BaselineProject><Name> holds)."""
+    bl_id = proj.get('sum_base_proj_id')
+    if not bl_id:
+        return None
+    for r in tables.get('BASELINE_EXPORT', []):
+        if r.get('proj_id') == bl_id and r.get('proj_name'):
+            return r.get('proj_name')
+    if bl_proj:
+        root = next((w for w in tables.get('PROJWBS', [])
+                     if w.get('proj_node_flag') == 'Y' and w.get('proj_id') == bl_id), {})
+        return root.get('wbs_name') or bl_proj.get('proj_short_name')
+    return None
+
+
+def _read_embedded_baseline(tables, bl_proj_id, data):
+    """Fill baseline_by_id / baseline_bac_by_activity from the baseline project's own TASK and
+    TASKRSRC rows - the same linkage parser.py makes from <BaselineProject>: planned dates
+    (target_start/end = PlannedStart/FinishDate) keyed by Activity Id, baseline budget
+    (target_cost = PlannedCost) summed per activity and keyed back to the current activity by
+    Activity Id (only where the baseline carries cost)."""
+    bl_code = {}
+    for t in tables.get('TASK', []):
+        if t.get('proj_id') != bl_proj_id or not t.get('task_code'):
+            continue
+        bl_code[t.get('task_id')] = t.get('task_code')
+        data.baseline_by_id[t.get('task_code')] = {
+            'planned_start': _dt(t.get('target_start_date')),
+            'planned_finish': _dt(t.get('target_end_date')),
+        }
+    bac_by_code = {}
+    for ra in tables.get('TASKRSRC', []):
+        code = bl_code.get(ra.get('task_id'))
+        if code:
+            bac_by_code[code] = bac_by_code.get(code, 0.0) + (_num(ra.get('target_cost'), 0.0) or 0.0)
+    for oid, a in data.activities.items():
+        if a.get('id') in bac_by_code:
+            data.baseline_bac_by_activity[oid] = bac_by_code[a['id']]
