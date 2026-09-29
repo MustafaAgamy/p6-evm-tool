@@ -8,7 +8,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
-import { revealAndRun, revealStage } from './featurereveal.js';
+import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
 
 const MODES = [
   ['two_updates',       'Two updates',          'Update A vs Update B — this period vs a prior one',  ['previous']],
@@ -125,10 +125,12 @@ function _run() {
     // Only pass the cached copy of the open schedule when we're using it (no override).
     if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
     for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
+    const stages = followRunStages(state.serverPort);     // the bar names the server's real step
+    payload.run_id = stages.id;
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-      });
+      }).finally(stages.stop);
       const data = await resp.json();
       if (!data.ok) { rep.innerHTML = `<div class="cpa-empty">${escapeHtml(data.error || 'Could not analyze.')}</div>`; return; }
       _shownReport = data.report;

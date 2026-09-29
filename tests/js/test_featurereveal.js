@@ -247,5 +247,85 @@ await test('Update Analysis: a file with no baseline inside it is answered at on
   assert.match(read('p6_update', 'analysis.py'), /has_baseline = bool\(getattr\(data, 'baseline_by_id', None\)\)/);
 });
 
+// ── RUNUX-07/08/09: long server Runs name their REAL steps and move through their bands ──
+await test('server steps move the bar through their bands; never past the wait cap while the request runs', () => {
+  const m = createRevealModel();
+  const T = REVEAL_TIMING;
+  const tr = drive(m, {
+    until: 70000, stopOnReveal: false, frameMs: 50,
+    events: {
+      0: (mm, t) => { mm.workStarted(t); mm.requestSent(); },
+      200: (mm, t) => mm.setBand(0, 0.25, 5, t),         // Reading Rev.00 (est 5 s)
+      8000: (mm, t) => mm.setBand(0.25, 0.8, 11, t),     // Reading Rev.01 (est 11 s)
+      30000: (mm, t) => mm.setBand(0.8, 1, 4, t),        // Matching and comparing (est 4 s)
+    },
+  });
+  const at = ms => tr.find(f => f.now >= ms);
+  const band = x => 6 + (T.WAIT_CAP - 6) * x;
+  assert.ok(at(7900).display <= band(0.25) + 1e-9, 'first step stays inside its share of the bar');
+  assert.ok(at(7900).display > band(0.2), 'and has moved through most of it by its estimate');
+  assert.ok(at(29900).display <= band(0.8) + 1e-9 && at(29900).display > band(0.7), 'second step fills its share');
+  assert.ok(tr.every(f => f.pct < 100 && f.display < T.WAIT_CAP), 'never 100% (nor the cap) while the request runs');
+  for (let i = 1; i < tr.length; i++) assert.ok(tr[i].display >= tr[i - 1].display, 'never goes down');
+});
+
+await test('stage polls (/api/run/stage) are not counted as work by the request tap', async () => {
+  const target = { fetch: () => Promise.resolve({ ok: true }) };
+  installRequestTap(target);
+  const m = createRevealModel();
+  REVEAL_WATCHERS.add(m);
+  try {
+    await target.fetch('http://localhost:1/api/run/stage?id=x');
+    assert.equal(m.inflight, 0);
+    const p = target.fetch('http://localhost:1/api/revcompare');
+    assert.equal(m.inflight, 1);
+    await p; await Promise.resolve();
+    assert.equal(m.inflight, 0);
+  } finally { REVEAL_WATCHERS.delete(m); }
+});
+
+await test('followRunStages polls with its id, shows the step + its band, and stops when told', async () => {
+  const { followRunStages } = await import('../../ui/modules/featurereveal.js');
+  const urls = [];
+  let answer = { ok: true, stage: { label: 'Reading Rev.01 — b.xml', from: 0.25, to: 0.8, est_s: 11, step: 2, steps: 3 } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (u) => { urls.push(String(u)); return Promise.resolve({ json: () => Promise.resolve(answer) }); };
+  const m = createRevealModel();
+  REVEAL_WATCHERS.add(m);
+  try {
+    const st = followRunStages(4321, { every: 20 });
+    assert.match(st.id, /^run-/);
+    await new Promise(r => setTimeout(r, 120));
+    assert.ok(urls.length >= 1 && urls.every(u => u === `http://localhost:4321/api/run/stage?id=${st.id}`));
+    m.workStarted(0); m.requestSent();
+    const f = m.frame(1000);
+    assert.equal(f.label, 'Reading Rev.01 — b.xml');
+    st.stop();
+    const n = urls.length;
+    answer = { ok: true, stage: { label: 'late', from: 0.8, to: 1, est_s: 1, step: 3, steps: 3 } };
+    await new Promise(r => setTimeout(r, 100));
+    assert.ok(urls.length <= n + 1, 'no more polling after stop()');
+    assert.equal(m.frame(1100).label, 'Reading Rev.01 — b.xml', 'a poll answered after stop() is ignored');
+  } finally { REVEAL_WATCHERS.delete(m); globalThis.fetch = realFetch; }
+});
+
+await test('Baseline Revision, Critical Path and Consultant Review send a run_id and follow the server steps', () => {
+  for (const [mod, api] of [['revcompare.js', '/api/revcompare'], ['critpath.js', '/api/critpath/analyze'], ['compare.js', '/api/compare']]) {
+    const src = read('ui', 'modules', mod);
+    assert.match(src, /import \{[^}]*\bfollowRunStages\b[^}]*\}\s+from '\.\/featurereveal\.js'/, mod);
+    const at = src.indexOf(api + '`');
+    const win = src.slice(src.lastIndexOf('followRunStages(state.serverPort)', at), at + 700);
+    assert.ok(win.startsWith('followRunStages(state.serverPort)'), mod + ': poller started before the request');
+    assert.match(win, /run_id/, mod + ': run_id sent with the request');
+    assert.match(win, /\}\)\.finally\(stages\.stop\);/, mod + ': polling stops the moment the answer arrives');
+  }
+  const srv = read('server.py');
+  assert.match(srv, /elif self\.path\.startswith\('\/api\/run\/stage'\):/);
+  for (const lbl of ["f'Reading Rev.00 — ", "f'Reading Rev.01 — ", "'Matching activities and comparing the revisions'",
+    "'Tracing the driving path to every finish milestone'", "f'Reading the baseline — ", "'Comparing logic, durations and milestones'"]) {
+    assert.ok(srv.includes(lbl), 'server step: ' + lbl);
+  }
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -50,7 +50,8 @@ export function createRevealModel(opts) {
   if (opts.reduce) { T.MIN_SHOW_MS = 0; T.FINAL_MS = 0; }   // reduced motion: jump to each stage
   const s = { t0: null, last: null, display: 0, startedAt: null, inflight: 0, sent: 0,
               settledAt: null, framesSinceSettle: 0, finalRate: null, revealed: false,
-              label: null };     // the feature's own name for what it is doing now (revealStage)
+              label: null,       // the feature's own name for what it is doing now (revealStage)
+              band: null };      // the server's real step: its share of the bar (revealBand)
 
   function stage() {
     if (s.settledAt != null) return s.framesSinceSettle >= 2 ? 'painted' : 'rendering';
@@ -63,7 +64,13 @@ export function createRevealModel(opts) {
     if (st === 'rendering') return T.RENDER_PCT;
     if (s.startedAt == null) return 3;
     const waited = Math.max(0, now - s.startedAt);
-    const creep = 6 + (T.WAIT_CAP - 6) * (1 - Math.exp(-waited / T.TAU_MS));
+    let creep = 6 + (T.WAIT_CAP - 6) * (1 - Math.exp(-waited / T.TAU_MS));
+    if (s.band) {
+      // The server named its step: move through THAT step's share of the bar (reading each
+      // file, then comparing) — an estimated creep inside the band that never passes its end.
+      const b = s.band, inBand = 1 - Math.exp(-Math.max(0, now - b.t) / b.tau);
+      creep = 6 + (T.WAIT_CAP - 6) * Math.min(1, Math.max(0, b.from + (b.to - b.from) * inBand));
+    }
     return st === 'received' ? Math.max(T.RECEIVED_PCT, creep) : creep;
   }
   function frame(now) {
@@ -106,6 +113,11 @@ export function createRevealModel(opts) {
     // "Results received" unless the feature names its next stage (revealStage again).
     requestDone() { if (s.inflight > 0) s.inflight--; if (s.inflight === 0) s.label = null; },
     setLabel(label) { s.label = label ? String(label) : null; },
+    // The server's real step as a share of the calculation (0..1) and its estimated seconds.
+    setBand(from, to, estS, now) {
+      const a = Math.max(0, Math.min(1, +from || 0)), b = Math.max(a, Math.min(1, +to || 0));
+      s.band = { from: a, to: b, t: now, tau: Math.max(300, (+estS || 0) * 1000 / 2.5) };
+    },
     settled(now) { if (s.settledAt == null) s.settledAt = now; },
     frame,
     stage,
@@ -124,7 +136,7 @@ const TAPPED = typeof WeakSet === 'function' ? new WeakSet() : null;
 function isApiRequest(input) {
   try {
     const u = typeof input === 'string' ? input : ((input && input.url) || String(input));
-    return /\/api\//.test(u);
+    return /\/api\//.test(u) && !/\/api\/run\/stage/.test(u);   // stage polls are not work
   } catch (e) { return false; }
 }
 
@@ -151,6 +163,41 @@ export function installRequestTap(target) {
 // Call it inside the `work` of revealAndRun, right before each step. No reveal open → no-op.
 export function revealStage(label) {
   REVEAL_WATCHERS.forEach(w => { try { if (w.setLabel) w.setLabel(label); } catch (e) {} });
+}
+
+// The server's real step as a share of the bar (from..to of the calculation, 0..1).
+export function revealBand(from, to, estS) {
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  REVEAL_WATCHERS.forEach(w => { try { if (w.setBand) w.setBand(from, to, estS, now); } catch (e) {} });
+}
+
+// A long server Run (reading two or three whole schedules, then comparing) reports the step
+// it is REALLY on (server.py _RunStages). Send `id` as `run_id` with the request, and call
+// stop() when it settles; meanwhile the open Run bar shows the server's step ("Reading
+// Rev.01 — <file>") and moves through that step's share of the bar.
+export function followRunStages(port, opts) {
+  const id = 'run-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  const every = (opts && opts.every) || 400;
+  let stopped = false, timer = null, lastKey = null;
+  const tick = () => {
+    if (stopped) return;
+    Promise.resolve()
+      .then(() => fetch(`http://localhost:${port}/api/run/stage?id=${encodeURIComponent(id)}`))
+      .then(r => r.json())
+      .then(d => {
+        const st = d && d.stage;
+        if (stopped || !st || !st.label) return;
+        const key = st.step + '|' + st.label;
+        if (key === lastKey) return;
+        lastKey = key;
+        revealBand(st.from, st.to, st.est_s);
+        revealStage(st.label);
+      })
+      .catch(() => {})
+      .then(() => { if (!stopped) timer = setTimeout(tick, every); });
+  };
+  timer = setTimeout(tick, Math.min(every, 150));
+  return { id, stop() { stopped = true; clearTimeout(timer); } };
 }
 
 // ── DOM presentation ───────────────────────────────────────────────────────────────────

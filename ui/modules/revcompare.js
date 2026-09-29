@@ -12,7 +12,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
-import { revealAndRun, revealStage } from './featurereveal.js';
+import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
 import { exportRevcompareExcel } from './api.js';
 
 // Ten sub-tabs — the same keys are used for the PDF `data-sec` sections, the Excel
@@ -154,11 +154,13 @@ async function runComparison() {
   revealAndRun(body, 'Baseline Revision Comparison', async () => {
     body.innerHTML = '<div class="rc-loading">Comparing Rev.00 vs Rev.01…</div>';
     revealStage('Reading both revisions and comparing');
+    const stages = followRunStages(state.serverPort);     // the bar names the server's real step
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rev0_path: state.revcompareRev0.path, rev1_path: state.revcompareRev1.path, options }),
-      });
+        body: JSON.stringify({ rev0_path: state.revcompareRev0.path, rev1_path: state.revcompareRev1.path, options,
+                               run_id: stages.id }),
+      }).finally(stages.stop);
       const data = await resp.json();
       if (!data.ok) { showError(data.error || 'Comparison failed.'); renderInputs(body); return; }
       state.revcompareReport = data.report;
