@@ -207,6 +207,60 @@ def test_listen_backlog_is_not_the_socketserver_default():
         srv.server_close()
 
 
+def _burst_connect(host, port, n=40, timeout=5.0):
+    """Open ``n`` connections at once to a listener that is NOT accepting (the moment the
+    UI asks for ~40 files while the server thread is busy). Returns (connected, refused)."""
+    fam = socket.AF_INET6 if ':' in host else socket.AF_INET
+    socks, refused, lock = [], [], threading.Lock()
+
+    def one():
+        s = socket.socket(fam, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        try:
+            s.connect((host, port))
+            with lock:
+                socks.append(s)
+        except OSError as exc:
+            s.close()
+            with lock:
+                refused.append(exc)
+    threads = [threading.Thread(target=one) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout + 2)
+    for s in socks:
+        s.close()
+    return len(socks), refused
+
+
+def test_a_burst_of_40_connections_is_queued_not_refused():
+    """[startup:F3] BLACK-5, behaviour not just the attribute: with nobody accepting, the
+    bound listeners (127.0.0.1 and the [::1] twin) queue a 40-request burst. socketserver's
+    default backlog of 5 refused 35 of them on Windows (a refused module = black screen) —
+    the control socket below proves this machine really refuses past a small backlog."""
+    import server
+    ctl = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ctl.bind(('127.0.0.1', 0))
+    ctl.listen(5)                                     # the old default, as a control
+    try:
+        ok_small, _ = _burst_connect('127.0.0.1', ctl.getsockname()[1], timeout=3.0)
+    finally:
+        ctl.close()
+    srv = server._bind_loopback()                     # bound + listening, never accepting
+    try:
+        port = srv.server_address[1]
+        ok, refused = _burst_connect('127.0.0.1', port)
+        assert ok == 40 and not refused, (ok, refused[:3])
+        if srv.companion is not None:
+            ok6, refused6 = _burst_connect('::1', port)
+            assert ok6 == 40 and not refused6, (ok6, refused6[:3])
+    finally:
+        srv.server_close()
+    if ok_small >= 40:
+        pytest.skip('this OS queues past a backlog of 5 anyway (control not refused)')
+
+
 def test_bind_loopback_skips_a_port_whose_ipv6_twin_is_taken(monkeypatch):
     import server
     if not socket.has_ipv6:
