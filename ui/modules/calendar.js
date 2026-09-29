@@ -948,7 +948,8 @@ async function _initMap() {
   const hasLoc = _pendingLoc && _pendingLoc.lat != null;
   const center = hasLoc ? [+_pendingLoc.lat, +_pendingLoc.lon] : [24.5, 46.6]; // default: Arabian Peninsula
   _map = L.map(el, { attributionControl: true }).setView(center, hasLoc ? 11 : 5);
-  const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // OpenStreetMap's current tile address (the old a/b/c.tile… subdomains are deprecated).
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     // Links open in the default browser (external_links.js), never inside the app window.
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
