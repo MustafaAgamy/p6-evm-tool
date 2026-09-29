@@ -44,7 +44,9 @@ It flags: orphaned_heading, kpi_separated_from_heading, heading_separated_from_b
 picture_separated_from_caption (Word), table_split_few_rows (< 3 body rows on a page),
 small_table_split (a table <= 35 % of a page split), table_header_not_repeated, graphic_cut,
 text_cut, content_in_margin, large_blank_then_continuation (> 35 % blank before a pushed block),
-stranded_fragment, empty_page. `info.section_break_blank` (a new top-level section on a new page) is
+stranded_fragment, empty_page, and for a .docx's own pictures picture_truncated (content runs into
+the picture's bottom edge - a section cut off) and picture_mostly_blank (< 50 % painted, >= 2 in of
+white). `info.section_break_blank` (a new top-level section on a new page) is
 not a defect. Word files are laid out by Word itself (COM, ~1-2 s a page) or, without Word, by
 Spire.Doc (first 10 pages only). `--html report.html` passes the renderer's heading texts as hints.
 Target: zero flags on GBT_XML for your feature's PDF and Word. In a test: `pc.check_pdf(path)['flags'] == []`
