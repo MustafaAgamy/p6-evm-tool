@@ -101,3 +101,54 @@ def test_resource_meta_missing_file_is_empty(tmp_path, resload_fresh):
     resload, _ = resload_fresh
     assert resload.read_resource_meta(str(tmp_path / 'nope.xer')) == {}
     assert resload.read_resource_meta(None) == {}
+
+
+# ── the activity-code catalog (§ code breakdowns) is read once per file too ───────────────────
+_XER_CODES = ('ERMHDR\t8.0\n'
+              '%T\tACTVTYPE\n%F\tactv_code_type_id\tactv_code_type\n%R\t7\tDiscipline\n'
+              '%T\tACTVCODE\n%F\tactv_code_id\tactv_code_type_id\tshort_name\tactv_code_name\n'
+              '%R\t1\t7\tCIV\tCivil\n%R\t2\t7\tMEC\tMechanical\n%E\n')
+
+
+@pytest.fixture
+def codes_fresh(monkeypatch):
+    from p6_narrative import codes
+    monkeypatch.setattr(codes, '_CATALOG_CACHE', {})
+    calls = []
+    real = codes._from_xer
+    monkeypatch.setattr(codes, '_from_xer', lambda p: (calls.append(p), real(p))[1])
+    return codes, calls
+
+
+def test_code_catalog_is_read_once_per_file(tmp_path, codes_fresh):
+    codes, calls = codes_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER_CODES, encoding='utf-8')
+    a = codes.read_code_catalog(str(p))
+    b = codes.read_code_catalog(str(p))
+    assert a == b == {'Discipline': [{'code': 'CIV', 'description': 'Civil'},
+                                     {'code': 'MEC', 'description': 'Mechanical'}]}
+    assert len(calls) == 1, 'a second report / catalog open re-read the whole file'
+    a['Discipline'][0]['code'] = 'changed'          # each caller gets its own copy
+    a['Discipline'].append({'code': 'x', 'description': 'x'})
+    again = codes.read_code_catalog(str(p))
+    assert again['Discipline'][0]['code'] == 'CIV' and len(again['Discipline']) == 2
+
+
+def test_code_catalog_rereads_a_changed_file(tmp_path, codes_fresh):
+    codes, calls = codes_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER_CODES, encoding='utf-8')
+    codes.read_code_catalog(str(p))
+    p.write_text(_XER_CODES.replace('%R\t2\t7\tMEC\tMechanical\n', '%R\t2\t7\tELE\tElectrical\n'),
+                 encoding='utf-8')
+    st = os.stat(p)
+    os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns + 10_000_000))
+    again = codes.read_code_catalog(str(p))
+    assert len(calls) == 2
+    assert again['Discipline'][1] == {'code': 'ELE', 'description': 'Electrical'}
+
+
+def test_code_catalog_missing_file_is_empty(tmp_path, codes_fresh):
+    codes, _ = codes_fresh
+    assert codes.read_code_catalog(str(tmp_path / 'nope.xer')) == {}
