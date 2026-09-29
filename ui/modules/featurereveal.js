@@ -228,7 +228,9 @@ function injectCss() {
   .fr-ic svg{width:24px; height:24px;}
   .fr-eb{font:700 9.5px/1 Archivo,system-ui,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:#2563eb;}
   .fr-ti{font:800 17px/1.15 Archivo,system-ui,sans-serif; color:#1e293b; margin-top:3px;}
-  .fr-st{font-size:12px; color:#64748b; margin-top:2px;}
+  .fr-hd > div{min-width:0;}
+  /* A long step name ("Reading Rev.01 — <file> · 12 s") stays on one line: the card never jumps. */
+  .fr-st{font-size:12px; color:#64748b; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .fr-viz{width:100%; height:74px; display:block; margin:4px 0 13px;}
   .fr-tr{position:relative; height:4px; border-radius:4px; background:#e8edf5; overflow:hidden;}
   .fr-bf{height:100%; width:0%; border-radius:4px; background:linear-gradient(90deg,#f6a723,#2563eb);}
@@ -240,6 +242,7 @@ function injectCss() {
   .fr-pc{display:flex; justify-content:space-between; gap:10px; margin-top:7px; font:600 10.5px/1 "Segoe UI",system-ui;
     letter-spacing:.06em; text-transform:uppercase; color:#94a3b8;}
   .fr-pc b{color:#1e293b; font-variant-numeric:tabular-nums; font-family:Archivo,system-ui,sans-serif;}
+  .fr-stt2{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   @media (prefers-reduced-motion: reduce){ .fr-card{animation:none;} .fr-tr::after{display:none;} .fr-ov{transition:none;} }`;
   const s = document.createElement('style'); s.id = 'fr-reveal-style'; s.textContent = css; document.head.appendChild(s);
 }
