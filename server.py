@@ -8,6 +8,7 @@ from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
 import db
 import report_theme
+import app_startup          # startup log + readiness handshake (black-screen fixes)
 
 
 def _fmt_meta_date(v):
@@ -171,15 +172,18 @@ class Handler(BaseHTTPRequestHandler):
         pass  # silence request logs
 
     def do_GET(self):
-        if self.path in ('/', '/index.html'):
+        if self.path.split('?', 1)[0] == '/api/health':        # startup readiness probe
+            self._handle_app_health()
+        elif self.path.split('?', 1)[0] in ('/', '/index.html'):
             self._serve_index()
         elif self.path.startswith('/ui/'):
-            ext = self.path.rsplit('.', 1)[-1]
+            _p = self.path.split('?', 1)[0]                   # a ?v= query never breaks the MIME type
+            ext = _p.rsplit('.', 1)[-1]
             mime = {'css': 'text/css', 'js': 'application/javascript',
                     'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
                     'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif',
                     'webp': 'image/webp'}.get(ext, 'text/plain')
-            self._serve(resource_path(self.path.lstrip('/')), mime)
+            self._serve(resource_path(_p.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()
         elif self.path == '/api/ai/settings':
@@ -204,6 +208,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
         body = json.loads(self.rfile.read(length))
+        if self.path == '/api/client-log':                 # page startup guard -> startup log
+            self._json(200, {'ok': True, 'kind': app_startup.client_log(body)['kind']})
+            return
         if self.path == '/api/parse':
             self._handle_parse(body)
         elif self.path == '/api/report':
@@ -579,8 +586,8 @@ class Handler(BaseHTTPRequestHandler):
     # ── Static files ───────────────────────────────────────────────────────
     def _serve_index(self):
         try:
-            with open(resource_path('ui/index.html'), 'rb') as f:
-                html = f.read().decode()
+            html = _read_ui_file(resource_path('ui/index.html')).decode()
+            html = _inline_startup_guard(html)
             port = self.server.server_address[1]
             # Inject runtime globals so the UI derives its branding from the
             # single source of truth (utils.APP_*). Any current or future UI
@@ -604,23 +611,48 @@ class Handler(BaseHTTPRequestHandler):
                 + '</script>'
             )
             html = html.replace('</head>', brand_script + '</head>', 1)
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html')
-            self.end_headers()
-            self.wfile.write(html.encode())
+            self._send_static(html.encode(), 'text/html; charset=utf-8')
         except FileNotFoundError:
             self._json(404, {'ok': False, 'error': 'index.html not found'})
+        except OSError as exc:
+            self._static_unavailable('ui/index.html', exc)
 
     def _serve(self, path, mime):
         try:
-            with open(path, 'rb') as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header('Content-Type', mime)
-            self.end_headers()
-            self.wfile.write(data)
+            data = _read_ui_file(path)
+            self._send_static(data, mime)
         except FileNotFoundError:
             self._json(404, {'ok': False, 'error': f'file not found: {path}'})
+        except OSError as exc:
+            # An antivirus scan of the freshly unpacked files (PermissionError / sharing
+            # violation) used to escape here and DROP the connection: one failed module and
+            # the page stayed on its black startup cover. Answer 503 instead (the page's
+            # startup guard retries) and log it.
+            self._static_unavailable(path, exc)
+
+    def _send_static(self, data, mime):
+        self.send_response(200)
+        self.send_header('Content-Type', mime)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'no-cache')    # never mix files from two builds
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _static_unavailable(self, path, exc):
+        app_startup.log('static file unavailable: %s (%r)', path, exc)
+        body = json.dumps({'ok': False, 'error': f'temporarily unavailable: {exc}'}).encode()
+        self.send_response(503)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Retry-After', '1')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_app_health(self):
+        """GET /api/health: a light readiness probe (the server answers, the DB state
+        ok / recovered / degraded, and the page handshake state). Never touches XML."""
+        self._json(200, {'ok': True, 'app': APP_NAME, 'version': APP_VERSION,
+                         'db': dict(db.DB_STATUS), **app_startup.health()})
 
     def _json(self, status, data):
         body = json.dumps(data, cls=_Encoder).encode()
@@ -3620,7 +3652,12 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_history(self):
-        rows = db.get_recent_projects(limit=10)
+        try:
+            rows = db.get_recent_projects(limit=10)
+        except Exception as exc:          # a damaged/locked DB: answer, don't drop the socket
+            app_startup.log('history unavailable: %r', exc)
+            self._json(503, {'ok': False, 'error': f'Recent projects could not be read: {exc}'})
+            return
         # Normalise to the shape app.js already expects
         history = []
         for r in rows:
@@ -3700,15 +3737,139 @@ def _narrative_page_map(pdf_path, sections):
     return page_map or None
 
 
+# ── Startup: static-file reads, startup guard, loopback server ────────────
+
+def _read_ui_file(path, attempts=4, delays=(0.1, 0.25, 0.5)):
+    """Read a bundled UI file, retrying transient OSErrors (antivirus sharing violations
+    on the files PyInstaller has just unpacked). FileNotFoundError is not retried."""
+    import time as _time
+    for i in range(attempts):
+        try:
+            with open(path, 'rb') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise
+        except OSError:
+            if i == attempts - 1:
+                raise
+            _time.sleep(delays[min(i, len(delays) - 1)])
+
+
+_GUARD_MARK = '<!--cx:startup-guard-->'
+
+
+def _inline_startup_guard(html):
+    """Inline ui/startup_guard.js into index.html (at its marker, else before </head>) so
+    the startup watchdog runs even when a program file fails to load. If it can't be read,
+    fall back to a normal script tag."""
+    try:
+        js = _read_ui_file(resource_path('ui/startup_guard.js')).decode('utf-8')
+        tag = '<script>' + js.replace('</script', '<\\/script') + '</script>'
+    except OSError:
+        tag = '<script src="/ui/startup_guard.js"></script>'
+    if _GUARD_MARK in html:
+        return html.replace(_GUARD_MARK, tag, 1)
+    return html.replace('</head>', tag + '</head>', 1)
+
+
+class _LoopbackServer(ThreadingHTTPServer):
+    """Loopback-only threaded server. Threaded so a long local-AI generation (the chat
+    streams for minutes on a CPU) doesn't block every other request. The listen backlog is
+    128, not socketserver's 5: on Windows a full backlog REFUSES the ~40 parallel UI-file
+    requests at startup, and one refused module used to mean a black screen."""
+    request_queue_size = 128
+    daemon_threads = True
+    allow_reuse_address = False       # plus SO_EXCLUSIVEADDRUSE: never share a port
+
+    def server_bind(self):
+        import socket as _socket
+        import socketserver
+        if sys.platform == 'win32' and hasattr(_socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_EXCLUSIVEADDRUSE, 1)
+        socketserver.TCPServer.server_bind(self)        # skip HTTPServer's getfqdn() lookup
+        self.server_name = 'localhost'
+        self.server_port = self.server_address[1]
+
+    def handle_error(self, request, client_address):
+        # The windowed exe has no stderr: log handler crashes instead of losing them.
+        app_startup.log_exception('request handler error (%s)', client_address)
+
+
+class _LoopbackServer6(_LoopbackServer):
+    address_family = __import__('socket').AF_INET6
+
+
+class _AppServer(_LoopbackServer):
+    """127.0.0.1 server with an optional [::1] twin on the SAME port. The window and every
+    UI call use http://localhost:PORT; Windows resolves localhost to ::1 first, and a
+    connect to a closed ::1 port takes ~2 s to fail before the IPv4 fallback, per request
+    (measured 2.8 s vs 0.1 s to DOMContentLoaded). A foreign process listening on
+    [::1]:PORT would even have received the page. Owning both addresses fixes both."""
+    companion = None
+    _companion_running = False
+
+    def serve_forever(self, poll_interval=0.5):
+        import threading as _threading
+        if self.companion is not None and not self._companion_running:
+            self._companion_running = True
+            _threading.Thread(target=self.companion.serve_forever, args=(poll_interval,),
+                              daemon=True).start()
+        super().serve_forever(poll_interval)
+
+    def shutdown(self):
+        if self.companion is not None and self._companion_running:
+            self.companion.shutdown()
+            self._companion_running = False
+        super().shutdown()
+
+    def server_close(self):
+        if self.companion is not None:
+            try:
+                self.companion.server_close()
+            except OSError:
+                pass
+        super().server_close()
+
+
+def _bind_loopback(attempts=8):
+    """Bind 127.0.0.1 on a free port and [::1] on the same port. If ::1 is taken on that
+    port, try another port; if IPv6 is unavailable, serve IPv4 only (the old behaviour)."""
+    import errno
+    last = None
+    for _ in range(attempts):
+        srv = _AppServer(('127.0.0.1', 0), Handler)
+        port = srv.server_address[1]
+        try:
+            srv.companion = _LoopbackServer6(('::1', port), Handler)
+            return srv
+        except OSError as exc:
+            last = exc
+            in_use = (exc.errno in (errno.EADDRINUSE, errno.EACCES)
+                      or getattr(exc, 'winerror', None) in (10048, 10013))
+            if in_use:
+                srv.server_close()
+                continue                              # someone owns [::1]:port: new port
+            app_startup.log('IPv6 loopback unavailable (%r): serving 127.0.0.1 only', exc)
+            return srv
+    app_startup.log('could not pair [::1] with a port (%r): serving 127.0.0.1 only', last)
+    return _AppServer(('127.0.0.1', 0), Handler)
+
+
 def make_server():
     # Run migration from legacy history.json if it exists
     legacy = os.path.join(exe_dir(), 'history.json')
-    if os.path.exists(legacy):
-        db.migrate_history_json(legacy)
+    try:
+        if os.path.exists(legacy):
+            db.migrate_history_json(legacy)
+    except Exception:
+        app_startup.log_exception('legacy history.json migration failed')
 
-    db.init_db()
-    # Threaded so a long local-AI generation (the chat streams for minutes on a CPU)
-    # doesn't block every other request — the UI stays responsive during an answer.
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    srv.daemon_threads = True
+    # Never let the database stop the app from opening: a damaged file is set aside and a
+    # fresh one created; a locked one is reported as degraded (see /api/health).
+    status = db.open_db_resilient()
+    app_startup.log('database: %s%s', status.get('status'),
+                    (' (' + str(status.get('detail')) + ')') if status.get('detail') else '')
+    srv = _bind_loopback()
+    app_startup.log('server listening on port %s (%s)', srv.server_address[1],
+                    'IPv4 + IPv6 loopback' if srv.companion is not None else 'IPv4 loopback')
     return srv
