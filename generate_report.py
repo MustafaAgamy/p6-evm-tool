@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import subprocess
 import sys
 import tempfile
 
@@ -96,11 +95,9 @@ def main():
 
     chrome = find_chrome()
     out_path = os.path.abspath(args.out)
-    subprocess.run([
-        chrome, '--headless', '--disable-gpu', '--no-sandbox',
-        f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-        f'file://{os.path.abspath(html_path)}',
-    ], check=True, capture_output=True)
+    from p6_export.pdf import run_chrome     # falls back to the next browser if this one can't start
+    run_chrome(chrome, [f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
+                        f'file://{os.path.abspath(html_path)}'])
 
     print(f'PDF written to {out_path}')
 
