@@ -31,7 +31,8 @@ def test_rules_cover_headings_parts_tables_and_scroll_boxes():
     assert css.lstrip().startswith('@media print')          # the screen is never touched
     for needle in ('h2,', 'div.sub', '.ct', '.sr-sec-h', 'break-after: avoid',
                    'thead { display: table-header-group; }', 'tr { break-inside: avoid',
-                   'tbody > tr:nth-child(-n+3)', 'tbody > tr:nth-last-child(-n+2)',
+                   'tbody > tr:nth-child(-n+3):not(:last-child)',
+                   'tbody > tr:nth-last-child(-n+2):not(:first-child)',
                    '.rpt-flow { break-inside: auto !important', 'orphans: 3',
                    '[style*="overflow-x"]', 'svg,', '.mgrid-wrap'):
         assert needle in css, needle
@@ -57,7 +58,7 @@ def test_with_pagination_is_idempotent_and_only_defaults_the_page_size():
 def test_rules_survive_the_studio_css_scoper_and_the_word_css_engine():
     from p6_special.reuse import scope_css
     scoped = scope_css(rt.pagination_css(), '.x')
-    assert '.x tbody > tr:nth-child(-n+3)' in scoped and '.x h2' in scoped
+    assert '.x tbody > tr:nth-child(-n+3):not(:last-child)' in scoped and '.x h2' in scoped
     from p6_export import css as C
     C.StyleSheet([rt.pagination_css()], page_width_px=700)   # parses without raising
 

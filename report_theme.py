@@ -285,8 +285,14 @@ def pagination_css():
         '  thead { display: table-header-group; }\n'
         '  tfoot { display: table-footer-group; }\n'
         '  tr { break-inside: avoid; page-break-inside: avoid; }\n'
-        f'  tbody > tr:nth-child(-n+{n}) {{ break-after: avoid; page-break-after: avoid; }}\n'
-        f'  tbody > tr:nth-last-child(-n+{n - 1}) {{ break-before: avoid; page-break-before: avoid; }}\n'
+        # never on a table's LAST row (resp. FIRST row): Chrome propagates a last child's
+        # break-after (first child's break-before) to the table and on up to its wrappers, so
+        # a 1-3 row table would forbid the break AFTER itself — a run of small tables (the
+        # Narrative's activity-code pairs) then chains into one block pushed to a new page,
+        # leaving the page before it 60 % blank (finding NARR-PDF-3)
+        f'  tbody > tr:nth-child(-n+{n}):not(:last-child) {{ break-after: avoid; page-break-after: avoid; }}\n'
+        f'  tbody > tr:nth-last-child(-n+{n - 1}):not(:first-child) {{ break-before: avoid;'
+        ' page-break-before: avoid; }\n'
         '  /* composer marks (set just before printing, removed after) */\n'
         '  .rpt-fit { break-inside: avoid; page-break-inside: avoid; }\n'
         '  .rpt-head { break-after: avoid; page-break-after: avoid;'
