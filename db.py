@@ -517,6 +517,17 @@ def snapshot_exists(snapshot_id):
         return conn.execute('SELECT 1 FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone() is not None
 
 
+def get_snapshot_source(snapshot_id):
+    """The exact file a snapshot was imported from — its cached copy first (content-exact: the
+    original path may since hold a newer update), else the original. None when neither exists."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT original_path, cached_path FROM snapshots WHERE id = ?',
+                           (snapshot_id,)).fetchone()
+    if not row:
+        return None
+    return resolve_xml_path(row['cached_path'], row['original_path'])
+
+
 def get_project_id_for_snapshot(snapshot_id):
     with get_conn() as conn:
         row = conn.execute('SELECT project_id FROM snapshots WHERE id = ?',

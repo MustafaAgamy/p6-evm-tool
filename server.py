@@ -80,6 +80,20 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
     return {'app': APP_NAME, 'title': title, 'context': ctx}
 
 
+def _schedule_for(path, body=None, snapshot_key='snapshot_id', cached_key='cached_path',
+                  fallback_baseline=None):
+    """The open schedule with its baseline resolved the ONE way every feature uses
+    (p6_evm.baseline): embedded in the file, else the baseline attached for this snapshot /
+    file (Earned Value or Update Analysis "Attach baseline"), else the file's own Planned dates
+    (flagged data.baseline_source='self'). XER and XML therefore give the same result."""
+    sys.path.insert(0, resource_path('.'))
+    from p6_evm.baseline import attached_baseline_for, load_schedule
+    body = body or {}
+    attached = (attached_baseline_for(path, body.get(snapshot_key), body.get(cached_key))
+                or fallback_baseline)
+    return load_schedule(path, attached)
+
+
 def _prodintel_excel_sections(r):
     """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
     ctx = r.get('context') or {}
@@ -673,12 +687,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):
+        self._json(200, self._parse_pipeline(body))
+
+    def _parse_pipeline(self, body):
+        """The import pipeline (/api/parse) as a dict — also re-run IN PLACE for a snapshot
+        (refresh_snapshot_id) when its baseline is attached or removed, so every derived view
+        (EVM, WBS, gap, calendar, audit…) is rebuilt from the same code as an import."""
         xml_path = body.get('path', '')
         overrides_path = body.get('overrides_path')
+        refresh_sid = body.get('refresh_snapshot_id')     # recompute an existing snapshot in place
+        if refresh_sid:
+            if db.snapshot_exists(refresh_sid):
+                xml_path = db.get_snapshot_source(refresh_sid) or xml_path   # its exact content
+            else:
+                refresh_sid = None
 
         if not xml_path or not os.path.isfile(xml_path):
-            self._json(200, {'ok': False, 'error': f'File not found: {xml_path}'})
-            return
+            return {'ok': False, 'error': f'File not found: {xml_path}'}
 
         try:
             sys.path.insert(0, resource_path('.'))
@@ -694,12 +719,24 @@ class Handler(BaseHTTPRequestHandler):
                     overrides = json.load(f)
 
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            data = parse_file(xml_path)
+            from p6_evm.baseline import load_schedule, baseline_fields
+            # Baseline — the ONE resolution every feature uses: embedded in the file, else the
+            # baseline attached for this snapshot (a baseline attach/remove re-runs this route
+            # with refresh_snapshot_id to recompute that snapshot IN PLACE), else the one
+            # attached to an earlier import of the same file, else the file's own dates.
+            file_hash = db.hash_file(xml_path)
+            attached_bl = (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
+                           else db.get_prior_baseline_for_hash(file_hash))
+            data = load_schedule(xml_path, attached_bl)
+            bl_info = getattr(data, 'baseline_info', None) or {}
+            if bl_info.get('matched') == 0:
+                attached_bl = None                         # the wrong project's baseline — forget it
             config['categories'] = auto_categories(data)   # auto-detect categories per project
             result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
+            safe_result.update(baseline_fields(bl_info))   # embedded / attached / self — for the UI
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
@@ -883,8 +920,7 @@ class Handler(BaseHTTPRequestHandler):
                 safe_result['gap'] = None
 
             # ── Persist to DB ──────────────────────────────────────────────
-            file_hash      = db.hash_file(xml_path)
-            prior_import   = db.get_prior_import_date(file_hash)
+            prior_import   = None if refresh_sid else db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
 
             # NOTE: importing an XER for ANALYSIS no longer adds it to the Knowledge Base
@@ -921,15 +957,19 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as mc_exc:
                     print(f'[milestone] attach skipped: {mc_exc}', file=sys.stderr)
 
-            sid = db.insert_snapshot(
-                project_id     = pid,
-                data_date      = result.get('data_date'),
-                original_path  = xml_path,
-                cached_path    = cached_path,
-                file_hash      = file_hash,
-                activity_count = len(data.activities),
-                calendar_count = len(data.calendars),
-            )
+            if refresh_sid:                        # baseline attached / removed: same snapshot
+                sid = refresh_sid
+                db.clear_snapshot_results(sid)
+            else:
+                sid = db.insert_snapshot(
+                    project_id     = pid,
+                    data_date      = result.get('data_date'),
+                    original_path  = xml_path,
+                    cached_path    = cached_path,
+                    file_hash      = file_hash,
+                    activity_count = len(data.activities),
+                    calendar_count = len(data.calendars),
+                )
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:
@@ -953,14 +993,16 @@ class Handler(BaseHTTPRequestHandler):
                 'gap': safe_result.get('gap'),
                 'baseline_finish': safe_result.get('baseline_finish'),
                 'expected_finish': safe_result.get('expected_finish'),
+                'baseline_path': attached_bl,      # the attached baseline stays with the snapshot
+                'baseline_fields': baseline_fields(bl_info),   # what the stored numbers used
             })
             # ──────────────────────────────────────────────────────────────
 
-            self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
-                             'previous_import': prior_import, 'snapshot_id': sid})
+            return {'ok': True, 'result': safe_result, 'cached_path': cached_path,
+                    'previous_import': prior_import, 'snapshot_id': sid}
 
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
+            return {'ok': False, 'error': str(exc)}
 
     # ── /api/report ────────────────────────────────────────────────────────
     def _handle_report(self, body):
@@ -2376,20 +2418,23 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
-        # Re-apply an attached baseline (re-parse update + baseline) so PV/SPI/Delay stay correct.
+        # Baseline: a snapshot stored since the one-resolver change carries what its stored
+        # numbers used (embedded / attached / self) — nothing to re-parse. An older snapshot
+        # whose baseline was attached the old way (numbers stored WITHOUT it) is recomputed
+        # through the same resolver so PV / SPI / Delay stay correct.
+        stored_bl = extras.get('baseline_fields')
         bl_path = extras.get('baseline_path')
-        if bl_path and os.path.isfile(bl_path) and cached_path and os.path.isfile(cached_path):
+        if stored_bl:
+            result.update(stored_bl)
+        elif bl_path and cached_path and os.path.isfile(cached_path):
             try:
                 sys.path.insert(0, resource_path('.'))
-                from p6_evm.parser import parse_file
                 from p6_evm.metrics import compute
                 from p6_evm.classify import auto_categories, build_wbs_classifier
-                from p6_evm.baseline import apply_baseline
+                from p6_evm.baseline import baseline_fields
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                data = parse_file(cached_path)
-                bl = parse_file(bl_path)
-                rep = apply_baseline(data, bl)      # baseline dates + budget
+                data = _schedule_for(cached_path, {'snapshot_id': snapshot_id})
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
@@ -2399,10 +2444,7 @@ class Handler(BaseHTTPRequestHandler):
                                             'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
                                             'activity_count': c['activity_count'], 'overridden': c['overridden']}
                                         for n, c in rr['categories'].items()}
-                result['baseline_path'] = bl_path
-                result['baseline_name'] = os.path.basename(bl_path)
-                result['baseline_matched'] = rep['matched']
-                result['baseline_total'] = rep['total']
+                result.update(baseline_fields(getattr(data, 'baseline_info', None)))
             except Exception as bexc:
                 print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
 
