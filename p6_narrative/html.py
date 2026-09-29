@@ -1435,8 +1435,10 @@ def render_narrative_html(doc, seq_style=None, page_map=None):
 def page_html(doc, page_map=None):
     """Full standalone HTML page (Chrome → PDF source). ``page_map`` is threaded to the
     TOC so the two-pass export can stamp real physical page numbers on the second pass."""
+    import report_theme                       # the shared pagination layer (owner point 14)
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<title>Baseline Narrative Report</title></head><body>'
+            '<title>Baseline Narrative Report</title>' + report_theme.pagination_tag()
+            + '</head><body>'
             + render_narrative_html(doc, page_map=page_map) + '</body></html>')
 
 

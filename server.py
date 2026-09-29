@@ -198,6 +198,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_library2()
         elif self.path == '/api/chat/status':
             self._handle_chat_status()
+        elif self.path == '/api/report/pagination':
+            # the ONE shared page-composition layer (report_theme) for client-composed docs
+            self._json(200, {'ok': True, 'css': report_theme.pagination_css(),
+                             'script': report_theme.pagination_script()})
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -3161,6 +3165,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': 'Nothing to print — the report was empty.'})
             return
         try:
+            html_content = report_theme.with_pagination(html_content)   # shared pagination rules
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
                 html_path = tmp.name
