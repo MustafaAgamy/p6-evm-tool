@@ -66,6 +66,19 @@ class SpecialContext:
     def extras(self):
         return self.memo('extras', lambda: db.get_evm_extras(self.snapshot_id))
 
+    def baseline_ax(self):
+        """' · approx' when the stored numbers were measured against the update's own Planned
+        dates standing in for the baseline P6 names (none in the file, none attached) — the same
+        mark the screens and feature reports put on baseline-derived values; '' otherwise.
+        Read from what the import stored (no parse)."""
+        def b():
+            f = (self.extras or {}).get('baseline_fields') or {}
+            if not f:
+                return ''
+            from p6_evm.baseline import baseline_approx
+            return ' · approx' if baseline_approx(f) else ''
+        return self.memo('baseline_ax', b)
+
     @property
     def snapshots(self):
         return self.memo('snapshots', lambda: db.get_project_snapshots(self.project_id))

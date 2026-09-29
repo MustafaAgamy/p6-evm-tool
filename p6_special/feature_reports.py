@@ -292,6 +292,12 @@ def evm_full_report(ctx):
         for k in ('baseline_finish', 'expected_finish', 'actual_cost'):
             if extras.get(k) is not None:
                 meta[k] = extras.get(k)
+        # the baseline the numbers were measured against + '· approx' — as the feature PDF
+        try:
+            from p6_evm.baseline import schedule_baseline
+            meta.update(schedule_baseline(ctx.parsed()))
+        except Exception:
+            pass
         # Render the Engineering Progress section like the feature: prefer the stored
         # E1 rows (with their aggregates) else the P6 drawings-by-trade rows. Absent
         # engineering just leaves the section empty (as the feature does with no data).

@@ -117,3 +117,25 @@ def test_critical_path_and_update_vs_update_reports(tmp_path):
     assert 'Baseline: not in the file and none attached' in html
     headers, rows = report_excel(pr)
     assert 'Baseline finish · approx' in json.dumps(rows, ensure_ascii=False)
+
+
+def test_reporting_studio_kpis_carry_the_mark(temp_db, tmp_path):
+    import db
+    from p6_special.context import SpecialContext
+    from p6_special.providers import overview, evm
+    out = {}
+    for kind, fields in (('self', {'baseline_source': 'self', 'baseline_expected': True}),
+                         ('embedded', {'baseline_source': 'embedded', 'baseline_expected': True})):
+        pid = db.upsert_project(f'P-{kind}', f'P-{kind}')
+        sid = db.insert_snapshot(pid, '2025-04-01', 'x.xer', 'x.xer', kind, 1, 1)
+        db.insert_metrics(sid, {'pv': 1.0, 'ev': 1.0, 'ac': 1.0, 'spi': 1.0, 'cpi': 1.0, 'delay_days': 2,
+                                'overall_planned_pct': 0.5, 'overall_actual_pct': 0.5, 'variance': 0.0})
+        db.save_evm_extras(sid, {'baseline_finish': '2025-12-31', 'baseline_fields': fields})
+        ctx = SpecialContext(pid, snapshot_id=sid)
+        labels = json.dumps([it.produce(ctx) for it in overview.provide(ctx) + evm.provide(ctx)],
+                            ensure_ascii=False, default=str)
+        out[kind] = (ctx.baseline_ax(), labels)
+    assert out['self'][0] == ' · approx' and out['embedded'][0] == ''
+    for lbl in ('Baseline finish · approx', 'Overall planned · approx', 'Planned Value (PV) · approx'):
+        assert lbl in out['self'][1], lbl
+    assert '· approx' not in out['embedded'][1]
