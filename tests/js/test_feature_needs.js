@@ -156,6 +156,14 @@ test('Update Analysis: baseline inside the file, else the one attached for it (X
   assert.match(xerSrc, /def _read_embedded_baseline/);
   assert.ok(!/not used here/.test(JSON.stringify(f)), 'Help still says the attached baseline is not used here');
 });
+test('Reporting Studio Update items follow the Update Analysis screen rule (R1 F1) and Help says so', () => {
+  const prov = read('p6_special', 'providers', 'update.py');
+  assert.match(prov, /return 'needs_input' if _no_baseline\(ctx\) else 'ready'/);
+  assert.match(read('p6_special', 'feature_reports.py'), /update_has_baseline\(data\)/);
+  assert.match(read('p6_update', 'analysis.py'), /has_baseline = update_has_baseline\(data\)/);
+  assert.match(read('ui', 'modules', 'special.js'), /i\.availability !== 'ready' && i\.note/, 'the Studio no longer shows why an item is not ready');
+  assert.match(featureNeeds('special').files[1].note, /Update Analysis results follow the Update Analysis screen[\s\S]*never measured against its own Planned dates/);
+});
 test('Update Analysis: the screen and the server give the SAME advice as Help (SHELL-1)', () => {
   // The handler reads the baseline attached for the update (here or on Earned Value), so screen,
   // server and Help all say: attach the baseline (XER or XML), or re-export the XML with it.

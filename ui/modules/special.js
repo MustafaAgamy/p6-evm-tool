@@ -125,6 +125,10 @@ function drawCatalog() {
   box.innerHTML = S.catalog.map(g => {
     const need = g.items.find(i => i.availability === 'needs_input' && (i.requires || []).length);
     const attachBox = need ? attachHtml(g, need) : '';
+    // WHY a result is not ready, in the feature's own words (e.g. Update Analysis: no baseline
+    // inside the file and none attached) — a disabled tick alone tells the planner nothing.
+    const notes = [...new Set(g.items.filter(i => i.availability !== 'ready' && i.note).map(i => i.note))];
+    const noteBox = notes.map(n => `<div class="sr-need"><div class="sr-needtxt">${esc(n)}</div></div>`).join('');
     const items = g.items.map(it => {
       const on = S.selected.includes(it.id);
       const disabled = it.availability !== 'ready';
@@ -138,7 +142,7 @@ function drawCatalog() {
       : (g.items.some(i => i.availability === 'needs_input') ? 'needs_input' : 'no_data');
     return `<div class="sr-feat">
       <div class="sr-fh"><span class="sr-fname">${esc(g.feature_title)}</span>${availBadge(gavail)}</div>
-      ${attachBox}${items}</div>`;
+      ${attachBox}${noteBox}${items}</div>`;
   }).join('');
 
   box.querySelectorAll('[data-add]').forEach(cb => cb.addEventListener('change', () => {

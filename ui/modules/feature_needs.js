@@ -272,7 +272,7 @@ export const FEATURE_NEEDS = [
     files: [
       { n: 1, role: 'An imported schedule (to open the Studio)', formats: XER_OR_XML, k: 'p6' },
       { n: 1, role: 'Only for comparison items: baseline, previous update or Rev.00 — the Studio asks for it', formats: XER_OR_XML, k: 'optional',
-        note: 'Every slot accepts XER or XML, whatever its label says (the "Rescheduled corrected (but-for) XML" slot too). The open schedule is read with its own baseline, else the one attached on Earned Value / Update Analysis. The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
+        note: 'Every slot accepts XER or XML, whatever its label says (the "Rescheduled corrected (but-for) XML" slot too). The open schedule is read with its own baseline, else the one attached on Earned Value / Update Analysis. Update Analysis results follow the Update Analysis screen: an update with no baseline inside it and none attached offers them as "needs input" with the reason (attach the baseline, XER or XML) — never measured against its own Planned dates. The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
     ],
     other: [],
     produces: 'One composed report from the results you pick, in the order you choose.',

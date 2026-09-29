@@ -5,7 +5,8 @@ forecast dates, exactly as P6 wrote them.
 """
 from p6_evm.metrics import activity_planned_pct
 from p6_evm.calendars import signed_working_days
-from p6_evm.baseline import baseline_expected, baseline_fields, baseline_label, expected_baseline_name
+from p6_evm.baseline import (baseline_expected, baseline_fields, baseline_label, expected_baseline_name,
+                             expected_baseline_advice, NO_BASELINE_ADVICE)
 
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
 
@@ -653,12 +654,12 @@ def _cp_headline(ms, boxes):
 
 # ── Report assembly ──────────────────────────────────────────────────────────
 
-def build_report_from_data(data, metrics, summary_level=0):
-    """Assemble the whole Update-Analysis report from a parsed update + its metrics.compute
-    result. `has_baseline` false means there is no REAL baseline — none inside the file and none
-    attached (p6_evm.baseline: baseline_source 'self' = the file's own Planned dates standing in,
-    XER or XML alike) — so the caller shows the 'attach a baseline' state rather than numbers
-    measured against the update's own plan."""
+def update_has_baseline(data):
+    """The ONE rule for 'this update has a REAL baseline' — used by the Update Analysis screen
+    (/api/update/analyze) AND Reporting Studio's Update items, so neither ever measures an update
+    against its own Planned dates. False = none inside the file and none attached
+    (p6_evm.baseline: baseline_source 'self' = the file's own Planned dates standing in, XER or
+    XML alike) while P6 names a baseline for it."""
     src = getattr(data, 'baseline_source', None)
     has_baseline = (src in ('embedded', 'attached')) if src else bool(getattr(data, 'baseline_by_id', None))
     # A schedule with NO baseline assigned in P6 (a baseline programme): its own Planned dates
@@ -666,6 +667,26 @@ def build_report_from_data(data, metrics, summary_level=0):
     expected = baseline_expected(data)
     if src == 'self' and not expected:
         has_baseline = True
+    return has_baseline
+
+
+def no_baseline_notice(data):
+    """What Update Analysis says instead of numbers when the update has no real baseline — the
+    screen's words (UPDATE_NO_BASELINE_ADVICE), naming the baseline P6 assigns when known."""
+    which = expected_baseline_advice(expected_baseline_name(data))
+    return ('Update Analysis needs the update’s baseline: this update carries none and none is '
+            'attached, and it is never measured against its own Planned dates. '
+            + (which + ' ' if which else '') + NO_BASELINE_ADVICE)
+
+
+def build_report_from_data(data, metrics, summary_level=0):
+    """Assemble the whole Update-Analysis report from a parsed update + its metrics.compute
+    result. `has_baseline` false means there is no REAL baseline (update_has_baseline) — so the
+    caller shows the 'attach a baseline' state rather than numbers measured against the
+    update's own plan."""
+    src = getattr(data, 'baseline_source', None)
+    has_baseline = update_has_baseline(data)
+    expected = baseline_expected(data)
     bl_info = getattr(data, 'baseline_info', None) or {}
     proj = getattr(data, 'project', None) or {}
     cp = critical_path(data, summary_level=summary_level)
