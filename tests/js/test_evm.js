@@ -109,5 +109,46 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   });
 }
 
+console.log('\nProject Setup (weights + Actual Cost) is saved with the project, not the browser');
+{
+  const { resolveEvmSetup } = await import('../../ui/modules/evm.js');
+  const cats2 = { Construction: { weight: 0.7 }, Engineering: { weight: 0.3 } };
+  test('nothing saved → the schedule weights, Actual Cost from P6', () => {
+    assert.deepEqual(resolveEvmSetup(cats2, null, null),
+      { weights: { Construction: 0.7, Engineering: 0.3 }, actualCost: null, fromLegacy: false });
+  });
+  test('the project\'s saved setup wins over the schedule weights', () => {
+    const r = resolveEvmSetup(cats2, { weights: { Construction: 0.5, Engineering: 0.5 }, actual_cost: 1200 }, null);
+    assert.deepEqual(r, { weights: { Construction: 0.5, Engineering: 0.5 }, actualCost: 1200, fromLegacy: false });
+  });
+  test('saved setup wins over an old browser copy (which is ignored)', () => {
+    const r = resolveEvmSetup(cats2, { weights: { Construction: 0.4 }, actual_cost: null },
+      { weights: { Construction: 0.9 }, actualCost: 5 });
+    assert.equal(r.weights.Construction, 0.4);
+    assert.equal(r.actualCost, null);
+    assert.equal(r.fromLegacy, false);
+  });
+  test('an old browser copy is used once and flagged to be moved into the project', () => {
+    const r = resolveEvmSetup(cats2, null, { weights: { Engineering: 0.1 }, actualCost: 77 });
+    assert.deepEqual(r, { weights: { Construction: 0.7, Engineering: 0.1 }, actualCost: 77, fromLegacy: true });
+  });
+  test('only finite numbers are taken (a corrupt value never reaches the math)', () => {
+    const r = resolveEvmSetup(cats2, { weights: { Construction: 'x', Engineering: NaN }, actual_cost: Infinity }, null);
+    assert.deepEqual(r.weights, { Construction: 0.7, Engineering: 0.3 });
+    assert.equal(r.actualCost, null);
+  });
+  const src = (await import('node:fs')).readFileSync(new URL('../../ui/modules/evm.js', import.meta.url), 'utf8');
+  test('the editor saves through /api/project/evm-setup and never writes browser storage', () => {
+    assert.match(src, /api\/project\/evm-setup/);
+    assert.doesNotMatch(src, /localStorage\.setItem\(/);
+  });
+  test('a failed save is shown in the dialog (no alert — a no-op in WebView2)', () => {
+    const at = src.indexOf('function openInputsEditor');
+    const ed = src.slice(at, at + 4000);
+    assert.match(ed, /Not saved — \$\{res\.error\}/);
+    assert.doesNotMatch(ed, /\balert\(/);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

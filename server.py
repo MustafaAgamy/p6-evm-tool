@@ -1091,7 +1091,12 @@ class Handler(BaseHTTPRequestHandler):
                 db.save_calendar_audit(sid, cal_result)
             except Exception as cal_exc:
                 safe_result['calendar_audit'] = None
-                safe_result['calendar_settings'] = {}
+                # The project's saved settings (Project Setup weights/Actual Cost, weather
+                # location/limits…) are returned even when the calendar audit fails.
+                try:
+                    safe_result['calendar_settings'] = db.get_project_settings(pid) or {}
+                except Exception:
+                    safe_result['calendar_settings'] = {}
                 print(f'[calendar] skipped: {cal_exc}', file=sys.stderr)
             db.save_evm_extras(sid, {
                 'engineering_p6': safe_result.get('engineering_p6', []),
@@ -3152,6 +3157,19 @@ class Handler(BaseHTTPRequestHandler):
         patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons',
                                       'hours_notes')
                  if body.get(k) is not None}
+        # Reasons / hours notes are edited ONE row at a time: merge into what is saved
+        # (a blank text clears that row) instead of replacing the whole set — before, each
+        # edit silently wiped every other row's saved reason.
+        saved = db.get_project_settings(pid)
+        for k in ('shutdown_reasons', 'hours_notes'):
+            if isinstance(patch.get(k), dict):
+                merged = dict(saved.get(k) or {})
+                for rk, rv in patch[k].items():
+                    if rv is None or (isinstance(rv, str) and not rv.strip()):
+                        merged.pop(rk, None)
+                    else:
+                        merged[rk] = rv
+                patch[k] = merged
         settings = db.save_project_settings(pid, patch)
         ca = None
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
