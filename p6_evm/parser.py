@@ -52,6 +52,11 @@ class ScheduleData:
         self.wbs = {}              # ObjectId -> {Name, ParentObjectId}
         self.activities = {}       # ObjectId -> activity dict
         self.baseline_by_id = {}   # activity Id (code) -> {PlannedStartDate, PlannedFinishDate}
+        # WHERE baseline_by_id came from — ONE vocabulary for both formats (R4):
+        #   'embedded' — the file carries its baseline project (XML <BaselineProject>)
+        #   'self'     — it does not, so the file's own Planned dates stand in (approximate)
+        #   'attached' — a separate baseline file was applied (p6_evm.baseline.resolve_baseline)
+        self.baseline_source = None
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (current update)
         self.baseline_bac_by_activity = {}  # ActivityObjectId -> BASELINE budget (BAC) — P6's cost basis for PV/EV/%-rollup
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
@@ -333,6 +338,18 @@ def parse_file(path) -> ScheduleData:
             bl_bac = baseline_bac_by_id.get(act['id'])
             if bl_bac is not None:
                 data.baseline_bac_by_activity[oid] = bl_bac
+
+    # No baseline inside the file: stand in the activities' own Planned dates, exactly as the XER
+    # reader does (xer.py), and SAY so via baseline_source — so an XML and an XER exported without
+    # their baseline give the same (approximate) result instead of XML zero / XER numbers (R4).
+    if data.baseline_by_id:
+        data.baseline_source = 'embedded'
+    else:
+        for act in data.activities.values():
+            if act.get('id'):
+                data.baseline_by_id[act['id']] = {'planned_start': act.get('planned_start'),
+                                                  'planned_finish': act.get('planned_finish')}
+        data.baseline_source = 'self'
 
     for rel_el in project_el.findall(tag('Relationship')):
         pred = text(rel_el, 'PredecessorActivityObjectId')

@@ -466,6 +466,57 @@ def save_baseline(snapshot_id, baseline_path):
                      (snapshot_id, _json.dumps(extras, default=str)))
 
 
+def get_attached_baseline(snapshot_id=None, paths=()):
+    """The baseline file attached for a snapshot (``evm_extras.baseline_path``) — by snapshot id
+    when given, else for the LATEST snapshot of that file (matched by cached or original path;
+    the cached path is content-specific). None when nothing is attached. Used by every feature
+    that needs a baseline (p6_evm.baseline.load_for_project), so an attachment applies everywhere."""
+    with get_conn() as conn:
+        sid = None
+        if snapshot_id:
+            row = conn.execute('SELECT id FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone()
+            sid = row['id'] if row else None
+        if sid is None:
+            for p in paths or ():
+                if not p:
+                    continue
+                row = conn.execute(
+                    'SELECT id FROM snapshots WHERE cached_path = ? OR original_path = ? '
+                    'ORDER BY id DESC LIMIT 1', (p, p)).fetchone()
+                if row:
+                    sid = row['id']
+                    break
+        if sid is None:
+            return None
+        row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
+                           (sid,)).fetchone()
+    extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
+    return extras.get('baseline_path') or None
+
+
+def get_prior_baseline_for_hash(file_hash):
+    """The baseline attached to the most recent earlier import of the SAME file (same SHA-256),
+    so re-importing an update keeps its attached baseline. None when there is none."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT id FROM snapshots WHERE file_hash = ? ORDER BY id DESC LIMIT 1',
+                           (file_hash,)).fetchone()
+    return get_attached_baseline(snapshot_id=row['id']) if row else None
+
+
+def clear_snapshot_results(snapshot_id):
+    """Drop a snapshot's computed rows (metrics / categories / audit modules) so it can be
+    recomputed IN PLACE — used when a baseline is attached or removed, so the snapshot keeps
+    its place in the history instead of a duplicate import being added."""
+    with get_conn() as conn:
+        for table in ('metrics', 'category_metrics', 'audit_modules'):
+            conn.execute(f'DELETE FROM {table} WHERE snapshot_id = ?', (snapshot_id,))
+
+
+def snapshot_exists(snapshot_id):
+    with get_conn() as conn:
+        return conn.execute('SELECT 1 FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone() is not None
+
+
 def get_project_id_for_snapshot(snapshot_id):
     with get_conn() as conn:
         row = conn.execute('SELECT project_id FROM snapshots WHERE id = ?',

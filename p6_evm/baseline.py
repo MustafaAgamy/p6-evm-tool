@@ -1,5 +1,16 @@
 """Apply an attached baseline schedule to an update schedule so EVM matches P6 / the XML.
 
+ONE baseline resolution for every feature (XER = XML, R4) — ``load_schedule`` /
+``load_for_project`` / ``resolve_baseline``:
+
+  1. **embedded** — the file carries its baseline project (XML ``<BaselineProject>``);
+  2. **attached** — else the baseline file the planner attached for this snapshot
+     (Earned Value / Update Analysis ``Attach baseline``, remembered in the DB);
+  3. **self**     — else the file's own Planned dates stand in (approximate, and flagged).
+
+So an update + its baseline gives the same numbers whether the baseline is inside the XML or
+attached as a separate XER / XML, and an XER or XML without one is labelled, never silent.
+
 A P6 XER *update* export doesn't embed its baseline, so its Planned Value is wrong. When the user
 attaches the baseline (a separate XER/XML), this feeds the update both halves P6 anchors PV and the
 WBS %-rollup to — the baseline PLANNED DATES and the baseline BUDGET — matched by Activity Id, the
@@ -45,3 +56,88 @@ def apply_baseline(data, baseline_data):
     data.baseline_bac_by_activity = new_bac
 
     return {'matched': matched, 'total': len(data.activities or {}), 'bac_matched': len(new_bac)}
+
+
+import os
+import re
+
+_HASH_PREFIX = re.compile(r'^[0-9a-f]{12}_')
+
+
+def display_name(path):
+    """File name for the screen — drops the XML-cache ``{hash12}_`` prefix."""
+    return _HASH_PREFIX.sub('', os.path.basename(path or '')) if path else None
+
+
+def resolve_baseline(data, attached_path=None, parse=None):
+    """Settle ``data``'s baseline in place — embedded, else attached, else self — and return
+    what was used: {'source', 'name', 'path', 'matched', 'total', 'missing'}. Also stored on
+    ``data.baseline_info``. An attached file that lines up with NONE of the activities (the
+    wrong project) is not applied; nor is it applied over a baseline embedded in the file.
+    """
+    total = len(getattr(data, 'activities', None) or {})
+    src = getattr(data, 'baseline_source', None)
+    if src is None:                                   # older ScheduleData: infer
+        src = 'embedded' if getattr(data, 'baseline_by_id', None) else 'self'
+        data.baseline_source = src
+    info = {'source': src, 'name': None, 'path': None, 'matched': None, 'total': total,
+            'missing': None}
+    if src == 'embedded':
+        data.baseline_info = info
+        return info
+    if attached_path:
+        if not os.path.isfile(attached_path):
+            info['missing'] = display_name(attached_path)   # e.g. evicted from the XML cache
+        else:
+            if parse is None:
+                from p6_evm.parser import parse_file as parse
+            keep = (data.baseline_by_id, data.baseline_bac_by_activity)
+            rep = apply_baseline(data, parse(attached_path))
+            if rep['matched']:
+                data.baseline_source = 'attached'
+                info.update(source='attached', name=display_name(attached_path),
+                            path=attached_path, matched=rep['matched'])
+            else:                                     # wrong file — keep the file's own baseline
+                data.baseline_by_id, data.baseline_bac_by_activity = keep
+                info.update(matched=0, name=display_name(attached_path))
+    data.baseline_info = info
+    return info
+
+
+def load_schedule(path, attached_path=None):
+    """parse_file(path) + resolve_baseline — the schedule every feature should read."""
+    from p6_evm.parser import parse_file
+    data = parse_file(path)
+    resolve_baseline(data, attached_path, parse_file)
+    return data
+
+
+def attached_baseline_for(path=None, snapshot_id=None, cached_path=None):
+    """The baseline file attached for this snapshot (by id), else for the latest snapshot of
+    this file (by its cached / original path). None when nothing is attached or no DB."""
+    try:
+        import db
+        return db.get_attached_baseline(snapshot_id=snapshot_id, paths=(cached_path, path))
+    except Exception:
+        return None
+
+
+def load_for_project(path, snapshot_id=None, cached_path=None, baseline_path=None):
+    """load_schedule with the attached baseline looked up for the snapshot / file.
+    ``baseline_path`` (an explicit attached baseline) wins over the lookup."""
+    attached = baseline_path or attached_baseline_for(path, snapshot_id, cached_path)
+    return load_schedule(path, attached)
+
+
+def baseline_fields(info):
+    """The result-JSON keys the UI reads (EVM banner, Update Analysis, Help)."""
+    info = info or {}
+    attached = info.get('source') == 'attached'
+    return {
+        'baseline_source': info.get('source'),
+        'baseline_name': info.get('name') if attached else None,
+        'baseline_path': info.get('path') if attached else None,
+        'baseline_matched': info.get('matched') if attached else None,
+        'baseline_total': info.get('total') if attached else None,
+        'baseline_missing': info.get('missing'),
+    }

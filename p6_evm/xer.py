@@ -249,4 +249,8 @@ def parse_xer(path):
             'rate': _num(ra.get('cost_per_qty'), None),
         })
 
+    # A P6 XER export carries only a BASELINE_EXPORT pointer, not the baseline rows, so the
+    # baseline above is the update's own Planned dates - flag it (same vocabulary as parser.py).
+    if data.baseline_by_id and not getattr(data, 'baseline_source', None):
+        data.baseline_source = 'self'
     return data
