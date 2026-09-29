@@ -312,9 +312,13 @@ def test_html_falls_back_to_extraction_without_chrome(tmp_path):
     assert 'innercell' in cell_texts
 
 
-def test_rasterize_section_returns_none_without_chrome():
+def test_rasterize_section_returns_none_without_chrome(monkeypatch):
     """The rasteriser cleanly returns None when no chrome is given, or the path is
-    missing — so the caller always has a safe fallback (never an exception)."""
+    missing and no other browser works — so the caller always has a safe fallback (never
+    an exception). (With another working browser, a missing path now falls back to it.)"""
+    from p6_export import pdf as P
+    monkeypatch.setattr(P, 'chrome_candidates', lambda first=None: [])   # no browser at all
+    monkeypatch.setattr(P, '_WORKING', None)
     from p6_special.docx_report import _rasterize_section
     assert _rasterize_section('<p>x</p>', '.x{}', 'light', None) is None
     assert _rasterize_section('<p>x</p>', '.x{}', 'light', 'C:/nope/chrome-does-not-exist.exe') is None
