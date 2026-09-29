@@ -1,0 +1,121 @@
+{
+  "archetype": "roads_highways",
+  "schema": 2,
+  "context": "earthworks & pavement-led · lighting/ITS the only major systems overlay",
+  "brief": {
+    "intro": "A road or highway project is fundamentally an earthworks and paving operation running along a linear corridor, not a single building site — progress is measured in kilometres of formation, not square metres of floor. The programme is governed by the cut/fill mass-haul balance, the pavement layer build-up, and the handful of structures — culverts, retaining walls, minor bridges — that cross the corridor. Mechanical and electrical scope is light compared to a building: it is limited to street lighting, drainage pumping where needed, and intelligent-transport-systems (ITS) such as signals, CCTV and tolling. Your schedule stands or falls on the earthworks mass-haul balance, keeping enough paving fronts open in parallel along the alignment, and sequencing drainage and duct-bank works so they do not block the paving train behind them.",
+    "scope": [
+      { "name": "Site clearance & setting-out", "desc": "Survey, chainage set-out and clearing the corridor ahead of earthworks." },
+      { "name": "Earthworks & subgrade preparation", "desc": "Cut/fill mass-haul balance and subgrade compaction to formation level." },
+      { "name": "Drainage", "desc": "Culverts, cross-drainage, longitudinal drains and interceptors." },
+      { "name": "Structures along the corridor", "desc": "Retaining walls and minor culvert/interchange structures — major spans belong to the bridges archetype." },
+      { "name": "Pavement construction", "desc": "Sub-base, base course and asphalt/concrete surfacing layers." },
+      { "name": "Road furniture & safety systems", "desc": "Barriers, guardrails, signage and overhead gantries." },
+      { "name": "Street lighting & power", "desc": "Duct banks, poles, feeder cables and lighting control." },
+      { "name": "ITS / traffic systems", "desc": "Signals, CCTV, tolling and SCADA comms tying the corridor together." },
+      { "name": "Line marking & final surfacing", "desc": "Wearing course, road markings and studs." },
+      { "name": "Testing, commissioning & handover", "desc": "Lighting energisation, ITS integration testing and handover to the road authority." }
+    ],
+    "glossary": [
+      { "term": "Formation", "plain": "the finished earthworks surface that the pavement is built on." },
+      { "term": "Mass-haul (cut/fill balance)", "plain": "matching excavated material to fill needs along the corridor to minimise import/export haulage." },
+      { "term": "Sub-base / base course", "plain": "the granular layers beneath the final asphalt or concrete surface." },
+      { "term": "Chainage", "plain": "the distance measurement along the road centreline used to locate every activity." },
+      { "term": "ITS (Intelligent Transport Systems)", "plain": "traffic signals, CCTV, variable message signs and tolling, tied together by SCADA/comms." },
+      { "term": "Duct bank", "plain": "a buried bundle of conduits carrying power and comms cables under the road." },
+      { "term": "Wearing course", "plain": "the final, top layer of asphalt that traffic actually drives on." }
+    ],
+    "must_get_right": [
+      "Get the mass-haul (cut/fill) balance right early — it drives haulage cost and the pace of the whole earthworks front.",
+      "Keep multiple paving fronts open in parallel along the corridor — a single continuous front is rarely achievable or efficient on a long alignment.",
+      "Sequence drainage and duct-bank works ahead of the paving train — nothing can be trenched into a finished pavement without cutting it back open.",
+      "ITS and lighting are the only real systems scope — don't let their comparatively short durations get scheduled as an afterthought behind civil; they still need real commissioning time before handover."
+    ]
+  },
+  "components": [
+    { "name": "Earthworks & Subgrade", "desc": "Cut/fill · mass-haul · subgrade compaction", "disc": "Civil", "primary": true },
+    { "name": "Drainage", "desc": "Culverts · longitudinal drains · interceptors", "disc": "Civil", "primary": true },
+    { "name": "Pavement", "desc": "Sub-base · base · asphalt/concrete surfacing", "disc": "Civil", "primary": true },
+    { "name": "Structures", "desc": "Retaining walls · culvert & interchange structures", "disc": "Structural", "primary": false },
+    { "name": "Street Lighting & Power", "desc": "Feeder cables · poles · lighting control", "disc": "Electrical", "primary": true },
+    { "name": "ITS / Traffic Systems", "desc": "Signals · CCTV · tolling · SCADA comms", "disc": "Instrumentation", "primary": false },
+    { "name": "Road Furniture & Safety", "desc": "Barriers · signage · gantries", "disc": "Civil", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Drainage & Utilities", "items": ["Culverts & cross-drainage", "Longitudinal drains & interceptors", "Duct banks & pull-pits for ITS/lighting cabling"] },
+    { "discipline": "Electrical / Lighting", "items": ["Street-lighting feeder cables & poles", "Power feeder pillars & switch-on points", "Earthing & bonding"] },
+    { "discipline": "ITS / SCADA", "items": ["Traffic signal & signage control", "CCTV & tolling systems", "Comms network & central SCADA integration"] }
+  ],
+  "overview_phases": ["Setting-out & Clearance", "Earthworks", "Drainage & Structures", "Sub-base & Base Pavement", "Surfacing", "Road Furniture & Lighting", "ITS Integration", "Testing & Handover"],
+  "sequence_chart": {
+    "phases": ["Clear", "Earthwks", "Drainage", "Sub-base", "Surface", "Furniture", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Earthworks & Pavement", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 70, "label": "Clear → earthworks → sub-base → base → surfacing", "holds": [40] },
+      { "trade": "Drainage & Structures", "disc": "Civil", "kind": ["civil"], "start": 10, "width": 50, "label": "Culverts → retaining walls → interceptors", "holds": [30] },
+      { "trade": "Electrical / Lighting", "disc": "Electrical", "kind": ["electrical"], "start": 45, "width": 38, "label": "Duct banks → poles/cable pull → energise", "holds": [70] },
+      { "trade": "ITS / Traffic Systems", "disc": "Instrumentation", "kind": ["elv"], "start": 55, "width": 30, "label": "Cabinets → signals/CCTV → SCADA integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 18, "label": "Photometric → ITS proving → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Earthworks", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Setting-out & site clearance", "Cut/fill earthworks & mass-haul", "Subgrade preparation & compaction", "Sub-base layer construction", "Base course construction", "Asphalt/concrete surfacing — wearing course"] },
+    { "name": "Drainage", "disc": "Civil", "kind": ["civil"], "holds": [0], "steps": ["Culvert & cross-drainage installation", "Longitudinal drains & interceptors", "Manholes & inspection chambers", "Backfill & reinstatement", "Flow / hydraulic proving"] },
+    { "name": "Structures", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Foundations & pile caps", "Retaining wall / culvert-structure construction", "Waterproofing & backfill", "Parapet / barrier fixing", "Structure survey & sign-off"] },
+    { "name": "Road Furniture & Safety Systems", "disc": "Civil", "kind": ["civil"], "holds": [], "steps": ["Barrier & guardrail installation", "Signage & gantry foundations", "Gantry erection & sign fixing", "Line marking & road studs", "Final safety audit"] },
+    { "name": "Street Lighting & Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 5], "steps": ["Duct bank & pull-pit installation", "Pole foundations & pole erection", "Cable pull & termination", "Feeder pillar & power-supply connection", "Lighting control panel & photocell setup", "Energisation & photometric test"] },
+    { "name": "ITS / Traffic Systems", "disc": "Instrumentation", "kind": ["elv"], "holds": [4], "steps": ["Duct & chamber installation for ITS cabling", "Cabinet & equipment installation — signals/CCTV/tolling", "Cable pull & termination", "SCADA / comms integration", "Functional & integration testing"] },
+    { "name": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["Pavement & structure survey verification", "Lighting energisation & photometric checks", "ITS / traffic-signal integration test", "Earthing & bonding continuity check", "Handover to road authority"] }
+  ],
+  "wbs": [
+    { "code": "RD", "name": "Roads & Highways — Project", "level": 1 },
+    { "code": "RD.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "RD.02", "name": "Setting-out & Site Clearance", "level": 2 },
+    { "code": "RD.03", "name": "Earthworks", "level": 2 },
+    { "code": "RD.03.10", "name": "Cut/fill & mass-haul", "level": 3 },
+    { "code": "RD.03.20", "name": "Subgrade preparation & compaction", "level": 3 },
+    { "code": "RD.04", "name": "Drainage", "level": 2 },
+    { "code": "RD.04.10", "name": "Culverts & cross-drainage", "level": 3 },
+    { "code": "RD.04.20", "name": "Longitudinal drains & interceptors", "level": 3 },
+    { "code": "RD.04.20.10", "name": "Manholes & inspection chambers", "level": 4 },
+    { "code": "RD.05", "name": "Structures", "level": 2 },
+    { "code": "RD.05.10", "name": "Retaining walls", "level": 3 },
+    { "code": "RD.05.20", "name": "Culvert & interchange structures", "level": 3 },
+    { "code": "RD.06", "name": "Pavement", "level": 2 },
+    { "code": "RD.06.10", "name": "Sub-base & base course", "level": 3 },
+    { "code": "RD.06.20", "name": "Asphalt / concrete surfacing", "level": 3 },
+    { "code": "RD.06.20.10", "name": "Wearing course & line marking", "level": 4 },
+    { "code": "RD.06.20.10.10", "name": "Final surface & marking QC", "level": 5 },
+    { "code": "RD.07", "name": "Road Furniture & Safety", "level": 2 },
+    { "code": "RD.07.10", "name": "Barriers & guardrails", "level": 3 },
+    { "code": "RD.07.20", "name": "Signage & gantries", "level": 3 },
+    { "code": "RD.08", "name": "Electrical — Lighting & Power", "level": 2 },
+    { "code": "RD.08.10", "name": "Duct banks & pull-pits", "level": 3 },
+    { "code": "RD.08.20", "name": "Poles, cable & energisation", "level": 3 },
+    { "code": "RD.09", "name": "ITS / Traffic Systems", "level": 2 },
+    { "code": "RD.09.10", "name": "Signals, CCTV & tolling", "level": 3 },
+    { "code": "RD.09.20", "name": "SCADA / comms integration", "level": 3 },
+    { "code": "RD.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "RD.10.10", "name": "Lighting & ITS proving", "level": 3 },
+    { "code": "RD.10.20", "name": "Handover to road authority", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are coded by chainage so progress is tracked and reported by linear station along the corridor rather than by area." },
+      { "heading": "Calendars & working time", "body": "Earthworks and paving run an extended daylight, weather-dependent calendar; asphalt paving is further restricted by minimum ambient/surface temperature and dry-weather requirements. ITS and lighting works run a standard calendar and are not weather-sensitive to the same degree." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs earthworks (cut/fill to formation) → sub-base/base → wearing-course paving → line marking → ITS/lighting proving → handover. Structures — culverts, retaining walls — must be complete and backfilled ahead of the paving train reaching that chainage. ITS and lighting are typically not critical except where they gate final handover to the road authority." },
+      { "heading": "Key assumptions", "body": "Design and approvals are frozen per phase/chainage section; borrow pits and spoil-disposal sites are secured before earthworks start; utility diversions carried out by others are complete ahead of the corridor; a single mobilisation. Any change to these invalidates the baseline dates." },
+      { "heading": "Key quantities / long-lead items", "body": "The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Bulk cement/asphalt binder supply agreement", "4–8 weeks to mobilise", "Before base/surfacing starts"], ["Precast culvert units / large-diameter pipe", "8–14 weeks", "Before drainage works at that chainage"], ["Street-lighting poles & luminaires", "10–16 weeks", "Before pole erection"], ["ITS equipment — signal controllers, CCTV, tolling gear", "14–22 weeks", "Before cabinet installation"], ["Steel barrier / guardrail systems", "6–10 weeks", "Before road-furniture works"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Haul-road access and borrow-pit/spoil-site availability govern the earthworks pace; asphalt plant capacity and haul distance limit daily paving output. Maintaining live traffic through phased lane closures on brownfield widening works is a major sequencing constraint on every trade working near the running carriageway." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: weather stopping earthworks or paving, unsuitable ground requiring undercut and replacement, and utility clashes discovered during excavation. Contingency is held against the earthworks-to-paving handoff and again ahead of the final surfacing/line-marking activity, since resurfacing rework is costly and disruptive." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client, by chainage section; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

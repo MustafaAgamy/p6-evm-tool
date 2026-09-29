@@ -1,0 +1,123 @@
+{
+  "archetype": "marina",
+  "schema": 2,
+  "context": "marine-civil-led · breakwater & dredging protect the basin; floating pontoons carry the berths",
+  "brief": {
+    "intro": "New to this project type? A marina or waterfront development starts with marine civil works to create a sheltered, deep-enough basin — a breakwater to break incoming waves, dredging to reach design depth, and quay walls where the shoreline itself is the berth — before any pontoons go in. Most berths then float on pontoons anchored to piles or chains rather than sitting on a fixed deck, so they rise and fall with the tide, and every utility (power, water, fuel) has to reach a moving structure through flexible service risers. A small building (harbourmaster's office, clubhouse, fuel kiosk) and land-side parking round out the scope, but the real programme risk is the marine works — weather/tide windows, dredging permits and breakwater armour placement — plus proving the floating berths under a live load and mooring test.",
+    "scope": [
+      { "name": "Marine investigation & mobilization", "desc": "Metocean/geotechnical confirmation and mobilising the marine plant spread (dredger, piling rig, barge)." },
+      { "name": "Breakwater construction", "desc": "Rock armour/rubble-mound or caisson wave protection sheltering the basin." },
+      { "name": "Dredging & basin excavation", "desc": "Reaching design water depth in the basin and approach channel." },
+      { "name": "Quay walls & hard-berth structures", "desc": "Fixed vertical berth structures along the shoreline, where used." },
+      { "name": "Pontoon system & anchoring", "desc": "Floating pontoons held by pile or chain-and-anchor mooring." },
+      { "name": "Berth utilities", "desc": "Shore power and water pedestals reaching each pontoon berth via flexible risers." },
+      { "name": "Fuel dock & pump-out facility", "desc": "Fuel dispensing and sewage pump-out for berthed vessels." },
+      { "name": "Landside works", "desc": "Car parking, access roads and a small harbourmaster/clubhouse building." },
+      { "name": "Fire-fighting & safety systems", "desc": "Fire main reaching the pontoons and fuel-dock fire protection." },
+      { "name": "Testing & commissioning", "desc": "Pontoon/mooring load test, shore-power/water-pedestal commissioning and fuel/pump-out commissioning." }
+    ],
+    "glossary": [
+      { "term": "Breakwater", "plain": "a rock or concrete barrier built to break incoming waves and shelter the marina basin." },
+      { "term": "Dredging", "plain": "removing seabed material to reach the design water depth vessels need." },
+      { "term": "Quay wall", "plain": "a fixed vertical wall structure vessels berth directly against, as opposed to a floating pontoon." },
+      { "term": "Pontoon", "plain": "a floating platform that rises and falls with the tide, carrying the actual berths." },
+      { "term": "Pile / chain-and-anchor mooring", "plain": "how a floating pontoon system is held in place — either guided by fixed piles or held by anchors and chains." },
+      { "term": "Shore power / water pedestal", "plain": "the point on a pontoon where a berthed boat plugs into power and fresh water." },
+      { "term": "Flexible service riser", "plain": "flexible cabling/piping that lets utilities follow a pontoon as it rises and falls with the tide." },
+      { "term": "Pump-out facility", "plain": "a fixed point where a boat's sewage holding tank is emptied instead of discharged to sea." }
+    ],
+    "must_get_right": [
+      "Sequence the marine civil works first — breakwater and dredging must protect and deepen the basin before pontoons and quay walls can go in safely.",
+      "Plan pontoon utilities (power, water, fuel) as flexible, tide-following connections, not fixed building services — a rigid design assumption here causes rework.",
+      "Marine plant (dredger, piling rig, barge) is a scarce mobilised resource limited by tide and weather windows — protect its schedule like a long-lead item, not a generic subcontractor.",
+      "The pontoon/mooring load test and a live berthing/mooring trial are the real acceptance test, not architectural completion of the landside building."
+    ]
+  },
+  "components": [
+    { "name": "Breakwater & Coastal Protection", "desc": "Rock armour/rubble-mound or caisson", "disc": "Civil / Marine", "primary": true },
+    { "name": "Dredging & Basin Excavation", "desc": "Approach channel · basin · scour protection", "disc": "Civil / Marine", "primary": true },
+    { "name": "Quay Walls & Hard-Berth Structures", "desc": "Fixed vertical berth structures", "disc": "Structural", "primary": false },
+    { "name": "Pontoon System & Anchoring", "desc": "Floating pontoons · pile or chain-and-anchor mooring", "disc": "Marine", "primary": true },
+    { "name": "Berth Utilities", "desc": "Shore power & water pedestals · flexible risers", "disc": "Electrical", "primary": true },
+    { "name": "Fuel Dock & Pump-Out", "desc": "Fuel dispensing · sewage pump-out", "disc": "Mechanical", "primary": false },
+    { "name": "Landside Building & Works", "desc": "Harbourmaster/clubhouse · parking · access", "disc": "Architectural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["Berth shore-power pedestals & flexible riser cabling", "Marina lighting — pontoon walkway & landside", "Landside building power distribution (small)", "Earthing & bonding — pontoons & quay"] },
+    { "discipline": "Utility Piping", "items": ["Water pedestals & flexible riser piping to pontoons", "Fuel-dock dispensing pipework & bulk storage", "Pump-out facility piping"] },
+    { "discipline": "Fire & Plumbing", "items": ["Fire main to pontoons & fuel-dock fire protection", "Landside building fire alarm & portable extinguishers", "Landside building plumbing — domestic water & drainage"] }
+  ],
+  "overview_phases": ["Marine Mobilization & Investigation", "Breakwater Construction", "Dredging & Basin Excavation", "Quay Walls & Hard-Berth Structures", "Pontoon System & Anchoring", "Berth Utilities & Landside Works", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Mobilize", "Breakwater", "Dredge", "Quay", "Pontoons", "Utilities", "Comm."],
+    "lanes": [
+      { "trade": "Marine Civil / Breakwater", "disc": "Civil / Marine", "kind": ["civil"], "start": 0, "width": 45, "label": "Mobilize spread → place rock armour/caisson → complete breakwater", "holds": [20] },
+      { "trade": "Dredging & Basin", "disc": "Civil / Marine", "kind": ["civil"], "start": 12, "width": 38, "label": "Pre-dredge survey → dredge basin/channel → scour protection", "holds": [30] },
+      { "trade": "Quay Walls & Structures", "disc": "Structural", "kind": ["civil"], "start": 30, "width": 35, "label": "Foundations → quay wall construction → coping", "holds": [] },
+      { "trade": "Pontoon System & Anchoring", "disc": "Marine", "kind": ["mechanical"], "start": 48, "width": 35, "label": "Fabricate/float pontoons → install anchoring → connect walkways", "holds": [65] },
+      { "trade": "Berth Utilities & Landside", "disc": "Electrical", "kind": ["electrical"], "start": 58, "width": 38, "label": "Flexible risers → shore power/water pedestals → landside building MEP", "holds": [80] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 84, "width": 16, "label": "Load test → berthing trial → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Marine Civil / Breakwater", "disc": "Civil / Marine", "kind": ["civil"], "holds": [2], "steps": ["Mobilize marine spread — barge, piling rig, survey craft", "Metocean & geotechnical confirmation", "Place rock armour / rubble-mound or caisson units", "Breakwater crest & armour finishing", "Post-construction survey & sign-off"] },
+    { "name": "Dredging & Basin Excavation", "disc": "Civil / Marine", "kind": ["civil"], "holds": [2], "steps": ["Pre-dredge survey", "Silt-curtain deployment & environmental monitoring", "Dredge approach channel & basin to design depth", "Place scour protection", "Post-dredge survey & sign-off"] },
+    { "name": "Quay Walls & Hard-Berth Structures", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Foundations / sheet-pile or caisson base", "Quay wall construction", "Waterproofing & joint sealing", "Coping, fendering & bollards", "Backfill & paving behind quay"] },
+    { "name": "Pontoon System & Anchoring", "disc": "Marine", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Fabricate / float in pontoon sections", "Install pile or chain-and-anchor mooring system", "Connect gangways & walkways", "Utility riser connection to each berth", "Pontoon alignment & load-test preparation"] },
+    { "name": "Berth Utilities (Electrical & Piping)", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 2], "steps": ["Install flexible service risers to pontoons", "Shore-power pedestal installation", "Water pedestal & piping installation", "Marina lighting — walkway & landside", "Point-to-point & functional test"] },
+    { "name": "Fuel Dock & Pump-Out", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0], "steps": ["Fuel dispensing pipework & bulk storage installation", "Pump-out facility installation", "Fuel containment / spill-bunding installation", "Hydrotest & flush", "Functional test"] },
+    { "name": "Fire & Landside Building", "disc": "Fire Protection", "kind": ["fire"], "holds": [0], "steps": ["Fire main to pontoons & fuel-dock protection", "Landside building — structure, envelope & MEP fit-out", "Landside plumbing & drainage", "Landside building fire alarm & extinguishers installation", "Fire system functional test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 3], "steps": ["Pontoon & mooring load test", "Shore-power & water-pedestal commissioning", "Fuel & pump-out commissioning", "Live berthing / mooring trial", "Handover to marina operator"] }
+  ],
+  "wbs": [
+    { "code": "MAR", "name": "Marina — Project", "level": 1 },
+    { "code": "MAR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MAR.02", "name": "Marine Investigation & Mobilization", "level": 2 },
+    { "code": "MAR.02.10", "name": "Marine Spread Mobilization", "level": 3 },
+    { "code": "MAR.02.20", "name": "Metocean & Geotechnical Survey", "level": 3 },
+    { "code": "MAR.03", "name": "Breakwater & Coastal Protection", "level": 2 },
+    { "code": "MAR.03.10", "name": "Rock Armour / Caisson Placement", "level": 3 },
+    { "code": "MAR.03.10.10", "name": "Breakwater Crest Finishing", "level": 4 },
+    { "code": "MAR.04", "name": "Dredging & Basin Excavation", "level": 2 },
+    { "code": "MAR.04.10", "name": "Approach Channel & Basin Dredging", "level": 3 },
+    { "code": "MAR.04.20", "name": "Scour Protection", "level": 3 },
+    { "code": "MAR.05", "name": "Quay Walls & Hard-Berth Structures", "level": 2 },
+    { "code": "MAR.05.10", "name": "Quay Wall Construction", "level": 3 },
+    { "code": "MAR.05.20", "name": "Coping, Fendering & Bollards", "level": 3 },
+    { "code": "MAR.06", "name": "Pontoon System & Anchoring", "level": 2 },
+    { "code": "MAR.06.10", "name": "Pontoon Fabrication & Float-In", "level": 3 },
+    { "code": "MAR.06.20", "name": "Mooring — Pile or Chain-and-Anchor", "level": 3 },
+    { "code": "MAR.06.20.10", "name": "Anchoring Installation & Test", "level": 4 },
+    { "code": "MAR.07", "name": "Berth Utilities", "level": 2 },
+    { "code": "MAR.07.10", "name": "Shore Power & Flexible Risers", "level": 3 },
+    { "code": "MAR.07.20", "name": "Water Pedestals & Piping", "level": 3 },
+    { "code": "MAR.08", "name": "Fuel Dock & Pump-Out", "level": 2 },
+    { "code": "MAR.09", "name": "Fire-Fighting & Safety Systems", "level": 2 },
+    { "code": "MAR.10", "name": "Landside Building & Works", "level": 2 },
+    { "code": "MAR.10.10", "name": "Harbourmaster / Clubhouse Building", "level": 3 },
+    { "code": "MAR.10.20", "name": "Parking & Access Roads", "level": 3 },
+    { "code": "MAR.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MAR.11.10", "name": "Pontoon & Mooring Load Test", "level": 3 },
+    { "code": "MAR.11.20", "name": "Berthing Trial & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Marine activities are durationed against marine-plant productivity rates (armour units or dredge volume per workable week), not generic civil productivity. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Marine works (breakwater placement, dredging, pontoon installation) run on a tide- and weather-dependent calendar with a modelled allowance for non-workable days by sea state and wind speed; landside works (building, parking) run a standard calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs marine mobilization → breakwater construction (in parallel with dredging) → quay wall / pontoon anchoring → berth utilities (flexible risers, shore power, water) → pontoon & mooring load test → live berthing trial → handover. The landside building and parking are typically not on the critical path." },
+      { "heading": "Key assumptions", "body": "Metocean and tide data validated at design; the marine plant spread is mobilised once for the duration of the marine works; a disposal site for dredged material is available and permitted; seabed and coastal conditions match the geotechnical/metocean investigation." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is driven by marine-specific hardware and permitting. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Pontoon sections (fabricated off-site)", "18–30 weeks", "Before pontoon installation"], ["Mooring piles or anchor-chain systems", "14–24 weeks", "Before anchoring installation"], ["Shore-power / water pedestals", "10–16 weeks", "Before berth-utilities install"], ["Precast breakwater armour units (where used)", "12–20 weeks", "Before breakwater placement"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Marine plant (dredger, piling rig, barge) is a scarce, mobilised resource shared across the works; sea-state and weather windows constrain daily working hours; dredging permits and disposal-site availability gate dredging start; vessel and public access to the basin must be coordinated with the harbour authority throughout." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: weather/tidal downtime, dredging permit delay, marine plant unavailability, and pontoon/mooring delivery slippage. Schedule contingency is held around the breakwater/dredging fronts and again ahead of the pontoon/mooring load test, rather than spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the marine plant — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

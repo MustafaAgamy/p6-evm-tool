@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Knowledge Base is now Construction Project Knowledge (Project Type Playbooks)
+- **Navigator ▸ Library ▸ Knowledge Base (and Tools ▸ Knowledge Base) opens the new Playbooks page**, which replaces the previous Knowledge Base page. There is one playbook for each of **77 project types**, covering the brief and components, MEP systems, the construction sequence by trade (with a Focus filter), a suggested WBS in P6 tree style, and the Basis of Planning.
+- **Exports:** the playbook as PDF, the suggested WBS as Excel, and a **baseline XER** per project type (a detailed baseline with 1000+ activities, or a skeleton).
+- **Removed:** the previous Knowledge Base page (knowledge projects table, reference-standard tree and example baselines) and the **Constructability** entry in the navigator.
+
+### Fixed — The app opens even with a damaged database
+- A corrupt or locked `controlyx.db` no longer stops the app from starting. Saving to the database is switched off for that session; the Knowledge Base and the analysis screens still work.
+
 ### Added — Tool-wide enhancement, part 1: one report picker and one-document exports
 - **Two-level Report Contents picker.** The print preview now lists each report's sections and, inside them, each table, chart and KPI group. Untick any part and it is left out of the report entirely. Sections can be reordered by dragging, and the choice is remembered per feature.
 - **PDF, Word, HTML and Excel from the same preview.** All four are made from the one report you see, so they carry the same sections, tables and numbers. Earned Value and P6 Calendar Audit have all four now; the other features follow in the next parts.

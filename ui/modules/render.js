@@ -67,7 +67,7 @@ export function clearError() {
 // results. Hide them all whenever we enter the import screen or render results — so no
 // matter which page the user was on before, nothing shows underneath.
 export function hideStandalonePages() {
-  ['recent-section', 'kb-section', 'kb-database-section', 'prodintel-section'].forEach((id) =>
+  ['recent-section', 'kb-section', 'kb-playbooks-section', 'prodintel-section'].forEach((id) =>
     document.getElementById(id)?.classList.add('hidden'));
 }
 

@@ -1,0 +1,127 @@
+{
+  "archetype": "hotel_hospitality",
+  "schema": 2,
+  "context": "repetition-led · guest-room mock-up gates the typical-floor cycle; back-of-house plant drives the tail",
+  "brief": {
+    "intro": "New to this project type? A hotel is really two projects in one: a repetitive vertical stack of near-identical guest rooms (the \"keys\"), and a heavily serviced, one-off back-of-house and public-area podium — kitchens, laundry, pools, spa, ballroom, lobby. The guest-room programme is driven by a single mock-up room, built and approved early, that locks the finishes, MEP layout and joinery for every room on every typical floor; once it's approved, the typical-floor cycle repeats at a steady, predictable rate. The back-of-house, by contrast, is design-intensive, equipment-heavy and doesn't repeat, so it needs its own separate sequence and often becomes the tail of the programme rather than the guest towers.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Earthworks, piling/foundations and basement construction for car park and back-of-house." },
+      { "name": "Structure — towers & podium", "desc": "Typical-floor guest-tower structure plus the podium and back-of-house structure below it." },
+      { "name": "Building envelope", "desc": "Façade, glazing, roofing and waterproofing to get the towers weather-tight." },
+      { "name": "Guest-room mock-up", "desc": "A fully finished sample room, built and approved before the typical-floor rollout can begin." },
+      { "name": "Guest-room MEP & finishes (typical floors)", "desc": "The repetitive first fix, waterproofing, tiling, second fix and joinery that repeats floor after floor." },
+      { "name": "Mechanical — HVAC & central plant", "desc": "Chillers, AHUs, guest-room fan-coil units and kitchen exhaust." },
+      { "name": "Electrical power & vertical transport", "desc": "MV/LV distribution, standby generation and lifts serving the guest towers and back-of-house." },
+      { "name": "Fire protection & life safety", "desc": "Sprinklers, fire alarm, smoke control and stair pressurisation." },
+      { "name": "Back-of-house & F&B plant", "desc": "Kitchens, laundry, pools/spa and the loading dock — design-intensive, non-repetitive scope." },
+      { "name": "Commissioning & handover", "desc": "DHW flushing, integrated life-safety testing, BMS/guest-room controls integration and operator sign-off." }
+    ],
+    "glossary": [
+      { "term": "Mock-up room", "plain": "a fully finished sample guest room, built and approved early; every typical room then copies it." },
+      { "term": "Key", "plain": "hospitality shorthand for one guest room — e.g. \"a 300-key hotel\"." },
+      { "term": "Typical floor", "plain": "a guest-room floor that repeats the same layout, finishes and MEP as the floor above and below it." },
+      { "term": "Back-of-house (BOH)", "plain": "the non-guest-facing areas — kitchens, laundry, staff areas, plant rooms, loading dock." },
+      { "term": "DHW — domestic hot water", "plain": "hot water supplied to guest rooms and BOH; flushing and water-quality testing are a formal commissioning step." },
+      { "term": "FF&E", "plain": "furniture, fixtures & equipment — the loose furniture installed after construction finishes, often on its own supply chain." },
+      { "term": "Operator technical services (OTS) review", "plain": "the hotel brand's own design and construction checklist that the project must satisfy before opening." },
+      { "term": "Stair pressurisation", "plain": "fans that keep escape stairs smoke-free during a fire, part of the life-safety system." },
+      { "term": "Wet area", "plain": "bathroom/kitchen zones needing waterproofing before tiling — a classic hotel snagging source." }
+    ],
+    "must_get_right": [
+      "Lock and approve the mock-up room early — every typical-floor activity (MEP, waterproofing, tiling, joinery) is copied from it, so a late mock-up delays the entire guest-tower programme.",
+      "Wet-area waterproofing and DHW quality are the classic hotel snag sources — build in proper cure/test time per floor, not just a walk-through.",
+      "Back-of-house and F&B areas are design-intensive and equipment-heavy, not repetitive — schedule and resource them separately from the typical-floor rollout, and don't assume they will \"catch up\".",
+      "Protect real time for brand/operator technical-services sign-off and FF&E installation before opening — these sit outside the base-build trades and are frequently underestimated."
+    ]
+  },
+  "components": [
+    { "name": "Structural Frame & Superstructure", "desc": "Towers, podium & back-of-house structure", "disc": "Structural", "primary": true },
+    { "name": "Guest-Room MEP & Finishes", "desc": "Repetitive typical-floor fit-out, locked by the mock-up room", "disc": "Architectural / MEP", "primary": true },
+    { "name": "Mechanical — HVAC & Central Plant", "desc": "Chillers · AHUs · guest-room FCU/VRF", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Vertical Transport", "desc": "MV/LV · standby generation · lifts", "disc": "Electrical", "primary": false },
+    { "name": "Fire Protection & Life Safety", "desc": "Sprinklers · fire alarm · stair pressurisation", "disc": "Fire Protection", "primary": true },
+    { "name": "Back-of-House & F&B Plant", "desc": "Kitchens · laundry · pools/spa", "disc": "Mechanical", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Chillers & central chilled-water plant", "Guest-room fan-coil units (FCU) / VRF", "Kitchen & laundry exhaust, make-up air", "Pool / spa mechanical & water treatment"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear, transformers & standby generation", "Guest-room power, lighting & scene control", "Lifts & escalators serving towers & BOH", "Kitchen & laundry power (heavy equipment)"] },
+    { "discipline": "Plumbing", "items": ["Domestic hot & cold water risers to every guest room", "Sanitary drainage & guest-room wet-area fixtures", "Kitchen grease interceptors & pool/spa water systems"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm, sprinklers & stair pressurisation", "Guest-room management system (lighting/HVAC scene control)", "CCTV, access control & guest key-card system", "BMS integration — HVAC, fire, lifts, guest-room controls"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Structure — Towers & Podium", "Envelope & Waterproofing", "Mock-up Room & Approval", "Typical-Floor MEP & Finishes Rollout", "Back-of-House & F&B Plant", "Life-Safety & BMS Integration", "Commissioning & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "Mock-up", "Typ. Floors", "BOH/Plant", "Comm./HO"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Piling → podium/tower structure → topping out", "holds": [14] },
+      { "trade": "Guest-Room Mock-up", "disc": "Architectural", "kind": ["civil"], "start": 18, "width": 10, "label": "Build & approve sample room — gates rollout", "holds": [26] },
+      { "trade": "Guest-Room MEP & Finishes (Typical Floors)", "disc": "Architectural / MEP", "kind": ["civil", "mechanical", "electrical"], "start": 30, "width": 48, "label": "Repeat: first fix → waterproof → tile → second fix → joinery", "holds": [55] },
+      { "trade": "Mechanical & Electrical (Central/BOH)", "disc": "Mechanical", "kind": ["mechanical", "electrical"], "start": 26, "width": 50, "label": "Containment → set plant → BOH equipment → terminate", "holds": [64] },
+      { "trade": "Fire / ELV / BMS", "disc": "Fire Protection", "kind": ["fire", "elv", "bms"], "start": 48, "width": 36, "label": "Devices → guest-room controls → integrate", "holds": [78] },
+      { "trade": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "DHW flush → life-safety test → operator sign-off", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2, 5], "steps": ["Piling & foundations", "Basement / back-of-house structure", "Tower & podium frame — floor by floor", "Topping out", "Envelope — façade, glazing & roofing", "Waterproofing"] },
+    { "name": "Guest-Room Mock-up", "disc": "Architectural", "kind": ["civil"], "holds": [4], "steps": ["Finalise brand/operator technical standards for the room", "Build fully-finished sample room — MEP, finishes & joinery", "Owner / operator (brand) walk-through", "Incorporate comments & rebuild if required", "Approve & freeze typical-floor specification"] },
+    { "name": "Guest-Room MEP & Finishes Rollout", "disc": "Architectural / MEP", "kind": ["civil", "mechanical", "electrical"], "holds": [1, 5], "steps": ["MEP first fix per typical floor", "Wet-area waterproofing & test", "Screed & tiling", "MEP second fix", "Paint, joinery & FF&E-ready", "Floor-by-floor snagging"] },
+    { "name": "Mechanical — HVAC & Central Plant", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Long-lead procurement — chillers, AHUs, lifts, kitchen equipment", "Plantroom pipework & ductwork containment", "Set chillers & AHUs", "Guest-room FCU/VRF installation", "Kitchen, laundry & pool/spa plant installation", "Flush, balance & commission"] },
+    { "name": "Electrical Power & Vertical Transport", "disc": "Electrical", "kind": ["electrical"], "holds": [2, 4], "steps": ["Containment routes & cable pull", "Set switchgear, transformers & standby generators", "Lift installation — towers & BOH", "Guest-room power & lighting scene control", "Energise & test"] },
+    { "name": "Fire Protection & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Sprinkler & fire-pump installation", "Fire/smoke detection devices & cabling", "Stair pressurisation fans & dampers", "Cause-and-effect wiring & programming", "Integrated life-safety test"] },
+    { "name": "Back-of-House & F&B Plant", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Kitchen equipment installation & exhaust hook-up", "Laundry equipment & steam/hot-water connection", "Pool / spa construction & water treatment", "Loading dock & BOH fit-out", "BOH equipment commissioning"] },
+    { "name": "ELV / Guest Systems / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [3], "steps": ["Containment & structured cabling", "Guest-room management system & key-card locks", "CCTV & access control", "BMS integration — HVAC, fire, lifts, guest rooms", "Guest-room controls commissioning"] }
+  ],
+  "wbs": [
+    { "code": "HTL", "name": "Hotel / Hospitality Building — Project", "level": 1 },
+    { "code": "HTL.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "HTL.02", "name": "Enabling & Substructure", "level": 2 },
+    { "code": "HTL.02.10", "name": "Earthworks & piling", "level": 3 },
+    { "code": "HTL.02.20", "name": "Basement / back-of-house structure", "level": 3 },
+    { "code": "HTL.03", "name": "Structure — Towers & Podium", "level": 2 },
+    { "code": "HTL.03.10", "name": "Podium structure", "level": 3 },
+    { "code": "HTL.03.20", "name": "Tower frame — typical floors", "level": 3 },
+    { "code": "HTL.04", "name": "Building Envelope & Waterproofing", "level": 2 },
+    { "code": "HTL.05", "name": "Guest-Room Mock-up & Approval", "level": 2 },
+    { "code": "HTL.06", "name": "Guest-Room MEP & Finishes (Typical Floors)", "level": 2 },
+    { "code": "HTL.06.10", "name": "MEP first fix", "level": 3 },
+    { "code": "HTL.06.20", "name": "Wet-area waterproofing & tiling", "level": 3 },
+    { "code": "HTL.06.20.10", "name": "Waterproofing test per floor", "level": 4 },
+    { "code": "HTL.06.20.10.10", "name": "Wet-area handover checklist", "level": 5 },
+    { "code": "HTL.06.30", "name": "MEP second fix, paint & joinery", "level": 3 },
+    { "code": "HTL.07", "name": "Mechanical — HVAC & Central Plant", "level": 2 },
+    { "code": "HTL.07.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "HTL.07.20", "name": "Guest-room FCU / VRF installation", "level": 3 },
+    { "code": "HTL.08", "name": "Electrical — Power, Standby Generation & Vertical Transport", "level": 2 },
+    { "code": "HTL.08.20", "name": "Lifts — towers & BOH", "level": 3 },
+    { "code": "HTL.08.20.10", "name": "Lift load & safety test", "level": 4 },
+    { "code": "HTL.09", "name": "Fire Protection & Life Safety", "level": 2 },
+    { "code": "HTL.09.10", "name": "Sprinklers & fire pumps", "level": 3 },
+    { "code": "HTL.09.20", "name": "Fire alarm, stair pressurisation & cause-and-effect programming", "level": 3 },
+    { "code": "HTL.10", "name": "Back-of-House & F&B Plant", "level": 2 },
+    { "code": "HTL.10.10", "name": "Kitchens & laundry", "level": 3 },
+    { "code": "HTL.10.20", "name": "Pools / spa", "level": 3 },
+    { "code": "HTL.11", "name": "ELV / Guest Systems / BMS", "level": 2 },
+    { "code": "HTL.12", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "HTL.12.10", "name": "DHW flushing & water-quality test", "level": 3 },
+    { "code": "HTL.12.20", "name": "Integrated life-safety test & operator technical-services sign-off", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Guest-room typical floors are tracked as a repetitive production line — rooms or floors completed per week — rather than as individually estimated activities." },
+      { "heading": "Calendars & working time", "body": "Structure and envelope run a 6-day week; once the mock-up is approved, the typical-floor MEP and finishing rollout runs on a fixed floor-cycle duration (one floor released to finishing every set number of days). Back-of-house and commissioning move to extended hours as opening approaches." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs mock-up room build & approval → typical-floor rollout (structure staying a few floors ahead of finishing) → back-of-house/F&B plant, which runs in parallel on its own critical path → DHW flushing → integrated life-safety test → operator technical-services sign-off → opening. Whichever finishes later — the typical-floor rollout or the back-of-house completion — governs the opening date." },
+      { "heading": "Key assumptions", "body": "Brand/operator technical standards are finalised before the mock-up is built; a single mobilisation; FF&E supply and installation are coordinated on a separate but interfacing programme; and no room-count or layout changes occur after mock-up approval." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led for vertical transport, central plant and back-of-house equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Lifts (guest towers & BOH)", "20–30 weeks", "Before shaft closure"], ["Chillers / AHUs", "20–30 weeks", "Before plantroom close-in"], ["Kitchen & laundry equipment", "16–24 weeks", "Before back-of-house fit-out"], ["Guest-room FF&E & joinery packages", "14–22 weeks", "Before typical-floor handover to the FF&E installer"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Tower hoists and access are shared between structure and finishing trades; finishing-crew resourcing is sized to hold the floor-cycle rate. Back-of-house equipment deliveries need crane or loading-dock windows, and brand technical-services site visits occur at fixed programme gates that must be planned around." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: a late mock-up approval (which delays every typical floor), wet-area waterproofing failures or re-work, back-of-house design changes, and integrated life-safety re-test loops. Schedule contingency is held before the mock-up approval gate and before the integrated life-safety test/opening, rather than spread thinly across floors." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead per floor/zone for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

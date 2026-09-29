@@ -39,7 +39,7 @@ const navItems = navGroups.flatMap(g => g.items.map(([id, label]) => ({ id, labe
 console.log('\nnavigator coverage');
 test('NAV parsed from app.js (root + groups)', () => {
   assert.deepEqual(navRoot, ['home']);
-  assert.ok(navItems.length >= 20, `only ${navItems.length} navigator items parsed`);
+  assert.ok(navItems.length >= 19, `only ${navItems.length} navigator items parsed`);
 });
 test('EVERY navigator id has a FEATURE_NEEDS entry', () => {
   const missing = [...navRoot, ...navItems.map(n => n.id)].filter(id => !featureNeeds(id));
@@ -202,17 +202,14 @@ test('Earned Value: no baseline prompt / Attach button for an XML — Help says 
   assert.ok(!/or an XML exported without its baseline/.test(bl.role), 'still claims the tool asks for a baseline for an XML');
   assert.match(bl.note, /cannot be attached to an XML/);
 });
-test('Knowledge Base: every file the screen saves is listed (SHELL-7)', () => {
-  const kb = read('ui', 'modules', 'database.js');
-  assert.match(kb, /example_with_gaps/);                                   // exportExample(…, gappy)
-  assert.match(kb, /clean_baseline/);                                      // exportExample(…, clean)
-  assert.match(kb, /function downloadContributed[\s\S]{0,120}filename\.split\('\.'\)\.pop\(\)/);   // own format
-  assert.match(kb, /\/api\/kb\/raw\/download/);                            // raw learned project
-  assert.match(kb, /\/api\/kb\/starter-xml/);
-  assert.match(kb, /\/api\/kb\/knowledge\/export/);
-  assert.match(read('p6_kb', 'pattern_learning.py'), /ext = os\.path\.splitext\(src_path\)\[1\]\.lower\(\)/);  // raw kept as learned
+test('Knowledge Base: every file the Playbooks screen saves is listed (SHELL-7)', () => {
+  const kb = read('ui', 'modules', 'knowledge.js');
+  assert.match(kb, /\/api\/kb\/detailed-xer/);
+  assert.match(kb, /\/api\/kb\/starter-xer/);
+  assert.match(kb, /\/api\/kb\/excel/);
+  assert.match(kb, /data-act="exp-pdf"/);
   const ex = featureNeeds('kb').exports.join(' | ');
-  for (const w of ['Starter baseline', 'with typical gaps', 'Clean reference baseline', 'Contributed schedules', 'learned project', 'Knowledge file (.json)']) {
+  for (const w of ['PDF', 'Excel', 'Detailed baseline (XER', 'Skeleton baseline (XER)']) {
     assert.ok(ex.includes(w), `kb exports missing "${w}": ${ex}`);
   }
 });

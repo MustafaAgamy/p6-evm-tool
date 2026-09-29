@@ -38,15 +38,54 @@ def _db_path():
 
 def get_conn():
     conn = sqlite3.connect(_db_path())
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA foreign_keys=ON')
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA journal_mode=WAL')     # raises on a malformed DB file
+        conn.execute('PRAGMA foreign_keys=ON')
+    except Exception:
+        conn.close()                                # release the file so it can be quarantined
+        raise
     return conn
 
 
 # ── Schema ─────────────────────────────────────────────────────────────────
 
+def _corrupt_db_error(exc):
+    m = str(exc).lower()
+    return any(k in m for k in ('malformed', 'not a database', 'file is encrypted', 'disk image'))
+
+
+def _quarantine_corrupt_db():
+    """Move an unreadable DB (+ its WAL/SHM sidecars) aside so a fresh one can be
+    created. Best-effort — if the file is locked we leave it and the caller falls
+    back to running without persistence rather than crashing the whole app."""
+    path = _db_path()
+    for suffix in ('', '-wal', '-shm'):
+        f = path + suffix
+        if os.path.exists(f):
+            try:
+                bak = f + '.corrupt'
+                if os.path.exists(bak):
+                    os.remove(bak)
+                os.replace(f, bak)
+            except OSError:
+                pass
+
+
 def init_db():
+    """Create the schema, self-healing a corrupt database. A ``controlyx.db`` that
+    SQLite reports as malformed is quarantined (renamed ``*.corrupt``) and a fresh
+    one created, so a bad database never bricks the app on startup."""
+    try:
+        _init_schema()
+    except sqlite3.DatabaseError as exc:
+        if not _corrupt_db_error(exc):
+            raise
+        _quarantine_corrupt_db()
+        _init_schema()
+
+
+def _init_schema():
     with get_conn() as conn:
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS projects (

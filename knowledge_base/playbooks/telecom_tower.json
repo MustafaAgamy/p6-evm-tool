@@ -1,0 +1,119 @@
+{
+  "archetype": "telecom_tower",
+  "schema": 2,
+  "context": "earthing- & RF-commissioning-led · small footprint · access/weather-driven",
+  "brief": {
+    "intro": "A telecom tower or mast is a small-footprint, structure-led project whose real complexity is not size but precision: a steel lattice tower or monopole must be founded, erected plumb and earthed correctly, then equipped with antennas, feeders and a small equipment shelter. New to this type? Structural erection is quick once the foundation cures, so the programme is usually driven by access — a remote or difficult site, a tight access road — and by two testing gates that cannot be rushed: the plumbness/structural survey and the earthing/lightning-protection test. RF (radio-frequency) commissioning of the antennas and feeders is done last and is often on the telecom operator's own schedule, arriving after the tower itself is complete. Weather — wind limits for lifting, lightning risk during steel erection — is a frequent driver of float consumption on this type.",
+    "scope": [
+      { "name": "Site access & enabling", "desc": "Access road/track, site clearance and temporary power." },
+      { "name": "Foundation & earth mat", "desc": "Piled or spread foundation and a buried earth-electrode grid (earth mat)." },
+      { "name": "Tower / mast erection", "desc": "Lattice tower sections or a monopole shaft, erected and plumbed." },
+      { "name": "Equipment shelter / cabin", "desc": "The base-station shelter housing radio and power equipment." },
+      { "name": "Power supply", "desc": "Utility connection or a solar/generator hybrid, DC power plant and battery backup." },
+      { "name": "Earthing & lightning protection", "desc": "Earth-mat bonding, down-conductors and surge protection." },
+      { "name": "Antennas, feeders & RF equipment", "desc": "Antenna mounts, feeder cable runs and radio units." },
+      { "name": "Site security & access control", "desc": "Perimeter fencing, gate and CCTV." },
+      { "name": "Structural & earthing testing", "desc": "Plumbness/structural survey, earth-resistance test and lightning-protection continuity test." },
+      { "name": "RF commissioning & handover", "desc": "Antenna alignment, RF testing, network integration and handover to the operator." }
+    ],
+    "glossary": [
+      { "term": "Earth mat", "plain": "a buried grid of electrodes bonded to the tower structure to safely dissipate lightning and fault current." },
+      { "term": "Lattice tower / monopole", "plain": "two common tower forms — an open steel-truss lattice tower, or a single tapered tubular monopole." },
+      { "term": "Feeder", "plain": "the cable (or waveguide) that carries the RF signal between the radio equipment and the antenna." },
+      { "term": "RF commissioning", "plain": "testing and tuning the antennas and radios so the site broadcasts correctly and integrates with the network." },
+      { "term": "Plumbness survey", "plain": "a structural check that the erected tower is vertical within tolerance." },
+      { "term": "Guyed mast", "plain": "a mast held vertical by tensioned cables (guys) anchored to the ground, an alternative to a self-supporting tower." },
+      { "term": "Co-location", "plain": "sharing one tower structure among multiple operators' antennas." }
+    ],
+    "must_get_right": [
+      "Treat site access as a schedule risk on its own — a remote or difficult site can govern the whole programme more than the steel erection itself.",
+      "Never skip or rush the earth-resistance and lightning-protection test — a failed result after the tower is erected and cabled means re-work at height.",
+      "Sequence RF commissioning realistically — it is usually run by the telecom operator on their own schedule, not the erection contractor's, so hand off with a clear interface date rather than assuming it follows immediately.",
+      "Watch wind and lightning-risk windows for lifting operations — steel erection at height is weather-gated and easily loses days."
+    ]
+  },
+  "components": [
+    { "name": "Foundation & Earth Mat", "desc": "Piled/spread foundation · buried earth-electrode grid", "disc": "Civil", "primary": true },
+    { "name": "Tower / Mast Structure", "desc": "Lattice tower or monopole · erection & plumbing", "disc": "Structural", "primary": true },
+    { "name": "Power Supply", "desc": "Utility/solar/generator hybrid · DC plant · batteries", "disc": "Electrical", "primary": true },
+    { "name": "Earthing & Lightning Protection", "desc": "Bonding · down-conductors · surge protection", "disc": "Electrical", "primary": true },
+    { "name": "Antennas & RF", "desc": "Antenna mounts · feeders · radio units", "disc": "Instrumentation / RF", "primary": true },
+    { "name": "Equipment Shelter", "desc": "Base-station cabin/shelter", "disc": "Architectural", "primary": false },
+    { "name": "Security", "desc": "Fencing · gate · CCTV", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["Utility connection or solar/generator hybrid power", "DC power plant & battery backup", "Earthing & lightning-protection system", "Shelter small power & lighting"] },
+    { "discipline": "Instrumentation / RF", "items": ["Antennas & mounts", "Feeder cable runs", "Radio units & base-station equipment", "Remote monitoring / alarms"] },
+    { "discipline": "ELV / Security", "items": ["Perimeter fencing & gate", "CCTV & access control", "Site lighting"] }
+  ],
+  "overview_phases": ["Site access & enabling", "Foundation & earth mat", "Tower/mast erection", "Shelter & power install", "Antennas, feeders & earthing", "Structural & earthing test", "RF commissioning & handover"],
+  "sequence_chart": {
+    "phases": ["Access", "Found.", "Erect", "Equip", "Earth", "Test", "RF Comm."],
+    "lanes": [
+      { "trade": "Civil / Foundation", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Access → foundation → earth mat cure", "holds": [18] },
+      { "trade": "Tower / Mast Erection", "disc": "Structural", "kind": ["civil"], "start": 26, "width": 30, "label": "Deliver sections → erect → plumb", "holds": [40] },
+      { "trade": "Electrical & Power", "disc": "Electrical", "kind": ["electrical"], "start": 40, "width": 34, "label": "Shelter power → DC plant → earthing bond", "holds": [60] },
+      { "trade": "Antennas & RF", "disc": "Instrumentation", "kind": ["elv"], "start": 56, "width": 28, "label": "Mounts → feeders → radios", "holds": [] },
+      { "trade": "Testing", "disc": "Commissioning", "kind": ["comm"], "start": 72, "width": 16, "label": "Plumbness → earth-resistance test", "holds": [80] },
+      { "trade": "RF Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 84, "width": 16, "label": "Alignment → RF test → network integration", "holds": [94] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Foundation", "disc": "Civil", "kind": ["civil"], "holds": [1, 3], "steps": ["Access road / track & site clearance", "Foundation excavation & piling/spread footing", "Buried earth-electrode grid (earth mat)", "Foundation concrete & cure", "Backfill & reinstatement"] },
+    { "name": "Tower / Mast Erection", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Long-lead tower/monopole fabrication", "Delivery & laydown", "Section-by-section erection", "Plumbness alignment", "Torque / bolt-tension check"] },
+    { "name": "Equipment Shelter", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["Shelter/cabin foundation & set", "Shelter fit-out & cable entry", "Small power & lighting", "Weatherproofing & security fit", "Handover checklist"] },
+    { "name": "Power & Earthing", "disc": "Electrical", "kind": ["electrical"], "holds": [2, 4], "steps": ["Utility connection or solar/generator hybrid install", "DC power plant & battery bank", "Bonding to earth mat & down-conductors", "Surge protection devices", "Earth-resistance test"] },
+    { "name": "Antennas & RF", "disc": "Instrumentation", "kind": ["elv"], "holds": [2], "steps": ["Antenna mounts & brackets", "Feeder cable runs to shelter", "Radio unit / base-station install", "Sweep test (feeder/antenna VSWR)", "Operator RF commissioning & alignment"] },
+    { "name": "Security", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Perimeter fencing & gate", "CCTV & access control", "Site lighting", "Function test", "Handover documentation"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [0, 2], "steps": ["Structural plumbness survey", "Earth-resistance & lightning-protection test", "RF sweep & sign-off", "Network integration test", "Handover to operator"] }
+  ],
+  "wbs": [
+    { "code": "TWR", "name": "Telecom Tower — Project", "level": 1 },
+    { "code": "TWR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "TWR.02", "name": "Site Access & Enabling", "level": 2 },
+    { "code": "TWR.03", "name": "Foundation & Earth Mat", "level": 2 },
+    { "code": "TWR.03.10", "name": "Foundation excavation & piling", "level": 3 },
+    { "code": "TWR.03.20", "name": "Earth-electrode grid", "level": 3 },
+    { "code": "TWR.03.20.10", "name": "Install & test earth mat", "level": 4 },
+    { "code": "TWR.04", "name": "Tower / Mast Structure", "level": 2 },
+    { "code": "TWR.04.10", "name": "Fabrication & delivery", "level": 3 },
+    { "code": "TWR.04.20", "name": "Erection & plumbing", "level": 3 },
+    { "code": "TWR.05", "name": "Equipment Shelter", "level": 2 },
+    { "code": "TWR.05.10", "name": "Shelter foundation & set", "level": 3 },
+    { "code": "TWR.05.20", "name": "Shelter fit-out", "level": 3 },
+    { "code": "TWR.06", "name": "Power Supply", "level": 2 },
+    { "code": "TWR.06.10", "name": "Utility/hybrid power connection", "level": 3 },
+    { "code": "TWR.06.20", "name": "DC power plant & batteries", "level": 3 },
+    { "code": "TWR.07", "name": "Earthing & Lightning Protection", "level": 2 },
+    { "code": "TWR.07.10", "name": "Bonding & down-conductors", "level": 3 },
+    { "code": "TWR.07.20", "name": "Surge protection", "level": 3 },
+    { "code": "TWR.08", "name": "Antennas, Feeders & RF Equipment", "level": 2 },
+    { "code": "TWR.08.10", "name": "Antenna mounts & brackets", "level": 3 },
+    { "code": "TWR.08.20", "name": "Feeder runs & radio units", "level": 3 },
+    { "code": "TWR.09", "name": "Security", "level": 2 },
+    { "code": "TWR.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "TWR.10.10", "name": "Structural plumbness survey", "level": 3 },
+    { "code": "TWR.10.20", "name": "Earth-resistance test", "level": 3 },
+    { "code": "TWR.10.30", "name": "RF commissioning & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network in Primavera P6, developed to a Level 3 control schedule; because of the small activity count, the network is often modelled at a combined Level 3/4, calculated by F9 with total float kept ≥ 0." },
+      { "heading": "Calendars & working time", "body": "Civil and erection works run a standard 6-day week with lifting restricted to permitted wind-speed windows; steel erection stops during lightning risk. RF commissioning follows the operator's own working calendar, which may differ from the erection contractor's." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs site access → foundation & earth mat cure → tower/mast erection → shelter & power install → earthing bond → structural/earthing test → antenna & feeder install → RF commissioning → handover. On a remote site, access itself can be the longest single float-consuming activity." },
+      { "heading": "Key assumptions", "body": "The access road/track is available or built before foundation works; ground and geotechnical conditions are as per survey; the operator's RF equipment and commissioning team are available to the agreed interface date; wayleaves/land access are secured." },
+      { "heading": "Procurement & long-lead items", "body": "Fabricated steel and specialist power/RF equipment are tracked as milestones:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Tower/monopole (fabricated steel)", "10–18 weeks", "Before erection"], ["Equipment shelter/cabin (prefabricated)", "6–10 weeks", "Before shelter install"], ["DC power plant & batteries", "6–10 weeks", "Before electrical terminate"], ["Antennas & RF radio units (often operator-supplied)", "8–14 weeks", "Before antenna install"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Remote or difficult sites constrain crane and delivery access for tower sections; a small footprint limits laydown space; earthing and RF-certified trades are specialist and often shared across many sites in a rollout." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: access-road delay on remote sites, a failed earth-resistance test after erection, and RF commissioning slipping behind the operator's own programme. Contingency is held before erection (weather) and before the earthing/structural test." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client/operator; controlled at Level 3; expanded to Level 4 for erection-day sequencing — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

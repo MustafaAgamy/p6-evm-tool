@@ -1,0 +1,121 @@
+{
+  "archetype": "seaport_container_terminal",
+  "schema": 2,
+  "context": "quay-crane power & yard-electrical led · marine civil is the enabler, not the driver",
+  "brief": {
+    "intro": "New to this project type? A container terminal is a marine civil structure — a quay wall and a heavy-duty paved yard — built to carry a small number of very powerful, very expensive machines: ship-to-shore (STS) quay cranes and yard cranes (RTG or RMG) that move containers between ship, stack and gate. The quay wall and dredging are a major early package, but once the yard is formed the schedule shifts almost entirely to electrical: getting high-voltage power, crane bus-bar/festoon feed, and reefer (refrigerated container) power distribution installed, energised and proven. Crane fabrication and delivery lead time is usually the single biggest date on the programme.",
+    "scope": [
+      { "name": "Marine civil / quay wall", "desc": "Piling, quay wall construction and the berth line the ship moors against." },
+      { "name": "Dredging & reclamation", "desc": "Approach channel, berth pocket dredging, and yard reclamation or fill." },
+      { "name": "Yard pavement & crane rails", "desc": "Heavy-duty pavement for container stacking, plus the rail beams the STS and RTG/RMG cranes run on." },
+      { "name": "Electrical power", "desc": "HV intake, substations, transformers, and the crane bus-bar/festoon or cable-reel feed." },
+      { "name": "Cranes (STS / RTG / RMG)", "desc": "Fabrication, delivery, erection on rail, and power terminate for the quay and yard cranes." },
+      { "name": "Reefer power distribution", "desc": "Power racks and socket outlets feeding refrigerated container stacks." },
+      { "name": "Yard & high-mast lighting", "desc": "Floodlighting for 24/7 terminal operations." },
+      { "name": "TOS / comms / gate systems", "desc": "Terminal Operating System network, fibre backbone, gate and weighbridge systems, CCTV." },
+      { "name": "Fire & utilities", "desc": "Yard firefighting network, drainage and oil/water separation." },
+      { "name": "Testing & commissioning", "desc": "Crane power and rail energisation, reefer load test, and TOS/comms integration proving." }
+    ],
+    "glossary": [
+      { "term": "STS crane", "plain": "ship-to-shore crane — the large quay crane that loads and unloads containers directly from the ship." },
+      { "term": "RTG / RMG", "plain": "rubber-tyred or rail-mounted gantry cranes that stack and retrieve containers in the yard." },
+      { "term": "Reefer", "plain": "a refrigerated shipping container; reefer racks supply it with power while stacked in the yard." },
+      { "term": "Bus-bar / festoon feed", "plain": "the power-delivery method that keeps a moving crane continuously energised as it travels its rail." },
+      { "term": "TOS", "plain": "terminal operating system — the software that plans and tracks every container move." },
+      { "term": "Quay wall", "plain": "the marine retaining structure the ship berths against and the cranes sit on or behind." },
+      { "term": "Cathodic protection", "plain": "a system that prevents corrosion of steel piling and marine structures in seawater." }
+    ],
+    "must_get_right": [
+      "Crane fabrication and delivery is the longest lead item on the project — order STS and yard cranes before the quay wall or yard pavement design is even frozen if possible.",
+      "The quay wall and crane rail are a fixed structural interface — coordinate pile positions and rail gauge with the crane supplier early; a late change is very costly.",
+      "Electrical power to the cranes and reefer racks, not the marine structure, is what most often controls the finish date once civil works are complete.",
+      "Custody-transfer-grade instrumentation (weightometers, if fitted) and TOS integration need real calibration and acceptance time, not just a functional test."
+    ]
+  },
+  "components": [
+    { "name": "Ship-to-Shore / Yard Crane Power", "desc": "HV feed, bus-bar/festoon, rail energisation", "disc": "Electrical", "primary": true },
+    { "name": "Electrical Power & Substations", "desc": "HV intake, transformers, switchgear", "disc": "Electrical", "primary": true },
+    { "name": "Reefer Power Distribution", "desc": "Racks & socket outlets for refrigerated boxes", "disc": "Electrical", "primary": true },
+    { "name": "Cranes (Mechanical Equipment)", "desc": "STS, RTG/RMG gantry cranes", "disc": "Mechanical", "primary": true },
+    { "name": "Yard & High-Mast Lighting", "desc": "Area floodlighting for 24/7 operations", "disc": "Electrical", "primary": false },
+    { "name": "Cabling & Comms / TOS", "desc": "Duct banks, fibre, gate systems, TOS network", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Commissioning", "desc": "Power/rail energisation, reefer & TOS proving", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical Power", "items": ["HV intake, substations & transformers", "STS/RTG/RMG crane bus-bar, festoon & cable-reel feed", "Reefer container rack power distribution", "Earthing, cathodic protection & lightning protection"] },
+    { "discipline": "Lighting & ELV", "items": ["High-mast & yard floodlighting", "Terminal Operating System (TOS) network & fibre backbone", "Gate, weighbridge & CCTV systems"] },
+    { "discipline": "Fire & Utilities", "items": ["Yard & building firefighting network", "Site drainage & oil/water separation", "Potable water & sanitary to terminal buildings"] }
+  ],
+  "overview_phases": ["Dredging & Reclamation", "Marine Civil — Quay Wall", "Yard Pavement & Crane Rails", "Electrical — Substations & Duct Banks", "Crane Erection & Power Terminate", "Reefer & Yard Lighting", "ELV / TOS Integration", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Dredge", "Quay", "Pave/Rail", "Power", "Cranes", "Reefer/ELV", "Comm."],
+    "lanes": [
+      { "trade": "Marine Civil (Quay Wall)", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Dredge → piling → quay wall & berth", "holds": [16] },
+      { "trade": "Yard Pavement & Crane Rails", "disc": "Civil", "kind": ["civil"], "start": 20, "width": 32, "label": "Yard pavement → crane rail beams", "holds": [40] },
+      { "trade": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "start": 30, "width": 52, "label": "Duct banks → substations → crane bus-bar/reefer feed → prove", "holds": [58, 78] },
+      { "trade": "Cranes", "disc": "Mechanical", "kind": ["mechanical"], "start": 46, "width": 34, "label": "Crane delivery → erect on rail → power terminate", "holds": [66] },
+      { "trade": "Lighting / ELV / TOS", "disc": "Extra-Low Voltage", "kind": ["elv"], "start": 50, "width": 32, "label": "High-mast lighting → TOS/comms integration", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Power/rail energise → reefer & TOS proving", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Marine Civil", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Dredging & berth-pocket excavation", "Piling & quay-wall construction", "Quay-wall capping beam & deck slab", "Reclamation & yard formation", "Fendering & bollard install"] },
+    { "name": "Yard Pavement & Crane Rails", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Survey & setting-out for crane rail gauge", "Sub-base & heavy-duty pavement (stack area)", "Crane rail beam foundations", "Rail installation & alignment survey", "Rail welding & electrical continuity bonding"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 3, 5], "steps": ["Long-lead procurement — transformers, switchgear, crane power kits", "Duct banks & yard cable trenches", "Set substations & transformers", "Crane bus-bar / festoon / cable-reel install", "Reefer rack power distribution", "Point-to-point & insulation testing", "Load test & crane energisation"] },
+    { "name": "Cranes (Mechanical Equipment)", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1], "steps": ["Crane fabrication & delivery (STS/RTG/RMG)", "Offload & erect on rail", "Mechanical & electrical terminate", "OEM structural & mechanical inspection", "No-load trolley & hoist trial"] },
+    { "name": "Lighting & ELV", "disc": "Electrical", "kind": ["electrical", "elv"], "holds": [2], "steps": ["Long-lead procurement — high-mast poles & luminaires", "High-mast lighting foundations & poles", "Luminaire install & aiming", "Yard & building lighting circuits", "Photometric verification"] },
+    { "name": "TOS / Comms / Gate Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [3], "steps": ["Fibre backbone & containment", "Gate, weighbridge & CCTV install", "Server room / data-centre fit-out", "TOS network integration", "Data/comms testing"] },
+    { "name": "Fire & Utilities", "disc": "Civil", "kind": ["civil", "fire"], "holds": [], "steps": ["Fire main & pump-house install", "Yard firefighting network install", "Drainage & oil/water separator", "Hydrant/hose-reel testing", "Functional acceptance test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Crane power & rail energisation", "Reefer rack load test", "TOS & comms integration test", "Yard lighting photometric check", "Cathodic-protection & earthing verification", "Handover to terminal operations"] }
+  ],
+  "wbs": [
+    { "code": "CT", "name": "Container Terminal — Project", "level": 1 },
+    { "code": "CT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CT.02", "name": "Marine Civil Works", "level": 2 },
+    { "code": "CT.02.10", "name": "Dredging & reclamation", "level": 3 },
+    { "code": "CT.02.20", "name": "Piling & quay wall", "level": 3 },
+    { "code": "CT.02.20.10", "name": "Quay wall construction", "level": 4 },
+    { "code": "CT.02.30", "name": "Fendering & bollards", "level": 3 },
+    { "code": "CT.03", "name": "Yard Civil Works", "level": 2 },
+    { "code": "CT.03.10", "name": "Yard pavement (stack areas)", "level": 3 },
+    { "code": "CT.03.20", "name": "Crane rail beams & foundations", "level": 3 },
+    { "code": "CT.03.20.10", "name": "Rail install & alignment", "level": 4 },
+    { "code": "CT.04", "name": "Electrical Power", "level": 2 },
+    { "code": "CT.04.10", "name": "Substations & transformers", "level": 3 },
+    { "code": "CT.04.20", "name": "Yard duct banks & cable trenches", "level": 3 },
+    { "code": "CT.04.30", "name": "Crane bus-bar / festoon feed", "level": 3 },
+    { "code": "CT.04.30.10", "name": "Crane power terminate & test", "level": 4 },
+    { "code": "CT.04.40", "name": "Reefer rack power distribution", "level": 3 },
+    { "code": "CT.05", "name": "Cranes (STS / RTG / RMG)", "level": 2 },
+    { "code": "CT.05.10", "name": "Crane erection on rail", "level": 3 },
+    { "code": "CT.05.20", "name": "No-load trial", "level": 3 },
+    { "code": "CT.06", "name": "Yard & High-Mast Lighting", "level": 2 },
+    { "code": "CT.07", "name": "TOS / Comms / Gate Systems", "level": 2 },
+    { "code": "CT.08", "name": "Fire & Utilities", "level": 2 },
+    { "code": "CT.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "CT.09.10", "name": "Crane power & rail energisation", "level": 3 },
+    { "code": "CT.09.20", "name": "Reefer load test", "level": 3 },
+    { "code": "CT.09.30", "name": "TOS & comms integration test", "level": 3 },
+    { "code": "CT.09.40", "name": "Handover to operations", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are tied to berth and yard-block sections; the network is calculated (F9) with total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Marine civil (dredging, piling) often runs continuous shifts weather-permitting; yard pavement and electrical works run a standard 6-day week; crane erection needs dedicated heavy-lift weather windows and is scheduled as discrete events, not a continuous calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs dredging/quay wall → yard pavement & crane rail → crane delivery/erection → crane power terminate & energise → reefer & TOS proving → handover. Crane fabrication/delivery lead time and quay-wall completion are usually the two controlling constraints — name them explicitly when reviewing progress." },
+      { "heading": "Key assumptions", "body": "A single mobilisation; the dredging permit and disposal site are secured before works start; the crane supply contract is let early enough to match crane-rail readiness; and no live-vessel operations occur during construction (greenfield or expansion phase)." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led — the following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Ship-to-shore (STS) cranes", "60–90 weeks", "Before crane-rail handover"], ["RTG / RMG yard cranes", "40–60 weeks", "Before yard-block energisation"], ["HV switchgear & transformers", "30–45 weeks", "Before substation set"], ["Reefer power / socket sets", "16–24 weeks", "Before reefer-rack test"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Marine plant (dredgers, piling rigs) access is via water and subject to tidal windows; heavy-lift crane erection needs a clear yard and a crane-carrying vessel berth; specialist crane-electrical commissioning engineers are scarce and typically travel with the crane supplier." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: crane delivery slippage, dredging weather or tidal delay, and cable-reel/festoon commissioning re-test loops. Schedule contingency is held immediately before crane energisation and before handover rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by berth/yard block; expanded to Level 4–5 lookahead for crane erection and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}
