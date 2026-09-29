@@ -35,7 +35,7 @@ DB is `controlyx.db`, each migrated automatically on first run from the older `P
 | **Report** | `p6_evm/report.py` | `render_html(result, meta)` → HTML string; Chrome headless → PDF |
 | **CLI** | `cli.py` | Terminal usage (no GUI needed) |
 | **Database** | `db.py` | SQLite schema, XML caching, all DB read/write operations |
-| **Utils** | `utils.py` | brand constants (`APP_NAME`/`APP_EDITION`/`APP_TITLE`), `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
+| **Utils** | `utils.py` | brand constants (`APP_NAME`/`APP_EDITION`/`APP_TITLE`), `APP_VERSION` (read from the newest `## [vX.Y.Z]` heading of the bundled `CHANGELOG.md` — never typed; injected as `window.__APP_VERSION__`), `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
 | **Build** | `controlyx.spec` | PyInstaller spec → `dist/Controlyx.exe` |
 
 ---
@@ -159,7 +159,8 @@ JOIN metrics m ON m.snapshot_id = s.id
 
 ## Release process
 
-1. Update `CHANGELOG.md` — add a new section at the top:
+1. Update `CHANGELOG.md` — add a new section at the top (this also sets the version the app shows —
+   `utils.APP_VERSION` is read from the newest `## [vX.Y.Z]` heading; nothing else to bump):
    ```markdown
    ## [vX.Y.Z] - YYYY-MM-DD
    ### Added / Fixed / Changed
