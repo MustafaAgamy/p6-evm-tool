@@ -149,6 +149,51 @@ def test_word_picture_keeps_with_its_label_and_caption():
     assert not _kwn(doc.paragraphs[0]._p)                  # a long body paragraph is not chained
 
 
+def _pic_height_pt(p):
+    ext = p.find('.//' + qn('wp:extent'))
+    return int(ext.get('cy')) / DP.EMU_PER_PT
+
+
+def test_word_picture_too_tall_for_its_heading_is_fitted_on_the_page():
+    """Reporting Studio audit (STUDIO-WORD-1): a 690 pt section picture under a numbered
+    heading + source caption cannot share a page with them, so Word left the heading alone
+    on a near-blank page. The rule scales the picture to the room left (aspect kept)."""
+    doc = Document()
+    doc.add_paragraph('A long body paragraph. ' * 40)
+    head = doc.add_heading('10  Full EVM report (detailed)', level=1)
+    lab = doc.add_paragraph('Source: Earned Value (EVM)')
+    doc.add_picture(io.BytesIO(_PNG), width=Pt(454), height=Pt(690))
+    pic = doc.paragraphs[-1]
+    body_h = DP._body_height_pt(doc)
+    before = _pic_height_pt(pic._p)
+    assert before > body_h - 60                                   # cannot fit with its heading
+    DP.paginate_docx(doc)
+    after = _pic_height_pt(pic._p)
+    lead_h = sum(DP._para_height_pt(p._p, DP._body_width_pt(doc)) for p in (head, lab))
+    assert after < before and after + lead_h <= body_h           # heading + label + picture fit
+    ext = pic._p.find('.//' + qn('wp:extent'))
+    assert abs(int(ext.get('cx')) / int(ext.get('cy')) - 454 / 690) < 0.01   # aspect kept
+    inner = [a for a in pic._p.iter(qn('a:ext')) if a.get('cy')]
+    assert inner and all(a.get('cy') == ext.get('cy') for a in inner)
+    assert _kwn(head._p) and _kwn(lab._p)
+    DP.paginate_docx(doc)
+    assert _pic_height_pt(pic._p) == after                        # idempotent
+
+
+def test_word_picture_that_fits_is_never_resized():
+    doc = Document()
+    doc.add_heading('Chart', level=2)
+    doc.add_picture(io.BytesIO(_PNG), width=Pt(300), height=Pt(200))
+    pic = doc.paragraphs[-1]
+    DP.paginate_docx(doc)
+    assert round(_pic_height_pt(pic._p)) == 200
+
+
+_PNG = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00'
+        b'\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81'
+        b'\x84\x00\x00\x00\x00IEND\xaeB`\x82')
+
+
 def test_word_export_applies_the_rules_end_to_end(tmp_path):
     from p6_export.to_docx import html_to_docx
     rows = ''.join(f'<tr><td>d{i}</td><td>v{i}</td></tr>' for i in range(11))

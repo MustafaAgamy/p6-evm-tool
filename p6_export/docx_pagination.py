@@ -31,6 +31,7 @@ except Exception:                      # pragma: no cover — report_theme alway
 EMU_PER_PT = 12700
 _SHORT_LEAD = 320          # chars: a heading / intro / label / caption, not a body paragraph
 _CAPTION_PREFIXES = ('figure', 'fig.', 'fig ', 'chart', 'source:', 'note:', 'table ')
+_PICTURE_SLACK_PT = 14.0   # room left under a fitted picture (line spacing, rounding)
 
 _W_P, _W_TBL, _W_TR, _W_TC = qn('w:p'), qn('w:tbl'), qn('w:tr'), qn('w:tc')
 _TRPR_ORDER = ('cnfStyle', 'divId', 'gridBefore', 'gridAfter', 'wBefore', 'wAfter', 'cantSplit',
@@ -233,6 +234,62 @@ def _table_height_pt(tbl, width_pt):
     return sum(_row_height_pt(tr, width_pt) for tr in tbl.findall(_W_TR))
 
 
+def _para_height_pt(p, width_pt):
+    """Rough height of a text paragraph: its lines plus its space before / after."""
+    size = _font_pt(p)
+    per_line = max(1, int(max(20.0, width_pt) / (size * 0.5)))
+    lines = max(1, math.ceil(len(_text(p)) / per_line))
+    h = lines * size * 1.25
+    ppr = p.find(qn('w:pPr'))
+    sp = ppr.find(qn('w:spacing')) if ppr is not None else None
+    if sp is not None:
+        for k in ('before', 'after'):
+            try:
+                h += int(sp.get(qn('w:' + k)) or 0) / 20.0
+            except (TypeError, ValueError):
+                pass
+    return h
+
+
+def _inline_pictures(p):
+    """The paragraph's inline pictures as (wp:extent, [a:ext …]) pairs (anchored shapes —
+    floating, positioned by the writer — are left alone)."""
+    out = []
+    for inl in p.iter(qn('wp:inline')):
+        ext = inl.find(qn('wp:extent'))
+        if ext is not None:
+            out.append((ext, list(inl.iter(qn('a:ext')))))
+    return out
+
+
+def fit_picture(p, avail_pt, min_scale=0.5):
+    """Scale the one inline picture of paragraph ``p`` down (aspect kept) so it is at most
+    ``avail_pt`` tall. Returns True when it was scaled. A picture that would have to shrink
+    below ``min_scale`` of its size is left as it is (it would become unreadable)."""
+    pics = _inline_pictures(p)
+    if len(pics) != 1 or avail_pt <= 0:
+        return False
+    ext, inner = pics[0]
+    try:
+        cx, cy = int(ext.get('cx')), int(ext.get('cy'))
+    except (TypeError, ValueError):
+        return False
+    h = cy / EMU_PER_PT
+    if h <= avail_pt:
+        return False
+    scale = avail_pt / h
+    if scale < min_scale:
+        return False
+    ncx, ncy = max(1, int(cx * scale)), max(1, int(cy * scale))
+    ext.set('cx', str(ncx))
+    ext.set('cy', str(ncy))
+    for a in inner:                      # a:ext of the picture's own transform
+        if a.get('cx') is not None and a.get('cy') is not None:
+            a.set('cx', str(ncx))
+            a.set('cy', str(ncy))
+    return True
+
+
 # ── the rules ───────────────────────────────────────────────────────────────────
 def paginate_table(tbl, body_h_pt, body_w_pt, header_rows=None):
     """Apply the table rules to one body-level ``w:tbl``. ``header_rows`` = how many leading
@@ -326,11 +383,22 @@ def paginate_docx(document):
                 keep_with_next(items[j])                    # through empty spacers
                 j += 1
         is_block = el.tag == _W_TBL or (el.tag == _W_P and _has_drawing(el))
-        if is_block:
-            for p in prev_lead(i):
-                keep_with_next(p)
+        lead = prev_lead(i) if is_block else []
+        for p in lead:
+            keep_with_next(p)
+        cap_h = 0.0
         if el.tag == _W_P and _has_drawing(el) and i + 1 < n and items[i + 1].tag == _W_P:
             cap = _text(items[i + 1]).strip().lower()
             if cap and len(cap) <= _SHORT_LEAD and cap.startswith(_CAPTION_PREFIXES):
                 keep_with_next(el)                          # picture stays with its caption
+                cap_h = _para_height_pt(items[i + 1], body_w)
+        if el.tag == _W_P and _has_drawing(el):
+            # a picture kept with its heading / label / caption must FIT on one page with
+            # them — otherwise Word leaves the heading alone on a near-blank page (or clips
+            # a picture taller than the page). Scale it down to the room left (aspect kept).
+            lead_h = sum(_para_height_pt(p, body_w) for p in lead)
+            try:
+                fit_picture(el, body_h - lead_h - cap_h - _PICTURE_SLACK_PT)
+            except Exception:
+                pass
     return document
