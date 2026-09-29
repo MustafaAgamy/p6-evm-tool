@@ -201,9 +201,11 @@ def _read_pdf(path):
                         continue
                     t = ' '.join(''.join(s['text'] for s in ln['spans']).split())
                     size = max(s['size'] for s in spans)
+                    if size < 3:
+                        continue                  # invisible markers (e.g. a 1px section marker)
                     d = ln.get('dir', (1, 0))
-                    if abs(d[0] - 1) > 0.01 or size < 3:
-                        P.misc.append((max(y0, 0), min(y1, H)))
+                    if abs(d[0] - 1) > 0.01:
+                        P.misc.append((max(y0, 0), min(y1, H)))   # rotated text (an axis label)
                         continue
                     P.lines.append(_Line(t, x0, y0, x1, y1, all(_is_bold(s) for s in spans), size))
             for d in pg.get_drawings():
@@ -856,6 +858,8 @@ def word_layout(path):
                 brk = '\x0c' in raw
                 if not txt and not shape_h and not brk:
                     continue
+                if not shape_h and not brk and (r.Font.Hidden == -1 or 0 < (r.Font.Size or 10) <= 2):
+                    continue                      # hidden / 1pt marker text is not content
                 at = doc.Range(r.Start, r.Start)
                 last = doc.Range(max(r.End - 1, r.Start), max(r.End - 1, r.Start))
                 try:
