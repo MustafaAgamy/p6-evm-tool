@@ -1038,7 +1038,19 @@ def word_layout(path):
     return res
 
 
+def _w_heading_table(it):
+    """A heading set as a one-row table (the Reporting Studio's numbered item title: a number
+    badge + the title, both bold) — a heading, not a data table (STUDIO-DOC-1)."""
+    rows = it.get('rows') or []
+    t = ' '.join((it.get('t') or '').replace('|', ' ').split())
+    return (it['k'] == 'table' and len(rows) == 1 and (it.get('ncols') or 1) <= 2
+            and bool(rows[0].get('bold')) and 0 < len(t) <= HEAD_MAX_CHARS
+            and bool(re.search(r'[A-Za-z]', t)))
+
+
 def _w_is_heading(it):
+    if it['k'] == 'table':
+        return _w_heading_table(it)
     if it['k'] != 'p':
         return False
     t = it.get('t') or ''
@@ -1052,6 +1064,8 @@ def _w_is_heading(it):
 
 def _w_kind(it):
     if it['k'] == 'table':
+        if _w_heading_table(it):
+            return 'heading'
         return 'kpi' if (len(it['rows']) <= 2 and (it.get('ncols') or 1) >= 3) else 'table'
     if it['k'] == 'pic':
         return 'picture'
@@ -1117,7 +1131,10 @@ def analyze_word_layout(layout):
         if k == 'heading' and nxt is not None and nxt['page'] > it['page_end'] and not it.get('brk') \
                 and not section_break_before(j + 1):
             kn = _w_kind(nxt)
-            if not (kn == 'heading' and (nxt.get('size') or 0) >= (it.get('size') or 0)):
+            # (a heading TABLE — the Studio's numbered item title — opens a new item: it outranks
+            # any paragraph heading before it)
+            if not (kn == 'heading' and (nxt.get('size') or (99 if nxt['k'] == 'table' else 0))
+                    >= (it.get('size') or 0)):
                 kind = 'kpi_separated_from_heading' if kn == 'kpi' else 'orphaned_heading'
                 flags.append(_flag(kind, it['page_end'], f"heading {it['t'][:60]!r} ends page {it['page_end']}; "
                                                          f"its {kn} starts page {nxt['page']}"))

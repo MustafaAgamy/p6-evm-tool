@@ -100,6 +100,101 @@ def _resolve_theme_colors(text, mode):
     return _MIX_RE.sub(sub_mix, text)
 
 
+def _children(toks, i):
+    """(end index, [(child start-tag attrs, child inner raw), ...]) of the ``<div>`` opened at
+    ``toks[i]`` — its direct ``<div>`` children."""
+    depth, kids, cur, j = 1, [], None, i + 1
+    while j < len(toks):
+        kind, tag, raw, attrs = toks[j]
+        if kind == 'start' and tag == 'div':
+            depth += 1
+            if depth == 2:
+                cur = [attrs or {}, []]
+                kids.append(cur)
+                j += 1
+                continue
+        elif kind == 'end' and tag == 'div':
+            depth -= 1
+            if depth == 0:
+                return j, [(a, ''.join(r)) for a, r in kids]
+            if depth == 1:
+                cur = None
+                j += 1
+                continue
+        if cur is not None:
+            cur[1].append(raw)
+        j += 1
+    return j, [(a, ''.join(r)) for a, r in kids]
+
+
+def _cls(attrs):
+    return ((attrs or {}).get('class') or '').split()
+
+
+def _month_table(kids, pal):
+    """One month calendar (``.mgrid``: 7 weekday heads + one cell per day) as a 7-column table."""
+    heads = [inner for a, inner in kids if 'mh' in _cls(a)]
+    cells = [(a, inner) for a, inner in kids if 'mc' in _cls(a)]
+    th = ''.join(f'<th style="font-size:6pt;font-weight:700;color:{pal["rpt-muted"]};background:#ffffff;'
+                 f'border:none;text-align:center;padding:0 1pt 1pt">{h}</th>' for h in heads)
+    rows = []
+    for r in range(0, len(cells), 7):
+        week = cells[r:r + 7]
+        tds = []
+        for a, inner in week + [({'class': 'mc blank'}, '')] * (7 - len(week)):
+            if 'blank' in _cls(a):
+                tds.append('<td style="border:none;padding:0">&nbsp;</td>')
+            else:
+                tds.append(f'<td valign="top" style="width:22pt;height:15pt;border:0.75pt solid {pal["rpt-edge"]};'
+                           f'padding:1pt 2pt;font-size:6.5pt;{(a.get("style") or "")}">{inner}</td>')
+        rows.append('<tr>' + ''.join(tds) + '</tr>')
+    return ('<table class="mgrid-tbl" cellpadding="0" cellspacing="2" style="border-collapse:separate;'
+            f'margin:0 0 4pt"><thead><tr>{th}</tr></thead><tbody>{"".join(rows)}</tbody></table>')
+
+
+def _month_grids_as_tables(html):
+    """Word's HTML engine has no CSS grid / flex: the Calendar's month calendars (``.mgrid`` —
+    7 weekday heads + one cell per day, laid out two a row by ``.mgrids``) would print as a
+    column of ~40 one-word lines that a page break cuts anywhere (STUDIO-PDF-3 / STUDIO-DOC-1).
+    Each month is re-laid as a small 7-column table (weekday header + one row per week — the
+    same cells, text, colours and order) and the months two a row in a layout table whose rows
+    never split — a row of months stays together, each month title with its grid."""
+    if 'mgrid' not in (html or ''):
+        return html
+    from p6_export.doc_pagination import _tokenize
+    pal = report_theme.theme_vars(report_theme.DOCUMENT_MODE)
+
+    def pass_(src, cls, build):
+        toks = _tokenize(src)
+        out, i = [], 0
+        while i < len(toks):
+            kind, tag, raw, attrs = toks[i]
+            if kind == 'start' and tag == 'div' and cls in _cls(attrs):
+                end, kids = _children(toks, i)
+                out.append(build(raw, kids))
+                i = end + 1
+                continue
+            out.append(raw)
+            i += 1
+        return ''.join(out)
+
+    def months(raw, kids):
+        wraps = [inner for a, inner in kids if 'mgrid-wrap' in _cls(a)]
+        if not wraps:
+            return raw + ''.join(f'<div>{inner}</div>' for _, inner in kids) + '</div>'
+        rows = []
+        for r in range(0, len(wraps), 2):
+            pair = wraps[r:r + 2] + [''] * (2 - len(wraps[r:r + 2]))
+            rows.append('<tr style="page-break-inside:avoid">' + ''.join(
+                f'<td valign="top" width="50%" style="padding:0 8pt 8pt 0">{w or "&nbsp;"}</td>'
+                for w in pair) + '</tr>')
+        return ('<table class="mgrids-tbl" cellpadding="0" cellspacing="0" width="100%" '
+                f'style="border-collapse:collapse"><tbody>{"".join(rows)}</tbody></table>')
+
+    html = pass_(html, 'mgrid', lambda raw, kids: _month_table(kids, pal))
+    return pass_(html, 'mgrids', months)
+
+
 def _page_setup_css(navy, muted, zebra):
     """The Word page-setup / chrome stylesheet: an A4-portrait ``@page`` with a navy
     double page border on every page, references to the running header (``h1``) and
@@ -221,6 +316,7 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
         sections = parts.get('sections', '')       # empty-selection notice
     raw_body = cover + (brk + toc if toc else '') + (brk + sections if sections else '')
     body = _resolve_theme_colors(raw_body, mode)
+    body = _month_grids_as_tables(body)
     # Shared page-composition rules (owner point 14) in the only forms Word's HTML engine
     # honours: headings / labels keep with their block, small tables kept whole, long
     # tables repeat their header and never strand 1-2 rows (p6_export.doc_pagination).

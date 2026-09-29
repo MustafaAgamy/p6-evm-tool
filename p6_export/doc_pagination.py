@@ -211,6 +211,65 @@ def _layout_table(t):
     return False
 
 
+def _div_tree(toks):
+    """Every ``<p>`` / ``<div>`` with its parent, its ``<p>``/``<div>`` children, its text size and
+    whether any other block (table, list, picture, heading) sits inside it."""
+    nodes, stack = [], []
+    for i, (kind, tag, raw, attrs) in enumerate(toks):
+        if kind == 'start' and tag in ('p', 'div'):
+            node = {'start': i, 'tag': tag, 'end': None, 'chars': 0, 'kids': [], 'block': False,
+                    'parent': stack[-1] if stack else None}
+            if stack:
+                stack[-1]['kids'].append(node)
+            nodes.append(node)
+            stack.append(node)
+        elif kind in ('start', 'startend') and tag in _BLOCK and tag not in ('p', 'div'):
+            for nd in stack:
+                nd['block'] = True
+        elif kind == 'end' and tag in ('p', 'div'):
+            for k in range(len(stack) - 1, -1, -1):
+                if stack[k]['tag'] == tag:
+                    stack[k]['end'] = i
+                    del stack[k:]
+                    break
+        elif kind == 'data':
+            n = len(raw.strip())
+            for nd in stack:
+                nd['chars'] += n
+    return nodes
+
+
+def _leaf(nd):
+    return nd['end'] is not None and not nd['kids'] and not nd['block']
+
+
+def _line_groups(toks):
+    """Start tokens to keep with the next block (Word has no flex / grid: every ``<div>`` of a
+    screen row prints as its own line):
+
+    * a LINE GROUP — a short ``<div>`` made only of 2+ one-line ``<div>``/``<p>`` children (a
+      score row "Float Analysis | bar | 95.8% | 15 | 16.9", a bar row "label | bar | 0.5%", a KPI
+      card "DELAY | 0 days") — keeps its lines together (all but the last keep with next), so a
+      row is never cut between its name and its values;
+    * a CONTAINER TITLE — a short one-line block that opens a container of further blocks (a
+      card's title "Lags by WBS area" over its bar rows) — keeps with the first of them."""
+    keep = []
+    for nd in _div_tree(toks):
+        kids = nd['kids']
+        if (nd['tag'] == 'div' and nd['end'] is not None and len(kids) >= 2 and not nd['block']
+                and all(_leaf(k) for k in kids) and 0 < nd['chars'] <= LABEL_MAX_CHARS
+                and sum(k['chars'] for k in kids) == nd['chars']):
+            keep.extend(k['start'] for k in kids[:-1])
+        par = nd['parent']
+        if (par is not None and _leaf(nd) and par['kids'][0] is nd and len(par['kids']) >= 2
+                and 0 < nd['chars'] <= LABEL_MAX_CHARS
+                and not any(toks[j][0] in ('start', 'startend') and toks[j][1] in _BLOCK
+                            or (toks[j][0] == 'data' and not _WS_RE.match(toks[j][2]))
+                            for j in range(par['start'] + 1, nd['start']))):
+            keep.append(nd['start'])
+    return keep
+
+
 def paginate_word_html(html):
     """Return ``html`` (an Office-HTML body or whole document) with the Word keep rules
     written in as inline styles / ``<thead>`` — see the module docstring."""
@@ -265,6 +324,10 @@ def paginate_word_html(html):
             keep = body[:MIN_ROWS - 1] + body[n - MIN_ROWS:n - 1]
         for r in keep:
             keep_row(r)
+
+    # a screen row's lines stay together; a container's title keeps with its first block
+    for j in _line_groups(toks):
+        repl[j] = _with_kwn(repl.get(j, toks[j][2]))
 
     # a short label / intro line right before a table or a picture keeps with it
     for start, tag, end, chars, has_block in labels:
