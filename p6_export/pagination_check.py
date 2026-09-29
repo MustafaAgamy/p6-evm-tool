@@ -77,7 +77,6 @@ except Exception:                      # pragma: no cover — report_theme alway
 
 BLANK = 0.35              # a page ending more than 35 % blank before a pushed block is a defect
 FRAGMENT = 0.12           # a page holding < 12 % of content (a figure / cards tail) is stranded
-ORPHAN_GAP_PT = 14.0      # less than this below a heading on its page = the heading ends the page
 INTRO_MAX_PT = 60.0       # a heading's short intro (about 3-4 lines)
 TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the first item
 DEFECT_TYPES = (
@@ -212,11 +211,11 @@ def _read_pdf(path):
                 if r.y1 <= 0.5 or r.y0 >= H - 0.5 or r.x1 <= 0 or r.x0 >= W:
                     continue                      # off-page paths (Chrome emits thousands)
                 w, h = r.width, r.height
-                if w > 0.8 * W and h > 0.4 * H:
-                    continue                      # page background / frame box
+                fill, stroke = d.get('fill'), d.get('color')
+                if w > 0.8 * W and h > 0.4 * H and (fill is None or (w > 0.95 * W and h > 0.9 * H)):
+                    continue                      # page frame box / page background
                 if (w < 2.5 and h > 0.25 * H) or (h < 2.5 and w > 0.85 * W):
                     continue                      # page frame lines
-                fill, stroke = d.get('fill'), d.get('color')
                 if fill is not None and min(fill) > 0.985 and not stroke:
                     continue                      # white fills
                 if fill is None and not stroke:
@@ -254,7 +253,9 @@ def _strip_running(pages):
     kept — it also sits elsewhere on a page (where the table starts), right above table rows."""
     n = len(pages)
     pnum = re.compile(r'^(page )?\d+( (of|/) \d+)?$')
-    sig = lambda b: re.sub(r'\d+', '#', norm(b.text))
+    # page numbers change from page to page (digits masked); a row of 3+ cells must match
+    # exactly — table rows of the same shape at the same place are content, not a header
+    sig = lambda b: re.sub(r'\d+', '#', norm(b.text)) if len(b.lines) <= 2 else norm(b.text)
     per_page = [_row_clusters(_bands_of(P.lines)) for P in pages]
     occ = collections.defaultdict(list)
     for bands in per_page:
@@ -653,15 +654,15 @@ def _analyze_pages(pages, hints=()):
         hs = [b for b in P.bands if b.heading]
         if hs:
             h = max(hs, key=lambda b: b.y0)
-            below = _below(P, h.y1, head=h)
+            below = [it for it in _below(P, h.y1, head=h) if it[2] != 'rule']
             ext = (max(y1 for _, y1, _, _ in below) - h.y1) if below else 0.0
             closing = kind_n == 'heading' and size_n >= h.size - 0.3
-            if ext < ORPHAN_GAP_PT and not closing:
+            if (not below or ext < 3) and not closing:
                 kind = 'kpi_separated_from_heading' if kind_n == 'kpi' else 'orphaned_heading'
                 flags.append(_flag(kind, P.no, f'heading {h.text[:60]!r} is the last thing on page {P.no}; '
                                                f'its {kind_n} starts page {nxt.no}'))
-            elif (ext <= INTRO_MAX_PT and below and all(k == 'text' and not it.grid and not it.heading
-                                                        for _, _, k, it in below if k != 'rule')
+            elif (ext <= INTRO_MAX_PT and all(k == 'text' and not it.grid and not it.heading
+                                              for _, _, k, it in below)
                   and kind_n in ('table', 'figure', 'kpi')):
                 kind = 'kpi_separated_from_heading' if kind_n == 'kpi' else 'heading_separated_from_block'
                 flags.append(_flag(kind, P.no, f'heading {h.text[:60]!r} + {ext:.0f}pt of intro end page '
