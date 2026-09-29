@@ -67,6 +67,7 @@ function ensureCss() {
   .pchat-btn.ghost{background:transparent;color:var(--accent-dark);border-color:var(--border)}
   .pchat-btn:disabled{opacity:.55;cursor:default}
   .pchat-setup code{background:var(--hair);padding:1px 6px;border-radius:5px;font-size:12px}
+  .pchat-setup p.pchat-setup-err{color:var(--text);background:var(--warning-bg);border:1px solid var(--warning);border-radius:8px;padding:7px 9px}
 
   .pchat-thread{border:1px solid var(--border);background:var(--card-bg);border-radius:12px;padding:16px;min-height:220px;max-height:56vh;overflow:auto;display:flex;flex-direction:column;gap:20px}
   .pchat-empty{color:var(--muted);text-align:center;padding:26px 8px}
@@ -1709,7 +1710,10 @@ function renderBrainPill() {
   if (setup) setup.hidden = !!ready;
   const note = document.getElementById('pchat-setup-note');
   if (note && BRAIN) {
+    note.classList.toggle('pchat-setup-err', !BRAIN.downloading && !!BRAIN.error);
     if (BRAIN.downloading) note.textContent = 'Downloading the AI model… ' + (BRAIN.progress != null ? BRAIN.progress + '%' : '');
+    // A failed download (offline, cut short, no disk space) says why — plainly, in the page.
+    else if (BRAIN.error) note.textContent = '⚠ ' + BRAIN.error + ' The built-in analyses keep working without it.';
     else if (BRAIN.detail) note.textContent = BRAIN.detail;
   }
   renderModels();
@@ -1737,20 +1741,39 @@ async function refreshStatus() {
   renderBrainPill();
 }
 
+// True once a setup attempt is over: the brain is ready, or the download stopped with an
+// error, or there is no engine to set up. (Exported for tests.)
+export function brainSetupSettled(b) {
+  if (!b) return false;
+  if (b.ready) return true;
+  if (b.downloading) return false;
+  return !!b.error || b.engine === false;
+}
+
 async function setupBrain() {
   const btns = document.querySelectorAll('#pchat-setup .pchat-btn, .pchat-foot .pchat-btn');
   btns.forEach((b) => { b.disabled = true; });
   const note = document.getElementById('pchat-setup-note');
+  const stop = () => { if (POLL) clearInterval(POLL); POLL = null; btns.forEach((b) => { b.disabled = false; }); };
   try {
     const d = await postJSON('/api/chat/setup', {});
+    if (d && d.ok === false) {                        // refused at once — say why, don't poll
+      if (note) note.textContent = '⚠ ' + (d.error || 'Could not start the AI brain setup.');
+      stop();
+      return;
+    }
     if (note) note.textContent = d.note || 'Setting up the AI brain…';
   } catch {
     if (note) note.textContent = 'Could not start setup — is the local AI runtime installed?';
+    stop();
+    return;
   }
   if (POLL) clearInterval(POLL);
   POLL = setInterval(async () => {
     await refreshStatus();
-    if (BRAIN && BRAIN.ready) { clearInterval(POLL); POLL = null; btns.forEach((b) => { b.disabled = false; }); }
+    // Done — or finished WITHOUT success (offline / cut short / no engine): stop polling and
+    // give the buttons back so the planner can retry (never a forever-disabled button).
+    if (brainSetupSettled(BRAIN)) stop();
   }, 5000);
 }
 

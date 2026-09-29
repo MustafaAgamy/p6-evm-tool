@@ -16,6 +16,7 @@ and the chat degrades to grounded snapshots + charts rather than crashing.
 """
 import json
 import os
+import shutil
 import threading
 import urllib.request
 
@@ -27,6 +28,16 @@ except Exception:                                    # pragma: no cover - dev fa
         os.makedirs(p, exist_ok=True)
         return p
 
+try:                                                 # honest, brand-built User-Agent + messages
+    from utils import USER_AGENT, network_error_message
+except Exception:                                    # pragma: no cover - utils ships with the app
+    USER_AGENT = 'P6-schedule-analysis/1.0'
+
+    def network_error_message(exc, service='this online service', needs=''):
+        return f'Could not reach {service} ({exc}).'
+
+_HF = 'https://huggingface.co/Qwen/'
+
 MODELS = {
     'fast': {
         'label': 'Faster · Qwen2.5 3B', 'size': '~2 GB',
@@ -34,11 +45,21 @@ MODELS = {
         'url': ('https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/'
                 'qwen2.5-3b-instruct-q4_k_m.gguf?download=true'),
     },
+    # The publisher ships the 7B q4_k_m as a TWO-PART split GGUF — the single-file name
+    # returns HTTP 404 (this was the default brain, so its download always failed). Both
+    # parts are downloaded into the same folder; llama.cpp loads the whole split when it is
+    # pointed at part 1 ('file').
     'detailed': {
         'label': 'More detailed · Qwen2.5 7B', 'size': '~4.7 GB',
-        'file': 'qwen2.5-7b-instruct-q4_k_m.gguf', 'min': 4_200_000_000,   # real ~4.7 GB
-        'url': ('https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/'
-                'qwen2.5-7b-instruct-q4_k_m.gguf?download=true'),
+        'file': 'qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf',
+        'parts': [
+            {'file': 'qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf', 'min': 3_900_000_000,  # real 3.99 GB
+             'url': (_HF + 'Qwen2.5-7B-Instruct-GGUF/resolve/main/'
+                     'qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf?download=true')},
+            {'file': 'qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf', 'min': 650_000_000,    # real 0.69 GB
+             'url': (_HF + 'Qwen2.5-7B-Instruct-GGUF/resolve/main/'
+                     'qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf?download=true')},
+        ],
     },
 }
 DEFAULT_KEY = 'detailed'                             # the smarter 7B by default (quality first)
@@ -100,9 +121,16 @@ def _model_path(key=None):
     return os.path.join(_models_dir(), _spec(key)['file'])
 
 
+def _parts(key=None):
+    """The file(s) a model needs: [{'file', 'url', 'min'}] (one for a single-file model)."""
+    spec = _spec(key)
+    return spec.get('parts') or [{'file': spec['file'], 'url': spec['url'], 'min': spec['min']}]
+
+
 def _model_ready(key=None):
     try:
-        return os.path.getsize(_model_path(key)) > _spec(key)['min']
+        return all(os.path.getsize(os.path.join(_models_dir(), p['file'])) > p['min']
+                   for p in _parts(key))
     except OSError:
         return False
 
@@ -155,33 +183,75 @@ def setup(model=None):
         if model in MODELS:                              # persist only when we actually start
             set_model_key(key)
         _DL.update({'active': True, 'pct': 0, 'error': None, 'done': False, 'key': key})
-    tmp = _model_path(key) + '.part'
+    parts = _parts(key)
+    tmp = None
     try:
-        req = urllib.request.Request(_spec(key)['url'], headers={'User-Agent': 'Controlyx'})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            total = int(r.headers.get('Content-Length') or 0)
-            got = 0
-            with open(tmp, 'wb') as f:
-                while True:
-                    chunk = r.read(1024 * 512)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    got += len(chunk)
-                    if total:
-                        _DL['pct'] = round(got / total * 100, 1)
-        os.replace(tmp, _model_path(key))
+        for i, part in enumerate(parts):
+            dest = os.path.join(_models_dir(), part['file'])
+            if os.path.isfile(dest) and os.path.getsize(dest) > part['min']:
+                continue                                 # this part is already complete
+            tmp = dest + '.part'
+            _download(part['url'], tmp, i, len(parts))
+            os.replace(tmp, dest)
+            tmp = None
         with _DL_LOCK:
             _DL.update({'active': False, 'pct': 100, 'done': True})
         return {'ok': True}
     except Exception as exc:
+        msg = _download_error(exc)
         with _DL_LOCK:
-            _DL.update({'active': False, 'error': str(exc)})
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
-        return {'ok': False, 'error': str(exc)}
+            _DL.update({'active': False, 'error': msg})
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        return {'ok': False, 'error': msg}
+
+
+class _DownloadProblem(RuntimeError):
+    """A download that must not be installed (cut short / no room) — message is user-facing."""
+
+
+def _download(url, tmp, index, count):
+    """Stream one file to `tmp`, updating _DL['pct'] across all `count` parts. Refuses to
+    start without room on the disk, and raises when the connection drops before the whole
+    file arrived (urllib does NOT raise on a short read) so a cut-short model is never
+    installed."""
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        total = int(r.headers.get('Content-Length') or 0)
+        if total:
+            try:
+                free = shutil.disk_usage(os.path.dirname(tmp)).free
+            except OSError:
+                free = None
+            if free is not None and free < total + 200 * 1024 * 1024:
+                raise _DownloadProblem(
+                    'Not enough free disk space for the AI model (needs about %.1f GB free on the '
+                    'drive that holds your data folder). Free some space and try again.'
+                    % ((total + 200 * 1024 * 1024) / 1e9))
+        got = 0
+        with open(tmp, 'wb') as f:
+            while True:
+                chunk = r.read(1024 * 512)
+                if not chunk:
+                    break
+                f.write(chunk)
+                got += len(chunk)
+                if total:
+                    _DL['pct'] = round((index + got / total) / count * 100, 1)
+        if total and got < total:
+            raise _DownloadProblem(
+                'The AI model download was cut short (the internet connection dropped at '
+                '%d%%). Nothing was installed — try again.' % int(got / total * 100))
+
+
+def _download_error(exc):
+    if isinstance(exc, _DownloadProblem):
+        return str(exc)
+    return network_error_message(exc, 'the AI model download (Hugging Face)',
+                                 needs='the one-time AI model download')
 
 
 # ── generation (fully offline, in-process) ───────────────────────────────────

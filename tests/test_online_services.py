@@ -273,3 +273,123 @@ def test_nominatim_sends_the_brand_user_agent(monkeypatch):
     assert got['ua'] == utils.USER_AGENT
     assert got['url'].startswith('https://nominatim.openstreetmap.org/search?')
     assert got['timeout'] and got['timeout'] <= 20
+
+
+# ── offline AI brain download (Hugging Face) ─────────────────────────────────
+class _FakeResp:
+    def __init__(self, data, length=None):
+        self._data = data
+        self._pos = 0
+        self.headers = {'Content-Length': str(len(data) if length is None else length)}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self, n=-1):
+        if self._pos >= len(self._data):
+            return b''
+        chunk = self._data[self._pos:self._pos + (n if n and n > 0 else len(self._data))]
+        self._pos += len(chunk)
+        return chunk
+
+
+@pytest.fixture
+def brain(tmp_path, monkeypatch):
+    from p6_chat import llm
+    monkeypatch.setattr(llm, 'app_data_dir', lambda: str(tmp_path))
+    monkeypatch.setattr(llm, '_engine_ok', lambda: True)
+    llm._DL.update({'active': False, 'pct': None, 'error': None, 'done': False, 'key': None})
+    # tiny stand-in sizes so the test downloads bytes, not gigabytes
+    small = {
+        'fast': {**llm.MODELS['fast'], 'min': 10},
+        'detailed': {**llm.MODELS['detailed'],
+                     'parts': [{**p, 'min': 10} for p in llm.MODELS['detailed']['parts']]},
+    }
+    monkeypatch.setattr(llm, 'MODELS', small)
+    return llm
+
+
+def test_7b_brain_is_the_published_two_part_split():
+    """The single-file 7B name returns HTTP 404 on Hugging Face (checked 2026-09-29); the
+    publisher ships q4_k_m as -00001-of-00002 + -00002-of-00002. llama.cpp loads the split
+    from part 1, so 'file' must be part 1 and both parts are downloaded."""
+    from p6_chat import llm
+    spec = llm.MODELS['detailed']
+    files = [p['file'] for p in spec['parts']]
+    assert files == ['qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf',
+                     'qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf']
+    assert spec['file'] == files[0]
+    for p in spec['parts']:
+        assert p['url'].startswith('https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/' + p['file'])
+    assert llm.MODELS['fast']['url'].endswith('qwen2.5-3b-instruct-q4_k_m.gguf?download=true')
+
+
+def test_brain_download_offline_is_a_plain_message_and_leaves_nothing(brain, tmp_path, monkeypatch):
+    def offline(req, timeout=None):
+        raise OFFLINE
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', offline)
+    r = brain.setup('fast')
+    assert r['ok'] is False
+    assert r['error'].startswith('No internet connection')
+    assert 'getaddrinfo' not in r['error']
+    st = brain.status()
+    assert st['downloading'] is False and st['error'] == r['error'] and st['ready'] is False
+    models = tmp_path / 'ai' / 'models'
+    assert not any(models.iterdir()), 'no partial file left behind'
+
+
+def test_brain_download_cut_short_is_never_installed(brain, tmp_path, monkeypatch):
+    monkeypatch.setattr(brain.urllib.request, 'urlopen',
+                        lambda req, timeout=None: _FakeResp(b'x' * 40, length=100))
+    r = brain.setup('fast')
+    assert r['ok'] is False and 'cut short' in r['error']
+    assert not brain._model_ready('fast')
+    assert not any((tmp_path / 'ai' / 'models').iterdir())
+
+
+def test_brain_download_both_7b_parts_with_the_brand_user_agent(brain, tmp_path, monkeypatch):
+    import utils
+    seen = []
+
+    def fake(req, timeout=None):
+        seen.append((req.full_url, req.get_header('User-agent')))
+        return _FakeResp(b'y' * 64)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', fake)
+    r = brain.setup('detailed')
+    assert r == {'ok': True}
+    assert [u.split('/')[-1].split('?')[0] for u, _ in seen] == [
+        'qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf', 'qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf']
+    assert all(ua == utils.USER_AGENT for _, ua in seen)
+    assert brain._model_ready('detailed')
+    assert brain._model_path('detailed').endswith('-00001-of-00002.gguf')
+
+
+def test_brain_ready_needs_every_part(brain, tmp_path):
+    models = tmp_path / 'ai' / 'models'
+    models.mkdir(parents=True)
+    (models / 'qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf').write_bytes(b'z' * 64)
+    assert not brain._model_ready('detailed'), 'part 2 missing → not ready'
+    (models / 'qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf').write_bytes(b'z' * 64)
+    assert brain._model_ready('detailed')
+
+
+def test_brain_download_refuses_without_disk_space(brain, tmp_path, monkeypatch):
+    import collections
+    monkeypatch.setattr(brain.urllib.request, 'urlopen',
+                        lambda req, timeout=None: _FakeResp(b'x' * 10, length=5_000_000_000))
+    Usage = collections.namedtuple('Usage', 'total used free')
+    monkeypatch.setattr(brain.shutil, 'disk_usage', lambda p: Usage(10, 9, 1_000_000))
+    r = brain.setup('fast')
+    assert r['ok'] is False and 'Not enough free disk space' in r['error']
+    assert not any((tmp_path / 'ai' / 'models').iterdir())
+
+
+def test_brain_http_404_says_not_found(brain, monkeypatch):
+    def nf(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 404, 'Not Found', {}, None)
+    monkeypatch.setattr(brain.urllib.request, 'urlopen', nf)
+    r = brain.setup('fast')
+    assert r['ok'] is False and 'HTTP 404' in r['error']
