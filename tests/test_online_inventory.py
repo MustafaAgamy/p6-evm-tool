@@ -120,6 +120,13 @@ def _live_urls():
     for m in llm.MODELS.values():
         for p in m.get('parts') or [m]:
             urls.append(('download', p['url']))
+    # Help ▸ Contact / About LinkedIn profiles (read from help.js so a changed address is
+    # checked too). LinkedIn answers scripted requests with its anti-bot status 999 while
+    # the same page opens normally in the planner's browser — 999 therefore proves the
+    # host is up and reachable; anything else (404, DNS failure) is a broken link.
+    help_js = open(os.path.join(ROOT, 'ui', 'modules', 'help.js'), encoding='utf-8').read()
+    for u in sorted(set(re.findall(r"https://www\.linkedin\.com/in/[A-Za-z0-9_-]+/?", help_js))):
+        urls.append(('linkedin', u))
     return urls
 
 
@@ -128,11 +135,12 @@ def _live_urls():
 def test_live_address_answers(kind, url):
     # Pages open in the planner's browser → fetch like a browser. The app's own calls
     # identify themselves honestly (utils.USER_AGENT), as the services' policies ask.
-    headers = {'User-Agent': _BROWSER_UA if kind == 'page' else utils.USER_AGENT}
+    headers = {'User-Agent': _BROWSER_UA if kind in ('page', 'linkedin') else utils.USER_AGENT}
     req = urllib.request.Request(url, headers=headers, method='HEAD' if kind == 'download' else 'GET')
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             status = r.status
     except urllib.error.HTTPError as e:
         status = e.code
-    assert status == 200, f'{url} answered HTTP {status}'
+    ok = {200, 999} if kind == 'linkedin' else {200}
+    assert status in ok, f'{url} answered HTTP {status}'
