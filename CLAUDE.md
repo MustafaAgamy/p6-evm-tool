@@ -66,6 +66,8 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 | GET | `/` | — | `ui/index.html` with `window.__SERVER_PORT__` injected |
 | GET | `/ui/*` | — | Static CSS / JS |
 | GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
+| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded, detail, backup}, ready, graphics}` — startup readiness probe |
+| POST | `/api/client-log` | `{kind, message, detail}` | `{ok}` — page startup guard → `logs/startup.log`; `kind:'ready'` completes the readiness handshake |
 | POST | `/api/parse` | `{path, overrides_path}` | `{ok, result, cached_path}` |
 | POST | `/api/report` | `{xml_path, cached_path, output_path, overrides_path}` | `{ok}` or `{ok, error}` |
 

@@ -24,6 +24,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
 - The version shown in Help and About now comes from one place.
 
+### Fixed — The app sometimes opened on a black screen
+- **Cause:** the start-up screen was only removed once every program file had loaded. If one file failed to load (for example while antivirus was scanning the freshly unpacked app), the window stayed black with no message, and only closing and reopening helped.
+- **Now:** the app retries a file that fails to load, reloads itself automatically if needed, and if it still cannot start it shows a message with a **Retry** button instead of a black window. A slow start says "Still starting…".
+- **Faster start:** the app no longer loses time on every file it loads through its own local connection. In tests the start-up page loaded in about 0.1 s instead of about 3 s.
+- **Damaged history database:** the app now opens anyway. The damaged file is kept as a backup, a fresh one is started, and a notice explains it. Recent Projects says when it cannot load and offers Retry.
+- **Opening the app twice** brings the window that is already open to the front instead of starting a second copy.
+- Start-up problems are written to a log file (`logs\startup.log` in the app's data folder) so a future problem can be traced.
+
 ### Fixed
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
 - Overview, WBS, Narrative and Productivity PDFs and prints could come out blank.
