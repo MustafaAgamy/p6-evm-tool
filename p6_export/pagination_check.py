@@ -284,7 +284,10 @@ def _strip_running(pages):
     def running(b):
         k = (round(b.y0 / 3), sig(b))
         if b.y1 < 0.1 * H or b.y0 > 0.9 * H:      # the header / footer band of the sheet:
-            return n >= 2 and len(occ[k]) >= min(n, need)   # on every page of a short report
+            # on every page of a short report — but a table's header row repeated at the top
+            # of each page (a report without a running header: the weekday row of the month
+            # calendars that open every page) is content
+            return n >= 2 and len(occ[k]) >= min(n, need) and not table_header(k)
         return n >= 3 and len(occ[k]) >= need and not table_header(k)
     dkey = lambda d: (round(d.ry0 / 3), round(d.x0 / 3), round(d.w / 3), round((d.ry1 - d.ry0) / 3))
     dcnt = collections.Counter()
