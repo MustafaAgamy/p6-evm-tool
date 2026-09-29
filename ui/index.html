@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!--cx:startup-guard-->
   <title>Controlyx 2026</title>
   <link rel="stylesheet" href="/ui/style.css">
   <script>(function(){try{var ok=['light','dark','midnight','sepia','contrast','blueprint'];var m=localStorage.getItem('p6_report_appearance');if(ok.indexOf(m)<0){var l=localStorage.getItem('p6_evm_theme');m=(l==='light'||l==='dark')?l:'light';}document.documentElement.setAttribute('data-appearance',m);}catch(e){document.documentElement.setAttribute('data-appearance','light');}}());</script>
@@ -9,10 +10,20 @@
     /* Immediate dark cover — prevents any flash of the app before the single
        animated startup splash (ui/modules/boot.js) paints; boot.js removes it. */
     #brand-splash{position:fixed;inset:0;z-index:2000;background:#06090f;}
+    /* Never a blank black box: after 1.5 s the cover says it is starting (the startup
+       guard, ui/startup_guard.js, takes over with Retry if loading fails or stalls). */
+    #brand-splash .cxb-note{position:absolute;left:0;right:0;top:50%;text-align:center;
+      color:#8a99bd;font:13px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.06em;
+      opacity:0;animation:cxb-in .4s ease 1.5s forwards;}
+    #brand-splash .cxb-note i{display:inline-block;width:12px;height:12px;margin-right:9px;
+      vertical-align:-2px;border:2px solid #2c3c5e;border-top-color:#5b9bff;border-radius:50%;
+      animation:cxb-spin .8s linear infinite;}
+    @keyframes cxb-in{to{opacity:1}}
+    @keyframes cxb-spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
-<div id="brand-splash"></div>
+<div id="brand-splash"><div class="cxb-note"><i></i>Starting…</div></div>
 <div class="app">
 
   <!-- MENU BAR — the single home for global commands (File · View · Analysis · Tools · Help) -->

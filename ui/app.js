@@ -31,6 +31,9 @@ import { openPalette, closePalette, buildPaletteItems } from './modules/palette.
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
+// Startup guard (ui/startup_guard.js, inlined into index.html): every module loaded.
+if (window.__cxStartup) window.__cxStartup.booted();
+
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
@@ -753,4 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+  // Startup guard: the shell is built — lifts the "couldn't start" watchdog and completes
+  // the app's readiness handshake (POST /api/client-log kind=ready).
+  if (window.__cxStartup) window.__cxStartup.ready();
 });
