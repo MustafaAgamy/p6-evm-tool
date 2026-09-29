@@ -1165,12 +1165,63 @@ def _render_html(document, pl, chrome=None, mode='light'):
             first = max(room - _LEAD_PT, room * 0.5)
             slices = _slice_section(markup, css, mode, chrome, room, first)
             if slices:
+                # A section whose start needs more than a third of a page opens on a fresh
+                # page (a new top-level section — the blank above it is by design); a short
+                # one flows on under the previous item. Either way its numbered heading +
+                # caption + first picture always fit on one page together.
+                lead = slices[0][1] + (slices[1][1] if len(slices) > 1
+                                       and slices[0][1] < _TINY_SLICE * room else 0.0)
+                if lead + _LEAD_PT > _FLOW_MAX * room:
+                    _open_on_new_page(document)
+                prev = None
                 for k, (png, h) in enumerate(slices):
-                    _add_slice(document, png, h, first if k == 0 else room)
+                    cap = first if k == 0 else room
+                    if k == 1 and prev is not None and slices[0][1] < _TINY_SLICE * room:
+                        # a tiny first slice (an intro line whose table was moved on) stays
+                        # with the next one: both fit under the heading together
+                        prev.paragraph_format.keep_with_next = True
+                        cap = first - slices[0][1]
+                    prev = _add_slice(document, png, h, cap)
                 return
         except Exception:
             pass
     _render_html_extract(document, markup)
+
+
+_TINY_SLICE = 0.2      # a first slice under 20 % of a page travels with the next slice
+_FLOW_MAX = 0.35       # a section start taller than this (with its heading) opens a page
+
+
+def _open_on_new_page(document):
+    """Give the item's numbered heading (the Heading-1 paragraph just written above this
+    section, possibly followed by its feature caption) *page break before* — unless it
+    already follows a page break (the contents page ends with one)."""
+    body = [el for el in document.element.body if el.tag in (qn('w:p'), qn('w:tbl'))]
+    for back in (1, 2):
+        if len(body) < back:
+            return
+        el = body[-back]
+        if el.tag != qn('w:p'):
+            return
+        st = el.find(qn('w:pPr') + '/' + qn('w:pStyle'))
+        if st is not None and str(st.get(qn('w:val')) or '').startswith('Heading1'):
+            prv = body[-back - 1] if len(body) > back else None
+            if prv is not None and any(br.get(qn('w:type')) == 'page' for br in prv.iter(qn('w:br'))):
+                return
+            ppr = el.get_or_add_pPr()
+            if ppr.find(qn('w:pageBreakBefore')) is None:
+                pb = OxmlElement('w:pageBreakBefore')
+                # schema order: pStyle, keepNext, keepLines, pageBreakBefore, …
+                anchor = None
+                for tag in ('w:keepLines', 'w:keepNext', 'w:pStyle'):
+                    anchor = ppr.find(qn(tag))
+                    if anchor is not None:
+                        break
+                if anchor is not None:
+                    anchor.addnext(pb)
+                else:
+                    ppr.insert(0, pb)
+            return
 
 
 _BLOCK = {
