@@ -256,19 +256,23 @@ def open_db_resilient():
         DB_STATUS.update(status='ok', detail=None, backup=None)
         return dict(DB_STATUS)
     except sqlite3.DatabaseError as exc:
-        first = exc
+        # Keep only the text: the traceback pins init_db's frame and its open connection,
+        # and Windows cannot rename a file that is still open.
+        first, first_corrupt = str(exc), _is_corruption(exc)
     except Exception as exc:                            # e.g. the folder is not writable
         DB_STATUS.update(status='degraded', detail=f'{type(exc).__name__}: {exc}', backup=None)
         return dict(DB_STATUS)
+    import gc
+    gc.collect()                                        # close the failed connection now
 
     try:
         path = _db_path()
     except Exception:
-        DB_STATUS.update(status='degraded', detail=str(first), backup=None)
+        DB_STATUS.update(status='degraded', detail=first, backup=None)
         return dict(DB_STATUS)
-    damaged = _is_corruption(first) or (_quick_check_ok(path) is False)
+    damaged = first_corrupt or (_quick_check_ok(path) is False)
     if not damaged:                                     # locked / busy / cannot open
-        DB_STATUS.update(status='degraded', detail=str(first), backup=None)
+        DB_STATUS.update(status='degraded', detail=first, backup=None)
         return dict(DB_STATUS)
     backup = _quarantine_db(path)
     if not backup:
@@ -277,7 +281,7 @@ def open_db_resilient():
         return dict(DB_STATUS)
     try:
         init_db()
-        DB_STATUS.update(status='recovered', detail=str(first), backup=backup)
+        DB_STATUS.update(status='recovered', detail=first, backup=backup)
     except Exception as exc:
         DB_STATUS.update(status='degraded', detail=f'{first}; fresh DB failed: {exc}',
                          backup=backup)
