@@ -9,6 +9,7 @@ import { showError }  from './render.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
 import { revealAndRun } from './featurereveal.js';
+import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
 
 const MODES = [
   ['two_updates',       'Two updates',          'Update A vs Update B — this period vs a prior one',  ['previous']],
@@ -31,6 +32,20 @@ function _currName() {
 
 function _neededRoles() {
   return (MODES.find(m => m[0] === _mode) || MODES[1])[3];
+}
+
+// The baseline attached to the open update (Earned Value / Update Analysis — remembered for every
+// feature) fills the Baseline slot until the planner picks another file (R3 F9). Only while the
+// open schedule is the current update: another current file may belong to another baseline.
+function _attachedBl() {
+  return _currentOverride ? null : attachedBaselineSlot(state.currentResult);
+}
+
+// The file a slot will send: the planner's pick, else (Baseline) the attached baseline.
+function _slotPath(role) {
+  if (_picked[role]) return _picked[role];
+  const a = role === 'baseline' ? _attachedBl() : null;
+  return a ? a.path : null;
 }
 
 // ── Entry ────────────────────────────────────────────────────────────────────
@@ -75,10 +90,14 @@ function _renderInputs() {
       <div class="cpa-sval"><b>${escapeHtml(curName)}</b>${curAffordance}
         <button class="btn-mini cpa-cur-change">Change…</button></div></div>`];
   for (const role of _neededRoles()) {
-    const name = _picked[role] ? _picked[role].split(/[\\/]/).pop() : null;
+    const att = role === 'baseline' ? _attachedBl() : null;
+    const auto = !_picked[role] && att;               // the attached baseline fills the slot
+    const name = _picked[role] ? _picked[role].split(/[\\/]/).pop() : (auto ? att.name : null);
+    const tag = auto ? `<span class="cpa-tag" data-attached-baseline>${ATTACHED_BASELINE_TAG}</span>`
+      : (_picked[role] && att ? `<button class="btn-mini cpa-bl-reset">Use attached baseline</button>` : '');
     slots.push(`<div class="cpa-slot${name ? ' filled' : ''}" data-role="${role}">
         <div class="cpa-slbl">${ROLE_LABEL[role]}</div>
-        <div class="cpa-sval">${name ? `<b>${escapeHtml(name)}</b>` : '<span class="cpa-dim">No file chosen</span>'}
+        <div class="cpa-sval">${name ? `<b>${escapeHtml(name)}</b>` : '<span class="cpa-dim">No file chosen</span>'}${tag}
           <button class="btn-mini cpa-pick" data-role="${role}">${name ? 'Change…' : 'Choose file…'}</button></div>
       </div>`);
   }
@@ -89,6 +108,8 @@ function _renderInputs() {
   if (changeBtn) changeBtn.addEventListener('click', _pickCurrent);
   const resetBtn = box.querySelector('.cpa-cur-reset');
   if (resetBtn) resetBtn.addEventListener('click', () => { _currentOverride = null; _renderInputs(); });
+  const blReset = box.querySelector('.cpa-bl-reset');
+  if (blReset) blReset.addEventListener('click', () => { _picked.baseline = null; _renderInputs(); });
   _syncRun();
 }
 
@@ -111,7 +132,7 @@ async function _pick(role) {
 }
 
 function _syncRun() {
-  const ready = _neededRoles().every(r => _picked[r]);
+  const ready = _neededRoles().every(r => _slotPath(r));
   const btn = document.getElementById('cpa-run');
   if (btn) btn.disabled = !ready;
 }
@@ -123,7 +144,7 @@ function _run() {
     const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
     // Only pass the cached copy of the open schedule when we're using it (no override).
     if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
-    for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
+    for (const role of _neededRoles()) payload[`${role}_path`] = _slotPath(role);
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),

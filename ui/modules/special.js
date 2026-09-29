@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { getSavedMode, buildAppearancePicker } from './appearance.js';
 import { showReportPreview } from './preview.js';
 import { showError } from './render.js';
+import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
 
 const S = {
   catalog: [],          // [{feature, feature_title, items:[{id,title,ctype,availability,requires}]}]
@@ -27,13 +28,23 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// The baseline attached to the open update (Earned Value / Update Analysis — remembered for every
+// feature) fills the Baseline input until the planner attaches another file here (R3 F9).
+function attachedBl() { return attachedBaselineSlot(state.currentResult); }
+function effInputs() {
+  const out = Object.assign({}, S.inputs);
+  const a = attachedBl();
+  if (!out.baseline && a) out.baseline = a.path;
+  return out;
+}
+
 function reqBody(extra) {
   return Object.assign({
     snapshot_id: state.currentSnapshotId,
     item_ids: S.selected,
     report_name: S.name,
     theme: getSavedMode(),
-    inputs: S.inputs,
+    inputs: effInputs(),
     meta: {},
   }, extra || {});
 }
@@ -47,7 +58,7 @@ export async function renderSpecialPanel() {
   if (!S.name) S.name = `Special Report — ${(state.currentResult && state.currentResult.project_name) || 'Project'}`;
   host.innerHTML = `<div class="sr-loading">Loading available results…</div>`;
   const [cat, tpl] = await Promise.all([
-    api('api/special/catalog', { snapshot_id: state.currentSnapshotId, inputs: S.inputs }),
+    api('api/special/catalog', { snapshot_id: state.currentSnapshotId, inputs: effInputs() }),
     api('api/special/templates/list', { snapshot_id: state.currentSnapshotId }),
   ]);
   if (!cat.ok) { host.innerHTML = `<div class="sr-empty">${esc(cat.error || 'Could not load results.')}</div>`; return; }
@@ -124,7 +135,7 @@ function drawCatalog() {
   const box = document.getElementById('sr-catalog');
   box.innerHTML = S.catalog.map(g => {
     const need = g.items.find(i => i.availability === 'needs_input' && (i.requires || []).length);
-    const attachBox = need ? attachHtml(g, need) : '';
+    const attachBox = need ? attachHtml(g, need) : attachedHtml(g);
     // WHY a result is not ready, in the feature's own words (e.g. Update Analysis: no baseline
     // inside the file and none attached) — a disabled tick alone tells the planner nothing.
     const notes = [...new Set(g.items.filter(i => i.availability !== 'ready' && i.note).map(i => i.note))];
@@ -152,6 +163,9 @@ function drawCatalog() {
     drawSelected();
   }));
   box.querySelectorAll('[data-attach]').forEach(b => b.addEventListener('click', () => attach(b.dataset.attach)));
+  box.querySelectorAll('[data-bl-reset]').forEach(b => b.addEventListener('click', () => {
+    delete S.inputs.baseline; renderSpecialPanel();
+  }));
 }
 
 function attachHtml(g, need) {
@@ -164,6 +178,23 @@ function attachHtml(g, need) {
       <button class="sr-attach${got ? ' done' : ''}" data-attach="${esc(r.role)}">${got ? '✓ ' + esc(fileName(got)) : '📎 Attach ' + esc(r.label)}</button>
     </div>`;
   }).join('');
+}
+
+// A feature whose Baseline input is filled by the attached baseline: name it, keep the picker.
+function attachedHtml(g) {
+  const a = attachedBl();
+  const r = a && g.items.flatMap(i => i.requires || []).find(x => x.role === 'baseline');
+  if (!r) return '';
+  if (S.inputs.baseline) {                 // another file chosen here — offer the attached one back
+    return `<div class="sr-need">
+      <div class="sr-needtxt">${esc(r.label)}: <b>${esc(fileName(S.inputs.baseline))}</b> — chosen here.</div>
+      <button class="sr-attach" data-bl-reset>Use the attached baseline (${esc(a.name)})</button>
+    </div>`;
+  }
+  return `<div class="sr-need" data-attached-baseline>
+      <div class="sr-needtxt">${esc(r.label)}: <b>${esc(a.name)}</b> — ${ATTACHED_BASELINE_TAG}.</div>
+      <button class="sr-attach done" data-attach="baseline">Change…</button>
+    </div>`;
 }
 
 function fileName(p) { return String(p).split(/[\\/]/).pop(); }

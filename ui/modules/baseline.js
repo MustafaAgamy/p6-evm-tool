@@ -13,6 +13,18 @@ import { state } from './state.js';
 
 export const ATTACH_BASELINE_LABEL = '📎 Attach baseline (XER or XML)';
 
+// The baseline attached to the open update — remembered for this update and for every feature.
+// The two-file features (Critical Path Analyzer, Consultant Review, Reporting Studio) pre-fill
+// their Baseline slot with it (its cached, content-exact copy) and name it; their picker stays,
+// so the planner can still choose another file (R3 F9). null when nothing is attached.
+export const ATTACHED_BASELINE_TAG = 'attached to this update';
+export function attachedBaselineSlot(result) {
+  const r = result || {};
+  if (!r.baseline_path || !(r.baseline_source === 'attached' || r.baseline_name)) return null;
+  const name = r.baseline_name || String(r.baseline_path).split(/[\\/]/).pop().replace(/^[0-9a-f]{12}_/i, '');
+  return { path: r.baseline_path, name };
+}
+
 // Which baseline the current result is measured against. Results stored before the server
 // reported `baseline_source` fall back to the old rule (an XER update export is 'self').
 export function baselineSource(result, path) {
