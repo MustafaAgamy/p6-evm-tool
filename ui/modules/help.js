@@ -421,7 +421,7 @@ function screenFeatureGuide() {
         <span class="hc-lg"><span class="sw none"></span>No schedule needed</span>
       </div>
     </div>
-    <div class="hc-fg-formats"><b>XER or XML?</b> Every file picker accepts both. The difference is the <b>baseline</b>: an XML exported from P6 <i>with its baseline project</i> carries the baseline inside it; an XER never does, so features that measure an update against its baseline need the baseline file too (or read the update's own planned dates).</div>
+    <div class="hc-fg-formats"><b>XER or XML?</b> Every file picker accepts both. The difference is the <b>baseline</b>: an XML exported from P6 <i>with its baseline project</i> carries the baseline inside it; a normal XER update export does not (it carries only a pointer to the baseline), so features that measure an update against its baseline need the baseline file attached too (otherwise they read the update's own planned dates).</div>
     <div class="hc-fg-count"><b id="hc-fg-shown">${total}</b> of ${total} features</div>
     <div id="hc-fg-grid"></div>
     <div class="hc-fg-empty" id="hc-fg-empty">No features match your search. Try “baseline”, “XER”, “delay” or “calendar”.</div>

@@ -150,7 +150,10 @@ test('Update Analysis: baseline inside the file, else the one attached for it (X
   assert.match(ua, /has_baseline = \(src in \('embedded', 'attached'\)\)/);
   assert.match(xerSrc, /data\.baseline_source = 'self'/);
   assert.match(read('p6_evm', 'parser.py'), /data\.baseline_source = 'self'/);
-  assert.match(f.files[0].note, /XER never does, nor does an XML exported without it/);
+  assert.match(f.files[0].note, /a normal XER update export does not, nor does an XML exported without it/);
+  // An XER that includes its baseline project is read like the XML (p6_evm/xer.py, finding P1).
+  assert.match(f.files[0].note, /so does an XER that includes the baseline project/);
+  assert.match(xerSrc, /def _read_embedded_baseline/);
   assert.ok(!/not used here/.test(JSON.stringify(f)), 'Help still says the attached baseline is not used here');
 });
 test('Update Analysis: the screen and the server give the SAME advice as Help (SHELL-1)', () => {

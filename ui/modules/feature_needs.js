@@ -15,7 +15,7 @@
 //     <BaselineProject>, parser.py), else the baseline the planner attached for this update
 //     (XER or XML — "Attach baseline" on Earned Value / Update Analysis, remembered per snapshot:
 //     db.get_attached_baseline), else the file's own Planned dates stand in, flagged
-//     baseline_source 'self' (an XER never carries its baseline; nor does an XML exported
+//     baseline_source 'self' (a normal XER update export carries only a pointer to it; nor does an XML exported
 //     without it — xer.py / parser.py baseline_by_id).
 //   • second / third files — from each feature's server handler + panel (compare.js,
 //     revcompare.js, period.js, critpath.js, special providers).
@@ -132,7 +132,7 @@ export const FEATURE_NEEDS = [
     files: [
       { n: 1, role: 'Current update (progressed, with a data date) — the imported file', formats: XER_OR_XML, k: 'p6' },
       { n: 1, role: 'Baseline — for an update that doesn’t carry it (an XER, or an XML exported without its baseline project); the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
-        note: 'An XER never carries its baseline, and an XML carries it only when exported from P6 with the baseline project included. Without it, Planned Value, SPI and Delay are measured against the update’s own Planned dates (approximate). With the baseline attached the results equal the XML exported with its baseline — and the attachment is remembered for this update and used by every feature (Update Analysis, reports, AI Chat).' },
+        note: 'A P6 XER update export carries only a pointer to its baseline, not the baseline itself (an XER that includes the baseline project is read like an XML with it), and an XML carries it only when exported from P6 with the baseline project included. Without it, Planned Value, SPI and Delay are measured against the update’s own Planned dates (approximate). With the baseline attached the results equal the XML exported with its baseline — and the attachment is remembered for this update and used by every feature (Update Analysis, reports, AI Chat).' },
     ],
     other: [
       'Project Setup (✎ on the Earned Value screen) — category weights and Actual Cost.',
@@ -159,7 +159,7 @@ export const FEATURE_NEEDS = [
     hint: '1 update + its baseline (inside the XML, or attached: XER or XML)',
     files: [
       { n: 1, role: 'Current update — the imported file', formats: XER_OR_XML, k: 'p6',
-        note: 'Needs a real baseline. An XML exported from P6 with its baseline project included carries it; an XER never does, nor does an XML exported without it — then the screen stops with "no baseline" (it never measures the update against its own Planned dates) and offers to attach it. If the screen says there is no baseline: ' + UPDATE_NO_BASELINE_ADVICE },
+        note: 'Needs a real baseline. An XML exported from P6 with its baseline project included carries it (so does an XER that includes the baseline project); a normal XER update export does not, nor does an XML exported without it — then the screen stops with "no baseline" (it never measures the update against its own Planned dates) and offers to attach it. If the screen says there is no baseline: ' + UPDATE_NO_BASELINE_ADVICE },
       { n: 1, role: 'Baseline — only when the update doesn’t carry it; attach it on this screen or on Earned Value', formats: XER_OR_XML, k: 'optional',
         note: 'The same attachment Earned Value uses — remembered for this update and used by every feature. Update + attached baseline gives the same result as the XML exported with its baseline.' },
     ],

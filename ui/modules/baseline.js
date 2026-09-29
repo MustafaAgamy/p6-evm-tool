@@ -2,10 +2,11 @@
 // (Earned Value banner + prompt, Update Analysis "no baseline" state).
 //
 // The server resolves a schedule's baseline ONE way for every feature (p6_evm/baseline.py):
-//   embedded — the file carries its baseline project (an XML exported WITH it)
+//   embedded — the file carries its baseline project (an XML exported WITH it, or an XER that
+//              includes the baseline project's rows)
 //   attached — else the baseline file attached here, remembered for this update (snapshot)
 //   self     — else the file's own Planned dates stand in (approximate) — an XER update
-//              (P6 never writes the baseline into an XER) or an XML exported without it.
+//              (a P6 XER update export carries only a pointer to its baseline) or an XML exported without it.
 // Attaching (or removing) recomputes the snapshot in place (/api/baseline/upload → the import
 // pipeline), so the fresh result replaces state.currentResult and every view agrees.
 import { state } from './state.js';
@@ -13,7 +14,7 @@ import { state } from './state.js';
 export const ATTACH_BASELINE_LABEL = '📎 Attach baseline (XER or XML)';
 
 // Which baseline the current result is measured against. Results stored before the server
-// reported `baseline_source` fall back to the old rule (an XER never carries its baseline).
+// reported `baseline_source` fall back to the old rule (an XER update export is 'self').
 export function baselineSource(result, path) {
   const r = result || {};
   if (r.baseline_name || r.baseline_source === 'attached') return 'attached';

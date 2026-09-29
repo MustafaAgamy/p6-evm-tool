@@ -99,10 +99,11 @@ test('XML exported WITHOUT its baseline (source self) → amber attach, says XML
   assert.match(s.msg, /XML was exported without its baseline project/);
   assert.match(s.msg, /XER or XML/);
 });
-test('XER update (source self) → amber attach, says P6 never writes it into an XER', () => {
+test('XER update (source self) → amber attach, says the XER carries only a pointer to its baseline', () => {
   const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null });
   assert.deepEqual(s.actions, ['attach']);
-  assert.match(s.msg, /XER/);
+  assert.match(s.msg, /XER update doesn’t include its baseline project/);
+  assert.match(s.msg, /only a pointer/);
 });
 test('baseline embedded in the file → no banner, whatever the format', () => {
   assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XML', attachedName: null }), null);

@@ -422,7 +422,7 @@ function openInputsEditor(result) {
 // comes from (`source`: embedded | attached | self — p6_evm/baseline.py, the same resolution
 // every feature uses) and the file format. Returns null when the baseline is embedded in the
 // file (an XML exported WITH its baseline project) — nothing to attach. `isXer` alone (no
-// `source`) keeps the old rule: an XER never carries its baseline.
+// `source`) keeps the old rule for results stored before the server reported it: an XER is 'self'.
 export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem }) {
   const xer = fmt ? fmt === 'XER' : !!isXer;
   const src = attachedName ? 'attached' : (source || (xer ? 'self' : 'embedded'));
@@ -445,7 +445,7 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
   }
   if (src === 'self') {
     const why = xer
-      ? 'This XER update doesn’t include its baseline (P6 never writes it into an XER)'
+      ? 'This XER update doesn’t include its baseline project (a P6 XER update export carries only a pointer to it)'
       : 'This XML was exported without its baseline project';
     const lost = missing ? ` The baseline attached earlier (${missing}) is no longer available — attach it again.` : '';
     return {
@@ -496,7 +496,7 @@ export function maybePromptBaseline(result) {
   if (document.getElementById('evm-bl-prompt')) return;
   _blPromptDone = true;
   const what = isXer
-    ? 'a P6 <b>XER update</b>. P6 never writes the baseline into an XER'
+    ? 'a P6 <b>XER update</b> without its baseline project (a P6 XER update export carries only a pointer to it)'
     : 'a P6 <b>XML</b> exported <b>without its baseline project</b>';
   const html = `<div class="modal-back" id="evm-bl-prompt">
     <div class="modal">
