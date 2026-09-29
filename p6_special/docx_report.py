@@ -1060,7 +1060,10 @@ def _section_print_doc(fragment_html, css, mode, page_h_px, first_top_px):
 def _content_rows(page):
     """(top, bottom) in PDF points of what is painted on a printed page (white trimmed),
     or None for a blank page. Without numpy the whole page is kept."""
-    import pymupdf
+    try:
+        import pymupdf
+    except ImportError:                   # pragma: no cover — older PyMuPDF name
+        import fitz as pymupdf
     try:
         import numpy as np
     except Exception:                     # pragma: no cover — numpy ships in the bundle
@@ -1086,7 +1089,10 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
     try:
         import pymupdf
     except Exception:
-        return None
+        try:
+            import fitz as pymupdf        # older PyMuPDF name
+        except Exception:
+            return None
     px = lambda pt: pt / _PT_PER_PX
     page_h = px(room_pt)
     first_top = page_h - px(first_room_pt)
