@@ -17,6 +17,16 @@
  * ready() completes the app's readiness handshake. After ready, GET /api/health reports
  * whether the history database had to be recovered; if so a dismissible notice says so.
  * No alert/confirm/prompt anywhere (they are no-ops in WebView2). ES5 only.
+ *
+ * Real start-up steps (BLACK-9) - the cover and the animated splash (ui/modules/boot.js)
+ * show only these, never a scripted stage:
+ *   server  -> GET /api/health answered (probed at once, retried; or every program file
+ *              was served, which proves the server answers)
+ *   program -> every module loaded (booted)
+ *   screen  -> the shell is built (ready)
+ *   history -> Recent Projects answered (loaded, or its own Retry shown): app.js step()
+ * The cover (#brand-splash) says the current step from the first paint; a local server
+ * that refuses every health probe before the program loads fails like a missing file.
  */
 (function (root, factory) {
   var api = factory();
@@ -29,6 +39,9 @@
   var BACKOFF_MS = [600, 1500, 3500];   // automatic reloads before the Retry card
   var SLOW_MS = 12000;                  // show "Still starting..."
   var STALL_MS = 40000;                 // never booted by now: treat as a failure
+  var STEPS = ['server', 'program', 'screen', 'history'];
+  var HEALTH_RETRY_MS = [500, 1500, 3000];   // /api/health re-probes after an error
+  var COVER_TEXT = { server: 'Starting local server', program: 'Loading program files' };
 
   function create(win, opts) {
     opts = opts || {};
@@ -48,7 +61,10 @@
       detail: null,
       attempt: readAttempt(),
       events: [],
+      steps: { server: false, program: false, screen: false, history: false },
+      health: null,              // the /api/health answer, once it came
     };
+    var listeners = [];
 
     function readAttempt() {
       var n = 0;
@@ -68,12 +84,24 @@
         }
       } catch (e) { /* logging is best-effort */ }
     }
-    function defaultGetJson(url, cb) {
+    function defaultGetJson(url, cb, onErr) {
+      var done = false;
+      function fail(e) {
+        if (done || !onErr) return;
+        done = true;
+        onErr(e && e.message ? e.message : String(e || 'no answer'));
+      }
       try {
-        if (typeof win.fetch !== 'function') return;
-        win.fetch(url).then(function (r) { return r.json(); })
-          .then(function (j) { cb(j); }).catch(function () {});
-      } catch (e) { /* best-effort */ }
+        if (typeof win.fetch !== 'function') { fail('no fetch'); return; }
+        win.fetch(url, { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        }).then(function (j) {
+          if (done) return;
+          done = true;
+          try { cb(j); } catch (e) { /* the caller's own problem */ }
+        }).catch(fail);
+      } catch (e) { fail(e); }
     }
     function report(kind, message, detail) {
       var rec = { kind: kind, message: message || '', detail: detail || '',
@@ -125,6 +153,53 @@
       if (b) b.onclick = function () { g.retry(); };
     }
 
+    // ── real start-up steps (BLACK-9) ────────────────────────────────────
+    function notify(what) {
+      for (var i = 0; i < listeners.length; i++) {
+        try { listeners[i](what, g); } catch (e) { /* a listener never breaks the guard */ }
+      }
+    }
+    // boot.js listens here: fn(what, guard) on every step and phase change.
+    g.onChange = function (fn) {
+      if (typeof fn === 'function') listeners.push(fn);
+      return function () {
+        for (var i = 0; i < listeners.length; i++) if (listeners[i] === fn) listeners.splice(i, 1);
+      };
+    };
+    // The first step not yet done ('' when all are).
+    g.current = function () {
+      for (var i = 0; i < STEPS.length; i++) if (!g.steps[STEPS[i]]) return STEPS[i];
+      return '';
+    };
+    function paintCover() {
+      var el = doc.getElementById ? doc.getElementById('cx-cover-stage') : null;
+      if (!el) return;
+      el.textContent = (g.steps.server ? COVER_TEXT.program : COVER_TEXT.server) + '…';
+    }
+    g.step = function (name) {
+      if (!g.steps.hasOwnProperty(name) || g.steps[name]) return false;
+      g.steps[name] = true;
+      paintCover();
+      notify(name);
+      return true;
+    };
+    function probeHealth(i) {
+      getJson('/api/health', function (h) {
+        g.health = h || {};
+        g.step('server');
+      }, function (err) {
+        if (g.steps.server || (g.phase !== 'loading' && g.phase !== 'slow')) return;
+        if (i < HEALTH_RETRY_MS.length) {
+          timers.push(setT(function () { probeHealth(i + 1); }, HEALTH_RETRY_MS[i]));
+          return;
+        }
+        report('health', 'local server did not answer', err);
+        // The program still loading from that same server means it does answer: wait
+        // for it. A server that refused everything before then is a failed start.
+        if (!g.isBooted) g.fail('health', 'The local server did not answer (GET /api/health: ' + err + ').');
+      });
+    }
+
     // ── state machine ────────────────────────────────────────────────────
     function clearTimers() { for (var i = 0; i < timers.length; i++) clearT(timers[i]); timers = []; }
 
@@ -142,6 +217,7 @@
                n + ' of ' + BACKOFF_MS.length + ').', null, null);
         report('retry', 'automatic reload', 'attempt ' + n);
         timers.push(setT(function () { reload(); }, BACKOFF_MS[g.attempt]));
+        notify('phase');
         return g.phase;
       }
       g.phase = 'failed';
@@ -149,6 +225,7 @@
              'Part of the program did not load. Your projects and data are safe. Click Retry; ' +
              'if this keeps happening, close the app and open it again.',
              g.detail, 'Retry');
+      notify('phase');
       return g.phase;
     };
 
@@ -161,6 +238,8 @@
     g.booted = function () {
       g.isBooted = true;
       report('booted', 'program files loaded', '');
+      g.step('server');            // it served every program file: it answers
+      g.step('program');
     };
 
     g.ready = function () {
@@ -172,6 +251,8 @@
       removeOverlay();
       report('ready', 'shell ready', g.attempt ? 'after ' + g.attempt + ' automatic reload(s)' : '');
       getJson('/api/health', function (h) { g.notice(h); });
+      g.step('screen');
+      notify('phase');
     };
 
     g.notice = function (h) {
@@ -256,13 +337,17 @@
         win.addEventListener('unhandledrejection', onRejection);
       }
       if (doc.addEventListener) {
-        if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', checkStylesheet);
-        else checkStylesheet();
+        if (doc.readyState === 'loading') {
+          doc.addEventListener('DOMContentLoaded', checkStylesheet);
+          doc.addEventListener('DOMContentLoaded', paintCover);
+        } else { checkStylesheet(); paintCover(); }
       }
+      probeHealth(0);              // the readiness handshake drives the first step
       timers.push(setT(function () {
         if (g.phase !== 'loading') return;
         g.phase = 'slow';
         report('timeout', 'slow start', 'not ready after ' + SLOW_MS + ' ms');
+        notify('phase');
         render('Still starting…',
                'This can take a little longer the first time, or while antivirus scans the app. ' +
                'You can keep waiting or reload now.', null, 'Reload now');
@@ -297,5 +382,5 @@
   }
 
   return { create: create, install: install, KEY: KEY, BACKOFF_MS: BACKOFF_MS,
-           SLOW_MS: SLOW_MS, STALL_MS: STALL_MS };
+           SLOW_MS: SLOW_MS, STALL_MS: STALL_MS, STEPS: STEPS, HEALTH_RETRY_MS: HEALTH_RETRY_MS };
 }));
