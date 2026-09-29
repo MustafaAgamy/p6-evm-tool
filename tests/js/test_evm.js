@@ -125,6 +125,18 @@ test('no baseline assigned in P6 (baseline programme) → neutral info line, nev
   assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, expected: true }).cls, 'warn');
   assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null }).cls, 'warn');
 });
+test('a failed attach is said on EVERY banner — info (no baseline assigned in P6) and wrong-file too (alert() is a no-op in WebView2)', () => {
+  const problem = 'No activities in “SG_bl_standalone.xml” match this update by Activity ID — it is probably another project’s baseline, so it was not attached.';
+  const info = baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, problem, expected: false });
+  assert.equal(info.cls, 'info');
+  assert.ok((info.title + ' ' + info.msg).includes(problem), 'problem shown in the info banner');
+  const none = baselineBannerState({ source: 'attached', fmt: 'XER', attachedName: 'WRONG.xer', matched: 0, total: 9, problem: 'Baseline not attached: disk error.' });
+  assert.ok(none.msg.includes('Baseline not attached: disk error.'));
+  const warn = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null, problem: 'Baseline not attached: x.' });
+  assert.ok(warn.msg.includes('Baseline not attached: x.'));
+  // and no stray text when nothing failed
+  assert.ok(!/undefined|null/.test(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, expected: false }).msg));
+});
 {
   const { baselineExpected } = await import('../../ui/modules/baseline.js');
   test('baselineExpected: only an explicit false means "none assigned in P6"', () => {

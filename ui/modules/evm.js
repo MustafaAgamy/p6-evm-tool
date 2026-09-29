@@ -433,7 +433,7 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
       return {
         cls: 'warn', icon: '⚠',
         title: `Baseline “${attachedName}” — no activities matched.`,
-        msg: 'None of this update’s activities line up with that baseline by Activity Id — it’s likely the wrong file. Planned Value is not reliable.',
+        msg: `None of this update’s activities line up with that baseline by Activity Id — it’s likely the wrong file. Planned Value is not reliable.${problem ? ' ' + problem : ''}`,
         actions: ['replace', 'remove'],
       };
     }
@@ -449,7 +449,9 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
     return {
       cls: 'info', icon: 'ℹ',
       title: 'No baseline is assigned to this project in P6',
-      msg: '— its own Planned dates are the baseline, so Planned Value, SPI and Delay are measured against them, as P6 does.',
+      // a failed attach (wrong project / unreadable file / server error) is said HERE — alert()
+      // is a no-op in WebView2, so a silent banner would leave the planner guessing
+      msg: `— its own Planned dates are the baseline, so Planned Value, SPI and Delay are measured against them, as P6 does.${problem ? ' ' + problem : ''}`,
       actions: ['attach'],
     };
   }
