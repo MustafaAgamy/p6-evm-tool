@@ -49,7 +49,8 @@ export function createRevealModel(opts) {
   const T = Object.assign({}, REVEAL_TIMING, opts.timing || {});
   if (opts.reduce) { T.MIN_SHOW_MS = 0; T.FINAL_MS = 0; }   // reduced motion: jump to each stage
   const s = { t0: null, last: null, display: 0, startedAt: null, inflight: 0, sent: 0,
-              settledAt: null, framesSinceSettle: 0, finalRate: null, revealed: false };
+              settledAt: null, framesSinceSettle: 0, finalRate: null, revealed: false,
+              label: null };     // the feature's own name for what it is doing now (revealStage)
 
   function stage() {
     if (s.settledAt != null) return s.framesSinceSettle >= 2 ? 'painted' : 'rendering';
@@ -88,16 +89,23 @@ export function createRevealModel(opts) {
     let reveal = false;
     if (st === 'painted' && s.display >= 99.95) { s.display = 100; reveal = true; s.revealed = true; }
     const pct = reveal ? 100 : Math.min(99, Math.floor(s.display));
-    let label = LABELS[st];
+    // The feature's own stage name (revealStage) wins while its work is still running; the
+    // closing stages ("Rendering results" → "Ready") are always the shared ones.
+    const own = (st === 'analysing' || st === 'computing' || st === 'received') ? s.label : null;
+    let label = own || LABELS[st];
     if ((st === 'computing' || st === 'analysing') && s.startedAt != null && now - s.startedAt >= T.SLOW_MS) {
-      label = 'Still calculating · ' + Math.round((now - s.startedAt) / 1000) + ' s';
+      const secs = Math.round((now - s.startedAt) / 1000) + ' s';
+      label = own ? own + ' · ' + secs : 'Still calculating · ' + secs;
     }
     return { stage: st, display: s.display, pct, label, reveal };
   }
   return {
     workStarted(now) { if (s.startedAt == null) s.startedAt = now; },
     requestSent() { s.inflight++; s.sent++; },
-    requestDone() { if (s.inflight > 0) s.inflight--; },
+    // When the last request answers, the feature's "…ing" label is stale: fall back to
+    // "Results received" unless the feature names its next stage (revealStage again).
+    requestDone() { if (s.inflight > 0) s.inflight--; if (s.inflight === 0) s.label = null; },
+    setLabel(label) { s.label = label ? String(label) : null; },
     settled(now) { if (s.settledAt == null) s.settledAt = now; },
     frame,
     stage,
@@ -136,6 +144,13 @@ export function installRequestTap(target) {
   };
   if (TAPPED) TAPPED.add(target);
   return true;
+}
+
+// A feature names the REAL stage it is in ("Downloading weather history", "Comparing Rev.00
+// with Rev.01", …) and the open Run bar shows it (with the elapsed seconds on a long wait).
+// Call it inside the `work` of revealAndRun, right before each step. No reveal open → no-op.
+export function revealStage(label) {
+  REVEAL_WATCHERS.forEach(w => { try { if (w.setLabel) w.setLabel(label); } catch (e) {} });
 }
 
 // ── DOM presentation ───────────────────────────────────────────────────────────────────
