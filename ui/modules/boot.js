@@ -1,8 +1,18 @@
 // Startup splash — plays once when the app window opens, then fades away to reveal
-// the real Controlyx shell beneath it. Motion identity shared with featurereveal.js:
+// the real app shell beneath it. Motion identity shared with featurereveal.js:
 // a schedule builds → a glowing critical path rises → it resolves into the brand mark
 // → the wordmark writes in → the splash lifts to reveal the app. Self-contained (injects
 // its own CSS + overlay DOM); call playBoot() once from app.js on load.
+//
+// Honest progress (startup audit BLACK-9): the caption and the bar follow the REAL
+// start-up steps the startup guard (ui/startup_guard.js, window.__cxStartup) records —
+// local server answered (/api/health), program files loaded, screen built, project
+// history answered. The owner's 11-s presentation (#07/#83, no Skip) keeps its length,
+// but the bar is held at the first step not yet done and 'Ready' only shows once every
+// step really happened. If the start fails (the guard reloads or shows its Retry card)
+// the splash steps aside at once instead of finishing into an empty shell.
+// The product name comes from window.__APP_NAME__ / __APP_EDITION__ / __APP_TITLE__
+// (server.py injects them from utils.APP_*), never written here (VER-2).
 
 let injected = false;
 
@@ -46,12 +56,62 @@ function injectCss() {
 
 const clamp = (x, a, b) => { a = a == null ? 0 : a; b = b == null ? 1 : b; return x < a ? a : x > b ? b : x; };
 const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nb = s => esc(s).replace(/ /g, '&nbsp;');
+
+// The real start-up steps, in the order they happen (keys match the guard's steps).
+export const BOOT_STEPS = [
+  ['server',  'Starting local server'],
+  ['program', 'Loading program files'],
+  ['screen',  'Building the screen'],
+  ['history', 'Opening project history'],
+];
+
+// Caption + bar for timeline position t (0..1 of the 11-s presentation) given the steps
+// really done. The bar follows the timeline but never passes the first step not yet done;
+// the caption names the step the bar is on; 'Ready' only at 100 %, i.e. all steps done.
+export function bootProgress(t, steps) {
+  steps = steps || {};
+  const n = BOOT_STEPS.length;
+  let done = 0;
+  while (done < n && steps[BOOT_STEPS[done][0]]) done++;
+  const timeProg = clamp((t - 0.03) / 0.86);
+  const prog = Math.min(timeProg, done / n);
+  const ready = done === n && prog >= 1;
+  const label = ready ? 'Ready' : BOOT_STEPS[Math.min(Math.floor(prog * n + 1e-9), done, n - 1)][1];
+  return { prog, pct: Math.round(prog * 100), label, ready, held: timeProg > done / n };
+}
+
+// What the splash does now: 'finish' (lift it to show the app), 'abort' (step aside at once
+// — the guard is reloading or shows its Retry card) or 'wait'. timelineDone = the
+// presentation has played; capped = its hard cap has passed. Without a guard (a page served
+// without it) the splash behaves as a plain timed presentation.
+export function bootDecision(guard, timelineDone, capped) {
+  if (!guard) return timelineDone ? 'finish' : 'wait';
+  if (guard.phase === 'retrying' || guard.phase === 'failed') return 'abort';
+  if (guard.phase !== 'ready') return 'wait';                 // still loading / 'Still starting…'
+  if (timelineDone && bootProgress(1, guard.steps).ready) return 'finish';
+  // Project history slower than the whole presentation: the screen is built and the
+  // Recent Projects table says its own state (loading / Retry) — don't hold the app.
+  return capped ? 'finish' : 'wait';
+}
+
+function brand() {
+  const w = typeof window !== 'undefined' ? window : {};
+  const name = w.__APP_NAME__ || '';
+  const edition = w.__APP_EDITION__ || '';
+  const title = w.__APP_TITLE__ || [name, edition].filter(Boolean).join(' ');
+  return { name, edition, title };
+}
 
 export function playBoot(opts) {
   opts = opts || {};
   const DUR = opts.durationMs || 11000;
   const onDone = typeof opts.onDone === 'function' ? opts.onDone : function () {};
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const guard = window.__cxStartup || null;
+  const B = brand();
   injectCss();
 
   const boot = document.createElement('div');
@@ -77,11 +137,11 @@ export function playBoot(opts) {
          </g>
          <circle class="spark" r="5.5" fill="#fff" opacity="0"/>
        </svg>
-       <div class="wm"><div class="nm">Controlyx<span class="yr">2026</span></div><div class="tg">Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div><div class="p6">for&nbsp;<em>Primavera&nbsp;P6</em>&nbsp;·&nbsp;XER&nbsp;&amp;&nbsp;XML</div></div>
+       <div class="wm"><div class="nm">${esc(B.name)}<span class="yr">${esc(B.edition)}</span></div><div class="tg">Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div><div class="p6">for&nbsp;<em>Primavera&nbsp;P6</em>&nbsp;·&nbsp;XER&nbsp;&amp;&nbsp;XML</div></div>
      </div>
-     <div class="hud"><div class="cap"><span class="capt">Starting local server</span><b class="pct">0%</b></div>
+     <div class="hud"><div class="cap"><span class="capt">${BOOT_STEPS[0][1]}</span><b class="pct">0%</b></div>
        <div class="track"><div class="barf"></div></div></div>
-     <div class="ver">Controlyx&nbsp;2026 · Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div>`;
+     <div class="ver">${nb(B.title)} · Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div>`;
   document.body.appendChild(boot);
   // We are now the single startup splash — drop the immediate anti-flash cover.
   const _cover = document.getElementById('brand-splash');
@@ -105,8 +165,6 @@ export function playBoot(opts) {
     b.appear = 0.03 + i * (0.30 / BARS.length); return el;
   });
 
-  const STAGES = [[0, 'Starting local server'], [0.24, 'Loading knowledge base'], [0.46, 'Preparing analysis engine'], [0.68, 'Loading calendars'], [0.86, 'Ready']];
-
   function render(t) {
     t = clamp(t, 0, 1);
     const barFade = ease(clamp((t - 0.50) / 0.14));
@@ -128,20 +186,38 @@ export function playBoot(opts) {
     const wp = ease(clamp((t - 0.66) / 0.18));
     wm.style.opacity = wp.toFixed(3); wm.style.transform = 'translate(-50%,' + ((1 - wp) * 10).toFixed(1) + 'px)';
     nm.style.clipPath = 'inset(0 ' + ((1 - wp) * 100).toFixed(1) + '% 0 0)';
-    const prog = clamp((t - 0.03) / 0.86); barf.style.width = (prog * 100).toFixed(1) + '%'; pct.textContent = Math.round(prog * 100) + '%';
-    let s = STAGES[0][1]; for (let j = 0; j < STAGES.length; j++) if (t >= STAGES[j][0]) s = STAGES[j][1];
-    if (capt.textContent !== s) capt.textContent = s;
+    // Caption + bar from the REAL steps (held at the first one not yet done).
+    const p = bootProgress(t, guard ? guard.steps : null);
+    barf.style.width = (p.prog * 100).toFixed(1) + '%'; pct.textContent = p.pct + '%';
+    if (capt.textContent !== p.label) capt.textContent = p.label;
     // The splash stays fully opaque through the presentation; finish() does one quick
     // crisp fade so the app appears the instant loading completes (no slow blur).
   }
 
-  let raf = null, start = null, finished = false;
+  let raf = null, start = null, finished = false, lastT = 0, timelineDone = false, capped = false;
+  let unlisten = null;
   function finish() {
     if (finished) return; finished = true;
     if (raf) cancelAnimationFrame(raf);
+    if (unlisten) unlisten();
+    render(Math.max(lastT, 0.9));             // the frame it lifts on says where start-up got to
     boot.classList.add('gone');
     setTimeout(() => { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 320);
     try { onDone(); } catch (e) {}
+  }
+  // The start failed: the guard is reloading the page or shows its Retry card — step aside
+  // now rather than play on (or finish) over an empty shell.
+  function abort() {
+    if (finished) return; finished = true;
+    if (raf) cancelAnimationFrame(raf);
+    if (unlisten) unlisten();
+    if (boot.parentNode) boot.parentNode.removeChild(boot);
+  }
+  function decide() {
+    if (finished) return true;
+    const d = bootDecision(guard, timelineDone, capped);
+    if (d === 'finish') finish(); else if (d === 'abort') abort();
+    return finished;
   }
   // #07: the startup presentation plays in full — no Skip button, by request.
 
@@ -150,12 +226,17 @@ export function playBoot(opts) {
     if (finished) return;
     if (start == null) start = ts;
     const t = (ts - start) / DUR;
+    lastT = t;
     render(t);
-    // Finish right after the bar hits 100% + the mark/wordmark settle (~t 0.89) — don't
-    // drag the last ~1s sitting at 100%; finish() does a quick crisp fade to reveal the app.
-    if (t < 0.9) raf = requestAnimationFrame(step); else finish();
+    // Lift right after the bar hits 100% + the mark/wordmark settle (~t 0.89) — once every
+    // real step is done; until then hold on the step still running (the guard's
+    // 'Still starting…' / Retry takes over if it stalls or fails).
+    if (t >= 0.9) timelineDone = true;
+    if (!decide()) raf = requestAnimationFrame(step);
   }
   raf = requestAnimationFrame(step);
+  if (guard && typeof guard.onChange === 'function') unlisten = guard.onChange(() => decide());
+  decide();                                   // a start that already failed: step aside now
   // Safety: if rAF is throttled (hidden window), never trap the user — hard cap.
-  setTimeout(() => { if (!finished) finish(); }, DUR + 1500);
+  setTimeout(() => { if (finished) return; timelineDone = true; capped = true; decide(); }, DUR + 1500);
 }

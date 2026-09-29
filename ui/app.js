@@ -43,7 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initTooltips();
   installExternalLinks();   // every web link → the default browser (never navigates the app window away)
   initDatabase();
-  loadHistory();
+  // Real start-up step for the splash (BLACK-9): Recent Projects answered (or its own Retry shown).
+  loadHistory().finally(() => { if (window.__cxStartup) window.__cxStartup.step('history'); });
 
   // Unified Appearance control (six modes) — themes the whole app screen AND every report
   // preview/PDF from one choice. initTheme() above already painted the saved mode on load.

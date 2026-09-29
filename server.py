@@ -706,6 +706,7 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_index(self):
         try:
             html = _read_ui_file(resource_path('ui/index.html')).decode()
+            html = _fill_brand(html)               # data-brand spans: name at first paint
             html = _inline_ui_prefs(html)          # before the guard fills its marker
             html = _inline_startup_guard(html)
             port = self.server.server_address[1]
@@ -4031,6 +4032,25 @@ def _inline_ui_prefs(html):
     if _GUARD_MARK in html:
         return html.replace(_GUARD_MARK, _GUARD_MARK + head, 1)
     return html.replace('<head>', '<head>' + head, 1)
+
+
+_BRAND_RE = None
+
+
+def _fill_brand(html):
+    """Write the product name into every element marked data-brand="name|edition|title"
+    in index.html (the start-up screens, the menu bar, the account block, the landing page)
+    before the page is sent, so it paints with the name from utils.APP_* - index.html
+    itself never hardcodes it (startup audit VER-2)."""
+    global _BRAND_RE
+    import re
+    from html import escape
+    if _BRAND_RE is None:
+        _BRAND_RE = re.compile(
+            r'(<(\w+)\b[^>]*\sdata-brand="(name|edition|title)"[^>]*>)[^<]*(</\2>)')
+    values = {'name': APP_NAME, 'edition': APP_EDITION, 'title': APP_TITLE}
+    return _BRAND_RE.sub(
+        lambda m: m.group(1) + escape(str(values[m.group(3)])) + m.group(4), html)
 
 
 def _inline_startup_guard(html):
