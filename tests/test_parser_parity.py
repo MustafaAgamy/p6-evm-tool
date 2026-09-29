@@ -40,6 +40,17 @@ exported from TWO DIFFERENT P6 databases (genuine finding G1): every ObjectId di
 calendar has a different name in each, and six "Type of Works" code assignments plus one
 resource assignment exist only in the XML file - compare GBT by activity code / names, never by
 ObjectId, and expect exactly those differences.
+
+Real-file /api/parse proof ([parser:PROVE], full result JSON diffed field-by-field): SG and ALSTOM
+XER + attached baseline == XML with its embedded <BaselineProject> in every value (EVM, categories,
+audit modules, calendar audit, WBS, activities, Update Analysis) - only the baseline provenance
+fields (baseline_source / _name / _path / _matched / _total) differ, by design. GBT (after the G1
+ObjectId remap) differs only in the G1 project name and the resource-only calendar. G4 (genuine):
+SG_BASELINE_FIN3.xer is a DIFFERENT P6 copy of the SG baseline (proj 5274, calendar 7410) from the
+one embedded in SG_UPDATE_22AUG2025.xml (proj 7834, calendar 9942) - 12 of 896 baseline finishes
+differ (8 by date, e.g. EX-5290-GC-ARC-MIX: XML <PlannedFinishDate>2025-08-06T07:24:00, XER
+target_end_date 2025-08-05 19:24), so six WBS baseline_finish roll-ups read one day earlier with
+it; EVM at the 22-Aug-2025 data date is identical (tests/test_golden_xer_xml.py on that triple).
 """
 from datetime import date, datetime
 from xml.sax.saxutils import escape
