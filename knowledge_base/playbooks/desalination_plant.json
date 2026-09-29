@@ -1,0 +1,117 @@
+{
+  "archetype": "desalination_plant",
+  "schema": 2,
+  "context": "process-piping & pump-led · membrane commissioning drives the ramp to spec",
+  "brief": {
+    "intro": "A desalination plant makes potable or process water from seawater or brackish water, most commonly by reverse osmosis (RO) — high-pressure pumps forcing water through membranes — or, less commonly, thermal distillation. The programme is dominated by extensive process piping (intake, pretreatment, high-pressure, product and brine/outfall lines) and pumping equipment, with marine intake/outfall works and basin structures as the defining civil interface. The critical path runs through pretreatment mechanical completion, into high-pressure pump and RO train installation, into membrane loading — often one of the last, most schedule-sensitive steps — into chemical dosing and post-treatment, and finally into product-water quality verification against contracted spec. The plant is only proven once real water has flowed through it end to end at sustained output.",
+    "scope": [
+      { "name": "Intake & pretreatment", "desc": "Seawater or brackish intake works, screening, coagulation/flocculation, and media or membrane pretreatment filters." },
+      { "name": "High-pressure pumping", "desc": "HP feed pumps and energy recovery devices that drive water through the RO membranes." },
+      { "name": "RO train / membrane skids", "desc": "Pressure vessels, membrane elements and racks — the core desalination process." },
+      { "name": "Chemical dosing", "desc": "Antiscalant, coagulant, chlorination/dechlorination and clean-in-place chemical systems." },
+      { "name": "Post-treatment & remineralization", "desc": "Stabilizing product water to potable or process spec — pH and hardness." },
+      { "name": "Product water storage & distribution", "desc": "Clearwell/product tanks and pumping to the distribution network." },
+      { "name": "Brine / concentrate outfall", "desc": "Managing and discharging the concentrated reject stream, often via a marine outfall." },
+      { "name": "Electrical & power supply", "desc": "MV/LV distribution sized for the large HP pump loads, often the plant's biggest single load." },
+      { "name": "Instrumentation & control (SCADA)", "desc": "Process control, membrane performance monitoring and alarms." },
+      { "name": "Testing & commissioning", "desc": "Pretreatment proving, HP system pressure test, membrane loading and wet commissioning, product-water quality verification." }
+    ],
+    "glossary": [
+      { "term": "RO (reverse osmosis)", "plain": "forcing seawater at high pressure through membranes that let water through but block salt." },
+      { "term": "Energy recovery device (ERD)", "plain": "equipment that recovers pressure energy from the reject brine stream to cut pumping power." },
+      { "term": "Membrane loading", "plain": "the careful, one-by-one insertion of membrane elements into pressure vessels — a late, labour-intensive, schedule-sensitive step." },
+      { "term": "Antiscalant / CIP", "plain": "chemicals dosed to stop scale forming on membranes, and the Clean-In-Place system used to periodically wash them." },
+      { "term": "Pretreatment", "plain": "the filtration/coagulation stage that protects membranes from fouling before high-pressure feed." },
+      { "term": "Brine / concentrate", "plain": "the leftover salty reject stream from the RO process that must be discharged responsibly." },
+      { "term": "Remineralization", "plain": "adding back minerals after RO to make the water stable and safe to drink or use." },
+      { "term": "Recovery rate", "plain": "the percentage of feed water converted to usable product water — a key performance-test parameter." }
+    ],
+    "must_get_right": [
+      "Sequence pretreatment ahead of HP/RO — feeding unfiltered water into membranes, even briefly, can cause irreversible fouling.",
+      "Protect membrane loading as a distinct, late, labour-intensive milestone — it happens after all HP piping is flushed and pressure-tested, not in parallel with pipework.",
+      "Treat product-water quality verification, not mechanical completion, as the real finish line — the plant isn't done until sustained output meets the contracted spec, which needs a real trial run.",
+      "Start marine intake/outfall civil works early — they are long-duration and sit on the critical path to first water in."
+    ]
+  },
+  "components": [
+    { "name": "Intake & Pretreatment", "desc": "Screening · coagulation · media/membrane filters", "disc": "Process", "primary": true },
+    { "name": "High-Pressure Pumping & ERD", "desc": "Feed pumps · energy recovery devices", "disc": "Mechanical", "primary": true },
+    { "name": "RO Train / Membranes", "desc": "Pressure vessels · membrane racks", "disc": "Process", "primary": true },
+    { "name": "Chemical Dosing", "desc": "Antiscalant · dechlorination · CIP", "disc": "Process", "primary": false },
+    { "name": "Post-treatment & Storage", "desc": "Remineralization · product tanks", "disc": "Mechanical", "primary": false },
+    { "name": "Electrical & Power Supply", "desc": "MV/LV sized for HP pump loads", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning", "desc": "Pressure test · membrane loading · quality verification", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HP feed pumps & energy-recovery devices", "Process / product / brine piping", "Pretreatment filtration equipment", "CIP & chemical-cleaning skids"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear sized for HP pump loads", "VFD drives", "Standby / backup power"] },
+    { "discipline": "Plumbing / Utility Piping", "items": ["Potable-water distribution to storage", "Compressed air", "Service / wash-water systems"] },
+    { "discipline": "Instrumentation / SCADA", "items": ["Process control & membrane performance monitoring", "Water-quality analyzers", "Alarm / interlock system"] }
+  ],
+  "overview_phases": ["Enabling & Marine Civil", "Intake & Outfall Structures", "Pretreatment Install", "HP Pumping & RO Train", "Piping & Electrical", "Chemical Dosing & Controls", "Commissioning & Water Quality"],
+  "sequence_chart": {
+    "phases": ["Enable", "Intake/Outfall", "Pretreat.", "HP/RO", "Piping", "Controls", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Marine Works", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Earthworks → intake/outfall structures → basins", "holds": [16] },
+      { "trade": "Pretreatment", "disc": "Process", "kind": ["mechanical"], "start": 18, "width": 30, "label": "Screens/media filters → set & pipe", "holds": [] },
+      { "trade": "HP Pumping & RO Train", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 46, "label": "Set HP pumps/ERD → RO racks → membrane load", "holds": [54, 72] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "elv"], "start": 40, "width": 34, "label": "MV/LV → VFD → SCADA integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 70, "width": 30, "label": "Pressure test → membrane load → water-quality trial", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Marine Works", "disc": "Civil", "kind": ["civil"], "holds": [1, 2], "steps": ["Site clearance & earthworks", "Intake structure & screening chamber", "Outfall / brine discharge structure", "Basins & tank foundations", "Buried process-piping trenches"] },
+    { "name": "Pretreatment", "disc": "Process", "kind": ["mechanical"], "holds": [4], "steps": ["Media / membrane filter procurement", "Filter vessel & skid installation", "Coagulation / flocculation system installation", "Backwash piping & controls", "Cold-water flush & proving"] },
+    { "name": "High-Pressure Pumping & RO", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 3, 4], "steps": ["HP pump & ERD long-lead procurement", "Membrane pressure-vessel rack installation", "HP piping fabrication & installation", "Hydrotest & flush of HP system", "Membrane element loading", "Wet commissioning — first permeate flow"] },
+    { "name": "Chemical Dosing", "disc": "Process", "kind": ["mechanical"], "holds": [4], "steps": ["Chemical storage tank installation", "Dosing-skid installation — antiscalant, dechlorination, CIP", "Chemical piping & tie-ins", "Safety & containment check", "Calibration & dosing-rate proving"] },
+    { "name": "Post-treatment & Storage", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2, 4], "steps": ["Remineralization system installation", "Product-water storage-tank erection", "Tank commissioning & disinfection", "Product pumping installation", "Distribution pump testing & handover"] },
+    { "name": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "elv"], "holds": [2, 4], "steps": ["MV/LV switchgear & VFD installation", "Field instrumentation & analyzer installation", "SCADA / process control configuration", "Point-to-point & loop check", "Integration & interlock testing"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["Pretreatment cold commissioning", "HP system pressure test & flush", "Membrane loading & wet commissioning", "Chemical dosing proving", "Product-water quality verification to spec", "Performance / recovery-rate trial run", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "DSL", "name": "Desalination Plant — Project", "level": 1 },
+    { "code": "DSL.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "DSL.02", "name": "Site & Marine Civil Works", "level": 2 },
+    { "code": "DSL.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "DSL.02.20", "name": "Intake & Outfall Structures", "level": 3 },
+    { "code": "DSL.02.20.10", "name": "Intake structure & screening", "level": 4 },
+    { "code": "DSL.02.20.20", "name": "Outfall / brine discharge", "level": 4 },
+    { "code": "DSL.03", "name": "Pretreatment", "level": 2 },
+    { "code": "DSL.03.10", "name": "Screening & coagulation", "level": 3 },
+    { "code": "DSL.03.20", "name": "Media / membrane filters", "level": 3 },
+    { "code": "DSL.04", "name": "High-Pressure Pumping & RO", "level": 2 },
+    { "code": "DSL.04.10", "name": "HP pumps & energy recovery", "level": 3 },
+    { "code": "DSL.04.20", "name": "RO racks & pressure vessels", "level": 3 },
+    { "code": "DSL.04.20.10", "name": "Membrane loading", "level": 4 },
+    { "code": "DSL.04.30", "name": "HP piping — fabrication & hydrotest", "level": 3 },
+    { "code": "DSL.05", "name": "Chemical Dosing", "level": 2 },
+    { "code": "DSL.06", "name": "Post-treatment & Product Storage", "level": 2 },
+    { "code": "DSL.07", "name": "Electrical & Power Supply", "level": 2 },
+    { "code": "DSL.08", "name": "Instrumentation & SCADA", "level": 2 },
+    { "code": "DSL.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "DSL.09.10", "name": "Pretreatment cold commissioning", "level": 3 },
+    { "code": "DSL.09.20", "name": "HP system pressure test & flush", "level": 3 },
+    { "code": "DSL.09.30", "name": "Membrane wet commissioning", "level": 3 },
+    { "code": "DSL.09.40", "name": "Product-water quality verification", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Marine civil works follow tide and weather windows for intake and outfall construction; mechanical/piping erection runs 6-day weeks with two shifts at peak on HP piping and RO racking; commissioning — from pressure test through membrane loading — runs a continuous 7-day calendar to protect the wet-commissioning sequence." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs intake/outfall marine civil → pretreatment mechanical completion → HP piping hydrotest & flush → membrane element loading → wet commissioning (first permeate) → chemical dosing & post-treatment proving → product-water quality verification to contracted spec. Membrane loading is scheduled only after the HP system is proven clean and pressure-tested, since contamination at that stage damages membranes." },
+      { "heading": "Key assumptions", "body": "Feed-water quality data and design basis are fixed before RO-train sizing; a single mobilisation; marine works comply with environmental/permit windows already secured; and no late change to product-water recovery rate or capacity that would resize pumps or membranes." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is process-equipment led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["High-pressure feed pumps", "20–30 weeks", "Before HP piping erection"], ["Energy recovery devices (ERD)", "20–28 weeks", "Before HP system integration"], ["RO membrane elements", "12–20 weeks", "Before membrane loading"], ["Pressure vessels / RO racks", "16–24 weeks", "Before HP piping tie-in"], ["MV switchgear / VFDs (large pump loads)", "20–30 weeks", "Before electrical energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Intake and outfall works are constrained by marine access, tide windows and environmental permit conditions. Membrane loading needs a clean, dust-free, access-controlled environment and specialist technicians — a scarce resource scheduled as a discrete, non-compressible activity. HP piping fabrication may require offsite spooling and controlled site welding/hydrotest windows." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: marine works slippage from weather/tide windows, membrane contamination or damage during loading, and product-water quality trial results falling short of spec (requiring a dosing or operational re-tune). Contingency is held before membrane loading and before the final product-water quality trial rather than spread across piping activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,117 @@
+{
+  "archetype": "new_city_master_development",
+  "schema": 2,
+  "context": "programme-scale · trunk infrastructure then districts · phased over years",
+  "brief": {
+    "intro": "A new city or master development is a phased programme, not a single project. New to this type? Picture it in layers over years: first mass earthworks and trunk infrastructure (roads, power, water, drainage, telecom), then districts of buildings, landmarks and public realm built out parcel by parcel. The critical path is the enablement and phasing of serviced land — bringing utilities to each parcel's boundary in the right order — not any one building. Success is about sequencing infrastructure ahead of the districts it serves and managing the interfaces between many concurrent packages.",
+    "scope": [
+      { "name": "Master enabling & mass earthworks", "desc": "Land preparation, bulk cut/fill, haul roads and site-wide grading." },
+      { "name": "Trunk roads & corridors", "desc": "Primary road network and the service corridors that carry the utilities." },
+      { "name": "Trunk power & substations", "desc": "Bulk-supply substations and the HV/MV distribution network." },
+      { "name": "Trunk water & wastewater", "desc": "Potable water, wastewater and pump/lift stations feeding the districts." },
+      { "name": "Stormwater & drainage", "desc": "Site-wide stormwater network, attenuation and outfalls." },
+      { "name": "Telecom & smart-city ducting", "desc": "City-wide communications ducting, ITS and smart-city backbone." },
+      { "name": "District / parcel civils", "desc": "Local roads, utilities and grading that make each parcel a serviced plot." },
+      { "name": "Buildings & landmarks", "desc": "Residential, commercial and landmark buildings by parcel (their own programmes)." },
+      { "name": "Public realm & landscape", "desc": "Parks, plazas, streetscape and landscape between the buildings." },
+      { "name": "District handover & integration", "desc": "Energising and testing networks and handing serviced parcels / districts over in phases." }
+    ],
+    "glossary": [
+      { "term": "Trunk infrastructure", "plain": "the primary networks (roads, power, water, drainage, telecom) that serve the whole development." },
+      { "term": "Serviced land", "plain": "a parcel with the utilities brought to its boundary, ready to build on." },
+      { "term": "Master plan / phasing", "plain": "the staged plan for which areas are built and handed over, and when." },
+      { "term": "District / parcel", "plain": "a sub-area of the development delivered as one package." },
+      { "term": "Bulk / mass earthworks", "plain": "the large-scale cut and fill that shapes the whole site early." },
+      { "term": "Enabling works", "plain": "the first works that make the rest possible (access, earthworks, diversions)." },
+      { "term": "Off-site vs on-site infrastructure", "plain": "connections coming into the development vs the networks inside it." },
+      { "term": "Handover of serviced parcels", "plain": "passing ready-to-build plots to developers or the next package in sequence." }
+    ],
+    "must_get_right": [
+      "Sequence trunk infrastructure ahead of the districts it serves — serviced-land handover drives everything downstream.",
+      "Phase the programme so land is released in the order the market and construction need it.",
+      "Trunk power and water energisation gate district construction — protect those milestones.",
+      "Manage the interfaces between many concurrent packages; shared haul roads, corridors and utilities are the clash points.",
+      "It is a rolling programme with staged handovers — plan it as phases and milestones, not one finish date."
+    ]
+  },
+  "components": [
+    { "name": "Mass earthworks", "desc": "Bulk cut/fill · haul roads · grading", "disc": "Civil", "primary": true },
+    { "name": "Trunk roads & corridors", "desc": "Primary roads · service corridors", "disc": "Civil", "primary": true },
+    { "name": "Trunk utilities", "desc": "Power · water · drainage · telecom", "disc": "Utilities", "primary": true },
+    { "name": "District civils", "desc": "Local roads & serviced parcels", "disc": "Civil", "primary": true },
+    { "name": "Buildings & landmarks", "desc": "Residential · commercial · landmarks", "disc": "Structural", "primary": false },
+    { "name": "Public realm & landscape", "desc": "Parks · plazas · streetscape", "disc": "Finishes", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical (Trunk)", "items": ["Bulk-supply substations", "HV/MV distribution network", "Street & public-realm lighting"] },
+    { "discipline": "Mechanical / Public Health (Trunk)", "items": ["Potable water network & reservoirs", "Wastewater network & lift stations", "Stormwater, attenuation & outfalls", "District cooling mains (where provided)"] },
+    { "discipline": "ELV / Smart-City", "items": ["City-wide telecom & fibre ducting", "Intelligent transport systems (ITS)", "Smart-city control & monitoring backbone"] }
+  ],
+  "overview_phases": ["Master planning & enabling", "Mass earthworks", "Trunk infrastructure", "District civils", "Buildings by parcel", "Public realm & handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Earthworks", "Trunk infra", "District civils", "Buildings", "Handover"],
+    "lanes": [
+      { "trade": "Mass Earthworks & Civil", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Enabling → bulk cut/fill → grading", "holds": [18] },
+      { "trade": "Trunk Utilities", "disc": "Utilities", "kind": ["electrical", "mechanical"], "start": 22, "width": 42, "label": "Substations → water/drainage → telecom", "holds": [52] },
+      { "trade": "Roads & Corridors", "disc": "Civil", "kind": ["civil"], "start": 26, "width": 40, "label": "Trunk roads → service corridors", "holds": [] },
+      { "trade": "District Buildings", "disc": "Structural", "kind": ["civil"], "start": 52, "width": 40, "label": "Serviced parcels → buildings by phase", "holds": [] },
+      { "trade": "Public Realm & Landscape", "disc": "Finishes", "kind": ["civil"], "start": 70, "width": 26, "label": "Streetscape → parks → plazas", "holds": [] },
+      { "trade": "Handover & Integration", "disc": "Commissioning", "kind": ["comm"], "start": 84, "width": 16, "label": "Energise → test → phase handover", "holds": [4] }
+    ]
+  },
+  "trades": [
+    { "name": "Mass Earthworks & Civil", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Enabling works & access", "Diversions of existing services", "Bulk cut / fill & haul", "Site-wide grading & compaction", "Erosion & drainage control"] },
+    { "name": "Trunk Utilities (Power/Water/Drainage)", "disc": "Utilities", "kind": ["electrical", "mechanical"], "holds": [4], "steps": ["Bulk-supply substations", "HV/MV distribution corridors", "Potable water & reservoirs", "Wastewater & lift stations", "Stormwater network & outfalls", "Telecom / smart-city ducting"] },
+    { "name": "Roads & Corridors", "disc": "Civil", "kind": ["civil"], "holds": [], "steps": ["Trunk road formation", "Service corridors & crossings", "Pavement layers", "Kerbs, drainage & lighting ducts", "Surfacing & markings"] },
+    { "name": "District Buildings", "disc": "Structural", "kind": ["civil"], "holds": [], "steps": ["Hand over serviced parcels", "District local roads & utilities", "Building substructure", "Building superstructure & envelope", "Fit-out & MEP (per building programme)"] },
+    { "name": "Public Realm & Landscape", "disc": "Finishes", "kind": ["civil"], "holds": [], "steps": ["Streetscape & paving", "Parks & plazas", "Planting & irrigation", "Furniture, signage & lighting"] },
+    { "name": "Handover & Integration", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["Trunk utility energisation", "Network testing & SCADA integration", "Authority inspections", "Phase / district handover"] }
+  ],
+  "wbs": [
+    { "code": "NC", "name": "New City / Master Development — Programme", "level": 1 },
+    { "code": "NC.01", "name": "Programme Management & Master Planning", "level": 2 },
+    { "code": "NC.02", "name": "Enabling & Mass Earthworks", "level": 2 },
+    { "code": "NC.02.10", "name": "Enabling & diversions", "level": 3 },
+    { "code": "NC.02.20", "name": "Bulk cut / fill & grading", "level": 3 },
+    { "code": "NC.03", "name": "Trunk Roads & Corridors", "level": 2 },
+    { "code": "NC.03.10", "name": "Trunk road network", "level": 3 },
+    { "code": "NC.03.20", "name": "Service corridors", "level": 3 },
+    { "code": "NC.04", "name": "Trunk Power", "level": 2 },
+    { "code": "NC.04.10", "name": "Bulk-supply substations", "level": 3 },
+    { "code": "NC.04.10.10", "name": "Substation civils & building", "level": 4 },
+    { "code": "NC.04.20", "name": "HV/MV distribution", "level": 3 },
+    { "code": "NC.05", "name": "Trunk Water & Wastewater", "level": 2 },
+    { "code": "NC.05.10", "name": "Potable water & reservoirs", "level": 3 },
+    { "code": "NC.05.20", "name": "Wastewater & lift stations", "level": 3 },
+    { "code": "NC.06", "name": "Stormwater & Drainage", "level": 2 },
+    { "code": "NC.07", "name": "Telecom & Smart-City", "level": 2 },
+    { "code": "NC.08", "name": "District / Parcel Delivery", "level": 2 },
+    { "code": "NC.08.10", "name": "Serviced-parcel handover", "level": 3 },
+    { "code": "NC.08.20", "name": "District local infrastructure", "level": 3 },
+    { "code": "NC.08.30", "name": "Buildings & landmarks (by parcel)", "level": 3 },
+    { "code": "NC.09", "name": "Public Realm & Landscape", "level": 2 },
+    { "code": "NC.10", "name": "Integration & Phase Handover", "level": 2 },
+    { "code": "NC.10.10", "name": "Trunk energisation & testing", "level": 3 },
+    { "code": "NC.10.20", "name": "Phase / district handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A programme-level Critical Path Method (CPM) network in Primavera P6, interface- and milestone-driven, developed to a Level 2–3 control schedule with retained-logic progress. Sub-programmes (infrastructure, each district) integrate at serviced-land handover and utility-energisation milestones; total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Bulk earthworks and infrastructure on a 6-day week with seasonal / weather allowances; district building programmes run on their own calendars. Long-duration phases are planned in years with rolling lookaheads." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path is infrastructure-led: enabling & mass earthworks → trunk roads & corridors → trunk power/water/drainage energisation → serviced-parcel handover → district buildings → public realm → phase handover. Serviced-land availability, not any single building, governs the programme." },
+      { "heading": "Key assumptions", "body": "Master-plan phasing and funding are committed per phase; authority approvals and off-site connections are secured to the phasing dates; developer/parcel uptake follows the release plan; and interface agreements between packages are in place." },
+      { "heading": "Procurement, phasing & long-lead items", "body": "The programme is phasing- and interface-driven; the main drivers are serviced-land milestones and a few trunk long-leads, tracked as milestones:", "table": { "columns": ["Driver / Item", "Basis", "Gates" ], "rows": [["Serviced-parcel handover", "phase release plan", "Start of each district"], ["Bulk-supply transformers", "40–60 weeks", "Trunk power energisation"], ["Large-diameter pipe & valves", "24–40 weeks", "Trunk water/drainage"], ["Phase completion milestones", "programme phasing", "Public-realm & handover"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Many concurrent packages sharing haul roads, corridors and temporary utilities; dust, traffic and environmental controls across a large live site; and coordination of numerous contractors are the dominant constraints." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: phasing / funding slippage, trunk utility energisation delay, and interface clashes between concurrent packages. Contingency is held at each phase gate and before each serviced-land handover." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (programme milestones) and Level 2 (phase summary) to stakeholders, controlled at Level 3, with each district expanded to Level 4–5 — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

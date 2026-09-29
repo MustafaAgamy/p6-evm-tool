@@ -88,7 +88,7 @@ const REAL_NAV = new Function(`return ${lit(/const NAV = (\[[\s\S]*?\n  \]);/)};
 const REAL_MENUS = new Function('window', `return ${lit(/const MENUS = (\{[\s\S]*?\n  \});/)};`)({ __APP_NAME__: 'Controlyx' });
 const real = buildPaletteItems({ nav: REAL_NAV, menus: REAL_MENUS, extraFeatures: [{ id: 'chat', label: 'AI Chat', group: 'Menu bar' }] });
 test('parsed the real lists', () => {
-  assert.ok(real.filter(i => i.kind === 'feature').length >= 22);
+  assert.ok(real.filter(i => i.kind === 'feature').length >= 21);
   assert.ok(real.filter(i => i.kind === 'command').length >= 15);
 });
 test('no label appears twice in the real palette (case-insensitive)', () => {

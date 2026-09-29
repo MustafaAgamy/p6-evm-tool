@@ -1,0 +1,125 @@
+{
+  "archetype": "marine_jetty_quay",
+  "schema": 2,
+  "context": "marine-works-led · piling & tidal/weather windows drive the programme",
+  "brief": {
+    "intro": "New to this project type? A jetty, quay or berth is a marine structure — piles driven into the seabed, a deck cast or set on top, and berthing furniture (fenders, bollards, dolphins) fixed to it so ships can safely tie up and load or unload. Unlike a building, most of the work happens over or in water, using a mobilised marine spread (barges, piling rigs, dredgers) that only operates in workable tide and weather windows. The structure itself is largely an enabler; the real planning risk is marine piling productivity, achieving design water depth by dredging, and — on fuel or product berths — the fire-fighting and utility piping systems that make the berth safe to load hazardous cargo.",
+    "scope": [
+      { "name": "Marine investigation & mobilization", "desc": "Geotechnical/metocean confirmation and mobilizing the marine plant spread (piling rig, jack-up barge, survey craft)." },
+      { "name": "Marine piling", "desc": "Driving or drilling steel tubular or concrete piles for the berth, trestle and dolphins." },
+      { "name": "Pile caps & deck structure", "desc": "In-situ concrete pile caps and the deck slab or precast deck panels forming the working surface." },
+      { "name": "Berthing & mooring furniture", "desc": "Fenders, bollards, and mooring/breasting dolphins that absorb impact and hold the vessel." },
+      { "name": "Dredging & scour protection", "desc": "Achieving design water depth in the approach channel and berth pocket, and armouring the seabed against current scour." },
+      { "name": "Approach trestle", "desc": "The elevated causeway connecting an offshore berth back to shore, where the berth is not shore-attached." },
+      { "name": "Electrical, lighting & cathodic protection", "desc": "Berth power, navigation/deck lighting, and the system that stops submerged steel piles corroding." },
+      { "name": "Fire-fighting & utility piping", "desc": "Foam/deluge systems and bunkering or product-transfer piping — required on fuel and product berths." },
+      { "name": "Instrumentation & berthing aids", "desc": "Docking aids, mooring-load monitoring and SCADA tie-in to port control." },
+      { "name": "Testing, commissioning & handover", "desc": "Load-testing berth furniture and proving the berth with a live berthing trial before handover to the operator." }
+    ],
+    "glossary": [
+      { "term": "Fender", "plain": "the rubber or foam unit on the berth face that absorbs a ship's impact energy." },
+      { "term": "Bollard", "plain": "the deck-mounted fitting a ship's mooring lines are tied to." },
+      { "term": "Breasting / mooring dolphin", "plain": "a separate small marine structure, outside the main berth face, that a ship leans against or ties off to." },
+      { "term": "Cathodic protection", "plain": "an electrical system (anodes or impressed current) that stops steel piles corroding in seawater." },
+      { "term": "Jack-up barge / piling spread", "plain": "the floating plant used to drive piles offshore, jacking itself clear of the water to work like a fixed platform." },
+      { "term": "Scour protection", "plain": "rock or armour placed around piles and the seabed to stop currents washing the foundation away." },
+      { "term": "Tidal / weather window", "plain": "the limited hours of workable tide, wave height and wind speed in which marine plant can safely operate." },
+      { "term": "Dredging", "plain": "removing seabed material to reach the design water depth a vessel needs to berth safely." }
+    ],
+    "must_get_right": [
+      "Marine piling productivity and tidal/weather windows set the real pace — plan around workable days, not calendar days.",
+      "Marine plant (barges, piling rigs, dredgers) is a mobilised, shared resource — its mobilisation/demobilisation and weather standby time drives both cost and float.",
+      "On fuel or product berths, fire-fighting/foam and utility piping are safety-critical and gate berth acceptance — treat them as a distinct system, not generic MEP.",
+      "Dredging and scour protection are usually on the critical path to achieving design water depth ahead of the first berthing trial."
+    ]
+  },
+  "components": [
+    { "name": "Marine Piling & Substructure", "desc": "Piles, pile caps · driven/drilled offshore", "disc": "Civil / Marine", "primary": true },
+    { "name": "Dredging & Marine Works", "desc": "Approach channel · berth pocket · scour protection", "disc": "Civil / Marine", "primary": true },
+    { "name": "Deck & Superstructure", "desc": "Deck slab / precast panels · kerbs · drainage", "disc": "Structural", "primary": true },
+    { "name": "Berthing & Mooring Furniture", "desc": "Fenders · bollards · mooring/breasting dolphins", "disc": "Marine", "primary": true },
+    { "name": "Electrical & Cathodic Protection", "desc": "Power · lighting · anodes/impressed current", "disc": "Electrical", "primary": false },
+    { "name": "Instrumentation & Berthing Aids", "desc": "Docking aids · load monitoring · SCADA tie-in", "disc": "Instrumentation", "primary": false },
+    { "name": "Fire-Fighting & Utility Piping", "desc": "Foam/deluge · bunkering lines (fuel/product berths)", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["Berth power supply & distribution", "Deck & navigation lighting", "Cathodic protection — impressed current or sacrificial anode", "Earthing & bonding"] },
+    { "discipline": "Instrumentation & Control", "items": ["Berthing aid (DGPS/laser docking) sensors", "Mooring load-cell monitoring", "SCADA / telemetry tie-in to port control"] },
+    { "discipline": "Fire & Utility Piping (fuel/product berths)", "items": ["Fire main & hydrants", "Foam / deluge fire-fighting system", "Bunkering / product-transfer piping"] }
+  ],
+  "overview_phases": ["Marine Mobilization & Investigation", "Piling", "Pile Caps & Deck Structure", "Berthing & Mooring Furniture", "Dredging & Scour Protection", "Electrical, Lighting & Cathodic Protection", "Testing & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Mobilize", "Piling", "Deck", "Furniture", "Dredge", "Electrical", "Comm."],
+    "lanes": [
+      { "trade": "Marine Civil / Piling", "disc": "Civil / Marine", "kind": ["civil"], "start": 0, "width": 55, "label": "Mobilize spread → drive piles → pile caps & deck", "holds": [20, 45] },
+      { "trade": "Dredging & Marine Works", "disc": "Civil / Marine", "kind": ["civil"], "start": 10, "width": 40, "label": "Approach channel → berth pocket → scour protection", "holds": [35] },
+      { "trade": "Berthing & Mooring Furniture", "disc": "Marine / Structural", "kind": ["civil", "mechanical"], "start": 45, "width": 30, "label": "Set fenders, bollards & dolphins → load-test", "holds": [65] },
+      { "trade": "Electrical & Cathodic Protection", "disc": "Electrical", "kind": ["electrical"], "start": 55, "width": 32, "label": "Power, lighting & cathodic protection → energise", "holds": [78] },
+      { "trade": "Fire-Fighting & Utility Piping", "disc": "Mechanical", "kind": ["mechanical", "fire"], "start": 60, "width": 26, "label": "Fire main, foam system & bunkering lines → test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 84, "width": 16, "label": "Berthing trial → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Marine Civil / Piling", "disc": "Civil / Marine", "kind": ["civil"], "holds": [2, 4], "steps": ["Mobilize marine spread — jack-up barge / piling rig", "Set-out & survey control", "Drive/install marine piles", "Pile integrity testing", "Cast pile caps", "Cast/erect deck slab or precast deck units", "Deck finishes, kerbs & drainage"] },
+    { "name": "Dredging & Marine Works", "disc": "Civil / Marine", "kind": ["civil"], "holds": [1], "steps": ["Pre-dredge survey", "Dredge approach channel & berth pocket to design depth", "Place scour protection / rock armour", "Post-dredge survey & sign-off"] },
+    { "name": "Berthing & Mooring Furniture", "disc": "Marine / Structural", "kind": ["civil", "mechanical"], "holds": [1], "steps": ["Procure fenders, bollards & mooring/breasting dolphins", "Set bollards & fender panels", "Install mooring / breasting dolphins", "Load-test bollards & fenders"] },
+    { "name": "Electrical & Cathodic Protection", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & cable routes to berth", "Install cathodic protection — anodes / impressed current", "Deck & navigation lighting", "Earthing & bonding", "Energise & test power & lighting"] },
+    { "name": "Instrumentation & Berthing Aids", "disc": "Instrumentation", "kind": ["elv"], "holds": [], "steps": ["Install berthing-aid (DGPS/laser docking) sensors", "Mooring load-cell installation", "SCADA / telemetry tie-in to port control", "Point-to-point & functional test"] },
+    { "name": "Fire-Fighting & Utility Piping", "disc": "Mechanical", "kind": ["mechanical", "fire"], "holds": [3], "steps": ["Fire main & hydrant installation", "Foam / deluge system installation", "Bunkering / product-transfer piping installation", "Hydrotest & flush", "Foam-system functional test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["Bollard & fender load-test sign-off", "Cathodic-protection energisation & test", "Berthing-aid & SCADA integration test", "Fire / foam functional test (fuel & product berths)", "Berthing trial with vessel", "Handover to port operator"] }
+  ],
+  "wbs": [
+    { "code": "JTY", "name": "Jetty / Quay / Berth — Project", "level": 1 },
+    { "code": "JTY.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "JTY.02", "name": "Marine Investigation & Mobilization", "level": 2 },
+    { "code": "JTY.02.10", "name": "Marine spread mobilization", "level": 3 },
+    { "code": "JTY.02.20", "name": "Site & bathymetric survey", "level": 3 },
+    { "code": "JTY.03", "name": "Marine Piling & Substructure", "level": 2 },
+    { "code": "JTY.03.10", "name": "Pile driving / installation", "level": 3 },
+    { "code": "JTY.03.10.10", "name": "Pile integrity testing", "level": 4 },
+    { "code": "JTY.03.20", "name": "Pile caps", "level": 3 },
+    { "code": "JTY.04", "name": "Deck & Superstructure", "level": 2 },
+    { "code": "JTY.04.10", "name": "Deck slab / precast deck units", "level": 3 },
+    { "code": "JTY.04.20", "name": "Deck finishes, kerbs & drainage", "level": 3 },
+    { "code": "JTY.05", "name": "Dredging & Marine Works", "level": 2 },
+    { "code": "JTY.05.10", "name": "Approach channel & berth pocket dredging", "level": 3 },
+    { "code": "JTY.05.20", "name": "Scour protection / rock armour", "level": 3 },
+    { "code": "JTY.06", "name": "Berthing & Mooring Furniture", "level": 2 },
+    { "code": "JTY.06.10", "name": "Fenders", "level": 3 },
+    { "code": "JTY.06.20", "name": "Bollards", "level": 3 },
+    { "code": "JTY.06.30", "name": "Mooring / breasting dolphins", "level": 3 },
+    { "code": "JTY.06.30.10", "name": "Dolphin piling & deck", "level": 4 },
+    { "code": "JTY.07", "name": "Electrical & Cathodic Protection", "level": 2 },
+    { "code": "JTY.07.10", "name": "Power supply & distribution", "level": 3 },
+    { "code": "JTY.07.20", "name": "Deck & navigation lighting", "level": 3 },
+    { "code": "JTY.07.30", "name": "Cathodic protection system", "level": 3 },
+    { "code": "JTY.07.30.10", "name": "Anode installation & energisation", "level": 4 },
+    { "code": "JTY.08", "name": "Instrumentation & Berthing Aids", "level": 2 },
+    { "code": "JTY.09", "name": "Fire-Fighting & Utility Piping", "level": 2 },
+    { "code": "JTY.09.10", "name": "Fire main & foam system", "level": 3 },
+    { "code": "JTY.09.20", "name": "Bunkering / product piping", "level": 3 },
+    { "code": "JTY.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "JTY.10.10", "name": "Furniture load-testing", "level": 3 },
+    { "code": "JTY.10.20", "name": "Berthing trial & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Marine activities are durationed against marine-plant productivity rates (piles per workable week), not generic civil productivity. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Marine works (piling, dredging, furniture set) run on a tide- and weather-dependent calendar with a modelled allowance for non-workable days by sea state and wind speed; landside works (electrical, MCC-type buildings if any) run a standard calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs marine mobilization → piling → pile caps & deck → berthing furniture set → cathodic protection & electrical energisation → berthing trial → handover, with dredging to design depth proceeding in parallel but converging before the trial. Piling productivity and weather/tidal downtime typically drive the critical path more than deck or electrical works." },
+      { "heading": "Key assumptions", "body": "Metocean and tide data validated at design; the marine plant spread is mobilised once for the duration of piling; seabed conditions match the geotechnical investigation; a disposal site for dredged material is available and permitted." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on marine hardware. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Steel tubular piles", "16–28 weeks", "Before piling mobilization"], ["Fenders (rubber/foam)", "20–30 weeks", "Before berthing furniture install"], ["Bollards & mooring hardware", "14–20 weeks", "Before berthing furniture install"], ["Cathodic protection system", "12–18 weeks", "Before final electrical energisation"], ["Foam / fire-fighting skid (fuel & product berths)", "20–30 weeks", "Before fire system commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Marine plant (jack-up barge, piling rig, dredger) is a scarce, mobilised resource shared across the works; sea-state and weather windows constrain daily working hours; environmental/dredging permits and silt-curtain requirements gate dredging start; vessel traffic must be coordinated with the port authority throughout." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: weather/tidal downtime, marine plant breakdown or unavailability, geotechnical variation causing pile refusal or over-drive, and dredging permit delay. Schedule contingency is held around the piling and dredging fronts rather than spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the marine plant — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

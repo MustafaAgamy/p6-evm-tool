@@ -1,0 +1,123 @@
+{
+  "archetype": "midrise_residential",
+  "schema": 2,
+  "context": "typical-floor cycle · emerging vertical MEP spine (risers, fire alarm)",
+  "brief": {
+    "intro": "Mid-rise residential covers buildings from about ground plus four to ground plus nine storeys — tall enough to need a lift and a coordinated vertical MEP spine (risers, fire alarm, sometimes a light wet riser), but not yet tall enough for the full life-safety and pumping infrastructure of a high-rise. The structure repeats a typical floor, much like an apartment building, but now the shared cores and shafts genuinely drive sequencing: risers must be built in step with the structural cycle, tested floor by floor, and protected while finishing trades pass through. This is the transition band of residential construction — finishing still does most of the work, but vertical services coordination stops being optional and starts appearing on the critical path if it isn't planned in step with the floor cycle.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Earthworks, foundations, ground slab." },
+      { "name": "Superstructure", "desc": "Typical-floor RC frame/slab cycle plus core walls, using jump/climb form where the height warrants it." },
+      { "name": "Envelope", "desc": "External walls, windows, waterproofing and cladding/render." },
+      { "name": "Vertical MEP spine", "desc": "Riser installation and floor-by-floor pressure/function testing." },
+      { "name": "MEP first fix", "desc": "In-unit conduit, pipework and stub-ups." },
+      { "name": "Wet-area waterproofing", "desc": "Bathroom/kitchen tanking substrate, tested before tiling." },
+      { "name": "Internal finishes", "desc": "Plaster, screed, tiling and paint." },
+      { "name": "MEP second fix", "desc": "Fittings, devices and fire-alarm devices." },
+      { "name": "Vertical transportation", "desc": "Lift installation and testing." },
+      { "name": "Testing, snagging & phased handover", "desc": "Riser and fire-alarm testing, unit snagging, floor-band handover." }
+    ],
+    "glossary": [
+      { "term": "Typical floor / cycle time", "plain": "the repeated floor plate and the number of working days to build one of them structurally." },
+      { "term": "Riser", "plain": "a vertical shaft for plumbing, electrical and fire-alarm cabling running the full height." },
+      { "term": "Wet riser", "plain": "a permanently water-filled fire-fighting pipe firefighters connect to on each floor — a lighter version of a high-rise's combined wet & dry system." },
+      { "term": "Fire-alarm zoning", "plain": "grouping detectors and sounders by floor or fire compartment so an alarm can be located and addressed." },
+      { "term": "Wet area / tanking", "plain": "a bathroom/kitchen zone that must be waterproofed and tested before tiling." },
+      { "term": "Phased handover", "plain": "releasing completed floor-bands to the client/owner before the whole building is finished." },
+      { "term": "First fix / second fix", "plain": "rough-in services before finishes, versus fittings and devices after." }
+    ],
+    "must_get_right": [
+      "Build the riser in step with the structural cycle — a shaft that falls behind blocks every unit above it, not just one floor.",
+      "Pressure- and function-test each floor's riser section before it's boxed in — retesting after enclosure is far more disruptive.",
+      "Plan fire-alarm zoning and cause-and-effect testing early — it's a real commissioning activity here, not a same-day snag item.",
+      "Sequence the finishing wave a fixed number of floors behind structure — close enough to keep pace, far enough to avoid clashing with riser testing."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Superstructure", "desc": "RC frame, cores & typical-floor cycle", "disc": "Civil", "primary": true },
+    { "name": "Vertical MEP — Risers", "desc": "Riser installation & floor-by-floor testing", "disc": "Plumbing", "primary": true },
+    { "name": "Architectural Finishes", "desc": "Waterproofing · screed/tiling · paint", "disc": "Architectural", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Distribution · metering · common areas", "disc": "Electrical", "primary": true },
+    { "name": "Fire Protection & Alarm", "desc": "Detection · zoning · wet riser", "disc": "Fire Protection", "primary": true },
+    { "name": "Vertical Transportation", "desc": "Passenger lifts", "disc": "Mechanical", "primary": false },
+    { "name": "ELV / BMS-lite", "desc": "Data/intercom · access control · light BMS", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC — split or VRF per unit", "Common-area & car-park ventilation", "Lift machine room cooling"] },
+    { "discipline": "Electrical", "items": ["LV distribution & per-unit metering", "Common-area & car-park lighting/power", "Standby power provisions (lifts, fire systems)"] },
+    { "discipline": "Plumbing / Drainage", "items": ["Domestic water risers — floor-by-floor pressure test", "Soil, waste & vent stacks", "Sanitary fixtures & fittings"] },
+    { "discipline": "Fire / ELV / BMS-lite", "items": ["Fire alarm detection, sounders & zoning", "Wet riser (where code requires)", "Structured cabling, intercom & access control", "Light BMS — common-area & car-park monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Typical-Floor Superstructure", "Envelope & Waterproofing", "Vertical MEP — Riser Install & Test", "MEP First Fix & Finishes", "MEP Second Fix & Fire Alarm", "Vertical Transportation", "Testing, Snagging & Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Riser", "1st Fix", "Finishes", "2nd Fix", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Substructure → typical-floor cycle → core", "holds": [14] },
+      { "trade": "Vertical MEP — Risers", "disc": "Plumbing", "kind": ["mechanical"], "start": 14, "width": 40, "label": "Riser install → floor-by-floor pressure test", "holds": [38] },
+      { "trade": "Electrical & ELV", "disc": "Electrical", "kind": ["electrical", "elv"], "start": 20, "width": 46, "label": "Containment → first fix → second fix → test", "holds": [46, 78] },
+      { "trade": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 28, "width": 42, "label": "Detection & wet-riser first fix → zoning → cause-effect test", "holds": [64] },
+      { "trade": "Interior Finishes", "disc": "Architectural", "kind": ["civil"], "start": 36, "width": 40, "label": "Wet-area tanking → screed/tiling → paint", "holds": [] },
+      { "trade": "Commissioning & Handover", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Testing → snagging → phased handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 2], "steps": ["Enabling works & substructure", "Core walls — jump/climb form", "Typical-floor formwork, rebar & pour cycle", "Envelope walls & windows", "External waterproofing & cladding/render"] },
+    { "name": "Vertical MEP — Risers", "disc": "Plumbing", "kind": ["mechanical"], "holds": [2, 3], "steps": ["Riser sleeves & builder's work", "Riser pipe/cable installation per floor", "Floor-by-floor pressure/function test", "Riser closure & fire-stopping"] },
+    { "name": "Plumbing & Sanitary", "disc": "Plumbing", "kind": ["mechanical"], "holds": [3], "steps": ["First-fix pipework & stub-ups", "Sanitary fixture set", "Second-fix & connection", "Flush, flow & leak test per unit"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [2, 4], "steps": ["Containment & conduit first fix", "Riser cable pull", "Distribution boards & metering", "Device & fitting second fix", "Circuit testing & certification"] },
+    { "name": "Fire Protection & Alarm", "disc": "Fire Protection", "kind": ["fire"], "holds": [3, 4], "steps": ["Detector & sounder first fix", "Wet riser pipework (where required)", "Panel & zone wiring", "Fire-alarm zoning verification", "Cause-and-effect & alarm test"] },
+    { "name": "ELV / BMS-lite", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "holds": [], "steps": ["Containment routes", "Data, intercom & access-control cabling", "Light BMS points — common areas & car park", "Testing & certification"] },
+    { "name": "Vertical Transportation & Handover", "disc": "Mechanical", "kind": ["mechanical", "comm"], "holds": [3, 4], "steps": ["Lift shaft handover", "Rail & equipment installation", "Car & door fit-out", "Load & safety test", "Snagging & phased handover"] }
+  ],
+  "wbs": [
+    { "code": "MRR", "name": "Mid-Rise Residential — Project", "level": 1 },
+    { "code": "MRR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MRR.02", "name": "Site & Substructure", "level": 2 },
+    { "code": "MRR.02.10", "name": "Enabling works & earthworks", "level": 3 },
+    { "code": "MRR.02.20", "name": "Foundations & ground slab", "level": 3 },
+    { "code": "MRR.03", "name": "Superstructure", "level": 2 },
+    { "code": "MRR.03.10", "name": "Core walls — jump/climb form", "level": 3 },
+    { "code": "MRR.03.20", "name": "Typical floors", "level": 3 },
+    { "code": "MRR.03.20.10", "name": "Formwork, rebar & pour cycle", "level": 4 },
+    { "code": "MRR.04", "name": "Envelope", "level": 2 },
+    { "code": "MRR.04.10", "name": "External walls & windows", "level": 3 },
+    { "code": "MRR.04.20", "name": "Waterproofing & cladding/render", "level": 3 },
+    { "code": "MRR.05", "name": "Mechanical — Vertical MEP & Plumbing", "level": 2 },
+    { "code": "MRR.05.10", "name": "Riser installation", "level": 3 },
+    { "code": "MRR.05.10.10", "name": "Floor-by-floor pressure test", "level": 4 },
+    { "code": "MRR.05.20", "name": "Sanitary fixtures & second fix", "level": 3 },
+    { "code": "MRR.06", "name": "Electrical", "level": 2 },
+    { "code": "MRR.06.10", "name": "Containment & first fix", "level": 3 },
+    { "code": "MRR.06.20", "name": "Distribution boards & metering", "level": 3 },
+    { "code": "MRR.06.30", "name": "Second fix & circuit testing", "level": 3 },
+    { "code": "MRR.07", "name": "Fire Protection & Alarm", "level": 2 },
+    { "code": "MRR.07.10", "name": "Detection & zoning", "level": 3 },
+    { "code": "MRR.07.20", "name": "Wet riser", "level": 3 },
+    { "code": "MRR.07.30", "name": "Cause-and-effect test", "level": 3 },
+    { "code": "MRR.08", "name": "ELV / BMS-lite", "level": 2 },
+    { "code": "MRR.09", "name": "Vertical Transportation", "level": 2 },
+    { "code": "MRR.10", "name": "Internal Finishes", "level": 2 },
+    { "code": "MRR.10.10", "name": "Wet areas — tanking & tiling", "level": 3 },
+    { "code": "MRR.10.20", "name": "Dry areas — plaster, screed, paint", "level": 3 },
+    { "code": "MRR.11", "name": "Testing, Snagging & Phased Handover", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Structure and civil run a standard 6-day working calendar; MEP and finishing trades may add a second shift at peak to keep the finishing wave behind the floor cycle. Riser installation and testing stay within the normal calendar rather than extended shifts, since they need continuous supervision." },
+      { "heading": "Sequencing logic & critical path", "body": "The typical-floor structural cycle sets the earliest riser-install date per floor. Once the riser front falls in behind structure it becomes the true governing path, because every unit above depends on a tested, closed riser section. Finishing follows in a rolling wave a fixed number of floors behind the riser front, with fire-alarm zoning and cause-and-effect testing at the back end." },
+      { "heading": "Key assumptions", "body": "Design and a sample/mock-up unit are approved before the floor-cycle rollout begins; the riser subcontractor is mobilised in step with the structural crane cycle; a single mobilisation; handover proceeds by floor-band." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Passenger lifts", "16–24 weeks", "Before shaft handover to fit-out"], ["Fire alarm panel & addressable devices", "8–14 weeks", "Before second fix / zoning"], ["Wet riser fire pump set (where required)", "10–14 weeks", "Before riser commissioning"], ["Aluminium windows / cladding system", "10–18 weeks", "Before envelope closure"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Tower crane time is shared across structure, riser materials and cladding delivery; the riser shaft has restricted access while the structural crew works above; floor-band access must be coordinated for phased handover; noise and working-hour limits often apply near occupied neighbours." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: riser installation or testing slippage compounding up the building, fire-alarm zoning rework if not designed floor-by-floor early, and lift delivery delay blocking upper-floor access. Contingency is held at the riser-to-finishing transition and before phased handover rather than spread across floors." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (floor-band summary) to the client; controlled at Level 3 (floor-by-floor); expanded to Level 4–5 lookahead by unit/trade for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}
