@@ -145,3 +145,34 @@ def test_calendar_reasons_and_notes_merge_row_by_row(test_server, xml_path):
         assert s['hours_notes'] == {'cal1': '10 h Sat', 'cal2': 'night'}
     finally:
         httpd.shutdown()
+
+
+# ── Bad Weather: location + site type + stop-work limits ───────────────────
+
+def test_weather_settings_saved_offline_survive_restart(test_server, xml_path, monkeypatch):
+    """The owner's PC is often offline: the location, site type and edited limits are the
+    planner's settings — saved (and reported as saved) even when no estimate could be made,
+    and restored after an app restart. No estimate is invented."""
+    import p6_calendar.weather as wx
+
+    def offline(lat, lon, data_date, project_finish, today=None, years=5, net=None):
+        if net is not None:
+            net.update({'offline': True, 'errors': {'forecast': OSError('no network')}})
+        return {}, [], None, {}
+    monkeypatch.setattr(wx, 'build_daily_weather', offline)
+    d = _import(test_server, xml_path)
+    thr = {'rain_mm': 7, 'temp_max_c': 41, 'wind_kmh': 30, 'dust': True}
+    r = _post(test_server, '/api/weather', {
+        'snapshot_id': d['snapshot_id'], 'xml_path': str(xml_path), 'lat': 31.25, 'lon': 32.3,
+        'place_name': 'East Port Said', 'thresholds': thr, 'site_type': 'custom'})
+    if r.get('error') == 'Schedule has no usable start/finish dates.':
+        pytest.skip('fixture has no usable dates for the weather window')
+    assert r['ok'] is False and r['settings_saved'] is True and 'weather' not in r
+    httpd = _restart()
+    try:
+        s = _reopen(httpd.server_address[1])['result']['calendar_settings']
+        assert s['location'] == {'lat': 31.25, 'lon': 32.3, 'name': 'East Port Said'}
+        assert s['site_type'] == 'custom' and s['weather_thresholds'] == thr
+        assert 'last_weather' not in s
+    finally:
+        httpd.shutdown()

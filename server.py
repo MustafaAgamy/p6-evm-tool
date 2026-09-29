@@ -3124,7 +3124,8 @@ class Handler(BaseHTTPRequestHandler):
                     db.save_project_settings(pid, patch)
                 self._json(200, {'ok': False, 'offline': bool(net.get('offline')),
                                  'error': gap, 'location': location,
-                                 'kept_previous': bool(saved.get('last_weather'))})
+                                 'kept_previous': bool(saved.get('last_weather')),
+                                 'settings_saved': bool(pid)})
                 return
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
                                 thresholds=thresholds, site_type=site_type,

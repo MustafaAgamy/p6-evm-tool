@@ -1035,14 +1035,17 @@ async function _runWeather(btn, statusEl) {
   revealAndRun(document.getElementById('weather-body'), 'Bad Weather', async () => {
     if (statusEl) statusEl.textContent = 'Calculating weather…';
     try {
+      const sent = { thresholds: _thresholds, siteType: _siteType };
       const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
       if (resp.ok) {
         _weather = resp.weather;
         _wxNotice = null;
         _pendingLoc = resp.location || _pendingLoc;
         if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
+        _syncProjectSettings(weatherSettingsPatch(resp, sent));
         _renderWeatherBody();
       } else {
+        _syncProjectSettings(weatherSettingsPatch(resp, sent));   // location/limits kept when saved
         // No estimate (offline / Open-Meteo down): a visible card says why; the previous
         // estimate (if any) stays on screen, never replaced by an invented zero.
         _wxNotice = { text: resp.error || 'The weather could not be calculated — try again.',
@@ -1058,6 +1061,53 @@ async function _runWeather(btn, statusEl) {
   });
 }
 
+// The open project's copy of its saved settings (state.currentResult.calendar_settings) is
+// what P6 Calendar Audit / Bad Weather load when they are run again in this session — keep
+// it in step with every save, or re-running shows the settings as they were at import.
+function _syncProjectSettings(patch) {
+  const r = state.currentResult;
+  if (!r || !patch) return;
+  r.calendar_settings = { ...(r.calendar_settings || {}), ...patch };
+}
+
+/** Pure (unit-tested): what /api/weather saved for the project → the patch for the open
+ *  project's settings. A computed estimate saves location + site type + limits + the estimate;
+ *  a failed download (settings_saved) keeps location + site type + limits, never an estimate. */
+export function weatherSettingsPatch(resp, sent) {
+  if (!resp || !(resp.ok || resp.settings_saved)) return null;
+  const patch = {};
+  if (resp.location) patch.location = resp.location;
+  if (sent && sent.siteType) patch.site_type = sent.siteType;
+  if (sent && sent.thresholds) patch.weather_thresholds = sent.thresholds;
+  if (resp.ok && resp.weather) patch.last_weather = resp.weather;
+  return patch;
+}
+
+// Save one Calendar Audit setting: the recomputed audit and the saved settings replace the
+// open project's copies (so a re-run in this session shows them); a failed save is said on
+// screen (alert is a no-op in WebView2) and the edit is not shown as saved.
+async function _saveCalSetting(patch) {
+  let resp;
+  try { resp = await saveCalendarSettings(patch); }
+  catch { resp = { ok: false, error: 'the app could not reach its own local service' }; }
+  if (resp && resp.ok) {
+    if (resp.settings) _syncProjectSettings(resp.settings);
+    if (resp.calendar_audit) {
+      _ca = resp.calendar_audit;
+      if (state.currentResult) state.currentResult.calendar_audit = resp.calendar_audit;
+      _renderCalendarBody();
+    }
+  } else {
+    const txt = document.getElementById('error-text');
+    const banner = document.getElementById('error-banner');
+    if (txt && banner) {
+      txt.textContent = `Calendar setting not saved — ${(resp && resp.error) || 'try again'}.`;
+      banner.classList.remove('hidden');
+    }
+  }
+  return resp;
+}
+
 function _wireShutdowns() {
   const addBtn = document.getElementById('cal-add-shutdown-btn');
   const form = document.getElementById('cal-add-shutdown');
@@ -1070,24 +1120,21 @@ function _wireShutdowns() {
     if (!start) return;
     const existing = _existingManualShutdowns();
     existing.push({ start, end: end || start, reason });
-    const resp = await saveCalendarSettings({ manual_shutdowns: existing });
-    if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+    await _saveCalSetting({ manual_shutdowns: existing });
   });
   // reason inline-edit (both P6 and manual shutdowns) → store per project
   document.querySelectorAll('#calendar-body .cal-reason').forEach(inp =>
     inp.addEventListener('change', async () => {
       const key = inp.dataset.key; if (!key) return;
       const reasons = {}; reasons[key] = inp.value;
-      const resp = await saveCalendarSettings({ shutdown_reasons: reasons });
-      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+      await _saveCalSetting({ shutdown_reasons: reasons });
     }));
   // working-hours note inline-edit (§5) → store per project (mirrors the shutdown reasons)
   document.querySelectorAll('#calendar-body .cal-hnote').forEach(inp =>
     inp.addEventListener('change', async () => {
       const key = inp.dataset.key; if (!key) return;
       const notes = {}; notes[key] = inp.value;
-      const resp = await saveCalendarSettings({ hours_notes: notes });
-      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+      await _saveCalSetting({ hours_notes: notes });
     }));
 }
 
