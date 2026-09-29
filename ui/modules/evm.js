@@ -68,26 +68,68 @@ let _slice = 'Overall';  // current slicer selection (Overall or a category name
 let _e1Extras = null;    // {overall, category_actuals, gaps} from an E1 Log upload
 let _blPromptDone = false;  // per-import: baseline prompt shown/answered (don't nag on tab toggles)
 
-function _wkey() { return `p6evm_w_${(state.currentResult || {}).project_name || 'x'}`; }
-function _ackey() { return `p6evm_ac_${(state.currentResult || {}).project_name || 'x'}`; }
+// Project Setup (category weights + Actual Cost) is saved in the PROJECT's settings in the
+// database (POST /api/project/evm-setup, keyed by project id) and comes back with every
+// import / re-open as result.calendar_settings.evm_setup. The web view's own storage is not
+// used for it: it did not survive an app restart (new port = new origin, private profile)
+// and was keyed by project NAME (two same-named projects shared weights). The old per-name
+// keys are read once as a fallback and moved into the database.
+function _legacyKeys() {
+  const n = (state.currentResult || {}).project_name || 'x';
+  return [`p6evm_w_${n}`, `p6evm_ac_${n}`];
+}
+function _readLegacy() {
+  try {
+    const [wk, ak] = _legacyKeys();
+    const w = JSON.parse(localStorage.getItem(wk) || 'null');
+    const ac = localStorage.getItem(ak);
+    if (!w && (ac == null || ac === '')) return null;
+    return { weights: w || null, actualCost: ac != null && ac !== '' ? Number(ac) : null };
+  } catch { return null; }
+}
+function _dropLegacy() {
+  try { for (const k of _legacyKeys()) localStorage.removeItem(k); } catch { /* ignore */ }
+}
+
+/** Pure (unit-tested): the weights + Actual Cost to use. Schedule weights are the default;
+ *  the project's saved setup wins; with nothing saved, an old browser-stored setup is used
+ *  (and flagged so it can be moved into the database). Only finite numbers are taken. */
+export function resolveEvmSetup(categories, saved, legacy) {
+  const weights = {};
+  for (const [n, c] of Object.entries(categories || {})) weights[n] = (c && c.weight) || 0;
+  const src = saved || legacy || null;
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  for (const [n, w] of Object.entries((src && src.weights) || {})) if (fin(w)) weights[n] = w;
+  let ac = src ? (saved ? saved.actual_cost : src.actualCost) : null;
+  if (!fin(ac)) ac = null;
+  return { weights, actualCost: ac, fromLegacy: !saved && !!legacy };
+}
 
 function _loadInputs(result) {
-  const cats = result.categories || {};
-  _weights = {};
-  for (const [n, c] of Object.entries(cats)) _weights[n] = c.weight || 0;
-  try {
-    const w = JSON.parse(localStorage.getItem(_wkey()) || 'null');
-    if (w) Object.assign(_weights, w);
-    const ac = localStorage.getItem(_ackey());
-    _actualCost = ac != null && ac !== '' ? Number(ac) : null;
-  } catch { /* ignore */ }
+  const saved = ((result && result.calendar_settings) || {}).evm_setup || null;
+  const legacy = saved ? null : _readLegacy();
+  const r = resolveEvmSetup(result.categories, saved, legacy);
+  _weights = r.weights;
+  _actualCost = r.actualCost;
+  if (r.fromLegacy && state.currentSnapshotId) {        // move the old browser copy into the DB
+    _persistInputs(result, _weights, _actualCost).then(res => { if (res.ok) _dropLegacy(); });
+  }
 }
-function _saveInputs() {
+
+/** Save Project Setup to the project in the database. Resolves {ok, error}; never throws. */
+async function _persistInputs(result, weights, actualCost) {
   try {
-    localStorage.setItem(_wkey(), JSON.stringify(_weights));
-    if (_actualCost == null) localStorage.removeItem(_ackey());
-    else localStorage.setItem(_ackey(), String(_actualCost));
-  } catch { /* ignore */ }
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/project/evm-setup`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, weights, actual_cost: actualCost }),
+    });
+    const data = await resp.json();
+    if (!data.ok) return { ok: false, error: data.error || 'the setup was not saved' };
+    result.calendar_settings = { ...(result.calendar_settings || {}), evm_setup: data.evm_setup };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: 'the app could not reach its local service (' + ((e && e.message) || e) + ')' };
+  }
 }
 
 function _effectiveAC(result) {
@@ -388,7 +430,8 @@ function openInputsEditor(result) {
         <div class="edit-grp">Category Weights (%) <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">· auto-detected from the schedule</span></div>${wRows}
         <div class="edit-grp">Actual Cost (EGP)</div>
         <label class="edit-row"><span>Actual Cost</span><input class="edit-ac" id="evm-ac-input" value="${acVal}"></label>
-        <div class="edit-hint">Categories are detected automatically (Construction / Engineering / Design / Procurement); every weight is editable, including Construction. Engineering drawings: Design types drive Design, everything else (Shop + other) drives Engineering. CPI recomputes from Actual Cost. Saved per project.</div>
+        <div class="edit-hint">Categories are detected automatically (Construction / Engineering / Design / Procurement); every weight is editable, including Construction. Engineering drawings: Design types drive Design, everything else (Shop + other) drives Engineering. CPI recomputes from Actual Cost. Saved with this project — kept when you re-open it, import its next update or restart the app.</div>
+        <div class="edit-hint" id="evm-modal-err" role="alert" style="display:none;color:var(--danger,#c0392b)"></div>
       </div>
       <div class="modal-foot">
         <button class="btn-secondary" id="evm-modal-cancel">Cancel</button>
@@ -398,14 +441,27 @@ function openInputsEditor(result) {
   document.body.insertAdjacentHTML('beforeend', html);
   const close = () => document.getElementById('evm-modal').remove();
   document.getElementById('evm-modal-cancel').addEventListener('click', close);
-  document.getElementById('evm-modal-apply').addEventListener('click', () => {
+  document.getElementById('evm-modal-apply').addEventListener('click', async () => {
+    const weights = { ..._weights };
     document.querySelectorAll('.edit-w').forEach(inp => {
       const v = parseFloat(inp.value);
-      if (!isNaN(v)) _weights[inp.dataset.cat] = v / 100;
+      if (!isNaN(v)) weights[inp.dataset.cat] = v / 100;
     });
     const acv = parseFloat(document.getElementById('evm-ac-input').value);
-    _actualCost = isNaN(acv) ? null : acv;
-    _saveInputs();
+    const actualCost = isNaN(acv) ? null : acv;
+    const btn = document.getElementById('evm-modal-apply');
+    const err = document.getElementById('evm-modal-err');
+    btn.disabled = true;
+    const res = await _persistInputs(result, weights, actualCost);   // saved with the project
+    btn.disabled = false;
+    if (!res.ok) {                          // visible in the dialog (alert is a no-op in WebView2)
+      err.textContent = `Not saved — ${res.error}. Nothing was changed.`;
+      err.style.display = '';
+      return;
+    }
+    _weights = weights;
+    _actualCost = actualCost;
+    _dropLegacy();
     close();
     renderSlicer(result);
     renderDashboard(result);

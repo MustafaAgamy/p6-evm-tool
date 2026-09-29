@@ -159,6 +159,35 @@ def _prodintel_excel_sections(r):
     return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
 
 
+# ── Project Setup (EVM category weights + Actual Cost) ─────────────────────
+def clean_evm_setup(weights, actual_cost):
+    """Validate Project Setup before it is saved: {'weights': {category: fraction 0–1},
+    'actual_cost': number >= 0 | None}. Raises ValueError with a plain message."""
+    import math
+    out = {}
+    if weights is not None and not isinstance(weights, dict):
+        raise ValueError('Category weights were not understood.')
+    for name, w in (weights or {}).items():
+        if not isinstance(name, str) or not name or len(name) > 200:
+            raise ValueError('A category name was not understood.')
+        if isinstance(w, bool) or not isinstance(w, (int, float)) or not math.isfinite(w):
+            raise ValueError(f'The weight for {name} is not a number.')
+        if w < 0 or w > 1:
+            raise ValueError(f'The weight for {name} must be between 0% and 100%.')
+        out[name] = float(w)
+    if len(out) > 200:
+        raise ValueError('Too many categories.')
+    ac = None
+    if actual_cost is not None:
+        if (isinstance(actual_cost, bool) or not isinstance(actual_cost, (int, float))
+                or not math.isfinite(actual_cost)):
+            raise ValueError('Actual Cost is not a number.')
+        if actual_cost < 0:
+            raise ValueError('Actual Cost cannot be negative.')
+        ac = float(actual_cost)
+    return {'weights': out, 'actual_cost': ac}
+
+
 # ── online-service messages (Bad Weather / place search) ───────────────────────
 def _weather_download_gap(net, daily, climate_samples):
     """The plain message when the weather the estimate NEEDS could not be downloaded, else
@@ -413,6 +442,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_weather(body)
         elif self.path == '/api/calendar/settings':
             self._handle_calendar_settings(body)
+        elif self.path == '/api/project/evm-setup':
+            self._handle_evm_setup(body)
         elif self.path == '/api/lag/justification':
             self._handle_lag_justification(body)
         elif self.path == '/api/milestones/save':
@@ -3137,6 +3168,27 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as cexc:
                 print(f'[calendar] settings recompute skipped: {cexc}', file=sys.stderr)
         self._json(200, {'ok': True, 'settings': settings, 'calendar_audit': ca})
+
+    # ── /api/project/evm-setup ──────────────────────────────────────────────
+    def _handle_evm_setup(self, body):
+        """Save Project Setup (category weights + Actual Cost override) for the project the
+        snapshot belongs to. Held in the project's settings (keyed by project id, so two
+        projects with the same name never share them) and returned by /api/parse and
+        /api/project/load as calendar_settings.evm_setup — it survives re-opening the
+        project, re-importing an update and restarting the app (the web view's own storage
+        does not). Answers {ok, evm_setup} or {ok:false, error} in plain English."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        try:
+            setup = clean_evm_setup(body.get('weights'), body.get('actual_cost'))
+        except ValueError as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+            return
+        db.save_project_settings(pid, {'evm_setup': setup})
+        self._json(200, {'ok': True, 'evm_setup': setup})
 
     # ── /api/lag/justification ──────────────────────────────────────────────
     def _handle_lag_justification(self, body):
