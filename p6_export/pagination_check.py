@@ -506,8 +506,7 @@ def _first_block(P):
     if P.empty:
         return 'empty', '', 0
     top = P.top
-    bands = [b for b in P.bands]
-    fb = bands[0] if bands else None
+    fb = P.bands[0] if P.bands else None
     figs_above = [d for d in P.draws if not d.thin and (fb is None or d.y1 <= fb.y0 + 0.5)
                   and not (fb is not None and d.x0 <= fb.x0 and d.x1 >= fb.x1 and d.y1 >= fb.y1)]
     if fb is not None and fb.heading and fb.y0 <= top + TOP_ZONE_PT and not figs_above:
@@ -601,7 +600,6 @@ def _figure_cut(A, B, area_top, area_bottom):
     near_b = [b for b in B.bands if b.y0 < clip_b + 4 and any(b.x0 < d.x1 and b.x1 > d.x0 for d in eb)]
     if near_a or near_b:
         return None
-    # the part on A must reach the bottom of the page area (a page break, not a mid-page end)
     return len(ea), len(eb)
 
 
@@ -695,8 +693,8 @@ def _analyze_pages(pages, hints=()):
                 info.append(_flag('section_break_blank', P.no, what + ' (a new section)'))
             else:
                 flags.append(_flag('large_blank_then_continuation', P.no, what))
-        # a small tail of cards / a figure alone on a page
-        if 0 < i and nxt is not None:
+        # a small tail of cards / a figure alone on a (middle) page
+        if i > 0:
             k0 = firsts[i][0]
             if k0 in ('figure', 'kpi') and (min(P.bottom, P.H) - P.top) < FRAGMENT * area:
                 flags.append(_flag('stranded_fragment', P.no,
@@ -855,10 +853,13 @@ def word_layout(path):
                 raw = r.Text
                 txt = raw.strip().replace('\r', ' ').replace('\x07', '').replace('\x0c', '').strip()
                 shape_h = 0.0
-                if r.InlineShapes.Count:
-                    shape_h = max(r.InlineShapes(k).Height for k in range(1, r.InlineShapes.Count + 1))
-                elif txt in ('', '/') and r.ShapeRange.Count:
-                    shape_h = max(r.ShapeRange(k).Height for k in range(1, r.ShapeRange.Count + 1))
+                try:
+                    if r.InlineShapes.Count:
+                        shape_h = max(r.InlineShapes(k).Height for k in range(1, r.InlineShapes.Count + 1))
+                    elif txt in ('', '/') and r.ShapeRange.Count:     # an anchored (floating) picture
+                        shape_h = max(r.ShapeRange(k).Height for k in range(1, r.ShapeRange.Count + 1))
+                except Exception:
+                    shape_h = 0.0
                 brk = '\x0c' in raw
                 if not txt and not shape_h and not brk:
                     continue
@@ -1052,9 +1053,12 @@ def _word_layout_subprocess(path, timeout):
     fd, out = tempfile.mkstemp(suffix='.json', prefix='cx_wl_')
     os.close(fd)
     try:
-        subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out],
-                       check=True, timeout=timeout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                       cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        cp = subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out],
+                            timeout=timeout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if cp.returncode:
+            tail = (cp.stderr or b'').decode('utf-8', 'replace').strip().splitlines()[-1:] or ['']
+            raise RuntimeError(f'Word layout exited {cp.returncode}: {tail[0][:200]}')
         with open(out, encoding='utf-8') as fh:
             return json.load(fh)
     finally:
