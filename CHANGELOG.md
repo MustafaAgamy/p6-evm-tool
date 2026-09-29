@@ -34,6 +34,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **The app's first page is held by antivirus for a moment:** the window now says "Starting…" and tries again by itself, instead of showing a line of technical text on a white page.
 - **The window's web view does not start at all** (a graphics or WebView2 problem on this PC): the app now opens itself again once in a safer graphics mode and closes the black window, so you no longer have to close and reopen it yourself. If the page itself is running, it is never restarted over its own Retry message.
 - Start-up problems are written to a log file (`logs\startup.log` in the app's data folder) so a future problem can be traced.
+- **Help ▸ Contact & Support ▸ Safe graphics.** If the window ever opens black, tick **Safe graphics**: the app then draws its window without the graphics card from the next start. The app turns it on by itself after a start that never showed the page; the same switch turns it off again. It says whether it is on, since when and why.
+- The app's local connection now queues a burst of requests at start-up instead of refusing all but 5 of them (in a test, 40 requests at once: all accepted, where before 34 were refused; one refused program file could leave the window black).
 
 ### Fixed — Web links and online services
 - **Every web link opens in your web browser.** LinkedIn (Help ▸ Contact / About), the map's Leaflet and OpenStreetMap credits and the Open-Meteo weather-source link now open in your default browser instead of taking over the app window. If a link cannot be opened, a note shows the address to copy. Only these known sites are allowed.
@@ -46,6 +48,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Fixed — Your settings are kept
 - **Project Setup category weights and Actual Cost** are saved with the project, so they come back when you re-open or re-import the project and after the app is closed and opened again. Before, they were kept only by the app window, which forgot them at restart.
 - **Screen preferences** (Appearance mode, Report Contents choices, table and chart choices) are kept when the app restarts. Before, the app window forgot them each time it was opened.
+- **Baseline Narrative project setup** (location, contract type, revision, parties, logos and the layout drawing) is saved with the imported schedule in the app's database, so it is filled in again after the app is closed and opened. Before, it was lost at every restart, and a setup with a layout drawing was too large to keep at all.
 - **P6 Calendar Audit:** saving a shutdown reason or working-hours note no longer clears the notes already saved on other rows. If a note cannot be saved, the screen says so.
 - **Bad Weather:** the location, Site Type and weather limits stay as you last set them when you run the feature again in the same session. Before, they went back to the values from when the file was imported. They are also saved when the weather service cannot be reached.
 - **Lag & Lead justifications:** if a reason cannot be saved, a note beside the box says so and asks you to edit it again. Before, a failed save gave no message.

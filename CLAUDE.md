@@ -68,6 +68,8 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 | GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
 | GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded, detail, backup}, ready, graphics}` — startup readiness probe |
 | POST | `/api/client-log` | `{kind, message, detail}` | `{ok}` — page startup guard → `logs/startup.log`; `kind:'ready'` completes the readiness handshake |
+| GET / POST | `/api/graphics-mode` | POST `{safe: bool}` | `{ok, saved, reason, since, this_launch, forced}` — Help ▸ Contact & Support 'Safe graphics' (WebView2 `--disable-gpu` from the next launch; `app_startup` flag file) |
+| POST | `/api/narrative/setup` | `{snapshot_id[, setup]}` | `{ok, setup}` / `{ok}` — Narrative project setup per snapshot in `snapshot_ui_state` (never in `ui_prefs.json`) |
 | POST | `/api/parse` | `{path, overrides_path}` | `{ok, result, cached_path}` |
 | POST | `/api/report` | `{xml_path, cached_path, output_path, overrides_path}` | `{ok}` or `{ok, error}` |
 
