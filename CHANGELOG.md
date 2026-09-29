@@ -31,6 +31,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Faster start:** the app no longer loses time on every file it loads through its own local connection. In tests the start-up page loaded in about 0.1 s instead of about 3 s.
 - **Damaged history database:** the app now opens anyway. The damaged file is kept as a backup, a fresh one is started, and a notice explains it. Recent Projects says when it cannot load and offers Retry.
 - **Opening the app twice** brings the window that is already open to the front instead of starting a second copy.
+- **The app's first page is held by antivirus for a moment:** the window now says "Starting…" and tries again by itself, instead of showing a line of technical text on a white page.
+- **The window's web view does not start at all** (a graphics or WebView2 problem on this PC): the app now opens itself again once in a safer graphics mode and closes the black window, so you no longer have to close and reopen it yourself. If the page itself is running, it is never restarted over its own Retry message.
 - Start-up problems are written to a log file (`logs\startup.log` in the app's data folder) so a future problem can be traced.
 
 ### Fixed — Web links and online services
