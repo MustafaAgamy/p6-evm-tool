@@ -166,6 +166,43 @@ class _Encoder(json.JSONEncoder):
         return super().default(obj)
 
 
+# ── Run stages (owner comment 36: an honest Run bar on long waits) ────────────
+# A long Run (read two or three schedules, then compare) names the step it is really on, so
+# the feature's Run bar can say "Reading Rev.01 — <file>" and move through that step's share
+# of the bar instead of one long guess. The page sends a `run_id` with its request and polls
+# GET /api/run/stage?id=<run_id> while it waits. In memory only — nothing is stored.
+_RUN_STAGES = {}
+_PARSE_MB_PER_S = 16.0      # measured: P6 XML and XER are both read at ~16-18 MB/s
+
+
+def _parse_secs(path):
+    """Estimated seconds to read a schedule file (its size at the measured read rate)."""
+    try:
+        return os.path.getsize(path) / 1e6 / _PARSE_MB_PER_S
+    except OSError:
+        return 1.0
+
+
+class _RunStages:
+    def __init__(self, body, steps):
+        """steps = [(label, estimated seconds)] in order; each step owns its share of the bar."""
+        self.id = str((body or {}).get('run_id') or '')[:80]
+        secs = [max(0.05, float(e or 0)) for _, e in steps]
+        total = sum(secs) or 1.0
+        self.bands, acc = [], 0.0
+        for (label, _), e in zip(steps, secs):
+            self.bands.append({'label': label, 'from': round(acc / total, 4),
+                               'to': round((acc + e) / total, 4), 'est_s': round(e, 2)})
+            acc += e
+
+    def enter(self, i):
+        if self.id and 0 <= i < len(self.bands):
+            _RUN_STAGES[self.id] = dict(self.bands[i], step=i + 1, steps=len(self.bands))
+
+    def close(self):
+        _RUN_STAGES.pop(self.id, None)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # silence request logs
@@ -198,6 +235,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_library2()
         elif self.path == '/api/chat/status':
             self._handle_chat_status()
+        elif self.path.startswith('/api/run/stage'):
+            from urllib.parse import urlparse, parse_qs
+            rid = (parse_qs(urlparse(self.path).query).get('id') or [''])[0]
+            self._json(200, {'ok': True, 'stage': _RUN_STAGES.get(rid)})
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -1398,17 +1439,31 @@ class Handler(BaseHTTPRequestHandler):
         if not update_path:
             self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
             return
+        read = _parse_secs(baseline_path) + _parse_secs(update_path)
+        stages = _RunStages(body, [
+            (f'Reading the baseline — {os.path.basename(baseline_path)}', _parse_secs(baseline_path)),
+            (f'Reading the update — {os.path.basename(update_path)}', _parse_secs(update_path)),
+            ('Comparing logic, durations and milestones', 0.2 + 0.1 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.report import build_report
+            from p6_evm.parser import parse_file
+            from p6_compare.report import build_report_from_data
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            report = build_report(baseline_path, update_path, config)
+            stages.enter(0)
+            baseline = parse_file(baseline_path)
+            stages.enter(1)
+            update = parse_file(update_path)
+            stages.enter(2)
+            report = build_report_from_data(baseline, update, config)
             report['baseline_file'] = os.path.basename(baseline_path)
             report['update_file'] = os.path.basename(update_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     # ── /api/critpath/* — Critical Path Analyzer (2–3 schedules) ────────────
     def _handle_critpath_analyze(self, body):
@@ -1437,11 +1492,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': f'Pick the {label} file to compare against.'})
                 return
             paths[role] = p
+        role_name = {'current': 'the current schedule', 'previous': 'the previous update', 'baseline': 'the baseline'}
+        read = sum(_parse_secs(p) for p in paths.values())
+        stages = _RunStages(body, [(f'Reading {role_name.get(r, r)} — {os.path.basename(p)}', _parse_secs(p))
+                                   for r, p in paths.items()]
+                            + [('Tracing the driving path to every finish milestone', 0.2 + 0.05 * read)])
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_critpath.analysis import build_report
-            schedules = {role: parse_file(p) for role, p in paths.items()}
+            schedules = {}
+            for i, (role, p) in enumerate(paths.items()):
+                stages.enter(i)
+                schedules[role] = parse_file(p)
+            stages.enter(len(paths))
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
@@ -1449,6 +1513,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     def _handle_critpath_report(self, body):
         """Critical Path Analyzer PDF (or preview HTML). Renders from the report the client
@@ -1517,17 +1583,31 @@ class Handler(BaseHTTPRequestHandler):
         if not rev1_path or not os.path.isfile(rev1_path):
             self._json(200, {'ok': False, 'error': 'Assign the revised baseline (Rev.01) file.'})
             return
+        read = _parse_secs(rev0_path) + _parse_secs(rev1_path)
+        stages = _RunStages(body, [
+            (f'Reading Rev.00 — {os.path.basename(rev0_path)}', _parse_secs(rev0_path)),
+            (f'Reading Rev.01 — {os.path.basename(rev1_path)}', _parse_secs(rev1_path)),
+            ('Matching activities and comparing the revisions', 0.3 + 0.25 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_revcompare import build_report
+            from p6_evm.parser import parse_file
+            from p6_revcompare.compare import build_report_from_data
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            report = build_report(rev0_path, rev1_path, config, options=body.get('options'))
+            stages.enter(0)
+            rev0 = parse_file(rev0_path)
+            stages.enter(1)
+            rev1 = parse_file(rev1_path)
+            stages.enter(2)
+            report = build_report_from_data(rev0, rev1, config, body.get('options'))
             report['rev0']['file'] = os.path.basename(rev0_path)
             report['rev1']['file'] = os.path.basename(rev1_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     def _handle_revcompare_report(self, body):
         """Baseline Revision Comparison PDF (or preview HTML) — rendered from the report the
