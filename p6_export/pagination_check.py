@@ -939,8 +939,8 @@ def analyze_word_layout(layout):
     def section_break_before(j):
         """True when a page break by design sits right before items[j]."""
         it = items[j]
-        if it.get('pbb'):
-            return True
+        if it.get('pbb') or (it.get('brk') and not (it.get('t') or '').strip()):
+            return True                   # page-break-before, or a paragraph holding only a break
         return j > 0 and bool(items[j - 1].get('brk'))
 
     for j, it in enumerate(items):

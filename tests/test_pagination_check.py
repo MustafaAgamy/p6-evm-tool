@@ -169,6 +169,11 @@ def test_word_page_break_by_design_is_not_a_defect():
         _p('Costs', 2, 57, style='Heading 1', pbb=True), _p('More text.', 2, 90)]}
     flags, info, _ = pc.analyze_word_layout(layout)
     assert flags == [] and [i['type'] for i in info] == ['section_break_blank']
+    # the same with a paragraph that holds only a manual page break
+    layout['items'][2]['pbb'] = False
+    layout['items'].insert(2, _p('', 2, 57, brk=True))
+    flags, info, _ = pc.analyze_word_layout(layout)
+    assert flags == [] and [i['type'] for i in info] == ['section_break_blank']
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────
