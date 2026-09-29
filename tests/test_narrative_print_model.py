@@ -197,3 +197,50 @@ def test_chrome_table_taller_than_a_third_continues_instead_of_leaving_a_blank()
     # the long table really continues: its rows are on two pages, header on both
     on = [p for p in pages if 'C3-' in p['text']]
     assert len(on) == 2 and all('Code Value Description' in p['text'] for p in on), [p['text'][:80] for p in on]
+
+
+# ── NARR-PDF-4: a WBS tree over a third of a page continues between its branches ────────
+def _tree_doc(a_leaves=3, b_subs=3, b_leaves=6):
+    branches = [
+        {'name': 'Branch A with a deliberately long label',
+         'columns': ['Leaf A-%02d with a long descriptive label' % i for i in range(1, a_leaves + 1)]},
+        {'name': 'Branch B with a deliberately long label',
+         'columns': [['Sub-branch B%d with a long label' % k,
+                      ['Leaf B%d-%02d with a long descriptive label' % (k, i) for i in range(1, b_leaves + 1)]]
+                     for k in range(1, b_subs + 1)]},
+    ]
+    overview = {'name': 'Synthetic Terminal WBS root',
+                'children': [{'name': b['name']} for b in branches]}
+    return {'meta': dict(_META), 'sections': [
+        {'number': 9, 'title': 'Work Breakdown Structure', 'kind': 'wbs_tree',
+         'payload': {'overview': overview, 'branches': branches}}]}
+
+
+_LIST_JS = ("if((el.tagName==='UL'||el.tagName==='OL')&&hg>fit",
+            "if(el.tagName==='LI'&&hg>fit&&hg<=flow)")
+
+
+def test_chrome_wbs_tree_taller_than_a_third_continues_between_branches():
+    """NARR-PDF-4 — the renderer keeps a WBS tree (.wt) whole, so a branch of ~70 % of a
+    page after a half-full page was pushed to the next page, leaving the page above it
+    half blank (GBT §9.4 / §9.7). It now continues between its sub-branches: each small
+    sub-branch stays whole and a sub-branch label never ends a page without its first leaf."""
+    chrome = _chrome()
+    html = page_html(_tree_doc())
+    old = html
+    for js in _LIST_JS:
+        assert html.count(js) == 1, js
+        old = old.replace(js, 'if(0&&' + js[3:])
+    with tempfile.TemporaryDirectory() as folder:
+        after_pdf = _print(html, chrome, folder, 'after')
+        before = _blank_flags(_print(old, chrome, folder, 'before'))
+        from p6_export import pagination_check as pc
+        flags = pc.check_pdf(after_pdf)['flags']
+        pages = _pages(after_pdf)
+    assert before, 'the pre-fix composer should push the Branch B tree whole'
+    assert flags == [], flags
+    on = [i for i, p in enumerate(pages) if 'Leaf B' in p['text']]
+    assert len(on) == 2, on                    # the tree really continues on the next page
+    for k in range(1, 4):                      # every sub-branch label sits with its first leaf
+        label = next(i for i, p in enumerate(pages) if 'Sub-branch B%d' % k in p['text'])
+        assert 'Leaf B%d-01' % k in pages[label]['text'], (k, label)
