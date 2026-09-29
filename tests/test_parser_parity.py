@@ -100,6 +100,11 @@ RESOURCES = [('3001', 'LAB-01', 'Site Labour Crew', 'Labour'),
              ('3002', 'EXC-20', 'Excavator 20t', 'Equipment'),
              ('3003', 'MAT-PIPE6', 'Pipe 6" HDPE', 'Material')]
 XML_RES_TYPE = {'Labour': 'Labor', 'Equipment': 'Nonlabor', 'Material': 'Material'}
+# Units of Measure (P6 Admin > Units of Measure): (object id, abbreviation, name), held the way the
+# real GBT / ALSTOM exports hold them (abbreviation 'METR CUBED', name 'm3'). Only the material
+# resource carries one - like 372 of GBT's 392 resources, the others have none (P21).
+UNITS = [('2416', 'Number', 'no.'), ('2417', 'METR CUBED', 'm3')]
+RES_UNIT = {'3003': '2417'}
 XER_RES_TYPE = {'Labour': 'RT_Labor', 'Equipment': 'RT_Equip', 'Material': 'RT_Mat'}
 
 XML_TO_XER_TASK_TYPE = {'Task Dependent': 'TT_Task', 'Start Milestone': 'TT_Mile',
@@ -361,9 +366,14 @@ def build_xml(*, with_baseline=True, data_date=None):
     out += [_xml_code_type(oid, name, scope) for oid, name, scope in CODE_TYPES if scope == 'Global']
     out += [_xml_code_value(*v) for v in CODE_VALUES
             if dict((t[0], t[2]) for t in CODE_TYPES)[v[1]] == 'Global']
+    for uid, abbrev, uname in UNITS:
+        out.append('<UnitOfMeasure>' + _x('Abbreviation', abbrev) + _x('Name', uname)
+                   + _x('ObjectId', uid) + _x('SequenceNumber', '0') + '</UnitOfMeasure>')
     for rid, code, name, typ in RESOURCES:
+        uom = (_x('UnitOfMeasureObjectId', RES_UNIT[rid]) if rid in RES_UNIT
+               else '<UnitOfMeasureObjectId xsi:nil="true" />')
         out.append('<Resource>' + _x('Id', code) + _x('Name', name) + _x('ObjectId', rid)
-                   + _x('ResourceType', XML_RES_TYPE[typ]) + '</Resource>')
+                   + _x('ResourceType', XML_RES_TYPE[typ]) + uom + '</Resource>')
     out.append('<Project>')
     out += [_x('ActivityDefaultCalendarObjectId', '8801'),
             _x('CurrentBaselineProjectObjectId', BASELINE['object_id']),
@@ -564,9 +574,14 @@ def build_xer(*, baseline_rows=True, baseline_first=False, blank_float=False, da
         bw = _xer_wbs_rows(b, BASELINE_WBS)
         wbs_rows = (bw + wbs_rows) if baseline_first else (wbs_rows + bw)
     lines += _xer_table('PROJWBS', WBS_F, wbs_rows)
-    lines += _xer_table('RSRC', ['rsrc_id', 'clndr_id', 'rsrc_name', 'rsrc_short_name', 'rsrc_type'],
+    lines += _xer_table('UMEASURE', ['unit_id', 'seq_num', 'unit_abbrev', 'unit_name'],
+                        [{'unit_id': uid, 'seq_num': '0', 'unit_abbrev': abbrev, 'unit_name': uname}
+                         for uid, abbrev, uname in UNITS])
+    lines += _xer_table('RSRC', ['rsrc_id', 'clndr_id', 'rsrc_name', 'rsrc_short_name', 'rsrc_type',
+                                 'unit_id'],
                         [{'rsrc_id': rid, 'clndr_id': '8803', 'rsrc_name': name,
-                          'rsrc_short_name': code, 'rsrc_type': XER_RES_TYPE[typ]}
+                          'rsrc_short_name': code, 'rsrc_type': XER_RES_TYPE[typ],
+                          'unit_id': RES_UNIT.get(rid, '')}
                          for rid, code, name, typ in RESOURCES])
     lines += _xer_table('ACTVTYPE', ['actv_code_type_id', 'actv_short_len', 'seq_num',
                                      'actv_code_type', 'proj_id', 'actv_code_type_scope'],
@@ -777,7 +792,10 @@ def truth(entity, field):
                                          'lag_calendar_id': ACT_BY_OID[pr]['cal']}[field]
         return out
     if entity == 'resource':
-        return {rid: {'name': name, 'code': rc, 'type': typ}[field]
+        unit = {uid: (abbrev, uname) for uid, abbrev, uname in UNITS}
+        return {rid: {'name': name, 'code': rc, 'type': typ,
+                      'unit': unit.get(RES_UNIT.get(rid), (None, None))[0],
+                      'unit_name': unit.get(RES_UNIT.get(rid), (None, None))[1]}[field]
                 for rid, rc, name, typ in RESOURCES}
     if entity == 'assignment':
         res = {rid: (rc, name, typ) for rid, rc, name, typ in RESOURCES}
@@ -895,7 +913,7 @@ FIELDS = (
     + [('wbs', f) for f in ('ids', 'name', 'parent_object_id')]
     + [('activity', f) for f in ('ids', 'id', 'name', 'status', 'calendar_id', 'wbs_id',
                                  'task_type', 'percent_complete', 'planned_duration',
-                                 'remaining_duration', 'total_float_days', 'free_float_days',
+                                 'remaining_duration', 'total_float_days',
                                  'is_critical', 'constraint_type', 'constraint_date',
                                  'secondary_constraint_type', 'secondary_constraint_date',
                                  'activity_codes', 'wbs_path', 'planned_start', 'planned_finish',
@@ -903,7 +921,7 @@ FIELDS = (
                                  'remaining_late_start', 'remaining_late_finish', 'actual_start',
                                  'actual_finish')]
     + [('relationship', f) for f in ('ids', 'type', 'lag_hours', 'lag_days', 'lag_calendar_id')]
-    + [('resource', f) for f in ('name', 'code', 'type')]
+    + [('resource', f) for f in ('name', 'code', 'type', 'unit', 'unit_name')]
     + [('assignment', f) for f in ('resource_code', 'resource_name', 'resource_type',
                                    'budget_units', 'actual_units', 'budget_cost', 'rate')]
 )
@@ -922,18 +940,18 @@ FIELDS = (
 # P18 XER activity_code_types = the code types assigned to this project's activities (like the XML);
 # P19 XER Units % complete counts labour + nonlabour units like P6; P20 XML assignment without
 # PricePerUnit (P6 19.x) takes PlannedCost / PlannedUnits, else the resource's rate.
-_P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or document)'
+# P21 one resource-type vocabulary (unknown types kept as written in both) + the resource's Unit
+# of Measure in both formats; P22 one tolerant date reader (fractional seconds / time zone read,
+# an unreadable date recorded in data.unparsed_dates - never a crash, never silently dropped).
+# P24 free float is a GENUINE format difference (P6's XML writes no float): documented by
+# test_free_float_is_a_genuine_format_difference, not a parity field.
 
 # (format, 'entity.field') -> finding. Measured by running this harness against the parsers as
 # they stood at commit "[parser:AUDIT]" (every failure checked against the finding's evidence).
-TRUTH_XFAIL = {
-    ('xml', 'activity.free_float_days'): _P24,
-}
+TRUTH_XFAIL = {}
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
 # wrong the SAME way passes parity and is caught by test_truth only.)
-PARITY_XFAIL = {
-    'activity.free_float_days': _P24,
-}
+PARITY_XFAIL = {}
 
 
 def _params(kind):
@@ -1088,11 +1106,111 @@ def test_xer_blank_total_float_is_reconstructed(files):
 
 
 @pytest.mark.parametrize('fmt', ['xml', 'xer'])
-@pytest.mark.xfail(strict=True, reason='P22: date parsing - XML crashes / XER silently drops a '
-                                       'date with fractional seconds')
 def test_date_with_fractional_seconds_parses(files, fmt):
     d = parse_file(files[f'{fmt}_frac_dd'])
     assert d.project.get('data_date') == _d(PROJECT['data_date'])
+    assert d.unparsed_dates == {}
+
+
+@pytest.mark.parametrize('xml_dd,xer_dd', [
+    ('2025-03-05T17:00:00.000', '2025-03-05 17:00:00.000'),
+    ('2025-03-05T17:00:00Z', '2025-03-05 17:00Z'),
+    ('2025-03-05T17:00:00+03:00', '2025-03-05 17:00:00+0300'),
+    ('2025-03-05T17:00', '2025-03-05 17:00'),
+], ids=['fraction', 'utc-z', 'offset', 'no-seconds'])
+def test_date_variants_read_the_same_in_both_formats(tmp_path, xml_dd, xer_dd):
+    """P22: ONE date reader - the time-zone designator is ignored (P6 dates are the project's
+    wall-clock times), fractional seconds are read, and the XML and the XER agree."""
+    for name, text in (('dd.xml', build_xml(data_date=xml_dd)), ('dd.xer', build_xer(data_date=xer_dd))):
+        d = parse_file(_write(tmp_path, name, text))
+        assert d.project.get('data_date') == _d(PROJECT['data_date']), name
+        assert d.unparsed_dates == {}, name
+
+
+def test_unreadable_date_is_reported_not_crashed_or_dropped(tmp_path, parsed):
+    """P22: a value that is not a date used to CRASH the XML import (strptime) and vanish silently
+    from the XER. Now both read it as blank AND record it in data.unparsed_dates, so the import can
+    say which values it could not read; a clean file records none."""
+    bad = '05/03/2025 17:00'
+    for name, text in (('bad.xml', build_xml(data_date=bad)), ('bad.xer', build_xer(data_date=bad))):
+        d = parse_file(_write(tmp_path, name, text))
+        assert d.project.get('data_date') is None, name
+        assert d.unparsed_dates == {bad: 1}, name
+        assert len(d.activities) == len(ACTIVITIES), name
+    assert parsed['xml'].unparsed_dates == {} and parsed['xer'].unparsed_dates == {}
+
+
+def test_parse_p6_datetime_is_the_one_reader_for_both_formats():
+    from p6_evm import xer
+    from p6_evm.parser import parse_datetime, parse_p6_datetime
+    for raw in ('2025-03-05T17:00:00', '2025-03-05 17:00', '2025-03-05', '2025-03-05T17:00:00.5',
+                '2025-02-30 08:00', 'n/a', ''):
+        assert parse_datetime(raw) == xer._dt(raw) == parse_p6_datetime(raw), raw
+    assert parse_p6_datetime('2025-03-05T17:00:00.5') == datetime(2025, 3, 5, 17, 0, 0, 500000)
+    assert parse_p6_datetime('2025-02-30 08:00') is None          # not a calendar date
+    assert parse_p6_datetime(None) is None
+
+
+# ── P21: one resource-type vocabulary + Unit of Measure ──────────────────────────────────
+
+def test_resource_type_is_one_vocabulary():
+    from p6_evm.parser import resource_type_label
+    for xml_word, xer_code, want in (('Labor', 'RT_Labor', 'Labour'),
+                                     ('Nonlabor', 'RT_Equip', 'Equipment'),
+                                     ('Nonlabor', 'RT_Nonlabor', 'Equipment'),
+                                     ('Material', 'RT_Mat', 'Material')):
+        assert resource_type_label(xml_word) == resource_type_label(xer_code) == want
+    # A type that is none of P6's three is kept as written in BOTH formats (the XER used to give
+    # None, the XML the raw word).
+    assert resource_type_label('Crew') == 'Crew' and resource_type_label('RT_Crew') == 'RT_Crew'
+    assert resource_type_label('') is None and resource_type_label(None) is None
+
+
+def test_unknown_resource_type_is_kept_in_both_formats(tmp_path):
+    xml = _write(tmp_path, 'rt.xml', build_xml().replace('<ResourceType>Material<', '<ResourceType>Crew<'))
+    xer = _write(tmp_path, 'rt.xer', build_xer().replace('\tRT_Mat', '\tRT_Crew'))
+    for path, want in ((xml, 'Crew'), (xer, 'RT_Crew')):
+        d = parse_file(path)
+        assert d.resources['3003']['type'] == want, path
+        assert {s['resource_type'] for lst in d.assignments_by_activity.values() for s in lst
+                if s['resource_id'] == '3003'} == {want}, path
+
+
+def test_narrative_resource_types_use_the_same_vocabulary():
+    """p6_narrative's resource loading classes a resource through the parsers' vocabulary."""
+    from p6_narrative.resload import _norm_type
+    for raw, want in (('Labor', 'RT_Labor'), ('RT_Labor', 'RT_Labor'), ('Nonlabor', 'RT_Equip'),
+                      ('RT_Equip', 'RT_Equip'), ('RT_Nonlabor', 'RT_Equip'), ('Material', 'RT_Mat'),
+                      ('RT_Mat', 'RT_Mat'), ('Crew', None), ('', None), (None, None)):
+        assert _norm_type(raw) == want, raw
+
+
+# ── P24: free float - a genuine format difference, documented ────────────────────────────
+
+def test_free_float_is_a_genuine_format_difference(parsed):
+    """GENUINE (not a defect, finding P24): P6's XER stores Free Float (free_float_hr_cnt) but P6's
+    XML writes NO float on <Activity> (checked on all three real parity pairs), so the XML's
+    free_float_days is None - unknown, never 0 - while the XER carries P6's own value."""
+    xml = {a['id']: a['free_float_days'] for a in parsed['xml'].activities.values()}
+    xer = {a['id']: a['free_float_days'] for a in parsed['xer'].activities.values()}
+    assert set(xml.values()) == {None}
+    assert _norm(xer) == _norm(truth('activity', 'free_float_days'))
+
+
+def test_no_feature_reads_free_float():
+    """P24 guard: free float would give an XER-only answer, so no feature may read it until it is
+    rebuilt for the XML (from the remaining early dates + relationships) - only the two parsers
+    may mention it. A new consumer must add that reconstruction first (R4: XER == XML)."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    allowed = {root / 'p6_evm' / 'parser.py', root / 'p6_evm' / 'xer.py'}
+    files = [root / f for f in ('server.py', 'cli.py', 'db.py', 'app.py') if (root / f).exists()]
+    for pkg in root.iterdir():
+        if pkg.is_dir() and (pkg.name.startswith('p6_') or pkg.name == 'ui'):
+            files += [p for p in pkg.rglob('*') if p.suffix in ('.py', '.js')]
+    hits = [str(p.relative_to(root)) for p in files
+            if p not in allowed and 'free_float' in p.read_text(encoding='utf-8', errors='ignore')]
+    assert hits == []
 
 
 def test_no_baseline_xer_names_the_baseline_from_baseline_export(parsed_nobl):
