@@ -304,6 +304,11 @@ function injectStyle() {
   .hc-gfx-sw{ flex:none; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text,#1e293b); cursor:pointer; white-space:nowrap; }
   .hc-gfx-sw input{ width:17px; height:17px; accent-color:var(--accent,#2563eb); cursor:pointer; }
   .hc-gfx-sw input:disabled{ cursor:default; }
+  .hc-log .hc-gfx-status{ font-weight:500; word-break:break-all; }
+  .hc-log-btn{ flex:none; padding:7px 13px; border-radius:9px; border:1px solid var(--border,#e2e8f0); background:var(--surface-2,var(--card-bg,#fff)); color:var(--text,#1e293b); font-family:inherit; font-size:13px; font-weight:700; line-height:1.2; cursor:pointer; white-space:nowrap; }
+  .hc-log-btn:hover{ border-color:var(--accent,#2563eb); color:var(--accent,#2563eb); }
+  .hc-log-btn:disabled{ opacity:.6; cursor:default; }
+  @media (max-width:640px){ .hc-gfx{ flex-direction:column; } }
 
   /* ---- About ---- */
   .hc-about{ text-align:center; padding:44px 30px; position:relative; overflow:hidden; }
@@ -562,7 +567,44 @@ function screenContact() {
       </div>
       <label class="hc-gfx-sw"><input type="checkbox" id="hc-gfx-toggle" disabled> Safe graphics</label>
     </div>
+    <div class="hc-gfx hc-log" id="hc-log">
+      <div class="hc-gfx-txt"><b>Problem when the app starts?</b> ${esc(APP_NAME)} notes every step of each start in a small file, <b>startup.log</b>. Open its folder and send that file to Technical Software Support so they can see which step went wrong.
+        <div class="hc-gfx-status" id="hc-log-status" role="status" aria-live="polite"></div>
+      </div>
+      <button type="button" class="hc-log-btn" id="hc-log-open">Open log folder</button>
+    </div>
   </section>`;
+}
+
+// ---- Contact: start-up log folder (startup BLACK-8) ----
+// Opens the folder through the desktop app's bridge (window.pywebview.api.open_log_folder);
+// the log file's path is always shown in words too (from GET /api/health), so the owner can
+// find it even when the folder cannot be opened. Never alert/confirm.
+export function wireLogFolder(root, win) {
+  const w = win || (typeof window !== 'undefined' ? window : globalThis);
+  const btn = root.querySelector('#hc-log-open');
+  const out = root.querySelector('#hc-log-status');
+  if (!btn || !out) return;
+  const say = (text, err) => { out.textContent = text; out.classList.toggle('err', !!err); };
+  const logPath = () => (typeof fetch === 'function'
+    ? fetch('/api/health').then(r => r.json()).then(h => (h && h.log_path) || '').catch(() => '')
+    : Promise.resolve(''));
+  logPath().then(p => { if (p && !out.textContent) say('Log file: ' + p); });
+  btn.addEventListener('click', () => {
+    const api = w && w.pywebview && w.pywebview.api;
+    btn.disabled = true;
+    say('Opening…');
+    const fail = p => say('Could not open the folder' + (p ? ' — the log file is here: ' + p : ' (the app is not answering).'), true);
+    if (!api || typeof api.open_log_folder !== 'function') {
+      logPath().then(p => { btn.disabled = false; p ? say('Open this folder in Explorer: ' + p) : fail(''); });
+      return;
+    }
+    Promise.resolve().then(() => api.open_log_folder()).then(res => {
+      btn.disabled = false;
+      if (res && res.ok) say('Opened. Send the file startup.log to support — ' + res.path);
+      else fail(res && res.path);
+    }).catch(() => logPath().then(p => { btn.disabled = false; fail(p); }));
+  });
 }
 
 // ---- Contact: Safe graphics switch (GET/POST /api/graphics-mode) ----
@@ -774,6 +816,7 @@ export function openHelp(section) {
   if (box) box.addEventListener('input', () => renderFeatures(overlay, box.value));
   renderFeatures(overlay, '');
   wireGraphicsSwitch(overlay);
+  wireLogFolder(overlay);
 
   // External links → the default browser. The app-wide interceptor (external_links.js,
   // installed by app.js) normally handles the click first; this is the fallback when Help is
