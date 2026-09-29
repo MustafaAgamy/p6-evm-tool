@@ -220,5 +220,26 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   });
 }
 
+{
+  const fs = await import('node:fs');
+  const { baselineEmbeddedLine } = await import('../../ui/modules/baseline.js');
+  test('embedded baseline named on the EVM screen like the PDF / Excel head (R2 F8)', () => {
+    const lbl = 'inside the schedule file (SAINT GOBAIN, AS2 -  Civil Package 03 - Rev.01 Clean)';
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded', baseline_label: lbl }), `Baseline: ${lbl}`);
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded', baseline_embedded_name: 'P - B1' }),
+      'Baseline: inside the schedule file (P - B1)');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded' }), 'Baseline: inside the schedule file');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'self', baseline_label: 'x' }), '');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'attached', baseline_label: 'x' }), '');
+    assert.equal(baselineEmbeddedLine({}), '');   // older result: the server never said — nothing claimed
+    assert.equal(baselineEmbeddedLine(null), '');
+  });
+  test('renderBaselineBanner shows that line when there is nothing to attach', () => {
+    const src = fs.readFileSync(new URL('../../ui/modules/evm.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    const fn = src.slice(src.indexOf('function renderBaselineBanner'), src.indexOf('export function maybePromptBaseline'));
+    assert.match(fn, /if \(!st\) \{[^}]*baselineEmbeddedLine\(result\)/);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
