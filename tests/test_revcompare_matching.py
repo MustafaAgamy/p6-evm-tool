@@ -85,3 +85,57 @@ def test_canonicalize_remaps_id_and_preserves_orig():
     assert act['orig_id'] == 'A1362'
     # original untouched
     assert list(rev1.activities.values())[0]['id'] == 'A1362'
+
+
+# ── Speed without a different answer (owner comment 36: no long wait on Run) ───────────
+# The leftover pairs are no longer all run through difflib: a pair is skipped only when
+# even its most generous name similarity cannot reach the accept score. The candidates
+# (pairs AND scores) must be exactly what scoring every pair gives.
+
+def _brute_candidates(by0, by1, left0, left1, accept):
+    out = []
+    for c0 in left0:
+        for c1 in left1:
+            s = evidence_score(by0[c0], by1[c1])
+            if s >= accept:
+                out.append((s, c0, c1))
+    return out
+
+
+def test_fuzzy_candidates_identical_to_scoring_every_pair():
+    import random
+    from p6_revcompare.matching import _fuzzy_candidates, ACCEPT_SCORE
+    rnd = random.Random(20260930)
+    words = ['Raft', 'Slab', 'Zone', 'B', 'Waterproofing', 'Excavation', 'Rebar', 'Wall', 'Pour',
+             'Formwork', 'Column', 'C1', 'Level 2', '—', '(Phase 1)', 'Backfill', 'MEP', 'First-fix']
+    wbs = ['WBS 1', 'WBS 1 / Civil', 'WBS 2', None, '']
+    codes = [{}, {'AREA': 'A'}, {'AREA': 'B'}, {'AREA': 'A', 'TRADE': 'CIV'}, {'TRADE': 'CIV'}]
+
+    def rand_act(code):
+        n = ' '.join(rnd.choice(words) for _ in range(rnd.randint(0, 5)))
+        ps = rnd.choice([None, datetime(2025, 1, 1 + rnd.randint(0, 27)), datetime(2025, rnd.randint(1, 12), 3)])
+        return _act(code, rnd.choice([n, n.upper(), '', None]), wbs=rnd.choice(wbs),
+                    dur=rnd.choice([0.0, 5.0, 10.0, 80.0, rnd.uniform(0, 120)]), ps=ps, codes=rnd.choice(codes))
+
+    by0 = {f'O{i}': rand_act(f'O{i}') for i in range(90)}
+    by1 = {f'N{i}': rand_act(f'N{i}') for i in range(90)}
+    # near-copies so plenty of pairs sit right at (and around) the accept score
+    for i in range(30):
+        a = dict(by0[f'O{i}']); a['id'] = f'N{i}'
+        a['name'] = (a['name'] or '') + rnd.choice(['', ' x', 's', ' Zone C'])
+        by1[f'N{i}'] = a
+    left0, left1 = sorted(by0), sorted(by1)
+    for accept in (ACCEPT_SCORE, 0.5, 0.7, 0.3):
+        fast = sorted(_fuzzy_candidates(by0, by1, left0, left1, accept))
+        slow = sorted(_brute_candidates(by0, by1, left0, left1, accept))
+        assert fast == slow
+    assert len(slow) > 0
+
+
+def test_fuzzy_candidates_keeps_a_pair_exactly_at_the_accept_score():
+    from p6_revcompare.matching import _fuzzy_candidates
+    a = _act('A1', 'Waterproofing to Raft — Zone B', dur=112, ps=datetime(2025, 4, 12))
+    b = _act('A2', 'Raft Waterproofing — Zone B', dur=112, ps=datetime(2025, 5, 2))
+    s = evidence_score(a, b)
+    assert _fuzzy_candidates({'A1': a}, {'A2': b}, ['A1'], ['A2'], s) == [(s, 'A1', 'A2')]
+    assert _fuzzy_candidates({'A1': a}, {'A2': b}, ['A1'], ['A2'], round(s + 0.0001, 4)) == []

@@ -109,6 +109,74 @@ def evidence_score(a, b):
     )
 
 
+# Margin under the accept threshold for the skip test: the score is rounded to 4 decimals,
+# so a raw sum below ``accept - 0.0001`` can never round up to ``accept`` (plus float slack).
+_PRUNE_MARGIN = 1e-4
+
+
+def _fuzzy_candidates(by0, by1, left0, left1, accept):
+    """Every ``(score, code0, code1)`` whose :func:`evidence_score` is at least ``accept``.
+
+    Exactly the list that scoring every leftover pair with :func:`evidence_score` gives
+    (same pairs, same scores to the last digit) — only faster. A pair is skipped when
+    even the most generous name similarity could not lift it to ``accept``; the name
+    similarity's upper bounds (length, then shared characters — difflib's own
+    ``real_quick_ratio`` / ``quick_ratio``) are cheap, the exact ratio is not. Names are
+    normalised once per activity (not once per pair) and each revised name's matcher is
+    built once for its whole row. The matching rule itself is unchanged."""
+    if not left0 or not left1:
+        return []
+    norm = {}
+
+    def _nm(s):
+        k = s or ''
+        v = norm.get(k)
+        if v is None:
+            v = norm[k] = _norm_name(k)
+        return v
+
+    thr = accept - _PRUNE_MARGIN
+    rows0 = []
+    for c0 in left0:
+        a0 = by0[c0]
+        n0 = _nm(a0.get('name'))
+        rows0.append((c0, a0, n0, len(n0), a0.get('wbs_path')))
+    out = []
+    sm = SequenceMatcher(None, '', '')
+    for c1 in left1:
+        a1 = by1[c1]
+        n1 = _nm(a1.get('name'))
+        l1 = len(n1)
+        w1 = a1.get('wbs_path')
+        sm.set_seq2(n1)                                  # b's index built once per revised name
+        for c0, a0, n0, l0, w0 in rows0:
+            if n0 and n1:
+                name_ub = 2.0 * min(l0, l1) / (l0 + l1)  # == real_quick_ratio(), >= ratio()
+            else:
+                name_ub = 1.0 if (not n0 and not n1) else 0.0
+            wbs = 1.0 if (w0 and w0 == w1) else 0.0
+            dur = _dur_ratio(a0, a1)
+            date = _date_ratio(a0, a1)
+            part = _W_WBS * wbs + _W_DUR * dur + _W_DATE * date
+            if _W_NAME * name_ub + part + _W_CODES < thr:
+                continue                                 # cannot reach accept even with every code equal
+            codes = _codes_ratio(a0, a1)
+            part += _W_CODES * codes
+            if _W_NAME * name_ub + part < thr:
+                continue
+            if n0 and n1:
+                sm.set_seq1(n0)
+                if _W_NAME * sm.quick_ratio() + part < thr:
+                    continue
+                nr = sm.ratio()                          # identical to name_ratio(a0.name, a1.name)
+            else:
+                nr = name_ub
+            s = round(_W_NAME * nr + _W_WBS * wbs + _W_CODES * codes + _W_DUR * dur + _W_DATE * date, 4)
+            if s >= accept:
+                out.append((s, c0, c1))
+    return out
+
+
 def _index_by_code(data):
     out = {}
     for act in data.activities.values():
@@ -151,12 +219,7 @@ def match_activities(rev0, rev1, accept=ACCEPT_SCORE):
     #    the best evidence score above the accept threshold.
     left0 = sorted(set(by0) - set(by1))
     left1 = sorted(set(by1) - set(by0))
-    candidates = []
-    for c0 in left0:
-        for c1 in left1:
-            s = evidence_score(by0[c0], by1[c1])
-            if s >= accept:
-                candidates.append((s, c0, c1))
+    candidates = _fuzzy_candidates(by0, by1, left0, left1, accept)
     candidates.sort(key=lambda t: (-t[0], t[1], t[2]))
     used0, used1 = set(), set()
     for s, c0, c1 in candidates:
