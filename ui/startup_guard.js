@@ -1,6 +1,6 @@
 /* Startup guard: the window must never sit on a silent black screen.
  *
- * server.py INLINES this classic script into index.html (at <!--cx:startup-guard-->), so it
+ * server.py INLINES this classic script into index.html (at its cx:startup-guard marker), so it
  * runs even when the ES-module graph (ui/app.js + ~38 modules, fetched at every launch)
  * fails. Before this guard, the near-black anti-flash cover (#brand-splash) was removed
  * only by boot.js once every module had loaded; one failed module file left the window
