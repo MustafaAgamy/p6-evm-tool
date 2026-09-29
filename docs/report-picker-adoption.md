@@ -51,3 +51,13 @@ not a defect. Word files are laid out by Word itself (COM, ~1-2 s a page) or, wi
 Spire.Doc (first 10 pages only). `--html report.html` passes the renderer's heading texts as hints.
 Target: zero flags on GBT_XML for your feature's PDF and Word. In a test: `pc.check_pdf(path)['flags'] == []`
 (see tests/test_pagination_check.py for the synthetic-report pattern).
+
+What the shared print composer (report_theme.pagination_script) already does for you, so a renderer
+needs no page-break code of its own: every heading is paired with its first block, and a short
+lead-in paragraph under it travels on with the start of the next block (a table's first rows);
+a table or a list / tree taller than a third of a page continues on the next page (header repeated,
+>= 3 rows a page, the renderer's own keep-whole wrapper lifted) instead of being pushed whole; a
+nested list's first item stays with its parent's label. A report that wraps its whole body in one
+table cell (the Reporting Studio's running-header shell) is treated like a plain page: the cell is a
+page container, and its repeated header/footer height is taken off every page. In Word, the Baseline
+Narrative draws a tall vertical WBS tree as stacked parts of about a third of a page for the same reason.
