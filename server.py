@@ -740,6 +740,9 @@ class Handler(BaseHTTPRequestHandler):
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
+            if getattr(data, 'unparsed_dates', None):   # P22: values in date fields that are not dates
+                safe_result['unparsed_dates'] = {'count': sum(data.unparsed_dates.values()),
+                                                 'samples': list(data.unparsed_dates)[:5]}
 
             # ── Schedule audit — isolated modules (never break EVM import) ──
             audit_modules_result = None

@@ -273,7 +273,7 @@ def _parse_xer(path):
             'remaining_duration': _num(t.get('remain_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
             'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
-            'free_float_days': ff_days,
+            'free_float_days': ff_days,   # XER-only: P6's XML carries no float (finding P24)
             'is_critical': (tf_days is not None and tf_days <= 0),
             'constraint_type': _cstr(t.get('cstr_type')),
             'constraint_date': _dt(t.get('cstr_date')),

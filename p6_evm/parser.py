@@ -480,6 +480,10 @@ def _parse_xml(path) -> ScheduleData:
                                   act['remaining_late_start'], act['remaining_late_finish'], tf_basis)
             act['total_float_days'] = (h / day_hours) if h is not None else None
             act['tf_from_hours'] = False   # reconstructed — Delay recomputed boundary-correct
+        # Free float: P6's XML writes NO float on <Activity> (the XER stores free_float_hr_cnt), so
+        # a P6 XML gives None here - unknown, never 0 - a GENUINE format difference (finding P24).
+        # No feature reads free float (guarded by tests/test_parser_parity.py
+        # test_no_feature_reads_free_float); one that needs it must first rebuild it for the XML.
         act['free_float_days'] = (ff_hours / day_hours) if ff_hours is not None else None
         act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
