@@ -336,6 +336,13 @@ def pagination_script():
         "var host=el.parentElement,cs=host?getComputedStyle(host):null,"
         "avail=host?host.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0):0;"
         "if(avail>80&&r.width>avail+2)todo.push([el,'@zoom',Math.max(0.55,avail/r.width)]);}}\n"
+        # the "tall spine": ANY block taller than a page flows, whatever the renderer set on it
+        # (only the chain of tall ancestors is walked — cheap even on long registers)
+        "var stack=[document.body];while(stack.length){var pn=stack.pop();if(!pn)continue;"
+        "var kids=pn.children;for(var k=0;k<kids.length;k++){var kc=kids[k],tg=kc.tagName;"
+        "if(tg==='SCRIPT'||tg==='STYLE'||tg==='TEMPLATE')continue;var kh=kc.getBoundingClientRect().height;"
+        "if(kh>flow){todo.push([kc,'rpt-flow']);stack.push(kc);}"
+        "else if(!kh&&kc.children.length&&getComputedStyle(kc).display==='contents')stack.push(kc);}}\n"
         "for(i=0;i<todo.length;i++){var t=todo[i],e=t[0];\n"
         "if(t[1]==='@head'){var row=e.rows[0];if(!row||!row.cells.length)continue;var allTh=true;"
         "for(var c=0;c<row.cells.length;c++){if(row.cells[c].tagName!=='TH'){allTh=false;break;}}"

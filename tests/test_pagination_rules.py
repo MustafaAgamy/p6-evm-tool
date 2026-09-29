@@ -178,7 +178,7 @@ def _synthetic_report():
         '<div style="height:246mm">C1-SPACER</div><h2 style="margin:0;font-size:14px">C1 HEAD</h2>'
         '<table><thead><tr><th>C1-H</th><th>v</th></tr></thead><tbody>' + _rows('C1', 8) + '</tbody></table>',
         # 2 · a long table whose last row would be stranded alone on the next page
-        '<table><thead><tr><th>C2-H</th><th>v</th></tr></thead><tbody>' + _rows('C2', 44) + '</tbody></table>',
+        '<table><thead><tr><th>C2-H</th><th>v</th></tr></thead><tbody>' + _rows('C2', 45) + '</tbody></table>',
         # 3 · a tall block the renderer marked "avoid" — must not leave a blank page behind
         '<div style="height:100mm">C3-SPACER</div><div style="break-inside:avoid">'
         '<table><thead><tr><th>C3-H</th><th>v</th></tr></thead><tbody>' + _rows('C3', 60) + '</tbody></table></div>',
@@ -188,12 +188,20 @@ def _synthetic_report():
         '<div style="height:250mm">C5-SPACER</div><h3 style="margin:0">C5 HEAD</h3>'
         '<div class="tiles" style="display:flex;gap:4px"><div style="flex:1;height:20mm">C5 TILE A</div>'
         '<div style="flex:1;height:20mm">C5 TILE B</div></div>',
-        # 6 · a table wider than the page inside a screen scroll box
-        '<div style="overflow-x:auto"><table style="width:1500px"><tr><td>C6-FIRST</td>'
-        + ''.join(f'<td>c{i}</td>' for i in range(18)) + '<td>C6-LASTCOL</td></tr></table></div>',
     ]
+    return _doc(''.join(page.format(c) for c in cases))
+
+
+def _wide_report():
+    # 6 · a table wider than the page inside a screen scroll box (its own document: Chrome
+    #     shrinks a WHOLE document that overflows the page width, which would mask cases 1-5)
+    return _doc('<div style="overflow-x:auto"><table style="width:1500px"><tr><td>C6-FIRST</td>'
+                + ''.join(f'<td>c{i}</td>' for i in range(18)) + '<td>C6-LASTCOL</td></tr></table></div>')
+
+
+def _doc(body):
     return (f'<!doctype html><html><head><meta charset="utf-8"><style>{_A4} {_ROW}</style></head>'
-            '<body>' + ''.join(page.format(c) for c in cases) + '</body></html>')
+            f'<body>{body}</body></html>')
 
 
 def _print(html, chrome, folder, name):
@@ -210,30 +218,34 @@ def _print(html, chrome, folder, name):
 
 
 def _violations(pages):
-    """The rule breaches this synthetic report is built to provoke (page texts in order)."""
+    """The rule breaches this synthetic report is built to provoke (page texts in order).
+    A case whose markers are not in the document is not checked."""
     v = []
 
     def page_of(marker):
         return next((i for i, t in enumerate(pages) if marker in t), None)
 
     p = page_of('C1 HEAD')
-    if p is None or 'C1-ROW 1\n' not in pages[p]:
-        v.append('C1: heading orphaned from its table')
-    for tag, total in (('C2', 44), ('C3', 60), ('C4', 70)):
+    if p is not None:
+        if 'C1-ROW 1\n' not in pages[p]:
+            v.append('C1: heading orphaned from its table')
+        elif len(re.findall(r'\bC1-ROW \d+\n', pages[p])) != 8:
+            v.append('C1: small table split across pages')
+    for tag in ('C2', 'C3', 'C4'):
         for i, t in enumerate(pages):
             n = len(re.findall(rf'\b{tag}-ROW \d+\n', t))
             if 0 < n < 3:
                 v.append(f'{tag}: {n} row(s) stranded on page {i + 1}')
     p = page_of('C3-SPACER')
-    if p is None or 'C3-ROW 1\n' not in pages[p]:
+    if p is not None and 'C3-ROW 1\n' not in pages[p]:
         v.append('C3: tall block pushed to the next page (blank area left)')
     for i, t in enumerate(pages):
         if 'C4-ROW' in t and 'C4-HEADER' not in t:
             v.append(f'C4: header not repeated on page {i + 1}')
     p = page_of('C5 HEAD')
-    if p is None or 'C5 TILE A' not in pages[p]:
+    if p is not None and 'C5 TILE A' not in pages[p]:
         v.append('C5: KPI tiles separated from their heading')
-    if not any('C6-LASTCOL' in t for t in pages):
+    if any('C6-FIRST' in t for t in pages) and not any('C6-LASTCOL' in t for t in pages):
         v.append('C6: wide table cut at the page edge')
     return v
 
@@ -247,14 +259,17 @@ def test_chrome_prints_the_synthetic_report_breaking_rules_without_and_keeping_t
     found = chrome_candidates(None)
     if not found:
         pytest.skip('no Chromium installed')
-    html = _synthetic_report()
+    html, wide = _synthetic_report(), _wide_report()
     with tempfile.TemporaryDirectory() as folder:
-        before = _violations(_print(html, found[0], folder, 'before'))
-        after = _violations(_print(rt.with_pagination(html), found[0], folder, 'after'))
+        before = (_violations(_print(html, found[0], folder, 'before'))
+                  + _violations(_print(wide, found[0], folder, 'wide_before')))
+        after = (_violations(_print(rt.with_pagination(html), found[0], folder, 'after'))
+                 + _violations(_print(rt.with_pagination(wide), found[0], folder, 'wide_after')))
     # without the layer the document breaks the rules (the test is meaningful) …
     assert any(s.startswith('C1') for s in before), before
     assert any(s.startswith('C2') for s in before), before
     assert any(s.startswith('C3') for s in before), before
     assert any(s.startswith('C4') for s in before), before
+    assert any(s.startswith('C6') for s in before), before
     # … and with the ONE shared layer it keeps every one of them
     assert after == [], after
