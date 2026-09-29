@@ -14,7 +14,7 @@ APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 
 # Release version shown in the UI (Help Center / About). Bump it with the
 # CHANGELOG.md section on every release — tests/test_app_version.py fails
 # if it drifts from the newest `## [vX.Y.Z]` heading.
-APP_VERSION = '2.9.0'
+APP_VERSION = '2.9.1'
 
 # ── External links ──────────────────────────────────────────────────────────
 # The only web pages the app may hand to the user's default browser (Help ▸ Contact /

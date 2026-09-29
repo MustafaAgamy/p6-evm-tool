@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [v2.9.1] - 2026-09-29
+
+### Fixed — Productivity & Resources opens again
+- **Library ▸ Productivity & Resources (and Tools ▸ Productivity & Resources) showed nothing** — the page, with its productivity rates, crews, man-hours and duration estimate, never appeared. It opens again with all 151 work items. The page was lost from the app window in an earlier update; the calculations themselves were unaffected.
+
 ## [v2.9.0] - 2026-09-29
 
 ### Changed — Knowledge Base is now Construction Project Knowledge (Project Type Playbooks)
