@@ -152,3 +152,47 @@ def test_code_catalog_rereads_a_changed_file(tmp_path, codes_fresh):
 def test_code_catalog_missing_file_is_empty(tmp_path, codes_fresh):
     codes, _ = codes_fresh
     assert codes.read_code_catalog(str(tmp_path / 'nope.xer')) == {}
+
+
+# ── one XML parse serves BOTH readers (codes + resource types read the same file) ────────────
+_XML_META = '''<?xml version="1.0" encoding="UTF-8"?>
+<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V8.3/API/BusinessObjects">
+  <UnitOfMeasure><Abbreviation>m3</Abbreviation><Name>Cubic metre</Name><ObjectId>1</ObjectId></UnitOfMeasure>
+  <ActivityCodeType><Name>Discipline</Name><ObjectId>7</ObjectId></ActivityCodeType>
+  <ActivityCode><CodeTypeObjectId>7</CodeTypeObjectId><CodeValue>CIV</CodeValue><Description>Civil</Description><ObjectId>1</ObjectId></ActivityCode>
+  <Resource><ObjectId>100</ObjectId><ResourceType>Labor</ResourceType></Resource>
+  <Resource><ObjectId>200</ObjectId><ResourceType>Material</ResourceType><UnitOfMeasureObjectId>1</UnitOfMeasureObjectId></Resource>
+</APIBusinessObjects>
+'''
+
+
+@pytest.mark.parametrize('first', ['codes', 'resources'])
+def test_one_xml_parse_serves_code_catalog_and_resource_meta(tmp_path, monkeypatch, first):
+    from xml.etree import ElementTree as ET
+    from p6_narrative import codes, resload
+    p = str(tmp_path / 'sched.xml')
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(_XML_META)
+
+    def fresh():
+        monkeypatch.setattr(codes, '_CATALOG_CACHE', {})
+        monkeypatch.setattr(resload, '_META_CACHE', {})
+
+    fresh()
+    exp_codes = codes.read_code_catalog(p)          # each reader on its own
+    fresh()
+    exp_res = resload.read_resource_meta(p)
+    assert exp_codes == {'Discipline': [{'code': 'CIV', 'description': 'Civil'}]}
+    assert exp_res == {'100': {'type': 'RT_Labor', 'unit': None}, '200': {'type': 'RT_Mat', 'unit': 'm3'}}
+
+    fresh()
+    real, calls = ET.parse, []
+    monkeypatch.setattr(ET, 'parse', lambda *a, **k: (calls.append(1), real(*a, **k))[1])
+    if first == 'codes':
+        c = codes.read_code_catalog(p)
+        r = resload.read_resource_meta(p)
+    else:
+        r = resload.read_resource_meta(p)
+        c = codes.read_code_catalog(p)
+    assert c == exp_codes and r == exp_res          # identical answers
+    assert len(calls) == 1, f'the schedule XML was parsed {len(calls)} times for codes + resources'

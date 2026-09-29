@@ -154,7 +154,35 @@ def _res_from_xml(path):
     m = re.search(r'xmlns="([^"]+)"', head)
     ns = f'{{{m.group(1)}}}' if m else ''
     root = ET.parse(path).getroot()
+    # The same report also needs this file's activity-code catalog (p6_narrative.codes), which
+    # is another whole-file parse — seconds on a big XML. Read it from this tree now, once.
+    try:
+        from p6_narrative import codes
+        codes.remember(codes.file_key(path), codes.codes_from_root(root, ns))
+    except Exception:
+        pass
+    return _res_from_root(root, ns)
 
+
+def prime_from_root(path, root, ns):
+    """Remember this file's resource meta, read from a tree another reader already parsed."""
+    key = _file_key(path)
+    if key and key not in _META_CACHE:
+        meta = _res_from_root(root, ns)
+        if len(_META_CACHE) >= _META_CACHE_MAX:
+            _META_CACHE.pop(next(iter(_META_CACHE)), None)
+        _META_CACHE[key] = meta
+
+
+def _file_key(path):
+    try:
+        st = os.stat(path)
+        return (os.path.abspath(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _res_from_root(root, ns):
     def text(el, name):
         c = el.find(f'{ns}{name}')
         return c.text if c is not None else None
