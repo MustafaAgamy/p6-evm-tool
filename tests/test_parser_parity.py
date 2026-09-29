@@ -25,6 +25,9 @@ relationships with lags and a lead, and progress on duration / physical / units 
 Fields that fail TODAY are marked xfail(strict=True) with the parity-audit finding id
 (D:/twe-scratch/phase2/parser/findings.json, commit "[parser:AUDIT]"). strict=True means a fix
 that makes one pass turns it into an XPASS failure - remove the marker when you fix the finding.
+The markers live in TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL (search for the finding id,
+e.g. "_P4") and on the variant tests at the bottom (no-baseline pair, P9, P17, P22, P23).
+Run:  pytest tests/test_parser_parity.py -p no:cacheprovider -q -rxX
 Genuine format differences (what P6 itself writes differently) are documented as plain tests,
 not xfails: see test_tf_from_hours_* below.
 """
