@@ -160,12 +160,15 @@ function _windowStrip(report) {
 }
 
 function _renderReport(report) {
+  _cpaApprox = !!report.baseline_approx;
+  const blLine = report.baseline_approx
+    ? `<div class="cpa-note" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : '';
   document.getElementById('cpa-report').innerHTML = `
     <div class="cpa-exports">
       <button class="btn-secondary" id="cpa-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="cpa-export-xlsx">Export Excel</button>
     </div>
-    ${_windowStrip(report)}
+    ${_windowStrip(report)}${blLine}
     ${_conclusionBanner(report)}
 
     <div class="cpa-sech">Execution dashboard</div>
@@ -504,7 +507,13 @@ function _barsMsVar(charts) {
 
 const _LANE_CLS = { baseline: 'bl', previous: 'prev', current: 'curr' };
 
-function _boxHtml(b, st) {
+// The current (and previous) update is measured against its own Planned dates standing in for
+// the baseline P6 names (none in the file, none attached): its BL finish / Planned / Slip are
+// approximate. The picked baseline's own lane is exact.
+let _cpaApprox = false;
+function _ax(role) { return _cpaApprox && role !== 'baseline' ? ' · approx' : ''; }
+
+function _boxHtml(b, st, role) {
   const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
              : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
   const cls = st === 'new' ? 'cpa-new' : st === 'left' ? 'cpa-left' : st === 'done' ? 'cpa-done' : '';
@@ -516,11 +525,11 @@ function _boxHtml(b, st) {
       <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
       <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
       <div class="cpa-b4">
-        <div><div class="cpa-k">Planned</div><div class="cpa-v">${planned}</div></div>
+        <div><div class="cpa-k">Planned${_ax(role)}</div><div class="cpa-v">${planned}</div></div>
         <div><div class="cpa-k">Actual</div><div class="cpa-v">${actual}</div></div>
-        <div><div class="cpa-k">BL finish</div><div class="cpa-v">${_fdate(b.bl_finish)}</div></div>
+        <div><div class="cpa-k">BL finish${_ax(role)}</div><div class="cpa-v">${_fdate(b.bl_finish)}</div></div>
         <div><div class="cpa-k">Expected</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
-        <div class="cpa-full"><div class="cpa-k">Slip / Total float</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${slip} / ${tf}</div></div>
+        <div class="cpa-full"><div class="cpa-k">Slip${_ax(role)} / Total float</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${slip} / ${tf}</div></div>
       </div></div>`;
 }
 
@@ -538,7 +547,7 @@ function _laneHtml(lane) {
       <div class="cpa-msflag">◆ Milestone</div>
       <div class="cpa-mst">${escapeHtml(ms.name || '')}</div>
       <div class="cpa-msr"><span>${role === 'baseline' ? 'BL finish' : 'Exp finish'}</span><b>${_fdate(finishVal)}</b></div>
-      <div class="cpa-msr"><span>Slip</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
+      <div class="cpa-msr"><span>Slip${_ax(role)}</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
     </div>`];
   const boxes = lane.boxes || [];
   const firstNew = boxes.findIndex(b => (b.state || 'stayed') === 'new');
@@ -549,7 +558,7 @@ function _laneHtml(lane) {
     // new critical path (Ibrahim: "remove the arrow before the new critical path").
     const arrowBefore = st !== 'left' && !(st === 'new' && i === firstNew);
     if (arrowBefore) parts.push(`<div class="cpa-arw">▸</div>`);
-    parts.push(_boxHtml(b, st));
+    parts.push(_boxHtml(b, st, role));
   });
   return `<div class="cpa-lane">
       <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>

@@ -1565,9 +1565,11 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_critpath.exporters import critpath_excel_sections
             from p6_evm.xlsx_writer import write_sections_xlsx
+            _bl = report.get('baseline_label') if report.get('baseline_approx') else None
             write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
                                 meta=_excel_meta('Critical Path Analyzer', report,
-                                                 snapshot_id=body.get('snapshot_id')))
+                                                 snapshot_id=body.get('snapshot_id'),
+                                                 **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2382,8 +2384,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
+            _bl = report.get('baseline_label') if report.get('baseline_approx') else None   # approx only
             write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
-                       meta=_excel_meta('Update vs Update — Windows Analysis', report))
+                       meta=_excel_meta('Update vs Update — Windows Analysis', report,
+                                        **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2995,8 +2999,11 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_calendar_xlsx
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            _d = ca.get('dashboard') or {}
+            _bl = _d.get('baseline_label') if _d.get('baseline_approx') else None   # approx only
             write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather,
-                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id))
+                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id,
+                                                 **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
