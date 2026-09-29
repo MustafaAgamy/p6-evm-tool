@@ -212,11 +212,13 @@ function injectCss() {
   if (injected) return; injected = true;
   const css = `
   /* Opaque from the first frame (mode-aware) so the results rendered UNDERNEATH stay hidden
-     until the bar reads 100% — then the overlay fades out (pointer-events off at once). */
+     until the bar reads 100%. In THAT frame the backdrop drops at once (it is not in the
+     transition list), so the results are on screen with the 100%; only the card fades
+     (≤ 0.1 s) and it never blocks them (pointer-events off at once). RUNUX-14. */
   .fr-ov{position:absolute; inset:0; z-index:60; display:block; opacity:1;
-    background:var(--bg); transition:opacity .12s ease;
+    background:var(--bg); transition:opacity .1s ease;
     font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
-  .fr-ov.out{opacity:0; pointer-events:none;}
+  .fr-ov.out{opacity:0; pointer-events:none; background:transparent;}
   /* Anchored near the top and sticky: results growing underneath can never move the card. */
   .fr-card{position:sticky; top:28px; margin:56px auto 24px; width:min(400px,86%); background:#fff;
     border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 24px 60px -24px rgba(15,23,42,.4);
@@ -355,7 +357,7 @@ function runReveal(host, o) {
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       mount.style.position = prevPos;
       mount.style.minHeight = prevMin;
-    }, reduce ? 0 : 130);
+    }, reduce ? 0 : 110);                           // just after the card's 0.1 s fade
     resolveDone();
   }
 

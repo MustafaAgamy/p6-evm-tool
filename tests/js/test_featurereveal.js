@@ -334,5 +334,35 @@ await test('Baseline Revision, Critical Path and Consultant Review send a run_id
   }
 });
 
+await test('RUNUX-14: the results show in the SAME frame the bar reads 100% — the backdrop drops at once, only the card fades', () => {
+  const src = read('ui', 'modules', 'featurereveal.js');
+  const rule = (sel) => {
+    const m = new RegExp('\\n\\s*' + sel.replace(/\./g, '\\.') + '\\{([^}]*)\\}').exec(src);
+    assert.ok(m, 'CSS rule ' + sel);
+    return m[1].replace(/\s+/g, ' ');
+  };
+  const base = rule('.fr-ov'), out = rule('.fr-ov.out');
+  assert.match(base, /background:var\(--bg\)/, 'opaque (mode-aware) while the work runs underneath');
+  // Only the overlay's opacity is animated: the backdrop is NOT in the transition list, so it
+  // disappears in the very frame the 100% is painted (finish() adds .out in that frame).
+  const tr = /transition:([^;]*)/.exec(base);
+  assert.ok(tr, '.fr-ov has a transition');
+  assert.doesNotMatch(tr[1], /\b(all|background)/, 'the backdrop is never faded: ' + tr[1]);
+  assert.match(out, /background:transparent/, 'backdrop gone at the 100% frame: ' + out);
+  assert.match(out, /pointer-events:none/, 'the fading card never blocks the results');
+  assert.match(out, /opacity:0/, 'the card fades away');
+  // The card's fade (and the overlay removal after it) stays short.
+  const fade = /opacity \.(\d+)s/.exec(tr[1]);
+  assert.ok(fade && Number('0.' + fade[1]) <= 0.1, 'card fade ≤ 0.1 s: ' + tr[1]);
+  const rm = /\}, reduce \? 0 : (\d+)\);/.exec(src);
+  assert.ok(rm && Number(rm[1]) <= 110, 'overlay removed ≤ 110 ms after the 100% frame');
+  // finish() lifts the overlay synchronously — no timer between the 100% paint and .out.
+  const fin = src.slice(src.indexOf('function finish()'), src.indexOf('function step(now)'));
+  assert.ok(fin.indexOf("ov.classList.add('out')") > 0 && fin.indexOf("ov.classList.add('out')") < fin.indexOf('setTimeout('),
+    '.out is added before any timer');
+  const stp = src.slice(src.indexOf('function step(now)'), src.indexOf('function start()'));
+  assert.match(stp, /paint\(f\);\s*if \(f\.reveal\) \{ finish\(\); return; \}/, '100% painted and lifted in the same frame');
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
