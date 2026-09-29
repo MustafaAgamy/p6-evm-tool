@@ -202,6 +202,26 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   test('renderEvm restores state.baseline* from result.baseline_* (the re-render path)', () => {
     assert.match(src, /if \(result\.baseline_name\) \{[^}]*state\.baselinePath = result\.baseline_path;/);
   });
+  const rm = src.slice(src.indexOf('async function removeBaseline'), src.indexOf('async function uploadE1'));
+  test("removeBaseline with no snapshot goes back to 'self', never null (null reads as 'embedded' for an XML — R3 F11)", () => {
+    assert.ok(!/result\.baseline_source\s*=\s*null/.test(rm), 'removeBaseline still sets baseline_source = null');
+    assert.match(rm, /result\.baseline_source = 'self'/);
+    assert.match(rm, /result\.baseline_label = null/);
+    assert.ok(rm.indexOf('Object.assign(result, data.baseline_fields') > rm.indexOf("result.baseline_source = 'self'"),
+      "the server's baseline keys are applied after the local reset");
+    assert.ok(rm.indexOf('Object.assign(result, data.baseline_fields') < rm.indexOf('_mergeEvmNumbers(result, data)'));
+  });
+  test('attachBaseline with no snapshot adopts the server baseline keys (label, approx) before re-rendering', () => {
+    assert.ok(fn.indexOf('Object.assign(result, data.baseline_fields') > -1);
+    assert.ok(fn.indexOf('Object.assign(result, data.baseline_fields') < fn.indexOf('_mergeEvmNumbers(result, data)'));
+  });
+  {
+    const { baselineSource } = await import('../../ui/modules/baseline.js');
+    test("a 'self' result from an XML is 'self' (the banner and approx flags stay)", () => {
+      assert.equal(baselineSource({ baseline_source: 'self' }, 'C:/x/update.xml'), 'self');
+      assert.equal(baselineSource({ baseline_source: null }, 'C:/x/update.xml'), 'embedded');   // why null was wrong
+    });
+  }
 }
 
 {

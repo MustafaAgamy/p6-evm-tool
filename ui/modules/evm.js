@@ -618,6 +618,7 @@ async function attachBaseline(result) {
   result.baseline_mismatch = !!data.baseline_mismatch;          // not the baseline P6 names → warned
   result.baseline_attached_project = data.baseline_attached_project || null;
   if (data.baseline_expected_name) result.baseline_expected_name = data.baseline_expected_name;
+  Object.assign(result, data.baseline_fields || {});   // the server's baseline keys (label, approx …)
   _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
   renderBaselineBanner(result);
 }
@@ -637,8 +638,12 @@ async function removeBaseline(result) {
   state.baselineMatched = null; state.baselineTotal = null;
   result.baseline_name = null; result.baseline_path = null;
   result.baseline_matched = null; result.baseline_total = null;
-  result.baseline_source = null;
+  // Back to the file's OWN Planned dates — 'self', never null: null reads as 'embedded' for an
+  // XML (baselineSource) and would hide the banner and the '· approx' marks (R3 F11). The
+  // server's baseline keys (source, label, approx) win when it sends them.
+  result.baseline_source = 'self'; result.baseline_label = null;
   result.baseline_mismatch = null; result.baseline_attached_project = null;
+  Object.assign(result, data.baseline_fields || {});
   _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
   renderBaselineBanner(result);
 }

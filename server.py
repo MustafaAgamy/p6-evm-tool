@@ -725,10 +725,25 @@ class Handler(BaseHTTPRequestHandler):
             # with refresh_snapshot_id to recompute that snapshot IN PLACE), else the one
             # attached to an earlier import of the same file, else the file's own dates.
             file_hash = db.hash_file(xml_path)
-            attached_bl = (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
-                           else db.get_prior_baseline_for_hash(file_hash))
+            # /api/baseline/upload hands the baseline file the planner just picked
+            # (attach_baseline): the pipeline itself decides 'already inside the file' / 'matches
+            # no activity' BEFORE anything is stored, so an attach parses the update and the
+            # baseline once, not twice (R3 F11).
+            trial_bl = body.get('attach_baseline') if refresh_sid else None
+            attached_bl = trial_bl or (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
+                                       else db.get_prior_baseline_for_hash(file_hash))
             data = load_schedule(xml_path, attached_bl)
             bl_info = getattr(data, 'baseline_info', None) or {}
+            if trial_bl:
+                if bl_info.get('source') == 'embedded':    # nothing to attach — nothing stored
+                    return {'ok': False, 'code': 'embedded', 'baseline_info': bl_info}
+                if not bl_info.get('matched'):             # another project's baseline — never stored
+                    return {'ok': True, 'code': 'no_match', 'baseline_info': bl_info,
+                            'total': len(data.activities)}
+                # It lines up: keep its content-exact cached copy with the snapshot.
+                attached_bl = db.cache_xml(trial_bl, db.hash_file(trial_bl))
+                bl_info['path'] = attached_bl
+                db.save_baseline(refresh_sid, attached_bl, trial_bl)
             if bl_info.get('matched') == 0:
                 attached_bl = None                         # the wrong project's baseline — forget it
             config['categories'] = auto_categories(data)   # auto-detect categories per project
@@ -2830,34 +2845,64 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            from p6_evm.baseline import resolve_baseline, display_name
+            from p6_evm.baseline import (resolve_baseline, display_name, baseline_fields,
+                                         schedule_baseline)
+            fmt = 'XER' if os.path.splitext(body.get('xml_path') or resolved)[1].lower() == '.xer' else 'XML'
+            embedded_msg = (f'This {fmt} already carries its baseline project inside it, and that '
+                            'baseline is the one used — there is nothing to attach.')
+
+            def _answer(info, total):
+                return {'ok': True, 'baseline_name': display_name(bl_path),
+                        'matched': info.get('matched') or 0, 'total': total,
+                        # the baseline P6 names vs the project attached — a wrong revision is flagged
+                        'baseline_expected_name': info.get('expected_name'),
+                        'baseline_attached_project': info.get('attached_project'),
+                        'baseline_mismatch': bool(info.get('mismatch'))}
+
+            sid = body.get('snapshot_id')
+            if sid and db.snapshot_exists(sid):
+                # The import pipeline reads the update + this baseline ONCE, refuses / skips before
+                # storing anything, else remembers it for the snapshot and recomputes it in place.
+                full = self._parse_pipeline({'refresh_snapshot_id': sid, 'path': resolved,
+                                             'attach_baseline': bl_path})
+                if full.get('code') == 'embedded':
+                    self._json(200, {'ok': False, 'code': 'embedded', 'error': embedded_msg})
+                    return
+                if not full.get('ok'):
+                    raise RuntimeError(full.get('error') or 'recompute failed')
+                if full.get('code') == 'no_match':    # the wrong project's baseline — never remembered
+                    self._json(200, _answer(full['baseline_info'], full['total']))
+                    return
+                res = full['result']
+                out = _answer({'matched': res.get('baseline_matched'),
+                               'expected_name': res.get('baseline_expected_name'),
+                               'attached_project': res.get('baseline_attached_project'),
+                               'mismatch': res.get('baseline_mismatch')}, res.get('activity_count'))
+                out['baseline_cached'] = res.get('baseline_path')
+                out.update(self._evm_numbers(res))
+                out['result'] = res
+                self._json(200, out)
+                return
+
+            # No snapshot to recompute (nothing stored): read both here, hand back the numbers.
             data = parse_file(resolved)
             if getattr(data, 'baseline_source', None) == 'embedded':
-                self._json(200, {'ok': False, 'code': 'embedded', 'error': (
-                    'This XML already carries its baseline project inside it, and that baseline '
-                    'is the one used — there is nothing to attach.')})
+                self._json(200, {'ok': False, 'code': 'embedded', 'error': embedded_msg})
                 return
             info = resolve_baseline(data, bl_path, parse_file)
-            out = {'ok': True, 'baseline_name': display_name(bl_path), 'matched': info.get('matched') or 0,
-                   'total': len(data.activities),
-                   # the baseline P6 names vs the project attached — a wrong revision is flagged
-                   'baseline_expected_name': info.get('expected_name'),
-                   'baseline_attached_project': info.get('attached_project'),
-                   'baseline_mismatch': bool(info.get('mismatch'))}
+            out = _answer(info, len(data.activities))
             if not out['matched']:                    # the wrong project's baseline — never remembered
                 self._json(200, out)
                 return
             bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
+            info['path'] = bl_cached
             out['baseline_cached'] = bl_cached
-            sid = body.get('snapshot_id')
-            if sid and db.snapshot_exists(sid):
-                db.save_baseline(sid, bl_cached, bl_path)   # remember per snapshot (and re-imports)
-                self._refresh_snapshot(sid, resolved, out)
-            else:
-                with open(resource_path('config.json')) as f:
-                    config = json.load(f)
-                config['categories'] = auto_categories(data)
-                out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
+            # the result's baseline keys (source, label, approx …) for the screen to adopt
+            out['baseline_fields'] = {**baseline_fields(info), **schedule_baseline(data)}
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            config['categories'] = auto_categories(data)
+            out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
             self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2884,6 +2929,10 @@ class Handler(BaseHTTPRequestHandler):
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
                 data = load_schedule(resolved)
+                from p6_evm.baseline import baseline_fields, schedule_baseline
+                # the result's baseline keys for the screen (source 'self', not null — R3 F11)
+                out['baseline_fields'] = {**baseline_fields(getattr(data, 'baseline_info', None)),
+                                          **schedule_baseline(data)}
                 config['categories'] = auto_categories(data)
                 out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
             self._json(200, out)
