@@ -41,9 +41,24 @@ async function fetchAndRender() {
   }
 }
 
+// The server renders ONE html for the screen and the PDF / HTML exports, so its stylesheet
+// is written for a standalone page: its `body`, `p`, `table` and `*` rules, mounted inside
+// the app, restyled EVERY feature from the moment the report was generated (Times New Roman
+// text, a grey page, dark text in the dark modes, the menu bar jumping). On screen those
+// page-level rules apply to the report container only; :where() keeps each rule's
+// specificity exactly as written, so the report itself renders the same. (Exports send the
+// document model, never this DOM, so they are unaffected.)
+const DOC_SCOPE = ':where(#narrative-doc)';
+export function scopeReportCss(html) {
+  return String(html || '').replace(/<style>([\s\S]*?)<\/style>/, (m, css) => '<style>' +
+    css.replace(/(^|[{}])(\s*)(body|p|table|\*)(?=\s*\{)/g,
+      (r, brace, ws, sel) => brace + ws + (sel === 'body' ? DOC_SCOPE : DOC_SCOPE + ' ' + sel)) +
+    '</style>');
+}
+
 function mountReport(html) {
   const host = document.getElementById('narrative-doc');
-  host.innerHTML = editStyles() + html;
+  host.innerHTML = editStyles() + scopeReportCss(html);
   makeEditable(host);
   mountContents(host);
 }
