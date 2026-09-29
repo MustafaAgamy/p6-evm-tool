@@ -92,3 +92,17 @@ def test_getting_started_names_both_export_formats():
     js = _read('ui/modules/help.js')
     assert 'P6 XML or XER export' in js
     assert 'XML/XER export' not in js
+
+
+# ── VER-1: a release can never ship a stale version ──────────────────────────
+def test_release_workflow_checks_the_version_before_building():
+    """build-release.yml runs this file and stops when the tag differs from the newest
+    CHANGELOG release, BEFORE the exe is built (the exe shows utils.APP_VERSION)."""
+    wf = _read('.github/workflows/build-release.yml')
+    check = wf.find('python -m pytest tests/test_app_version.py')
+    build = wf.find('pyinstaller controlyx.spec')
+    assert check != -1, 'the release workflow must run tests/test_app_version.py'
+    assert build != -1 and check < build, 'the version check must run before the exe is built'
+    step = wf[wf.rfind('- name:', 0, check):build]
+    assert 'utils.APP_VERSION' in step and 'GITHUB_REF_NAME' in step and 'exit 1' in step, \
+        'a tag that differs from the newest CHANGELOG release must fail the build'
