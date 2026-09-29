@@ -1702,10 +1702,10 @@ def _tree_parts(seq, max_rows):
     parts, r0 = [], 0
     while r0 < n:
         r1 = min(n, r0 + size)
+        if 0 < n - r1 < 3:              # never a 1-2 row tail: this part hands it rows
+            r1 = max(r0 + 3, n - 3)
         while r1 < n and r1 - r0 > 3 and seq[r1 - 1]['node'].get('children'):
             r1 -= 1
-        if n - r1 < 3:
-            r1 = n
         parts.append((r0, r1))
         r0 = r1
     return parts
