@@ -42,6 +42,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **AI Chat brain download:** the larger (7B) brain pointed at a file the download site does not have, so it always failed. It now downloads the two published parts. A download that is cut short is never installed. The tool checks free disk space first. When offline it shows a plain message, and the setup buttons come back.
 - The online services identify the app honestly, as their usage rules ask. All addresses were checked: the 3 web pages, the 6 online-service calls and the 3 brain downloads answered HTTP 200. LinkedIn answered with its usual reply to automated checks (999), which means the site is up.
 
+### Fixed — Your settings are kept
+- **Project Setup category weights and Actual Cost** are saved with the project, so they come back when you re-open or re-import the project and after the app is closed and opened again. Before, they were kept only by the app window, which forgot them at restart.
+- **Screen preferences** (Appearance mode, Report Contents choices, table and chart choices) are kept when the app restarts. Before, the app window forgot them each time it was opened.
+- **P6 Calendar Audit:** saving a shutdown reason or working-hours note no longer clears the notes already saved on other rows. If a note cannot be saved, the screen says so.
+- **Bad Weather:** the location, Site Type and weather limits stay as you last set them when you run the feature again in the same session. Before, they went back to the values from when the file was imported. They are also saved when the weather service cannot be reached.
+- **Lag & Lead justifications:** if a reason cannot be saved, a note beside the box says so and asks you to edit it again. Before, a failed save gave no message.
+- **Schedule Health contract milestones:** **Edit contract milestones** now shows the milestones you saved. It used to open empty after a run or a re-import, so running again kept only the rows you typed again. Blank rows are ignored. If the milestones are saved but cannot be checked against the baseline, the screen says so.
+- **AI Chat:** if the AI brain you choose cannot be saved on this PC, the chat says so. Before, the app went back to the previous brain at the next restart and gave no message.
+
 ### Fixed
 - **PDF exports could fail on some computers.** The tool used to pick a browser to print with that, on some PCs, cannot start at all ("side-by-side configuration is incorrect"), and it did not try another one. It now checks which browser can really print (Google Chrome first, then Microsoft Edge, then a spare built-in one), remembers the one that works, and moves on to the next if one fails. This applies to every PDF in the tool and to the pictures inside Word exports. If a PDF you are replacing is still open in another program, you now get a message asking you to close it, and the old file is never passed off as the new one.
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
