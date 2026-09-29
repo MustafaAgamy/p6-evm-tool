@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   FEATURE_NEEDS, featureNeeds, needsHint, needsTooltip, needsSearchText, filterNeeds,
-  needsGroups, requiredFileCount, UPDATE_NO_BASELINE_ADVICE,
+  needsGroups, requiredFileCount, UPDATE_NO_BASELINE_ADVICE, ATTACHED_BASELINE_PREFILL,
 } from '../../ui/modules/feature_needs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -271,6 +271,26 @@ test('Attach buttons say "XER or XML" (Earned Value, Update Analysis, Reporting 
   assert.ok(!/Attach baseline XER'|Import baseline XER/.test(evm), 'evm.js still labels the attach button XER-only');
   assert.match(evm, /attach: ATTACH_BASELINE_LABEL/);
   assert.match(read('p6_special', 'providers', 'twofile.py'), /'label': 'Baseline \(XER or XML\)'/);
+});
+test('Baseline slots start with the baseline attached to this update (R3 F9)', () => {
+  const blj = read('ui', 'modules', 'baseline.js');
+  assert.match(blj, /export function attachedBaselineSlot\(result\)/);
+  assert.match(blj, /ATTACHED_BASELINE_TAG = 'attached to this update'/);
+  assert.match(ATTACHED_BASELINE_PREFILL, /attached to this update/);
+  assert.match(ATTACHED_BASELINE_PREFILL, /Change button picks another file/);
+  const cpa = read('ui', 'modules', 'critpath.js');
+  assert.match(cpa, /attachedBaselineSlot\(state\.currentResult\)/);
+  assert.match(cpa, /payload\[`\$\{role\}_path`\] = _slotPath\(role\)/, 'critpath does not send the attached baseline');
+  assert.match(cpa, /every\(r => _slotPath\(r\)\)/, 'critpath Run stays disabled with the attached baseline');
+  const cmp = read('ui', 'modules', 'compare.js');
+  assert.match(cmp, /function _reviewBaseline\(\)[\s\S]{0,400}attachedBaselineSlot\(state\.currentResult\)/);
+  assert.match(cmp, /const bl = _reviewBaseline\(\);[\s\S]{0,200}state\.compareBaselinePath = path;/);
+  const sr = read('ui', 'modules', 'special.js');
+  assert.match(sr, /inputs: effInputs\(\)/);
+  assert.match(sr, /api\('api\/special\/catalog', \{ snapshot_id: state\.currentSnapshotId, inputs: effInputs\(\) \}\)/);
+  assert.equal(featureNeeds('critpath').files.find(f => /^Baseline/.test(f.role)).note, ATTACHED_BASELINE_PREFILL);
+  assert.equal(featureNeeds('compare').files.find(f => /^Baseline/.test(f.role)).note, ATTACHED_BASELINE_PREFILL);
+  assert.match(featureNeeds('special').files[1].note, /comparison item’s Baseline is filled in with that attached baseline/);
 });
 test('Knowledge Base: every file the screen saves is listed (SHELL-7)', () => {
   const kb = read('ui', 'modules', 'database.js');

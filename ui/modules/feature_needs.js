@@ -50,6 +50,11 @@ export const UPDATE_NO_BASELINE_ADVICE =
   'for this update and used by every feature — or re-export the update from P6 as XML with its baseline ' +
   'project included.';
 
+// Critical Path Analyzer / Consultant Review / Reporting Studio: the Baseline slot starts with the
+// baseline attached to this update (ui/modules/baseline.js attachedBaselineSlot — R3 F9).
+export const ATTACHED_BASELINE_PREFILL =
+  'Filled in for you with the baseline attached to this update (on Earned Value / Update Analysis) — named “attached to this update”; its Change button picks another file.';
+
 export const FEATURE_NEEDS = [
   {
     id: 'home', name: 'Import a schedule', group: '',
@@ -180,7 +185,8 @@ export const FEATURE_NEEDS = [
     hint: 'current update + a baseline and/or previous update (XER or XML)',
     files: [
       { n: 1, role: 'Current update — the imported file', formats: XER_OR_XML, k: 'p6' },
-      { n: 1, role: 'Baseline — for "Update vs Baseline" (default) and "Two updates + Baseline"', formats: XER_OR_XML, k: 'extra' },
+      { n: 1, role: 'Baseline — for "Update vs Baseline" (default) and "Two updates + Baseline"', formats: XER_OR_XML, k: 'extra',
+        note: ATTACHED_BASELINE_PREFILL },
       { n: 1, role: 'Previous update — for "Two updates" and "Two updates + Baseline"', formats: XER_OR_XML, k: 'extra',
         note: 'Measured against its own baseline (inside it, or attached for it); if it has none, against the current update’s baseline — the one inside the XML or the one attached, the same result either way.' },
     ],
@@ -213,7 +219,7 @@ export const FEATURE_NEEDS = [
     files: [
       { n: 1, role: 'Current update — the imported file', formats: XER_OR_XML, k: 'p6',
         note: 'The corrected but-for file can only be written from an XML update.' },
-      { n: 1, role: 'Baseline programme', formats: XER_OR_XML, k: 'extra' },
+      { n: 1, role: 'Baseline programme', formats: XER_OR_XML, k: 'extra', note: ATTACHED_BASELINE_PREFILL },
       { n: 1, role: 'Optional but-for step: the corrected file rescheduled in P6 (F9) and re-exported', formats: XER_OR_XML, k: 'optional',
         note: 'Only WRITING the corrected file needs the update as XML; the rescheduled re-export you load back can be XER or XML.' },
     ],
@@ -272,7 +278,7 @@ export const FEATURE_NEEDS = [
     files: [
       { n: 1, role: 'An imported schedule (to open the Studio)', formats: XER_OR_XML, k: 'p6' },
       { n: 1, role: 'Only for comparison items: baseline, previous update or Rev.00 — the Studio asks for it', formats: XER_OR_XML, k: 'optional',
-        note: 'Every slot accepts XER or XML, whatever its label says (the "Rescheduled corrected (but-for) XML" slot too). The open schedule is read with its own baseline, else the one attached on Earned Value / Update Analysis. Update Analysis results follow the Update Analysis screen: an update with no baseline inside it and none attached offers them as "needs input" with the reason (attach the baseline, XER or XML) — never measured against its own Planned dates. The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
+        note: 'Every slot accepts XER or XML, whatever its label says (the "Rescheduled corrected (but-for) XML" slot too). The open schedule is read with its own baseline, else the one attached on Earned Value / Update Analysis — and a comparison item’s Baseline is filled in with that attached baseline (its Change button picks another file). Update Analysis results follow the Update Analysis screen: an update with no baseline inside it and none attached offers them as "needs input" with the reason (attach the baseline, XER or XML) — never measured against its own Planned dates. The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
     ],
     other: [],
     produces: 'One composed report from the results you pick, in the order you choose.',

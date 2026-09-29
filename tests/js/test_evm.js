@@ -261,5 +261,20 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   });
 }
 
+{
+  const { attachedBaselineSlot } = await import('../../ui/modules/baseline.js');
+  test('attachedBaselineSlot: the attached baseline (cached copy) fills the two-file Baseline slots (R3 F9)', () => {
+    const r = { baseline_source: 'attached', baseline_name: 'SG_BASELINE.xer',
+                baseline_path: 'C:/u/.controlyx/schedules/0123456789ab_SG_BASELINE.xer' };
+    assert.deepEqual(attachedBaselineSlot(r), { path: r.baseline_path, name: 'SG_BASELINE.xer' });
+    assert.deepEqual(attachedBaselineSlot({ baseline_source: 'attached', baseline_path: 'C:\\s\\0123456789ab_BL.xml' }),
+      { path: 'C:\\s\\0123456789ab_BL.xml', name: 'BL.xml' });                     // name from the cached file
+    assert.equal(attachedBaselineSlot({ baseline_source: 'embedded' }), null);        // inside the file: nothing attached
+    assert.equal(attachedBaselineSlot({ baseline_source: 'self' }), null);
+    assert.equal(attachedBaselineSlot({ baseline_source: 'attached' }), null);        // no file to send
+    assert.equal(attachedBaselineSlot(null), null);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
