@@ -248,7 +248,7 @@ KEEP_WHOLE_SELECTORS = (
 MEASURED_SELECTORS = (
     'table', 'tr', '[data-part]', '[data-export]', '.rpt-measure', '.tiles', '.kpis',
     '.kpi-row', '.cards', '.vcards', '.card', '.card3', '.charts', '.lcharts', '.chart',
-    '.grid2', '.dt', '.codetbl', '.seqflow', '.mgrids', 'ul', 'ol', 'dl', 'pre', 'blockquote',
+    '.grid2', '.dt', '.codetbl', '.seqflow', '.mgrids', 'ul', 'ol', 'li', 'dl', 'pre', 'blockquote',
 ) + KEEP_WHOLE_SELECTORS
 
 PAGINATION_FIT = 0.35        # a block up to 35 % of the page height is always kept whole
@@ -301,6 +301,11 @@ def pagination_css():
         '  /* 4 · text: no 1-2 line orphans / widows */\n'
         '  p, li, dd, blockquote { orphans: 3; widows: 3; }\n'
         '  li { break-inside: avoid; page-break-inside: avoid; }\n'
+        # a nested list's first item stays with its parent item's label (a tree node never
+        # ends a page with its children on the next; Chrome carries a first child's
+        # break-before up to the nested list, i.e. to the break right under the label)
+        '  li > ul > li:first-child, li > ol > li:first-child {'
+        ' break-before: avoid; page-break-before: avoid; }\n'
         '  /* 5 · screen scroll boxes print in full (no scrollbar, no clipped columns) */\n'
         '  .table-wrap, .tbl-wrap, .tblwrap, .scroll-x, .xscroll,\n'
         '  [style*="overflow-x"], [style*="overflow-y"], [style*="overflow:auto"],'
@@ -406,6 +411,10 @@ def pagination_script():
         "for(i=0;i<els.length;i++){var el=els[i],r=el.getBoundingClientRect(),hg=r.height;if(!hg)continue;"
         "if(hg>flow)todo.push([el,'rpt-flow']);"
         "else if(hg<=fit&&el.tagName!=='TR')todo.push([el,'rpt-fit']);"
+        "if((el.tagName==='UL'||el.tagName==='OL')&&hg>fit&&hg<=flow&&!inCell(el)){"
+        "todo.push([el,'rpt-flow']);for(var a2=el.parentElement,d2=0;a2&&a2!==document.body&&d2<3;"
+        "d2++,a2=a2.parentElement){if(hOf(a2)>flow)break;todo.push([a2,'rpt-flow']);}}"
+        "if(el.tagName==='LI'&&hg>fit&&hg<=flow)todo.push([el,'rpt-flow']);"
         "if(el.tagName==='TABLE'){if(hg>fit&&!el.tHead)todo.push([el,'@head']);"
         # a table too big to be "small" continues on the next page with its header repeated
         # (owner: keep a table together when it fits, otherwise continue it intentionally) —
