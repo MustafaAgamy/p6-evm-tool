@@ -102,6 +102,8 @@ hiddenimports = [
     # Startup reliability (black-screen fixes): startup log, readiness handshake, single-
     # instance guard, gated safe graphics. Imported by app.py + server.py; listed for safety.
     'app_startup',
+    # Screen preferences kept across restarts (<app data>/ui_prefs.json). Imported by server.py.
+    'ui_prefs',
     # Special Report — registry + context + renderer + all built-in providers.
     # discover() uses importlib dynamically, so force every submodule to ship
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).

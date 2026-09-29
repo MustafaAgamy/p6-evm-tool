@@ -9,6 +9,7 @@ from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, A
 import db
 import report_theme
 import app_startup          # startup log + readiness handshake (black-screen fixes)
+import ui_prefs             # screen preferences kept across restarts (<app data>/ui_prefs.json)
 
 
 def _fmt_meta_date(v):
@@ -288,6 +289,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve(resource_path(_p.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()
+        elif self.path.split('?', 1)[0] == '/api/ui-prefs':      # saved screen preferences
+            self._handle_ui_prefs_get()
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
@@ -312,6 +315,9 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(length))
         if self.path == '/api/client-log':                 # page startup guard -> startup log
             self._json(200, {'ok': True, 'kind': app_startup.client_log(body)['kind']})
+            return
+        if self.path == '/api/ui-prefs':                   # ui/prefs_bridge.js -> ui_prefs.json
+            self._handle_ui_prefs_post(body)
             return
         if self.path == '/api/parse':
             self._handle_parse(body)
@@ -691,6 +697,7 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_index(self):
         try:
             html = _read_ui_file(resource_path('ui/index.html')).decode()
+            html = _inline_ui_prefs(html)          # before the guard fills its marker
             html = _inline_startup_guard(html)
             port = self.server.server_address[1]
             # Inject runtime globals so the UI derives its branding from the
@@ -767,6 +774,28 @@ class Handler(BaseHTTPRequestHandler):
         ok / recovered / degraded, and the page handshake state). Never touches XML."""
         self._json(200, {'ok': True, 'app': APP_NAME, 'version': APP_VERSION,
                          'db': dict(db.DB_STATUS), **app_startup.health()})
+
+    # ── /api/ui-prefs — screen preferences that survive an app restart ─────
+    # (Appearance, Report Contents picks, table columns …; owner comment 31 b.) The page
+    # keeps them in its browser storage, which the app window loses at every restart;
+    # ui/prefs_bridge.js mirrors that storage here and _serve_index hands it back.
+    def _handle_ui_prefs_get(self):
+        self._json(200, {'ok': True, 'prefs': ui_prefs.load(_ui_prefs_dir())})
+
+    def _handle_ui_prefs_post(self, body):
+        if not isinstance(body, dict):
+            self._json(400, {'ok': False, 'error': 'Preferences were not understood.'})
+            return
+        try:
+            count, skipped = ui_prefs.update(_ui_prefs_dir(), body.get('set'), body.get('remove'))
+        except ValueError as exc:
+            self._json(400, {'ok': False, 'error': str(exc)})
+            return
+        except OSError as exc:                  # file locked / disk full: the page retries
+            app_startup.log('ui prefs not saved (%r)', exc)
+            self._json(503, {'ok': False, 'error': 'Screen preferences could not be saved right now.'})
+            return
+        self._json(200, {'ok': True, 'count': count, 'skipped': skipped})
 
     def _json(self, status, data):
         body = json.dumps(data, cls=_Encoder).encode()
@@ -3897,6 +3926,31 @@ def _read_ui_file(path, attempts=4, delays=(0.1, 0.25, 0.5)):
 
 
 _GUARD_MARK = '<!--cx:startup-guard-->'
+
+
+def _ui_prefs_dir():
+    """Where ui_prefs.json lives (the per-user app data folder); tests point it elsewhere."""
+    return app_data_dir()
+
+
+def _inline_ui_prefs(html):
+    """Put the saved screen preferences (window.__UI_PREFS__) and ui/prefs_bridge.js inline
+    at the top of <head>, before the early Appearance script and every module, so the saved
+    Appearance paints first and each module reads its remembered setting as before. Never
+    fails the page: an unreadable store gives {} and a missing bridge file a script tag."""
+    try:
+        prefs = ui_prefs.load(_ui_prefs_dir())
+    except Exception:                                    # noqa: BLE001 — never block the page
+        prefs = {}
+    head = '<script>window.__UI_PREFS__=' + ui_prefs.script_json(prefs) + ';</script>'
+    try:
+        js = _read_ui_file(resource_path('ui/prefs_bridge.js')).decode('utf-8')
+        head += '<script>' + js.replace('</script', '<\\/script') + '</script>'
+    except OSError:
+        head += '<script src="/ui/prefs_bridge.js"></script>'
+    if _GUARD_MARK in html:
+        return html.replace(_GUARD_MARK, _GUARD_MARK + head, 1)
+    return html.replace('<head>', '<head>' + head, 1)
 
 
 def _inline_startup_guard(html):
