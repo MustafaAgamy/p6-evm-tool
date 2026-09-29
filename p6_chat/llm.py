@@ -96,14 +96,40 @@ def get_model_key():
     return DEFAULT_KEY
 
 
+def _write_model_key(key):
+    """Keep the chosen brain in <app data>/chat_brain.json so it survives an app restart.
+    Written to a temp file then swapped in (a crash mid-write never leaves a broken file
+    that would silently fall back to the default); any other keys in the file are kept.
+    Returns True when the choice is on disk."""
+    path = _settings_path()
+    data = {}
+    try:
+        with open(path, encoding='utf-8') as f:
+            old = json.load(f)
+        if isinstance(old, dict):
+            data = old
+    except Exception:
+        data = {}
+    data['model_key'] = key
+    tmp = path + '.tmp'
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+        return True
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return False
+
+
 def set_model_key(key):
     if key not in MODELS:
         return get_model_key()
-    try:
-        with open(_settings_path(), 'w', encoding='utf-8') as f:
-            json.dump({'model_key': key}, f)
-    except Exception:
-        pass
+    _write_model_key(key)
     return key
 
 
@@ -308,9 +334,19 @@ def get_settings():
 
 
 def save_settings(base_url=None, model=None):
-    if model in MODELS:
-        set_model_key(model)
-    return get_settings()
+    """Save the chosen brain. The answer says whether it was kept (``saved``) so the chat
+    screen can say so when the choice could not be written (it would revert on restart)."""
+    saved = None
+    if model is not None:
+        saved = bool(model in MODELS and _write_model_key(model))
+    out = get_settings()
+    if saved is not None:
+        out['saved'] = saved
+        if not saved:
+            out['error'] = ('That AI brain is not one of the offered choices.' if model not in MODELS
+                            else 'Your AI brain choice could not be saved on this PC '
+                                 '(the app data folder is not writable).')
+    return out
 
 
 def pull(model=None):

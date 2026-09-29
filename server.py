@@ -3270,11 +3270,23 @@ class Handler(BaseHTTPRequestHandler):
         if not pid:
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
-        milestones = body.get('milestones') or []
-        db.save_contract_milestones(pid, milestones)
+        # only complete rows ({name, date} text) are kept — a stray blank row never wipes the list
+        milestones = [{'name': str(m.get('name') or '').strip(), 'date': str(m.get('date') or '').strip()}
+                      for m in (body.get('milestones') or []) if isinstance(m, dict)]
+        milestones = [m for m in milestones if m['name'] and m['date']]
+        try:
+            db.save_contract_milestones(pid, milestones)
+        except Exception as sexc:                       # DB busy/locked -> say so, keep the old list
+            self._json(200, {'ok': False, 'error': 'Your contract milestones could not be saved '
+                                                   f'just now ({sexc}) — please press Run again.'})
+            return
         module = None
         health = None
+        eval_error = None
         resolved = db.get_snapshot_xml_path(sid)
+        if not resolved:
+            eval_error = ('the schedule file for this project could not be found '
+                          '(re-import it to check them)')
         if resolved:
             try:
                 sys.path.insert(0, resource_path('.'))
@@ -3297,7 +3309,12 @@ class Handler(BaseHTTPRequestHandler):
                 health = schedule_health(am['modules'])
             except Exception as mexc:
                 print(f'[milestone] save recompute skipped: {mexc}', file=sys.stderr)
-        self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
+                eval_error = f'the schedule could not be read ({mexc})'
+        out = {'ok': True, 'saved': True, 'milestones': milestones,
+               'milestone_module': module, 'health': health}
+        if module is None and eval_error:
+            out['error'] = eval_error
+        self._json(200, out)
 
     # ── /api/history ───────────────────────────────────────────────────────
     # ── /api/export/{pdf,html,docx,xlsx} — ONE-DOCUMENT exports ─────────────

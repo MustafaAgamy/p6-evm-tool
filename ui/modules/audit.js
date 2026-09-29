@@ -1944,10 +1944,28 @@ function msRowHtml(name = '', date = '') {
 
 // The gate screen shown before ANY check results (gate B). Pre-filled from the saved
 // contract milestones when re-opening a project.
+// The contract milestones to pre-fill the gate with: the saved list the module carries, else
+// (an older result) rebuilt from its evaluations — "9-Feb-2027" back to the date box's
+// 2027-02-09. Never empty while milestones exist, so "Edit" never drops the other rows.
+// (Exported for tests.)
+const _MS_MON = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+export function msGateRows(mc) {
+  const m = mc || {};
+  if (Array.isArray(m.contract_milestones) && m.contract_milestones.length) {
+    return m.contract_milestones.map((s) => ({ name: (s && s.name) || '', date: (s && s.date) || '' }));
+  }
+  return (m.milestones || []).filter((e) => e && e.contract_name).map((e) => {
+    const g = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(e.contract_date || ''));
+    const mo = g && _MS_MON[g[2].charAt(0).toUpperCase() + g[2].slice(1).toLowerCase()];
+    const date = mo ? `${g[3]}-${String(mo).padStart(2, '0')}-${g[1].padStart(2, '0')}` : '';
+    return { name: e.contract_name, date };
+  });
+}
+
 function renderMilestoneGate(am) {
   const mc = am.modules.hard_constraints || {};
   const baseline = mc.baseline_milestones || [];
-  const saved = mc.contract_milestones || [];
+  const saved = msGateRows(mc);
   const body = document.getElementById('audit-body');
   body.innerHTML = `
     <div class="ms-gate">
@@ -1994,9 +2012,16 @@ async function submitMilestones(am) {
     }).then(r => r.json());
     if (resp.ok && resp.milestone_module) {
       am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      if (!am.modules.hard_constraints.contract_milestones) am.modules.hard_constraints.contract_milestones = resp.milestones || milestones;
       if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
       renderAudit(am);                                        // un-gated
       selectModule('hard_constraints');                      // land on the Milestone Check
+    } else if (resp.ok && resp.saved) {
+      // Kept with the project, but not checked against the baseline — say both plainly.
+      if (am.modules.hard_constraints) am.modules.hard_constraints.contract_milestones = resp.milestones || milestones;
+      hint.textContent = 'Your contract milestones are saved, but they could not be checked against the baseline'
+        + (resp.error ? ` — ${resp.error}` : '') + '. Press Run to try again.';
+      runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
     } else {
       hint.textContent = resp.error || 'Could not evaluate the milestones — please retry.';
       runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';

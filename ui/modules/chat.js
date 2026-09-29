@@ -1727,13 +1727,28 @@ function renderModels() {
     `<button class="pchat-mchip ${o.key === BRAIN.model_key ? 'on' : ''}" data-model="${o.key}"${dis}>${escapeHtml(o.label)}<span class="sz">${escapeHtml(o.size)}${o.downloaded ? ' · downloaded' : ''}</span></button>`).join('');
 }
 
+// The line to show when choosing an AI brain was NOT kept (it would go back to the old
+// choice after a restart), or '' when it was saved. (Exported for tests.)
+export function brainChoiceProblem(d) {
+  if (!d) return 'Your AI brain choice was not saved — the app did not answer. Choose it again to retry.';
+  if (d.ok === false) return 'Your AI brain choice was not saved — ' + (d.error || 'please choose it again.');
+  const s = d.settings || {};
+  if (s.saved === false) return (s.error || 'Your AI brain choice was not saved.') + ' It will go back to the previous choice when the app restarts.';
+  return '';
+}
+
 async function selectModel(key) {
   if (BRAIN && BRAIN.downloading) return;              // don't repoint the brain mid-download
+  let d = null;
   try {
-    const d = await postJSON('/api/chat/settings', { model: key });
+    d = await postJSON('/api/chat/settings', { model: key });
     if (d && d.brain) BRAIN = d.brain;
-  } catch (_) { /* offline */ }
+  } catch (_) { d = null; /* offline / app busy */ }
   renderBrainPill();
+  // A choice that was not kept is said beside the choices — never silently reverted later.
+  const problem = brainChoiceProblem(d);
+  const note = document.getElementById('pchat-setup-note');
+  if (problem && note) { note.classList.add('pchat-setup-err'); note.textContent = '⚠ ' + problem; }
 }
 
 async function refreshStatus() {
