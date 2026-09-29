@@ -1032,3 +1032,135 @@ def test_parity(parsed, entity, field):
     x = _norm(view(parsed['xml'], entity, field))
     r = _norm(view(parsed['xer'], entity, field))
     assert x == r, f'{entity}.{field}: XML vs XER\n{_explain(r, x)}'
+
+
+@pytest.mark.xfail(strict=True, reason='P17: relationship order follows the file (XML ObjectId '
+                                       'order vs XER TASKPRED order) - sort deterministically')
+def test_relationship_order_matches(parsed):
+    """Order-sensitive outputs (a representative link, 'first' predecessor) must not depend on
+    the file format: the same links in the same order from XML and XER."""
+    order = {}
+    for fmt in ('xml', 'xer'):
+        d = parsed[fmt]
+        code = {oid: a['id'] for oid, a in d.activities.items()}
+        order[fmt] = [(code[r['pred_id']], code[r['succ_id']]) for r in d.relationships]
+    assert order['xml'] == order['xer']
+
+
+STRUCTURE_XFAIL = {'project': _P13}
+
+
+@pytest.mark.parametrize('part', [
+    pytest.param(p, id=p, marks=[pytest.mark.xfail(strict=True, reason=STRUCTURE_XFAIL[p])]
+                 if p in STRUCTURE_XFAIL else [])
+    for p in ('schedule_data', 'project', 'activity', 'relationship', 'resource', 'assignment')])
+def test_key_sets_match(parsed, part):
+    """Both parsers expose the SAME keys, so a feature never meets a field that exists for one
+    format only (a new key added to one parser must be added to the other)."""
+    def keys(d):
+        if part == 'schedule_data':
+            return set(vars(d))
+        if part == 'project':
+            return set(d.project)
+        if part == 'activity':
+            return {frozenset(a) for a in d.activities.values()}
+        if part == 'relationship':
+            return {frozenset(r) for r in d.relationships}
+        if part == 'resource':
+            return {frozenset(r) for r in d.resources.values()}
+        return {frozenset(s) for lst in d.assignments_by_activity.values() for s in lst}
+    assert keys(parsed['xml']) == keys(parsed['xer'])
+
+
+def test_tf_from_hours_is_a_genuine_format_difference(parsed):
+    """GENUINE (not a defect): P6's XER stores Total Float (total_float_hr_cnt) while P6's XML
+    exports NO float field on <Activity> (only <ComputeTotalFloatType>), so the XML float is always
+    reconstructed. tf_from_hours records that provenance and legitimately differs; the float VALUE
+    must still agree (test_parity[activity.total_float_days])."""
+    xml = {a['id']: a['tf_from_hours'] for a in parsed['xml'].activities.values()}
+    xer = {a['id']: a['tf_from_hours'] for a in parsed['xer'].activities.values()}
+    assert set(xml.values()) == {False}
+    assert xer == {a['code']: a['tf'] is not None for a in ACTIVITIES}
+
+
+def test_twin_files_are_written_the_way_p6_writes_them(files):
+    """Guard the harness itself: the synthetic files keep P6's real per-format encodings, so the
+    parity tests exercise what P6 actually writes (evidence: SG / ALSTOM / GBT parity pairs)."""
+    with open(files['xml'], encoding='utf-8') as f:
+        xml = f.read()
+    with open(files['xer'], encoding='utf-8') as f:
+        xer = f.read()
+    assert '<Finish>11:59:00</Finish>' in xml and '<Finish>23:59:00</Finish>' in xml
+    assert '<TotalFloat' not in xml and '<FreeFloat' not in xml       # P6 XML has no float
+    assert '<ParentObjectId xsi:nil="true" />' in xml and '<BaselineProject>' in xml
+    assert xml.count('<PricePerUnit>') == len(ASSIGNMENTS) - 1
+    assert 's|00:00|f|00:00' in xer and 's|08:00|f|12:00' in xer
+    assert 'Design ""Rev A"" drawings' in xer and 'Excavation\x7f\x7fZone A' in xer
+    assert '\tTK_Active\t' in xer and '\tCS_MSO\t' in xer and '\tCS_MSOA' in xer
+    assert '\tY\tPARITY-UP01\tParity Test Project - Update 01\t500' in xer   # project-root WBS
+    assert '\t2500.5000\t' in xer                                             # 4-dp money
+    assert xer.count('%T\tPROJECT') == 1 and '\t6900\tPARITY-BL\t' in xer
+
+
+# ── A schedule exported WITHOUT its baseline, in both formats ─────────────────────────────
+# XML without <BaselineProject> (it still names CurrentBaselineProjectObjectId) vs a P6 XER
+# update export (BASELINE_EXPORT pointer only - genuine finding G3). Neither carries the
+# baseline, so both must end the same way and SAY so, never silently diverge (P1 / P2).
+
+@pytest.fixture(scope='module')
+def parsed_nobl(files):
+    return {'xml': parse_file(files['xml_nobl']), 'xer': parse_file(files['xer_nobl'])}
+
+
+@pytest.mark.xfail(strict=True, reason='P1 / P2: no ScheduleData.baseline_source saying the '
+                                       'export carries no baseline')
+def test_no_baseline_pair_states_the_same_baseline_source(parsed_nobl):
+    src = {f: getattr(parsed_nobl[f], 'baseline_source', None) for f in ('xml', 'xer')}
+    assert src['xml'] and src['xml'] != 'embedded', src
+    assert src['xml'] == src['xer'], src
+
+
+@pytest.mark.xfail(strict=True, reason='P2: XML without baseline gives {} while XER self-fills '
+                                       'its own planned dates - two different "no baseline" rules')
+def test_no_baseline_pair_baseline_by_id_agrees(parsed_nobl):
+    assert _norm(parsed_nobl['xml'].baseline_by_id) == _norm(parsed_nobl['xer'].baseline_by_id)
+
+
+def test_no_baseline_pair_has_no_baseline_budget(parsed_nobl):
+    assert parsed_nobl['xml'].baseline_bac_by_activity == {}
+    assert parsed_nobl['xer'].baseline_bac_by_activity == {}
+
+
+@pytest.mark.xfail(strict=True, reason=_P13 + ' (XER PROJECT.sum_base_proj_id / BASELINE_EXPORT)')
+def test_no_baseline_pair_names_the_missing_baseline(parsed_nobl):
+    """Both formats still know WHICH baseline is missing, so the UI can ask for it by name/id."""
+    for fmt in ('xml', 'xer'):
+        assert parsed_nobl[fmt].project.get('baseline_object_id') == BASELINE['object_id'], fmt
+
+
+# ── XER / date edge cases ─────────────────────────────────────────────────────────────────
+
+@pytest.mark.xfail(strict=True, reason=_P23 + ' (PROJECT[0] wins)')
+def test_xer_with_baseline_project_first_still_reads_the_current_project(files):
+    d = parse_file(files['xer_bl_first'])
+    assert d.project.get('object_id') == PROJECT['object_id']
+    assert sorted(a['id'] for a in d.activities.values()) == truth('activity', 'ids')
+    assert _norm(d.baseline_by_id) == _norm(truth('data', 'baseline_by_id'))
+
+
+@pytest.mark.xfail(strict=True, reason='P9: XER with a blank total_float_hr_cnt has no float '
+                                       'fallback (reconstruct like P8; needs P4 for 24-h calendars)')
+def test_xer_blank_total_float_is_reconstructed(files):
+    d = parse_file(files['xer_blank_tf'])
+    got = {a['id']: (a['total_float_days'], a['is_critical']) for a in d.activities.values()}
+    want = {code: (tf, tf is not None and tf <= 0)
+            for code, tf in truth('activity', 'total_float_days').items()}
+    assert _norm(got) == _norm(want)
+
+
+@pytest.mark.parametrize('fmt', ['xml', 'xer'])
+@pytest.mark.xfail(strict=True, reason='P22: date parsing - XML crashes / XER silently drops a '
+                                       'date with fractional seconds')
+def test_date_with_fractional_seconds_parses(files, fmt):
+    d = parse_file(files[f'{fmt}_frac_dd'])
+    assert d.project.get('data_date') == _d(PROJECT['data_date'])
