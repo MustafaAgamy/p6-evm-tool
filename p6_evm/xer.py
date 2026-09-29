@@ -1,6 +1,7 @@
 from datetime import datetime
-from p6_evm.parser import ScheduleData, full_wbs_path, _activity_calendar
-from p6_evm.calendars import Calendar, float_basis, total_float_hours
+from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_calendar_id,
+                           lag_day_hours)
+from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis
 from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
@@ -39,8 +40,21 @@ def _read_text(path):
         return f.read()
 
 
+def _unescape(v):
+    """Decode P6's XER text escaping so a value reads exactly as the XML's: a double quote is
+    written "" (finding P14 - ALSTOM resource '65"" inch' vs the XML's '65" inch', which broke
+    resource / assignment matching) and a line break as two DEL characters 0x7F 0x7F (a lone
+    0x7F for a bare line feed) where the XML holds a real newline (finding P15 - activity names
+    such as 'FANS\\x7f\\x7f - Approval' vs 'FANS\\n - Approval')."""
+    if '""' in v:
+        v = v.replace('""', '"')
+    if '\x7f' in v:
+        v = v.replace('\x7f\x7f', '\n').replace('\x7f', '\n')
+    return v
+
+
 def read_xer_tables(path):
-    """Parse an XER file into {table_name: [row_dict, ...]}."""
+    """Parse an XER file into {table_name: [row_dict, ...]}, text values decoded (_unescape)."""
     tables = {}
     current = None
     fields = []
@@ -57,6 +71,8 @@ def read_xer_tables(path):
             fields = parts[1:]
         elif tag == '%R' and current is not None:
             values = parts[1:]
+            if '"' in line or '\x7f' in line:
+                values = [_unescape(v) for v in values]
             row = {}
             for i, name in enumerate(fields):
                 row[name] = values[i] if i < len(values) else ''
@@ -119,6 +135,8 @@ def parse_xer(path):
     root_wbs = next((w for w in tables.get('PROJWBS', [])
                      if w.get('proj_node_flag') == 'Y'
                      and (not proj_id or w.get('proj_id') in (None, '', proj_id))), {})
+    sched_opts = next((r for r in tables.get('SCHEDOPTIONS', [])
+                       if not proj_id or r.get('proj_id') in (None, '', proj_id)), {})
     data.project = {
         'object_id': proj_id,
         'id': proj.get('proj_short_name'),
@@ -133,10 +151,21 @@ def parse_xer(path):
         'wbs_root_id': root_wbs.get('wbs_id') or None,
         # 'Compute Total Float as' (SCHEDOPTIONS.sched_float_type FT_FF / FT_SF / FT_SM) -> the
         # same 'finish' | 'start' | 'smallest' the XML reports (P8).
-        'total_float_type': float_basis(next(
-            (r.get('sched_float_type') for r in tables.get('SCHEDOPTIONS', [])
-             if not proj_id or r.get('proj_id') in (None, '', proj_id)), None)),
+        'total_float_type': float_basis(sched_opts.get('sched_float_type')),
         'baseline_name': _baseline_name(tables, proj, bl_proj),
+        # Project window, read like the XML's <Project> dates (finding P13 - the XER had none, so
+        # the Calendar Audit's project window was blank for an XER): Planned Start
+        # (plan_start_date = <PlannedStartDate>), Scheduled Finish (scd_end_date =
+        # <ScheduledFinishDate>, falling back to Must Finish By like the XML does) and Must
+        # Finish By (plan_end_date = <MustFinishByDate>).
+        'planned_start': _dt(proj.get('plan_start_date')),
+        'scheduled_finish': _dt(proj.get('scd_end_date') or proj.get('plan_end_date')),
+        'must_finish_by': _dt(proj.get('plan_end_date')),
+        # 'Calendar for scheduling Relationship Lag' (sched_calendar_on_relationship_lag
+        # rcal_Predecessor / ...) + the project default calendar (PROJECT.clndr_id = the XML's
+        # <ActivityDefaultCalendarObjectId>) - lag_days is counted on it (finding P16).
+        'lag_calendar': lag_calendar_basis(sched_opts.get('sched_calendar_on_relationship_lag')),
+        'default_calendar_id': proj.get('clndr_id') or None,
     }
 
     # This project's calendars = global + resource calendars (no proj_id) + its own project
@@ -266,14 +295,16 @@ def parse_xer(path):
         # Only include relationships whose both endpoints belong to this project
         if succ not in data.activities or pred not in data.activities:
             continue
-        cal = data.calendars.get((data.activities.get(succ) or {}).get('calendar_id'))
-        day_hours = cal.day_hours if cal else 8.0
+        # Lag in days on the project's lag calendar (predecessor by default), not always the
+        # successor's (finding P16) - identical rule in parser.py.
+        day_hours = lag_day_hours(data, pred, succ)
         lag_hr = _num(r.get('lag_hr_cnt'), 0.0) or 0.0
         data.relationships.append({
             'pred_id': pred, 'succ_id': succ,
             'type': PRED_TYPE.get(r.get('pred_type'), 'FS'),
             'lag_days': lag_hr / day_hours,
             'lag_hours': lag_hr,
+            'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
 
     # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.

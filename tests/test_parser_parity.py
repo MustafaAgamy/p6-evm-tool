@@ -726,7 +726,8 @@ def truth(entity, field):
                 'planned_start': _d(p['planned_start']),
                 'scheduled_finish': _d(p['scheduled_finish']),
                 'must_finish_by': _d(p['must_finish_by']), 'baseline_name': BASELINE['name'],
-                'wbs_root_id': p['wbs_root'], 'total_float_type': 'finish'}[field]
+                'wbs_root_id': p['wbs_root'], 'total_float_type': 'finish',
+                'lag_calendar': 'predecessor', 'default_calendar_id': '8801'}[field]
     if entity == 'data':
         if field == 'activity_code_types':
             tnames, _ = _code_names()
@@ -772,7 +773,8 @@ def truth(entity, field):
         for _, pr, su, typ, lag in RELATIONSHIPS:
             day_h = CAL_BY_OID[ACT_BY_OID[pr]['cal']]['day_hours']   # PREDECESSOR calendar
             out[(code[pr], code[su])] = {'type': typ, 'lag_hours': lag,
-                                         'lag_days': lag / day_h}[field]
+                                         'lag_days': lag / day_h,
+                                         'lag_calendar_id': ACT_BY_OID[pr]['cal']}[field]
         return out
     if entity == 'resource':
         return {rid: {'name': name, 'code': rc, 'type': typ}[field]
@@ -883,7 +885,8 @@ def parsed(files):
 FIELDS = (
     [('project', f) for f in ('object_id', 'id', 'name', 'data_date', 'baseline_object_id',
                               'planned_start', 'scheduled_finish', 'must_finish_by',
-                              'baseline_name', 'wbs_root_id', 'total_float_type')]
+                              'baseline_name', 'wbs_root_id', 'total_float_type',
+                              'lag_calendar', 'default_calendar_id')]
     + [('data', f) for f in ('activity_code_types', 'baseline_by_id', 'baseline_bac_by_activity',
                              'bac_by_activity', 'ac_by_activity', 'baseline_source')]
     + [('calendar', f) for f in ('ids', 'name', 'day_hours', 'nonworking_days', 'holidays',
@@ -899,7 +902,7 @@ FIELDS = (
                                  'remaining_early_start', 'remaining_early_finish',
                                  'remaining_late_start', 'remaining_late_finish', 'actual_start',
                                  'actual_finish')]
-    + [('relationship', f) for f in ('ids', 'type', 'lag_hours', 'lag_days')]
+    + [('relationship', f) for f in ('ids', 'type', 'lag_hours', 'lag_days', 'lag_calendar_id')]
     + [('resource', f) for f in ('name', 'code', 'type')]
     + [('assignment', f) for f in ('resource_code', 'resource_name', 'resource_type',
                                    'budget_units', 'actual_units', 'budget_cost', 'rate')]
@@ -912,11 +915,10 @@ FIELDS = (
 # (with P10: the XML <WorkTime><Finish> last working minute read back as the shift end);
 # P9 XER blank total_float_hr_cnt rebuilt the same way; P11 / P23 the baseline project's calendars
 # kept out of the project calendar list in both formats (data.baseline_calendars); P12 calendar
-# type / is_default read from the XER and weekly_working_days filled for the XML.
-_P13 = 'P13: project window / must-finish-by / baseline pointer not read'
-_P14 = 'P14: XER "" (escaped quote) not un-escaped'
-_P15 = 'P15: XER line break 0x7F 0x7F kept in text'
-_P16 = 'P16: lag converted on the SUCCESSOR calendar; project option is the PREDECESSOR calendar'
+# type / is_default read from the XER and weekly_working_days filled for the XML; P13 project window
+# (planned start / scheduled finish / must finish by) read from the XER, must-finish-by from both;
+# P14 / P15 XER "" and 0x7F 0x7F decoded; P16 lag days counted on the project's lag calendar
+# (predecessor) in both formats.
 _P18 = 'P18: XER activity_code_types lists unassigned code types'
 _P19 = 'P19: XER Units % complete counts labour units only (P6: labour + nonlabour)'
 _P20 = 'P20: XML assignment without PricePerUnit gives rate None'
@@ -925,32 +927,17 @@ _P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or do
 # (format, 'entity.field') -> finding. Measured by running this harness against the parsers as
 # they stood at commit "[parser:AUDIT]" (every failure checked against the finding's evidence).
 TRUTH_XFAIL = {
-    ('xml', 'project.must_finish_by'): _P13,
     ('xml', 'activity.free_float_days'): _P24,
-    ('xml', 'relationship.lag_days'): _P16,
     ('xml', 'assignment.rate'): _P20,
-    ('xer', 'project.planned_start'): _P13,
-    ('xer', 'project.scheduled_finish'): _P13,
-    ('xer', 'project.must_finish_by'): _P13,
     ('xer', 'data.activity_code_types'): _P18,
-    ('xer', 'activity.name'): _P14 + ' / ' + _P15,
     ('xer', 'activity.percent_complete'): _P19,
-    ('xer', 'relationship.lag_days'): _P16,
-    ('xer', 'resource.name'): _P14,
-    ('xer', 'assignment.resource_name'): _P14,
 }
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
-# wrong the SAME way - P13 must-finish-by, P16 lag
-# days - passes parity and is caught by test_truth only.)
+# wrong the SAME way passes parity and is caught by test_truth only.)
 PARITY_XFAIL = {
-    'project.planned_start': _P13,
-    'project.scheduled_finish': _P13,
     'data.activity_code_types': _P18,
-    'activity.name': _P14 + ' / ' + _P15,
     'activity.percent_complete': _P19,
     'activity.free_float_days': _P24,
-    'resource.name': _P14,
-    'assignment.resource_name': _P14,
     'assignment.rate': _P20,
 }
 
@@ -1002,7 +989,7 @@ def test_relationship_order_matches(parsed):
     assert order['xml'] == order['xer']
 
 
-STRUCTURE_XFAIL = {'project': _P13}
+STRUCTURE_XFAIL = {}
 
 
 @pytest.mark.parametrize('part', [
@@ -1122,3 +1109,71 @@ def test_no_baseline_xer_names_the_baseline_from_baseline_export(parsed_nobl):
     assert d.project.get('baseline_object_id') == BASELINE['object_id']
     assert d.project.get('baseline_name') == BASELINE['name']
     assert d.baseline_source == 'self' and d.baseline_bac_by_activity == {}
+
+
+# ── P16: lag days follow the project's 'Calendar for scheduling Relationship Lag' ─────────
+_LAG_OPTIONS = [  # (XML <RelationshipLagCalendar>, XER sched_calendar_on_relationship_lag, basis)
+    ('Predecessor Activity Calendar', 'rcal_Predecessor', 'predecessor'),
+    ('Successor Activity Calendar', 'rcal_Successor', 'successor'),
+    ('24 Hour Calendar', 'rcal_24Hour', '24h'),
+    ('Project Default Calendar', 'rcal_ProjDefault', 'project'),
+]
+
+
+@pytest.mark.parametrize('xml_word,xer_code,basis', _LAG_OPTIONS, ids=[o[2] for o in _LAG_OPTIONS])
+def test_lag_days_follow_the_lag_calendar_option(tmp_path, xml_word, xer_code, basis):
+    """Each option counts the lag hours on the calendar P6 uses - the 8 h link 70002 (8 h
+    calendar) -> 70004 (24 h calendar) and the 24 h link 70004 -> 70005 tell them apart - and the
+    XML and the XER agree (finding P16: both always used the successor's calendar)."""
+    xml = _write(tmp_path, 'lag.xml', build_xml().replace('Predecessor Activity Calendar', xml_word))
+    xer = _write(tmp_path, 'lag.xer', build_xer().replace('rcal_Predecessor', xer_code))
+    code = {a['oid']: a['code'] for a in ACTIVITIES}
+    want = {}
+    for _, pr, su, _, lag in RELATIONSHIPS:
+        cal = {'predecessor': ACT_BY_OID[pr]['cal'], 'successor': ACT_BY_OID[su]['cal'],
+               '24h': None, 'project': '8801'}[basis]
+        day_h = 24.0 if cal is None else CAL_BY_OID[cal]['day_hours']
+        want[(code[pr], code[su])] = (round(lag / day_h, 6), cal)
+    for path in (xml, xer):
+        d = parse_file(path)
+        assert d.project['lag_calendar'] == basis
+        oid_code = {oid: a['id'] for oid, a in d.activities.items()}
+        got = {(oid_code[r['pred_id']], oid_code[r['succ_id']]):
+               (round(r['lag_days'], 6), r['lag_calendar_id']) for r in d.relationships}
+        assert got == want, path
+
+
+def test_lag_calendar_option_absent_defaults_to_predecessor():
+    from p6_evm.calendars import lag_calendar_basis
+    assert lag_calendar_basis(None) == 'predecessor' == lag_calendar_basis('')
+    assert lag_calendar_basis('something new') == 'predecessor'
+
+
+def test_oos_corrected_lag_round_trips_on_the_lag_calendar(parsed):
+    """Out-of-Sequence 'keep the lag' writes back the file's own lag hours: days -> hours uses the
+    same lag calendar the parser used for hours -> days (P16), for XML and XER alike."""
+    from p6_audit.modules.oos_resolve import to_file_ops
+    for fmt in ('xml', 'xer'):
+        d = parsed[fmt]
+        code = {oid: a['id'] for oid, a in d.activities.items()}
+        for r in d.relationships:
+            if not r['lag_hours']:
+                continue
+            ops = to_file_ops([{'action': 'change', 'pred_id': code[r['pred_id']],
+                                'succ_id': code[r['succ_id']], 'new_type': r['type'],
+                                'new_lag_days': r['lag_days']}], d)
+            assert round(ops[0]['lag_hours'], 6) == round(r['lag_hours'], 6), (fmt, r)
+
+
+# ── P14 / P15: XER text escaping decoded at the table reader ──────────────────────────────
+def test_xer_reader_decodes_quotes_and_line_breaks(tmp_path):
+    from p6_evm.xer import read_xer_tables
+    p = _write(tmp_path, 'esc.xer', '\n'.join([
+        'ERMHDR\t19.12', '%T\tRSRC', '%F\trsrc_id\trsrc_name\trsrc_short_name',
+        '%R\t1\tMonitor 65"" inch\tEPPM-Piping<4""',
+        '%R\t2\tFANS\x7f\x7f - Approval\tLF\x7fonly',
+        '%R\t3\tQuote """"twice""""\t', '%E']))
+    rows = read_xer_tables(p)['RSRC']
+    assert [r['rsrc_name'] for r in rows] == ['Monitor 65" inch', 'FANS\n - Approval',
+                                              'Quote ""twice""']
+    assert [r['rsrc_short_name'] for r in rows] == ['EPPM-Piping<4"', 'LF\nonly', '']

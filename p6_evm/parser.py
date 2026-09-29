@@ -2,7 +2,8 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from p6_evm.calendars import Calendar, hhmmss_to_min, float_basis, total_float_hours
+from p6_evm.calendars import (Calendar, hhmmss_to_min, float_basis, total_float_hours,
+                              lag_calendar_basis)
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
@@ -105,6 +106,33 @@ def full_wbs_path(wbs_id, wbs_map):
             names.append(node['name'])
         current = node.get('parent_object_id')
     return ' > '.join(reversed(names))
+
+
+def lag_calendar_id(data, pred_oid, succ_oid):
+    """The calendar a relationship's lag is counted on, per the project's 'Calendar for
+    scheduling Relationship Lag' option (data.project['lag_calendar'], read from the XML's
+    <RelationshipLagCalendar> / the XER's sched_calendar_on_relationship_lag): the predecessor's
+    (P6's default), the successor's, the project default calendar, or None for a 24-hour day."""
+    project = getattr(data, 'project', None) or {}
+    basis = project.get('lag_calendar') or 'predecessor'
+    if basis == '24h':
+        return None
+    if basis == 'project':
+        return project.get('default_calendar_id')
+    oid = succ_oid if basis == 'successor' else pred_oid
+    return ((getattr(data, 'activities', None) or {}).get(oid) or {}).get('calendar_id')
+
+
+def lag_day_hours(data, pred_oid, succ_oid):
+    """Hours per day of the lag calendar - lag_days = lag_hours / this, in BOTH parsers (finding
+    P16: it used the successor's calendar whatever the project option said). 24 for the 24-hour
+    option; 8 when the calendar is unknown (unchanged fallback)."""
+    project = getattr(data, 'project', None) or {}
+    if (project.get('lag_calendar') or 'predecessor') == '24h':
+        return 24.0
+    cal = (getattr(data, 'calendars', None) or {}).get(lag_calendar_id(data, pred_oid, succ_oid))
+    dh = getattr(cal, 'day_hours', None) if cal is not None else None
+    return dh if dh and dh > 0 else 8.0
 
 
 def _schedule_option(project_el, name):
@@ -273,6 +301,13 @@ def parse_file(path) -> ScheduleData:
         'scheduled_finish': parse_datetime(
             text(project_el, 'ScheduledFinishDate') or text(project_el, 'FinishDate')
             or text(project_el, 'AnticipatedFinishDate') or text(project_el, 'MustFinishByDate')),
+        # The project's Must Finish By date (P6 Project > Dates) - the XER's PROJECT.plan_end_date
+        # (finding P13: read by neither parser before).
+        'must_finish_by': parse_datetime(text(project_el, 'MustFinishByDate')),
+        # 'Calendar for scheduling Relationship Lag' + the project default calendar it may name,
+        # so lag_days is counted on the calendar P6 uses (finding P16) - same keys in xer.py.
+        'lag_calendar': lag_calendar_basis(_schedule_option(project_el, 'RelationshipLagCalendar')),
+        'default_calendar_id': text(project_el, 'ActivityDefaultCalendarObjectId'),
     }
 
     tf_basis = data.project['total_float_type']
@@ -420,14 +455,16 @@ def parse_file(path) -> ScheduleData:
         succ = text(rel_el, 'SuccessorActivityObjectId')
         if not pred or not succ:
             continue
-        cal = data.calendars.get(data.activities.get(succ, {}).get('calendar_id'))
-        day_hours = cal.day_hours if cal else 8.0
+        # Lag in days on the project's lag calendar (predecessor by default), not always the
+        # successor's (finding P16) - identical rule in xer.py.
+        day_hours = lag_day_hours(data, pred, succ)
         lag_hours = parse_float(text(rel_el, 'Lag'), 0.0)
         data.relationships.append({
             'pred_id': pred, 'succ_id': succ,
             'type': XML_REL_TYPE.get(text(rel_el, 'Type'), 'FS'),
             'lag_days': (lag_hours or 0.0) / day_hours,
             'lag_hours': lag_hours or 0.0,
+            'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
 
     return data

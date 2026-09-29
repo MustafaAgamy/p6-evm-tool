@@ -144,6 +144,25 @@ def float_basis(raw):
     return 'finish'
 
 
+def lag_calendar_basis(raw):
+    """P6's 'Calendar for scheduling Relationship Lag' project option -> 'predecessor' |
+    'successor' | '24h' | 'project' (finding P16).
+
+    XML  <ScheduleOptions><RelationshipLagCalendar>: 'Predecessor Activity Calendar',
+         'Successor Activity Calendar', '24 Hour Calendar', 'Project Default Calendar'.
+    XER  SCHEDOPTIONS.sched_calendar_on_relationship_lag: rcal_Predecessor, rcal_Successor,
+         rcal_24Hour, rcal_ProjDefault.
+    Absent/unknown -> 'predecessor' (P6's default, and what every real export here uses)."""
+    r = (raw or '').strip().lower()
+    if 'succ' in r:
+        return 'successor'
+    if '24' in r:
+        return '24h'
+    if 'proj' in r or 'default' in r:
+        return 'project'
+    return 'predecessor'
+
+
 def total_float_hours(calendar: Calendar, early_start, early_finish, late_start, late_finish,
                       basis='finish'):
     """Total Float in working HOURS, reconstructed the way P6 computes it, for an export that
