@@ -201,13 +201,32 @@
       return el;
     };
 
+    // A module deep in the graph that fails is reported on app.js's <script> element; name
+    // the actual file(s) when the browser recorded an error status for them.
+    function failedFiles() {
+      try {
+        var perf = win.performance;
+        if (!perf || !perf.getEntriesByType) return '';
+        var out = [], list = perf.getEntriesByType('resource');
+        for (var i = 0; i < list.length && out.length < 4; i++) {
+          var r = list[i];
+          if (r.responseStatus >= 400 && /\/ui\//.test(r.name)) {
+            out.push(r.name.replace(/^https?:\/\/[^\/]+/, '') + ' → ' + r.responseStatus);
+          }
+        }
+        return out.join(', ');
+      } catch (e) { return ''; }
+    }
+
     function onError(e) {
       if (g.phase === 'ready') return;
       var t = e && e.target;
       if (t && t !== win && t.tagName) {
         var tag = String(t.tagName).toUpperCase();
         if (tag === 'SCRIPT' || (tag === 'LINK' && /stylesheet/i.test(t.rel || ''))) {
-          g.fail('load-failed', 'Could not load ' + (t.src || t.href || tag));
+          var bad = failedFiles();
+          g.fail('load-failed', 'Could not load ' + (t.src || t.href || tag) +
+                 (bad ? ' (' + bad + ')' : ''));
         }
         return;                                    // images etc. are not fatal
       }
