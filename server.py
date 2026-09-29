@@ -1056,11 +1056,7 @@ class Handler(BaseHTTPRequestHandler):
 
             chrome  = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
 
             os.unlink(html_path)
             self._json(200, {'ok': True})
@@ -1352,11 +1348,7 @@ class Handler(BaseHTTPRequestHandler):
                 html_path = tmp.name
             chrome = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -1503,11 +1495,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -1582,11 +1570,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -1970,11 +1954,7 @@ class Handler(BaseHTTPRequestHandler):
             html_path = tmp.name
         try:
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
         finally:
             try:
                 os.unlink(html_path)
@@ -2004,11 +1984,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2230,11 +2206,7 @@ class Handler(BaseHTTPRequestHandler):
             # DEVNULL (not PIPE) so a verbose/large Chrome render can't dead-lock on a full
             # pipe buffer — that was the "Export PDF does nothing" hang on big schedules.
             # A timeout turns any remaining hang into a clear error instead of silence.
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2367,11 +2339,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2559,11 +2527,7 @@ class Handler(BaseHTTPRequestHandler):
                 html_path = tmp.name
             chrome = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2840,11 +2804,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2882,11 +2842,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -3197,11 +3153,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -3593,12 +3545,7 @@ class Handler(BaseHTTPRequestHandler):
                     tmp.write(html_str)
                     html_path = tmp.name
                 try:
-                    subprocess.run([
-                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
-                        f'file:///{html_path.replace(os.sep, "/")}',
-                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                        timeout=180)
+                    _chrome_print_pdf(html_path, out_pdf, chrome)
                 finally:
                     try:
                         os.unlink(html_path)
@@ -3676,28 +3623,36 @@ class Handler(BaseHTTPRequestHandler):
 
 
 # ── Chrome finder ──────────────────────────────────────────────────────────
-CHROME_CANDIDATES = [
-    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-    r'C:\Program Files\Chromium\Application\chrome.exe',
-]
+# ONE tool-wide browser helper (p6_export.pdf): every candidate is PROBED once (a real
+# one-line headless print) and the first that works is cached for the session —
+# installed Google Chrome → Microsoft Edge → Chromium → Playwright headless shell →
+# Playwright full Chromium last (on the owner's PC that one fails to start with
+# "[WinError 14001] side-by-side configuration is incorrect"; it used to be tried FIRST
+# with no fallback, so every per-feature PDF route could fail).
+
+def _export_pkg():
+    root = resource_path('.')
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from p6_export import pdf
+    return pdf
+
 
 def _find_chrome():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            path = p.chromium.executable_path
-            if path and os.path.exists(path):
-                return path
-    except Exception:
-        pass
-    for path in CHROME_CANDIDATES:
-        if os.path.exists(path):
-            return path
-    raise RuntimeError(
-        'No Chrome/Chromium found. Install Google Chrome or run: '
-        'pip install playwright && playwright install chromium'
-    )
+    """The Chrome/Edge/Chromium this machine can actually print with (probed once, cached).
+    Raises a clear error when none works."""
+    path = _export_pkg().find_working_chrome()
+    if path:
+        return path
+    raise RuntimeError('No working Chrome, Edge or Chromium found to print the PDF. '
+                       'Install Google Chrome or Microsoft Edge and try again.')
+
+
+def _chrome_print_pdf(html_path, output_path, chrome=None, timeout=300):
+    """Print a report HTML file to ``output_path`` — EVERY PDF route goes through here
+    (p6_export.pdf.run_chrome: the cached browser first, then the next candidate when one
+    cannot start or writes nothing)."""
+    return _export_pkg().print_html_file(html_path, output_path, chrome=chrome, timeout=timeout)
 
 
 def _narrative_page_map(pdf_path, sections):
