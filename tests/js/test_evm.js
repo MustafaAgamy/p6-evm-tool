@@ -114,6 +114,26 @@ test('XML + attached baseline → green, same as XER + attached', () => {
   assert.equal(s.cls, 'ok');
   assert.ok(s.title.includes('10/12 matched'));
 });
+test('no baseline assigned in P6 (baseline programme) → neutral info line, never the amber warning', () => {
+  for (const fmt of ['XML', 'XER']) {
+    const s = baselineBannerState({ source: 'self', fmt, attachedName: null, expected: false });
+    assert.equal(s.cls, 'info');
+    assert.match(s.title + ' ' + s.msg, /No baseline is assigned to this project in P6 — its own Planned dates are the baseline/);
+    assert.ok(!/approximate|exported without/.test(s.msg));
+  }
+  // expected / unknown (older results) keep the amber "attach" warning
+  assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, expected: true }).cls, 'warn');
+  assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null }).cls, 'warn');
+});
+{
+  const { baselineExpected } = await import('../../ui/modules/baseline.js');
+  test('baselineExpected: only an explicit false means "none assigned in P6"', () => {
+    assert.equal(baselineExpected({ baseline_expected: false }), false);
+    assert.equal(baselineExpected({ baseline_expected: true }), true);
+    assert.equal(baselineExpected({}), true);
+    assert.equal(baselineExpected(null), true);
+  });
+}
 test('an attached baseline that is no longer on disk is named in the banner', () => {
   const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null, missing: 'BL-Rev01.xer' });
   assert.match(s.msg, /BL-Rev01\.xer\) is no longer available/);

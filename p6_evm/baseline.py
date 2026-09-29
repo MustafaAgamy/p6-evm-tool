@@ -70,6 +70,17 @@ def display_name(path):
     return _HASH_PREFIX.sub('', os.path.basename(path or '')) if path else None
 
 
+def baseline_expected(data):
+    """True when the P6 project NAMES a baseline (XML ``CurrentBaselineProjectObjectId`` / XER
+    ``PROJECT.sum_base_proj_id``, other than the project itself). False for a schedule with no
+    baseline assigned in P6 — a baseline programme such as GBT REV.03 or MAFI_BASELINE — whose
+    own Planned dates ARE its baseline (P6 measures it against itself), so a 'self' result is
+    exact, not approximate, and nothing needs attaching."""
+    proj = getattr(data, 'project', None) or {}
+    bid = str(proj.get('baseline_object_id') or '').strip()
+    return bool(bid) and bid != str(proj.get('object_id') or '').strip()
+
+
 def resolve_baseline(data, attached_path=None, parse=None):
     """Settle ``data``'s baseline in place — embedded, else attached, else self — and return
     what was used: {'source', 'name', 'path', 'matched', 'total', 'missing'}. Also stored on
@@ -82,7 +93,7 @@ def resolve_baseline(data, attached_path=None, parse=None):
         src = 'embedded' if getattr(data, 'baseline_by_id', None) else 'self'
         data.baseline_source = src
     info = {'source': src, 'name': None, 'path': None, 'matched': None, 'total': total,
-            'missing': None}
+            'missing': None, 'expected': baseline_expected(data)}
     if src == 'embedded':
         data.baseline_info = info
         return info
@@ -147,7 +158,8 @@ def inherit_baseline(prev, curr):
         name = (getattr(curr, 'project', None) or {}).get('baseline_name') or 'baseline'
         name, path = f'{name} (inside the current update)', None
     info = {'source': 'attached', 'name': name, 'path': path, 'matched': matched,
-            'total': len(prev.activities or {}), 'missing': None, 'from_current': True}
+            'total': len(prev.activities or {}), 'missing': None, 'from_current': True,
+            'expected': baseline_expected(prev)}
     prev.baseline_info = info
     return info
 
@@ -178,11 +190,14 @@ def load_for_project(path, snapshot_id=None, cached_path=None, baseline_path=Non
 
 
 def baseline_fields(info):
-    """The result-JSON keys the UI reads (EVM banner, Update Analysis, Help)."""
+    """The result-JSON keys the UI reads (EVM banner, Update Analysis, Help).
+    ``baseline_expected`` False = no baseline is assigned to this project in P6, so its own
+    Planned dates are the baseline ('self' is then exact: no prompt, no 'approx')."""
     info = info or {}
     attached = info.get('source') == 'attached'
     return {
         'baseline_source': info.get('source'),
+        'baseline_expected': info.get('expected'),
         'baseline_name': info.get('name') if attached else None,
         'baseline_path': info.get('path') if attached else None,
         'baseline_matched': info.get('matched') if attached else None,

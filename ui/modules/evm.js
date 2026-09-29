@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { openElogConfirm } from './elog.js';
-import { ATTACH_BASELINE_LABEL, baselineSource, attachBaselineFile, removeBaselineFile, attachProblem } from './baseline.js';
+import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem } from './baseline.js';
 
 // ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
 export function egp(n) {
@@ -226,8 +226,10 @@ function renderDashboard(result) {
   // Honesty flag: an update with no baseline inside it and none attached (an XER, or an XML
   // exported without its baseline project) measures Planned% / PV / Delay against its own
   // dates + cost, so they're approximate until the baseline is attached.
+  // A schedule with no baseline assigned in P6 is measured against its own dates exactly as P6
+  // does — not approximate.
   const noBaseline = !(state.baselineName || result.baseline_name)
-    && baselineSource(result, state.currentXmlPath) === 'self';
+    && baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   // Overall %: 2 decimals so the tile matches the Category Weights table's Overall row exactly.
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
     ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
@@ -423,7 +425,7 @@ function openInputsEditor(result) {
 // every feature uses) and the file format. Returns null when the baseline is embedded in the
 // file (an XML exported WITH its baseline project) — nothing to attach. `isXer` alone (no
 // `source`) keeps the old rule for results stored before the server reported it: an XER is 'self'.
-export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem }) {
+export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem, expected }) {
   const xer = fmt ? fmt === 'XER' : !!isXer;
   const src = attachedName ? 'attached' : (source || (xer ? 'self' : 'embedded'));
   if (src === 'attached' && attachedName) {
@@ -441,6 +443,14 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
       title: `Baseline attached: ${attachedName}${cnt}`,
       msg: 'Planned Value is now anchored to the baseline dates and budget — the same numbers as an XML exported with its baseline. Every feature (Update Analysis, reports, AI Chat…) uses it.',
       actions: ['replace', 'remove'],
+    };
+  }
+  if (src === 'self' && expected === false) {    // no baseline assigned in P6 — nothing is missing
+    return {
+      cls: 'info', icon: 'ℹ',
+      title: 'No baseline is assigned to this project in P6',
+      msg: '— its own Planned dates are the baseline, so Planned Value, SPI and Delay are measured against them, as P6 does.',
+      actions: ['attach'],
     };
   }
   if (src === 'self') {
@@ -468,10 +478,10 @@ function renderBaselineBanner(result) {
   const attachedName = state.baselineName || result.baseline_name || null;
   const st = baselineBannerState({ source: baselineSource(result, state.currentXmlPath), fmt,
     attachedName, matched: state.baselineMatched, total: state.baselineTotal,
-    missing: result.baseline_missing || null, problem: _bnrProblem });
+    missing: result.baseline_missing || null, problem: _bnrProblem, expected: baselineExpected(result) });
   if (!st) { box.className = ''; box.innerHTML = ''; return; }
   const btns = st.actions.map(a =>
-    `<button class="evm-bnr-btn${a === 'attach' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
+    `<button class="evm-bnr-btn${a === 'attach' && st.cls === 'warn' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
   const prob = (_bnrProblem && st.cls === 'ok') ? ` <b>${escapeHtml(_bnrProblem)}</b>` : '';
   box.className = `evm-baseline-banner ${st.cls}`;
   box.innerHTML = `<span class="bnr-ic">${st.icon}</span>
@@ -489,7 +499,7 @@ function renderBaselineBanner(result) {
 // is blocked); shown once per import.
 export function maybePromptBaseline(result) {
   if (!result) return;
-  const needsBaseline = baselineSource(result, state.currentXmlPath) === 'self';
+  const needsBaseline = baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   const isXer = sourceType(state.currentXmlPath) === 'XER';
   const hasBaseline = state.baselineName || result.baseline_name;
   if (!needsBaseline || hasBaseline || _blPromptDone) return;

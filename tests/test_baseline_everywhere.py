@@ -21,6 +21,7 @@ _UPDATE_XML = f'''<?xml version="1.0"?>
   <ActivityCodeType><ObjectId>901</ObjectId><Name>Discipline</Name></ActivityCodeType>
   <ActivityCode><ObjectId>902</ObjectId><CodeValue>Civil</CodeValue><CodeTypeObjectId>901</CodeTypeObjectId></ActivityCode>
   <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>2025-04-01T00:00:00</DataDate>
+    <CurrentBaselineProjectObjectId>7</CurrentBaselineProjectObjectId>
     <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>
     <WBS><ObjectId>200</ObjectId><Name>Silo 1</Name><ParentObjectId>100</ParentObjectId></WBS>
     <WBS><ObjectId>301</ObjectId><Name>Soil Replacement</Name><ParentObjectId>200</ParentObjectId></WBS>

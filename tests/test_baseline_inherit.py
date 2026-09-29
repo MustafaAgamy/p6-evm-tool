@@ -36,7 +36,8 @@ def _project(oid, pid, name, data_date, rows, costs, extra=''):
     rels = ''.join(f'    <Relationship><PredecessorActivityObjectId>{a}</PredecessorActivityObjectId>'
                    f'<SuccessorActivityObjectId>{b}</SuccessorActivityObjectId><Type>Finish to Start</Type>'
                    f'<Lag>0</Lag></Relationship>\n' for a, b in zip([r[0] for r in rows], [r[0] for r in rows][1:]))
-    return f'''<Project><ObjectId>{oid}</ObjectId><Id>{pid}</Id><Name>{name}</Name><DataDate>{data_date}</DataDate>
+    ptr = '' if oid == '7' else '<CurrentBaselineProjectObjectId>7</CurrentBaselineProjectObjectId>'
+    return f'''<Project><ObjectId>{oid}</ObjectId><Id>{pid}</Id><Name>{name}</Name><DataDate>{data_date}</DataDate>{ptr}
     <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>
     <WBS><ObjectId>200</ObjectId><Name>Silo 1</Name><ParentObjectId>100</ParentObjectId></WBS>
     <WBS><ObjectId>301</ObjectId><Name>Soil Replacement</Name><ParentObjectId>200</ParentObjectId></WBS>

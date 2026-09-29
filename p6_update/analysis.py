@@ -5,6 +5,7 @@ forecast dates, exactly as P6 wrote them.
 """
 from p6_evm.metrics import activity_planned_pct
 from p6_evm.calendars import signed_working_days
+from p6_evm.baseline import baseline_expected
 
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
 
@@ -660,6 +661,11 @@ def build_report_from_data(data, metrics, summary_level=0):
     measured against the update's own plan."""
     src = getattr(data, 'baseline_source', None)
     has_baseline = (src in ('embedded', 'attached')) if src else bool(getattr(data, 'baseline_by_id', None))
+    # A schedule with NO baseline assigned in P6 (a baseline programme): its own Planned dates
+    # ARE its baseline, exactly as P6 measures it — not the 'no baseline' state.
+    expected = baseline_expected(data)
+    if src == 'self' and not expected:
+        has_baseline = True
     bl_info = getattr(data, 'baseline_info', None) or {}
     proj = getattr(data, 'project', None) or {}
     cp = critical_path(data, summary_level=summary_level)
@@ -678,6 +684,7 @@ def build_report_from_data(data, metrics, summary_level=0):
         'has_baseline': has_baseline,
         'baseline_source': src,                                    # embedded / attached / self
         'baseline_name': bl_info.get('name') if src == 'attached' else None,
+        'baseline_expected': expected,                             # False = none assigned in P6
         'activity_count': len(getattr(data, 'activities', {}) or {}),
         'code_types': list(getattr(data, 'activity_code_types', None) or []),
         'time_status': ts,

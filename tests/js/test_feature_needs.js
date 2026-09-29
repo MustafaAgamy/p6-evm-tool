@@ -207,8 +207,11 @@ test('Earned Value: an update without its baseline (XER or XML) is prompted for 
 });
 test('Earned Value: the prompt / Attach button follow baseline_source, so an XML without its baseline gets them too', () => {
   const evm = read('ui', 'modules', 'evm.js');
-  // The prompt returns early only when the baseline is not 'self' (embedded or attached) …
-  assert.match(evm, /const needsBaseline = baselineSource\(result, state\.currentXmlPath\) === 'self';/);
+  // The prompt returns early only when the baseline is not 'self' (embedded or attached), or
+  // when no baseline is assigned in P6 (its own dates ARE its baseline — review F3) …
+  assert.match(evm, /const needsBaseline = baselineSource\(result, state\.currentXmlPath\) === 'self' && baselineExpected\(result\);/);
+  assert.match(evm, /if \(src === 'self' && expected === false\)/, 'the no-baseline-assigned banner is gone — update Help');
+  assert.match(read('p6_evm', 'baseline.py'), /'baseline_expected': info\.get\('expected'\)/);
   assert.match(evm, /if \(!needsBaseline \|\| hasBaseline \|\| _blPromptDone\) return;/,
     'maybePromptBaseline changed — update the evm entry in feature_needs.js');
   // … and the banner is null only for a baseline embedded in the file.
@@ -224,6 +227,22 @@ test('Earned Value: the prompt / Attach button follow baseline_source, so an XML
   assert.ok(!/only for an XER update/.test(bl.role), 'Help still says the baseline is only for an XER');
   assert.ok(!/cannot be attached to an XML/.test(bl.note), 'Help still says a baseline cannot be attached to an XML');
   assert.match(bl.note, /remembered for this update and used by every feature/);
+  assert.match(bl.note, /no baseline assigned in P6[\s\S]*own Planned dates are its baseline/);
+});
+test('No baseline assigned in P6: Update Analysis reads its own dates, Help says so (review F3)', () => {
+  assert.match(read('p6_update', 'analysis.py'), /if src == 'self' and not expected:\s+has_baseline = True/);
+  assert.match(featureNeeds('update').files[0].note, /no baseline assigned in P6[\s\S]*own Planned dates/);
+});
+test('Previous update inherits the current update’s baseline, inside the XML or attached (review F1)', () => {
+  const h = serverSrc.slice(serverSrc.indexOf('def _handle_period_compare'), serverSrc.indexOf('def _handle_period_previous'));
+  assert.match(h, /inherit_baseline\(data, curr\)/);
+  const c = serverSrc.slice(serverSrc.indexOf('def _handle_critpath_analyze'), serverSrc.indexOf('def _handle_critpath_report'));
+  assert.match(c, /inherit_baseline\(schedules\[role\], schedules\['current'\]\)/);
+  assert.match(read('p6_special', 'context.py'), /inherit_baseline\(prev, self\.parsed\(\)\)/);
+  for (const id of ['period', 'critpath']) {
+    const f = featureNeeds(id).files.find(x => /Previous update/.test(x.role));
+    assert.match(f.note, /current update’s baseline — the one inside the XML or the one attached/);
+  }
 });
 test('Attach buttons say "XER or XML" (Earned Value, Update Analysis, Reporting Studio)', () => {
   const blj = read('ui', 'modules', 'baseline.js');

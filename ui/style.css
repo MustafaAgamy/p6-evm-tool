@@ -978,6 +978,7 @@ body.dng-fs-body #results-section { transform: none !important; }
 .evm-baseline-banner .bnr-actions { flex-shrink: 0; white-space: nowrap; }
 .evm-baseline-banner.warn { background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; }
 .evm-baseline-banner.ok   { background: #dcfce7; border: 1px solid #16a34a; color: #166534; }
+.evm-baseline-banner.info { background: #e0f2fe; border: 1px solid #0284c7; color: #075985; }
 .evm-baseline-banner.busy { background: var(--card-bg); border: 1px solid var(--border); color: var(--muted); }
 .evm-bnr-btn { padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 700;
   cursor: pointer; border: 1px solid currentColor; background: transparent; color: inherit; }

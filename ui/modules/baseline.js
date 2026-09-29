@@ -22,6 +22,13 @@ export function baselineSource(result, path) {
   return (typeof path === 'string' && /\.xer$/i.test(path)) ? 'self' : 'embedded';
 }
 
+// Whether the P6 project NAMES a baseline. False = no baseline is assigned to it in P6 (a
+// baseline programme): its own Planned dates ARE its baseline, so a 'self' result is exact — no
+// prompt, no "approx". Results stored before the server reported it count as expected.
+export function baselineExpected(result) {
+  return !(result && result.baseline_expected === false);
+}
+
 // Keys the import pipeline does not rebuild (engineering logs are stored per snapshot and
 // re-applied on open) — carried over when the refreshed result replaces the current one.
 const _CARRY = ['engineering_e1', 'e1_extras'];

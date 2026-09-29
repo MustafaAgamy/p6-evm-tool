@@ -266,19 +266,37 @@ def test_critical_path_no_cost_shows_the_activity():
     assert soil['name'] == 'Soil layer 1 in Silo 1'   # exact activity name, not the WBS name
 
 
+def _bare_update(pointer):
+    return ('<?xml version="1.0"?>\n<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+            '  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>2025-07-02T00:00:00</DataDate>\n'
+            f'    {pointer}\n'
+            '    <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
+            '    <Activity><ObjectId>10</ObjectId><Id>A1</Id><Name>A</Name><Type>Task Dependent</Type>'
+            '<WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId><PercentComplete>0.5</PercentComplete>'
+            '<PlannedDuration>80</PlannedDuration><RemainingDuration>40</RemainingDuration></Activity>\n'
+            '  </Project>\n</APIBusinessObjects>\n')
+
+
 def test_build_report_flags_missing_baseline():
-    # A bare update with no BaselineProject → has_baseline False.
-    xml = ('<?xml version="1.0"?>\n<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
-           '  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>2025-07-02T00:00:00</DataDate>\n'
-           '    <WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
-           '    <Activity><ObjectId>10</ObjectId><Id>A1</Id><Name>A</Name><Type>Task Dependent</Type>'
-           '<WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId><PercentComplete>0.5</PercentComplete>'
-           '<PlannedDuration>80</PlannedDuration><RemainingDuration>40</RemainingDuration></Activity>\n'
-           '  </Project>\n</APIBusinessObjects>\n')
-    data, metrics = _parse_and_compute(xml)
+    # An update that NAMES its baseline (CurrentBaselineProjectObjectId) but was exported without
+    # the BaselineProject → has_baseline False (never measured against its own plan).
+    data, metrics = _parse_and_compute(_bare_update('<CurrentBaselineProjectObjectId>77</CurrentBaselineProjectObjectId>'))
     report = build_report_from_data(data, metrics)
     assert report['has_baseline'] is False
+    assert report['baseline_expected'] is True
     assert 'time_status' in report and 'critical_path' in report
+
+
+def test_build_report_no_baseline_assigned_in_p6_reads_own_dates():
+    # Review F3: no baseline assigned in P6 (a baseline programme — GBT REV.03 / MAFI_BASELINE
+    # write <CurrentBaselineProjectObjectId xsi:nil="true" />): its own Planned dates ARE its
+    # baseline, as in P6 — not the 'no baseline' state.
+    for ptr in ('<CurrentBaselineProjectObjectId xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true" />', ''):
+        data, metrics = _parse_and_compute(_bare_update(ptr))
+        report = build_report_from_data(data, metrics)
+        assert report['baseline_source'] == 'self'
+        assert report['baseline_expected'] is False
+        assert report['has_baseline'] is True
 
 
 def test_build_report_time_status_uses_driving_path_span():
