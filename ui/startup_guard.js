@@ -201,7 +201,7 @@
       return el;
     };
 
-    // A module deep in the graph that fails is reported on app.js's <script> element; name
+    // A module deep in the graph that fails is reported on app.js's script element; name
     // the actual file(s) when the browser recorded an error status for them.
     function failedFiles() {
       try {

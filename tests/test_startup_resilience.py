@@ -340,6 +340,17 @@ def test_watchdog_failure_turns_on_safe_graphics_for_next_launch(tmp_path):
     assert '--disable-gpu' in args and app_startup.PYWEBVIEW_ARGS in args
 
 
+def test_watchdog_stops_quietly_when_the_window_closes():
+    closed = threading.Event()
+    w = _FakeWindow()
+    threading.Timer(0.1, closed.set).start()
+    t = time.monotonic()
+    assert app_startup.watch_startup(w, 'u', ready=threading.Event(), first_s=30, second_s=30,
+                                     closed=closed) == 'closed'
+    assert time.monotonic() - t < 5 and w.loads == []
+    assert not app_startup.safe_graphics_enabled()
+
+
 def test_graphics_normal_by_default_and_env_override(monkeypatch):
     env = {}
     assert app_startup.apply_graphics_mode(env) == 'normal' and env == {}

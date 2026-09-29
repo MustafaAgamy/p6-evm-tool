@@ -272,7 +272,7 @@ test('install() registers once on window.__cxStartup', () => {
 // ── wiring ────────────────────────────────────────────────────────────────
 test('guard source is safe to inline and never uses alert/confirm/prompt (WebView2 no-ops)', () => {
   assert.ok(!SRC.includes('<!--'), 'no HTML comment opener inside an inline script');
-  assert.ok(!/<\/script/i.test(SRC), 'no closing script tag inside an inline script');
+  assert.ok(!/<\/?script/i.test(SRC), 'no script tags inside an inline script');
   assert.ok(!/\b(alert|confirm|prompt)\s*\(/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')));
   assert.ok(!/=>|\blet\b|\bconst\b|`/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')),
     'ES5 only: it must run even where the modules fail');

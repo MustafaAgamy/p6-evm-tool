@@ -287,23 +287,43 @@ def apply_graphics_mode(env=None):
     return mode
 
 
-# ── Readiness watchdog (app.py runs this through webview.start(func)) ─────
+# ── Readiness watchdog (app.py runs this on a daemon thread) ──────────────
 
-def watch_startup(window, url, ready=None, first_s=45.0, second_s=30.0):
+def _wait(ready, seconds, closed, step=0.25):
+    """ready.wait(seconds), but give up as soon as the window is closed."""
+    deadline = time.monotonic() + seconds
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            return ready.is_set()
+        if ready.wait(min(step, left) if closed is not None else left):
+            return True
+        if closed is not None and closed.is_set():
+            return None
+
+
+def watch_startup(window, url, ready=None, first_s=45.0, second_s=30.0, closed=None):
     """Wait for the page's ``ready``. If it never comes (WebView2 failed to initialise,
     the renderer died, the page never loaded), reload the page once; if that also never
-    becomes ready, record the failure so the next launch uses safe graphics."""
+    becomes ready, record the failure so the next launch uses safe graphics. Stops
+    quietly ('closed') when ``closed`` (the window's closed event) is set first."""
     ready = READY if ready is None else ready
-    if ready.wait(first_s):
+    got = _wait(ready, first_s, closed)
+    if got is None:
+        return 'closed'
+    if got:
         log('page ready after %ss', STATE.get('ready_after_s'))
         STATE['watchdog'] = 'ready'
         return 'ready'
-    log('page not ready after %.0fs — reloading it once', first_s, level=logging.WARNING)
+    log('page not ready after %.0fs: reloading it once', first_s, level=logging.WARNING)
     try:
         window.load_url(url)
     except Exception:
         log_exception('reload failed')
-    if ready.wait(second_s):
+    got = _wait(ready, second_s, closed)
+    if got is None:
+        return 'closed'
+    if got:
         log('page ready after the reload (%ss)', STATE.get('ready_after_s'))
         STATE['watchdog'] = 'ready-after-reload'
         return 'ready-after-reload'

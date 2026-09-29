@@ -73,14 +73,21 @@ class Api:
 
 
 def _watch_startup(window, url):
-    """Runs beside the GUI loop (webview.start(func)): the readiness handshake. The page
-    reports 'ready' once its shell is built (ui/startup_guard.js -> /api/client-log); if it
-    never does, reload once and record it (see app_startup.watch_startup). Then attach the
-    WebView2 renderer-crash recovery."""
+    """Started by webview.start(func): the readiness handshake. The page reports 'ready'
+    once its shell is built (ui/startup_guard.js -> /api/client-log); if it never does,
+    reload once and record it (app_startup.watch_startup). Then attach the WebView2
+    renderer-crash recovery. Runs on a DAEMON thread (pywebview's func thread is not
+    one) so closing the window never leaves the process waiting on the watchdog."""
     import app_startup
-    app_startup.watch_startup(window, url)
-    if window.events.loaded.wait(5):
-        app_startup.hook_renderer_recovery(window)
+
+    def run():
+        closed = window.events.closed
+        if app_startup.watch_startup(window, url, closed=closed) == 'closed':
+            return
+        if not closed.is_set() and window.events.loaded.wait(5):
+            app_startup.hook_renderer_recovery(window)
+
+    threading.Thread(target=run, name='startup-watchdog', daemon=True).start()
 
 
 if __name__ == '__main__':
