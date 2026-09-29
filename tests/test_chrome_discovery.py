@@ -196,6 +196,25 @@ def test_server_find_chrome_uses_the_probed_cache(machine, browsers):
         server._find_chrome()
 
 
+def test_cli_script_uses_the_probed_browser_not_playwright_first(machine, browsers, monkeypatch):
+    """[startup:F3] PDF-1: generate_report.py (the terminal report) asked Playwright for its
+    full Chromium FIRST (spawning its Node driver) — the binary that cannot start on the
+    owner's PC. It now takes the probed browser and only asks Playwright when none works."""
+    import types
+    import generate_report
+    asked = []
+    fake = types.ModuleType('playwright.sync_api')
+
+    def _driver():
+        asked.append(1)
+        raise RuntimeError('Playwright driver must not be started when a browser works')
+    fake.sync_playwright = _driver
+    monkeypatch.setitem(sys.modules, 'playwright.sync_api', fake)
+    browsers['behaviour'] = {machine['chrome']: 'sxs'}
+    assert generate_report.find_chrome() == machine['edge']
+    assert asked == []
+
+
 def test_every_pdf_print_in_the_code_goes_through_the_one_helper():
     """No module may spawn Chrome itself: the only subprocess call with --print-to-pdf /
     --screenshot is p6_export/pdf.py (where the fallback + cache live)."""
