@@ -17,7 +17,9 @@ from tests.test_baseline_everywhere import WITH_BL, NO_BL, BASELINE_ALONE
 def test_baseline_label_names_every_source():
     assert baseline_label({'baseline_source': 'embedded'}, 'Proj Rev.00') == 'inside the schedule file (Proj Rev.00)'
     assert baseline_label({'baseline_source': 'attached', 'baseline_name': 'BL.xer',
-                           'baseline_matched': 10, 'baseline_total': 12}) == 'attached: BL.xer (10/12 activities matched)'
+                           'baseline_matched': 12, 'baseline_total': 12}) == 'attached: BL.xer (12/12 activities matched)'
+    assert baseline_label({'baseline_source': 'attached', 'baseline_name': 'BL.xer', 'baseline_matched': 10,
+                           'baseline_total': 12}).startswith('attached: BL.xer (10/12 activities matched) — 2 ')
     s = baseline_label({'baseline_source': 'self', 'baseline_expected': True, 'baseline_missing': 'BL.xml'})
     assert 'own Planned dates stand in (approximate)' in s and 'BL.xml' in s
     assert 'none assigned in P6' in baseline_label({'baseline_source': 'self', 'baseline_expected': False})

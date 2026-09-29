@@ -81,6 +81,66 @@ def baseline_expected(data):
     return bool(bid) and bid != str(proj.get('object_id') or '').strip()
 
 
+# What to do when an update carries no baseline and none is attached — the SAME words the
+# Update Analysis screen and Help show (ui/modules/feature_needs.js UPDATE_NO_BASELINE_ADVICE),
+# used by the server's no-baseline answer and by Reporting Studio's Update items.
+NO_BASELINE_ADVICE = ('Attach the baseline (XER or XML) with the button on Update Analysis or Earned '
+                      'Value — it is remembered for this update and used by every feature — or re-export '
+                      'the update from P6 as XML with its baseline project included.')
+
+
+def expected_baseline_name(data):
+    """The name P6 gives the update's baseline (XER BASELINE_EXPORT.proj_name / XML
+    <BaselineProject><Name>) — None when no baseline is assigned or the file does not name it."""
+    if not baseline_expected(data):
+        return None
+    return ((getattr(data, 'project', None) or {}).get('baseline_name') or '').strip() or None
+
+
+def expected_baseline_advice(name):
+    """One sentence telling the planner WHICH P6 project to export (ui/modules/baseline.js
+    expectedBaselineAdvice says the same). '' when the name is not known."""
+    return (f'P6 names “{name}” as this update’s baseline — export that project (XER or XML) '
+            f'and attach it.') if name else ''
+
+
+_BL_COPY = re.compile(r'\s*-\s*B\d+\s*$', re.I)   # P6 names a baseline copy "<project> - B1"
+
+
+def _norm_name(s):
+    return re.sub(r'\s+', ' ', _BL_COPY.sub('', str(s or ''))).strip().lower()
+
+
+def _name_tokens(s):
+    return set(re.findall(r'[a-z0-9]+', str(s or '').lower()))
+
+
+def baseline_mismatch(expected_name, expected_id, attached_project):
+    """None when the attached file is — as far as its identity shows — the baseline P6 names for
+    the update; else the attached project's name (for 'P6 names X; you attached Y').
+
+    A P6 baseline is a COPY of the project ("<project> - B1", its own ObjectId), and the planner
+    usually exports the original project, so it matches on: the same ObjectId, or the same name
+    once the " - Bn" copy suffix is dropped (project name or Project ID), or the attached name
+    is the start of the expected one and the rest (e.g. "REV.03") is in its name / Project ID —
+    GBT REV.03 'Grain Bulk Terminal Detailed Schedule - Phase I' / GBT-SUB-REV.03 vs P6's
+    '… Phase I REV.03 - B1'. Nothing to compare (no expected name) → None: an XML exported
+    without its <BaselineProject> carries only the id, which a source project never shares."""
+    ap = attached_project or {}
+    if expected_id and str(ap.get('object_id') or '').strip() == str(expected_id).strip():
+        return None
+    if not expected_name:
+        return None
+    e = _norm_name(expected_name)
+    names = [n for n in (_norm_name(ap.get('name')), _norm_name(ap.get('id'))) if n]
+    if any(n == e for n in names):
+        return None
+    toks = _name_tokens(ap.get('name')) | _name_tokens(ap.get('id'))
+    if any(e.startswith(n) and _name_tokens(e[len(n):]) <= toks for n in names):
+        return None
+    return (ap.get('name') or ap.get('id') or 'another project').strip()
+
+
 def resolve_baseline(data, attached_path=None, parse=None):
     """Settle ``data``'s baseline in place — embedded, else attached, else self — and return
     what was used: {'source', 'name', 'path', 'matched', 'total', 'missing'}. Also stored on
@@ -93,7 +153,8 @@ def resolve_baseline(data, attached_path=None, parse=None):
         src = 'embedded' if getattr(data, 'baseline_by_id', None) else 'self'
         data.baseline_source = src
     info = {'source': src, 'name': None, 'path': None, 'matched': None, 'total': total,
-            'missing': None, 'expected': baseline_expected(data)}
+            'missing': None, 'expected': baseline_expected(data),
+            'expected_name': expected_baseline_name(data), 'attached_project': None, 'mismatch': None}
     if src == 'embedded':
         data.baseline_info = info
         return info
@@ -105,11 +166,20 @@ def resolve_baseline(data, attached_path=None, parse=None):
                 from p6_evm.parser import parse_file as parse
             keep = (data.baseline_by_id, data.baseline_bac_by_activity,
                     getattr(data, 'baseline_bac_by_code', {}))
-            rep = apply_baseline(data, parse(attached_path))
+            bl_data = parse(attached_path)
+            rep = apply_baseline(data, bl_data)
             if rep['matched']:
                 data.baseline_source = 'attached'
+                # is it the baseline P6 names for this update? (an earlier / later revision of the
+                # same project shares most Activity IDs, so the match count alone can't tell)
+                bproj = getattr(bl_data, 'project', None) or {}
+                other = baseline_mismatch(info['expected_name'],
+                                          (getattr(data, 'project', None) or {}).get('baseline_object_id'),
+                                          bproj)
                 info.update(source='attached', name=display_name(attached_path),
-                            path=attached_path, matched=rep['matched'])
+                            path=attached_path, matched=rep['matched'],
+                            attached_project=(bproj.get('name') or bproj.get('id') or None),
+                            mismatch=bool(other))
             else:                                     # wrong file — keep the file's own baseline
                 data.baseline_by_id, data.baseline_bac_by_activity, data.baseline_bac_by_code = keep
                 info.update(matched=0, name=display_name(attached_path))
@@ -159,7 +229,8 @@ def inherit_baseline(prev, curr):
         name, path = f'{name} (inside the current update)', None
     info = {'source': 'attached', 'name': name, 'path': path, 'matched': matched,
             'total': len(prev.activities or {}), 'missing': None, 'from_current': True,
-            'expected': baseline_expected(prev)}
+            'expected': baseline_expected(prev), 'expected_name': expected_baseline_name(prev),
+            'attached_project': cinfo.get('attached_project'), 'mismatch': cinfo.get('mismatch')}
     prev.baseline_info = info
     return info
 
@@ -201,7 +272,13 @@ def baseline_label(fields, embedded_name=None):
     if src == 'attached':
         m, t = f.get('baseline_matched'), f.get('baseline_total')
         cnt = f' ({m}/{t} activities matched)' if m is not None and t else ''
-        return f"attached: {f.get('baseline_name') or 'baseline file'}{cnt}"
+        warn = ''
+        if f.get('baseline_mismatch') and f.get('baseline_expected_name'):
+            warn = (f" — not the baseline P6 names (“{f.get('baseline_expected_name')}”); "
+                    f"this file is “{f.get('baseline_attached_project') or 'another project'}”")
+        elif m is not None and t and m < t:
+            warn = f' — {t - m} activities are not in it (no baseline; left out of Planned %)'
+        return f"attached: {f.get('baseline_name') or 'baseline file'}{cnt}{warn}"
     if src == 'self':
         if f.get('baseline_expected') is False:
             return "none assigned in P6 — the schedule's own Planned dates are its baseline"
@@ -233,4 +310,9 @@ def baseline_fields(info):
         'baseline_matched': info.get('matched') if attached else None,
         'baseline_total': info.get('total') if attached else None,
         'baseline_missing': info.get('missing'),
+        # the baseline P6 names for this update (XER BASELINE_EXPORT / XML <BaselineProject>) —
+        # so the prompt / banner / Update Analysis can say WHICH project to export (R4 F4)
+        'baseline_expected_name': info.get('expected_name'),
+        'baseline_attached_project': info.get('attached_project') if attached else None,
+        'baseline_mismatch': bool(info.get('mismatch')) if attached else None,
     }

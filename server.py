@@ -1111,6 +1111,7 @@ class Handler(BaseHTTPRequestHandler):
                 # without its baseline project neither) — never measure it against its own plan.
                 self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
                                  'baseline_missing': (getattr(data, 'baseline_info', None) or {}).get('missing'),
+                                 'baseline_expected_name': report.get('baseline_expected_name'),
                                  'error': 'This update carries no baseline and none is attached. Attach the '
                                           'baseline (XER or XML) — it is remembered for this update and used by '
                                           'every feature — or re-export the update from P6 as XML with its '
@@ -2799,7 +2800,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             info = resolve_baseline(data, bl_path, parse_file)
             out = {'ok': True, 'baseline_name': display_name(bl_path), 'matched': info.get('matched') or 0,
-                   'total': len(data.activities)}
+                   'total': len(data.activities),
+                   # the baseline P6 names vs the project attached — a wrong revision is flagged
+                   'baseline_expected_name': info.get('expected_name'),
+                   'baseline_attached_project': info.get('attached_project'),
+                   'baseline_mismatch': bool(info.get('mismatch'))}
             if not out['matched']:                    # the wrong project's baseline — never remembered
                 self._json(200, out)
                 return

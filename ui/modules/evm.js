@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { openElogConfirm } from './elog.js';
-import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem } from './baseline.js';
+import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
 
 // ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
 export function egp(n) {
@@ -425,7 +425,8 @@ function openInputsEditor(result) {
 // every feature uses) and the file format. Returns null when the baseline is embedded in the
 // file (an XML exported WITH its baseline project) — nothing to attach. `isXer` alone (no
 // `source`) keeps the old rule for results stored before the server reported it: an XER is 'self'.
-export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem, expected }) {
+export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem, expected,
+  expectedName, mismatch, attachedProject }) {
   const xer = fmt ? fmt === 'XER' : !!isXer;
   const src = attachedName ? 'attached' : (source || (xer ? 'self' : 'embedded'));
   if (src === 'attached' && attachedName) {
@@ -438,6 +439,24 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
       };
     }
     const cnt = (matched != null && total != null) ? ` · ${matched}/${total} matched` : '';
+    // Not the baseline P6 names (an earlier / later revision shares most Activity IDs) — or part
+    // of the update is not in it: say so, never a silent green 'attached'.
+    if (mismatch && expectedName) {
+      return {
+        cls: 'warn', icon: '⚠',
+        title: `Baseline attached: ${attachedName}${cnt} — not the baseline P6 names.`,
+        msg: `P6 names “${expectedName}” as this update’s baseline; you attached “${attachedProject || 'another project'}”. If it is an earlier or later revision, Planned Value, SPI and Delay will not match P6 — export “${expectedName}” (XER or XML) and replace it.${problem ? ' ' + problem : ''}`,
+        actions: ['replace', 'remove'],
+      };
+    }
+    if (matched != null && total != null && matched < total) {
+      return {
+        cls: 'warn', icon: '⚠',
+        title: `Baseline attached: ${attachedName}${cnt}`,
+        msg: `${total - matched} of this update’s activities are not in that baseline — they have no baseline and are left out of Planned % and Planned Value. If P6’s baseline has them, this is another revision: ${expectedName ? `attach “${expectedName}”.` : 'attach the baseline P6 names for this update.'}${problem ? ' ' + problem : ''}`,
+        actions: ['replace', 'remove'],
+      };
+    }
     return {
       cls: 'ok', icon: '✓',
       title: `Baseline attached: ${attachedName}${cnt}`,
@@ -460,10 +479,11 @@ export function baselineBannerState({ source, fmt, isXer, attachedName, matched,
       ? 'This XER update doesn’t include its baseline project (a P6 XER update export carries only a pointer to it)'
       : 'This XML was exported without its baseline project';
     const lost = missing ? ` The baseline attached earlier (${missing}) is no longer available — attach it again.` : '';
+    const which = expectedName ? ' ' + expectedBaselineAdvice(expectedName) : '';
     return {
       cls: 'warn', icon: '⚠',
       title: 'No baseline attached.',
-      msg: `${why}, so Planned Value, SPI and Delay are measured against its own Planned dates — approximate. Attach the baseline (XER or XML) to match P6.${lost}${problem ? ' ' + problem : ''}`,
+      msg: `${why}, so Planned Value, SPI and Delay are measured against its own Planned dates — approximate. Attach the baseline (XER or XML) to match P6.${which}${lost}${problem ? ' ' + problem : ''}`,
       actions: ['attach'],
     };
   }
@@ -480,7 +500,9 @@ function renderBaselineBanner(result) {
   const attachedName = state.baselineName || result.baseline_name || null;
   const st = baselineBannerState({ source: baselineSource(result, state.currentXmlPath), fmt,
     attachedName, matched: state.baselineMatched, total: state.baselineTotal,
-    missing: result.baseline_missing || null, problem: _bnrProblem, expected: baselineExpected(result) });
+    missing: result.baseline_missing || null, problem: _bnrProblem, expected: baselineExpected(result),
+    expectedName: result.baseline_expected_name || null, mismatch: !!result.baseline_mismatch,
+    attachedProject: result.baseline_attached_project || null });
   if (!st) { box.className = ''; box.innerHTML = ''; return; }
   const btns = st.actions.map(a =>
     `<button class="evm-bnr-btn${a === 'attach' && st.cls === 'warn' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
@@ -519,6 +541,7 @@ export function maybePromptBaseline(result) {
         <p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px">Attach the <b>baseline</b> — the baseline project exported from P6 as
           <b>XER or XML</b> — now, so the results match an XML exported with its baseline, and <b>P6, exactly</b>. It is remembered
           for this update and used by every feature (Update Analysis, reports, AI Chat…). You can still continue without it.</p>
+        ${result.baseline_expected_name ? `<p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px"><b>${escapeHtml(expectedBaselineAdvice(result.baseline_expected_name))}</b></p>` : ''}
       </div>
       <div class="modal-foot">
         <button class="btn-secondary" id="evm-bl-skip">Continue without</button>
@@ -580,6 +603,9 @@ async function attachBaseline(result) {
   result.baseline_matched = data.matched;
   result.baseline_total = data.total;
   result.baseline_source = 'attached';
+  result.baseline_mismatch = !!data.baseline_mismatch;          // not the baseline P6 names → warned
+  result.baseline_attached_project = data.baseline_attached_project || null;
+  if (data.baseline_expected_name) result.baseline_expected_name = data.baseline_expected_name;
   _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
   renderBaselineBanner(result);
 }
@@ -600,6 +626,7 @@ async function removeBaseline(result) {
   result.baseline_name = null; result.baseline_path = null;
   result.baseline_matched = null; result.baseline_total = null;
   result.baseline_source = null;
+  result.baseline_mismatch = null; result.baseline_attached_project = null;
   _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
   renderBaselineBanner(result);
 }

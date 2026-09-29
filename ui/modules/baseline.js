@@ -29,6 +29,13 @@ export function baselineExpected(result) {
   return !(result && result.baseline_expected === false);
 }
 
+// WHICH P6 project to export — the baseline P6 names for this update (XER BASELINE_EXPORT /
+// XML <BaselineProject>, result.baseline_expected_name). '' when the file does not name it.
+// p6_evm/baseline.py expected_baseline_advice() says the same in the reports.
+export function expectedBaselineAdvice(name) {
+  return name ? `P6 names “${name}” as this update’s baseline — export that project (XER or XML) and attach it.` : '';
+}
+
 // Keys the import pipeline does not rebuild (engineering logs are stored per snapshot and
 // re-applied on open) — carried over when the refreshed result replaces the current one.
 const _CARRY = ['engineering_e1', 'e1_extras'];

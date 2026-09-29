@@ -11,7 +11,7 @@ import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
-import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem } from './baseline.js';
+import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
 
 let _shownReport = null;
 let _summaryLevel = 0;
@@ -160,7 +160,7 @@ async function _runAnalyze() {
     const data = await resp.json();
     if (!data.ok) {
       if (data.code === 'no_baseline') {
-        _noBaseline(body, data.baseline_missing, '');
+        _noBaseline(body, data.baseline_missing, '', data.baseline_expected_name);
         return;
       }
       body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
@@ -178,19 +178,20 @@ async function _runAnalyze() {
 // No baseline inside the file and none attached (an XER update, or an XML exported without its
 // baseline project): say so plainly and let the planner attach it right here. The attachment is
 // remembered for this update and used by every feature (Earned Value, reports, AI Chat…).
-function _noBaseline(body, missing, problem) {
+function _noBaseline(body, missing, problem, expectedName) {
   const lost = missing ? `<div style="margin-top:6px">The baseline attached earlier (${escapeHtml(missing)}) is no longer available — attach it again.</div>` : '';
   const prob = problem ? `<div class="ua-note" style="margin-top:10px;color:var(--danger)">${escapeHtml(problem)}</div>` : '';
   body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update carries no baseline and none is attached.</div>
+    ${expectedName ? `<div style="margin-bottom:6px;color:var(--text)"><b>${escapeHtml(expectedBaselineAdvice(expectedName))}</b></div>` : ''}
     <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div>${lost}
     <div style="margin-top:12px"><button class="btn-primary" id="ua-attach-bl">${ATTACH_BASELINE_LABEL}</button></div>${prob}</div>`;
   document.getElementById('ua-attach-bl')?.addEventListener('click', async () => {
     const btn = document.getElementById('ua-attach-bl');
     if (btn) { btn.disabled = true; btn.textContent = 'Reading baseline…'; }
     const data = await attachBaselineFile();
-    if (data.cancelled) { _noBaseline(body, missing, ''); return; }
+    if (data.cancelled) { _noBaseline(body, missing, '', expectedName); return; }
     const p = attachProblem(data);
-    if (p) { _noBaseline(body, missing, p); return; }
+    if (p) { _noBaseline(body, missing, p, expectedName); return; }
     body.innerHTML = `<div class="ua-empty">Reading this update against its baseline…</div>`;
     _runAnalyze();                                 // the server now resolves the attached baseline
   });

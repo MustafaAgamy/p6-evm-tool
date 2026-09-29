@@ -71,11 +71,37 @@ test('XER without baseline → amber attach', () => {
   assert.equal(s.cls, 'warn');
   assert.deepEqual(s.actions, ['attach']);
 });
-test('attached → green with matched count', () => {
-  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 1236, total: 1240 });
+test('attached, every activity matched → green with matched count', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 1240, total: 1240 });
   assert.equal(s.cls, 'ok');
-  assert.ok(s.title.includes('1236/1240 matched'));
+  assert.ok(s.title.includes('1240/1240 matched'));
   assert.deepEqual(s.actions, ['replace', 'remove']);
+});
+test('attached but part of the update is not in it → amber, says how many and which baseline P6 names (F4)', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 876, total: 1503,
+    expectedName: 'GBT REV.03 - B1' });
+  assert.equal(s.cls, 'warn');
+  assert.ok(s.title.includes('876/1503 matched'));
+  assert.match(s.msg, /627 of this update’s activities are not in that baseline/);
+  assert.match(s.msg, /attach “GBT REV\.03 - B1”/);
+  assert.deepEqual(s.actions, ['replace', 'remove']);
+});
+test('attached a different revision than the baseline P6 names → amber "P6 names X; you attached Y" (F4)', () => {
+  const s = baselineBannerState({ isXer: false, fmt: 'XML', source: 'attached', attachedName: 'GBT_REV01.xer',
+    matched: 1503, total: 1503, expectedName: 'Grain Bulk Terminal Detailed Schedule - Phase I REV.03 - B1',
+    mismatch: true, attachedProject: 'Grain Bulk Terminal Phase I - Schedule Last REV' });
+  assert.equal(s.cls, 'warn');
+  assert.match(s.title, /not the baseline P6 names/);
+  assert.match(s.msg, /P6 names “Grain Bulk Terminal Detailed Schedule - Phase I REV\.03 - B1” as this update’s baseline; you attached “Grain Bulk Terminal Phase I - Schedule Last REV”/);
+  // no expected name known (an XML exported without its <BaselineProject>) → no mismatch claim
+  assert.equal(baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'B.xer', matched: 5, total: 5,
+    mismatch: true }).cls, 'ok');
+});
+test('no baseline attached → the amber banner names the baseline P6 expects (F4)', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null,
+    expectedName: 'SAINT GOBAIN, AS2 -  Civil Package 03 - Rev.01 Clean' });
+  assert.match(s.msg, /P6 names “SAINT GOBAIN, AS2 -  Civil Package 03 - Rev\.01 Clean” as this update’s baseline — export that project \(XER or XML\) and attach it\./);
+  assert.ok(!/P6 names/.test(baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null }).msg));
 });
 test('attached without count → green, no count text', () => {
   const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer' });
@@ -110,9 +136,9 @@ test('baseline embedded in the file → no banner, whatever the format', () => {
   assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XER', attachedName: null }), null);
 });
 test('XML + attached baseline → green, same as XER + attached', () => {
-  const s = baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'BL.xer', matched: 10, total: 12 });
+  const s = baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'BL.xer', matched: 12, total: 12 });
   assert.equal(s.cls, 'ok');
-  assert.ok(s.title.includes('10/12 matched'));
+  assert.ok(s.title.includes('12/12 matched'));
 });
 test('no baseline assigned in P6 (baseline programme) → neutral info line, never the amber warning', () => {
   for (const fmt of ['XML', 'XER']) {
