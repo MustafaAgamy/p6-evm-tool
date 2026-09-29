@@ -13,8 +13,10 @@ The pure functions here are unit-tested with injected weather; all network acces
 is isolated in fetch_* helpers (Open-Meteo, free / no key) and never unit-tested.
 """
 import json
+import threading
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 # Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
@@ -618,15 +620,43 @@ def fetch_forecast(lat, lon):
         return {}
 
 
+# Recorded weather for FULL PAST years never changes, so one download per location and
+# year range is kept for the life of the app: re-running Bad Weather (new limits, new site
+# type) is then local — no second wait on the archive (owner comment 36: no slow Run).
+_HIST_CACHE = {}
+_HIST_CACHE_MAX = 16
+_HIST_LOCK = threading.Lock()
+
+
+def _hist_key(lat, lon, start, end):
+    try:
+        return (round(float(lat), 4), round(float(lon), 4), start.isoformat(), end.isoformat())
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def fetch_historical(lat, lon, start, end):
-    """Actual daily weather for a PAST [start, end] → {date: rec}. {} on failure."""
+    """Actual daily weather for a PAST [start, end] → {date: rec}. {} on failure.
+    A complete answer for a range that is already over is cached (see _HIST_CACHE)."""
+    key = _hist_key(lat, lon, start, end)
+    if key is not None:
+        with _HIST_LOCK:
+            hit = _HIST_CACHE.get(key)
+        if hit is not None:
+            return {d: dict(r) for d, r in hit.items()}
     try:
         url = (f'{_ARCHIVE}?latitude={lat}&longitude={lon}'
                f'&start_date={start.isoformat()}&end_date={end.isoformat()}'
                f'&daily={_DAILY_VARS}&wind_speed_unit=kmh&timezone=auto')
-        return _parse_daily(_get_json(url))
+        out = _parse_daily(_get_json(url))
     except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
         return {}
+    if key is not None and out and end < date.today():
+        with _HIST_LOCK:
+            if len(_HIST_CACHE) >= _HIST_CACHE_MAX:
+                _HIST_CACHE.pop(next(iter(_HIST_CACHE)))
+            _HIST_CACHE[key] = {d: dict(r) for d, r in out.items()}
+    return out
 
 
 def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5):
@@ -643,8 +673,22 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     today = _to_date(today) if today else data_date
     horizon = min(today + timedelta(days=15), project_finish)
 
+    # The three downloads (forecast, climate history, air quality) are independent, so they
+    # run AT THE SAME TIME: the Run waits for the slowest one, not for their sum.
+    need_hist = project_finish > horizon
+    fut_start = data_date + timedelta(days=1)
+    end_year = fut_start.year - 1
+    start_year = end_year - years + 1
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_fc = pool.submit(fetch_forecast, lat, lon)
+        f_hist = (pool.submit(fetch_historical, lat, lon, date(start_year, 1, 1), date(end_year, 12, 31))
+                  if need_hist else None)
+        f_aq = pool.submit(fetch_air_quality, lat, lon)
+        fc = f_fc.result()
+        hist_all = f_hist.result() if f_hist is not None else {}
+        aq_all = f_aq.result()
+
     daily = {}
-    fc = fetch_forecast(lat, lon)
     for d, rec in fc.items():
         if data_date < d <= project_finish:
             daily[d] = rec
@@ -656,20 +700,18 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     # so the average/range and the "last N years" reference are honest.
     climate_samples = {}
     climate_meta = {'years': years, 'year_start': None, 'year_end': None}
-    if project_finish > horizon:
-        fut_start = data_date + timedelta(days=1)
+    if need_hist:
         # First future date for each (month, day) in the remaining window.
         fut_by_md = {}
         d = fut_start
         while d <= project_finish:
             fut_by_md.setdefault((d.month, d.day), d)
             d += timedelta(days=1)
-        # The `years` full calendar years ending just before the run begins.
-        end_year = fut_start.year - 1
-        start_year = end_year - years + 1
-        # One archive call over those full years, then bucket each historical day onto its
-        # matching future date by (month, day) → every date gets exactly `years` samples.
-        hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31))
+        # The `years` full calendar years ending just before the run begins (start_year ..
+        # end_year above). One archive call over those full years, then bucket each
+        # historical day onto its matching future date by (month, day) → every date gets
+        # exactly `years` samples.
+        hist = hist_all
         for hd, rec in hist.items():
             fd = fut_by_md.get((hd.month, hd.day))
             if fd is not None and start_year <= hd.year <= end_year:
@@ -679,7 +721,7 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
             climate_meta['year_end'] = end_year
 
     # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
-    for d, aq in fetch_air_quality(lat, lon).items():
+    for d, aq in aq_all.items():
         if d in daily and aq.get('dust'):
             daily[d].update(aq)
     return daily, climate_samples, horizon, climate_meta
