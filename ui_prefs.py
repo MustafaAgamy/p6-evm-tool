@@ -130,6 +130,6 @@ def update(store_dir, set_=None, remove=None):
 
 def script_json(prefs):
     """The preferences as a JS literal that is safe inside an inline <script>."""
-    return (json.dumps(prefs or {}, ensure_ascii=False)
+    return (json.dumps(prefs or {}, ensure_ascii=False, separators=(',', ':'))
             .replace('<', '\\u003c').replace('>', '\\u003e')
             .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))

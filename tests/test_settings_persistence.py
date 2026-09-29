@@ -176,3 +176,72 @@ def test_weather_settings_saved_offline_survive_restart(test_server, xml_path, m
         assert 'last_weather' not in s
     finally:
         httpd.shutdown()
+
+
+# ── Screen preferences (Appearance, Report Contents picks, remembered layouts) ──
+# The app window's browser storage is wiped at every launch (private WebView2 + a new random
+# port), so ui/prefs_bridge.js mirrors it to <app data>/ui_prefs.json and the server hands
+# it back inline at the top of index.html (before the early Appearance script).
+
+def test_ui_prefs_store_saves_removes_and_limits(tmp_path):
+    import ui_prefs
+    d = str(tmp_path)
+    assert ui_prefs.load(d) == {}
+    n, skipped = ui_prefs.update(d, {'p6_report_appearance': 'midnight', 'p6evm_w_cols': '[1,2]'})
+    assert n == 2 and skipped == []
+    n, skipped = ui_prefs.update(d, {'ok': 'v', 'bad': 5, 'x' * 300: 'v',
+                                     'big': 'x' * (ui_prefs.MAX_VALUE_LEN + 1)},
+                                 ['p6evm_w_cols'])
+    assert sorted(skipped) == sorted(['bad', 'x' * 300, 'big'])
+    assert ui_prefs.load(d) == {'p6_report_appearance': 'midnight', 'ok': 'v'}
+    with pytest.raises(ValueError):
+        ui_prefs.update(d, ['not', 'a', 'dict'])
+
+
+def test_ui_prefs_damaged_file_is_set_aside_not_fatal(tmp_path):
+    import ui_prefs
+    p = tmp_path / ui_prefs.FILE_NAME
+    p.write_text('{not json', encoding='utf-8')
+    assert ui_prefs.load(str(tmp_path)) == {}
+    assert (tmp_path / (ui_prefs.FILE_NAME + '.bad')).exists()
+    ui_prefs.update(str(tmp_path), {'a': '1'})
+    assert ui_prefs.load(str(tmp_path)) == {'a': '1'}
+
+
+def test_ui_prefs_script_json_cannot_close_the_script_tag():
+    import ui_prefs
+    s = ui_prefs.script_json({'k': '</script><script>alert(1)</script>\u2028'})
+    assert '</script' not in s and '\u2028' not in s
+    assert json.loads(s) == {'k': '</script><script>alert(1)</script>\u2028'}
+
+
+def test_ui_prefs_survive_app_restart_and_load_before_appearance(test_server):
+    r = _post(test_server, '/api/ui-prefs',
+              {'set': {'p6_report_appearance': 'blueprint', 'p6evm_e1_layout': '{"cols":["a"]}'}})
+    assert r['ok'] is True and r['skipped'] == []
+    assert _post(test_server, '/api/ui-prefs', {'set': 'nope'})['ok'] is False
+    httpd = _restart()
+    try:
+        port = httpd.server_address[1]
+        _, body = _get(port, '/api/ui-prefs')
+        prefs = json.loads(body)['prefs']
+        assert prefs['p6_report_appearance'] == 'blueprint'
+        assert prefs['p6evm_e1_layout'] == '{"cols":["a"]}'
+        status, html = _get(port, '/')
+        html = html.decode('utf-8')
+        assert status == 200
+        i_prefs = html.index('window.__UI_PREFS__=')
+        i_bridge = html.index('/api/ui-prefs')           # the inlined bridge
+        i_appearance = html.index("localStorage.getItem('p6_report_appearance')")
+        i_app = html.index('src="/ui/app.js"')
+        assert i_prefs < i_bridge < i_appearance < i_app
+        assert '"p6_report_appearance":"blueprint"' in html
+    finally:
+        httpd.shutdown()
+
+
+def test_ui_prefs_unreadable_store_never_blocks_the_page(test_server, monkeypatch):
+    import ui_prefs
+    monkeypatch.setattr(ui_prefs, 'load', lambda d: (_ for _ in ()).throw(OSError('locked')))
+    status, html = _get(test_server, '/')
+    assert status == 200 and b'window.__UI_PREFS__={}' in html
