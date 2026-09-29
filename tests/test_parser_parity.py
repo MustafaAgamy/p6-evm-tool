@@ -1213,6 +1213,101 @@ def test_no_feature_reads_free_float():
     assert hits == []
 
 
+# ── G2: XER money to 4 decimals - a genuine format difference, documented ─────────────────
+# P6 writes every XER money value (TASKRSRC target_cost / act_reg_cost / act_ot_cost /
+# remain_cost / cost_per_qty) rounded to 4 decimals, while the XML carries P6's full precision
+# (checked on the GBT and ALSTOM real pairs: XER max 4 dp, XML up to 11 dp). Each XER value is
+# therefore up to half a 4th-decimal unit away from the XML's, so a total of n values may
+# differ by n x 0.00005 - never shown to the planner (reports show cents). This is the
+# tolerance every real-file XER-vs-XML money comparison uses (tests/test_golden_xer_xml.py).
+
+XER_MONEY_HALF_UNIT = 0.00005        # the most one 4-dp XER money value can differ from the XML
+
+
+def money_tolerance(n_values):
+    """How far a total of n money values may legitimately differ XER vs XML (genuine finding G2):
+    n x 0.00005 (the 4-dp rounding of each value), never less than a cent (0.01)."""
+    return max(0.01, n_values * XER_MONEY_HALF_UNIT)
+
+
+def test_xer_money_to_4dp_is_a_genuine_format_difference(tmp_path, monkeypatch):
+    """GENUINE (not a defect, finding G2): the same assignment with sub-cent precision - the XML
+    parser keeps P6's full value, the XER parser reads exactly the 4-dp value P6 wrote (nothing
+    lost beyond P6's own rounding), and every money figure / roll-up / EVM number agrees within
+    the rounding bound - to the cent for what the planner sees."""
+    precise = {'target_cost': 7200.123456, 'act_reg_cost': 3000.987654, 'remain_cost': 4199.135802}
+    variant = [dict(s, **precise, rate=precise['target_cost'] / s['target_qty'])
+               if s['oid'] == '4002' else s for s in ASSIGNMENTS]
+    bl_variant = [(o, a, r, u, 7000.987654 if o == '49004' else c)
+                  for o, a, r, u, c in BASELINE_ASSIGNMENTS]
+    monkeypatch.setitem(globals(), 'ASSIGNMENTS', variant)
+    monkeypatch.setitem(globals(), 'BASELINE_ASSIGNMENTS', bl_variant)
+    xml = parse_file(_write(tmp_path, 'money.xml', build_xml()))
+    xer = parse_file(_write(tmp_path, 'money.xer', build_xer()))
+    assert '\t7200.1235\t' in (tmp_path / 'money.xer').read_text(encoding='utf-8')    # P6's 4 dp
+
+    # XML = P6's full precision; XER = exactly the 4-dp value written (7200.1235, 3000.9877 ...)
+    assert xml.bac_by_activity['70004'] == pytest.approx(7200.123456 + 2500.5, abs=1e-9)
+    assert xer.bac_by_activity['70004'] == pytest.approx(7200.1235 + 2500.5, abs=1e-9)
+    assert xml.ac_by_activity['70004'] == pytest.approx(3000.987654 + 1000.2, abs=1e-9)
+    assert xer.ac_by_activity['70004'] == pytest.approx(3000.9877 + 1000.2, abs=1e-9)
+    assert xml.baseline_bac_by_activity['70004'] == pytest.approx(7000.987654 + 2400.0, abs=1e-9)
+    assert xer.baseline_bac_by_activity['70004'] == pytest.approx(7000.9877 + 2400.0, abs=1e-9)
+
+    # every money value within half a 4th-decimal unit; the non-money assignment fields equal
+    slack = XER_MONEY_HALF_UNIT + 1e-9
+    for field in ('bac_by_activity', 'ac_by_activity', 'baseline_bac_by_activity'):
+        x, r = getattr(xml, field), getattr(xer, field)
+        assert set(x) == set(r), field
+        assert all(abs(x[k] - r[k]) <= slack for k in x), field
+    for act, xs in xml.assignments_by_activity.items():
+        rs = {s['resource_id']: s for s in xer.assignments_by_activity[act]}
+        for s in xs:
+            t = rs[s['resource_id']]
+            assert abs(s['budget_cost'] - t['budget_cost']) <= slack, (act, s['resource_id'])
+            assert abs(s['rate'] - t['rate']) <= slack, (act, s['resource_id'])
+            assert (s['budget_units'], s['actual_units']) == (t['budget_units'], t['actual_units'])
+
+    # what the planner sees: EVM money within the rounding bound, ratios / % identical
+    # (delay_days is not money - see test_evm_delay_days_matches below)
+    rx, ry = _evm(xml), _evm(xer)
+    tol = money_tolerance(len(variant) + len(bl_variant))
+    for k in ('pv', 'ev', 'ac'):
+        assert abs(rx[k] - ry[k]) <= tol, k
+    for k in ('spi', 'cpi', 'overall_planned_pct', 'overall_actual_pct'):
+        assert (rx[k] is None and ry[k] is None) or abs(rx[k] - ry[k]) <= 0.0005, k
+
+
+def _evm(d):
+    """compute() exactly as /api/parse runs it (config.json + auto categories + WBS classifier)."""
+    import json
+    import pathlib
+    from p6_evm.classify import auto_categories, build_wbs_classifier
+    from p6_evm.metrics import compute
+    root = pathlib.Path(__file__).resolve().parents[1]
+    cfg = json.loads((root / 'config.json').read_text(encoding='utf-8'))
+    return compute(d, dict(cfg, categories=auto_categories(d)), classifier=build_wbs_classifier(d))
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    'F7-D1 (found by [parser:F7], computation rule - owner decision, not a parser defect): '
+    'p6_evm/metrics.py:200-210 derives Delay from the finish milestone by FORMAT - XER '
+    '(tf_from_hours) -> -round(total float days) (Python round: 6.5 -> 6), XML -> -float_working_days '
+    '(counts the short day as a whole day: 7) - so a finish float that is not a whole number of '
+    'days (here A1050: 52 h = 6.5 d on the 8 h calendar with a 4 h Thursday) gives XER -6 vs XML -7. '
+    'Both parsers hand compute() the SAME total_float_days (6.5) and the same remaining early / '
+    'late start (test_parity). Remove this marker when one rule is chosen for both formats.'))
+def test_evm_delay_days_matches(parsed):
+    assert _evm(parsed['xml'])['delay_days'] == _evm(parsed['xer'])['delay_days']
+
+
+def test_money_tolerance_is_the_4dp_rounding_bound():
+    """G2: the real-file tolerance - a cent, or n x 0.00005 when many rounded values are summed."""
+    assert money_tolerance(1) == 0.01
+    assert money_tolerance(200) == pytest.approx(0.01)
+    assert money_tolerance(10000) == pytest.approx(0.5)
+
+
 def test_no_baseline_xer_names_the_baseline_from_baseline_export(parsed_nobl):
     """A P6 XER update export carries only BASELINE_EXPORT (id + name) - still name it, flag the
     stand-in dates 'self', and carry no baseline budget (finding P1, real SG / ALSTOM exports)."""
