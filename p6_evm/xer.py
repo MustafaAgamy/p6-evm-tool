@@ -1,6 +1,6 @@
 from datetime import datetime
-from p6_evm.parser import ScheduleData, full_wbs_path
-from p6_evm.calendars import Calendar, float_basis
+from p6_evm.parser import ScheduleData, full_wbs_path, _activity_calendar
+from p6_evm.calendars import Calendar, float_basis, total_float_hours
 from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
@@ -10,6 +10,8 @@ PRED_TYPE = {'PR_FS': 'FS', 'PR_SS': 'SS', 'PR_FF': 'FF', 'PR_SF': 'SF'}
 # XML (<Status>, <PrimaryConstraintType>/<SecondaryConstraintType>), so every status- or
 # constraint-based check (hard constraints, milestones, float, engineering progress) works the
 # same on either file (findings P6 / P7). An unknown code is kept as-is (honest, never guessed).
+# CALENDAR.clndr_type -> the words P6 writes to the XML's <Calendar><Type> (finding P12).
+CLNDR_TYPE = {'CA_Base': 'Global', 'CA_Project': 'Project', 'CA_Rsrc': 'Resource'}
 STATUS = {'TK_NotStart': 'Not Started', 'TK_Active': 'In Progress', 'TK_Complete': 'Completed'}
 CSTR_TYPE = {'CS_MSO': 'Start On', 'CS_MSOB': 'Start On or Before', 'CS_MSOA': 'Start On or After',
              'CS_MEO': 'Finish On', 'CS_MEOB': 'Finish On or Before', 'CS_MEOA': 'Finish On or After',
@@ -137,8 +139,18 @@ def parse_xer(path):
         'baseline_name': _baseline_name(tables, proj, bl_proj),
     }
 
+    # This project's calendars = global + resource calendars (no proj_id) + its own project
+    # calendars - what the XML lists outside <BaselineProject>. The baseline project's calendars
+    # go to data.baseline_calendars; another project's (multi-project XER) are held aside and
+    # used only if one of this project's activities points at them (findings P11 / P23).
+    other_project_cals = {}
     for c in tables.get('CALENDAR', []):
         oid = c.get('clndr_id')
+        cproj = c.get('proj_id') or None
+        if cproj and proj_id and cproj != proj_id:
+            target = data.baseline_calendars if cproj == bl_proj_id else other_project_cals
+        else:
+            target = data.calendars
         # Read the working week + holidays from clndr_data so working-time math (Planned%,
         # Delay) matches the XML path. Falls back to a bare (whole-day) calendar on any parse
         # miss, preserving the prior behaviour.
@@ -147,7 +159,7 @@ def parse_xer(path):
             cd = parse_clndr_data(c.get('clndr_data'))
         except Exception:
             cd = {}
-        data.calendars[oid] = Calendar(
+        target[oid] = Calendar(
             object_id=oid, name=c.get('clndr_name'),
             day_hours=_num(c.get('day_hr_cnt'), 8.0) or 8.0,
             nonworking_days=cd.get('nonworking_days') or set(),
@@ -156,7 +168,13 @@ def parse_xer(path):
             work_intervals=cd.get('work_intervals') or {},
             exception_intervals=cd.get('exception_intervals') or {},
             weekly_working_days=cd.get('weekly_working_days') or set(),
+            # Global / Project / Resource and the default flag, as the XML's <Type>/<IsDefault>
+            # (finding P12 - the Calendar Audit's 'Default' role and type column).
+            type=CLNDR_TYPE.get(c.get('clndr_type'), c.get('clndr_type') or ''),
+            is_default=(c.get('default_flag') or '').strip().upper() == 'Y',
         )
+
+    tf_basis = data.project['total_float_type']
 
     # Only import WBS nodes belonging to this project. The project-root node (proj_node_flag=Y,
     # the project itself) is NOT a WBS element: P6's XML never lists it as a <WBS> and its
@@ -193,12 +211,21 @@ def parse_xer(path):
         if proj_id and t.get('proj_id') not in (None, '', proj_id):
             continue
         oid = t.get('task_id')
-        cal = data.calendars.get(t.get('clndr_id'))
+        cal = _activity_calendar(data, t.get('clndr_id'), other_project_cals)
         day_hours = cal.day_hours if cal else 8.0
         tf = _num(t.get('total_float_hr_cnt'))
         ff = _num(t.get('free_float_hr_cnt'))
         tf_days = (tf / day_hours) if tf is not None else None
         ff_days = (ff / day_hours) if ff is not None else None
+        if tf is None:
+            # P6 left total_float_hr_cnt blank (e.g. an unscheduled / older export): rebuild it
+            # exactly as the XML reader does - on the project's 'Compute Total Float as' basis
+            # (Finish Float = RLF - REF by default), in working hours on the activity's calendar
+            # (finding P9). A Completed activity has no remaining dates -> None, as in P6.
+            h = total_float_hours(cal, _dt(t.get('restart_date')), _dt(t.get('reend_date')),
+                                  _dt(t.get('rem_late_start_date')), _dt(t.get('rem_late_end_date')),
+                                  tf_basis)
+            tf_days = (h / day_hours) if h is not None else None
         planned_start = _dt(t.get('target_start_date'))
         planned_finish = _dt(t.get('target_end_date'))
         data.activities[oid] = {

@@ -48,6 +48,12 @@ def _res_type_label(raw):
 class ScheduleData:
     def __init__(self):
         self.calendars = {}
+        # The embedded baseline project's OWN calendars (XML <BaselineProject><Calendar>, XER
+        # CALENDAR rows of the baseline project) - kept OUT of `calendars`, which lists only the
+        # current project's calendars (global + project + resource) the way P6 shows them, so the
+        # calendar count / Calendar Audit never see baseline copies as unused project calendars
+        # (findings P11 / P23). ObjectId -> Calendar.
+        self.baseline_calendars = {}
         self.project = {}
         self.wbs = {}              # ObjectId -> {Name, ParentObjectId}
         self.activities = {}       # ObjectId -> activity dict
@@ -68,6 +74,21 @@ class ScheduleData:
         self.resources = {}                # resource ObjectId -> {'name', 'code' (P6 Id), 'type'}
         self.assignments_by_activity = {}  # activity ObjectId -> [{resource_id, resource_code, resource_name,
                                            #   resource_type, budget_units, actual_units, budget_cost, rate}]
+
+
+def _activity_calendar(data, cid, spare=None):
+    """The Calendar a CURRENT activity runs on. Normally in data.calendars; should a file ever
+    assign a current activity a calendar that is defined only with the baseline (or, in a
+    multi-project XER, with another project), that calendar is promoted into data.calendars -
+    it is then genuinely used by this project - rather than leaving the activity without one."""
+    if not cid:
+        return None
+    cal = data.calendars.get(cid)
+    if cal is None:
+        cal = data.baseline_calendars.get(cid) or (spare or {}).get(cid)
+        if cal is not None:
+            data.calendars[cid] = cal
+    return cal
 
 
 def full_wbs_path(wbs_id, wbs_map):
@@ -177,9 +198,15 @@ def parse_file(path) -> ScheduleData:
                 out.append((sm, em))
         return out
 
+    # Calendars nested in a <BaselineProject> belong to the baseline, not to this project's
+    # calendar list (finding P11) - they go to data.baseline_calendars, like the XER reader does
+    # with the baseline project's CALENDAR rows.
+    _bl_cal_els = {id(c) for bp in root.iter(tag('BaselineProject')) for c in bp.iter(tag('Calendar'))}
+
     for cal_el in root.iter(tag('Calendar')):
         object_id = text(cal_el, 'ObjectId')
-        if object_id in data.calendars:
+        target = data.baseline_calendars if id(cal_el) in _bl_cal_els else data.calendars
+        if object_id in target:
             continue
         name = text(cal_el, 'Name')
         nonworking = set()
@@ -211,11 +238,14 @@ def parse_file(path) -> ScheduleData:
         hours_raw = text(cal_el, 'HoursPerDay')
         cal_type = (text(cal_el, 'Type') or '').replace('Calendar', '').strip()  # 'Global'/'Project'/'Resource'
         is_default = (text(cal_el, 'IsDefault') or '').strip().lower() in ('true', '1', 'yes')
-        data.calendars[object_id] = Calendar(
+        target[object_id] = Calendar(
             object_id=object_id, name=name, nonworking_days=nonworking,
             holidays=holidays, added_work_days=added_work,
             day_hours=parse_float(hours_raw, 8.0) or 8.0,
             work_intervals=work_intervals, exception_intervals=exception_intervals,
+            # The weekdays that carry work times - filled for BOTH formats (the XER reader takes
+            # them from clndr_data), 24-hour days included (finding P12).
+            weekly_working_days=set(work_intervals),
             type=cal_type, is_default=is_default,
         )
 
@@ -297,7 +327,7 @@ def parse_file(path) -> ScheduleData:
         # Audit fields — additive, never alter EVM keys above
         act = data.activities[object_id]
         act['task_type'] = XML_TASK_TYPE.get(text(act_el, 'Type'), 'Task')
-        cal = data.calendars.get(act['calendar_id'])
+        cal = _activity_calendar(data, act['calendar_id'])
         day_hours = cal.day_hours if cal else 8.0
         tf_hours_raw = text(act_el, 'TotalFloatHours')
         ff_hours_raw = text(act_el, 'FreeFloatHours')
