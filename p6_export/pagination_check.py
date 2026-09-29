@@ -491,7 +491,7 @@ def _section_size(pages, body, firsts):
     for P, (kind, _, size) in zip(pages[1:], firsts[1:]):
         if kind == 'heading':
             seen[round(size * 2) / 2][1] += 1
-    cands = [k for k, (n, t) in seen.items() if k >= 1.3 * body and t >= max(1, 0.5 * n)]
+    cands = [k for k, (n, t) in seen.items() if k >= 1.2 * body and t >= max(1, 0.5 * n)]
     return min(cands) if cands else float('inf')
 
 
