@@ -201,8 +201,8 @@ def _read_pdf(path):
                         continue
                     t = ' '.join(''.join(s['text'] for s in ln['spans']).split())
                     size = max(s['size'] for s in spans)
-                    if size < 3:
-                        continue                  # invisible markers (e.g. a 1px section marker)
+                    if size < 3 or t.startswith("Evaluation Warning"):
+                        continue                  # invisible markers (a 1px section marker) / a renderer watermark
                     d = ln.get('dir', (1, 0))
                     if abs(d[0] - 1) > 0.01:
                         P.misc.append((max(y0, 0), min(y1, H)))   # rotated text (an axis label)
@@ -275,8 +275,12 @@ def _strip_running(pages):
         return all(len(b.lines) >= 3 and nx is not None and nx.grid and nx.y0 - b.y1 <= 30
                    and _col_match(b.lines, nx.lines) >= 3 for b, nx in occ[k])
 
+    H = pages[0].H if pages else 842.0
+
     def running(b):
         k = (round(b.y0 / 3), sig(b))
+        if b.y1 < 0.1 * H or b.y0 > 0.9 * H:      # the header / footer band of the sheet:
+            return n >= 2 and len(occ[k]) >= min(n, need)   # on every page of a short report
         return n >= 3 and len(occ[k]) >= need and not table_header(k)
     dkey = lambda d: (round(d.ry0 / 3), round(d.x0 / 3), round(d.w / 3), round((d.ry1 - d.ry0) / 3))
     dcnt = collections.Counter()
@@ -616,7 +620,7 @@ def _analyze_pages(pages, hints=()):
     tops = sorted(P.top for P in full)
     bots = sorted(min(P.bottom, P.H) for P in full)
     T = tops[len(tops) // 2]
-    B = bots[int((len(bots) - 1) * 0.9)]
+    B = bots[min(len(bots) - 1, round((len(bots) - 1) * 0.9))]
     area = max(B - T, 1.0)
     # the page-area edges: nothing on a normal page reaches past them (spilled pages aside)
     area_bottom = max((P.bottom for P in full if P.bottom <= P.H - 8), default=B)
