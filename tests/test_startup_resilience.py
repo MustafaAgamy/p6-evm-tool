@@ -439,6 +439,67 @@ def test_graphics_normal_by_default_and_env_override(monkeypatch):
     assert app_startup.apply_graphics_mode(env) == 'normal' and env == {}
 
 
+def test_help_safe_graphics_switch_round_trip(test_server, tmp_path, monkeypatch):
+    """[startup:F3] BLACK-6: Help ▸ Contact & Support 'Safe graphics' — the saved choice is
+    read by the NEXT launch (apply_graphics_mode), and turning it off is the way back to
+    normal graphics after the app switched it on by itself."""
+    monkeypatch.delenv(app_startup.RELAUNCH_ENV, raising=False)
+    status, _, body = _get(test_server, '/api/graphics-mode')
+    st = json.loads(body)
+    assert status == 200 and st['ok'] and st['saved'] is False
+    assert st['this_launch'] == 'normal' and st['forced'] is None
+
+    status, st = _post(test_server, '/api/graphics-mode', {'safe': True})
+    assert status == 200 and st['saved'] is True and st['reason'] == 'turned on in Help'
+    assert st['since']
+    env = {}
+    assert app_startup.apply_graphics_mode(env) == 'safe'           # the next launch
+    assert '--disable-gpu' in env['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS']
+    assert '--disable-features=ElasticOverscroll' in env['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS']
+    assert st['this_launch'] == 'normal'          # this window keeps the mode it started in
+
+    status, st = _post(test_server, '/api/graphics-mode', {'safe': False})
+    assert status == 200 and st['saved'] is False and st['reason'] is None
+    assert not (tmp_path / 'safe_graphics.json').exists()
+    env = {}
+    assert app_startup.apply_graphics_mode(env) == 'normal' and env == {}
+    log = (tmp_path / 'logs' / 'startup.log').read_text(encoding='utf-8')
+    assert 'switched ON' in log and 'switched OFF' in log and 'turned off in Help' in log
+
+
+def test_help_safe_graphics_switch_bad_request_and_unwritable_folder(test_server, monkeypatch):
+    for bad in ({}, {'safe': 'yes'}, {'safe': 1}):
+        status, st = _post(test_server, '/api/graphics-mode', bad)
+        assert status == 400 and st['ok'] is False
+    monkeypatch.setattr(app_startup, '_write_json', lambda path, obj: False)
+    status, st = _post(test_server, '/api/graphics-mode', {'safe': True})
+    assert status == 500 and st['ok'] is False and st['saved'] is False
+    assert 'could not be saved' in st['error']
+
+
+def test_turning_safe_graphics_off_with_a_locked_flag_file(tmp_path, monkeypatch):
+    app_startup.enable_safe_graphics('auto')
+    real_remove = os.remove
+
+    def locked(path, *a, **k):
+        if str(path).endswith('safe_graphics.json'):
+            raise PermissionError(32, 'being used by another process')
+        return real_remove(path, *a, **k)
+    monkeypatch.setattr(app_startup.os, 'remove', locked)
+    assert app_startup.disable_safe_graphics('turned off in Help') is True
+    assert not app_startup.safe_graphics_enabled()                  # enabled=False written
+    assert app_startup.graphics_status()['saved'] is False
+
+
+def test_graphics_status_reports_a_user_override_but_not_a_relaunch(monkeypatch):
+    monkeypatch.delenv(app_startup.RELAUNCH_ENV, raising=False)
+    monkeypatch.setenv(app_startup.SAFE_GRAPHICS_ENV, '0')
+    assert app_startup.graphics_status()['forced'] == '0'
+    monkeypatch.setenv(app_startup.SAFE_GRAPHICS_ENV, '1')
+    monkeypatch.setenv(app_startup.RELAUNCH_ENV, '1')        # set by the automatic relaunch
+    assert app_startup.graphics_status()['forced'] is None
+
+
 def test_closing_a_never_ready_window_is_remembered(tmp_path):
     app_startup.begin_launch()
     app_startup.T0 = time.monotonic() - 20                # the user sat on it for 20 s

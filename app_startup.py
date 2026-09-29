@@ -298,6 +298,40 @@ def enable_safe_graphics(reason):
     return ok
 
 
+def disable_safe_graphics(reason):
+    """Back to normal (GPU) graphics from the next launch — the Help ▸ Contact & Support
+    'Safe graphics' switch. Removes the flag file (a locked file is overwritten with
+    enabled=False instead). Returns True when the saved setting is now off. A launch that
+    again never shows the page switches it back on by itself (begin_launch/watchdog)."""
+    path = _graphics_flag_path()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        if not _write_json(path, {'enabled': False, 'reason': reason,
+                                  'since': datetime.now().isoformat(timespec='seconds')}):
+            return False
+    log('safe graphics mode switched OFF for the next launches: %s', reason,
+        level=logging.WARNING)
+    return not bool((_read_json(path) or {}).get('enabled'))
+
+
+def graphics_status():
+    """What the Help screen shows: the saved choice (used from the next launch), why and
+    since when it was switched on, the mode THIS window started in, and whether an
+    environment variable set by the user overrides the saved choice."""
+    flag = _read_json(_graphics_flag_path()) or {}
+    on = bool(flag.get('enabled'))
+    env = os.environ.get(SAFE_GRAPHICS_ENV, '').strip()
+    forced = env if env in ('0', '1') and os.environ.get(RELAUNCH_ENV) != '1' else None
+    return {'saved': on,
+            'reason': flag.get('reason') if on else None,
+            'since': flag.get('since') if on else None,
+            'this_launch': STATE.get('graphics') or 'normal',
+            'forced': forced}
+
+
 def apply_graphics_mode(env=None):
     """Set WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS when safe graphics is on. Must run
     before the first window is created. Returns 'safe' or 'normal'."""

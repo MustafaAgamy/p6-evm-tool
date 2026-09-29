@@ -291,6 +291,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_history()
         elif self.path.split('?', 1)[0] == '/api/ui-prefs':      # saved screen preferences
             self._handle_ui_prefs_get()
+        elif self.path == '/api/graphics-mode':                  # Help: Safe graphics switch
+            self._json(200, {'ok': True, **app_startup.graphics_status()})
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
@@ -318,6 +320,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == '/api/ui-prefs':                   # ui/prefs_bridge.js -> ui_prefs.json
             self._handle_ui_prefs_post(body)
+            return
+        if self.path == '/api/graphics-mode':              # Help: Safe graphics switch
+            self._handle_graphics_mode_post(body)
             return
         if self.path == '/api/parse':
             self._handle_parse(body)
@@ -796,6 +801,26 @@ class Handler(BaseHTTPRequestHandler):
             self._json(503, {'ok': False, 'error': 'Screen preferences could not be saved right now.'})
             return
         self._json(200, {'ok': True, 'count': count, 'skipped': skipped})
+
+    # Help ▸ Contact & Support 'Safe graphics' switch (BLACK-6): WebView2 without the GPU
+    # (--disable-gpu) from the NEXT launch. The app also turns it on by itself after a
+    # launch that never showed the page; this is the way back (and a manual way in).
+    def _handle_graphics_mode_post(self, body):
+        safe = body.get('safe') if isinstance(body, dict) else None
+        if not isinstance(safe, bool):
+            self._json(400, {'ok': False, 'error': 'Say safe: true or false.'})
+            return
+        if safe:
+            app_startup.enable_safe_graphics('turned on in Help')
+        else:
+            app_startup.disable_safe_graphics('turned off in Help')
+        status = app_startup.graphics_status()
+        if status['saved'] != safe:
+            self._json(500, {'ok': False, **status,
+                             'error': 'The graphics setting could not be saved (the app '
+                                      'data folder is not writable).'})
+            return
+        self._json(200, {'ok': True, **status})
 
     def _json(self, status, data):
         body = json.dumps(data, cls=_Encoder).encode()
