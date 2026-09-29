@@ -50,7 +50,9 @@ test('weather: a failed Calculate shows a notice card and keeps the last estimat
   assert.match(cal, /No new weather estimate\./);
   assert.match(cal, /The estimate below is the last one calculated\./);
   // the failure branch must not overwrite _weather
-  const branch = cal.slice(cal.indexOf('} else {\n        // No estimate'), cal.indexOf('} catch {\n      _wxNotice'));
+  // (the failure branch first keeps the saved location/limits in step — SET-3 — then the note)
+  const start = cal.lastIndexOf('} else {', cal.indexOf('// No estimate (offline'));
+  const branch = start < 0 ? '' : cal.slice(start, cal.indexOf('} catch {\n      _wxNotice', start));
   assert.ok(branch.length > 0, 'found the failure branch');
   assert.doesNotMatch(branch, /_weather = /);
 });

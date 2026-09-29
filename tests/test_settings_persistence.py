@@ -245,3 +245,121 @@ def test_ui_prefs_unreadable_store_never_blocks_the_page(test_server, monkeypatc
     monkeypatch.setattr(ui_prefs, 'load', lambda d: (_ for _ in ()).throw(OSError('locked')))
     status, html = _get(test_server, '/')
     assert status == 200 and b'window.__UI_PREFS__={}' in html
+
+
+# ── AI Chat: the chosen offline AI brain ────────────────────────────────────
+
+def _llm(tmp_path, monkeypatch):
+    from p6_chat import llm
+    monkeypatch.setattr(llm, 'app_data_dir', lambda: str(tmp_path))
+    return llm
+
+
+def test_ai_brain_choice_saved_survives_restart_and_is_applied(tmp_path, monkeypatch):
+    llm = _llm(tmp_path, monkeypatch)
+    (tmp_path / 'chat_brain.json').write_text('{"model_key": "detailed", "other": 1}', encoding='utf-8')
+    s = llm.save_settings(model='fast')
+    assert s['saved'] is True and s['model_key'] == 'fast'
+    on_disk = json.loads((tmp_path / 'chat_brain.json').read_text(encoding='utf-8'))
+    assert on_disk == {'model_key': 'fast', 'other': 1}          # other keys kept
+    assert not (tmp_path / 'chat_brain.json.tmp').exists()      # atomic swap, nothing left over
+    # "restart": nothing is held in memory — the choice is read back from the file
+    assert llm.get_model_key() == 'fast'
+    st = llm.status()
+    assert st['model_key'] == 'fast' and st['model_name'] == llm.MODELS['fast']['label']
+    # applied: answers load the chosen brain's model file
+    assert llm._model_path().endswith(llm.MODELS['fast']['file'])
+
+
+def test_ai_brain_choice_not_kept_is_reported_and_old_choice_stays(tmp_path, monkeypatch):
+    llm = _llm(tmp_path, monkeypatch)
+    assert llm.save_settings(model='detailed')['saved'] is True
+
+    def locked(*a, **k):
+        raise PermissionError('read-only folder')
+    monkeypatch.setattr(llm.os, 'replace', locked)
+    s = llm.save_settings(model='fast')
+    assert s['saved'] is False and 'could not be saved' in s['error']
+    assert s['model_key'] == 'detailed' and llm.get_model_key() == 'detailed'
+    assert not (tmp_path / 'chat_brain.json.tmp').exists()
+    bad = llm.save_settings(model='no-such-brain')
+    assert bad['saved'] is False and bad['model_key'] == 'detailed'
+    assert llm.save_settings()['model_key'] == 'detailed' and 'saved' not in llm.save_settings()
+
+
+def test_ai_brain_choice_via_the_app_survives_restart(test_server, tmp_path, monkeypatch):
+    _llm(tmp_path, monkeypatch)
+    d = _post(test_server, '/api/chat/settings', {'model': 'fast'})
+    assert d['ok'] is True and d['settings']['saved'] is True and d['brain']['model_key'] == 'fast'
+    httpd = _restart()
+    try:
+        _, body = _get(httpd.server_address[1], '/api/chat/status')
+        assert json.loads(body)['brain']['model_key'] == 'fast'
+    finally:
+        httpd.shutdown()
+
+
+# ── Schedule Health: contract milestones (gate B) ───────────────────────────
+
+def _hard(result):
+    return ((result.get('audit_modules') or {}).get('modules') or {}).get('hard_constraints')
+
+
+def test_contract_milestones_prefill_survive_reopen_reimport_restart(test_server, xml_path):
+    d = _import(test_server, xml_path)
+    if _hard(d['result']) is None:
+        pytest.skip('fixture yields no Milestone Check module')
+    sid = d['snapshot_id']
+    rows = [{'name': 'Mechanical Completion', 'date': '2027-06-30'},
+            {'name': 'Handover', 'date': '2027-09-30'},
+            {'name': '', 'date': ''},                            # a blank row never wipes the list
+            'junk']
+    r = _post(test_server, '/api/milestones/save', {'snapshot_id': sid, 'milestones': rows})
+    want = rows[:2]
+    assert r['ok'] is True and r['saved'] is True and r['milestones'] == want
+    mod = r['milestone_module']
+    assert mod is not None and mod['needs_input'] is False
+    # "Edit contract milestones" pre-fills from the module the screen now holds
+    assert mod['contract_milestones'] == want
+    assert [e['contract_name'] for e in mod['milestones']] == ['Mechanical Completion', 'Handover']
+
+    # re-open: pre-filled from the saved list
+    hard = _hard(_reopen(test_server)['result'])
+    assert hard['contract_milestones'] == want
+
+    # re-import the same schedule: evaluated against the saved list at once (applied)
+    hard = _hard(_import(test_server, xml_path)['result'])
+    assert hard['contract_milestones'] == want and hard['needs_input'] is False
+    assert len(hard['milestones']) == 2
+
+    # app restart (a second server on the same data folder)
+    httpd = _restart()
+    try:
+        hard = _hard(_reopen(httpd.server_address[1])['result'])
+        assert hard['contract_milestones'] == want
+    finally:
+        httpd.shutdown()
+
+
+def test_contract_milestones_save_reports_db_busy_and_unchecked(test_server, xml_path, monkeypatch):
+    d = _import(test_server, xml_path)
+    sid = d['snapshot_id']
+    good = [{'name': 'Handover', 'date': '2027-09-30'}]
+    assert _post(test_server, '/api/milestones/save', {'snapshot_id': sid, 'milestones': good})['ok']
+
+    def busy(*a, **k):
+        raise RuntimeError('database is locked')
+    real_save = db.save_contract_milestones
+    monkeypatch.setattr(db, 'save_contract_milestones', busy)
+    r = _post(test_server, '/api/milestones/save',
+              {'snapshot_id': sid, 'milestones': [{'name': 'X', 'date': '2027-01-01'}]})
+    assert r['ok'] is False and 'could not be saved' in r['error']
+    monkeypatch.setattr(db, 'save_contract_milestones', real_save)
+    pid = db.get_project_id_for_snapshot(sid)
+    assert db.get_contract_milestones(pid) == good                # the old list is kept
+
+    # saved, but the schedule file is gone -> saved + a plain reason (not "please retry")
+    monkeypatch.setattr(db, 'get_snapshot_xml_path', lambda s: None)
+    r = _post(test_server, '/api/milestones/save', {'snapshot_id': sid, 'milestones': good})
+    assert r['ok'] is True and r['saved'] is True and r['milestone_module'] is None
+    assert 'could not be found' in r['error']
