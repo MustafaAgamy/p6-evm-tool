@@ -509,9 +509,9 @@ def _xer_calendar_row(c):
             'clndr_data': _clndr_data(c)}
 
 
-def _xer_project_row(p, base_id):
+def _xer_project_row(p, base_id, orig=''):
     return {'proj_id': p['object_id'], 'proj_short_name': p['id'], 'clndr_id': '8801',
-            'sum_base_proj_id': base_id, 'def_complete_pct_type': 'CP_Drtn',
+            'sum_base_proj_id': base_id, 'orig_proj_id': orig, 'def_complete_pct_type': 'CP_Drtn',
             'last_recalc_date': p['data_date'], 'plan_start_date': p['planned_start'],
             'plan_end_date': p['must_finish_by'], 'scd_end_date': p['scheduled_finish']}
 
@@ -547,7 +547,8 @@ def _xer_task_row(a):
             'cstr_type': XER_CSTR.get(cstr), 'cstr_date2': cstr2_d, 'cstr_type2': XER_CSTR.get(cstr2)}
 
 
-PROJECT_F = ['proj_id', 'proj_short_name', 'clndr_id', 'sum_base_proj_id', 'def_complete_pct_type',
+PROJECT_F = ['proj_id', 'proj_short_name', 'clndr_id', 'sum_base_proj_id', 'orig_proj_id',
+             'def_complete_pct_type',
              'last_recalc_date', 'plan_start_date', 'plan_end_date', 'scd_end_date']
 CALENDAR_F = ['clndr_id', 'default_flag', 'clndr_name', 'proj_id', 'base_clndr_id',
               'clndr_type', 'day_hr_cnt', 'week_hr_cnt', 'clndr_data']
@@ -567,7 +568,8 @@ TASKPRED_F = ['task_pred_id', 'task_id', 'pred_task_id', 'proj_id', 'pred_proj_i
               'lag_hr_cnt']
 
 
-def build_xer(*, baseline_rows=True, baseline_first=False, blank_float=False, data_date=None):
+def build_xer(*, baseline_rows=True, baseline_first=False, blank_float=False, data_date=None,
+              decoy_baseline=False):
     """baseline_rows=True : the export carries the baseline project's rows (the XER twin of the
     XML's <BaselineProject>). False: only the BASELINE_EXPORT pointer, as real P6 update exports
     do (genuine finding G3)."""
@@ -580,8 +582,13 @@ def build_xer(*, baseline_rows=True, baseline_first=False, blank_float=False, da
     prow = _xer_project_row(dict(p, data_date=data_date or p['data_date']), b['object_id'])
     prows = [prow]
     if baseline_rows:
-        brow = _xer_project_row(b, '')
+        brow = _xer_project_row(b, '', orig=p['object_id'])
         prows = [brow, prow] if baseline_first else [prow, brow]
+    if decoy_baseline:
+        # Another (older) baseline copy of this project, written FIRST - it is neither the
+        # current project nor its baseline (finding F10).
+        prows = [_xer_project_row(dict(b, object_id='5' + b['object_id'], id=b['id'] + '-OLD'), '',
+                                  orig=p['object_id'])] + prows
     lines += _xer_table('PROJECT', PROJECT_F, prows)
     cals = CALENDARS + ([BASELINE_CALENDAR] if baseline_rows else [])
     lines += _xer_table('CALENDAR', CALENDAR_F, [_xer_calendar_row(c) for c in cals])
@@ -1145,6 +1152,62 @@ def test_no_baseline_pair_names_the_missing_baseline(parsed_nobl):
     """Both formats still know WHICH baseline is missing, so the UI can ask for it by name/id."""
     for fmt in ('xml', 'xer'):
         assert parsed_nobl[fmt].project.get('baseline_object_id') == BASELINE['object_id'], fmt
+
+
+# ── Several baselines in one file (finding F10) ──────────────────────────────────────────
+# The baseline is the one the project names (XML CurrentBaselineProjectObjectId / XER
+# sum_base_proj_id) wherever it sits in the file - never simply the first one written.
+
+def _xml_with_decoy_baseline(current_bl_id=None):
+    """build_xml() with an OLDER <BaselineProject> of the same project written FIRST (own ids,
+    one month earlier, ten times the cost). current_bl_id rewrites CurrentBaselineProjectObjectId."""
+    import re
+    xml = build_xml()
+    start, end = xml.index('<BaselineProject>'), xml.index('</BaselineProject>') + len('</BaselineProject>')
+    real = xml[start:end]
+    decoy = re.sub(r'>(6900|9101|61\d\d|690\d\d|490\d\d|890\d\d)<', lambda m: '>5' + m.group(1) + '<', real)
+    decoy = decoy.replace('2025-03-', '2025-02-').replace(BASELINE['name'], BASELINE['name'] + ' (old)')
+    decoy = re.sub(r'<PlannedCost>([\d.]+)</PlannedCost>',
+                   lambda m: '<PlannedCost>%s</PlannedCost>' % (float(m.group(1)) * 10), decoy)
+    assert decoy != real
+    out = xml[:start] + decoy + chr(10) + real + xml[end:]
+    if current_bl_id is not None:
+        out = out.replace('<CurrentBaselineProjectObjectId>%s</CurrentBaselineProjectObjectId>'
+                          % BASELINE['object_id'],
+                          '<CurrentBaselineProjectObjectId>%s</CurrentBaselineProjectObjectId>'
+                          % current_bl_id, 1)
+    return out
+
+
+_BL_VIEW = lambda d: {  # noqa: E731 - the baseline side of a parse, comparable
+    'name': d.project.get('baseline_name'), 'source': getattr(d, 'baseline_source', None),
+    'by_id': _norm(d.baseline_by_id), 'bac': _norm(d.baseline_bac_by_activity),
+    'bl_cals': sorted(d.baseline_calendars), 'cals': sorted(d.calendars),
+    'acts': sorted(a['id'] for a in d.activities.values())}
+
+
+def test_xml_reads_the_baseline_the_project_names_not_the_first(tmp_path, parsed):
+    d = parse_file(_write(tmp_path, 'two_bl.xml', _xml_with_decoy_baseline()))
+    assert _BL_VIEW(d) == _BL_VIEW(parsed['xml']) == _BL_VIEW(parsed['xer'])
+    assert '59101' not in d.baseline_calendars and '59101' not in d.calendars
+
+
+def test_xml_names_the_other_baseline_when_the_project_points_at_it(tmp_path, parsed):
+    d = parse_file(_write(tmp_path, 'two_bl_old.xml', _xml_with_decoy_baseline('5' + BASELINE['object_id'])))
+    assert d.project.get('baseline_name') == BASELINE['name'] + ' (old)'
+    assert sorted(d.baseline_calendars) == ['59101']
+    assert _norm(d.baseline_by_id) != _norm(parsed['xml'].baseline_by_id)
+
+
+def test_xml_baseline_id_not_in_file_falls_back_to_the_first(tmp_path):
+    d = parse_file(_write(tmp_path, 'two_bl_none.xml', _xml_with_decoy_baseline('424242')))
+    assert d.project.get('baseline_name') == BASELINE['name'] + ' (old)'
+
+
+def test_xer_other_baseline_row_first_is_not_the_current_project(tmp_path, parsed):
+    d = parse_file(_write(tmp_path, 'two_bl.xer', build_xer(decoy_baseline=True)))
+    assert d.project.get('object_id') == PROJECT['object_id']
+    assert _BL_VIEW(d) == _BL_VIEW(parsed['xer'])
 
 
 # ── XER / date edge cases ─────────────────────────────────────────────────────────────────

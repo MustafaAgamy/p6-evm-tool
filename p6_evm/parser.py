@@ -357,9 +357,22 @@ def _parse_xml(path) -> ScheduleData:
     # Calendars nested in a <BaselineProject> belong to the baseline, not to this project's
     # calendar list (finding P11) - they go to data.baseline_calendars, like the XER reader does
     # with the baseline project's CALENDAR rows.
-    _bl_cal_els = {id(c) for bp in root.iter(tag('BaselineProject')) for c in bp.iter(tag('Calendar'))}
+    # The baseline is the <BaselineProject> whose ObjectId is the project's
+    # CurrentBaselineProjectObjectId - the same rule the XER reader uses (the PROJECT row whose
+    # proj_id is sum_base_proj_id) - else the first one, so an export carrying several
+    # baselines never reads whichever comes first (finding F10).
+    project_el = root.find(tag('Project'))
+    _bl_els = root.findall(tag('BaselineProject'))
+    _bl_want = text(project_el, 'CurrentBaselineProjectObjectId') if project_el is not None else None
+    baseline_el = next((bp for bp in _bl_els if _bl_want and text(bp, 'ObjectId') == _bl_want),
+                       _bl_els[0] if _bl_els else None)
+    _bl_cal_els = {id(c) for c in baseline_el.iter(tag('Calendar'))} if baseline_el is not None else set()
+    # Another baseline's calendars belong to neither list (the XER holds them aside too).
+    _other_bl_cal_els = {id(c) for bp in _bl_els if bp is not baseline_el for c in bp.iter(tag('Calendar'))}
 
     for cal_el in root.iter(tag('Calendar')):
+        if id(cal_el) in _other_bl_cal_els:
+            continue
         object_id = text(cal_el, 'ObjectId')
         target = data.baseline_calendars if id(cal_el) in _bl_cal_els else data.calendars
         if object_id in target:
@@ -404,9 +417,6 @@ def _parse_xml(path) -> ScheduleData:
             weekly_working_days=set(work_intervals),
             type=cal_type, is_default=is_default,
         )
-
-    project_el = root.find(tag('Project'))
-    baseline_el = root.find(tag('BaselineProject'))
 
     data.project = {
         'object_id': text(project_el, 'ObjectId'),

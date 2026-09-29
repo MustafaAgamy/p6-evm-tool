@@ -385,6 +385,12 @@ def _current_and_baseline_project(tables):
     ids = {r.get('proj_id') for r in rows}
     baselines = {r.get('sum_base_proj_id') for r in rows
                  if r.get('sum_base_proj_id') and r.get('sum_base_proj_id') != r.get('proj_id')}
+    # Any other baseline copy of a project in this file (orig_proj_id = that project - the XER
+    # twin of the XML's <BaselineProject><OriginalProjectObjectId>) is not the current project
+    # either, whichever row comes first (finding F10: a file carrying several baselines).
+    baselines |= {r.get('proj_id') for r in rows
+                  if r.get('orig_proj_id') and r.get('orig_proj_id') != r.get('proj_id')
+                  and r.get('orig_proj_id') in ids}
     current = next((r for r in rows if r.get('proj_id') not in baselines), rows[0])
     bl_id = current.get('sum_base_proj_id')
     bl_row = None
