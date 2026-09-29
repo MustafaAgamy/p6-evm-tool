@@ -522,6 +522,7 @@ def relaunch_safe_graphics(reason, popen=None, env=None):
         if not safe_graphics_enabled():
             enable_safe_graphics(reason)
         _update_launch_state(watchdog='failed', relaunched=True)
+        mark_profile_for_reset()           # this WebView2 folder never showed the page
         with _LAUNCH_LOCK:                 # hand over: closing this window must not
             _LAUNCH.clear()                # overwrite the new copy's launch record
         for k in [k for k in env if k.startswith('_PYI_') or k == '_MEIPASS2']:
@@ -666,6 +667,25 @@ def _sweep_profiles(base, keep):
     return removed
 
 
+RESET_SUFFIX = '.reset'
+
+
+def mark_profile_for_reset():
+    """This launch's KEPT WebView2 folder never showed the page: start it afresh at the
+    next launch that uses it. (The copy relaunched in safe graphics writes its own launch
+    record, so the failed record is not there to tell the next launch.) Returns True when
+    marked."""
+    prof = STATE.get('profile')
+    if not isinstance(prof, dict) or prof.get('kind') != 'kept' or not prof.get('path'):
+        return False
+    try:
+        with open(prof['path'] + RESET_SUFFIX, 'w', encoding='utf-8') as f:
+            f.write(datetime.now().isoformat(timespec='seconds'))
+        return True
+    except OSError:
+        return False
+
+
 def _reset_profile(folder):
     """Set a profile aside (then delete it) so this launch starts WebView2 afresh."""
     if not os.path.isdir(folder):
@@ -699,9 +719,14 @@ def webview_profile(graphics=None, previous=None, env=None):
             why = 'the kept profile is still held by a WebView2 process'
         if why is None:
             note = 'reused' if os.path.isdir(kept) else 'created'
-            if previous_launch_failed(previous):
+            marker = kept + RESET_SUFFIX           # left by a copy that relaunched itself
+            if previous_launch_failed(previous) or os.path.exists(marker):
                 if _reset_profile(kept):
                     note = 'started afresh after a launch that never showed the page'
+                    try:
+                        os.remove(marker)
+                    except OSError:
+                        pass
                 else:
                     why = 'the kept profile could not be reset after a failed launch'
             if why is None and _writable_dir(kept):

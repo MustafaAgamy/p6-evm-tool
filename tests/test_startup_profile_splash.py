@@ -332,3 +332,23 @@ def test_app_passes_the_profile_and_hooks_the_events():
     exit_at = src.index('sys.exit(0)')
     assert 'close_splash' in src[src.rindex('\n', 0, exit_at - 80):exit_at]
     assert 'def open_log_folder(self)' in src
+
+
+def test_relaunch_marks_the_kept_folder_so_the_next_launch_starts_it_afresh(tmp_path, monkeypatch):
+    """The copy relaunched in safe graphics writes its own (ready) launch record, so the
+    failed record is gone; the marker still makes the next launch in that mode reset the
+    folder that never showed the page."""
+    monkeypatch.setattr(app_startup, 'enable_safe_graphics', lambda reason: True)
+    kept = app_startup.webview_profile('normal', env={})
+    stale = os.path.join(kept['path'], 'EBWebView', 'Local State')
+    os.makedirs(os.path.dirname(stale))
+    open(stale, 'w').close()
+    started = []
+    assert app_startup.relaunch_safe_graphics('test', popen=lambda cmd, **kw: started.append(cmd),
+                                              env={}) is True
+    assert started and os.path.exists(kept['path'] + app_startup.RESET_SUFFIX)
+    nxt = app_startup.webview_profile('normal', previous={'ready': True}, env={})
+    assert nxt['kind'] == 'kept' and 'afresh' in nxt['reason']
+    assert not os.path.exists(stale)
+    assert not os.path.exists(kept['path'] + app_startup.RESET_SUFFIX)
+    assert app_startup.webview_profile('normal', previous={'ready': True}, env={})['reason'] == 'reused'
