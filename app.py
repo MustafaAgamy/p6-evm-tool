@@ -72,19 +72,47 @@ class Api:
             w.destroy()
 
 
+def _watch_startup(window, url):
+    """Runs beside the GUI loop (webview.start(func)): the readiness handshake. The page
+    reports 'ready' once its shell is built (ui/startup_guard.js -> /api/client-log); if it
+    never does, reload once and record it (see app_startup.watch_startup). Then attach the
+    WebView2 renderer-crash recovery."""
+    import app_startup
+    app_startup.watch_startup(window, url)
+    if window.events.loaded.wait(5):
+        app_startup.hook_renderer_recovery(window)
+
+
 if __name__ == '__main__':
+    import os
+    import sys
+    import app_startup
+    from utils import APP_NAME, APP_EDITION, APP_VERSION
+
+    app_startup.log('%s %s starting (pid %s, frozen=%s)', APP_TITLE, APP_VERSION,
+                    os.getpid(), bool(getattr(sys, 'frozen', False)))
+    # One running copy: a second launch brings the running window to the front instead of
+    # opening another (never blocks when the other copy has no usable window).
+    if not app_startup.single_instance('Local\\' + f'{APP_NAME}-{APP_EDITION}-instance', APP_TITLE):
+        sys.exit(0)
+    app_startup.begin_launch()
+    graphics = app_startup.apply_graphics_mode()      # WebView2 --disable-gpu only when a
+    app_startup.log('graphics mode: %s', graphics)    # launch on THIS PC never became ready
+    app_startup.attach_library_loggers()
+
     from server import make_server
 
-    server = make_server()
+    server = make_server()             # never raises on a damaged/locked database
     port = server.server_address[1]
 
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
 
+    url = f'http://localhost:{port}/'
     api = Api()
-    webview.create_window(
+    window = webview.create_window(
         APP_TITLE,
-        f'http://localhost:{port}/',
+        url,
         js_api=api,
         width=1100,
         height=720,          # restore-down size (window opens maximized)
@@ -92,4 +120,6 @@ if __name__ == '__main__':
         maximized=True,       # open maximized by default, not the small default window
         background_color='#06090f',  # match the startup splash so the window never flashes black on cold-start
     )
-    webview.start()
+    window.events.closed += app_startup.end_launch
+    app_startup.log('window created (%s)', url)
+    webview.start(_watch_startup, (window, url))
