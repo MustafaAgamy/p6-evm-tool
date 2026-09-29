@@ -159,6 +159,79 @@ def _prodintel_excel_sections(r):
     return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
 
 
+# ── online-service messages (Bad Weather / place search) ───────────────────────
+def _weather_download_gap(net, daily, climate_samples):
+    """The plain message when the weather the estimate NEEDS could not be downloaded, else
+    None. `net` is filled by p6_calendar.weather.build_daily_weather: offline → nothing
+    reached Open-Meteo; history_needed → dates after the forecast horizon exist (they can
+    only come from the climate history)."""
+    from utils import network_error_message
+    errs = (net or {}).get('errors') or {}
+    if (net or {}).get('offline'):
+        return network_error_message(errs.get('forecast') or OSError('offline'),
+                                     'Open-Meteo (the weather service)',
+                                     needs='the weather estimate') + (
+            ' Your location, site type and limits are saved; the last estimate (if any) is kept.')
+    if (net or {}).get('history_needed') and not climate_samples:
+        if errs.get('history') is not None:
+            why = network_error_message(errs['history'], 'Open-Meteo (the weather history)',
+                                        needs='the climate history')
+        else:
+            why = 'Open-Meteo returned no weather history for this location.'
+        return why + ' The estimate needs it for the dates after the 16-day forecast, so no estimate was made.'
+    if not (net or {}).get('history_needed') and not daily:
+        if errs.get('forecast') is not None:
+            return network_error_message(errs['forecast'], 'Open-Meteo (the weather forecast)',
+                                         needs='the weather forecast') + ' No estimate was made.'
+        return 'Open-Meteo returned no forecast for this location — no estimate was made.'
+    return None
+
+
+_NOMINATIM = 'https://nominatim.openstreetmap.org/'
+
+
+def _nominatim_get(endpoint, params, timeout=15):
+    """One OpenStreetMap Nominatim call ('search' | 'reverse') → parsed JSON. Raises on any
+    network / HTTP / parse failure (the caller turns it into a plain message). The honest
+    User-Agent comes from the brand constants (Nominatim's usage policy requires one)."""
+    import urllib.parse
+    import urllib.request
+    from utils import USER_AGENT
+    url = _NOMINATIM + endpoint + '?' + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def _parse_coordinates(text):
+    """'26.9598, 49.5687' / '26.9598 49.5687' → (lat, lon), or None. Lets the planner set the
+    site location with no internet (typed coordinates need no place search)."""
+    import re
+    m = re.fullmatch(r'\s*([-+]?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*([-+]?\d{1,3}(?:\.\d+)?)\s*', text or '')
+    if not m:
+        return None
+    lat, lon = float(m.group(1)), float(m.group(2))
+    if -90 <= lat <= 90 and -180 <= lon <= 180:
+        return lat, lon
+    return None
+
+
+def _weather_partial_gaps(net):
+    """What the estimate ran WITHOUT (listed with the source reference on screen + PDF)."""
+    from utils import network_error_message
+    errs = (net or {}).get('errors') or {}
+    gaps = []
+    if errs.get('forecast') is not None:
+        gaps.append('Live forecast unavailable (' + network_error_message(
+            errs['forecast'], 'Open-Meteo forecast').rstrip('.') +
+            ') — the next ~16 days use the climate history as well.')
+    if errs.get('dust') is not None:
+        gaps.append('Dust forecast unavailable (' + network_error_message(
+            errs['dust'], 'Open-Meteo air-quality').rstrip('.') +
+            ') — sandstorm days in the next 5 days are not counted.')
+    return gaps
+
+
 class _Encoder(json.JSONEncoder):
     """Handle datetime/date objects that metrics.py returns in data_date."""
     def default(self, obj):
@@ -2903,40 +2976,57 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_geocode(self, body):
         """Place name → coordinates (search), OR lat/lon → place name (reverse), via
         OpenStreetMap Nominatim (server-side: proper User-Agent, dodges browser CORS).
-        Free, no key. Reverse is used when the user drops/drags a pin on the map."""
-        import urllib.request, urllib.parse
+        Free, no key. Reverse is used when the user drops/drags a pin on the map.
+        Typed coordinates ("30.0444, 31.2357") are answered locally — no internet needed.
+        Offline / service errors come back as {ok:false, offline, error} in plain English."""
+        import urllib.parse
+        from utils import network_error_message
         lat, lon = body.get('lat'), body.get('lon')
         try:
             if lat is not None and lon is not None:
-                url = 'https://nominatim.openstreetmap.org/reverse?' + urllib.parse.urlencode(
-                    {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 13})
-                req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    data = json.loads(r.read().decode())
-                name = data.get('display_name') or f'{float(lat):.4f}, {float(lon):.4f}'
+                fallback = f'{float(lat):.4f}, {float(lon):.4f}'
+                try:
+                    data = _nominatim_get('reverse', {'lat': lat, 'lon': lon, 'format': 'json',
+                                                      'zoom': 13})
+                except Exception as exc:     # offline: the pin still works, named by its coordinates
+                    self._json(200, {'ok': False, 'offline': True, 'name': fallback,
+                                     'error': network_error_message(
+                                         exc, 'OpenStreetMap', needs='naming the pinned place')})
+                    return
+                name = (data or {}).get('display_name') or fallback
                 self._json(200, {'ok': True, 'name': name})
                 return
             q = (body.get('q') or '').strip()
             if not q:
                 self._json(200, {'ok': False, 'error': 'Type a place to search.'})
                 return
-            url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
-                {'q': q, 'format': 'json', 'limit': 5})
-            req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                data = json.loads(r.read().decode())
+            coords = _parse_coordinates(q)
+            if coords:
+                self._json(200, {'ok': True, 'results': [
+                    {'name': f'{coords[0]:.4f}, {coords[1]:.4f}', 'lat': coords[0], 'lon': coords[1]}]})
+                return
+            try:
+                data = _nominatim_get('search', {'q': q, 'format': 'json', 'limit': 5})
+            except Exception as exc:
+                self._json(200, {'ok': False, 'offline': True, 'error': network_error_message(
+                    exc, 'OpenStreetMap', needs='the place search') + (
+                    ' Offline, type the site coordinates instead (e.g. 26.9598, 49.5687).')})
+                return
             results = [{'name': x.get('display_name'), 'lat': float(x['lat']), 'lon': float(x['lon'])}
-                       for x in data]
+                       for x in (data or []) if isinstance(x, dict) and 'lat' in x and 'lon' in x]
             self._json(200, {'ok': True, 'results': results})
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': f'Geocode failed (offline?): {exc}'})
+            self._json(200, {'ok': False, 'error': f'The place search failed: {exc}'})
 
     # ── /api/weather ───────────────────────────────────────────────────────
     def _handle_weather(self, body):
         """Compute the Weather Impact for a location. Re-parses the schedule (needs
         construction calendars + milestones), fetches historical/forecast weather,
-        and returns the estimate. Saves the location per project. Network failures
-        degrade to an empty (zero-impact) estimate rather than an error."""
+        and returns the estimate. Saves the location per project. When the weather could
+        not be downloaded (offline / Open-Meteo down) it answers {ok:false, offline, error}
+        with a plain message and KEEPS the last good estimate — an empty download is never
+        presented (or saved) as a zero-impact result. Partial gaps (live forecast / dust
+        forecast unavailable) are listed in climate_reference.gaps (screen + PDF)."""
         lat, lon = body.get('lat'), body.get('lon')
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if lat is None or lon is None:
@@ -2969,27 +3059,42 @@ class Handler(BaseHTTPRequestHandler):
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
+            net = {}
             daily, climate_samples, horizon, climate_meta = build_daily_weather(
-                lat, lon, inp['data_date'], inp['project_finish'])
+                lat, lon, inp['data_date'], inp['project_finish'], net=net)
+            location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            # The location, site type and edited limits are the planner's settings — keep them
+            # even when the weather itself could not be downloaded.
+            patch = {'location': location}
+            if site_type is not None:
+                patch['site_type'] = site_type
+            if body.get('thresholds'):
+                patch['weather_thresholds'] = body['thresholds']
+            gap = _weather_download_gap(net, daily, climate_samples)
+            if gap:
+                # Never present (or save) an empty download as a zero-impact estimate: tell
+                # the planner plainly and keep the last good estimate as it was.
+                if pid:
+                    db.save_project_settings(pid, patch)
+                self._json(200, {'ok': False, 'offline': bool(net.get('offline')),
+                                 'error': gap, 'location': location,
+                                 'kept_previous': bool(saved.get('last_weather'))})
+                return
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
                                 thresholds=thresholds, site_type=site_type,
                                 climate_samples=climate_samples, climate_meta=climate_meta)
-            location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
             # Fill the climate reference's location so the user sees exactly where it applies.
             if isinstance(wx.get('climate_reference'), dict):
                 wx['climate_reference'].update({'lat': lat, 'lon': lon,
-                                                'place_name': body.get('place_name', '')})
+                                                'place_name': body.get('place_name', ''),
+                                                'gaps': _weather_partial_gaps(net)})
             if pid:
                 # Persist location, the site type, the edited limits, and the latest weather
                 # (so re-opening restores the picker and the PDF can include it).
-                patch = {'location': location, 'last_weather': wx}
-                if site_type is not None:
-                    patch['site_type'] = site_type
-                if body.get('thresholds'):
-                    patch['weather_thresholds'] = body['thresholds']
+                patch['last_weather'] = wx
                 db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
-                             'offline': not daily and not climate_samples})
+                             'offline': False})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
