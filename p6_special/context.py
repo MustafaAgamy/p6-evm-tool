@@ -115,12 +115,15 @@ class SpecialContext:
 
     # ── lazy parse / compute (recompute features) ────────────────────────────
     def parsed(self):
-        """The parsed ScheduleData for the open file (memoized). None if no file."""
+        """The parsed ScheduleData for the open file (memoized). None if no file. Its baseline
+        is resolved the one way every feature uses (p6_evm.baseline): embedded in the file, else
+        the baseline attached for this snapshot, else the file's own Planned dates."""
         def _parse():
             if not self.has_xml():
                 return None
-            from p6_evm.parser import parse_file
-            return parse_file(self.xml_path)
+            from p6_evm.baseline import load_for_project
+            return load_for_project(self.xml_path, snapshot_id=self.snapshot_id,
+                                    cached_path=(self.evm or {}).get('_cached_path'))
         return self.memo('parsed', _parse)
 
     # ── user-attached inputs (two-/three-file features) ──────────────────────
@@ -133,11 +136,17 @@ class SpecialContext:
         return self.input_path(role) is not None
 
     def parsed_input(self, role):
-        """Parsed ScheduleData for an attached input file (memoized), or None."""
+        """Parsed ScheduleData for an attached input file (memoized), or None. A previous
+        update gets the same baseline resolution as the open file (its own attached baseline,
+        else this project's); a baseline / revision input is read as it is."""
         def _parse():
             p = self.input_path(role)
             if not p:
                 return None
+            if role == 'previous':
+                from p6_evm.baseline import attached_baseline_for, load_schedule
+                return load_schedule(p, attached_baseline_for(p) or attached_baseline_for(
+                    self.xml_path, self.snapshot_id, (self.evm or {}).get('_cached_path')))
             from p6_evm.parser import parse_file
             return parse_file(p)
         return self.memo(f'parsed_input:{role}', _parse)

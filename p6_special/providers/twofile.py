@@ -1,7 +1,7 @@
 """Two-/three-file features — Critical Path Analyzer, Consultant Review, Update
 vs Update. Each offers its feature's OWN report sections (exact detailed results +
 real charts). They need an extra schedule the single import doesn't provide, so
-items declare ``requires`` (a baseline XER, or a previous update); the UI
+items declare ``requires`` (a baseline XER or XML, or a previous update); the UI
 highlights it and lets the user attach — then Special Report runs the feature
 itself and pulls its real sections in.
 """
@@ -13,7 +13,7 @@ from p6_special import feature_reports as FR
 from p6_special import reuse
 from p6_special.registry import Item
 
-BASELINE_REQ = [{'role': 'baseline', 'label': 'Baseline XER',
+BASELINE_REQ = [{'role': 'baseline', 'label': 'Baseline (XER or XML)',
                  'accept': '.xer,.xml', 'hint': 'the approved baseline schedule'}]
 PREV_REQ = [{'role': 'previous', 'label': 'Previous update',
              'accept': '.xml,.xer', 'hint': 'the earlier update to compare against'}]

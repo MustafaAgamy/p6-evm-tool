@@ -19,7 +19,7 @@ class Item:
 
     ``requires`` declares extra inputs the result needs beyond the open file —
     each ``{'role': str, 'label': str, 'accept': str, 'hint': str}`` (e.g. a
-    Critical Path item requires a baseline XER). The UI reads this to highlight
+    Critical Path item requires a baseline XER or XML). The UI reads this to highlight
     the requirement and offer an attach control; the attached paths arrive back
     on ``ctx.inputs`` keyed by ``role``. ``availability(ctx)`` returns
     ``'ready' | 'needs_input' | 'no_data'``.

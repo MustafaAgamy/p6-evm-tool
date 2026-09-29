@@ -27,16 +27,16 @@ def _fmt(d):
     return d.strftime('%d-%b-%Y') if d else None
 
 
-def _analyse(path):
+def _analyse(path, attached=None):
     from utils import resource_path
-    from p6_evm.parser import parse_file
+    from p6_evm.baseline import load_schedule
     from p6_evm.metrics import compute
     from p6_evm.classify import auto_categories, build_wbs_classifier
     from p6_evm.calendars import signed_working_days
 
     with open(resource_path('config.json')) as f:
         cfg = dict(json.load(f))
-    data = parse_file(path)
+    data = load_schedule(path, attached)   # embedded > attached > self baseline (p6_evm.baseline)
     cfg['categories'] = auto_categories(data)
     res = compute(data, cfg, classifier=build_wbs_classifier(data))
     dd = data.project.get('data_date')
@@ -133,11 +133,13 @@ def network(snapshot_id=None, xml_path=None):
             path = db.get_snapshot_xml_path(snapshot_id)
         if not path or not os.path.isfile(path):
             return {'ok': False, 'error': 'The schedule file for this project was not found — re-import it.'}
-        key = (os.path.abspath(path), os.path.getmtime(path))
+        from p6_evm.baseline import attached_baseline_for
+        attached = attached_baseline_for(path, snapshot_id)   # the baseline attached for it
+        key = (os.path.abspath(path), os.path.getmtime(path), attached)
         with _LOCK:
             if key in _CACHE:
                 return _CACHE[key]
-        out = _analyse(path)
+        out = _analyse(path, attached)
         with _LOCK:
             _CACHE.clear() if len(_CACHE) > 4 else None
             _CACHE[key] = out
