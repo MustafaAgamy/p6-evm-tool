@@ -36,3 +36,16 @@ OTHER NOTES:
 - The routes take {html, output_path, title, meta:{feature, project, data_date?}, sections?}. The Excel data date defaults to the report head's "Data Date:" text.
 - p6_evm/xlsx_writer.py: xf 11-22 are the new number/date formats (NUMFMT_STYLE); wrap a value in `Styled(value, style, text)` for write_sections_xlsx blocks. Existing indices 0-10 are unchanged.
 - The owner's "E2 Log" and review-code questions are untouched (not in this foundation's scope).
+
+## 6. Page composition check (owner point 14) — run it on every PDF and Word you ship
+`python -m p6_export.pagination_check <report.pdf|report.docx|report.doc>` prints JSON (`flags` with
+page numbers, `counts`, `info`); exit 0 = clean, 1 = flags, 2 = error, 3 = skipped (no Word renderer).
+It flags: orphaned_heading, kpi_separated_from_heading, heading_separated_from_block,
+picture_separated_from_caption (Word), table_split_few_rows (< 3 body rows on a page),
+small_table_split (a table <= 35 % of a page split), table_header_not_repeated, graphic_cut,
+text_cut, content_in_margin, large_blank_then_continuation (> 35 % blank before a pushed block),
+stranded_fragment, empty_page. `info.section_break_blank` (a new top-level section on a new page) is
+not a defect. Word files are laid out by Word itself (COM, ~1-2 s a page) or, without Word, by
+Spire.Doc (first 10 pages only). `--html report.html` passes the renderer's heading texts as hints.
+Target: zero flags on GBT_XML for your feature's PDF and Word. In a test: `pc.check_pdf(path)['flags'] == []`
+(see tests/test_pagination_check.py for the synthetic-report pattern).
