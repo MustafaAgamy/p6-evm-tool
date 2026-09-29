@@ -52,6 +52,11 @@ def _norm_name(s):
     return ''.join(out).strip()
 
 
+# difflib's automatic junk heuristic starts at 200 characters; below it two equal strings
+# always score exactly 1.0, so the (costly) matcher can be skipped for them.
+_AUTOJUNK_LEN = 200
+
+
 def name_ratio(a, b):
     """Similarity of two activity names in [0, 1] after normalisation."""
     na, nb = _norm_name(a), _norm_name(b)
@@ -59,6 +64,8 @@ def name_ratio(a, b):
         return 1.0
     if not na or not nb:
         return 0.0
+    if na == nb and len(nb) < _AUTOJUNK_LEN:
+        return 1.0                                  # exactly what difflib returns for equal names
     return SequenceMatcher(None, na, nb).ratio()
 
 
@@ -164,7 +171,9 @@ def _fuzzy_candidates(by0, by1, left0, left1, accept):
             part += _W_CODES * codes
             if _W_NAME * name_ub + part < thr:
                 continue
-            if n0 and n1:
+            if n0 and n1 and n0 == n1 and l1 < _AUTOJUNK_LEN:
+                nr = 1.0                                 # equal names: difflib's exact answer
+            elif n0 and n1:
                 sm.set_seq1(n0)
                 if _W_NAME * sm.quick_ratio() + part < thr:
                     continue

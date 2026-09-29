@@ -139,3 +139,14 @@ def test_fuzzy_candidates_keeps_a_pair_exactly_at_the_accept_score():
     s = evidence_score(a, b)
     assert _fuzzy_candidates({'A1': a}, {'A2': b}, ['A1'], ['A2'], s) == [(s, 'A1', 'A2')]
     assert _fuzzy_candidates({'A1': a}, {'A2': b}, ['A1'], ['A2'], round(s + 0.0001, 4)) == []
+
+
+def test_name_ratio_equal_names_is_difflibs_exact_answer():
+    from difflib import SequenceMatcher
+    from p6_revcompare.matching import _norm_name
+    short = 'Pour Raft Slab - Zone B (Phase 1)'
+    long_ = ' '.join(['concrete pour raft slab zone b'] * 12)        # > 200 chars: difflib autojunk applies
+    for n in (short, long_):
+        nn = _norm_name(n)
+        assert name_ratio(n, n) == SequenceMatcher(None, nn, nn).ratio()
+    assert name_ratio(short, short) == 1.0
