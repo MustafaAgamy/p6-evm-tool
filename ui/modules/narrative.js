@@ -803,7 +803,9 @@ const CHAT_Q = {
   generate:      "That's everything I need. I'll build the full report — all sections plus the Critical Path and Mapping Sheet appendix — matched across Word, PDF and on screen.",
 };
 let _chatMeta = {};
+let _chatMetaFor = null;   // which file the detected choices were read from (Edit setup reuses them)
 let _chatCur = 0;
+const chatFileKey = () => [state.currentXmlPath || '', state.currentCachedPath || '', state.currentSnapshotId || ''].join('|');
 
 function chatCss() {
   return `<style>
@@ -887,6 +889,7 @@ async function fetchDetected() {
     // report. Detection only needs the meta (the detected choices); the real generate path sets it.
     // The choices endpoint returns {ok, meta} (no doc), unlike /api/narrative which returns {ok, doc}.
     _chatMeta = data.meta || {};
+    _chatMetaFor = chatFileKey();
     return _chatMeta;
   } catch { return null; }
 }
@@ -1122,8 +1125,11 @@ function finishSetup(gen) {
   });
 }
 
-// Open (or re-open) the guided interview.
-async function startSetupChat() {
+// Open (or re-open) the guided interview. "Edit setup" passes { reuse: true }: the choices
+// already read from THIS file are shown at once (they are properties of the file — no second
+// whole-file read behind a bare "Reading your schedule…" wait); a new Run always reads afresh.
+async function startSetupChat(opts) {
+  const reuse = !!(opts && opts.reuse) && _chatMetaFor === chatFileKey() && _chatMeta.project_name != null;
   const chat = document.getElementById('bn-chat-wrap');
   const rep = document.getElementById('bn-report-wrap');
   if (rep) rep.style.display = 'none';
@@ -1139,7 +1145,7 @@ async function startSetupChat() {
      </div>`;
   document.getElementById('bn-continue').addEventListener('click', () => { if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
   document.getElementById('bn-back').addEventListener('click', () => { if (_chatCur > 0) { _chatCur--; renderChat(); } });
-  const meta = await fetchDetected();
+  const meta = reuse ? _chatMeta : await fetchDetected();
   const note = document.getElementById('bn-readnote');
   if (!meta) { document.getElementById('bn-thread').innerHTML = '<p class="ai-empty" style="padding:16px">Open a baseline schedule first — the setup then reads it.</p>'; if (note) note.textContent = ''; return; }
   const proj = meta.project_name || 'your project';
@@ -1172,7 +1178,7 @@ export function renderNarrativePanel() {
   }
   state.narrativeSetup = null;
   state.narrativeDoc = null; registry = null;      // drop any prior project's report + selection
-  _chatMeta = {}; _chatCur = 0;
+  _chatMeta = {}; _chatMetaFor = null; _chatCur = 0;
   exportBar(false);                                // exports appear only once a report is mounted
   const panel = document.getElementById('narrative-body');
   if (panel) {
@@ -1184,7 +1190,7 @@ export function renderNarrativePanel() {
         '<div id="narrative-doc" style="flex:1;min-width:0"></div></div>' +
       '</div>';
     const edit = document.getElementById('bn-edit-setup');
-    if (edit) edit.addEventListener('click', () => startSetupChat());
+    if (edit) edit.addEventListener('click', () => startSetupChat({ reuse: true }));
     return startSetupChat();          // the Run presentation waits for the first question
   }
 }

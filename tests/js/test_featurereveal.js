@@ -223,6 +223,13 @@ await test('second-step Runs (Schedule Health milestones, Narrative Generate) al
   assert.match(nar, /return revealAndRun\(document\.getElementById\('narrative-body'\), 'Baseline Narrative'/);
   assert.match(nar, /return fetchAndRender\(\);/);
 });
+await test('Narrative "Edit setup" re-opens the interview at once from the choices already read for this file (no bare wait)', () => {
+  const nar = read('ui', 'modules', 'narrative.js');
+  assert.match(nar, /addEventListener\('click', \(\) => startSetupChat\(\{ reuse: true \}\)\)/);
+  assert.match(nar, /_chatMetaFor === chatFileKey\(\)/, 'only the SAME file\'s choices are reused');
+  assert.match(nar, /_chatMeta = \{\}; _chatMetaFor = null;/, 'a new Run always reads the file afresh');
+  assert.match(nar, /return startSetupChat\(\);/, 'the Run itself still reads the file under the gated bar');
+});
 await test('every feature that waits on the server names its real stage on the bar (revealStage)', () => {
   for (const mod of ['calendar.js', 'compare.js', 'critpath.js', 'period.js', 'revcompare.js', 'special.js',
     'update.js', 'construct.js', 'audit.js', 'narrative.js']) {
