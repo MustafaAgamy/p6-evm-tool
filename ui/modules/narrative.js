@@ -445,8 +445,65 @@ function getSetup() {
   }
   return state.narrativeSetup;
 }
+// The setup is SAVED in the app database per imported schedule (POST /api/narrative/setup):
+// the web view's own storage is empty after every restart and too small for the logos and
+// layout drawing. The browser copy above is only this session's cache. [startup:F3] SET-2
+const SETUP_RETRY_MS = [1000, 3000, 8000];
+let _setupSaveT = null;
+let _setupPending = null;
+const _setupSeq = {};                          // per schedule: the newest save wins
+function postSetup(payload) {
+  return fetch(`http://localhost:${PORT()}/api/narrative/setup`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }).then(r => r.json());
+}
+/** Load the saved setup of the open schedule into state (before the setup chat starts). */
+export async function loadSavedSetup(timeoutMs = 5000) {
+  const sid = state.currentSnapshotId;
+  if (!sid) return null;
+  try {
+    const d = await Promise.race([postSetup({ snapshot_id: sid }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))]);
+    if (sid !== state.currentSnapshotId || !d || !d.ok) return null;
+    if (d.setup && typeof d.setup === 'object') {
+      state.narrativeSetup = d.setup;
+      try { localStorage.setItem(setupStoreKey(), JSON.stringify(d.setup)); } catch { /* too big for the browser copy */ }
+      return d.setup;
+    }
+    const local = getSetup();                  // typed earlier this session, not saved yet
+    if (local && Object.keys(local).length) saveSetup();
+  } catch { /* the app did not answer: this session's copy; saved on the next change */ }
+  return null;
+}
+function sendSetup(payload, seq, attempt) {
+  const sid = payload.snapshot_id;
+  if (seq !== _setupSeq[sid]) return;          // a newer change is on its way
+  postSetup(payload).then(d => {
+    if (d && d.ok) return;
+    if (d && d.error && !/busy/i.test(d.error)) { showError('Narrative setup not saved — ' + d.error); return; }
+    throw new Error((d && d.error) || 'not saved');
+  }).catch(() => {
+    if (seq !== _setupSeq[sid]) return;
+    if (attempt < SETUP_RETRY_MS.length) setTimeout(() => sendSetup(payload, seq, attempt + 1), SETUP_RETRY_MS[attempt]);
+    else showError('Narrative setup not saved — the app did not answer. Change any setup field to try again.');
+  });
+}
 function saveSetup() {
   try { localStorage.setItem(setupStoreKey(), JSON.stringify(state.narrativeSetup || {})); } catch (e) { /* ignore */ }
+  const sid = state.currentSnapshotId;
+  if (!sid) return;
+  const payload = { snapshot_id: sid, setup: state.narrativeSetup || {} };
+  const seq = _setupSeq[sid] = (_setupSeq[sid] || 0) + 1;
+  if (_setupPending && _setupPending.sid !== sid) flushSetupSave();   // never drop another schedule's
+  clearTimeout(_setupSaveT);
+  _setupPending = { sid, run: () => sendSetup(payload, seq, 0) };
+  _setupSaveT = setTimeout(flushSetupSave, 300);
+}
+function flushSetupSave() {
+  clearTimeout(_setupSaveT);
+  const p = _setupPending;
+  _setupPending = null;
+  if (p) p.run();
 }
 function fileToDataUrl(file) {
   return new Promise((res, rej) => {
@@ -1164,6 +1221,7 @@ export function renderNarrativePanel() {
     if (h) h.addEventListener('click', () => exportNarrative('html'));
     _wired = true;
   }
+  flushSetupSave();                                // the previous schedule's last edit is sent
   state.narrativeSetup = null;
   state.narrativeDoc = null; registry = null;      // drop any prior project's report + selection
   _chatMeta = {}; _chatCur = 0;
@@ -1179,7 +1237,11 @@ export function renderNarrativePanel() {
       '</div>';
     const edit = document.getElementById('bn-edit-setup');
     if (edit) edit.addEventListener('click', () => startSetupChat());
-    startSetupChat();
+    // the saved setup (database) first, so a restarted app pre-fills parties/logos/layout
+    const sid = state.currentSnapshotId;
+    loadSavedSetup().finally(() => {
+      if (sid === state.currentSnapshotId && document.getElementById('bn-chat-wrap')) startSetupChat();
+    });
   }
 }
 
