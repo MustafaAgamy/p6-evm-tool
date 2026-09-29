@@ -333,7 +333,11 @@ def pagination_script():
         "else if(t.indexOf('portrait')>=0){h=Math.max(w,h);}}"
         "var a=x.getPropertyValue('margin-top'),b=x.getPropertyValue('margin-bottom');"
         "if(a)mt=mm(a,mt);if(b)mb=mm(b,mb);});"
-        "return Math.max(200,(h-mt-mb)*MM);}\n"
+        # a report that paints its page furniture INSIDE the page area (a fixed frame /
+        # logo band) declares how much of each page it takes: --rpt-page-reserve on :root
+        "var rv=0;try{rv=mm(getComputedStyle(document.documentElement)"
+        ".getPropertyValue('--rpt-page-reserve'),0)||0;}catch(e){}"
+        "return Math.max(200,(h-mt-mb-rv)*MM);}\n"
         "var marks=[],moved=[],zoomed=[];\n"
         "function bgOf(r){if(!r)return'';var c=r.cells&&r.cells[0];"
         "return getComputedStyle(r).backgroundColor+'|'+(c?getComputedStyle(c).backgroundColor:'');}\n"

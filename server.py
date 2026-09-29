@@ -3694,6 +3694,8 @@ def _narrative_page_map(pdf_path, sections):
             continue
         num = str(s.get('number'))
         heading = ' '.join(('%s) %s' % (num, s.get('title') or '')).split())
+        if s.get('appendix') or s.get('cover'):          # appendix titles print without "N)"
+            heading = ' '.join((s.get('title') or '').split())
         if not heading:
             continue
         found = next((i for i in range(ptr, len(texts)) if heading in texts[i]), None)

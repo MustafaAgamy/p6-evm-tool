@@ -140,10 +140,12 @@ def _rhead(meta):
     return '<div class="rhead">%s</div>' % cells
 
 
-def _page(meta, body, footer=''):
-    return ('<div class="page"><div class="b1"><div class="b2">%s%s'
+def _page(meta, body, footer='', front=False):
+    """One report sheet. ``front`` marks the unnumbered front matter (cover + Table of
+    Contents): in the PDF (:func:`page_html`) those pages carry no page number."""
+    return ('<div class="page%s"><div class="b1"><div class="b2">%s%s'
             '<div class="rfoot">%s</div></div></div></div>'
-            % (_rhead(meta), body, _esc(footer)))
+            % (' front' if front else '', _rhead(meta), body, _esc(footer)))
 
 
 # ── shared horizontal bar chart (§6 value + §7 disciplines) ───────────────────
@@ -387,7 +389,9 @@ def _ms_table(p, number, title, meta, cur):
     if not body:
         body = ('<tr><td colspan="%d" class="note">No Start/Finish milestones defined.</td></tr>'
                 % max(len(cols), 1))
-    return '<p>%s</p><table class="dt">%s%s</table>' % (intro, head, body)
+    # <thead>: a long milestone list continues onto the next page with its header repeated
+    return ('<p>%s</p><table class="dt"><thead>%s</thead><tbody>%s</tbody></table>'
+            % (intro, head, body))
 
 
 # ── §6 Contract Value ─────────────────────────────────────────────────────────
@@ -1346,7 +1350,7 @@ def _cover(meta):
     if sub:
         lines += ('<div style="font-size:12px;color:#8a95a1;margin-top:16px">%s</div>' % sub)
     body = '<div style="margin-top:60mm" class="cover-t">%s</div>' % lines
-    return _page(meta, body, '')
+    return _page(meta, body, '', front=True)
 
 
 _TOC_GROUPS = [
@@ -1408,7 +1412,7 @@ def _toc(meta, paged, page_map=None):
             'Table of Contents</div>'
             '<div style="height:2px;width:120px;background:#1F4E79;margin:0 auto 22px"></div>'
             '%s' % out)
-    return _page(meta, body, '')
+    return _page(meta, body, '', front=True)
 
 
 # ── public API ────────────────────────────────────────────────────────────────
@@ -1434,12 +1438,55 @@ def render_narrative_html(doc, seq_style=None, page_map=None):
 
 def page_html(doc, page_map=None):
     """Full standalone HTML page (Chrome → PDF source). ``page_map`` is threaded to the
-    TOC so the two-pass export can stamp real physical page numbers on the second pass."""
+    TOC so the two-pass export can stamp real physical page numbers on the second pass.
+
+    PRINT MODEL (owner point 14). On screen the report is a stack of fixed A4 sheets; on
+    paper a section is often longer than one sheet, and a fixed sheet then spilled onto
+    frameless, header-less, zero-margin continuation pages. The PDF therefore paints the
+    page furniture PER PHYSICAL PAGE instead of per section: the double frame and the
+    3-logo header band are one ``position:fixed`` layer (Chrome repeats it on every
+    printed page), each section's content box repeats its padding on every page it runs
+    onto (``box-decoration-break: clone``), and the page number is Chrome's own page
+    counter in the bottom margin — the same physical number the Table of Contents
+    prints (front matter unnumbered). Screen view unchanged (all of it is print-only)."""
     import report_theme                       # the shared pagination layer (owner point 14)
+    meta = (doc or {}).get('meta') or {}
+    furniture = ('<div class="pfx" aria-hidden="true"><div class="pfx1"></div>'
+                 '<div class="pfx2"></div><div class="pfxh">%s</div></div>' % _rhead(meta))
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<title>Baseline Narrative Report</title>' + report_theme.pagination_tag()
-            + '</head><body>'
-            + render_narrative_html(doc, page_map=page_map) + '</body></html>')
+            + '</head><body>' + furniture
+            + render_narrative_html(doc, page_map=page_map)
+            + '<style id="narr-print">%s</style></body></html>' % _PRINT_CSS)
+
+
+# The PDF page model (see page_html). Geometry = the screen sheet's: frame 9 mm from the
+# paper edge, inner frame 2.2 mm inside it, content 9 mm inside the inner frame, the logo
+# band at the top of every page. ``--rpt-page-reserve`` tells the shared pagination
+# composer how much of each page the furniture takes (it sizes "fits on a page" by it).
+_PRINT_CSS = """
+:root { --rpt-page-reserve: 42mm; }
+@page { size: A4 portrait; margin: 9mm 0 9mm 0;
+  @bottom-center { content: counter(page); font-family: Calibri, sans-serif; font-size: 10px; color: #8a95a1; } }
+@page front { @bottom-center { content: none; } }
+@media screen { .pfx { display: none; } }
+@media print {
+  html, body { background: #fff; }
+  .pfx { display: contents; }         /* no box of its own: never a (blank) page of its own */
+  .pfx1 { position: fixed; top: 0; bottom: 0; left: 9mm; right: 9mm; border: 1px solid #000; }
+  .pfx2 { position: fixed; top: calc(2.2mm + 1px); bottom: calc(2.2mm + 1px);
+          left: calc(11.2mm + 1px); right: calc(11.2mm + 1px); border: 1px solid #000; }
+  .pfxh { position: fixed; top: calc(10.2mm + 2px); left: calc(20.2mm + 2px); right: calc(20.2mm + 2px); }
+  .pfxh .rhead { height: 15mm; margin: 0; overflow: hidden; }
+  .page { width: auto; min-height: 0; margin: 0; background: transparent;
+          padding: calc(10.2mm + 2px + 15mm + 14px) calc(20.2mm + 2px) calc(11.2mm + 2px);
+          -webkit-box-decoration-break: clone; box-decoration-break: clone;
+          break-after: page; page-break-after: always; }
+  .page.front { page: front; }
+  .b1, .b2 { border: 0; min-height: 0; padding: 0; }
+  .page .rhead, .page .rfoot { display: none; }
+}
+"""
 
 
 # ── the approved visual spec (mockups/narrative_full.html), verbatim + the native
@@ -1474,6 +1521,8 @@ table { border-collapse: collapse; }
 .dt th { background:#26517d; color:#fff; text-align:center; vertical-align:middle; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; overflow-wrap:anywhere; }
 .dt td { border:1px solid #dbe3ec; padding:7px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; line-height:1.35; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
+.dt thead + tbody tr:nth-child(even) td { background:transparent; }
+.dt thead + tbody tr:nth-child(odd) td { background:#f7f9fb; }
 .r { text-align:right; }
 .tiles { display:flex; gap:8px; }
 .tile { flex:1; border:1px solid #b9d1ea; background:#DEEAF6; border-radius:7px; padding:9px 6px; text-align:center; }
