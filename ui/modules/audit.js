@@ -2449,15 +2449,34 @@ function lagDaysCell(f) {
 }
 
 // Save one justification to the server (per project). Raw fetch keeps audit.js free of an
-// api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
+// api.js import cycle. Resolves {ok, error} and never throws: a failed save is SAID beside
+// the box (lagJustNote) — the typed text stays in the in-memory copy and the next change
+// retries (alert is a no-op in WebView2).
 async function saveLagJustification(relKey, text) {
-  if (!state.currentSnapshotId) return;
+  if (!state.currentSnapshotId) return { ok: false, error: 'open a schedule first' };
   try {
-    await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ snapshot_id: state.currentSnapshotId, rel_key: relKey, text }),
     });
-  } catch { /* offline / server down — keep the local edit, retry on next blur */ }
+    const data = await resp.json();
+    return data && data.ok ? { ok: true } : { ok: false, error: (data && data.error) || 'not saved' };
+  } catch {
+    return { ok: false, error: 'the app could not reach its own local service' };
+  }
+}
+
+// The visible "not saved" line under a justification box (removed once a save succeeds).
+function lagJustNote(ta, res) {
+  const next = ta.nextElementSibling;
+  const old = next && next.classList && next.classList.contains('lag-just-note') ? next : null;
+  if (res.ok) { if (old) old.remove(); return; }
+  const note = old || document.createElement('div');
+  note.className = 'lag-just-note';
+  note.setAttribute('role', 'alert');
+  note.style.cssText = 'color:var(--danger,#c0392b);font-size:11px;margin-top:2px';
+  note.textContent = `Not saved — ${res.error}. Edit the reason again to retry.`;
+  if (!old) ta.insertAdjacentElement('afterend', note);
 }
 
 function lagRowsFiltered(m) {
@@ -2508,7 +2527,7 @@ function renderLagRows(m) {
     const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
     autosize(ta);
     ta.addEventListener('input', () => { sync(); autosize(ta); });
-    ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
+    ta.addEventListener('change', async () => { sync(); lagJustNote(ta, await saveLagJustification(relKey, ta.value)); });
   });
 }
 
