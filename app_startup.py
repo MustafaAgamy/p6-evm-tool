@@ -494,6 +494,193 @@ def hook_renderer_recovery(window):
         return False
 
 
+# ── WebView2 profile folder (BLACK-7) ──────────────────────────────────────
+# pywebview's default (private mode, no storage_path) gives WebView2 a brand-new user-data
+# folder in %TEMP% at EVERY launch: a cold profile is built while the window shows only its
+# dark background, and a copy that did not close cleanly leaves the folder behind. The app
+# now keeps ONE profile folder per graphics mode under <app data>\webview\ and reuses it.
+#
+# The page itself still runs InPrivate (private_mode=True): the page comes from a new random
+# local port each launch, i.e. a new web origin, so page storage kept on disk would pile up
+# one copy per launch (Narrative setups carry logos and drawings) and could bring back a
+# removed preference when a port repeats. Preferences live in ui_prefs.json / the database
+# (ui/prefs_bridge.js) exactly as before; only the WebView2 folder is kept.
+#
+# A kept folder is only used when no other WebView2 is using it — WebView2 refuses to share a
+# folder between browsers started with different options (a safe-graphics relaunch while the
+# black window is closing), and a hung browser on it would hang this window too. Otherwise a
+# fresh folder is used for this launch only (deleted at close; leftovers swept later). After
+# a launch that never showed the page, the folder of the current mode is started afresh.
+
+PROFILE_DIR = 'webview'
+FRESH_PREFIX = 'fresh-'
+OLD_MARK = '.old-'
+
+
+def _profile_base():
+    return os.path.join(data_dir(), PROFILE_DIR)
+
+
+def profile_in_use(folder):
+    """True when a running WebView2 browser holds this user-data folder. Chromium keeps
+    ``EBWebView\\lockfile`` open with delete-on-close while it runs, so opening it without
+    FILE_SHARE_DELETE fails with a sharing violation (32); a closed profile's lockfile opens
+    (or is absent). Any other failure to check counts as in use (the safe answer)."""
+    lock = os.path.join(folder, 'EBWebView', 'lockfile')
+    if not os.path.exists(lock):
+        return False
+    if sys.platform != 'win32':
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        k32.CreateFileW.restype = wintypes.HANDLE
+        k32.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                    ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
+                                    wintypes.HANDLE)
+        GENERIC_READ, SHARE_RW, OPEN_EXISTING = 0x80000000, 0x1 | 0x2, 3
+        h = k32.CreateFileW(lock, GENERIC_READ, SHARE_RW, None, OPEN_EXISTING, 0, None)
+        if h is None or h == ctypes.c_void_p(-1).value:
+            return ctypes.get_last_error() != 2       # 2 = gone meanwhile; 32 = held
+        k32.CloseHandle(h)
+        return False
+    except Exception:
+        return True
+
+
+def _writable_dir(path):
+    try:
+        os.makedirs(path, exist_ok=True)
+        probe = os.path.join(path, '.write-test-%d' % os.getpid())
+        with open(probe, 'w') as f:
+            f.write('ok')
+        os.remove(probe)
+        return True
+    except Exception:
+        return False
+
+
+def _rmtree(path):
+    import shutil
+    shutil.rmtree(path, ignore_errors=True)
+    return not os.path.exists(path)
+
+
+def _sweep_profiles(base, keep):
+    """Remove fresh-* folders of earlier launches and profiles set aside after a failed
+    launch — never one a running WebView2 still holds. Returns the names removed."""
+    removed = []
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return removed
+    for name in names:
+        path = os.path.join(base, name)
+        if os.path.normcase(path) == os.path.normcase(keep) or not os.path.isdir(path):
+            continue
+        if not (name.startswith(FRESH_PREFIX) or OLD_MARK in name):
+            continue
+        if profile_in_use(path):
+            continue
+        if _rmtree(path):
+            removed.append(name)
+    return removed
+
+
+def _reset_profile(folder):
+    """Set a profile aside (then delete it) so this launch starts WebView2 afresh."""
+    if not os.path.isdir(folder):
+        return True
+    aside = folder + OLD_MARK + datetime.now().strftime('%Y%m%d-%H%M%S')
+    try:
+        os.replace(folder, aside)
+    except OSError:
+        return False
+    _rmtree(aside)
+    return True
+
+
+def webview_profile(graphics=None, previous=None, env=None):
+    """Choose this launch's WebView2 user-data folder (app.py passes it to webview.start as
+    ``storage_path`` with ``private_mode=True``). Returns ``{'path', 'kind', 'reason'}``:
+    kind 'kept' = <app data>\\webview\\<normal|safe>, reused between launches;
+    'fresh' = <app data>\\webview\\fresh-<pid>-<time>, this launch only; 'temp' = path None,
+    pywebview's own temporary folder (the app data folder is not writable). Never raises."""
+    env = os.environ if env is None else env
+    try:
+        mode = graphics or STATE.get('graphics') or 'normal'
+        base = _profile_base()
+        kept = os.path.join(base, 'safe' if mode == 'safe' else 'normal')
+        why = None
+        if env.get(RELAUNCH_ENV) == '1':
+            why = 'relaunched copy (the window it replaces may still hold its folder)'
+        elif STATE.get('other_copy'):
+            why = 'another copy of the app is running'
+        elif profile_in_use(kept):
+            why = 'the kept profile is still held by a WebView2 process'
+        if why is None:
+            note = 'reused' if os.path.isdir(kept) else 'created'
+            if previous_launch_failed(previous):
+                if _reset_profile(kept):
+                    note = 'started afresh after a launch that never showed the page'
+                else:
+                    why = 'the kept profile could not be reset after a failed launch'
+            if why is None and _writable_dir(kept):
+                res = {'path': kept, 'kind': 'kept', 'reason': note}
+                swept = _sweep_profiles(base, kept)
+                if swept:
+                    res['swept'] = swept
+                STATE['profile'] = res
+                return res
+            why = why or 'the kept profile folder is not writable'
+        fresh = os.path.join(base, '%s%d-%d' % (FRESH_PREFIX, os.getpid(), int(time.time())))
+        if _writable_dir(fresh):
+            res = {'path': fresh, 'kind': 'fresh', 'reason': why}
+        else:
+            res = {'path': None, 'kind': 'temp', 'reason': why + '; app data not writable'}
+    except Exception as exc:
+        res = {'path': None, 'kind': 'temp', 'reason': 'profile check failed: %r' % (exc,)}
+    STATE['profile'] = res
+    return res
+
+
+def keep_profile_on_close(profile=None):
+    """pywebview in private mode deletes the WebView2 user-data folder when the window
+    closes (EdgeChrome.clear_user_data: dispose, wait up to 3 s, rmtree). For the KEPT
+    folder skip that — exactly pywebview's own non-private close path — so the next launch
+    reuses it; a 'fresh' folder is still deleted. Call once webview.start() has loaded the
+    backend (app.py does it from the webview.start func). Returns True when in place."""
+    profile = STATE.get('profile') if profile is None else profile
+    if not isinstance(profile, dict) or profile.get('kind') != 'kept' or not profile.get('path'):
+        return False
+    mod = sys.modules.get('webview.platforms.edgechromium')
+    cls = getattr(mod, 'EdgeChrome', None) if mod is not None else None
+    orig = getattr(cls, 'clear_user_data', None) if cls is not None else None
+    if orig is None:
+        log('WebView2 profile: pywebview close hook not found; the folder may be deleted at '
+            'close (as before)', level=logging.WARNING)
+        return False
+    keep = os.path.normcase(os.path.abspath(profile['path']))
+    if getattr(orig, '_keeps', None) == keep:
+        return True
+    base_fn = getattr(orig, '_wrapped', orig)
+
+    def clear_user_data(self, *args, **kwargs):
+        try:
+            folder = os.path.normcase(os.path.abspath(str(getattr(self, 'user_data_folder', ''))))
+        except Exception:
+            folder = ''
+        if folder == keep:
+            return None
+        return base_fn(self, *args, **kwargs)
+
+    clear_user_data._keeps = keep
+    clear_user_data._wrapped = base_fn
+    cls.clear_user_data = clear_user_data
+    return True
+
+
 # ── Single instance ────────────────────────────────────────────────────────
 
 _MUTEX = None
@@ -566,6 +753,7 @@ def single_instance(name, title, wait_s=12.0, poll_s=0.25):
         _MUTEX = handle                                 # keep it for the process lifetime
         if not already:
             return True
+        STATE['other_copy'] = True          # its WebView2 folder is not ours to reuse
         log('another copy is already running: looking for its window')
         deadline = time.monotonic() + max(0.0, wait_s)
         seen = False
