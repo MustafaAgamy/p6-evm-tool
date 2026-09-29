@@ -22,6 +22,7 @@ import { renderSchedule }                       from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { installExternalLinks }                 from './modules/external_links.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   playBoot({ onDone: grabKeyFocus });   // branded startup splash; on lift, pull key focus into the page so shortcuts receive keys
   initTheme();
   initTooltips();
+  installExternalLinks();   // every web link → the default browser (never navigates the app window away)
   initDatabase();
   loadHistory();
 

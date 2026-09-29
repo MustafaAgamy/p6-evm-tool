@@ -14,6 +14,7 @@
 
 import { shortcutGroups } from './shortcuts.js';
 import { filterNeeds, needsGroups, fileTag, requiredFileCount, FEATURE_NEEDS } from './feature_needs.js';
+import { openExternal } from './external_links.js';
 
 // Product name from the server-injected brand (utils.APP_NAME / APP_TITLE) — never hardcoded.
 const APP_NAME = (typeof window !== 'undefined' && window.__APP_NAME__) || 'Controlyx';
@@ -710,14 +711,14 @@ export function openHelp(section) {
   if (box) box.addEventListener('input', () => renderFeatures(overlay, box.value));
   renderFeatures(overlay, '');
 
-  // External links → the default browser (packaged app: js_api.open_external with an https
-  // allow-list; browser/dev harness: the plain target=_blank link).
+  // External links → the default browser. The app-wide interceptor (external_links.js,
+  // installed by app.js) normally handles the click first; this is the fallback when Help is
+  // shown without it. Same path either way: js_api.open_external (https allow-list) or a new
+  // tab in a plain browser, with a visible note if it could not open.
   overlay.querySelectorAll('a[data-external]').forEach(a => a.addEventListener('click', e => {
-    const api = window.pywebview && window.pywebview.api;
-    if (api && typeof api.open_external === 'function') {
-      e.preventDefault();
-      try { api.open_external(a.href); } catch (err) { /* fall back to nothing — link stays visible */ }
-    }
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    openExternal(a.href);
   }));
 
   // Close: ✕ button and clicking the scrim (outside the shell).

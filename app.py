@@ -57,8 +57,9 @@ class Api:
         return result[0] if result else None
 
     def open_external(self, url):
-        """Open an allow-listed https link (Help ▸ Contact / About LinkedIn) in the user's
-        default browser instead of inside the app window. Returns True when handed over."""
+        """Open an allow-listed https link (utils.EXTERNAL_LINK_HOSTS: LinkedIn, the map's
+        Leaflet / OpenStreetMap attribution, Open-Meteo) in the user's default browser
+        instead of inside the app window. Returns True when handed over."""
         if not is_allowed_external_url(url):
             return False
         try:
