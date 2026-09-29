@@ -2802,7 +2802,7 @@ class Handler(BaseHTTPRequestHandler):
             out['baseline_cached'] = bl_cached
             sid = body.get('snapshot_id')
             if sid and db.snapshot_exists(sid):
-                db.save_baseline(sid, bl_cached)       # remember per snapshot (and re-imports)
+                db.save_baseline(sid, bl_cached, bl_path)   # remember per snapshot (and re-imports)
                 self._refresh_snapshot(sid, resolved, out)
             else:
                 with open(resource_path('config.json')) as f:

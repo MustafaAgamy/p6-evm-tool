@@ -215,14 +215,46 @@ def cache_xml(xml_path, file_hash):
     filename = f"{file_hash[:12]}_{os.path.basename(xml_path)}"
     dest = os.path.join(schedules_dir(), filename)
     shutil.copy2(xml_path, dest)
+    # copy2 keeps the source's modified time — a baseline exported months ago would be the
+    # OLDEST cached file and deleted by the cleanup below in this very call. The cache is ordered
+    # by when a file was cached, so stamp the copy now.
+    try:
+        os.utime(dest, None)
+    except OSError:
+        pass
     _cleanup_old_xml_files()
     return dest
 
+
+def _attached_baseline_paths():
+    """Every file recorded as a snapshot's attached baseline (evm_extras) — never evicted."""
+    out = set()
+    try:
+        with get_conn() as conn:
+            rows = conn.execute("SELECT extras_json FROM evm_extras "
+                                "WHERE extras_json LIKE '%baseline_%'").fetchall()
+    except Exception:
+        return out
+    for row in rows:
+        try:
+            extras = _json.loads(row['extras_json'] or '{}')
+        except ValueError:
+            continue
+        for key in ('baseline_path', 'baseline_original'):
+            if extras.get(key):
+                out.add(os.path.normcase(os.path.abspath(extras[key])))
+    return out
+
+
 def _cleanup_old_xml_files():
-    """Keep only the MAX_CACHED_XML most recently modified XML files."""
+    """Keep only the MAX_CACHED_XML most recently modified XML files. A file attached as a
+    snapshot's baseline is kept regardless (and does not count toward the cap) — it is
+    'remembered for this update and used by every feature', so it must not disappear."""
     sdir = schedules_dir()
+    keep = _attached_baseline_paths()
     files = sorted(
-        [os.path.join(sdir, f) for f in os.listdir(sdir) if f.endswith('.xml')],
+        [p for p in (os.path.join(sdir, f) for f in os.listdir(sdir) if f.endswith('.xml'))
+         if os.path.normcase(os.path.abspath(p)) not in keep],
         key=os.path.getmtime
     )
     for old in files[:-MAX_CACHED_XML]:
@@ -444,6 +476,23 @@ def get_e1_summary(snapshot_id):
 
 def save_evm_extras(snapshot_id, extras):
     with get_conn() as conn:
+        # Keep the attached baseline's ORIGINAL path (save_baseline) with it: a recompute or a
+        # re-import of the same file re-saves extras with only the (resolved) baseline path.
+        bl = extras.get('baseline_path')
+        if bl and 'baseline_original' not in extras:
+            for row in conn.execute("SELECT extras_json FROM evm_extras "
+                                    "WHERE extras_json LIKE '%baseline_original%' "
+                                    "ORDER BY (snapshot_id = ?) DESC, snapshot_id DESC",
+                                    (snapshot_id,)).fetchall():
+                try:
+                    old = _json.loads(row['extras_json'] or '{}')
+                except ValueError:
+                    continue
+                if old.get('baseline_original') and bl in (old.get('baseline_path'),
+                                                           old['baseline_original']):
+                    extras = dict(extras, baseline_path=old.get('baseline_path') or bl,
+                                  baseline_original=old['baseline_original'])
+                    break
         conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
                      (snapshot_id, _json.dumps(extras, default=str)))
 
@@ -455,13 +504,19 @@ def get_evm_extras(snapshot_id):
     return _json.loads(row['extras_json']) if row and row['extras_json'] else None
 
 
-def save_baseline(snapshot_id, baseline_path):
-    """Remember the attached baseline for this snapshot (merged into evm_extras)."""
+def save_baseline(snapshot_id, baseline_path, original_path=None):
+    """Remember the attached baseline for this snapshot (merged into evm_extras): its cached
+    copy (``baseline_path``, content-exact) and the file the planner picked (``original_path``)
+    as a fallback should the copy ever be missing. ``None`` forgets both."""
     with get_conn() as conn:
         row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
                            (snapshot_id,)).fetchone()
         extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
         extras['baseline_path'] = baseline_path
+        if baseline_path and original_path:
+            extras['baseline_original'] = original_path
+        else:
+            extras.pop('baseline_original', None)
         conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
                      (snapshot_id, _json.dumps(extras, default=str)))
 
@@ -491,7 +546,10 @@ def get_attached_baseline(snapshot_id=None, paths=()):
         row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
                            (sid,)).fetchone()
     extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
-    return extras.get('baseline_path') or None
+    cached, original = extras.get('baseline_path'), extras.get('baseline_original')
+    if cached and not os.path.isfile(cached) and original and os.path.isfile(original):
+        return original            # the cached copy is gone — the file the planner picked
+    return cached or None
 
 
 def get_prior_baseline_for_hash(file_hash):
