@@ -417,6 +417,27 @@ def pagination_script():
 PAGINATION_STYLE_ID = 'rpt-pagination'
 
 
+def word_pagination_css():
+    """The same rules for Word's own HTML engine (the Office-HTML ``.doc`` exports).
+
+    Word ignores ``@media print`` (so :func:`pagination_css` never reaches it) and honours
+    only simple selectors. Measured on Word 16 (COM): ``page-break-after:avoid`` on a
+    heading / ``p.class`` / ``div.class`` → *Keep with next*; ``page-break-inside:avoid``
+    on a ``tr`` → the row never splits; ``<thead>`` rows → *Repeat as header row*. A
+    ``tr`` rule is limited to data tables (``tbody`` / ``table.sr-dt``) so a tall layout
+    row is never made unbreakable (Word would clip it)."""
+    heads = []
+    for s in HEADING_SELECTORS:
+        if s.startswith('[') or s in ('caption', '.sr-sec-h'):
+            continue
+        heads.extend(['p' + s, 'div' + s] if s.startswith('.') else [s])
+    heads += ['p.rpt-kwn', 'div.rpt-kwn', 'p.rpt-head', 'p.sr-sec-hp']
+    return (
+        f'{", ".join(heads)} {{ page-break-after: avoid; }}\n'
+        'table.sr-dt tr, tbody tr { page-break-inside: avoid; }\n'
+    )
+
+
 def pagination_tag():
     """``<style id="rpt-pagination">`` (the rules) + ``<script id="rpt-pagination-js">``
     (the print-time composer) — drop into a report's ``<head>``."""
