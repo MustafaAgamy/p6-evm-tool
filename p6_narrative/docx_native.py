@@ -1627,13 +1627,18 @@ def _wbs_vertical(document, seq, base, max_depth, r0=0, r1=None):
     bottom edge, so the stacked parts read as one continuous tree."""
     rec_by_id = {id(r['node']): r for r in seq}
     r1 = len(seq) if r1 is None else r1
-    total_h = _TREE_PAD + (r1 - r0 - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
+    # where two parts meet, each keeps only half the usual gap between rows, so the rows run
+    # on at their normal pitch across the join (the outer edges keep the full padding)
+    join = (_TREE_ROW_H - _TREE_BOX_H) / 2.0
+    top_pad = _TREE_PAD if r0 == 0 else join
+    bot_pad = _TREE_PAD if r1 >= len(seq) else join
+    total_h = top_pad + (r1 - r0 - 1) * _TREE_ROW_H + _TREE_BOX_H + bot_pad
 
     def x_of(level):
         return _TREE_PAD + (level - base) * _TREE_INDENT
 
     def y_of(row):
-        return _TREE_PAD + (row - r0) * _TREE_ROW_H
+        return top_pad + (row - r0) * _TREE_ROW_H
 
     counter = [_next_id(document)]
     base_id = counter[0]
