@@ -1080,8 +1080,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/update/* — Update Analysis (single file vs its baseline) ───────
     def _handle_update_analyze(self, body):
-        """Update Analysis — a single-file read of the current schedule against the baseline
-        embedded in it. Returns Time Status, Planned-vs-Actual by code and the Critical Path
+        """Update Analysis — the current schedule read against its baseline, resolved the one
+        way every feature uses (p6_evm.baseline): embedded in the file, else the baseline
+        attached for this update (here or on Earned Value, XER or XML). Returns Time Status, Planned-vs-Actual by code and the Critical Path
         Analyzer. EVM figures reused from metrics.compute so they match the EVM tab. No records."""
         curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not curr_path or not os.path.isfile(curr_path):
@@ -1103,10 +1104,14 @@ class Handler(BaseHTTPRequestHandler):
             report = build_report_from_data(data, metrics, summary_level=summary_level)
             report['file'] = os.path.basename(curr_path)
             if not report.get('has_baseline'):
+                # Neither inside the file nor attached (an XER never carries it; an XML exported
+                # without its baseline project neither) — never measure it against its own plan.
                 self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
-                                 'error': 'This update has no baseline inside it. Re-export it from P6 as XML with its '
-                                          'baseline project included, or import the update as an XER '
-                                          '(it uses the update’s own Planned dates as the baseline).'})
+                                 'baseline_missing': (getattr(data, 'baseline_info', None) or {}).get('missing'),
+                                 'error': 'This update carries no baseline and none is attached. Attach the '
+                                          'baseline (XER or XML) — it is remembered for this update and used by '
+                                          'every feature — or re-export the update from P6 as XML with its '
+                                          'baseline project included.'})
                 return
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:

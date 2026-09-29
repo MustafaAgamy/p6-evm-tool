@@ -654,9 +654,13 @@ def _cp_headline(ms, boxes):
 
 def build_report_from_data(data, metrics, summary_level=0):
     """Assemble the whole Update-Analysis report from a parsed update + its metrics.compute
-    result. `has_baseline` false means the file carries no baseline — the caller shows the
-    'attach a baseline' state rather than wrong numbers."""
-    has_baseline = bool(getattr(data, 'baseline_by_id', None))
+    result. `has_baseline` false means there is no REAL baseline — none inside the file and none
+    attached (p6_evm.baseline: baseline_source 'self' = the file's own Planned dates standing in,
+    XER or XML alike) — so the caller shows the 'attach a baseline' state rather than numbers
+    measured against the update's own plan."""
+    src = getattr(data, 'baseline_source', None)
+    has_baseline = (src in ('embedded', 'attached')) if src else bool(getattr(data, 'baseline_by_id', None))
+    bl_info = getattr(data, 'baseline_info', None) or {}
     proj = getattr(data, 'project', None) or {}
     cp = critical_path(data, summary_level=summary_level)
     # Time Status runs over the DRIVING PATH's span — from the start milestone that releases it
@@ -672,6 +676,8 @@ def build_report_from_data(data, metrics, summary_level=0):
         'project_name': proj.get('name') or proj.get('id') or 'Project',
         'data_date': _iso(proj.get('data_date')),
         'has_baseline': has_baseline,
+        'baseline_source': src,                                    # embedded / attached / self
+        'baseline_name': bl_info.get('name') if src == 'attached' else None,
         'activity_count': len(getattr(data, 'activities', {}) or {}),
         'code_types': list(getattr(data, 'activity_code_types', None) or []),
         'time_status': ts,
