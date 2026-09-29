@@ -23,8 +23,11 @@ import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
-import { openHelp }                              from './modules/help.js';
-import { SHORTCUTS }                             from './modules/shortcuts.js';
+import { openHelp, closeHelp }                   from './modules/help.js';
+import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
+import { needsHint, needsTooltip }              from './modules/feature_needs.js';
+import { DOC_KINDS, docExportRoute, requestDocExport, clearDocExport, noDocExportMessage } from './modules/export_intent.js';
+import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
@@ -105,7 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const tnode = (id, label, icon, o = {}) => {
     const dis = o.preview || o.soon;
     const badge = o.preview ? '<span class="pbadge">Preview</span>' : (o.soon ? '<span class="pbadge soon">Soon</span>' : '');
-    return `<button class="tnode${o.root ? ' root' : ''}${dis ? ' disabled' : ''}" data-nav="${id}"${dis ? ' title="In development — coming soon"' : ''}>` +
+    // Tooltip = what the feature is for + "Needs: …" (feature_needs.js) + its Alt+number.
+    const sc = shortcutForNav(id);
+    const tip = dis ? 'In development — coming soon' : needsTooltip(id) + (sc ? `\nShortcut: ${keysText(sc)}` : '');
+    return `<button class="tnode${o.root ? ' root' : ''}${dis ? ' disabled' : ''}" data-nav="${id}"${tip ? ` title="${escapeHtml(tip)}"` : ''}>` +
       `<span class="ti">${svgIcon(icon)}</span><span class="tl">${label}</span>${badge}</button>`;
   };
   navTree.innerHTML = NAV.map(sec => sec.node
@@ -113,7 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
     : `<div class="tgrp">${sec.group}</div>` + sec.items.map(it => tnode(it[0], it[1], it[2] || it[0], { preview: it[3] === 'preview', soon: it[3] === 'soon' })).join('')
   ).join('');
 
-  const setCrumb = (id) => { const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
+  // Every navigation re-labels the crumb — it also drops any pending File ▸ Export to Word / HTML
+  // note, so a note left on one feature can never make another feature's report save a file.
+  const setCrumb = (id) => { clearDocExport(); const c = document.getElementById('topbar-crumb'); if (c) c.textContent = CRUMB[id] || ''; };
   const markNav = (id) => document.querySelectorAll('#nav-tree .tnode[data-nav]')
     .forEach(n => n.classList.toggle('on', n.dataset.nav === id));
 
@@ -212,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Open a feature from the navigator — routes through the launch flow above.
   function openView(view) {
     state.currentView = view;          // drives the global File ▸ Print / Export to PDF action
+    clearDocExport();                  // a pending Word / HTML note belongs to the view it was asked on
     const gate = document.getElementById('feature-gate');
     // Multi-input features present their own required-inputs + Run inside the panel.
     if (SELF_GATING.has(view)) { gate.classList.add('hidden'); switchView(view); runFeature(view); return; }
@@ -221,15 +230,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('analysis-chooser').classList.add('hidden');
     document.getElementById('analysis-views').classList.remove('hidden');
     document.querySelectorAll('#analysis-views .view-panel').forEach(p => p.classList.add('hidden'));
+    markNav(view);
     renderRunGate(view);
     gate.classList.remove('hidden');
   }
-  function goHome() { exitDatabase(); exitRecent(); exitProdIntel(); loadAnother(); loadHistory(); setCrumb('home'); }
+  function goHome() { navCursor = 'home'; exitDatabase(); exitRecent(); exitProdIntel(); loadAnother(); loadHistory(); setCrumb('home'); }
+  let navCursor = null;   // the navigator item the planner last opened (Ctrl+[ / Ctrl+] step from here)
 
   navTree.addEventListener('click', (e) => {
     const btn = e.target.closest('.tnode[data-nav]'); if (!btn) return;
     if (btn.classList.contains('disabled')) { showError('This module is in development — it will light up in an upcoming release.'); return; }
     const id = btn.dataset.nav;
+    navCursor = id;
     if (id !== 'prodintel') exitProdIntel();
     if (id === 'home')   { goHome(); return; }
     if (id === 'recent') { exitDatabase(); showRecent();   setCrumb('recent'); markNav('recent'); return; }
@@ -254,12 +266,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Menu bar — the single home for global commands ──────────────────────────
   const MENUS = {
-    file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['sep'], ['Back to import screen','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','exit']],
-    view:    [['Show / hide navigator','nav-toggle']],
-    analysis:[['Choose module…','showchooser'], ['Back to import','load-another']],
+    file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['Export to Word…','export-word'], ['Export to HTML…','export-html'], ['sep'], ['Back to import screen','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','exit']],
+    view:    [['Command palette…','palette'], ['sep'], ['Previous feature','prev-feature'], ['Next feature','next-feature'], ['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance…','appearance'], ['Cycle appearance mode','cycle-appearance']],
+    analysis:[['Choose module…','showchooser'], ['Run the current feature again','rerun'], ['Back to import','load-another']],
     tools:   [['Knowledge Base','kb'], ['Productivity & Resources','prodintel']],
-    help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About Controlyx','help-about']],
+    help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About ' + (window.__APP_NAME__ || 'Controlyx'),'help-about']],
   };
+  // A menu row with its keyboard shortcut printed on the right — the hint comes from the
+  // SHORTCUTS registry (shortcuts.js), the same entry the key handler fires, so a menu can
+  // never advertise a shortcut that does not work.
+  const keyHint = (sc) => sc ? `<span class="mdk">${escapeHtml(keysText(sc))}</span>` : '';
+  const menuItem = (label, cmd) =>
+    `<button class="mditem" data-cmd="${cmd}"><span class="mdl">${label}</span>${keyHint(shortcutForCmd(cmd))}</button>`;
   const menubar = document.getElementById('menubar');
   const menuLayer = document.getElementById('menu-layer');
   let openMenu = null;
@@ -285,9 +303,14 @@ document.addEventListener('DOMContentLoaded', () => {
     overview: { xls: 'ov-excel-btn' },
     wbs:      { xls: 'wbs-excel-btn' },
     schedule: { xls: 'sched-excel-btn' },
-    narrative:{ xls: 'narr-excel-btn' },
-    special:  { pdf: 'sr-pdf',           xls: 'sr-xls' },
+    narrative:{ pdf: 'narrative-pdf-btn', xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },   // its own guarded exports (narrativePrint() is null)
+    special:  { pdf: 'sr-preview',       xls: 'sr-excel', docx: 'sr-word' },   // 'sr-preview' = the Studio preview (reads a pending HTML note); 'sr-pdf' is a direct save
   };
+  // Reports whose PDF button opens the module's OWN preview overlay (critpath.js / period.js /
+  // update.js 'per-preview-overlay') rather than showReportPreview / showReportContentsPreview.
+  // That overlay never reads a pending Word / HTML note, so File ▸ Export to Word / HTML says
+  // "not yet" in the page for these instead of opening it (export_intent.js ownPreview).
+  const OWN_PREVIEW = new Set(['critpath', 'period', 'update']);
   // Screen views (Overview, WBS, Narrative) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the
@@ -299,6 +322,37 @@ document.addEventListener('DOMContentLoaded', () => {
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
+    if (DOC_KINDS[kind]) { runDocExport(kind); return; }
+    clearDocExport();                                      // a fresh PDF / Excel command drops any pending Word / HTML
+    openReport(kind);
+  }
+  // File ▸ Export to Word / HTML (Ctrl+Shift+W / Ctrl+Shift+H). A view with its own richer
+  // Word / HTML (Baseline Narrative, Reporting Studio: REPORT_BTN docx / html) runs it. Every
+  // other report opens the SAME preview as File ▸ Print (openReport('pdf')) with a pending
+  // export: the preview presses its own ⬇ Word / ⬇ HTML when the feature has opted in
+  // (docs/report-picker-adoption.md), or says in the page that it has not yet (export_intent.js).
+  function runDocExport(kind) {
+    const view = state.currentView;
+    const map = REPORT_BTN[view];
+    const pv = PRINT_VIEW[view];
+    const what = CRUMB[view] || 'This view';
+    const route = docExportRoute({ kind, map, printView: !!pv, standalone: !!(pv && pv.standalone),
+      hasResult: !!state.currentResult, ownPreview: OWN_PREVIEW.has(view), what });
+    if (route.action === 'click') {
+      const el = document.getElementById(route.id);
+      if (el) { el.click(); return; }
+      showError(noDocExportMessage(kind, what, { hasPdf: !!((map && map.pdf) || pv), hasExcel: !!(map && map.xls) }));
+      return;
+    }
+    if (route.action === 'preview') {
+      requestDocExport(kind, { what, hasExcel: route.hasExcel });
+      if (!openReport('pdf')) clearDocExport();          // no preview opened → leave no note behind
+      return;
+    }
+    if (route.action === 'error') showError(route.msg);
+  }
+  // → true when a preview / report opened; falsy when it only showed a message.
+  function openReport(kind) {
     // Standalone library views (no imported schedule required) print through the shared path too.
     const pvSolo = PRINT_VIEW[state.currentView];
     if (pvSolo && pvSolo.standalone) {
@@ -306,19 +360,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const sections = pvSolo.get && pvSolo.get();
       if (!sections || !sections.length) { showError('Open a work item first, then File ▸ Print / Export to PDF.'); return; }
       printView({ module: pvSolo.module, title: pvSolo.title, subtitle: '', sections });
-      return;
+      return true;
     }
     if (!state.currentResult) { showError('Import a P6 schedule and open a module first.'); return; }
     const map = REPORT_BTN[state.currentView];
     if (map && map[kind]) {                                // module has a button for this kind
       const el = document.getElementById(map[kind]);
-      if (el) { el.click(); return; }                      // opens the module's Preview + Printing Selection
+      if (el) { el.click(); return true; }                 // opens the module's Preview + Printing Selection
     }
     const pv = PRINT_VIEW[state.currentView];
     if (map && !pv) {                                      // registered here only — no screen-print fallback
-      showError(kind === 'pdf'
+      if (!map[kind]) {                                    // the view has no such export at all (Schedule (Gantt) is Excel-only)
+        const alt = kind === 'pdf' ? (map.xls && 'File ▸ Export to Excel') : (map.pdf && 'File ▸ Print / Export to PDF');
+        showError(`${CRUMB[state.currentView] || 'This view'} has no ${kind === 'pdf' ? 'PDF' : 'Excel'} export`
+          + (alt ? ` — use ${alt}.` : '.'));
+        return;
+      }
+      showError(kind === 'pdf'                             // button registered but not on screen yet
         ? 'Run this module’s analysis first, then File ▸ Print / Export to PDF.'
-        : 'This module has no Excel export.');
+        : 'Run this module’s analysis first, then File ▸ Export to Excel.');
       return;
     }
     if (pv) {
@@ -328,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
       printView({ module: pv.module, title: pv.title, subtitle, sections });
-      return;
+      return true;
     }
     showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.');
   }
@@ -337,11 +397,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cmd === 'import')            triggerBrowse();
     else if (cmd === 'print')        runReport('pdf');
     else if (cmd === 'export-excel') runReport('xls');
+    else if (cmd === 'export-word')  runReport('docx');
+    else if (cmd === 'export-html')  runReport('html');
+    else if (cmd === 'rerun')        runCurrentFeature(true);
+    else if (cmd === 'palette')      showPalette();
+    else if (cmd === 'prev-feature') stepFeature(-1);
+    else if (cmd === 'next-feature') stepFeature(1);
+    else if (cmd === 'cycle-appearance') cycleAppearance();
+    else if (cmd === 'appearance')   openAppearancePicker();
     else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
     else if (cmd === 'nav-toggle')  toggleNav();
-    else if (cmd === 'recent')      { exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
-    else if (cmd === 'kb')          { exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
-    else if (cmd === 'prodintel')   { exitDatabase(); exitRecent(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); }
+    else if (cmd === 'recent')      { navCursor = 'recent'; exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
+    else if (cmd === 'kb')          { navCursor = 'kb'; exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
+    else if (cmd === 'prodintel')   { navCursor = 'prodintel'; exitDatabase(); exitRecent(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
     else if (cmd === 'help-start')    openHelp('getting-started');
     else if (cmd === 'help-features') openHelp('feature-guide');
@@ -359,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     exitDatabase(); exitRecent();
+    navCursor = id;
     document.getElementById('import-section')?.classList.add('hidden');
     document.getElementById('results-section').classList.remove('hidden');
     openView(id); setCrumb(id); markNav(id);
@@ -369,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // prior import (the planner sends the P6 file inside the chat), so it must NOT go through
   // openFeatureById's "import a schedule first" gate.
   function openChat() {
+    navCursor = 'chat';
     exitDatabase(); exitRecent(); exitProdIntel();
     document.getElementById('import-section')?.classList.add('hidden');
     document.getElementById('results-section')?.classList.remove('hidden');
@@ -396,17 +466,19 @@ document.addEventListener('DOMContentLoaded', () => {
         groups.map(g =>
           `<div class="mgrp"><span class="mgt">${g.group}</span><span class="mcar">›</span>` +
             `<div class="mfly"><div class="mflh">${g.group}</div>` +
-              g.items.map(it => `<button class="mfitem" data-nav="${it[0]}">${it[1]}</button>`).join('') +
+              g.items.map(it => `<button class="mfitem" data-nav="${it[0]}">` +
+                `<span class="mfrow"><span class="mdl">${it[1]}</span>${keyHint(shortcutForNav(it[0]))}</span>` +
+                `<span class="mfneed">${escapeHtml(needsHint(it[0]))}</span></button>`).join('') +
             '</div></div>').join('') +
         '<div class="mdsep"></div>' +
-        '<button class="mditem" data-cmd="load-another">Back to import screen</button>';
+        menuItem('Run the current feature again', 'rerun') +
+        menuItem('Back to import screen', 'load-another');
       menuLayer.appendChild(d);
       d.querySelectorAll('.mfitem').forEach(b => b.addEventListener('click', () => { const id = b.dataset.nav; closeMenus(); openFeatureById(id); }));
       d.querySelectorAll('.mditem').forEach(b => b.addEventListener('click', () => { const c = b.dataset.cmd; closeMenus(); if (c) runMenuCmd(c); }));
       return;
     }
-    d.innerHTML = (MENUS[key] || []).map(it =>
-      it[0] === 'sep' ? '<div class="mdsep"></div>' : `<button class="mditem" data-cmd="${it[1]}">${it[0]}</button>`).join('');
+    d.innerHTML = (MENUS[key] || []).map(it => it[0] === 'sep' ? '<div class="mdsep"></div>' : menuItem(it[0], it[1])).join('');
     menuLayer.appendChild(d);
     d.querySelectorAll('.mditem').forEach(b => b.addEventListener('click', () => { const c = b.dataset.cmd; closeMenus(); if (c) runMenuCmd(c); }));
   });
@@ -416,33 +488,32 @@ document.addEventListener('DOMContentLoaded', () => {
   //    Help ▸ Keyboard Shortcuts list always matches what actually fires. Add or
   //    change a shortcut in ui/modules/shortcuts.js and wire its id below once.
   const SHORTCUT_ACTIONS = {
-    import: () => triggerBrowse(),                                       // Import a schedule
-    run:    () => { const g = document.getElementById('feature-gate');    // Run the selected feature
-      const r = g && !g.classList.contains('hidden') ? g.querySelector('.fg-run') : null; if (r) r.click(); },
+    import: () => runMenuCmd('import'),                                  // Import a schedule
     pdf:    () => runReport('pdf'),                                       // Print / save as PDF
     excel:  () => runReport('xls'),                                       // Export the report to Excel
-    guide:  () => { openHelp('feature-guide'); setTimeout(() => document.getElementById('hc-fg-search')?.focus(), 80); },
-    cycleAppearance: () => { const sel = document.getElementById('report-appearance');   // Cycle all 6 appearance modes
-      if (sel && sel.options.length) {
-        const cur = document.documentElement.getAttribute('data-appearance') || sel.value || 'light';
-        let idx = Array.from(sel.options).findIndex(o => o.value === cur);
-        if (idx < 0) idx = 0;
-        sel.value = sel.options[(idx + 1) % sel.options.length].value;   // next mode, wrapping round
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      } },
-    help:   () => openHelp('getting-started'),                           // Open the Help Center
+    word:   () => runReport('docx'),                                      // Export to Word (same path as File ▸ Export to Word)
+    html:   () => runReport('html'),                                      // Export to HTML (same path as File ▸ Export to HTML)
+    run:    () => runCurrentFeature(false),                               // Run the selected feature
+    rerun:  () => runCurrentFeature(true),                                // Run the current feature again
+    palette: () => showPalette(),                                         // Ctrl+K command palette
+    prevFeature: () => stepFeature(-1),                                   // Ctrl+[ previous navigator item
+    nextFeature: () => stepFeature(1),                                    // Ctrl+] next navigator item
+    recent: () => { closeHelp(); runMenuCmd('recent'); },                 // Open Recent Projects
     toggleNav: () => toggleNav(),                                        // Show / hide the Project Navigator (Ctrl+B)
-    close:  () => closeMenus(),                                          // Close panel / cancel (Help handles its own Esc)
+    goto:   (s) => gotoNav(s.nav),                                        // Alt+1…Alt+0 jump to a feature
+    cycleAppearance: () => cycleAppearance(),                             // Cycle all 6 appearance modes
+    appearance: () => openAppearancePicker(),                             // Open the Appearance picker
+    help:   () => openHelp('getting-started'),                           // Open the Help Center
+    guide:  () => { openHelp('feature-guide'); setTimeout(() => document.getElementById('hc-fg-search')?.focus(), 80); },
+    keys:   () => openHelp('shortcuts'),                                  // ? — the shortcuts list
+    close:  () => { closePalette(); closeMenus(); },                     // Close palette / menu (Help handles its own Esc)
   };
-  const handleShortcut = (e) => {
-    if (e.altKey || e.metaKey) return;                                   // no Alt/Meta shortcuts are defined
-    const k = (e.key || '').toLowerCase();
-    const sc = SHORTCUTS.find(s => !!s.ctrl === e.ctrlKey && s.key === k);
-    const run = sc && SHORTCUT_ACTIONS[sc.id];
-    if (!run) return;
-    e.preventDefault();
-    run();
-  };
+  // Match → "typing?" decision → preventDefault → action — all in shortcuts.js (unit-tested):
+  // shortcuts pause while the planner types in a box (Esc still works) and a stray
+  // Ctrl+R / Ctrl+P / Ctrl+S in a box can never reload or print the page. Every action that
+  // works on the screen closes the Help Center first, so its result (PDF preview, message,
+  // picker, feature) is not hidden under the Help overlay (shortcuts.js KEEPS_HELP_OPEN).
+  const handleShortcut = createShortcutHandler(withHelpClosedFirst(SHORTCUT_ACTIONS, closeHelp));
   // Attach on WINDOW, CAPTURE phase (not document/bubble). A physical keydown is
   // dispatched to document.activeElement and must bubble up to reach a document
   // listener — so it is lost whenever focus sits inside the report-preview <iframe>
@@ -470,6 +541,83 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.setAttribute('tabindex', '-1');   // programmatically focusable (ring suppressed in style.css)
   grabKeyFocus();
   window.addEventListener('focus', grabKeyFocus);
+
+  // ── Shortcut actions (keyboard, menus and the Ctrl+K palette all call these) ───
+  // Alt+number / palette / Ctrl+[ ] — open a navigator item exactly as a click on it would
+  // (same import gate, same Run gate); the AI Chat lives on the menu bar.
+  function gotoNav(id) {
+    closeHelp();                     // a jump from inside Help lands on the feature, not behind the overlay
+    if (id === 'chat') { openChat(); return; }
+    const btn = navTree.querySelector(`.tnode[data-nav="${id}"]`);
+    if (btn) btn.click();
+  }
+  // Ctrl+[ / Ctrl+] — previous / next feature in navigator order (wrapping). Before a schedule
+  // is imported only the library pages open, so the step stays among those.
+  const NAV_ORDER = NAV.flatMap(sec => sec.items ? sec.items.map(it => it[0]) : []);
+  const OPENS_WITHOUT_IMPORT = new Set(['prodintel', 'kb', 'recent']);
+  function stepFeature(delta) {
+    const order = state.currentResult ? NAV_ORDER : NAV_ORDER.filter(id => OPENS_WITHOUT_IMPORT.has(id));
+    if (!order.length) return;
+    let i = order.indexOf(navCursor || state.currentView);
+    i = i < 0 ? (delta > 0 ? 0 : order.length - 1) : (i + delta + order.length) % order.length;
+    gotoNav(order[i]);
+  }
+  // Ctrl+↵ runs what is on screen; Ctrl+R runs the current feature again. The Run button is
+  // the feature's own: the generic Run gate, or the Run of a multi-file feature's panel.
+  const PANEL_RUN = { compare: 'cmp-run-review', revcompare: 'rc-run', period: 'per-run-compare', critpath: 'cpa-run', weather: 'thr-apply' };
+  // Views whose render RESETS the planner's own work, so a generic re-render would throw it away:
+  // the Baseline Narrative's render drops the generated report, its Printing Selection and the
+  // setup answers (narrative.js renderNarrativePanel). Ctrl+R there explains the view's own
+  // rebuild instead of silently wiping the page (a WebView2 confirm() cannot guard it).
+  const NO_GENERIC_RERUN = {
+    narrative: 'Run again (Ctrl+R) does not rebuild the Baseline Narrative — that would clear the report and your setup answers. To rebuild it, use ⚙ Edit setup, then Generate.',
+  };
+  function runCurrentFeature(again) {
+    const gate = document.getElementById('feature-gate');
+    const gateRun = gate && !gate.classList.contains('hidden') ? gate.querySelector('.fg-run') : null;
+    if (gateRun) { gateRun.click(); return; }
+    const view = state.currentView;
+    const onResults = !!state.currentResult && !document.getElementById('results-section')?.classList.contains('hidden');
+    const btn = PANEL_RUN[view] ? document.getElementById(PANEL_RUN[view]) : null;
+    if (onResults && btn && btn.offsetParent !== null) {
+      if (btn.disabled || btn.classList.contains('disabled')) showError('Assign this feature’s input files first, then run it.');
+      else btn.click();
+      return;
+    }
+    if (!again) return;
+    if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
+    if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) { runFeature(view); return; }
+    showError(onResults && SELF_GATING.has(view)
+      ? 'Use this feature’s own Run button to run it again.'
+      : 'Nothing to run again here — open a feature and run it first.');
+  }
+  // Ctrl+D — the next of the six appearance modes (wrapping round).
+  function cycleAppearance() {
+    const sel = document.getElementById('report-appearance');
+    if (!sel || !sel.options.length) return;
+    const cur = document.documentElement.getAttribute('data-appearance') || sel.value || 'light';
+    let idx = Array.from(sel.options).findIndex(o => o.value === cur);
+    if (idx < 0) idx = 0;
+    sel.value = sel.options[(idx + 1) % sel.options.length].value;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  // Ctrl+Shift+A — open the toolbar Appearance picker (native list when the engine allows it;
+  // otherwise focus it so ↑/↓ change the mode, with a brief highlight).
+  function openAppearancePicker() {
+    const sel = document.getElementById('report-appearance');
+    if (!sel) return;
+    closeMenus();
+    try { sel.focus(); } catch (e) { /* best effort */ }
+    sel.classList.add('kbd-flash');
+    setTimeout(() => sel.classList.remove('kbd-flash'), 1400);
+    try { if (typeof sel.showPicker === 'function') sel.showPicker(); } catch (e) { /* focused fallback */ }
+  }
+  // Ctrl+K — every navigator feature (+ AI Chat) and every menu command, searchable.
+  function showPalette() {
+    closeMenus(); closeHelp();
+    const items = buildPaletteItems({ nav: NAV, menus: MENUS, extraFeatures: [{ id: 'chat', label: 'AI Chat', group: 'Menu bar' }] });
+    openPalette(items, (it) => { if (it.kind === 'feature') gotoNav(it.id); else runMenuCmd(it.cmd); });
+  }
 
   // ── Navigator collapse toggle ───────────────────────────────────────────────
   function toggleNav() { document.querySelector('.appmain').classList.toggle('navhidden'); }

@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
+import { openElogConfirm } from './elog.js';
 
 // ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
 export function egp(n) {
@@ -346,7 +347,7 @@ function engGaps(gaps) {
         <th class="num">Gap</th><th class="num">% of Gap</th></tr></thead>
       <tbody>${groups.map(g => `<tr><td>${escapeHtml(g.trade)}</td>
         <td class="num">${g.planned}</td><td class="num">${g.approved}</td>
-        <td class="num">${gapText(g.gap)}</td><td class="num">${Math.round(Math.abs(g.pct_of_gap))}%</td></tr>`).join('')}</tbody>
+        <td class="num">${g.no_plan ? 'No plan dates' : gapText(g.gap)}</td><td class="num">${Math.round(Math.abs(g.pct_of_gap))}%</td></tr>`).join('')}</tbody>
     </table></div>`;
   return one('Engineering Gap — Design Drawings (Planned vs Approved)', gaps.design)
        + one('Engineering Gap — Shop Drawings (Planned vs Approved)', gaps.engineering);
@@ -534,6 +535,14 @@ async function attachBaseline(result) {
     state.baselineName = data.baseline_name;
     state.baselineMatched = data.matched;
     state.baselineTotal = data.total;
+    // …and on the result itself (as a re-opened project carries it), so a re-render — Ctrl+R /
+    // Analysis ▸ Run again → renderEvm(result) — restores the attachment instead of showing
+    // "No baseline attached", re-prompting and dropping the baseline from the PDF.
+    // (removeBaseline clears the same fields.)
+    result.baseline_name = data.baseline_name;
+    result.baseline_path = data.baseline_cached;
+    result.baseline_matched = data.matched;
+    result.baseline_total = data.total;
     _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
     renderBaselineBanner(result);
   } catch {
@@ -556,6 +565,7 @@ async function removeBaseline(result) {
     state.baselinePath = null; state.baselineName = null;
     state.baselineMatched = null; state.baselineTotal = null;
     result.baseline_name = null; result.baseline_path = null;
+    result.baseline_matched = null; result.baseline_total = null;
     _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
     renderBaselineBanner(result);
   } catch {
@@ -564,35 +574,62 @@ async function removeBaseline(result) {
   }
 }
 
+// Engineering log upload: pick the file(s) → the reader PROPOSES how to read them
+// (/api/e1/inspect) → the planner checks / corrects columns + review codes in an in-page
+// panel → only "Confirm and count" calls /api/e1/upload with the confirmed layouts.
 async function uploadE1(result) {
+  let paths;
+  try { paths = await window.pywebview.api.choose_excel(); } catch { return; }
+  if (!paths || !paths.length) return;
+  const src = document.getElementById('evm-eng-src');
+  const box = document.getElementById('evm-eng');
+  src.innerHTML = `<span class="src-chip p6">Reading ${paths.length} log${paths.length > 1 ? 's' : ''}…</span>`;
+  let data;
   try {
-    const paths = await window.pywebview.api.choose_excel();
-    if (!paths || !paths.length) return;
-    const src = document.getElementById('evm-eng-src');
-    src.innerHTML = `<span class="src-chip p6">Reading ${paths.length} log${paths.length > 1 ? 's' : ''}…</span>`;
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/upload`, {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/inspect`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snapshot_id: state.currentSnapshotId, paths,
-                             category_names: Object.keys(result.categories || {}) }),
+      body: JSON.stringify({ paths }),
     });
-    const data = await resp.json();
-    if (data.ok) {
-      result.engineering_e1 = data.engineering_e1;
-      result.e1_extras = data.e1_extras || null;
-      _e1Extras = result.e1_extras;
-      _applyE1ToCategories(result);   // Design/Engineering category Actual % ← E1 Approved %
-      renderEngineering(result);
-      renderCats(result);             // category table reflects E1
-      renderSlicer(result);           // top slicer + overall reflect E1
-      renderDashboard(result);
-    } else {
-      src.innerHTML = `<span class="src-chip p6">E1 read failed</span>`;
-      alert('E1 Log read failed: ' + (data.error || 'unknown'));
-      renderEngineering(result);
-    }
-  } catch {
-    renderEngineering(result);
+    data = await resp.json();
+  } catch (e) {
+    data = { ok: false, error: e.message || String(e) };
   }
+  if (!data.ok) { _e1Failed(result, data.error); return; }
+  src.innerHTML = '<span class="src-chip p6">Check the log reading ↓</span>';
+  openElogConfirm(box, data.files, {
+    port: state.serverPort,
+    aiReady: !!data.ai_ready,
+    onCancel: () => renderEngineering(result),
+    onConfirm: (layouts) => _countE1(result, Object.keys(layouts), layouts),
+  });
+}
+
+async function _countE1(result, paths, layouts) {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/e1/upload`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot_id: state.currentSnapshotId, paths, layouts,
+                           category_names: Object.keys(result.categories || {}) }),
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'unknown error');
+  result.engineering_e1 = data.engineering_e1;
+  result.e1_extras = data.e1_extras || null;
+  _e1Extras = result.e1_extras;
+  _applyE1ToCategories(result);   // Design/Engineering category Actual % ← E1 Approved %
+  renderEngineering(result);
+  renderCats(result);             // category table reflects E1
+  renderSlicer(result);           // top slicer + overall reflect E1
+  renderDashboard(result);
+}
+
+// A visible in-page notice (window.alert is a no-op in the packaged app).
+function _e1Failed(result, error) {
+  renderEngineering(result);
+  const src = document.getElementById('evm-eng-src');
+  const box = document.getElementById('evm-eng');
+  if (src) src.innerHTML = '<span class="src-chip p6">Log read failed</span>';
+  if (box) box.insertAdjacentHTML('afterbegin',
+    `<div class="elog-err" role="alert">The engineering log could not be read: ${escapeHtml(error || 'unknown error')}</div>`);
 }
 
 async function changeGapDim(result, dim) {

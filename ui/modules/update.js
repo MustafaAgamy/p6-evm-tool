@@ -9,6 +9,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
 
 let _shownReport = null;
 let _summaryLevel = 0;
@@ -158,7 +159,7 @@ async function _runAnalyze() {
     if (!data.ok) {
       if (data.code === 'no_baseline') {
         body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update has no baseline inside it.</div>
-          <div>Attach a baseline on the EVM tab, then re-open Update Analysis.</div></div>`;
+          <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div></div>`;
         return;
       }
       body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;

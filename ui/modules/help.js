@@ -12,13 +12,21 @@
 // retheme's with the active appearance mode. The only fixed colour is the amber "extra
 // file" chip (#c2731a), which has no semantic token. Close via ✕, Esc, or the scrim.
 
-import { shortcutRows } from './shortcuts.js';
+import { shortcutGroups } from './shortcuts.js';
+import { filterNeeds, needsGroups, fileTag, requiredFileCount, FEATURE_NEEDS } from './feature_needs.js';
+
+// Product name from the server-injected brand (utils.APP_NAME / APP_TITLE) — never hardcoded.
+const APP_NAME = (typeof window !== 'undefined' && window.__APP_NAME__) || 'Controlyx';
+const APP_TITLE = (typeof window !== 'undefined' && window.__APP_TITLE__) || APP_NAME;
+// Edition + release version from the same injected source (utils.APP_EDITION / APP_VERSION).
+const APP_EDITION = (typeof window !== 'undefined' && window.__APP_EDITION__) || '';
+const APP_VERSION = (typeof window !== 'undefined' && window.__APP_VERSION__) || '';
 
 const STYLE_ID = 'hc-help-style';
 const OVERLAY_ID = 'hc-help-overlay';
 
 const SECTIONS = [
-  { key: 'getting-started', label: 'Getting Started', sub: 'How Controlyx works',
+  { key: 'getting-started', label: 'Getting Started', sub: `How ${APP_NAME} works`,
     icon: '<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>' },
   { key: 'feature-guide', label: 'Feature Guide', sub: 'What each feature needs',
     icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/>' },
@@ -28,35 +36,14 @@ const SECTIONS = [
     icon: '<path d="m12 3 2.3 4.7 5.2.8-3.7 3.6.9 5.1L12 15l-4.6 2.4.9-5.1L4.5 8.5l5.2-.8z"/>' },
   { key: 'contact', label: 'Contact & Support', sub: 'Get help',
     icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
-  { key: 'about', label: 'About Controlyx', sub: 'Version & credits',
+  { key: 'about', label: `About ${APP_NAME}`, sub: 'Version & credits',
     icon: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>' },
 ];
 const VALID = new Set(SECTIONS.map(s => s.key));
 const DEFAULT_SECTION = 'feature-guide';
 
-// ---- Feature Guide data (ported verbatim from the approved mockup) ----
-//   k: 'p6' = blue chip (1 P6 schedule), 'extra' = amber chip (needs another file),
-//      'optional' = dashed chip (prefixed "optional:"), 'none' = dashed chip (no file input)
-const FEATURES = [
-  { name: 'Overview', what: 'A snapshot of progress', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'WBS', what: 'Work-breakdown rollup', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Schedule (Gantt)', what: 'Time-scaled activity chart', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Schedule Health', what: 'DCMA-style checks', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Baseline Narrative', what: 'Basis-of-schedule write-up', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Lag Report', what: 'Relationship lags / leads', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Earned Value', what: 'PV / EV, SPI / CPI, delay', inputs: [{ t: '1 P6 schedule', k: 'p6' }, { t: 'baseline for accurate PV', k: 'optional' }] },
-  { name: 'Out of Sequence', what: 'Logic adherence', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Update Analysis', what: 'Update vs its embedded baseline', inputs: [{ t: '1 P6 update', k: 'p6' }] },
-  { name: 'Critical Path', what: 'Driving path & float health', inputs: [{ t: 'current update', k: 'p6' }, { t: 'baseline / previous file', k: 'extra' }], extra: true },
-  { name: 'Update vs Update', what: 'Period over period', inputs: [{ t: 'this period', k: 'p6' }, { t: 'last period', k: 'extra' }], extra: true },
-  { name: 'Consultant Review', what: 'Forensic but-for delay', inputs: [{ t: 'current update', k: 'p6' }, { t: 'baseline programme', k: 'extra' }], extra: true },
-  { name: 'Baseline Revision', what: 'Compare two baselines', inputs: [{ t: 'Rev.00', k: 'p6' }, { t: 'Rev.01', k: 'extra' }], extra: true },
-  { name: 'AI Chat', what: 'Offline assistant, time-impact, what-if & manager briefing', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'P6 Calendar Audit', what: 'Working-time & net days', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Bad Weather', what: 'Stop-work impact', inputs: [{ t: '1 P6 schedule', k: 'p6' }, { t: 'project location', k: 'extra' }], extra: true },
-  { name: 'Constructability', what: 'Buildability vs knowledge base', inputs: [{ t: '1 P6 schedule', k: 'p6' }] },
-  { name: 'Reporting Studio', what: 'Pick results once — view as a document or a dashboard', inputs: [{ t: 'results from any features', k: 'none' }] },
-];
+// Feature Guide data lives in ./feature_needs.js (FEATURE_NEEDS) — the same structure the
+// Analysis menu "Needs: …" lines and the navigator tooltips read, so they never disagree.
 
 let onKeyDown = null;   // active Esc handler (set on open, removed on close)
 
@@ -329,6 +316,48 @@ function injectStyle() {
   .hc-credit .role{ font-size:12px; color:var(--sidebar-ink,#c7d2e6); margin-top:3px; }
   .hc-copyright{ font-size:11.5px; color:var(--muted,#64748b); margin-top:22px; }
 
+  /* ---- Feature guide: grouped cards with a needs table ---- */
+  .hc-sw-none{}
+  .hc-lg .sw.none{ background:transparent; border:1px dashed var(--muted,#64748b); }
+  .hc-fg-formats{ font-size:12.5px; line-height:1.55; color:var(--ink-soft,#41506a); background:var(--card-bg,#fff);
+    border:1px solid var(--border,#e2e8f0); border-left:3px solid var(--accent,#2563eb); border-radius:10px; padding:10px 14px; margin-bottom:12px; }
+  .hc-fg-formats b{ color:var(--text,#1e293b); }
+  .hc-fg-group{ margin-bottom:18px; }
+  .hc-fg-gh{ font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--accent,#2563eb);
+    margin:4px 2px 8px; break-after:avoid; page-break-after:avoid; }
+  .hc-need-tbl{ display:flex; flex-direction:column; border-top:1px solid var(--hair,#eef1f6); margin-top:2px; }
+  .hc-need-row{ display:grid; grid-template-columns:104px 1fr; gap:10px; padding:6px 0; border-bottom:1px solid var(--hair,#eef1f6); }
+  .hc-need-row:last-child{ border-bottom:none; }
+  .hc-need-k{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#64748b); padding-top:2px; }
+  .hc-need-v{ font-size:12.5px; color:var(--ink-soft,#41506a); line-height:1.5; min-width:0; }
+  .hc-need-v div + div{ margin-top:3px; }
+  .hc-need-files{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+  .hc-need-files li{ padding-left:9px; border-left:3px solid var(--accent,#2563eb); }
+  .hc-need-files li.k-extra{ border-left-color:#c2731a; }
+  .hc-need-files li.k-optional{ border-left-style:dashed; border-left-color:var(--muted,#64748b); }
+  .hc-need-n{ font-weight:800; color:var(--text,#1e293b); }
+  .hc-fmt{ display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent-dark,#1d4ed8); background:var(--accent-soft,#dbe6ff);
+    border-radius:5px; padding:1px 6px; margin-left:2px; white-space:nowrap; }
+  .hc-opt{ font-size:10.5px; font-weight:700; color:var(--muted,#64748b); border:1px dashed var(--border,#e2e8f0); border-radius:5px; padding:0 5px; }
+  .hc-need-note{ font-size:11.5px; color:var(--muted,#64748b); margin-top:2px; }
+  .hc-need-none{ color:var(--muted,#64748b); }
+  .hc-exp{ display:inline-block; font-size:11px; font-weight:600; border:1px solid var(--border,#e2e8f0); border-radius:6px; padding:1px 7px; margin:0 4px 3px 0; color:var(--text,#1e293b); }
+  .hc-start{ font-weight:600; color:var(--text,#1e293b); }
+  .hc-feat:hover{ transform:none; }
+
+  /* ---- Shortcuts, grouped ---- */
+  .hc-kb-grp + .hc-kb-grp{ margin-top:16px; }
+  .hc-kb-gh{ font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--accent,#2563eb); margin-bottom:2px; break-after:avoid; }
+  .hc-kb-row{ padding:9px 2px; }
+
+  /* ---- About: two credit cards with LinkedIn ---- */
+  .hc-credits{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .hc-credit.alt .name{ font-size:19px; }
+  .hc-credit-link{ display:inline-flex; align-items:center; gap:7px; margin-top:10px; font-size:12px; font-weight:600;
+    color:var(--sidebar-ink,#c7d2e6); text-decoration:none; border:1px solid rgba(255,255,255,.18); border-radius:8px; padding:5px 10px; }
+  .hc-credit-link:hover{ color:#fff; border-color:#f6a723; }
+  .hc-credit-link svg{ width:14px; height:14px; }
+
   @media (prefers-reduced-motion: reduce){
     #${OVERLAY_ID}, .hc-shell{ animation:none !important; }
     #${OVERLAY_ID} *{ transition:none !important; }
@@ -345,11 +374,11 @@ function screenGettingStarted() {
   <section class="hc-screen" data-sec="getting-started">
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>Getting Started</div>
-      <h2>How Controlyx works</h2>
-      <p>Controlyx reads your Primavera P6 exports and turns them into clear schedule intelligence — earned value, health checks, delay analysis and board-ready reports. No spreadsheets, no manual number-crunching. Follow four steps.</p>
+      <h2>How ${esc(APP_NAME)} works</h2>
+      <p>${esc(APP_NAME)} reads your Primavera P6 exports and turns them into clear schedule intelligence — earned value, health checks, delay analysis and board-ready reports. No spreadsheets, no manual number-crunching. Follow four steps.</p>
     </div>
     <div class="hc-flow">
-      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML/XER export, or Browse to it. Controlyx parses activities, WBS and logic.</p></div>
+      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML/XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
       <div class="hc-step"><div class="num">2</div><h4>Choose a feature</h4><p>Pick what you need — Earned Value, Schedule Health, Consultant Review and more.</p></div>
       <div class="hc-step"><div class="num">3</div><h4>Run</h4><p>Confirm the inputs and click Run. Every analysis is explicit — nothing fires until you ask.</p></div>
       <div class="hc-step"><div class="num">4</div><h4>Results</h4><p>Read the KPIs on screen, then export a polished one-page PDF or a custom report.</p></div>
@@ -357,12 +386,12 @@ function screenGettingStarted() {
     <div class="hc-gs-about">
       <div class="hc-card hc-pad">
         <h4>What this tool does</h4>
-        <p>Controlyx is a desktop project-control platform for planners and PMs. It computes Planned Value, Earned Value, SPI/CPI and delay in days; runs DCMA-style schedule health checks; performs forensic but-for delay analysis; and audits calendars, weather impact and constructability — all offline, entirely from your P6 files. Import once and every view reads from a local database, so re-opening a project is instant.</p>
+        <p>${esc(APP_NAME)} is a desktop project-control platform for planners and PMs. It computes Planned Value, Earned Value, SPI/CPI and delay in days; runs DCMA-style schedule health checks; performs forensic but-for delay analysis; and audits calendars, weather impact and constructability — all offline, entirely from your P6 files. Import once and every view reads from a local database, so re-opening a project is instant.</p>
       </div>
       <div class="hc-card hc-pad hc-tour">
         <div class="hc-eyebrow"><span class="bar"></span>New here?</div>
         <h4>Explore the feature guide</h4>
-        <p>See every analysis Controlyx offers and the exact inputs each one needs.</p>
+        <p>See every analysis ${esc(APP_NAME)} offers and the exact inputs each one needs.</p>
         <button class="hc-btn" type="button" data-goto="feature-guide">
           ${svg('<path d="m6 4 14 8-14 8z"/>', ' stroke-width="2.4"')}
           Browse features
@@ -373,45 +402,52 @@ function screenGettingStarted() {
 }
 
 function screenFeatureGuide() {
+  const total = FEATURE_NEEDS.length;
   return `
   <section class="hc-screen" data-sec="feature-guide">
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>Feature Guide</div>
       <h2>What each feature needs</h2>
-      <p>Every analysis in Controlyx and the exact inputs it expects. Most features need just <b>one P6 schedule</b>; a few compare files and need a second input — the amber chips flag those at a glance.</p>
+      <p>Every feature in ${esc(APP_NAME)} — exactly which P6 files it reads (how many, which one, XER or XML), any other input, what it produces and how to start it. Most features need just <b>one P6 schedule</b>; amber marks the ones that need a second file.</p>
     </div>
     <div class="hc-fg-toolbar">
       <div class="hc-search">
         ${svg('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>')}
-        <input id="hc-fg-search" type="text" placeholder="Search features or inputs — e.g. baseline, weather, SPI…" autocomplete="off">
+        <input id="hc-fg-search" type="text" placeholder="Search features or inputs — e.g. baseline, XER, weather, E1…" autocomplete="off">
       </div>
       <div class="hc-legend">
         <span class="hc-lg"><span class="sw p6"></span>1 P6 schedule</span>
         <span class="hc-lg"><span class="sw extra"></span>Extra file needed</span>
+        <span class="hc-lg"><span class="sw none"></span>No schedule needed</span>
       </div>
     </div>
-    <div class="hc-fg-count"><b id="hc-fg-shown">${FEATURES.length}</b> of ${FEATURES.length} features</div>
-    <div class="hc-fg-grid" id="hc-fg-grid"></div>
-    <div class="hc-fg-empty" id="hc-fg-empty">No features match your search. Try “baseline”, “delay” or “calendar”.</div>
+    <div class="hc-fg-formats"><b>XER or XML?</b> Every file picker accepts both. The difference is the <b>baseline</b>: an XML exported from P6 <i>with its baseline project</i> carries the baseline inside it; an XER never does, so features that measure an update against its baseline need the baseline file too (or read the update's own planned dates).</div>
+    <div class="hc-fg-count"><b id="hc-fg-shown">${total}</b> of ${total} features</div>
+    <div id="hc-fg-grid"></div>
+    <div class="hc-fg-empty" id="hc-fg-empty">No features match your search. Try “baseline”, “XER”, “delay” or “calendar”.</div>
   </section>`;
 }
 
 function screenShortcuts() {
   // Rows come straight from the shared SHORTCUTS registry (shortcuts.js) — the same
-  // source app.js binds its key handler to — so this list can never drift from the
-  // shortcuts that actually fire. Add/change a shortcut there and it shows up here.
-  const rows = shortcutRows().map(([lbl, keys]) =>
-    `<div class="hc-kb-row"><span class="lbl">${esc(lbl)}</span><span class="hc-keys">${
-      keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')
-    }</span></div>`).join('');
+  // source app.js binds its key handler to and prints beside the menu items — so this
+  // list can never drift from the shortcuts that actually fire.
+  const groups = shortcutGroups().map(g => `
+    <div class="hc-kb-grp">
+      <div class="hc-kb-gh">${esc(g.group)}</div>
+      <div class="hc-kb-list">${g.rows.map(([lbl, keys]) =>
+        `<div class="hc-kb-row"><span class="lbl">${esc(lbl)}</span><span class="hc-keys">${
+          keys.map(k => `<kbd>${esc(k)}</kbd>`).join('')
+        }</span></div>`).join('')}</div>
+    </div>`).join('');
   return `
   <section class="hc-screen" data-sec="shortcuts">
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>Keyboard Shortcuts</div>
       <h2>Work faster</h2>
-      <p>A handful of shortcuts for the actions you use most.</p>
+      <p>Every shortcut also shows beside its menu item. <b>Ctrl+K</b> opens the command palette — type to jump to any feature or run any command; <b>?</b> opens this list. Shortcuts pause while you type in a box (Esc still works).</p>
     </div>
-    <div class="hc-card hc-pad"><div class="hc-kb-list">${rows}</div></div>
+    <div class="hc-card hc-pad">${groups}</div>
   </section>`;
 }
 
@@ -421,13 +457,20 @@ function screenWhatsNew() {
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>What's New</div>
       <h2>Recent highlights</h2>
-      <p>The latest improvements shipped in Controlyx 2026.</p>
+      <p>The latest improvements shipped in ${esc(APP_TITLE)}.</p>
     </div>
     <div class="hc-card hc-pad">
       <div class="hc-wn">
+        <div class="hc-wn-dot">${svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')}</div>
+        <div class="hc-wn-body">
+          <h4>Keyboard shortcuts, command palette &amp; "what each feature needs"</h4>
+          <p>Alt+1…Alt+9 jump straight to the main features, Ctrl+K searches every feature and command, Ctrl+Shift+E / W / H export, Ctrl+R runs the feature again — and every menu shows its shortcut. The Feature guide, the Analysis menu and the navigator tooltips now state exactly which files each feature needs.</p>
+        </div>
+      </div>
+      <div class="hc-wn">
         <div class="hc-wn-dot">${svg('<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>')}</div>
         <div class="hc-wn-body">
-          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">v2.2.0</span></h4>
+          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">Since v2.2.0</span></h4>
           <p>Importing a file no longer auto-runs anything. You pick a feature, confirm its inputs, then Run — clearer intent and no surprise recalculations.</p>
         </div>
       </div>
@@ -442,16 +485,31 @@ function screenWhatsNew() {
         <div class="hc-wn-dot green">${svg('<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>')}</div>
         <div class="hc-wn-body">
           <h4>Branded startup splash</h4>
-          <p>A polished Controlyx splash screen greets you on launch while your database and knowledge base load in the background.</p>
+          <p>A polished ${esc(APP_NAME)} splash screen greets you on launch while your database and knowledge base load in the background.</p>
         </div>
       </div>
     </div>
   </section>`;
 }
 
+// External links (LinkedIn) open in the planner's default browser: in the packaged app the
+// click goes through the js_api open_external() (https allow-list, app.py); elsewhere the
+// plain target=_blank link is the fallback. Wired in openHelp() via [data-external].
+const LINKS = {
+  ibrahim: { url: 'https://www.linkedin.com/in/ibrahim-gebril-417a40270/', text: 'linkedin.com/in/ibrahim-gebril' },
+  mostafa: { url: 'https://www.linkedin.com/in/mostafaahmedagamy/', text: 'linkedin.com/in/mostafaahmedagamy' },
+};
+const IN_ICO = '<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 10v7M7 7v.01M12 17v-4a2 2 0 0 1 4 0v4M16 17v-2"/>';
+function linkedinRow(who) {
+  const l = LINKS[who];
+  return `<a class="hc-cc-row" data-external href="${l.url}" target="_blank" rel="noopener">
+            <span class="hc-cc-ico">${svg(IN_ICO)}</span>
+            <span class="hc-cc-info"><span class="k">LinkedIn</span><span class="v">${esc(l.text)}</span></span>
+          </a>`;
+}
+
 function screenContact() {
   const phoneIco = svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>');
-  const inIco = svg('<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 10v7M7 7v.01M12 17v-4a2 2 0 0 1 4 0v4M16 17v-2"/>');
   return `
   <section class="hc-screen" data-sec="contact">
     <div class="hc-head">
@@ -463,13 +521,10 @@ function screenContact() {
       <div class="hc-cc lead">
         <div class="hc-cc-head">
           <div class="hc-cc-avatar">IG</div>
-          <div><div class="hc-cc-name">Ibrahim Gebril</div><div class="hc-cc-role">Creator of Controlyx</div></div>
+          <div><div class="hc-cc-name">Ibrahim Gebril</div><div class="hc-cc-role">Creator of ${esc(APP_NAME)}</div></div>
         </div>
         <div class="hc-cc-rows">
-          <a class="hc-cc-row" href="https://www.linkedin.com/in/ibrahim-gebril-417a40270/" target="_blank" rel="noopener">
-            <span class="hc-cc-ico">${inIco}</span>
-            <span class="hc-cc-info"><span class="k">LinkedIn</span><span class="v">linkedin.com/in/ibrahim-gebril</span></span>
-          </a>
+          ${linkedinRow('ibrahim')}
           <a class="hc-cc-row" href="tel:+201096570066">
             <span class="hc-cc-ico">${phoneIco}</span>
             <span class="hc-cc-info"><span class="k">Phone</span><span class="v">+20 109 657 0066</span></span>
@@ -479,9 +534,10 @@ function screenContact() {
       <div class="hc-cc">
         <div class="hc-cc-head">
           <div class="hc-cc-avatar alt">MA</div>
-          <div><div class="hc-cc-name">Mustafa Agamy</div><div class="hc-cc-role">Technical Software Support</div></div>
+          <div><div class="hc-cc-name">Mostafa Agamy</div><div class="hc-cc-role">Technical Software Support</div></div>
         </div>
         <div class="hc-cc-rows">
+          ${linkedinRow('mostafa')}
           <a class="hc-cc-row" href="tel:+201012564657">
             <span class="hc-cc-ico">${phoneIco}</span>
             <span class="hc-cc-info"><span class="k">Phone</span><span class="v">+20 101 256 4657</span></span>
@@ -494,20 +550,30 @@ function screenContact() {
 }
 
 function screenAbout() {
+  const mark = `${esc(APP_NAME.slice(0, -1))}<span class="x">${esc(APP_NAME.slice(-1))}</span>`;
+  const credLink = (who) => `<a class="hc-credit-link" data-external href="${LINKS[who].url}" target="_blank" rel="noopener">${svg(IN_ICO)}<span>${esc(LINKS[who].text)}</span></a>`;
   return `
   <section class="hc-screen" data-sec="about">
     <div class="hc-card hc-about">
       <div class="hc-about-bg"></div>
       <div class="hc-about-inner">
-        <div class="hc-brandmark">Controly<span class="x">x</span></div>
-        <div class="hc-tagline">Controlyx 2026 · Project Control Intelligence Platform</div>
+        <div class="hc-brandmark">${mark}</div>
+        <div class="hc-tagline">${esc(APP_TITLE)} · Project Control Intelligence Platform</div>
         <div class="hc-forp6">for Primavera P6</div>
-        <div class="hc-ver"><span class="g"></span>Version 2.2.0 · 2026 Edition</div>
-        <p class="hc-desc">Controlyx turns Primavera P6 exports into clear, board-ready schedule intelligence — earned value, DCMA-style health checks, forensic delay analysis, calendar and weather audits, and custom reports — all computed offline on your machine, straight from your project files.</p>
-        <div class="hc-credit">
-          <div class="lead">Designed &amp; Developed by</div>
-          <div class="name">Ibrahim Gebril</div>
-          <div class="role">Construction Planning Engineer · Creator of Controlyx</div>
+        <div class="hc-ver"><span class="g"></span>${[APP_VERSION ? 'Version ' + esc(APP_VERSION) : '', APP_EDITION ? esc(APP_EDITION) + ' Edition' : ''].filter(Boolean).join(' · ')}</div>
+        <p class="hc-desc">${esc(APP_NAME)} turns Primavera P6 exports into clear, board-ready schedule intelligence — earned value, DCMA-style health checks, forensic delay analysis, calendar and weather audits, and custom reports — all computed offline on your machine, straight from your project files.</p>
+        <div class="hc-credits">
+          <div class="hc-credit">
+            <div class="lead">Designed &amp; Developed by</div>
+            <div class="name">Ibrahim Gebril</div>
+            <div class="role">Construction Planning Engineer · Creator of ${esc(APP_NAME)}</div>
+            ${credLink('ibrahim')}
+          </div>
+          <div class="hc-credit alt">
+            <div class="lead">Technical Software Support</div>
+            <div class="name">Mostafa Agamy</div>
+            ${credLink('mostafa')}
+          </div>
         </div>
         <div class="hc-copyright">© 2026 Ibrahim Gebril. All rights reserved.</div>
       </div>
@@ -521,14 +587,33 @@ function allScreens() {
 }
 
 // ---- Feature Guide render + live search ----
-function chipHtml(inp) {
-  let cls = 'hc-chip ';
-  let label = esc(inp.t);
-  if (inp.k === 'extra') cls += 'extra';
-  else if (inp.k === 'optional') { cls += 'optional'; label = 'optional: ' + label; }
-  else if (inp.k === 'none') cls += 'optional';
-  else cls += 'p6';
-  return '<span class="' + cls + '">' + label + '</span>';
+function needChip(f) {
+  const n = requiredFileCount(f);
+  const cls = n === 0 ? 'optional' : (n >= 2 ? 'extra' : 'p6');
+  return `<span class="hc-chip ${cls}">${esc(f.hint)}</span>`;
+}
+
+function featureCard(f) {
+  const tag = fileTag(f);
+  const files = f.files.length
+    ? '<ul class="hc-need-files">' + f.files.map(x =>
+        `<li class="k-${x.k}"><span class="hc-need-n">${x.n} ×</span> <span>${esc(x.role)}</span>` +
+        ` <span class="hc-fmt">${esc(x.formats)}</span>${x.k === 'optional' ? ' <span class="hc-opt">optional</span>' : ''}` +
+        (x.note ? `<div class="hc-need-note">${esc(x.note)}</div>` : '') + '</li>').join('') + '</ul>'
+    : '<span class="hc-need-none">No schedule file needed.</span>';
+  const row = (k, v) => v ? `<div class="hc-need-row"><div class="hc-need-k">${k}</div><div class="hc-need-v">${v}</div></div>` : '';
+  return `<div class="hc-feat${requiredFileCount(f) >= 2 ? ' extra-needed' : ''}" data-feature="${esc(f.id)}">` +
+    `<div class="hc-feat-top"><span class="hc-feat-name">${esc(f.name)}</span>${tag ? `<span class="hc-feat-tag">${esc(tag)}</span>` : ''}</div>` +
+    `<p class="hc-feat-what">${esc(f.what)}</p>` +
+    `<div class="hc-feat-inputs"><span class="hc-inp-label">Needs</span>${needChip(f)}</div>` +
+    '<div class="hc-need-tbl">' +
+      row('Schedule files', files) +
+      row('Other inputs', f.other.length ? f.other.map(o => `<div>${esc(o)}</div>`).join('') : '<span class="hc-need-none">None.</span>') +
+      row('Recommended', f.recommend ? esc(f.recommend) : '') +
+      row('Produces', esc(f.produces)) +
+      row('Exports', f.exports.length ? f.exports.map(e => `<span class="hc-exp">${esc(e)}</span>`).join('') : '<span class="hc-need-none">On screen only.</span>') +
+      row('How to start', `<span class="hc-start">${esc(f.start)}</span>`) +
+    '</div></div>';
 }
 
 function renderFeatures(root, filter) {
@@ -536,25 +621,12 @@ function renderFeatures(root, filter) {
   const empty = root.querySelector('#hc-fg-empty');
   const shownEl = root.querySelector('#hc-fg-shown');
   if (!grid) return;
-  const q = (filter || '').trim().toLowerCase();
-  let shown = 0;
-  let html = '';
-  FEATURES.forEach(f => {
-    const hay = (f.name + ' ' + f.what + ' ' + f.inputs.map(i => i.t).join(' ')).toLowerCase();
-    if (q && hay.indexOf(q) === -1) return;
-    shown++;
-    const tag = f.extra ? '<span class="hc-feat-tag">2 files</span>' : '';
-    const chips = f.inputs.map(chipHtml).join('');
-    html +=
-      '<div class="hc-feat' + (f.extra ? ' extra-needed' : '') + '">' +
-        '<div class="hc-feat-top"><span class="hc-feat-name">' + esc(f.name) + '</span>' + tag + '</div>' +
-        '<p class="hc-feat-what">' + esc(f.what) + '</p>' +
-        '<div class="hc-feat-inputs"><span class="hc-inp-label">Needs</span>' + chips + '</div>' +
-      '</div>';
-  });
-  grid.innerHTML = html;
-  if (shownEl) shownEl.textContent = String(shown);
-  if (empty) empty.classList.toggle('show', shown === 0);
+  const list = filterNeeds(filter);
+  grid.innerHTML = needsGroups(list).map(g =>
+    `<div class="hc-fg-group"><div class="hc-fg-gh">${esc(g.group || 'Start here')}</div>` +
+    `<div class="hc-fg-grid">${g.items.map(featureCard).join('')}</div></div>`).join('');
+  if (shownEl) shownEl.textContent = String(list.length);
+  if (empty) empty.classList.toggle('show', list.length === 0);
 }
 
 // ---- Open / close ----
@@ -606,7 +678,7 @@ export function openHelp(section) {
   overlay.innerHTML = `
     <div class="hc-shell" role="document">
       <div class="hc-titlebar">
-        <span class="hc-tb-logo">C</span>
+        <span class="hc-tb-logo">${esc(APP_NAME.charAt(0))}</span>
         <span class="hc-tb-title">Help Center</span>
         <span class="hc-tb-spacer"></span>
         <button class="hc-close" type="button" aria-label="Close Help Center" title="Close (Esc)">
@@ -616,7 +688,7 @@ export function openHelp(section) {
       <div class="hc-body">
         <nav class="hc-nav">
           ${navItems}
-          <div class="hc-nav-foot">Controlyx 2026 · v2.2.0</div>
+          <div class="hc-nav-foot">${esc(APP_TITLE)}${APP_VERSION ? ' · v' + esc(APP_VERSION) : ''}</div>
         </nav>
         <div class="hc-content">${allScreens()}</div>
       </div>
@@ -637,6 +709,16 @@ export function openHelp(section) {
   const box = overlay.querySelector('#hc-fg-search');
   if (box) box.addEventListener('input', () => renderFeatures(overlay, box.value));
   renderFeatures(overlay, '');
+
+  // External links → the default browser (packaged app: js_api.open_external with an https
+  // allow-list; browser/dev harness: the plain target=_blank link).
+  overlay.querySelectorAll('a[data-external]').forEach(a => a.addEventListener('click', e => {
+    const api = window.pywebview && window.pywebview.api;
+    if (api && typeof api.open_external === 'function') {
+      e.preventDefault();
+      try { api.open_external(a.href); } catch (err) { /* fall back to nothing — link stays visible */ }
+    }
+  }));
 
   // Close: ✕ button and clicking the scrim (outside the shell).
   const closeBtn = overlay.querySelector('.hc-close');

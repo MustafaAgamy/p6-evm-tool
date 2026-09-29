@@ -5,7 +5,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, date
-from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE
+from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
 import db
 import report_theme
 
@@ -294,6 +294,9 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_copilot(body)
         elif self.path == '/api/report/html':
             self._handle_report_html(body)
+        elif self.path in ('/api/export/pdf', '/api/export/html', '/api/export/docx',
+                           '/api/export/xlsx'):
+            self._handle_export_document(body, self.path.rsplit('/', 1)[-1])
         elif self.path == '/api/project/load':
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
@@ -306,6 +309,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_gap(body)
         elif self.path == '/api/e1/upload':
             self._handle_e1_upload(body)
+        elif self.path == '/api/e1/inspect':
+            self._handle_e1_inspect(body)
+        elif self.path == '/api/e1/preview':
+            self._handle_e1_preview(body)
+        elif self.path == '/api/e1/ai-suggest':
+            self._handle_e1_ai_suggest(body)
         elif self.path == '/api/baseline/upload':
             self._handle_baseline_upload(body)
         elif self.path == '/api/baseline/clear':
@@ -370,8 +379,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_special_doc(body)
         elif self.path == '/api/special/docx':
             self._handle_special_docx(body)
-        elif self.path == '/api/special/excel':
-            self._handle_special_excel(body)
         elif self.path == '/api/special/templates/list':
             self._handle_special_templates_list(body)
         elif self.path == '/api/special/templates/save':
@@ -585,6 +592,7 @@ class Handler(BaseHTTPRequestHandler):
                     ('__APP_NAME__', APP_NAME),
                     ('__APP_EDITION__', APP_EDITION),
                     ('__APP_TITLE__', APP_TITLE),
+                    ('__APP_VERSION__', APP_VERSION),
                 )
             )
             brand_script = (
@@ -1054,7 +1062,9 @@ class Handler(BaseHTTPRequestHandler):
             report['file'] = os.path.basename(curr_path)
             if not report.get('has_baseline'):
                 self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
-                                 'error': 'This update has no baseline inside it. Attach a baseline, then run Update Analysis.'})
+                                 'error': 'This update has no baseline inside it. Re-export it from P6 as XML with its '
+                                          'baseline project included, or import the update as an XER '
+                                          '(it uses the update’s own Planned dates as the baseline).'})
                 return
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
@@ -1196,28 +1206,6 @@ class Handler(BaseHTTPRequestHandler):
             sheets = dashboard_excel(dashboard)
             write_sections_xlsx(os.path.abspath(output_path), sheets,
                                 meta=_excel_meta('Professional Dashboard', dashboard))
-            self._json(200, {'ok': True})
-        except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
-
-    def _handle_special_excel(self, body):
-        """Export the Special Report to .xlsx — the same selected/ordered sections
-        as the PDF/Word, mirrored as sheets/blocks. Same body as /api/special/pdf."""
-        try:
-            output_path = body.get('output_path')
-            if not output_path:
-                self._json(200, {'ok': False, 'error': 'No output path.'})
-                return
-            sys.path.insert(0, resource_path('.'))
-            from p6_special.excel_export import build_excel
-            import report_theme
-            build_excel(
-                project_id=self._special_pid(body), item_ids=body.get('item_ids') or [],
-                report_name=body.get('report_name') or 'Special Report',
-                mode=report_theme.normalize(body.get('theme')),
-                meta=body.get('meta') or {}, letterhead=body.get('letterhead') or {},
-                inputs=body.get('inputs') or {}, snapshot_id=body.get('snapshot_id'),
-                output_path=os.path.abspath(output_path))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2572,17 +2560,89 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/e1/inspect · /api/e1/preview · /api/e1/ai-suggest ─────────────
+    @staticmethod
+    def _elog_store_dir():
+        """Per-user memory of confirmed engineering-log layouts (next to the DB)."""
+        return os.path.join(db.app_data_dir(), 'elog_layouts')
+
+    @staticmethod
+    def _e1_paths(body):
+        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
+        return [p for p in paths if isinstance(p, str) and p and os.path.isfile(p)]
+
+    def _handle_e1_inspect(self, body):
+        """Read the chosen log file(s) and PROPOSE how to count them — sheets, what each
+        column means (with how sure), the review codes and a preview per discipline.
+        Nothing is saved; the planner confirms (or corrects) before /api/e1/upload."""
+        paths = self._e1_paths(body)
+        if not paths:
+            self._json(200, {'ok': False, 'error': 'No log file found.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            files = []
+            for p in paths:
+                try:
+                    files.append(elog_smart.inspect_log(p, store_dir=self._elog_store_dir()))
+                except Exception as exc:              # one unreadable file must not hide the rest
+                    files.append({'file': os.path.basename(p), 'path': p, 'error': str(exc)})
+            self._json(200, {'ok': True, 'files': files, 'ai_ready': elog_smart.local_ai_ready()})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_e1_preview(self, body):
+        """Re-count one file with the planner's edited layout (column / sheet / code changes)."""
+        paths = self._e1_paths(body)
+        layout = body.get('layout')
+        if not paths or not isinstance(layout, dict):
+            self._json(200, {'ok': False, 'error': 'No log file or layout given.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            self._json(200, {'ok': True, 'layout': elog_smart.refresh_layout(paths[0], layout)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_e1_ai_suggest(self, body):
+        """Optional second opinion from the OFFLINE AI brain on low-confidence columns only.
+        Never a cloud call; with no brain installed the layout comes back unchanged."""
+        layout = body.get('layout')
+        if not isinstance(layout, dict):
+            self._json(200, {'ok': False, 'error': 'No layout given.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm import elog_smart
+            if not elog_smart.local_ai_ready():
+                self._json(200, {'ok': False, 'error': 'The offline AI brain is not set up on this PC.'})
+                return
+            self._json(200, {'ok': True, 'layout': elog_smart.suggest_columns_with_local_ai(layout)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/e1/upload ─────────────────────────────────────────────────────
     def _handle_e1_upload(self, body):
         """Read one or more E1 / Design / Shop-drawing log Excels → combined drawings
         summary (Mode A); store per snapshot. A whole file whose NAME says Shop/Design
-        tags all its rows to that bucket; a combined log is split by drawing type."""
-        paths = body.get('paths') or ([body['path']] if body.get('path') else [])
-        paths = [p for p in paths if p and os.path.isfile(p)]
+        tags all its rows to that bucket; a combined log is split by drawing type.
+        Optional ``layouts`` ({path: layout} or a list aligned with ``paths``) = the
+        planner's CONFIRMED reading from /api/e1/inspect: those files are read with the
+        format-agnostic reader (p6_evm.elog_smart) and the layout is remembered for next
+        time; files without one keep the original reader."""
+        paths = self._e1_paths(body)
         snapshot_id = body.get('snapshot_id')
         if not paths:
             self._json(200, {'ok': False, 'error': 'No Excel log file found.'})
             return
+        layouts = body.get('layouts') or {}
+        if isinstance(layouts, list):
+            raw = body.get('paths') or []
+            layouts = {raw[i]: lay for i, lay in enumerate(layouts) if i < len(raw)}
+        if not isinstance(layouts, dict):
+            layouts = {}
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.e1_log import read_e1_rows, summarize_e1
@@ -2591,7 +2651,16 @@ class Handler(BaseHTTPRequestHandler):
             eng_rows = []
             for p in paths:
                 bucket = e1_file_bucket(os.path.basename(p))   # 'design' | 'engineering' | None
-                summ = summarize_e1(read_e1_rows(p))
+                layout = layouts.get(p)
+                if isinstance(layout, dict) and layout.get('sheets'):
+                    from p6_evm import elog_smart
+                    summ = summarize_e1(elog_smart.read_rows(p, layout))
+                    try:
+                        elog_smart.remember_layout(layout, store_dir=self._elog_store_dir(), path=p)
+                    except Exception:
+                        pass                          # memory is a convenience, never a blocker
+                else:
+                    summ = summarize_e1(read_e1_rows(p))
                 for (t, ty), vals in sorted(summ.items()):
                     row = {'trade': t, 'submittal_type': ty, **vals}
                     if bucket:
@@ -3028,6 +3097,56 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
 
     # ── /api/history ───────────────────────────────────────────────────────
+    # ── /api/export/{pdf,html,docx,xlsx} — ONE-DOCUMENT exports ─────────────
+    def _handle_export_document(self, body, kind):
+        """Every output of the Report Contents picker is built from the ONE final report
+        HTML the preview shows (feature render + appearance mode + ticked parts, in the
+        chosen order) — so PDF · Word · HTML · Excel cannot diverge (p6_export).
+
+        body: {html, output_path, title?, meta?: {feature?, project?, data_date?}, sections?}
+        Returns {ok, path} or {ok: False, error}."""
+        output_path = (body.get('output_path') or '').strip()
+        html_content = body.get('html') or ''
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not html_content.strip():
+            self._json(200, {'ok': False, 'error': 'Nothing to export — the report is empty.'})
+            return
+        meta = body.get('meta') or {}
+        title = (body.get('title') or meta.get('feature') or '').strip()
+        feature = (meta.get('feature') or title or '').strip()
+        project = (meta.get('project') or '').strip()
+
+        def chrome():
+            try:
+                return _find_chrome()
+            except Exception:
+                return None
+        try:
+            sys.path.insert(0, resource_path('.'))
+            if kind == 'pdf':
+                from p6_export.pdf import html_to_pdf
+                html_to_pdf(html_content, output_path, chrome=chrome())
+            elif kind == 'html':
+                from p6_export.to_html import write_html
+                write_html(html_content, output_path, title=title or APP_NAME)
+            elif kind == 'docx':
+                from p6_export.to_docx import html_to_docx
+                html_to_docx(html_content, output_path, app_name=APP_NAME, feature=feature,
+                             project=project, chrome=chrome(), sections=body.get('sections'))
+            elif kind == 'xlsx':
+                from p6_export.to_xlsx import html_to_xlsx
+                html_to_xlsx(html_content, output_path, app_name=APP_NAME, feature=feature,
+                             project=project, data_date=(meta.get('data_date') or ''),
+                             sections=body.get('sections'))
+            else:
+                self._json(200, {'ok': False, 'error': f'Unknown export type: {kind}'})
+                return
+            self._json(200, {'ok': True, 'path': output_path})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     def _handle_report_html(self, body):
         """Generic 'print this view' → PDF. The client composes a self-contained HTML
         document (app stylesheet inlined, light theme, only the ticked sections) so

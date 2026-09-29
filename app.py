@@ -1,6 +1,7 @@
 import threading
+import webbrowser
 import webview
-from utils import resource_path, APP_TITLE
+from utils import resource_path, APP_TITLE, is_allowed_external_url
 
 
 class Api:
@@ -17,7 +18,8 @@ class Api:
         logs); returns a list of paths (empty if cancelled)."""
         result = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG, allow_multiple=True,
-            file_types=('Excel Files (*.xlsx;*.xlsm)', 'All Files (*.*)')
+            file_types=('Engineering logs (*.xlsx;*.xlsm;*.csv)', 'Excel Files (*.xlsx;*.xlsm)',
+                        'CSV Files (*.csv)', 'All Files (*.*)')
         )
         return list(result) if result else []
 
@@ -34,7 +36,7 @@ class Api:
     def choose_save_path(self, default_name='report.pdf', file_type='pdf'):
         """Open native save dialog; returns absolute path string or None.
 
-        file_type ∈ {'pdf', 'docx', 'doc', 'xlsx', 'xml', 'xer', 'json'} chooses the
+        file_type ∈ {'pdf', 'docx', 'doc', 'xlsx', 'xml', 'xer', 'json', 'html'} chooses the
         dialog filter (unknown types fall back to All Files).
         """
         types = {
@@ -45,6 +47,7 @@ class Api:
             'xml':  ('P6 XML Files (*.xml)',),
             'xer':  ('P6 XER Files (*.xer)',),
             'json': ('JSON Files (*.json)',),
+            'html': ('HTML Files (*.html)',),
         }.get(file_type, ('All Files (*.*)',))
         result = webview.windows[0].create_file_dialog(
             webview.SAVE_DIALOG,
@@ -52,6 +55,16 @@ class Api:
             save_filename=default_name
         )
         return result[0] if result else None
+
+    def open_external(self, url):
+        """Open an allow-listed https link (Help ▸ Contact / About LinkedIn) in the user's
+        default browser instead of inside the app window. Returns True when handed over."""
+        if not is_allowed_external_url(url):
+            return False
+        try:
+            return bool(webbrowser.open(url.strip(), new=2))
+        except Exception:
+            return False
 
     def quit(self):
         """Close the application window (File ▸ Exit)."""

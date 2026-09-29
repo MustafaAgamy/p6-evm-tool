@@ -41,6 +41,9 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 # 10 neutral section/table header row (bold navy on light-blue fill) — replaces the amber header.
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="6"><numFmt numFmtId="164" formatCode="#,##0.0"/><numFmt numFmtId="165" formatCode="0.0%"/>
+<numFmt numFmtId="166" formatCode="dd-mmm-yyyy"/><numFmt numFmtId="167" formatCode="dd mmm yyyy"/>
+<numFmt numFmtId="168" formatCode="yyyy-mm-dd"/><numFmt numFmtId="169" formatCode="0.0"/></numFmts>
 <fonts count="10">
 <font><sz val="11"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><name val="Calibri"/></font>
@@ -62,7 +65,7 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F9"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="11"><xf/><xf fontId="1" applyFont="1"/>
+<cellXfs count="23"><xf/><xf fontId="1" applyFont="1"/>
 <xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
 <xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
 <xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
@@ -72,8 +75,32 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf fontId="6" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
 <xf fontId="7" applyFont="1"/>
 <xf fontId="9" fillId="6" applyFont="1" applyFill="1"/>
+<xf numFmtId="3" applyNumberFormat="1"/><xf numFmtId="164" applyNumberFormat="1"/>
+<xf numFmtId="4" applyNumberFormat="1"/><xf numFmtId="9" applyNumberFormat="1"/>
+<xf numFmtId="165" applyNumberFormat="1"/><xf numFmtId="10" applyNumberFormat="1"/>
+<xf numFmtId="166" applyNumberFormat="1"/><xf numFmtId="167" applyNumberFormat="1"/>
+<xf numFmtId="168" applyNumberFormat="1"/><xf numFmtId="169" applyNumberFormat="1"/>
+<xf numFmtId="2" applyNumberFormat="1"/><xf fontId="1" numFmtId="0" applyFont="1"/>
 </cellXfs>
 </styleSheet>'''
+
+# Number / date formats (appended xfs 11-22, used through Styled values — see Styled):
+#   11 #,##0 · 12 #,##0.0 · 13 #,##0.00 · 14 0% · 15 0.0% · 16 0.00% · 17 dd-mmm-yyyy
+#   18 dd mmm yyyy · 19 yyyy-mm-dd · 20 0.0 · 21 0.00 · 22 bold (a total row's label)
+NUMFMT_STYLE = {'#,##0': 11, '#,##0.0': 12, '#,##0.00': 13, '0%': 14, '0.0%': 15, '0.00%': 16,
+                'dd-mmm-yyyy': 17, 'dd mmm yyyy': 18, 'yyyy-mm-dd': 19, '0.0': 20, '0.00': 21,
+                'bold': 22}
+
+
+class Styled:
+    """A cell value with an explicit style (xf index) — e.g. a percentage kept NUMERIC
+    (0.3678) but shown "36.78%", or a date serial shown "11-Dec-2025". ``text`` is the
+    display text (used only for column auto-width). Only for the _STYLES workbooks."""
+
+    def __init__(self, value, style, text=None):
+        self.value = value
+        self.style = style
+        self.text = text if text is not None else str(value)
 
 # Report-clarity styles (added to _STYLES above): section title · report/header-block title ·
 # context sub-line (also used for section notes) · neutral section/table header row.
@@ -573,8 +600,11 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
                     st = _HIGHLIGHT_STYLE
                 else:
                     st = None
+                if isinstance(v, Styled):
+                    st = st or v.style
+                    v = v.value
                 cells[(r, c)] = (v, st)
-            width_matrix.append(row)
+            width_matrix.append([x.text if isinstance(x, Styled) else x for x in row])
             r += 1
         r += 1      # gap between tables
     if legend:

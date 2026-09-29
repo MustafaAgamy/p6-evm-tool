@@ -5,6 +5,30 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Added — Tool-wide enhancement, part 1: one report picker and one-document exports
+- **Two-level Report Contents picker.** The print preview now lists each report's sections and, inside them, each table, chart and KPI group. Untick any part and it is left out of the report entirely. Sections can be reordered by dragging, and the choice is remembered per feature.
+- **PDF, Word, HTML and Excel from the same preview.** All four are made from the one report you see, so they carry the same sections, tables and numbers. Earned Value and P6 Calendar Audit have all four now; the other features follow in the next parts.
+- **Word and Excel always use the standard light style**, whatever Appearance mode is chosen. The screen and the PDF still follow the mode.
+- **File ▸ Export to Word / Export to HTML** (Ctrl+Shift+W / Ctrl+Shift+H) open the report preview and save from its export bar.
+
+### Added — Earned Value: engineering log in any format
+- **The E1 / E2 engineering log is read by its content, not its exact layout.** Column names, heading rows, two-row headings, discipline sheets, text dates, duplicate "Type" columns and code legends (A/B/C/D/W, Code 1–4, or words) are recognised automatically.
+- **"Check how the log was read" panel.** Before counting, the tool shows which column it read as what and how sure it is, plus the review codes it found. You can change any of them, then press **Confirm and count**. A confirmed layout is remembered for the next log of the same kind.
+- **Counting rules:** each drawing counts once. Approved at any revision stays approved. Otherwise the latest revision decides, so a drawing rejected and then resubmitted counts as under review and submitted. Approved = A, B, Code 1, Code 2, "approved as noted", "no objection"; Not approved = C, D, Code 3, Code 4, "revise and resubmit", "rejected"; Under review = W, P, pending, or submitted with no reply yet. Statuses such as "Under preparation" or "Not submitted" are not counted as sent.
+
+### Added — Shortcuts, Help and contacts
+- **31 keyboard shortcuts** (was 10), including Alt+1…9 to jump to features, **Ctrl+K** to search any feature or command, Ctrl+Shift+W / H / E for Word / HTML / Excel, F1 for Help, and next / previous feature. Shortcuts are shown beside the menu items and in Help.
+- **Help ▸ Feature guide: what each feature needs** — the files (how many, XER or XML, baseline or update) and other inputs for every feature, also shown as a "Needs:" hint in the Analysis menu and the navigator.
+- **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
+- The version shown in Help and About now comes from one place.
+
+### Fixed
+- Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
+- Overview, WBS, Narrative and Productivity PDFs and prints could come out blank.
+- File ▸ Print on Schedule (Gantt) now says it has an Excel export only.
+
 ## [v2.8.0] - 2026-09-26
 
 ### Added — Offline AI Chat: 15 complete answers, read straight from your P6 file

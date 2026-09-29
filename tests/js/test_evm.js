@@ -92,5 +92,22 @@ test('attached but 0 matched → amber mismatch warning, not green', () => {
   assert.deepEqual(s.actions, ['replace', 'remove']);
 });
 
+console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run again)');
+{
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../../ui/modules/evm.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const fn = src.slice(src.indexOf('async function attachBaseline'), src.indexOf('async function removeBaseline'));
+  test('attachBaseline records the baseline ON THE RESULT (renderEvm restores from result.baseline_*)', () => {
+    for (const k of ['baseline_name', 'baseline_path', 'baseline_matched', 'baseline_total']) {
+      assert.match(fn, new RegExp(`result\\.${k}\\s*=`), `attachBaseline does not set result.${k}`);
+    }
+    assert.ok(fn.indexOf('result.baseline_name') < fn.indexOf('_mergeEvmNumbers(result, data)'),
+      'set result.baseline_* before re-rendering');
+  });
+  test('renderEvm restores state.baseline* from result.baseline_* (the re-render path)', () => {
+    assert.match(src, /if \(result\.baseline_name\) \{[^}]*state\.baselinePath = result\.baseline_path;/);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

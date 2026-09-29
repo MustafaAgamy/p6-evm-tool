@@ -11,6 +11,32 @@ import os
 APP_NAME = 'Controlyx'                     # brand / product name
 APP_EDITION = '2026'                       # edition (year)
 APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 2026"
+# Release version shown in the UI (Help Center / About). Bump it with the
+# CHANGELOG.md section on every release — tests/test_app_version.py fails
+# if it drifts from the newest `## [vX.Y.Z]` heading.
+APP_VERSION = '2.8.0'
+
+# ── External links ──────────────────────────────────────────────────────────
+# The only web pages the app may hand to the user's default browser (Help ▸ Contact /
+# About LinkedIn profiles). The packaged WebView calls Api.open_external(url) (app.py);
+# anything not https on one of these hosts is refused, so page content can never make the
+# app launch an arbitrary URL or a local program.
+EXTERNAL_LINK_HOSTS = frozenset({'www.linkedin.com', 'linkedin.com'})
+
+
+def is_allowed_external_url(url):
+    """True only for a plain ``https://`` URL on an allow-listed host (no credentials, no
+    custom port)."""
+    from urllib.parse import urlsplit
+    if not isinstance(url, str) or len(url) > 2048:
+        return False
+    try:
+        u = urlsplit(url.strip())
+        port = u.port
+    except ValueError:
+        return False
+    return (u.scheme == 'https' and not u.username and not u.password and port is None
+            and (u.hostname or '').lower() in EXTERNAL_LINK_HOSTS)
 
 
 def resource_path(rel):

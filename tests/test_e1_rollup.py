@@ -125,3 +125,32 @@ def test_engineering_gaps_separate_design_and_shop():
     eng = g['engineering']
     assert [x['trade'] for x in eng] == ['Civil']
     assert eng[0]['gap'] == 45 - 43
+
+
+def test_gap_with_no_plan_dates_is_flagged_not_ahead():
+    """ELOG-7: a log with no planned-date column gives Planned 0 — that must not read as
+    'Ahead'. A trade whose plan dates are all still in the future IS genuinely ahead."""
+    rows = [
+        # (no plan dates at all) → can't be measured, kept out of the % of gap
+        {'trade': 'Civil', 'submittal_type': 'SD', 'req': 150, 'planned': 0, 'plan_dated': 0,
+         'approved_rows': 133},
+        {'trade': 'Steel', 'submittal_type': 'SD', 'req': 20, 'planned': 0, 'plan_dated': 0,
+         'approved_rows': 15},
+        # plan dates exist but none due yet → a real "Ahead"
+        {'trade': 'MEP', 'submittal_type': 'SD', 'req': 10, 'planned': 0, 'plan_dated': 10,
+         'approved_rows': 4},
+        {'trade': 'Arch', 'submittal_type': 'SD', 'req': 10, 'planned': 8, 'plan_dated': 10,
+         'approved_rows': 2},
+    ]
+    eng = {g['trade']: g for g in engineering_gaps(rows)['engineering']}
+    assert eng['Civil']['no_plan'] and eng['Steel']['no_plan']
+    assert eng['Civil']['pct_of_gap'] == 0 and eng['Steel']['pct_of_gap'] == 0
+    assert not eng['MEP']['no_plan'] and eng['MEP']['gap'] == -4
+    assert not eng['Arch']['no_plan'] and eng['Arch']['gap'] == 6
+    # shares come only from the measurable trades: 6 / (6 - 4) and -4 / 2
+    assert round(eng['Arch']['pct_of_gap']) == 300 and round(eng['MEP']['pct_of_gap']) == -200
+
+
+def test_gap_rows_cached_before_plan_dated_fall_back_to_planned():
+    rows = [{'trade': 'Civil', 'submittal_type': 'SD', 'req': 5, 'planned': 0, 'approved_rows': 3}]
+    assert engineering_gaps(rows)['engineering'][0]['no_plan'] is True

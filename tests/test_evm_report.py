@@ -144,3 +144,16 @@ def test_report_sections_filter_limits_blocks():
     assert '<h2 class="sec">Planned Value vs Earned Value</h2>' not in only_dash
     assert '<h2 class="sec">Category Weights' not in only_dash
     assert 'Planned vs Actual</h2>' not in only_dash
+
+
+def test_engineering_gap_without_plan_dates_says_so_not_ahead():
+    """ELOG-7: Planned 0 because the log has no plan dates must print 'No plan dates'."""
+    eng = {'mode': 'E1', 'rows': [
+        {'trade': 'Civil', 'submittal_type': 'SD', 'req': 150, 'planned': 0,
+         'submitted_rows': 150, 'approved_rows': 133, 'not_approved_rows': 5,
+         'under_review_rows': 12, 'planned_pct': 0.0, 'submitted_pct': 96.7, 'approved_pct': 88.7}],
+        'gaps': {'design': [], 'engineering': [
+        {'trade': 'Civil', 'planned': 0, 'approved': 133, 'gap': -133, 'pct_of_gap': 0,
+         'no_plan': True}]}}
+    html = render_evm_report(_result(), META, engineering=eng)
+    assert 'No plan dates' in html and 'Ahead 133' not in html

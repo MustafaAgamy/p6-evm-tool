@@ -5,10 +5,10 @@ Word's HTML engine ignores CSS custom properties (``var(--rpt-*)``) and
 ``color-mix()``. The Special Report's own payloads are already emitted with
 concrete hex, but the *reused* feature-report sections carry each feature's own
 CSS + inline styles, which are ``var()``-based. So for the Word document we
-resolve every ``var(--rpt-*)`` to its concrete hex for the chosen appearance
-mode, and blend the handful of ``color-mix()`` flourishes over the report
-background — so the reused sections stay themed in Word too (all six modes),
-matching the PDF. Only the very few ``color-mix`` gradient decorations are
+resolve every ``var(--rpt-*)`` to its concrete hex — ALWAYS the standard LIGHT
+palette (owner decision: the appearance mode is a screen + PDF choice, the Word
+page is never dark) — and blend the handful of ``color-mix()`` flourishes over the
+report background, with the same structure and values as the PDF. Only the very few ``color-mix`` gradient decorations are
 approximated rather than pixel-exact. No third-party dependency.
 """
 import html as _html
@@ -192,7 +192,11 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
     the Baseline-Narrative Word chrome: an A4-portrait section, a navy double page
     border on every page, a running header (3 logos + project) and a page-number
     footer, plus the navy-header zebra table look — as far as Office-Word HTML allows.
+
+    ``mode`` is IGNORED: Word is always the standard LIGHT style (owner decision — the
+    appearance mode is a screen + PDF choice; the Word page is never dark).
     """
+    mode = report_theme.DOCUMENT_MODE
     parts = document_parts(report_name, meta, rendered, mode=mode, letterhead=letterhead,
                            page_field=True)
     C = parts['colors']

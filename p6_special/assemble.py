@@ -36,7 +36,10 @@ def build_html(project_id=None, item_ids=None, report_name='Special Report', mod
 
 def build_word(project_id=None, item_ids=None, report_name='Special Report', mode='light',
                meta=None, letterhead=None, inputs=None, snapshot_id=None):
-    """Word-openable document (best-effort match to the PDF)."""
+    """Word-openable document (best-effort match to the PDF). Always the standard LIGHT
+    style — the appearance mode is a screen + PDF choice (owner decision)."""
+    import report_theme
+    mode = report_theme.DOCUMENT_MODE
     ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
     return word_export.build_word_document(report_name, _meta(ctx, meta), rendered,
@@ -62,9 +65,10 @@ def docx(path, project_id=None, item_ids=None, report_name='Special Report', met
 
     If the exact path is requested but Chrome/PyMuPDF is unavailable (or the render
     fails), we fall back to the native builder so the export never hard-fails.
-    ``mode`` is the appearance mode."""
+    ``mode`` (the appearance mode) is IGNORED: Word is always the standard LIGHT style —
+    the mode is a screen + PDF choice, the Word page is never dark (owner decision)."""
     import report_theme
-    mode = report_theme.normalize(mode)
+    mode = report_theme.DOCUMENT_MODE
     ctx = _ctx(project_id, snapshot_id, inputs, mode=mode)
     rendered = registry.render(ctx, item_ids or [])
 
