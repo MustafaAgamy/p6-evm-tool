@@ -1022,6 +1022,16 @@ def test_relationship_order_matches(parsed):
     assert order['xml'] == sorted(order['xml'])   # predecessor code, then successor code (P17)
 
 
+def test_calendar_order_matches(parsed):
+    """Per-calendar lists with ties (Calendar Audit usage, 'Unused calendar' conflicts) must not
+    depend on the file format (R2 F7): the XML here lists its global calendars before the project
+    one (document order 8801, 8803, 8802), the XER lists CALENDAR rows by ObjectId (8801, 8802,
+    8803) - both now read back in ONE order: calendar name, then ObjectId."""
+    order = {fmt: list(parsed[fmt].calendars) for fmt in ('xml', 'xer')}
+    assert order['xml'] == order['xer'] == ['8802', '8803', '8801']
+    assert list(parsed['xml'].baseline_calendars) == list(parsed['xer'].baseline_calendars)
+
+
 STRUCTURE_XFAIL = {}
 
 

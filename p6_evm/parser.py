@@ -223,6 +223,29 @@ def sort_relationships(data):
         r.get('lag_hours') or 0.0, str(r.get('pred_id') or ''), str(r.get('succ_id') or '')))
 
 
+def _oid_order(oid):
+    s = str(oid if oid is not None else '').strip()
+    return (0, int(s), '') if s.lstrip('-').isdigit() else (1, 0, s)
+
+
+def sort_calendars(data):
+    """Put data.calendars and data.baseline_calendars in ONE order whatever the file format
+    (R2 review F7): the XML lists <Calendar> in document order, the XER lists CALENDAR rows in
+    ObjectId order, so every per-calendar list with ties (the Calendar Audit usage table, the
+    'Unused calendar' conflicts) showed the same calendars in a different order on screen and in
+    the PDF. Order: calendar name (case-insensitive) - the same even for a pair exported from two
+    P6 databases, where every ObjectId differs (G1) - then ObjectId (numeric). Re-ordered in
+    place, so a dict already held elsewhere sees the new order too."""
+    for attr in ('calendars', 'baseline_calendars'):
+        cals = getattr(data, attr, None)
+        if not cals:
+            continue
+        items = sorted(cals.items(), key=lambda kv: (
+            str(getattr(kv[1], 'name', None) or '').strip().casefold(), _oid_order(kv[0])))
+        cals.clear()
+        cals.update(items)
+
+
 def units_percent_complete(act_labour, rem_labour, act_nonlabour, rem_nonlabour):
     """P6 Units % Complete = actual units / (actual + remaining units), LABOUR + NONLABOUR
     together (finding P19; checked against P6's own UnitsPercentComplete on the GBT / SG / ALSTOM
@@ -618,5 +641,6 @@ def _parse_xml(path) -> ScheduleData:
             'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
     sort_relationships(data)   # one order for XML and XER (P17)
+    sort_calendars(data)       # one calendar order for XML and XER (R2 F7)
 
     return data

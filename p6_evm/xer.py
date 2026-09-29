@@ -1,5 +1,5 @@
 from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_calendar_id,
-                           lag_day_hours, sort_relationships, units_percent_complete,
+                           lag_day_hours, sort_relationships, sort_calendars, units_percent_complete,
                            parse_p6_datetime, collect_unparsed_dates, resource_type_label,
                            resource_unit)
 from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis, minute_hours
@@ -319,6 +319,7 @@ def _parse_xer(path):
             'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
     sort_relationships(data)   # one order for XML and XER (P17)
+    sort_calendars(data)       # one calendar order for XML and XER (R2 F7)
 
     # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.
     # 'code' is P6's human Resource Id (rsrc_short_name — the short code the planner sees), distinct
