@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { getSavedMode, buildAppearancePicker } from './appearance.js';
 import { showReportPreview } from './preview.js';
 import { showError } from './render.js';
+import { revealStage } from './featurereveal.js';
 
 const S = {
   catalog: [],          // [{feature, feature_title, items:[{id,title,ctype,availability,requires}]}]
@@ -46,6 +47,7 @@ export async function renderSpecialPanel() {
   }
   if (!S.name) S.name = `Special Report — ${(state.currentResult && state.currentResult.project_name) || 'Project'}`;
   host.innerHTML = `<div class="sr-loading">Loading available results…</div>`;
+  revealStage('Collecting the results of every feature');
   const [cat, tpl] = await Promise.all([
     api('api/special/catalog', { snapshot_id: state.currentSnapshotId, inputs: S.inputs }),
     api('api/special/templates/list', { snapshot_id: state.currentSnapshotId }),

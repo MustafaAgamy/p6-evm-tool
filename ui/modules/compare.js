@@ -9,7 +9,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
 import { getSavedMode }      from './appearance.js';
 import { showReportPreview } from './preview.js';
-import { revealAndRun }      from './featurereveal.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 // The report-appearance mode chosen in this panel's PDF preview modal — remembered
 // across sessions via appearance.js, shared with every other report preview flow.
@@ -824,6 +824,7 @@ export async function runConsultantReview() {
   // comparison computes + renders — same experience as every other feature.
   revealAndRun(body, 'Consultant Review', async () => {
     if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
+    revealStage('Reading the baseline and comparing');
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

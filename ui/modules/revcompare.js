@@ -12,7 +12,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
-import { revealAndRun } from './featurereveal.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 import { exportRevcompareExcel } from './api.js';
 
 // Ten sub-tabs — the same keys are used for the PDF `data-sec` sections, the Excel
@@ -153,6 +153,7 @@ async function runComparison() {
   // comparison computes + renders — same experience as every other feature.
   revealAndRun(body, 'Baseline Revision Comparison', async () => {
     body.innerHTML = '<div class="rc-loading">Comparing Rev.00 vs Rev.01…</div>';
+    revealStage('Reading both revisions and comparing');
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/revcompare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

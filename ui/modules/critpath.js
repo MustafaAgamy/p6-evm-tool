@@ -8,7 +8,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
-import { revealAndRun } from './featurereveal.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const MODES = [
   ['two_updates',       'Two updates',          'Update A vs Update B — this period vs a prior one',  ['previous']],
@@ -120,6 +120,7 @@ function _run() {
   const rep = document.getElementById('cpa-report');
   revealAndRun(rep, 'Critical Path', async () => {
     rep.innerHTML = `<div class="cpa-note">Reading the schedules and comparing critical paths…</div>`;
+    revealStage('Reading the schedules and tracing critical paths');
     const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
     // Only pass the cached copy of the open schedule when we're using it (no override).
     if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';

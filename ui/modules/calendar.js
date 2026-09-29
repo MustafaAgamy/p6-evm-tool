@@ -112,7 +112,7 @@ export function buildSiteCriteria(siteType, t) {
 import { escapeHtml } from './format.js';
 import { state } from './state.js';
 import { geocodePlace, reverseGeocode, computeWeather, saveCalendarSettings } from './api.js';
-import { revealAndRun } from './featurereveal.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: true };
 
@@ -982,6 +982,7 @@ async function _runWeather(btn, statusEl) {
   // weather estimate computes + renders — same experience as every other feature.
   revealAndRun(document.getElementById('weather-body'), 'Bad Weather', async () => {
     if (statusEl) statusEl.textContent = 'Calculating weather…';
+    revealStage('Downloading weather history and recalculating the finish');
     try {
       const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
       if (resp.ok) {

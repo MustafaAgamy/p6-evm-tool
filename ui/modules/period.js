@@ -8,7 +8,7 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
-import { revealAndRun } from './featurereveal.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
@@ -117,6 +117,7 @@ async function _runCompare() {
   const rep = document.getElementById('per-report');
   revealAndRun(body, 'Update vs Update', async () => {
     if (rep) rep.innerHTML = `<div class="cmp-loading">Comparing the two updates…</div>`;
+    revealStage('Reading both updates and comparing them');
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

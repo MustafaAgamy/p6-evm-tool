@@ -8,6 +8,7 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { revealStage } from './featurereveal.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
 
@@ -150,6 +151,7 @@ export function renderUpdatePanel() {
 
 async function _runAnalyze() {
   const body = document.getElementById('update-body');
+  revealStage('Reading this update against its baseline');   // the open Run bar names the real step
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
