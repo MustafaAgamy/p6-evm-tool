@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { openElogConfirm } from './elog.js';
-import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
+import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem, expectedBaselineAdvice, baselineEmbeddedLine } from './baseline.js';
 
 // ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
 export function egp(n) {
@@ -510,7 +510,12 @@ function renderBaselineBanner(result) {
     missing: result.baseline_missing || null, problem: _bnrProblem, expected: baselineExpected(result),
     expectedName: result.baseline_expected_name || null, mismatch: !!result.baseline_mismatch,
     attachedProject: result.baseline_attached_project || null });
-  if (!st) { box.className = ''; box.innerHTML = ''; return; }
+  if (!st) {                                   // embedded: name it, as the PDF / Excel head does (R2 F8)
+    const line = baselineEmbeddedLine(result);
+    box.className = line ? 'evm-baseline-banner info' : '';
+    box.innerHTML = line ? `<span class="bnr-ic">ℹ</span><span class="bnr-txt">${escapeHtml(line)}</span>` : '';
+    return;
+  }
   const btns = st.actions.map(a =>
     `<button class="evm-bnr-btn${a === 'attach' && st.cls === 'warn' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
   const prob = (_bnrProblem && st.cls === 'ok') ? ` <b>${escapeHtml(_bnrProblem)}</b>` : '';

@@ -156,6 +156,8 @@ def resolve_baseline(data, attached_path=None, parse=None):
             'missing': None, 'expected': baseline_expected(data),
             'expected_name': expected_baseline_name(data), 'attached_project': None, 'mismatch': None}
     if src == 'embedded':
+        # its name travels with the result so every export and the screen print ONE label (R2 F8)
+        info['embedded_name'] = ((getattr(data, 'project', None) or {}).get('baseline_name') or '').strip() or None
         data.baseline_info = info
         return info
     if attached_path:
@@ -264,10 +266,12 @@ def baseline_label(fields, embedded_name=None):
     """ONE line naming the baseline the numbers were measured against — printed in every
     report head and Excel header block (the counterpart of the screen's baseline banner), so
     the baseline is labelled, never silent. ``fields`` has the baseline_fields() keys (a result
-    dict works too). None when nothing is known (older results)."""
+    dict works too). None when nothing is known (older results). The embedded baseline's name
+    comes from ``embedded_name`` or, failing that, the fields' ``baseline_embedded_name``."""
     f = fields or {}
     src = f.get('baseline_source')
     if src == 'embedded':
+        embedded_name = embedded_name or f.get('baseline_embedded_name')
         return f'inside the schedule file ({embedded_name})' if embedded_name else 'inside the schedule file'
     if src == 'attached':
         m, t = f.get('baseline_matched'), f.get('baseline_total')
@@ -304,6 +308,10 @@ def baseline_fields(info):
     attached = info.get('source') == 'attached'
     return {
         'baseline_source': info.get('source'),
+        # the name of the baseline inside the file (XML <BaselineProject><Name> / the XER's
+        # baseline PROJECT row) — so the Excel header, the PDF head and the EVM screen name it
+        # the same way (R2 F8)
+        'baseline_embedded_name': info.get('embedded_name') if info.get('source') == 'embedded' else None,
         'baseline_expected': info.get('expected'),
         'baseline_name': info.get('name') if attached else None,
         'baseline_path': info.get('path') if attached else None,
@@ -331,6 +339,7 @@ def schedule_baseline(data):
             'embedded' if getattr(data, 'baseline_by_id', None) else 'self')
         info = {'source': src, 'expected': baseline_expected(data),
                 'expected_name': expected_baseline_name(data),
+                'embedded_name': (getattr(data, 'project', None) or {}).get('baseline_name'),
                 'total': len(getattr(data, 'activities', None) or {})}
     f = baseline_fields(info)
     return {'baseline_approx': baseline_approx(f),

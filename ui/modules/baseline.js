@@ -47,6 +47,17 @@ export function baselineApproxLine(result, path) {
   return (r.baseline_source === 'self' && r.baseline_label) ? `Baseline: ${r.baseline_label}` : BASELINE_APPROX_LINE;
 }
 
+// The baseline INSIDE the file, named on screen the same way the EVM PDF head and the Excel
+// header name it (R2 F8: every report line has its screen counterpart) — nothing to attach, so
+// the EVM banner is a quiet info line. '' unless the server said the baseline is embedded.
+export function baselineEmbeddedLine(result) {
+  const r = result || {};
+  if (r.baseline_source !== 'embedded') return '';
+  if (r.baseline_label) return `Baseline: ${r.baseline_label}`;
+  const n = r.baseline_embedded_name;
+  return `Baseline: inside the schedule file${n ? ` (${n})` : ''}`;
+}
+
 // WHICH P6 project to export — the baseline P6 names for this update (XER BASELINE_EXPORT /
 // XML <BaselineProject>, result.baseline_expected_name). '' when the file does not name it.
 // p6_evm/baseline.py expected_baseline_advice() says the same in the reports.

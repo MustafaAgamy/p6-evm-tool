@@ -1191,7 +1191,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.evm_excel import evm_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             from p6_evm.baseline import baseline_label
-            bl = baseline_label(report.get('result') or {})
+            res = report.get('result') or {}      # the label the screen + PDF print (R2 F8)
+            bl = res.get('baseline_label') or baseline_label(res)
             write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
                                 meta=_excel_meta('Earned Value Report', report,
                                                  **({'baseline': bl} if bl else {})))
@@ -2444,6 +2445,25 @@ class Handler(BaseHTTPRequestHandler):
         snapshot_id   = result.pop('_snapshot_id', None)
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
+        # A snapshot stored before the one baseline resolver keeps no record of which baseline its
+        # numbers used, so an XML exported without its baseline re-opened with PV 0, no banner and
+        # no Attach button (R2 F6). Recompute it ONCE, in place, through the import pipeline (the
+        # same code an import / a baseline attach runs: embedded, else attached, else own dates)
+        # — every derived view is rebuilt and baseline_fields stored, so later opens read the DB.
+        if snapshot_id and not (db.get_evm_extras(snapshot_id) or {}).get('baseline_fields'):
+            src = db.get_snapshot_source(snapshot_id)
+            if src:
+                try:
+                    fresh = self._parse_pipeline({'path': src, 'refresh_snapshot_id': snapshot_id})
+                except Exception as exc:
+                    fresh = {'ok': False, 'error': str(exc)}
+                if fresh.get('ok'):
+                    result = db.get_project_result(project_id) or result
+                    for k in ('_snapshot_id', '_cached_path', '_original_path'):
+                        result.pop(k, None)
+                else:
+                    print(f"[baseline] old snapshot {snapshot_id} not recomputed: {fresh.get('error')}",
+                          file=sys.stderr)
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
         result['calendar_settings'] = db.get_project_settings(project_id) or {}
@@ -2472,7 +2492,8 @@ class Handler(BaseHTTPRequestHandler):
             try:                                  # '· approx' + the one 'Baseline:' line (R2)
                 from p6_evm.baseline import baseline_approx, baseline_label
                 result['baseline_approx'] = baseline_approx(stored_bl)
-                result['baseline_label'] = baseline_label(stored_bl, stored_bl.get('baseline_expected_name'))
+                result['baseline_label'] = baseline_label(stored_bl, stored_bl.get('baseline_embedded_name')
+                                                          or stored_bl.get('baseline_expected_name'))
             except Exception:
                 pass
         elif bl_path and cached_path and os.path.isfile(cached_path):
