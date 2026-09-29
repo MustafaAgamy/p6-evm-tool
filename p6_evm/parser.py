@@ -479,7 +479,11 @@ def _parse_xml(path) -> ScheduleData:
             h = total_float_hours(cal, act['remaining_early_start'], act['remaining_early_finish'],
                                   act['remaining_late_start'], act['remaining_late_finish'], tf_basis)
             act['total_float_days'] = (h / day_hours) if h is not None else None
-            act['tf_from_hours'] = False   # reconstructed — Delay recomputed boundary-correct
+            # The rebuilt float IS P6's float in working hours (P8, equal to the XER's stored
+            # total_float_hr_cnt), so Delay reads it by the same rule as the XER - one rule for
+            # both formats (finding F7-D1: a fractional finish float gave XER -6 vs XML -7).
+            # Only an unrebuildable float (no remaining dates / calendar) leaves the fallback.
+            act['tf_from_hours'] = h is not None
         # Free float: P6's XML writes NO float on <Activity> (the XER stores free_float_hr_cnt), so
         # a P6 XML gives None here - unknown, never 0 - a GENUINE format difference (finding P24).
         # No feature reads free float (guarded by tests/test_parser_parity.py

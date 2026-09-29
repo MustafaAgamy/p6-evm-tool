@@ -272,7 +272,9 @@ def _parse_xer(path):
             'planned_duration': _num(t.get('target_drtn_hr_cnt'), 0.0),
             'remaining_duration': _num(t.get('remain_drtn_hr_cnt'), 0.0),
             'total_float_days': tf_days,
-            'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
+            # P6's float in working hours - stored, or rebuilt exactly like the XML (P9) - read by
+            # ONE Delay rule in both formats (finding F7-D1)
+            'tf_from_hours': tf_days is not None,
             'free_float_days': ff_days,   # XER-only: P6's XML carries no float (finding P24)
             'is_critical': (tf_days is not None and tf_days <= 0),
             'constraint_type': _cstr(t.get('cstr_type')),

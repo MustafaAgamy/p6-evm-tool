@@ -22,14 +22,13 @@ calendar) with holidays / added / short / 24-h exception days, a project and a g
 code type (plus an unused one), labour / nonlabour / material resources, FS/SS/FF/SF
 relationships with lags and a lead, and progress on duration / physical / units % complete types.
 
-Fields that fail TODAY are marked xfail(strict=True) with the parity-audit finding id
-(D:/twe-scratch/phase2/parser/findings.json, commit "[parser:AUDIT]"). strict=True means a fix
-that makes one pass turns it into an XPASS failure - remove the marker when you fix the finding.
-The markers live in TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL (search for the finding id,
-e.g. "_P13") and on the variant tests at the bottom (P17, P22).
+Every parity-audit finding (D:/twe-scratch/phase2/parser/findings.json, commit "[parser:AUDIT]")
+is fixed - the TRUTH_XFAIL / PARITY_XFAIL / STRUCTURE_XFAIL tables are empty ([parser:PROVE]).
+A new finding may be pinned there as xfail(strict=True) with its id until it is fixed; strict
+means a fix that makes it pass turns it into an XPASS failure - remove the marker then.
 Run:  pytest tests/test_parser_parity.py -p no:cacheprovider -q -rxX
 Genuine format differences (what P6 itself writes differently) are documented as plain tests,
-not xfails: see test_tf_from_hours_* (float), test_free_float_* (P24), test_xer_money_to_4dp_*
+not xfails: see test_free_float_* (P24), test_xer_money_to_4dp_*
 (G2: XER money to 4 decimals - compare real-file money with money_tolerance()) and
 test_no_baseline_* (G3: a P6 XER update export carries only the BASELINE_EXPORT pointer, never
 the baseline rows - the attached baseline fills it, in both formats).
@@ -1036,15 +1035,16 @@ def test_key_sets_match(parsed, part):
     assert keys(parsed['xml']) == keys(parsed['xer'])
 
 
-def test_tf_from_hours_is_a_genuine_format_difference(parsed):
-    """GENUINE (not a defect): P6's XER stores Total Float (total_float_hr_cnt) while P6's XML
-    exports NO float field on <Activity> (only <ComputeTotalFloatType>), so the XML float is always
-    reconstructed. tf_from_hours records that provenance and legitimately differs; the float VALUE
-    must still agree (test_parity[activity.total_float_days])."""
+def test_tf_from_hours_is_one_rule_in_both_formats(parsed):
+    """P6's XER stores Total Float (total_float_hr_cnt) while P6's XML exports NO float field on
+    <Activity> (only <ComputeTotalFloatType>), so the XML float is rebuilt - in working hours on
+    P6's own basis (P8), i.e. the SAME hours the XER stores. The float VALUE agrees
+    (test_parity[activity.total_float_days]) and so does tf_from_hours ('P6's float in hours is
+    known'), so Delay reads both formats by one rule (finding F7-D1, [parser:PROVE]); it is False
+    only where P6 has no float (no remaining dates), in both formats alike."""
     xml = {a['id']: a['tf_from_hours'] for a in parsed['xml'].activities.values()}
     xer = {a['id']: a['tf_from_hours'] for a in parsed['xer'].activities.values()}
-    assert set(xml.values()) == {False}
-    assert xer == {a['code']: a['tf'] is not None for a in ACTIVITIES}
+    assert xml == xer == {a['code']: a['tf'] is not None for a in ACTIVITIES}
 
 
 def test_twin_files_are_written_the_way_p6_writes_them(files):
@@ -1300,16 +1300,18 @@ def _evm(d):
     return compute(d, dict(cfg, categories=auto_categories(d)), classifier=build_wbs_classifier(d))
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    'F7-D1 (found by [parser:F7], computation rule - owner decision, not a parser defect): '
-    'p6_evm/metrics.py:200-210 derives Delay from the finish milestone by FORMAT - XER '
-    '(tf_from_hours) -> -round(total float days) (Python round: 6.5 -> 6), XML -> -float_working_days '
-    '(counts the short day as a whole day: 7) - so a finish float that is not a whole number of '
-    'days (here A1050: 52 h = 6.5 d on the 8 h calendar with a 4 h Thursday) gives XER -6 vs XML -7. '
-    'Both parsers hand compute() the SAME total_float_days (6.5) and the same remaining early / '
-    'late start (test_parity). Remove this marker when one rule is chosen for both formats.'))
 def test_evm_delay_days_matches(parsed):
-    assert _evm(parsed['xml'])['delay_days'] == _evm(parsed['xer'])['delay_days']
+    """F7-D1: Delay reads the finish milestone's total float by ONE rule in both formats. The
+    XML's rebuilt float is P6's float in working hours (P8) - the XER stores the same hours - so
+    both parsers flag it as P6's float and a fractional finish float (A1050: 52 h = 6.5 d on the
+    8 h calendar with a 4 h Thursday) gives the same Delay (was XER -6 vs XML -7)."""
+    x, r = parsed['xml'], parsed['xer']
+    ax = {a['id']: a for a in x.activities.values()}
+    ar = {a['id']: a for a in r.activities.values()}
+    for code in ax:
+        known = ax[code]['total_float_days'] is not None
+        assert ax[code]['tf_from_hours'] == ar[code]['tf_from_hours'] == known, code
+    assert _evm(x)['delay_days'] == _evm(r)['delay_days']
 
 
 def test_money_tolerance_is_the_4dp_rounding_bound():
