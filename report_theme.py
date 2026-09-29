@@ -250,6 +250,8 @@ MEASURED_SELECTORS = (
 PAGINATION_FIT = 0.35        # a block up to 35 % of the page height is always kept whole
 PAGINATION_FLOW = 0.92       # a block taller than 92 % of the page height is let to flow
 PAGINATION_MIN_ROWS = 3      # a table fragment never holds fewer than 3 body rows
+PAGINATION_HEAD_MAX_PX = 80  # a heading-LIKE line (styled by a renderer) is at most ~2 lines …
+PAGINATION_HEAD_MAX_CHARS = 160   # … and short (a title, not a paragraph)
 
 
 def _sel(items, suffix=''):
@@ -283,6 +285,8 @@ def pagination_css():
         f'  tbody > tr:nth-last-child(-n+{n - 1}) {{ break-before: avoid; page-break-before: avoid; }}\n'
         '  /* composer marks (set just before printing, removed after) */\n'
         '  .rpt-fit { break-inside: avoid; page-break-inside: avoid; }\n'
+        '  .rpt-head { break-after: avoid; page-break-after: avoid;'
+        ' break-inside: avoid; page-break-inside: avoid; }\n'
         '  .rpt-flow { break-inside: auto !important; page-break-inside: auto !important; }\n'
         '  /* 4 · text: no 1-2 line orphans / widows */\n'
         '  p, li, dd, blockquote { orphans: 3; widows: 3; }\n'
@@ -299,10 +303,12 @@ def pagination_css():
 def pagination_script():
     """The print-time composer (JavaScript, no ``</script>`` inside). See the module notes."""
     measured = ','.join(MEASURED_SELECTORS).replace("'", "\\'")
+    heads = ','.join(HEADING_SELECTORS).replace("'", "\\'")
     return (
         "(function(){\n"
         "if(window.__rptPagination)return;window.__rptPagination=1;\n"
         f"var SEL='{measured}',FIT={PAGINATION_FIT},FLOW={PAGINATION_FLOW},MM=96/25.4;\n"
+        f"var HSEL='{heads}',HMAX={PAGINATION_HEAD_MAX_PX},HTXT={PAGINATION_HEAD_MAX_CHARS};\n"
         "var SIZES={a3:[297,420],a4:[210,297],a5:[148,210],b5:[176,250],letter:[215.9,279.4],"
         "legal:[215.9,355.6],ledger:[279.4,431.8]};\n"
         "function mm(v,d){var m=/^(-?[\\d.]+)(mm|cm|in|px|pt)?$/.exec(String(v||'').trim());"
@@ -327,6 +333,40 @@ def pagination_script():
         "var marks=[],moved=[],zoomed=[];\n"
         "function bgOf(r){if(!r)return'';var c=r.cells&&r.cells[0];"
         "return getComputedStyle(r).backgroundColor+'|'+(c?getComputedStyle(c).backgroundColor:'');}\n"
+        "var SKIP={SCRIPT:1,STYLE:1,TEMPLATE:1,LINK:1,META:1,BR:1,WBR:1};\n"
+        "function hOf(e){return e.getBoundingClientRect().height;}\n"
+        "function visible(e){return !!e&&!SKIP[e.tagName]&&hOf(e)>0;}\n"
+        "function nextBlock(h){var n=h;for(var up=0;up<4&&n&&n!==document.body;up++){"
+        "var s=n.nextElementSibling;while(s&&!visible(s))s=s.nextElementSibling;"
+        "if(s)return s;n=n.parentElement;}return null;}\n"
+        "function firstBlock(e){var c=e.firstElementChild;while(c&&!visible(c))c=c.nextElementSibling;"
+        "return c;}\n"
+        "function sideBySide(e){var p=e.parentElement;if(!p)return false;var cs=getComputedStyle(p);"
+        "if(/flex/.test(cs.display))return !/column/.test(cs.flexDirection);"
+        "if(/grid/.test(cs.display))return String(cs.gridTemplateColumns||'').trim().split(/\\s+/).length>1;"
+        "return false;}\n"
+        "var NOHEAD={TABLE:1,svg:1,SVG:1,PRE:1,CANVAS:1,SELECT:1,UL:1,OL:1,DL:1,FIGURE:1,IMG:1,"
+        "TEXTAREA:1,BUTTON:1,SCRIPT:1,STYLE:1,TEMPLATE:1};\n"
+        "function headings(){var out=[],seen=new Set(),i,n;\n"
+        "try{var hs=document.querySelectorAll(HSEL);for(i=0;i<hs.length;i++){"
+        "if(!hs[i].closest('td,th')){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"
+        "var bfs=parseFloat(getComputedStyle(document.body).fontSize)||12;"
+        "var tw=document.createTreeWalker(document.body,1,{acceptNode:function(x){"
+        "return (NOHEAD[x.tagName]||NOHEAD[x.localName])?2:1;}});\n"
+        "while((n=tw.nextNode())){if(seen.has(n)||n.childElementCount>4)continue;var hg=hOf(n);"
+        "if(!hg||hg>HMAX)continue;var tx=n.textContent;if(!tx||tx.length>HTXT*3)continue;tx=tx.trim();"
+        "if(!tx||tx.length>HTXT)continue;var cs=getComputedStyle(n);"
+        "if(!/^(block|flex|grid|list-item|flow-root|table-caption)$/.test(cs.display))continue;"
+        "if((parseInt(cs.fontWeight,10)||400)<600&&(parseFloat(cs.fontSize)||bfs)<bfs*1.15)continue;"
+        "if(sideBySide(n))continue;out.push([n,0]);seen.add(n);}\n"
+        "return out;}\n"
+        "function pairHeads(todo,fit){var hs=headings();for(var i=0;i<hs.length;i++){"
+        "var h=hs[i][0],b=nextBlock(h);if(!b)continue;var hh=hOf(h);"
+        "if(!hs[i][1])todo.push([h,'rpt-head']);"
+        "for(var c=b,d=0;c&&d<4;d++){var ch=hOf(c),tg=c.tagName;"
+        "if(hh+ch<=fit){if(tg!=='TR'&&tg!=='TBODY'&&tg!=='THEAD')todo.push([c,'rpt-fit']);break;}"
+        "if(tg==='TABLE'||tg==='P'||tg==='UL'||tg==='OL'||tg==='PRE')break;"
+        "c=firstBlock(c);}}}\n"
         "function compose(){undo();var H=pageHeight(),fit=H*FIT,flow=H*FLOW,todo=[],i;\n"
         "var els=document.querySelectorAll(SEL);\n"
         "for(i=0;i<els.length;i++){var el=els[i],r=el.getBoundingClientRect(),hg=r.height;if(!hg)continue;"
@@ -343,6 +383,12 @@ def pagination_script():
         "if(tg==='SCRIPT'||tg==='STYLE'||tg==='TEMPLATE')continue;var kh=kc.getBoundingClientRect().height;"
         "if(kh>flow){todo.push([kc,'rpt-flow']);stack.push(kc);}"
         "else if(!kh&&kc.children.length&&getComputedStyle(kc).display==='contents')stack.push(kc);}}\n"
+        # heading <-> first content block (the keep-together pair, without moving any node):
+        # EVERY heading — the shared selectors, plus any heading-LIKE line a renderer styled
+        # itself (short, bold or larger than the body text) — may not end a page, and its
+        # first content block (or, when that block is big, the block's own first block) is
+        # kept whole, so the heading always travels with the start of its content.
+        "pairHeads(todo,fit);\n"
         "for(i=0;i<todo.length;i++){var t=todo[i],e=t[0];\n"
         "if(t[1]==='@head'){var row=e.rows[0];if(!row||!row.cells.length)continue;var allTh=true;"
         "for(var c=0;c<row.cells.length;c++){if(row.cells[c].tagName!=='TH'){allTh=false;break;}}"
