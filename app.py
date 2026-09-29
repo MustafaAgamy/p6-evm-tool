@@ -67,6 +67,12 @@ class Api:
         except Exception:
             return False
 
+    def open_log_folder(self):
+        """Help ▸ Contact & Support ▸ 'Open log folder': show the folder holding
+        startup.log in Explorer. Returns {'ok', 'path'}."""
+        import app_startup
+        return app_startup.open_log_folder()
+
     def quit(self):
         """Close the application window (File ▸ Exit)."""
         for w in list(webview.windows):
@@ -80,6 +86,10 @@ def _watch_startup(window, url):
     renderer-crash recovery. Runs on a DAEMON thread (pywebview's func thread is not
     one) so closing the window never leaves the process waiting on the watchdog."""
     import app_startup
+
+    # The backend is loaded now: stop pywebview deleting the KEPT WebView2 folder at close.
+    if app_startup.keep_profile_on_close():
+        app_startup.log('WebView2 profile kept for the next launch')
 
     def run():
         closed = window.events.closed
@@ -114,11 +124,18 @@ if __name__ == '__main__':
     # One running copy: a second launch brings the running window to the front instead of
     # opening another (never blocks when the other copy has no usable window).
     if not app_startup.single_instance('Local\\' + f'{APP_NAME}-{APP_EDITION}-instance', APP_TITLE):
+        app_startup.close_splash('another copy brought forward')
         sys.exit(0)
-    app_startup.begin_launch()
+    previous = app_startup.begin_launch()
     graphics = app_startup.apply_graphics_mode()      # WebView2 --disable-gpu only when a
     app_startup.log('graphics mode: %s', graphics)    # launch on THIS PC never became ready
+    # ONE WebView2 folder kept between launches (not a new temporary profile every time);
+    # a fresh one when another copy runs or after a relaunch (app_startup.webview_profile).
+    profile = app_startup.webview_profile(graphics, previous=previous)
+    app_startup.log('WebView2 profile: %s %s (%s)', profile['kind'],
+                    profile['path'] or '<pywebview temp folder>', profile['reason'])
     app_startup.attach_library_loggers()
+    app_startup.splash_text('Opening your projects...')
 
     from server import make_server
 
@@ -141,5 +158,12 @@ if __name__ == '__main__':
         background_color='#06090f',  # match the startup splash so the window never flashes black on cold-start
     )
     window.events.closed += app_startup.end_launch
+    window.events.closed += app_startup.close_splash
+    window.events.shown += app_startup.on_window_shown     # closes the exe's splash
+    window.events.loaded += app_startup.on_page_loaded
     app_startup.log('window created (%s)', url)
-    webview.start(_watch_startup, (window, url))
+    app_startup.splash_text('Opening the window...')
+    # private_mode=True keeps the PAGE's storage per launch exactly as before (preferences
+    # live in ui_prefs.json / the database); storage_path only fixes WebView2's own folder.
+    webview.start(_watch_startup, (window, url), private_mode=True,
+                  storage_path=profile['path'])

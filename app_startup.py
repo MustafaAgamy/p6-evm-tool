@@ -195,7 +195,85 @@ def health():
     """The app-side half of GET /api/health."""
     return {'ready': READY.is_set(), 'ready_after_s': STATE.get('ready_after_s'),
             'graphics': STATE.get('graphics', 'normal'),
-            'uptime_s': round(time.monotonic() - T0, 1)}
+            'uptime_s': round(time.monotonic() - T0, 1),
+            'log_path': log_path()}
+
+
+# ── Start-up timings, splash, log folder (startup DB-2 / BLACK-8) ──────────
+# Each step of a start lands in startup.log with its time since launch ([+N.NNs]):
+# starting -> graphics mode -> WebView2 profile -> database -> server listening -> window
+# created -> window shown (splash closed) -> page loaded (WebView2 navigated) -> page booted
+# / ready (the page's own report). A black screen then shows which step never came.
+
+_SPLASH = {'closed': False}
+
+
+def _splash_module():
+    """PyInstaller's splash control (only inside the one-file exe built with a splash)."""
+    try:
+        import pyi_splash                          # noqa: provided by the bootloader
+        return pyi_splash
+    except Exception:
+        return None
+
+
+def splash_text(msg):
+    """Show a start-up stage on the exe's splash picture (no-op without one)."""
+    mod = _splash_module()
+    try:
+        if mod is not None and not _SPLASH['closed'] and mod.is_alive():
+            mod.update_text(str(msg))
+    except Exception:
+        pass
+
+
+def close_splash(why=''):
+    """Close the exe's splash picture once the app window is on screen. Returns True when
+    it was closed now."""
+    if _SPLASH['closed']:
+        return False
+    mod = _splash_module()
+    if mod is None:
+        return False
+    try:
+        if mod.is_alive():
+            mod.close()
+            _SPLASH['closed'] = True
+            log('splash closed (%s)', why or 'done')
+            return True
+    except Exception:
+        log_exception('closing the splash failed')
+    return False
+
+
+def on_window_shown():
+    """window.events.shown: the app window is on screen (its dark background)."""
+    log('window shown')
+    close_splash('window shown')
+
+
+def on_page_loaded():
+    """window.events.loaded: WebView2 finished navigating to the page."""
+    log('page loaded by WebView2')
+
+
+def open_log_folder(opener=None):
+    """Help ▸ Contact & Support ▸ 'Open log folder': open the folder that holds
+    startup.log in Explorer. Returns {'ok', 'path'} (path = the log file) — the page shows
+    the path whether or not the folder could be opened."""
+    path = log_path()
+    folder = os.path.dirname(path)
+    try:
+        os.makedirs(folder, exist_ok=True)
+        if opener is None:
+            opener = getattr(os, 'startfile', None)
+        if opener is None:
+            return {'ok': False, 'path': path}
+        opener(folder)
+        return {'ok': True, 'path': path}
+    except Exception as exc:
+        log('could not open the log folder (%r)', exc)
+        return {'ok': False, 'path': path}
 
 
 # ── Launch state + evidence-gated safe graphics ────────────────────────────
