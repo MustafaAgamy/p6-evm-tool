@@ -929,7 +929,6 @@ _P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or do
 TRUTH_XFAIL = {
     ('xml', 'project.must_finish_by'): _P13,
     ('xml', 'project.baseline_name'): _P1,
-    ('xml', 'data.baseline_source'): _P1,
     ('xml', 'calendar.ids'): _P11,
     ('xml', 'calendar.work_intervals'): _P10,
     ('xml', 'calendar.exception_intervals'): _P10,
@@ -972,7 +971,7 @@ TRUTH_XFAIL = {
 }
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
 # wrong the SAME way - P7 secondary constraint, P11/P23 calendar ids, P13 must-finish-by, P16 lag
-# days, P1 baseline_source/name - passes parity and is caught by test_truth only.)
+# days, P1 baseline name - passes parity and is caught by test_truth only.)
 PARITY_XFAIL = {
     'project.baseline_object_id': _P13 + ' / ' + _P1,
     'project.planned_start': _P13,
@@ -980,6 +979,7 @@ PARITY_XFAIL = {
     'data.activity_code_types': _P18,
     'data.baseline_by_id': _P1 + ' / ' + _P23,
     'data.baseline_bac_by_activity': _P1 + ' / ' + _P23,
+    'data.baseline_source': _P1 + ' (XML embedded vs XER self: the XER baseline rows are not read)',
     'calendar.nonworking_days': _P4,
     'calendar.holidays': _P4,
     'calendar.added_work_days': _P4,
@@ -1115,16 +1115,12 @@ def parsed_nobl(files):
     return {'xml': parse_file(files['xml_nobl']), 'xer': parse_file(files['xer_nobl'])}
 
 
-@pytest.mark.xfail(strict=True, reason='P1 / P2: no ScheduleData.baseline_source saying the '
-                                       'export carries no baseline')
 def test_no_baseline_pair_states_the_same_baseline_source(parsed_nobl):
     src = {f: getattr(parsed_nobl[f], 'baseline_source', None) for f in ('xml', 'xer')}
     assert src['xml'] and src['xml'] != 'embedded', src
     assert src['xml'] == src['xer'], src
 
 
-@pytest.mark.xfail(strict=True, reason='P2: XML without baseline gives {} while XER self-fills '
-                                       'its own planned dates - two different "no baseline" rules')
 def test_no_baseline_pair_baseline_by_id_agrees(parsed_nobl):
     assert _norm(parsed_nobl['xml'].baseline_by_id) == _norm(parsed_nobl['xer'].baseline_by_id)
 

@@ -115,16 +115,19 @@ def test_update_analyze_missing_file(test_server):
 
 
 def test_update_analyze_no_baseline_advice_matches_help(test_server, tmp_path):
-    """An XML exported WITHOUT its baseline project stops with code no_baseline. The advice must
-    be what the tool truly accepts (SHELL-1): this route only reads the one update file — it never
-    uses a baseline attached on the Earned Value screen — so the planner is told to re-export the
-    XML with its baseline, or import the XER (whose own Planned dates stand in as the baseline)."""
+    """An XML exported WITHOUT its baseline project (and nothing attached) stops with code
+    no_baseline — it is never measured against its own Planned dates. The advice must be what
+    the tool truly accepts (SHELL-1): this route reads the baseline attached for the update
+    (p6_evm.baseline), so the planner is told to attach the baseline (XER or XML), or re-export
+    the XML with it — the same words Help shows (UPDATE_NO_BASELINE_ADVICE)."""
     src = open(_sample(tmp_path), encoding='utf-8').read()
     start, end = src.index('<BaselineProject>'), src.index('</BaselineProject>') + len('</BaselineProject>')
     p = tmp_path / 'update_no_baseline.xml'
     p.write_text(src[:start] + src[end:], encoding='utf-8')
     _, data = _post_json(test_server, '/api/update/analyze', {'xml_path': str(p)})
     assert data['ok'] is False and data['code'] == 'no_baseline', data
+    assert data['report']['baseline_source'] == 'self'
     err = data['error']
-    assert 'Attach a baseline' not in err and 'EVM' not in err
-    assert 'XML' in err and 'XER' in err and 'baseline' in err
+    assert 'Attach the baseline (XER or XML)' in err and 'every feature' in err
+    assert 'XML' in err and 'baseline' in err
+    assert 'import the update as an XER' not in err
