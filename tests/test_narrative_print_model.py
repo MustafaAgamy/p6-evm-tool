@@ -140,3 +140,60 @@ def test_chrome_every_page_is_framed_headed_and_numbered_and_tables_continue_cle
 
     # and the shared page checker finds nothing to flag
     assert flags == [], flags
+
+
+# ── NARR-PDF-3 / NARR-PDF-4: activity-code pairs and "fits a page" tables ────────────
+def _codes_doc(sizes):
+    tables = [{'dimension': 'Code structure %d' % k,
+               'rows': [{'code': 'C%d-%02d' % (k, i), 'description': 'Value %d of structure %d' % (i, k)}
+                        for i in range(1, n + 1)]}
+              for k, n in enumerate(sizes, 1)]
+    return {'meta': dict(_META), 'sections': [
+        {'number': 10, 'title': 'Activity Codes', 'kind': 'codes', 'payload': {'tables': tables}}]}
+
+
+_FLOW_JS = "if(hg>fit&&hg<=flow&&!el.closest('td,th'))"
+
+
+def _blank_flags(pdf):
+    from p6_export import pagination_check as pc
+    return [f for f in pc.check_pdf(pdf)['flags'] if f['type'] == 'large_blank_then_continuation']
+
+
+def test_chrome_small_code_tables_never_chain_into_one_pushed_block():
+    """NARR-PDF-3 — the old table rules put break-after:avoid on the LAST row of a 1-3 row
+    table; Chrome carries it out of the table and its flex pair, so pairs of small code
+    tables chained into one block pushed to the next page (page before it ~60 % blank)."""
+    chrome = _chrome()
+    doc = _codes_doc([10, 3, 4, 2, 6, 2, 14, 4, 8, 8])     # the GBT §10 head, all small
+    html = page_html(doc)
+    assert ':not(:last-child)' in html and ':not(:first-child)' in html
+    old = html.replace(':not(:last-child)', '').replace(':not(:first-child)', '')
+    with tempfile.TemporaryDirectory() as folder:
+        after = _blank_flags(_print(html, chrome, folder, 'after'))
+        before = _blank_flags(_print(old, chrome, folder, 'before'))
+    assert before, 'the pre-fix rules should leave a large blank before a pushed code pair'
+    assert after == [], after
+
+
+def test_chrome_table_taller_than_a_third_continues_instead_of_leaving_a_blank():
+    """NARR-PDF-4 — a code table of ~60 % of a page after a half-full page used to be pushed
+    whole (the renderer keeps .codetbl whole), leaving the page above it half blank. It now
+    continues with its header row repeated and >= 3 rows on each page."""
+    chrome = _chrome()
+    doc = _codes_doc([14, 14, 34, 3, 8, 8])
+    html = page_html(doc)
+    assert _FLOW_JS in html
+    old = html.replace(_FLOW_JS, 'if(0)')
+    with tempfile.TemporaryDirectory() as folder:
+        after_pdf = _print(html, chrome, folder, 'after')
+        after = _blank_flags(after_pdf)
+        before = _blank_flags(_print(old, chrome, folder, 'before'))
+        from p6_export import pagination_check as pc
+        flags = pc.check_pdf(after_pdf)['flags']
+        pages = _pages(after_pdf)
+    assert before, 'the pre-fix composer should push the 34-row table whole'
+    assert after == [] and flags == [], flags
+    # the long table really continues: its rows are on two pages, header on both
+    on = [p for p in pages if 'C3-' in p['text']]
+    assert len(on) == 2 and all('Code Value Description' in p['text'] for p in on), [p['text'][:80] for p in on]
