@@ -113,7 +113,7 @@ Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` r
 
 ## PDF generation
 
-`/api/report` re-parses the XML (needs full `ScheduleData` for `baseline_by_id`), calls `render_html()`, writes a temp HTML file, then spawns Chrome headless. Chrome is located via Playwright's bundled Chromium first, then Windows install paths. End users need Chrome installed (or Playwright Chromium in the `.exe` bundle).
+`/api/report` re-parses the XML (needs full `ScheduleData` for `baseline_by_id`), calls `render_html()`, writes a temp HTML file, then spawns Chrome headless. Every PDF (and every Word-export chart picture) prints through ONE helper, `p6_export/pdf.py` (`server._find_chrome()` / `server._chrome_print_pdf()` wrap it): candidates are installed Google Chrome → Microsoft Edge → Chromium → Playwright headless shell → Playwright full Chromium LAST; each is PROBED once (a real one-line headless print), the first that works is cached for the session, and `run_chrome()` falls through to the next candidate when one cannot start (e.g. `[WinError 14001] side-by-side configuration`), exits with an error or writes no output. Never spawn Chrome with `subprocess` yourself (`tests/test_chrome_discovery.py` enforces it). End users need Chrome or Edge installed (Edge ships with Windows).
 
 ---
 

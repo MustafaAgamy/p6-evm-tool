@@ -33,6 +33,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Start-up problems are written to a log file (`logs\startup.log` in the app's data folder) so a future problem can be traced.
 
 ### Fixed
+- **PDF exports could fail on some computers.** The tool used to pick a browser to print with that, on some PCs, cannot start at all ("side-by-side configuration is incorrect"), and it did not try another one. It now checks which browser can really print (Google Chrome first, then Microsoft Edge, then a spare built-in one), remembers the one that works, and moves on to the next if one fails. This applies to every PDF in the tool and to the pictures inside Word exports. If a PDF you are replacing is still open in another program, you now get a message asking you to close it, and the old file is never passed off as the new one.
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
 - Overview, WBS, Narrative and Productivity PDFs and prints could come out blank.
 - File ▸ Print on Schedule (Gantt) now says it has an Excel export only.
