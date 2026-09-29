@@ -273,3 +273,61 @@ def test_chrome_prints_the_synthetic_report_breaking_rules_without_and_keeping_t
     assert any(s.startswith('C6') for s in before), before
     # … and with the ONE shared layer it keeps every one of them
     assert after == [], after
+
+
+def _heading_report():
+    """Headings at a page bottom whose first block cannot fit under them — in the layouts
+    renderers really use: an unknown-class flex row of cards, a heading that is the last
+    child of its own header box, a renderer-styled heading DIV (no h-tag, no known class)
+    over a chart box, a grid of cards, and a small table inside an unknown wrapper."""
+    page = '<section style="break-before: page">{}</section>'
+    cases = [
+        '<div style="height:248mm">H1-SPACER</div><h3 style="margin:0">H1 HEAD</h3>'
+        '<div class="zz-row" style="display:flex;gap:4px"><div style="flex:1;height:30mm">H1 FIRST</div>'
+        '<div style="flex:1;height:30mm">H1 CARD B</div></div>',
+        '<div style="height:250mm">H2-SPACER</div><div class="zz-head"><h2 style="margin:0">H2 HEAD</h2></div>'
+        '<div class="zz-body"><div style="height:30mm">H2 FIRST</div></div>',
+        '<div style="height:240mm">H3-SPACER</div>'
+        '<div class="zz-title" style="font-weight:bold;font-size:14px">H3 HEAD</div>'
+        '<div class="zz-box"><svg width="300" height="160"><text x="10" y="80">H3 FIRST</text></svg></div>',
+        '<div style="height:246mm">H4-SPACER</div><div style="display:grid;grid-template-columns:1fr">'
+        '<h3 style="margin:0">H4 HEAD</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">'
+        '<div style="height:25mm">H4 FIRST</div><div style="height:25mm">H4 CARD B</div></div></div>',
+        '<div style="height:244mm">H5-SPACER</div><h2 style="margin:0">H5 HEAD</h2><div class="zz-wrap">'
+        '<table><thead><tr><th>H5-H</th><th>v</th></tr></thead><tbody>'
+        + ''.join(f'<tr><td>H5 FIRST {i}</td><td>v</td></tr>' for i in range(6)) + '</tbody></table></div>',
+    ]
+    return _doc(''.join(page.format(c) for c in cases))
+
+
+def _heading_violations(pages):
+    v = []
+    for k in ('H1', 'H2', 'H3', 'H4', 'H5'):
+        def page_of(marker):
+            return next((i for i, t in enumerate(pages) if marker in t), None)
+        spacer, head, first = page_of(f'{k}-SPACER'), page_of(f'{k} HEAD'), page_of(f'{k} FIRST')
+        if head == spacer:
+            v.append(f'{k}: heading left at the page bottom (its first block cut or pushed)')
+        elif head != first:
+            v.append(f'{k}: heading on page {head + 1}, first block on page {first + 1}')
+        if k == 'H5' and head is not None and len(re.findall(r'H5 FIRST \d', pages[head])) != 6:
+            v.append('H5: small table split')
+    return v
+
+
+def test_chrome_keeps_every_heading_with_its_first_block():
+    try:
+        import pymupdf  # noqa: F401
+    except ImportError:
+        pytest.skip('PyMuPDF not installed')
+    from p6_export.pdf import chrome_candidates
+    found = chrome_candidates(None)
+    if not found:
+        pytest.skip('no Chromium installed')
+    html = _heading_report()
+    with tempfile.TemporaryDirectory() as folder:
+        before = _heading_violations(_print(html, found[0], folder, 'heads_before'))
+        after = _heading_violations(_print(rt.with_pagination(html), found[0], folder, 'heads_after'))
+    # every case breaks the rule without the layer …
+    assert {s[:2] for s in before} == {'H1', 'H2', 'H3', 'H4', 'H5'}, before
+    assert after == [], after                # … and none with it

@@ -215,6 +215,10 @@ def theme_meta():
 #     splits, the first 3 and the last 3 body rows stay together — so a page never holds
 #     only 1–2 rows of a table; a table that fits in about a third of a page is kept whole;
 #   * the print-time composer (pagination_script) measures blocks just before printing:
+#     EVERY heading — the selectors below plus any heading-LIKE line a renderer styled
+#     itself (short, bold or larger than the body text) — is paired with its first content
+#     block (the keep-together pair: the heading may not end the page and that block, or
+#     the first block inside it when it is big, is kept whole — no DOM node is moved);
 #     a block taller than a page is let to flow (never pushed whole to leave a blank
 #     page), a small table / part / list is kept whole, a thead-less long table gets its
 #     header row promoted so it repeats, and an over-wide table is scaled to the page
