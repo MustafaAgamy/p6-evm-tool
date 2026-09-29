@@ -32,6 +32,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Opening the app twice** brings the window that is already open to the front instead of starting a second copy.
 - Start-up problems are written to a log file (`logs\startup.log` in the app's data folder) so a future problem can be traced.
 
+### Fixed — Web links and online services
+- **Every web link opens in your web browser.** LinkedIn (Help ▸ Contact / About), the map's Leaflet and OpenStreetMap credits and the Open-Meteo weather-source link now open in your default browser instead of taking over the app window. If a link cannot be opened, a note shows the address to copy. Only these known sites are allowed.
+- **Bad Weather without internet:** the tool now says plainly that it could not reach the weather service and keeps your last estimate. It no longer shows (or saves) an empty download as "zero bad-weather days". Missing forecast or dust data is listed on screen and in the PDF with its source. It stops after the first failed call instead of waiting on every year.
+- **Place search without internet** says you are offline, not "no match". Typed coordinates (for example `31.26, 32.30`) and the map pin still work offline. When the map tiles cannot load, a note says so.
+- **AI Chat brain download:** the larger (7B) brain pointed at a file the download site does not have, so it always failed. It now downloads the two published parts. A download that is cut short is never installed. The tool checks free disk space first. When offline it shows a plain message, and the setup buttons come back.
+- The online services identify the app honestly, as their usage rules ask. All addresses were checked: the 3 web pages, the 6 online-service calls and the 3 brain downloads answered HTTP 200. LinkedIn answered with its usual reply to automated checks (999), which means the site is up.
+
 ### Fixed
 - **PDF exports could fail on some computers.** The tool used to pick a browser to print with that, on some PCs, cannot start at all ("side-by-side configuration is incorrect"), and it did not try another one. It now checks which browser can really print (Google Chrome first, then Microsoft Edge, then a spare built-in one), remembers the one that works, and moves on to the next if one fails. This applies to every PDF in the tool and to the pictures inside Word exports. If a PDF you are replacing is still open in another program, you now get a message asking you to close it, and the old file is never passed off as the new one.
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
