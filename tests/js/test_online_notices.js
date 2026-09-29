@@ -74,6 +74,14 @@ test('map: offline tiles → a visible note; OSM attribution is a real link', ()
   assert.match(cal, /tiles\.on\('tileerror'/);
   assert.match(cal, /The map pictures need an internet connection/);
   assert.match(cal, /href="https:\/\/www\.openstreetmap\.org\/copyright"/);
+  // NET-3: counted since the last tile that loaded, so losing the connection AFTER the map
+  // first drew is said too (not only when no tile ever loaded).
+  const w = cal.slice(cal.indexOf('function _watchTiles'), cal.indexOf('function _wireWeather()'));
+  assert.match(w, /tileload', \(\) => \{ failedInARow = 0;/);
+  assert.doesNotMatch(w, /if \(loaded \|\|/);
+  // Leaflet ships inside the app — a failure to load it is not blamed on the internet.
+  assert.doesNotMatch(cal, /Map needs an internet connection/);
+  assert.match(cal, /The map could not be shown\./);
 });
 
 test('place search: the server message is shown (offline ≠ "no match")', () => {

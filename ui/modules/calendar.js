@@ -940,7 +940,10 @@ async function _initMap() {
   const L = await _ensureLeaflet();
   // The body may have re-rendered while Leaflet loaded — bail if this node is gone.
   if (!L || !document.body.contains(el)) {
-    if (el && !L) el.innerHTML = '<div class="cal-map-empty">Map needs an internet connection.</div>';
+    // Leaflet ships inside the app (ui/vendor/leaflet), so this is not an internet problem —
+    // say what still works instead of blaming the connection.
+    if (el && !L) el.innerHTML = '<div class="cal-map-empty">The map could not be shown. Type the site '
+      + 'coordinates (e.g. 26.9598, 49.5687) or a place name in the search box instead.</div>';
     return;
   }
   if (_mapRO) { try { _mapRO.disconnect(); } catch { /* gone */ } _mapRO = null; }
@@ -999,15 +1002,17 @@ async function _initMap() {
 }
 
 // The map pictures come from OpenStreetMap online. Offline they fail silently (a grey map),
-// so after a few failed tiles with none loaded, show a plain note over the map — the pin can
-// still be dropped (coordinates need no internet) and coordinates can be typed in the search.
+// so after a few failed tiles in a row, show a plain note over the map — the pin can still be
+// dropped (coordinates need no internet) and coordinates can be typed in the search. Counted
+// since the last tile that loaded, so a connection lost AFTER the map first drew (panning to
+// a new area then shows grey squares) is said too; a tile that loads again clears the note.
 function _watchTiles(tiles, el) {
-  let loaded = 0; let failed = 0;
+  let failedInARow = 0;
   const note = () => el.querySelector('.cal-map-offline');
-  tiles.on('tileload', () => { loaded++; const n = note(); if (n) n.remove(); });
+  tiles.on('tileload', () => { failedInARow = 0; const n = note(); if (n) n.remove(); });
   tiles.on('tileerror', () => {
-    failed++;
-    if (loaded || failed < 3 || note()) return;
+    failedInARow++;
+    if (failedInARow < 3 || note()) return;
     const n = document.createElement('div');
     n.className = 'cal-map-offline';
     n.setAttribute('role', 'status');
