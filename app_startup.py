@@ -399,36 +399,60 @@ def _focus_window(hwnd):
         return False
 
 
+def _window_pid(hwnd):
+    import ctypes
+    pid = ctypes.c_ulong(0)
+    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return pid.value
+
+
+def _running_copy_is_ready(hwnd):
+    """True when the running copy that owns ``hwnd`` reported a working page (its launch
+    record, written by begin_launch/mark_ready, names its pid)."""
+    state = _read_json(_launch_state_path())
+    try:
+        return bool(state and state.get('ready') and state.get('pid') == _window_pid(hwnd))
+    except Exception:
+        return False
+
+
 def single_instance(name, title, wait_s=12.0, poll_s=0.25):
     """Return True to continue launching, False when another running copy's window was
-    brought to the front instead. Never blocks a launch when the other copy has no usable
-    window within ``wait_s`` (it may still be starting — then we wait — or be a leftover
-    or hung process — then we launch anyway)."""
+    brought to the front instead. Only a copy whose page is WORKING is brought forward;
+    a copy that is still starting is waited for up to ``wait_s``, and one that never
+    became ready (a black or blank window), is hung, or has no window at all never
+    blocks this launch."""
     global _MUTEX
     if sys.platform != 'win32':
         return True
     try:
         import ctypes
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         kernel32.CreateMutexW.restype = ctypes.c_void_p
+        kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p)
         handle = kernel32.CreateMutexW(None, False, name)
-        already = kernel32.GetLastError() == ERROR_ALREADY_EXISTS
+        already = ctypes.get_last_error() == ERROR_ALREADY_EXISTS
         _MUTEX = handle                                 # keep it for the process lifetime
         if not already:
             return True
-        log('another copy is already running — looking for its window')
+        log('another copy is already running: looking for its window')
         deadline = time.monotonic() + max(0.0, wait_s)
+        seen = False
         while True:
             hwnd = _find_window(title)
             if hwnd:
-                _focus_window(hwnd)
-                log('brought the running copy to the front; this launch exits')
-                return False
+                seen = True
+                if _running_copy_is_ready(hwnd):
+                    _focus_window(hwnd)
+                    log('brought the running copy to the front; this launch exits')
+                    return False
             if time.monotonic() >= deadline:
                 break
             time.sleep(poll_s)
-        log('the other copy has no usable window — launching anyway', level=logging.WARNING)
+        log('the running copy %s: launching anyway' % (
+            'never showed a working page' if seen else 'has no usable window'),
+            level=logging.WARNING)
         return True
     except Exception:
-        log_exception('single-instance check failed — launching anyway')
+        log_exception('single-instance check failed: launching anyway')
         return True

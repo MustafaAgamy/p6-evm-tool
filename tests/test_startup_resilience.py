@@ -399,6 +399,28 @@ def test_single_instance_never_blocks_without_a_usable_window():
     assert time.monotonic() - t >= 0.25                   # it looked for the window first
 
 
+@pytest.mark.skipif(os.name != 'nt', reason='Win32 windows')
+def test_single_instance_defers_only_to_a_working_copy(tmp_path, monkeypatch):
+    name = 'Local\cx-test2-%d-%d' % (os.getpid(), int(time.time() * 1000))
+    assert app_startup.single_instance(name, 't', wait_s=0) is True
+    focused = []
+    monkeypatch.setattr(app_startup, '_find_window', lambda title: 4242)
+    monkeypatch.setattr(app_startup, '_window_pid', lambda hwnd: 777)
+    monkeypatch.setattr(app_startup, '_focus_window', lambda hwnd: focused.append(hwnd) or True)
+    state = tmp_path / 'launch_state.json'
+    # the running copy never became ready (black window): open a new one instead
+    state.write_text(json.dumps({'pid': 777, 'ready': False}), encoding='utf-8')
+    assert app_startup.single_instance(name, 't', wait_s=0.2, poll_s=0.05) is True
+    assert focused == []
+    # a working copy: bring it to the front and exit
+    state.write_text(json.dumps({'pid': 777, 'ready': True}), encoding='utf-8')
+    assert app_startup.single_instance(name, 't', wait_s=0.2, poll_s=0.05) is False
+    assert focused == [4242]
+    # a stale record from another process never counts as ready
+    state.write_text(json.dumps({'pid': 1, 'ready': True}), encoding='utf-8')
+    assert app_startup.single_instance(name, 't', wait_s=0.1, poll_s=0.05) is True
+
+
 def test_attach_library_loggers_routes_pywebview_errors(tmp_path):
     import logging
     app_startup.attach_library_loggers(('pywebview-test',))
