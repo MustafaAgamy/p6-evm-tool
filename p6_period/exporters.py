@@ -684,7 +684,8 @@ def _milestone_drift_svg(report):
             parts.append(f'<circle cx="{xat(od(r["prev_iso"])):.0f}" cy="{y}" r="3.6" fill="var(--rpt-warn)"/>')
         if r.get('curr_iso'):
             parts.append(f'<circle cx="{xat(od(r["curr_iso"])):.0f}" cy="{y}" r="4" fill="var(--rpt-bad)"/>')
-    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:var(--rpt-bg);border:2px solid var(--rpt-muted);border-radius:50%;width:9px;height:9px"></i>Baseline</span>'
+    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:var(--rpt-bg);border:2px solid var(--rpt-muted);border-radius:50%;width:9px;height:9px"></i>Baseline'
+              + (' · approx' if report.get('baseline_approx') else '') + '</span>'
               '<span><i style="background:var(--rpt-warn);border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
               '<span><i style="background:var(--rpt-bad);border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
     return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'

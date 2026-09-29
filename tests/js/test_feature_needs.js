@@ -164,6 +164,18 @@ test('Reporting Studio Update items follow the Update Analysis screen rule (R1 F
   assert.match(read('ui', 'modules', 'special.js'), /i\.availability !== 'ready' && i\.note/, 'the Studio no longer shows why an item is not ready');
   assert.match(featureNeeds('special').files[1].note, /Update Analysis results follow the Update Analysis screen[\s\S]*never measured against its own Planned dates/);
 });
+test('every screen that shows a baseline-derived value marks it approx under ONE rule (R1 F2)', () => {
+  const ov = read('ui', 'modules', 'overview.js');
+  assert.match(ov, /baselineApprox\(result, state\.currentXmlPath\)/);
+  assert.match(ov, /Baseline finish\$\{ax\}/); assert.match(ov, /Overall planned\$\{ax\}/);
+  assert.match(ov, /WBS_BL_COLS = new Set\(\['baseline_start', 'baseline_finish', 'planned', 'delay'\]\)/);
+  const cal = read('ui', 'modules', 'calendar.js');
+  assert.match(cal, /d\.baseline_approx \? 'Baseline \(approx\)' : 'plan of record'/);
+  assert.match(read('p6_calendar', 'report.py'), /'Baseline \(approx\)' if d\.get\('baseline_approx'\) else 'plan of record'/);
+  assert.match(read('ui', 'modules', 'critpath.js'), /BL finish\$\{_ax\(role\)\}/);
+  assert.match(read('ui', 'modules', 'period.js'), /Baseline\$\{ax\}<\/th>/);
+  assert.match(read('ui', 'modules', 'evm.js'), /noBaseline \? 'weighted table · approx' : 'weighted table'/);
+});
 test('Update Analysis: the screen and the server give the SAME advice as Help (SHELL-1)', () => {
   // The handler reads the baseline attached for the update (here or on Earned Value), so screen,
   // server and Help all say: attach the baseline (XER or XML), or re-export the XML with it.

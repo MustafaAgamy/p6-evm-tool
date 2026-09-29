@@ -204,5 +204,21 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   });
 }
 
+{
+  const { baselineApprox, baselineApproxLine, BASELINE_APPROX_LINE } = await import('../../ui/modules/baseline.js');
+  test('baselineApprox: own Planned dates standing in for a baseline P6 names (R1 F2)', () => {
+    assert.equal(baselineApprox({ baseline_source: 'self' }), true);
+    assert.equal(baselineApprox({ baseline_source: 'self', baseline_expected: false }), false);   // none assigned in P6
+    assert.equal(baselineApprox({ baseline_source: 'embedded' }), false);
+    assert.equal(baselineApprox({ baseline_source: 'self', baseline_name: 'BL.xer' }), false);    // attached
+    assert.equal(baselineApprox({}, 'u.xer'), true);                                              // older XER result
+    assert.equal(baselineApprox({}, 'u.xml'), false);
+    assert.equal(baselineApproxLine({ baseline_source: 'embedded' }), '');
+    assert.equal(baselineApproxLine({ baseline_source: 'self' }), BASELINE_APPROX_LINE);
+    assert.match(BASELINE_APPROX_LINE, /^Baseline: not in the file and none attached — the update’s own Planned dates stand in \(approximate\)$/);
+    assert.equal(baselineApproxLine({ baseline_source: 'self', baseline_label: 'X (approximate)' }), 'Baseline: X (approximate)');
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

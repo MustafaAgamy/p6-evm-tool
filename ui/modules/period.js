@@ -491,10 +491,10 @@ function _milestoneSection(report) {
       <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
       <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr></tbody></table></div>`;
   // chart shows ALL finish milestones
-  return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows)}</div>`;
+  return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows, !!report.baseline_approx)}</div>`;
 }
 
-function _milestoneDriftSvg(rows) {
+function _milestoneDriftSvg(rows, approx = false) {
   const od = iso => Date.parse(iso);
   const all = [];
   rows.forEach(r => ['baseline_iso', 'prev_iso', 'curr_iso'].forEach(k => { if (r[k]) all.push(od(r[k])); }));
@@ -518,7 +518,7 @@ function _milestoneDriftSvg(rows) {
     if (r.prev_iso) parts += `<circle cx="${xAt(od(r.prev_iso)).toFixed(0)}" cy="${y}" r="4.5" fill="var(--warning)"/>`;
     if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--danger)"/>`;
   });
-  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
+  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline${approx ? ' · approx' : ''}</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
     <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
