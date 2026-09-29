@@ -1022,6 +1022,24 @@ def _w_end_y(it):
     return (it.get('y_last') or it['y']) + line + max(it.get('sa') or 0, 0)
 
 
+def _w_page_ends(it, page_bottom):
+    """``{page: y}`` — where the item's content ends on every page it occupies."""
+    if it['k'] == 'table':
+        by = {}
+        for r in it['rows']:
+            if r['page'] is not None and r['y'] is not None and r['y'] >= 0:
+                by.setdefault(r['page'], []).append(r['y'])
+        out = {}
+        for p, ys in by.items():
+            ys.sort()
+            step = min((b - a for a, b in zip(ys, ys[1:]) if b - a > 1), default=16.0)
+            out[p] = ys[-1] + step
+        return out
+    out = {p: page_bottom for p in range(it['page'], it['page_end'])}
+    out[it['page_end']] = _w_end_y(it)
+    return out
+
+
 def analyze_word_layout(layout):
     """Pagination defects from Word's own layout (``word_layout()`` output)."""
     pg = layout['page']
@@ -1110,13 +1128,16 @@ def analyze_word_layout(layout):
     # large blank at a page end followed by a pushed block; empty pages
     last_on, first_on, covered = {}, {}, set()
     for j, it in enumerate(items):
-        e = _w_end_y(it)
-        p = it['page_end']
         covered.update(range(it['page'], it['page_end'] + 1))
-        if e is not None and (p not in last_on or e >= last_on[p][0]):
-            last_on[p] = (e, it, j)
-        if it['page'] not in first_on:
-            first_on[it['page']] = (it, j)
+        # an item that runs over several pages ends on EACH of them (a table: its last row
+        # there; text: the page bottom) and is the first thing on each page it continues onto
+        # — counting only its last page read a full page it filled as "ends early"
+        for p, e in _w_page_ends(it, bot).items():
+            if e is not None and (p not in last_on or e >= last_on[p][0]):
+                last_on[p] = (e, it, j)
+        for p in range(it['page'], it['page_end'] + 1):
+            if p not in first_on:
+                first_on[p] = (it, j)
     for p in range(1, (npages or 0) + 1):
         if p not in covered and npages > 1:
             flags.append(_flag('empty_page', p, 'the page has nothing on it'))

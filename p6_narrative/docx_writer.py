@@ -381,36 +381,6 @@ def banner(document, left_text, right_text):
     return ban
 
 
-def _code_table(cell, title, rows):
-    """One small 'Code Value | Description' table inside ``cell``."""
-    run(cell.paragraphs[0], title, size=12, bold=True)
-    t = cell.add_table(rows=1, cols=2)
-    t.style = 'Table Grid'
-    t.autofit = False
-    hr = t.rows[0]
-    _row_h(hr, 18)
-    for i, h in enumerate(['Code Value', 'Description']):
-        hc = hr.cells[i]
-        _shade(hc, 'DBE5F1'); _no_space(hc)
-        _set_w(hc, 1.2 if i == 0 else 2.1)
-        pp = hc.paragraphs[0]
-        pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
-    for cv, desc in rows:
-        rr = t.add_row()
-        _row_h(rr, 18)
-        c0, c1 = rr.cells
-        _no_space(c0); _no_space(c1); _set_w(c0, 1.2); _set_w(c1, 2.1)
-        c0.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-        c1.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-        p0 = c0.paragraphs[0]
-        p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run(p0, cv, size=10.5, bold=True)
-        run(c1.paragraphs[0], desc, size=10.5)
-    _keep_table_together(t, header=True)        # 'Code Value | Description' header repeats
-    return t
-
-
 # ── §1 Project Overview ───────────────────────────────────────────────────────
 def _render_overview(document, p, number, note):
     for txt in p.get('paragraphs') or []:
@@ -1152,18 +1122,71 @@ def _render_codes(document, p, number, note):
     if not tables:
         _muted(document, 'No activity codes are defined in the file.')
         return
-    # two small Code Value | Description tables per row, equal row heights
+    # two Code Value | Description tables per row, side by side — as ONE body-level Word
+    # table (see _code_pair_table), so a pair breaks between rows like any table
     for i in range(0, len(tables), 2):
-        pair = tables[i:i + 2]
-        container = document.add_table(rows=1, cols=2)
-        container.autofit = False
-        cells = container.rows[0].cells
-        _set_w(cells[0], 3.45); _set_w(cells[1], 3.45)
-        for j, tbl in enumerate(pair):
+        pair = []
+        for j, tbl in enumerate(tables[i:i + 2]):
             dim = tbl.get('dimension') or 'Codes'
             rows = [(r.get('code'), r.get('description')) for r in (tbl.get('rows') or [])]
-            _code_table(cells[j], '%d · %s' % (i + j + 1, dim), rows)
+            pair.append(('%d · %s' % (i + j + 1, dim), rows))
+        _code_pair_table(document, pair)
         para(document, '', after=6)
+
+
+# left table | gap | right table (inches) — the two 3.45 in halves of the old layout
+_CODE_PAIR_W = (1.2, 2.1, 0.3, 1.2, 2.1)
+
+
+def _code_pair_table(document, pair):
+    """Two 'Code Value | Description' code tables side by side, built as ONE Word table:
+    a title row and a header row (both repeated on every page the pair runs onto) over the
+    code rows, a blank gap column between the halves, borders only where a table has a cell.
+
+    It used to be a one-row layout table holding two nested tables: that row can never
+    break (Word keeps a cantSplit row whole and never repeats a NESTED table's header), so
+    a 22-row code table was pushed whole to the next page, leaving most of a page blank
+    (finding NARR-WORD-1). Rows of this table break like any table's, and the shared Word
+    rules (p6_export.docx_pagination) keep a small pair whole and a long one at >= 3 rows
+    a page."""
+    n = max([len(rows) for _, rows in pair] + [0])
+    t = document.add_table(rows=2 + n, cols=5)
+    t.autofit = False
+    for row in t.rows:
+        for ci, cell in enumerate(row.cells):
+            _set_w(cell, _CODE_PAIR_W[ci])
+            _no_space(cell)
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    title, head = t.rows[0], t.rows[1]
+    _row_h(title, 22, exact=False)
+    _row_h(head, 18)
+    for k, (name, rows) in enumerate(pair):
+        c0 = 3 * k                                    # this table's first column
+        tc = title.cells[c0].merge(title.cells[c0 + 1])
+        tc.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+        tc.paragraphs[0].paragraph_format.space_after = Pt(3)
+        run(tc.paragraphs[0], name, size=12, bold=True)
+        for j, h in enumerate(('Code Value', 'Description')):
+            hc = head.cells[c0 + j]
+            _cell_borders(hc, color='auto')
+            _shade(hc, 'DBE5F1')
+            pp = hc.paragraphs[0]
+            pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
+        for ri, (cv, desc) in enumerate(rows):
+            rr = t.rows[2 + ri]
+            a, b = rr.cells[c0], rr.cells[c0 + 1]
+            _cell_borders(a, color='auto'); _cell_borders(b, color='auto')
+            a.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run(a.paragraphs[0], cv, size=10.5, bold=True)
+            run(b.paragraphs[0], desc, size=10.5)
+    for rr in t.rows[2:]:
+        _row_h(rr, 18)
+    _keep_table_together(t, header=True)             # every row cantSplit, title row repeats
+    th = OxmlElement('w:tblHeader')                   # … and the Code Value header row too
+    th.set(qn('w:val'), 'true')
+    head._tr.get_or_add_trPr().append(th)
+    return t
 
 
 def _render_critpath(document, p, number, note):

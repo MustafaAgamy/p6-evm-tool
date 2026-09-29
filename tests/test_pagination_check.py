@@ -163,6 +163,29 @@ def test_word_layout_analysis_flags_each_defect_with_its_page():
     assert ('picture_separated_from_caption', 4) in got, flags
 
 
+def test_word_table_running_over_a_page_fills_that_page():
+    """A table that starts half-way down page 1, fills it and continues on page 2 is page 1's
+    last content AND page 2's first — page 1 is full, not "ends early" (the old analyser
+    counted a table only on its last page and flagged a large blank there)."""
+    page = {'h': 842, 'w': 595, 'top': 57, 'bottom': 57}
+    first = [_r(1, 100 + 18 * i) for i in range(10)]
+    split = ([_r(1, 300, hdr=True)] + [_r(1, 318 + 18 * i) for i in range(25)]
+             + [_r(2, 57, hdr=True)] + [_r(2, 75 + 18 * i) for i in range(10)])
+    layout = {'page': page, 'pages': 2, 'items': [
+        _tbl('First', [_r(1, 82, hdr=True)] + first),
+        _tbl('Codes', split),
+        _tbl('Next', [_r(2, 300, hdr=True)] + [_r(2, 318 + 18 * i) for i in range(5)]),
+    ]}
+    flags, info, _ = pc.analyze_word_layout(layout)
+    assert flags == [], flags
+    # a real early end is still caught: the long table pushed whole to page 2
+    pushed = [_r(2, 57, hdr=True)] + [_r(2, 75 + 18 * i) for i in range(30)]
+    layout['items'][1] = _tbl('Codes', pushed)
+    layout['items'][2] = _tbl('Next', [_r(2, 640, hdr=True)] + [_r(2, 658 + 18 * i) for i in range(5)])
+    flags, info, _ = pc.analyze_word_layout(layout)
+    assert [(f['type'], f['page']) for f in flags] == [('large_blank_then_continuation', 1)], flags
+
+
 def test_word_page_break_by_design_is_not_a_defect():
     layout = {'page': {'h': 842, 'w': 595, 'top': 57, 'bottom': 57}, 'pages': 2, 'items': [
         _p('Overview', 1, 57, style='Heading 1'), _p('Short text.', 1, 90),
