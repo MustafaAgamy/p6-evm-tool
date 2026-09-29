@@ -3929,8 +3929,9 @@ _GUARD_MARK = '<!--cx:startup-guard-->'
 
 
 def _ui_prefs_dir():
-    """Where ui_prefs.json lives (the per-user app data folder); tests point it elsewhere."""
-    return app_data_dir()
+    """Where ui_prefs.json lives: the per-user app data folder, beside the database
+    (db.app_data_dir, so a test's temporary data folder holds it too)."""
+    return db.app_data_dir()
 
 
 def _inline_ui_prefs(html):
