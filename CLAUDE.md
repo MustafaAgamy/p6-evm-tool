@@ -66,7 +66,7 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 | GET | `/` | — | `ui/index.html` with `window.__SERVER_PORT__` injected |
 | GET | `/ui/*` | — | Static CSS / JS |
 | GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
-| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded, detail, backup}, ready, graphics}` — startup readiness probe |
+| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded, detail, backup}, ready, graphics, log_path}` — startup readiness probe (log_path = the startup.log file, shown by Help ▸ Open log folder) |
 | POST | `/api/client-log` | `{kind, message, detail}` | `{ok}` — page startup guard → `logs/startup.log`; `kind:'ready'` completes the readiness handshake |
 | GET / POST | `/api/graphics-mode` | POST `{safe: bool}` | `{ok, saved, reason, since, this_launch, forced}` — Help ▸ Contact & Support 'Safe graphics' (WebView2 `--disable-gpu` from the next launch; `app_startup` flag file) |
 | POST | `/api/narrative/setup` | `{snapshot_id[, setup]}` | `{ok, setup}` / `{ok}` — Narrative project setup per snapshot in `snapshot_ui_state` (never in `ui_prefs.json`) |
@@ -111,11 +111,15 @@ pyinstaller controlyx.spec
 
 Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` resolves paths correctly in both dev and bundle.
 
+Start-up splash: the spec builds a PyInstaller `Splash` from `packaging/splash.png` (text from `utils.APP_TITLE`; not always-on-top; skipped with a warning when Tcl/Tk is missing) so something shows while the one-file exe unpacks; `app_startup.close_splash()` closes it on `window.events.shown`. WebView2 profile: `app_startup.webview_profile()` picks `<app data>\webview\<normal|safe>` (kept between launches; a fresh per-launch folder when another copy runs or on a relaunch) and app.py passes it as `storage_path` with `private_mode=True` (page storage stays per launch — preferences live in ui_prefs.json / the DB).
+
 ---
 
 ## PDF generation
 
 `/api/report` re-parses the XML (needs full `ScheduleData` for `baseline_by_id`), calls `render_html()`, writes a temp HTML file, then spawns Chrome headless. Every PDF (and every Word-export chart picture) prints through ONE helper, `p6_export/pdf.py` (`server._find_chrome()` / `server._chrome_print_pdf()` wrap it): candidates are installed Google Chrome → Microsoft Edge → Chromium → Playwright headless shell → Playwright full Chromium LAST; each is PROBED once (a real one-line headless print), the first that works is cached for the session, and `run_chrome()` falls through to the next candidate when one cannot start (e.g. `[WinError 14001] side-by-side configuration`), exits with an error or writes no output. Never spawn Chrome with `subprocess` yourself (`tests/test_chrome_discovery.py` enforces it). End users need Chrome or Edge installed (Edge ships with Windows).
+
+Dark appearance modes: `report_theme.theme_style_tag()` also emits `@page { background: <page hex> }` for every mode whose page is not white, so PDF page margins are themed (Chrome prints @page margins outside `html`); light / Word / Excel unchanged.
 
 ---
 
