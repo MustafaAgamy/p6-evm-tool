@@ -1047,6 +1047,34 @@ def test_tf_from_hours_is_one_rule_in_both_formats(parsed):
     assert xml == xer == {a['code']: a['tf'] is not None for a in ACTIVITIES}
 
 
+def test_float_hours_snapped_to_the_minute_in_both_formats(tmp_path, parsed):
+    """P6 writes total_float_hr_cnt to ~11 decimals (SG 22-Aug-2025 KM-1130-GC: 1145 h 14 min =
+    '-1145.23333333333') while the XML rebuild is the exact minutes / 60 - both are snapped to the
+    minute so XER and XML floats are bit-identical (were 3e-13 d apart and showed on screen as
+    '-104.1121212121209 d' vs '-104.11212121212121 d', [parser:PROVE])."""
+    from p6_evm.calendars import minute_hours
+    assert minute_hours(-1145.23333333333) == minute_hours(-68714 / 60) == -68714 / 60
+    assert minute_hours(None) is None and minute_hours(0.0) == 0.0
+    NL, TAB = chr(10), chr(9)
+    lines = build_xer().split(NL)
+    tbl = cols = None
+    for i, ln in enumerate(lines):
+        if ln.startswith('%T' + TAB):
+            tbl = ln[3:]
+        elif tbl == 'TASK' and ln.startswith('%F' + TAB):
+            cols = ln[3:].split(TAB)
+        elif tbl == 'TASK' and ln.startswith('%R' + TAB) and TAB + 'A1050' + TAB in ln:
+            v = ln[3:].split(TAB)
+            k = cols.index('total_float_hr_cnt')
+            v[k] = '%.12g' % (float(v[k]) + 1e-11)          # the way P6 rounds a stored value
+            lines[i] = '%R' + TAB + TAB.join(v)
+    assert any('%.12g' % 52.00000000001 in ln for ln in lines)   # the noisy value is in the file
+    d = parse_file(_write(tmp_path, 'noisy.xer', NL.join(lines)))
+    got = {a['id']: a['total_float_days'] for a in d.activities.values()}
+    want = {a['id']: a['total_float_days'] for a in parsed['xml'].activities.values()}
+    assert got == want                                    # exact equality, no tolerance
+
+
 def test_twin_files_are_written_the_way_p6_writes_them(files):
     """Guard the harness itself: the synthetic files keep P6's real per-format encodings, so the
     parity tests exercise what P6 actually writes (evidence: SG / ALSTOM / GBT parity pairs)."""

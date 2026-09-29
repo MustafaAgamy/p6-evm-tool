@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 from p6_evm.calendars import (Calendar, hhmmss_to_min, float_basis, total_float_hours,
-                              lag_calendar_basis)
+                              lag_calendar_basis, minute_hours)
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
@@ -466,8 +466,9 @@ def _parse_xml(path) -> ScheduleData:
         day_hours = cal.day_hours if cal else 8.0
         tf_hours_raw = text(act_el, 'TotalFloatHours')
         ff_hours_raw = text(act_el, 'FreeFloatHours')
-        tf_hours = parse_float(tf_hours_raw, None) if tf_hours_raw else None
-        ff_hours = parse_float(ff_hours_raw, None) if ff_hours_raw else None
+        # float hours snapped to the minute in both formats, so XER == XML to the bit
+        tf_hours = minute_hours(parse_float(tf_hours_raw, None)) if tf_hours_raw else None
+        ff_hours = minute_hours(parse_float(ff_hours_raw, None)) if ff_hours_raw else None
         if tf_hours is not None:
             act['total_float_days'] = tf_hours / day_hours
             act['tf_from_hours'] = True
@@ -476,8 +477,9 @@ def _parse_xml(path) -> ScheduleData:
             # project's 'Compute Total Float as' basis (Finish Float = RLF - REF by default), in
             # working HOURS on the activity's calendar, / hours-per-day - so it equals the XER's
             # stored total_float_hr_cnt (finding P8; was whole days of START float).
-            h = total_float_hours(cal, act['remaining_early_start'], act['remaining_early_finish'],
-                                  act['remaining_late_start'], act['remaining_late_finish'], tf_basis)
+            h = minute_hours(total_float_hours(cal, act['remaining_early_start'], act['remaining_early_finish'],
+                                               act['remaining_late_start'], act['remaining_late_finish'],
+                                               tf_basis))
             act['total_float_days'] = (h / day_hours) if h is not None else None
             # The rebuilt float IS P6's float in working hours (P8, equal to the XER's stored
             # total_float_hr_cnt), so Delay reads it by the same rule as the XER - one rule for

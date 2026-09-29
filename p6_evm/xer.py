@@ -2,7 +2,7 @@ from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_
                            lag_day_hours, sort_relationships, units_percent_complete,
                            parse_p6_datetime, collect_unparsed_dates, resource_type_label,
                            resource_unit)
-from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis
+from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis, minute_hours
 from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
@@ -245,8 +245,9 @@ def _parse_xer(path):
         oid = t.get('task_id')
         cal = _activity_calendar(data, t.get('clndr_id'), other_project_cals)
         day_hours = cal.day_hours if cal else 8.0
-        tf = _num(t.get('total_float_hr_cnt'))
-        ff = _num(t.get('free_float_hr_cnt'))
+        # float hours snapped to the minute in both formats, so XER == XML to the bit
+        tf = minute_hours(_num(t.get('total_float_hr_cnt')))
+        ff = minute_hours(_num(t.get('free_float_hr_cnt')))
         tf_days = (tf / day_hours) if tf is not None else None
         ff_days = (ff / day_hours) if ff is not None else None
         if tf is None:
@@ -254,9 +255,9 @@ def _parse_xer(path):
             # exactly as the XML reader does - on the project's 'Compute Total Float as' basis
             # (Finish Float = RLF - REF by default), in working hours on the activity's calendar
             # (finding P9). A Completed activity has no remaining dates -> None, as in P6.
-            h = total_float_hours(cal, _dt(t.get('restart_date')), _dt(t.get('reend_date')),
-                                  _dt(t.get('rem_late_start_date')), _dt(t.get('rem_late_end_date')),
-                                  tf_basis)
+            h = minute_hours(total_float_hours(cal, _dt(t.get('restart_date')), _dt(t.get('reend_date')),
+                                               _dt(t.get('rem_late_start_date')),
+                                               _dt(t.get('rem_late_end_date')), tf_basis))
             tf_days = (h / day_hours) if h is not None else None
         planned_start = _dt(t.get('target_start_date'))
         planned_finish = _dt(t.get('target_end_date'))

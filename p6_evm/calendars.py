@@ -163,6 +163,14 @@ def lag_calendar_basis(raw):
     return 'predecessor'
 
 
+def minute_hours(hours):
+    """Working hours snapped to the whole minute - P6 measures float in minutes. The XER stores
+    them to ~11 decimals (1145 h 14 min = -1145.23333333333) while the XML rebuild gives the exact
+    minutes / 60 (-1145.2333333333333); snapping both makes XER and XML bit-identical instead of
+    3e-13 d apart (seen on screen as '-104.1121212121209 d' vs '-104.11212121212121 d')."""
+    return None if hours is None else round(hours * 60.0) / 60.0
+
+
 def total_float_hours(calendar: Calendar, early_start, early_finish, late_start, late_finish,
                       basis='finish'):
     """Total Float in working HOURS, reconstructed the way P6 computes it, for an export that
