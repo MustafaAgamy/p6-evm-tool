@@ -186,6 +186,22 @@ def test_word_table_running_over_a_page_fills_that_page():
     assert [(f['type'], f['page']) for f in flags] == [('large_blank_then_continuation', 1)], flags
 
 
+def test_word_table_fragment_counts_its_wrapped_last_row():
+    """NARR-WORD-1 — a Word table's height was the rows' first-line positions plus ONE usual row
+    step per page fragment, so a wrapped (3-line) row ending a fragment was counted as one line:
+    a 40 %-of-a-page table split 8+3 (legal: >= 3 rows each side, header repeated) was read as
+    a 35 % "small" table and falsely flagged small_table_split."""
+    page = {'h': 842, 'w': 595, 'top': 57, 'bottom': 57}
+    rows = ([_r(1, 500, hdr=True)] + [_r(1, 518 + 18 * i) for i in range(8)]
+            + [_r(2, 57, hdr=True)] + [_r(2, 75 + 18 * i) for i in range(3)])
+    layout = {'page': page, 'pages': 2, 'items': [_tbl('Rates', rows)]}
+    flags, _, _ = pc.analyze_word_layout(layout)
+    assert [f['type'] for f in flags] == ['small_table_split'], flags      # a short-row table IS small
+    rows[8]['y_last'] = rows[8]['y'] + 36          # page 1's last row wraps onto 3 lines
+    flags, _, _ = pc.analyze_word_layout(layout)
+    assert flags == [], flags
+
+
 def test_word_page_break_by_design_is_not_a_defect():
     layout = {'page': {'h': 842, 'w': 595, 'top': 57, 'bottom': 57}, 'pages': 2, 'items': [
         _p('Overview', 1, 57, style='Heading 1'), _p('Short text.', 1, 90),
