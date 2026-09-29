@@ -771,7 +771,7 @@ def truth(entity, field):
         if field == 'baseline_by_id':
             return {c: {'planned_start': _d(s), 'planned_finish': _d(f)}
                     for _, c, _, _, _, _, s, f in BASELINE_ACTIVITIES}
-        if field == 'baseline_bac_by_activity':
+        if field in ('baseline_bac_by_activity', 'baseline_bac_by_code'):
             bl_code = {oid: c for oid, c, *_ in BASELINE_ACTIVITIES}
             out = {}
             for _, act, _, _, cost in BASELINE_ASSIGNMENTS:
@@ -927,6 +927,7 @@ FIELDS = (
                               'baseline_name', 'wbs_root_id', 'total_float_type',
                               'lag_calendar', 'default_calendar_id')]
     + [('data', f) for f in ('activity_code_types', 'baseline_by_id', 'baseline_bac_by_activity',
+                             'baseline_bac_by_code',
                              'bac_by_activity', 'ac_by_activity', 'baseline_source')]
     + [('calendar', f) for f in ('ids', 'name', 'day_hours', 'nonworking_days', 'holidays',
                                  'added_work_days', 'work_intervals', 'exception_intervals',
@@ -1306,7 +1307,7 @@ def test_xer_money_to_4dp_is_a_genuine_format_difference(tmp_path, monkeypatch):
 
     # every money value within half a 4th-decimal unit; the non-money assignment fields equal
     slack = XER_MONEY_HALF_UNIT + 1e-9
-    for field in ('bac_by_activity', 'ac_by_activity', 'baseline_bac_by_activity'):
+    for field in ('bac_by_activity', 'ac_by_activity', 'baseline_bac_by_activity', 'baseline_bac_by_code'):
         x, r = getattr(xml, field), getattr(xer, field)
         assert set(x) == set(r), field
         assert all(abs(x[k] - r[k]) <= slack for k in x), field

@@ -137,16 +137,18 @@ class SpecialContext:
 
     def parsed_input(self, role):
         """Parsed ScheduleData for an attached input file (memoized), or None. A previous
-        update gets the same baseline resolution as the open file (its own attached baseline,
-        else this project's); a baseline / revision input is read as it is."""
+        update gets the same baseline resolution as the open file (embedded, else its own
+        attached baseline, else the open file's baseline — inside the XML or attached, the same:
+        p6_evm.baseline.inherit_baseline); a baseline / revision input is read as it is."""
         def _parse():
             p = self.input_path(role)
             if not p:
                 return None
             if role == 'previous':
-                from p6_evm.baseline import attached_baseline_for, load_schedule
-                return load_schedule(p, attached_baseline_for(p) or attached_baseline_for(
-                    self.xml_path, self.snapshot_id, (self.evm or {}).get('_cached_path')))
+                from p6_evm.baseline import attached_baseline_for, load_schedule, inherit_baseline
+                prev = load_schedule(p, attached_baseline_for(p))
+                inherit_baseline(prev, self.parsed())
+                return prev
             from p6_evm.parser import parse_file
             return parse_file(p)
         return self.memo(f'parsed_input:{role}', _parse)

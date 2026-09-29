@@ -1487,14 +1487,18 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_critpath.analysis import build_report
-            # One baseline resolution (embedded > attached > self): the current update uses the
-            # baseline attached for it; the previous update its own, else the same project's.
-            from p6_evm.baseline import attached_baseline_for
-            cur_bl = attached_baseline_for(current_path, body.get('snapshot_id'), body.get('cached_path'))
-            schedules = {role: (parse_file(p) if role == 'baseline'   # the picked baseline IS the baseline
-                                else _schedule_for(p, body) if role == 'current'
-                                else _schedule_for(p, {}, fallback_baseline=cur_bl))
-                         for role, p in paths.items()}
+            # One baseline resolution (embedded > attached > self): the current update first (its
+            # embedded baseline, else the one attached for it); the previous update its own, else
+            # the CURRENT update's baseline — inside the XML or attached, the same (R4).
+            from p6_evm.baseline import inherit_baseline
+            schedules = {'current': _schedule_for(current_path, body)}
+            for role, p in paths.items():
+                if role == 'baseline':                # the picked baseline IS the baseline
+                    schedules[role] = parse_file(p)
+                elif role == 'previous':
+                    schedules[role] = _schedule_for(p, {})
+                    inherit_baseline(schedules[role], schedules['current'])
+            schedules = {role: schedules[role] for role in paths}   # keep the caller's role order
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
@@ -2289,20 +2293,23 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 base_config = json.load(f)
 
-            # One baseline resolution (embedded > attached > self): the current update uses the
-            # baseline attached for it; the previous update its own, else the same project's.
-            from p6_evm.baseline import attached_baseline_for
-            cur_bl = attached_baseline_for(curr_path, body.get('snapshot_id'), body.get('cached_path'))
+            # One baseline resolution (embedded > attached > self): the current update first (its
+            # embedded baseline, else the one attached for it); the previous update its own, else
+            # the CURRENT update's baseline — inside the XML or attached, the same (R4).
+            from p6_evm.baseline import inherit_baseline
 
-            def parse_and_compute(path, sched_body, fallback=None):
-                data = _schedule_for(path, sched_body, fallback_baseline=fallback)
+            def parse_and_compute(path, sched_body, curr=None):
+                data = _schedule_for(path, sched_body)
+                if curr is not None:
+                    inherit_baseline(data, curr)
                 cfg = dict(base_config)
                 cfg['categories'] = auto_categories(data)
                 metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
                 return data, metrics
 
-            prev_data, prev_m = parse_and_compute(prev_path, {'cached_path': body.get('prev_cached_path')}, cur_bl)
             curr_data, curr_m = parse_and_compute(curr_path, body)
+            prev_data, prev_m = parse_and_compute(prev_path, {'cached_path': body.get('prev_cached_path')},
+                                                  curr_data)
             report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
             report['prev_file'] = os.path.basename(prev_path)
             report['update_file'] = os.path.basename(curr_path)

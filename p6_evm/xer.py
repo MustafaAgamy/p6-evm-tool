@@ -429,6 +429,7 @@ def _read_embedded_baseline(tables, bl_proj_id, data):
         code = bl_code.get(ra.get('task_id'))
         if code:
             bac_by_code[code] = bac_by_code.get(code, 0.0) + (_num(ra.get('target_cost'), 0.0) or 0.0)
+    data.baseline_bac_by_code = dict(bac_by_code)
     for oid, a in data.activities.items():
         if a.get('id') in bac_by_code:
             data.baseline_bac_by_activity[oid] = bac_by_code[a['id']]

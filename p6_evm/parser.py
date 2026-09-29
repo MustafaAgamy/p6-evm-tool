@@ -132,6 +132,11 @@ class ScheduleData:
         self.baseline_source = None
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (current update)
         self.baseline_bac_by_activity = {}  # ActivityObjectId -> BASELINE budget (BAC) — P6's cost basis for PV/EV/%-rollup
+        # The same baseline budget keyed by Activity Id (code) — every baseline activity, not only
+        # those still in this file — so another update of the project (Update vs Update, Critical
+        # Path previous role) can be measured against THIS file's baseline exactly as it would be
+        # against the attached baseline file (p6_evm.baseline.inherit_baseline, R4). {} for 'self'.
+        self.baseline_bac_by_code = {}
         self.ac_by_activity = {}   # ActivityObjectId -> actual cost
         self.relationships = []    # list of {pred_id, succ_id, type, lag_days, lag_hours}
         self.activity_code_types = []  # available activity-code dimensions, e.g. ['Type of Works', ...]
@@ -577,6 +582,7 @@ def _parse_xml(path) -> ScheduleData:
     # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics
     # can weight PV/EV/%-rollup by the baseline budget like P6 does. Only set when the baseline
     # actually carries cost — otherwise metrics falls back to the current BAC (e.g. bare XER).
+    data.baseline_bac_by_code = dict(baseline_bac_by_id)
     if baseline_bac_by_id:
         for oid, act in data.activities.items():
             bl_bac = baseline_bac_by_id.get(act['id'])

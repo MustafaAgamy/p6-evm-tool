@@ -45,6 +45,7 @@ def apply_baseline(data, baseline_data):
             bl_bac_by_id[aid] = bl_bac_by_id.get(aid, 0.0) + cost
 
     data.baseline_by_id = bl_dates
+    data.baseline_bac_by_code = bl_bac_by_id
     new_bac = {}
     matched = 0
     for oid, a in (data.activities or {}).items():
@@ -91,16 +92,63 @@ def resolve_baseline(data, attached_path=None, parse=None):
         else:
             if parse is None:
                 from p6_evm.parser import parse_file as parse
-            keep = (data.baseline_by_id, data.baseline_bac_by_activity)
+            keep = (data.baseline_by_id, data.baseline_bac_by_activity,
+                    getattr(data, 'baseline_bac_by_code', {}))
             rep = apply_baseline(data, parse(attached_path))
             if rep['matched']:
                 data.baseline_source = 'attached'
                 info.update(source='attached', name=display_name(attached_path),
                             path=attached_path, matched=rep['matched'])
             else:                                     # wrong file — keep the file's own baseline
-                data.baseline_by_id, data.baseline_bac_by_activity = keep
+                data.baseline_by_id, data.baseline_bac_by_activity, data.baseline_bac_by_code = keep
                 info.update(matched=0, name=display_name(attached_path))
     data.baseline_info = info
+    return info
+
+
+def inherit_baseline(prev, curr):
+    """Measure an earlier update (``prev``) against the current update's baseline when it has
+    none of its own — the SAME baseline whether ``curr`` carries it inside the XML ('embedded')
+    or it was attached to ``curr`` as a separate XER / XML ('attached'), so Update vs Update,
+    the Critical Path Analyzer's previous role and Reporting Studio give one answer for an XML
+    update and for the same update as XER + attached baseline (R4).
+
+    Only when ``prev`` resolved to 'self' (no embedded baseline, none attached for it). Linked
+    by Activity Id exactly like ``apply_baseline``: baseline planned dates for every baseline
+    activity, baseline budget onto ``prev``'s activities by code. A baseline that matches none
+    of ``prev``'s activities (another project) is not applied. Mutates ``prev``; returns its
+    baseline info (also stored on ``prev.baseline_info``)."""
+    info = getattr(prev, 'baseline_info', None)
+    if getattr(prev, 'baseline_source', None) != 'self' or curr is None:
+        return info
+    csrc = getattr(curr, 'baseline_source', None)
+    if csrc not in ('embedded', 'attached') or not getattr(curr, 'baseline_by_id', None):
+        return info
+    bl_dates = curr.baseline_by_id
+    matched = sum(1 for a in (prev.activities or {}).values() if a.get('id') in bl_dates)
+    if not matched:
+        return info
+    by_code = getattr(curr, 'baseline_bac_by_code', None)
+    if by_code is None:                                  # older ScheduleData: rebuild from oids
+        by_code = {}
+        for oid, cost in (curr.baseline_bac_by_activity or {}).items():
+            aid = (curr.activities.get(oid) or {}).get('id')
+            if aid:
+                by_code[aid] = cost
+    prev.baseline_by_id = {k: dict(v) for k, v in bl_dates.items()}
+    prev.baseline_bac_by_code = dict(by_code)
+    prev.baseline_bac_by_activity = {oid: by_code[a['id']] for oid, a in (prev.activities or {}).items()
+                                     if a.get('id') in by_code}
+    prev.baseline_source = 'attached'
+    cinfo = getattr(curr, 'baseline_info', None) or {}
+    if csrc == 'attached':
+        name, path = cinfo.get('name'), cinfo.get('path')
+    else:
+        name = (getattr(curr, 'project', None) or {}).get('baseline_name') or 'baseline'
+        name, path = f'{name} (inside the current update)', None
+    info = {'source': 'attached', 'name': name, 'path': path, 'matched': matched,
+            'total': len(prev.activities or {}), 'missing': None, 'from_current': True}
+    prev.baseline_info = info
     return info
 
 
