@@ -119,6 +119,62 @@ def signed_working_days(calendar: Calendar, start: datetime, end: datetime):
     return sign * n
 
 
+def signed_working_minutes(calendar: Calendar, start: datetime, end: datetime):
+    """Working minutes from start to end on the calendar's intraday work times, negative when
+    end precedes start. None when the calendar or a date is missing."""
+    if calendar is None or start is None or end is None:
+        return None
+    if end >= start:
+        return calendar.working_minutes(start, end)
+    return -calendar.working_minutes(end, start)
+
+
+def float_basis(raw):
+    """P6's 'Compute Total Float as' project option -> 'finish' | 'start' | 'smallest'.
+
+    XML  <ScheduleOptions><ComputeTotalFloatType>: 'Finish Float = Late Finish - Early Finish',
+         'Start Float = Late Start - Early Start', 'Smallest of Start Float and Finish Float'.
+    XER  SCHEDOPTIONS.sched_float_type: FT_FF (finish), FT_SF (start), FT_SM (smallest).
+    Absent/unknown -> 'finish' (P6's default, and what every real export here uses)."""
+    r = (raw or '').strip().lower()
+    if 'small' in r or r == 'ft_sm':
+        return 'smallest'
+    if r.startswith('start') or r == 'ft_sf':
+        return 'start'
+    return 'finish'
+
+
+def total_float_hours(calendar: Calendar, early_start, early_finish, late_start, late_finish,
+                      basis='finish'):
+    """Total Float in working HOURS, reconstructed the way P6 computes it, for an export that
+    does not store it (P6 XML never writes activity float; an XER may leave total_float_hr_cnt
+    blank): Finish Float = Late Finish - Early Finish, Start Float = Late Start - Early Start,
+    Smallest = the smaller of the two - each measured in working time on the activity's own
+    calendar, like P6's total_float_hr_cnt. Divide by the calendar's hours/day for days.
+
+    Uses the calendar's intraday work times when it has them; a calendar without work times
+    falls back to whole working days x hours/day. None when the dates the basis needs are
+    missing (a Completed activity has no remaining dates and no float in P6)."""
+    if calendar is None:
+        return None
+
+    def span(a, b):
+        if a is None or b is None:
+            return None
+        if calendar.has_intraday():
+            return signed_working_minutes(calendar, a, b) / 60.0
+        return signed_working_days(calendar, a, b) * (calendar.day_hours or 8.0)
+
+    fin = span(early_finish, late_finish)
+    if basis == 'finish':
+        return fin
+    st = span(early_start, late_start)
+    if basis == 'start':
+        return st
+    vals = [v for v in (st, fin) if v is not None]
+    return min(vals) if vals else None
+
+
 def float_working_days(calendar: Calendar, early: datetime, late: datetime):
     """Total Float in whole working days, boundary-correct — for the DELAY figure only.
 

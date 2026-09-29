@@ -2,7 +2,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from p6_evm.calendars import Calendar, signed_working_days, hhmmss_to_min
+from p6_evm.calendars import Calendar, hhmmss_to_min, float_basis, total_float_hours
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
 
@@ -86,6 +86,18 @@ def full_wbs_path(wbs_id, wbs_map):
     return ' > '.join(reversed(names))
 
 
+def _schedule_option(project_el, name):
+    """A <Project><ScheduleOptions> value (namespace-agnostic), or None."""
+    if project_el is None:
+        return None
+    for el in project_el:
+        if el.tag.rsplit('}', 1)[-1] == 'ScheduleOptions':
+            for child in el:
+                if child.tag.rsplit('}', 1)[-1] == name:
+                    return child.text
+    return None
+
+
 def _detect_namespace(path):
     with open(path, encoding='utf-8') as f:
         head = f.read(4000)
@@ -149,11 +161,18 @@ def parse_file(path) -> ScheduleData:
     # blank Delay. Keyed by ObjectId; first definition wins so a baseline calendar
     # can never clobber a live one that shares an id.
     def _work_intervals(el):
-        """(start_min, end_min) pairs from an element's <WorkTime> children."""
+        """(start_min, end_min) pairs from an element's <WorkTime> children.
+
+        P6 XML writes a shift's LAST working minute as its <Finish> (a shift to 12:00 is
+        11:59:00, to 18:30 is 18:29:00, a 24-hour day 23:59:00) where the XER writes the end
+        (f|12:00, f|18:30, f|00:00). Read it back as the end - one minute on, capped at 24:00 -
+        so XML hours match the XER and P6 (finding P10; needed for exact float hours, P8)."""
         out = []
         for wt in el.findall(tag('WorkTime')):
             sm = hhmmss_to_min(text(wt, 'Start'))
             em = hhmmss_to_min(text(wt, 'Finish'))
+            if em is not None and em % 15 == 14:
+                em = min(em + 1, 1440)
             if sm is not None and em is not None and em > sm:
                 out.append((sm, em))
         return out
@@ -209,6 +228,12 @@ def parse_file(path) -> ScheduleData:
         'name': text(project_el, 'Name'),
         'data_date': parse_datetime(text(project_el, 'DataDate')),
         'baseline_object_id': text(project_el, 'CurrentBaselineProjectObjectId'),
+        # The project's own root WBS node (P6 <Project><WBSObjectId>; its top-level <WBS> have a
+        # nil ParentObjectId) - same key as xer.py, which keeps that node OUT of data.wbs (P5).
+        'wbs_root_id': text(project_el, 'WBSObjectId'),
+        # 'Compute Total Float as' (ScheduleOptions) -> 'finish' | 'start' | 'smallest' - the basis
+        # the float is reconstructed on, since P6 XML writes no activity float (P8).
+        'total_float_type': float_basis(_schedule_option(project_el, 'ComputeTotalFloatType')),
         # The embedded baseline's name (None when the file does not carry it) — same key as xer.py.
         'baseline_name': text(baseline_el, 'Name') if baseline_el is not None else None,
         # Calendar Audit: project window (additive). P6 exports vary — take the first present.
@@ -219,6 +244,8 @@ def parse_file(path) -> ScheduleData:
             text(project_el, 'ScheduledFinishDate') or text(project_el, 'FinishDate')
             or text(project_el, 'AnticipatedFinishDate') or text(project_el, 'MustFinishByDate')),
     }
+
+    tf_basis = data.project['total_float_type']
 
     for wbs_el in project_el.findall(tag('WBS')):
         object_id = text(wbs_el, 'ObjectId')
@@ -280,15 +307,20 @@ def parse_file(path) -> ScheduleData:
             act['total_float_days'] = tf_hours / day_hours
             act['tf_from_hours'] = True
         else:
-            act['total_float_days'] = (
-                signed_working_days(cal, act['remaining_early_start'], act['remaining_late_start'])
-                if (cal and act['remaining_early_start'] and act['remaining_late_start']) else None
-            )
+            # P6 XML writes no activity float: rebuild it exactly as P6 computes it - on the
+            # project's 'Compute Total Float as' basis (Finish Float = RLF - REF by default), in
+            # working HOURS on the activity's calendar, / hours-per-day - so it equals the XER's
+            # stored total_float_hr_cnt (finding P8; was whole days of START float).
+            h = total_float_hours(cal, act['remaining_early_start'], act['remaining_early_finish'],
+                                  act['remaining_late_start'], act['remaining_late_finish'], tf_basis)
+            act['total_float_days'] = (h / day_hours) if h is not None else None
             act['tf_from_hours'] = False   # reconstructed — Delay recomputed boundary-correct
         act['free_float_days'] = (ff_hours / day_hours) if ff_hours is not None else None
         act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
         act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
+        act['secondary_constraint_type'] = text(act_el, 'SecondaryConstraintType')
+        act['secondary_constraint_date'] = parse_datetime(text(act_el, 'SecondaryConstraintDate'))
         act['activity_codes'] = _activity_codes(act_el)
         act['wbs_path'] = full_wbs_path(act['wbs_id'], data.wbs)
         # Actual progress dates — needed by the Out-of-Sequence audit to compare

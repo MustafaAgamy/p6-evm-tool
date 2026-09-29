@@ -1,11 +1,28 @@
 from datetime import datetime
 from p6_evm.parser import ScheduleData, full_wbs_path
-from p6_evm.calendars import Calendar
+from p6_evm.calendars import Calendar, float_basis
 from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
              'TT_LOE': 'LOE', 'TT_WBS': 'WBSSummary', 'TT_Rsrc': 'ResourceDependent'}
 PRED_TYPE = {'PR_FS': 'FS', 'PR_SS': 'SS', 'PR_FF': 'FF', 'PR_SF': 'SF'}
+# ONE vocabulary for both formats (R4): the XER's codes are read as the words P6 writes to the
+# XML (<Status>, <PrimaryConstraintType>/<SecondaryConstraintType>), so every status- or
+# constraint-based check (hard constraints, milestones, float, engineering progress) works the
+# same on either file (findings P6 / P7). An unknown code is kept as-is (honest, never guessed).
+STATUS = {'TK_NotStart': 'Not Started', 'TK_Active': 'In Progress', 'TK_Complete': 'Completed'}
+CSTR_TYPE = {'CS_MSO': 'Start On', 'CS_MSOB': 'Start On or Before', 'CS_MSOA': 'Start On or After',
+             'CS_MEO': 'Finish On', 'CS_MEOB': 'Finish On or Before', 'CS_MEOA': 'Finish On or After',
+             'CS_ALAP': 'As Late As Possible', 'CS_MANDSTART': 'Mandatory Start',
+             'CS_MANDFIN': 'Mandatory Finish'}
+
+
+def _status(code):
+    return STATUS.get(code, code or None)
+
+
+def _cstr(code):
+    return CSTR_TYPE.get(code, code) if code else None
 
 
 def _read_text(path):
@@ -109,6 +126,14 @@ def parse_xer(path):
         # P6 XER update export carries only the BASELINE_EXPORT pointer), like the XML's
         # CurrentBaselineProjectObjectId, so the screen can ask for THAT baseline (finding P1).
         'baseline_object_id': proj.get('sum_base_proj_id') or None,
+        # The project-root PROJWBS node (proj_node_flag=Y) - kept here, NOT in data.wbs, like the
+        # XML's <Project><WBSObjectId> whose top-level <WBS> have no parent (finding P5).
+        'wbs_root_id': root_wbs.get('wbs_id') or None,
+        # 'Compute Total Float as' (SCHEDOPTIONS.sched_float_type FT_FF / FT_SF / FT_SM) -> the
+        # same 'finish' | 'start' | 'smallest' the XML reports (P8).
+        'total_float_type': float_basis(next(
+            (r.get('sched_float_type') for r in tables.get('SCHEDOPTIONS', [])
+             if not proj_id or r.get('proj_id') in (None, '', proj_id)), None)),
         'baseline_name': _baseline_name(tables, proj, bl_proj),
     }
 
@@ -133,13 +158,21 @@ def parse_xer(path):
             weekly_working_days=cd.get('weekly_working_days') or set(),
         )
 
-    # Only import WBS nodes belonging to this project
+    # Only import WBS nodes belonging to this project. The project-root node (proj_node_flag=Y,
+    # the project itself) is NOT a WBS element: P6's XML never lists it as a <WBS> and its
+    # top-level WBS have no parent. Skipping it keeps wbs_path / WBS roll-ups / top-level
+    # grouping identical to the XML (finding P5: it prefixed every XER path with the project
+    # name, added a depth-0 node and collapsed the top-level branches into one).
+    root_id = data.project['wbs_root_id']
     for w in tables.get('PROJWBS', []):
         if proj_id and w.get('proj_id') not in (None, '', proj_id):
             continue
+        if w.get('proj_node_flag') == 'Y' or (root_id and w.get('wbs_id') == root_id):
+            continue
+        parent = w.get('parent_wbs_id') or None
         data.wbs[w.get('wbs_id')] = {
             'name': w.get('wbs_name'),
-            'parent_object_id': w.get('parent_wbs_id') or None,
+            'parent_object_id': None if (root_id and parent == root_id) else parent,
         }
 
     # ── Activity codes: dimension names + per-task assignments ──────────────
@@ -172,7 +205,7 @@ def parse_xer(path):
             'object_id': oid,
             'id': t.get('task_code'),
             'name': t.get('task_name'),
-            'status': t.get('status_code'),
+            'status': _status(t.get('status_code')),
             'calendar_id': t.get('clndr_id'),
             'wbs_id': t.get('wbs_id'),
             'task_type': TASK_TYPE.get(t.get('task_type'), 'Task'),
@@ -183,8 +216,10 @@ def parse_xer(path):
             'tf_from_hours': tf is not None,   # P6's stored float (authoritative for Delay)
             'free_float_days': ff_days,
             'is_critical': (tf_days is not None and tf_days <= 0),
-            'constraint_type': t.get('cstr_type') or None,
+            'constraint_type': _cstr(t.get('cstr_type')),
             'constraint_date': _dt(t.get('cstr_date')),
+            'secondary_constraint_type': _cstr(t.get('cstr_type2')),
+            'secondary_constraint_date': _dt(t.get('cstr_date2')),
             'activity_codes': task_codes.get(oid, {}),
             'wbs_path': full_wbs_path(t.get('wbs_id'), data.wbs),
             'planned_start': planned_start,
