@@ -324,21 +324,31 @@ def _recommendation(rows, code_type):
             f"({top['weight_pct']:.1f}%) in the {code_type} scope — and it is on or ahead of plan."]
 
 
-def scope_weights(data, code_type, construction_only=True):
+def _construction_filter(data):
+    """The construction/execution activity codes that scope weights keep (None = keep all)."""
+    try:
+        from p6_compare.report import _construction_codes
+        return _construction_codes(data) or None
+    except Exception:
+        return None
+
+
+_UNSET = object()
+
+
+def scope_weights(data, code_type, construction_only=True, _cons=_UNSET):
     """Each activity-code value's share of the cost-loaded scope (baseline budget), heaviest
     first, plus a recommendation naming the largest. Construction/execution activities only.
     `code_type` may be a single dimension or a LIST of dimensions — with several, activities are
-    weighted by the COMBINATION (an activity counts only when it carries every chosen code)."""
+    weighted by the COMBINATION (an activity counts only when it carries every chosen code).
+    `_cons` lets scope_all pass the construction set it already worked out (same schedule →
+    same set), so it is not recomputed once per dimension."""
     types = [t for t in (code_type if isinstance(code_type, (list, tuple)) else [code_type]) if t]
     label = ' · '.join(types)
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     cons = None
     if construction_only:
-        try:
-            from p6_compare.report import _construction_codes
-            cons = _construction_codes(data) or None
-        except Exception:
-            cons = None
+        cons = _construction_filter(data) if _cons is _UNSET else _cons
     agg = {}   # key -> [cost, planned_num, planned_den, actual_num]
     total = 0.0
     for a in data.activities.values():
@@ -377,8 +387,12 @@ def scope_all(data):
     """Scope weights for every activity-code dimension that carries cost — so the UI can switch
     code and see the recommendation rewrite itself instantly. {code_type: scope_weights(...)}."""
     out = {}
-    for t in (getattr(data, 'activity_code_types', None) or []):
-        s = scope_weights(data, t)
+    types = getattr(data, 'activity_code_types', None) or []
+    # The construction filter depends only on the schedule, not on the dimension: work it out
+    # ONCE (it walks every activity's WBS ancestry — per dimension it cost seconds on big files).
+    cons = _construction_filter(data) if types else None
+    for t in types:
+        s = scope_weights(data, t, _cons=cons)
         if s['rows']:
             out[t] = s
     return out

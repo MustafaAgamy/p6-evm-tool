@@ -21,6 +21,7 @@ does not keep, so they are read here straight from the file — isolated exactly
 ``p6_narrative.codes`` so ``p6_evm`` stays untouched. On any problem the reader returns ``{}``
 and the affected section falls back to an honest no-data note.
 """
+import os
 import re
 import calendar as _cal
 from collections import defaultdict
@@ -55,15 +56,37 @@ def read_resource_meta(path):
     """``{resource_id: {'type': 'RT_Labor'|'RT_Equip'|'RT_Mat'|None, 'unit': str|None}}``
     read directly from a P6 file. XER ← RSRC (``rsrc_type``, ``unit_id``) + UMEASURE;
     XML ← Resource (``ResourceType``, ``UnitOfMeasureObjectId``) + UnitOfMeasure.
-    Returns ``{}`` on any problem."""
+    Returns ``{}`` on any problem.
+
+    One report asks for this twice (§13 Resource Loading and §15 Productivity), and each read
+    re-parses the whole file — seconds on a big XML. The answer depends only on the file, so it
+    is remembered per (path, modified time, size); a changed or re-exported file is re-read.
+    Callers always get their own copy."""
     if not path:
         return {}
     try:
-        if path.lower().endswith('.xer'):
-            return _res_from_xer(path)
-        return _res_from_xml(path)
-    except Exception:
-        return {}
+        st = os.stat(path)
+        key = (os.path.abspath(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = None
+    meta = _META_CACHE.get(key) if key else None
+    if meta is None:
+        try:
+            if path.lower().endswith('.xer'):
+                meta = _res_from_xer(path)
+            else:
+                meta = _res_from_xml(path)
+        except Exception:
+            return {}
+        if key:
+            if len(_META_CACHE) >= _META_CACHE_MAX:
+                _META_CACHE.pop(next(iter(_META_CACHE)), None)
+            _META_CACHE[key] = meta
+    return {rid: dict(v) for rid, v in meta.items()}
+
+
+_META_CACHE = {}           # (abs path, mtime_ns, size) -> resource meta (small: types + units)
+_META_CACHE_MAX = 4
 
 
 def _short_unit(abbrev, name):
