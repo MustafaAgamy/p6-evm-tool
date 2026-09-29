@@ -137,10 +137,18 @@ def test_live_address_answers(kind, url):
     # identify themselves honestly (utils.USER_AGENT), as the services' policies ask.
     headers = {'User-Agent': _BROWSER_UA if kind in ('page', 'linkedin') else utils.USER_AGENT}
     req = urllib.request.Request(url, headers=headers, method='HEAD' if kind == 'download' else 'GET')
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            status = r.status
-    except urllib.error.HTTPError as e:
-        status = e.code
+    # One retry on a connection-level failure (timeout / reset): a network blip on the
+    # test machine is not a broken link. An HTTP status is final on the first answer.
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                status = r.status
+            break
+        except urllib.error.HTTPError as e:
+            status = e.code
+            break
+        except (urllib.error.URLError, OSError):
+            if attempt == 2:
+                raise
     ok = {200, 999} if kind == 'linkedin' else {200}
     assert status in ok, f'{url} answered HTTP {status}'
