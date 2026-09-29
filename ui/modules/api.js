@@ -44,13 +44,32 @@ export async function importFile(filePath, { showSpinner = true, onLoaded = null
   }
 }
 
-export async function loadHistory() {
-  try {
-    const history = await apiFetch('api/history');
-    renderHistory(history);
-  } catch {
-    // Non-fatal — table stays as-is
+// Recent Projects: retried with backoff (the first call runs while the app is still
+// starting); if it still fails, the table says so with a Retry button instead of staying
+// silently empty (startup audit DB-1).
+const HISTORY_RETRY_MS = [500, 1500, 4000];
+export async function loadHistory({ retries = HISTORY_RETRY_MS.length } = {}) {
+  for (let i = 0; ; i++) {
+    try {
+      const history = await apiFetch('api/history');
+      renderHistory(history);
+      return history;
+    } catch {
+      if (i >= retries) { renderHistoryUnavailable(); return null; }
+      await new Promise(r => setTimeout(r, HISTORY_RETRY_MS[Math.min(i, HISTORY_RETRY_MS.length - 1)]));
+    }
   }
+}
+
+function renderHistoryUnavailable() {
+  const tbody = document.getElementById('recent-tbody');
+  if (!tbody) return;
+  const totalEl = document.getElementById('recent-total');
+  if (totalEl) totalEl.textContent = 'unavailable';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Couldn’t load recent projects. '
+    + '<button type="button" class="btn-secondary" id="recent-retry">Retry</button></td></tr>';
+  const b = document.getElementById('recent-retry');
+  if (b) b.addEventListener('click', () => { b.disabled = true; loadHistory({ retries: 1 }); });
 }
 
 class ButtonState {
