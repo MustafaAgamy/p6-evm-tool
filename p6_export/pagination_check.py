@@ -600,6 +600,15 @@ def _figure_cut(A, B, area_top, area_bottom):
     near_b = [b for b in B.bands if b.y0 < clip_b + 4 and any(b.x0 < d.x1 and b.x1 > d.x0 for d in eb)]
     if near_a or near_b:
         return None
+
+    # … and a WHOLE table row that happens to end on the break (its cell shading / borders
+    # end there, its text sits inside the cell a few points above) followed by the table's
+    # repeated header row (shaded cells, text inside) is a table continuing, not a graphic
+    def holds_text(d, bands, bottom):
+        return any(b.x0 < d.x1 and b.x1 > d.x0 and b.y0 >= d.y0 - 0.5 and b.y1 <= d.y1 + 0.5
+                   and ((d.y1 - b.y1) if bottom else (b.y0 - d.y0)) <= 10 for b in bands)
+    if all(holds_text(d, A.bands, True) for d in ea) and all(holds_text(d, B.bands, False) for d in eb):
+        return None
     return len(ea), len(eb)
 
 
