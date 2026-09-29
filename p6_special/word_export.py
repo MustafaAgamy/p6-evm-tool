@@ -221,7 +221,12 @@ def build_word_document(report_name, meta, rendered, mode='light', letterhead=No
         sections = parts.get('sections', '')       # empty-selection notice
     raw_body = cover + (brk + toc if toc else '') + (brk + sections if sections else '')
     body = _resolve_theme_colors(raw_body, mode)
-    page_css = _page_setup_css(navy, muted, zebra)
+    # Shared page-composition rules (owner point 14) in the only forms Word's HTML engine
+    # honours: headings / labels keep with their block, small tables kept whole, long
+    # tables repeat their header and never strand 1-2 rows (p6_export.doc_pagination).
+    from p6_export.doc_pagination import paginate_word_html
+    body = paginate_word_html(body)
+    page_css = _page_setup_css(navy, muted, zebra) + report_theme.word_pagination_css()
     header = _word_header(meta, letterhead, navy, muted)
     footer = _word_footer(navy, muted)
     return (
