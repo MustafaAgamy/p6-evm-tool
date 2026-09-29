@@ -40,7 +40,7 @@ def _tiles(html):
 
 def test_evm_report_head_and_tiles():
     meta = {'project_name': 'P', 'data_date': '2025-04-01', 'baseline_finish': '2025-04-01',
-            'baseline_label': "not in the file and none attached — the schedule's own Planned dates stand in (approximate)",
+            'baseline_label': "not in the file and none attached — the update's own Planned dates stand in (approximate)",
             'baseline_approx': True}
     html = render_evm_report(_result(), meta)
     assert '<span>Baseline:</span> not in the file and none attached' in html

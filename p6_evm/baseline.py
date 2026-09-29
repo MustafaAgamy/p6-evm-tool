@@ -284,7 +284,7 @@ def baseline_label(fields, embedded_name=None):
             return "none assigned in P6 — the schedule's own Planned dates are its baseline"
         miss = f.get('baseline_missing')
         lost = f' (the attached {miss} is no longer available)' if miss else ''
-        return ("not in the file and none attached — the schedule's own Planned dates stand in "
+        return ("not in the file and none attached — the update's own Planned dates stand in "
                 "(approximate)" + lost)
     return None
 
@@ -316,3 +316,22 @@ def baseline_fields(info):
         'baseline_attached_project': info.get('attached_project') if attached else None,
         'baseline_mismatch': bool(info.get('mismatch')) if attached else None,
     }
+
+
+def schedule_baseline(data):
+    """{'baseline_approx', 'baseline_label'} for a parsed schedule — what every feature puts in
+    its result / report so the screen marks baseline-derived values '· approx' and prints the
+    one 'Baseline: …' line (R2: screen == PDF == Excel). Reads ``data.baseline_info`` (set by
+    resolve_baseline / inherit_baseline), else infers it from the parsed file."""
+    if data is None:
+        return {'baseline_approx': False, 'baseline_label': None}
+    info = getattr(data, 'baseline_info', None)
+    if not info:
+        src = getattr(data, 'baseline_source', None) or (
+            'embedded' if getattr(data, 'baseline_by_id', None) else 'self')
+        info = {'source': src, 'expected': baseline_expected(data),
+                'expected_name': expected_baseline_name(data),
+                'total': len(getattr(data, 'activities', None) or {})}
+    f = baseline_fields(info)
+    return {'baseline_approx': baseline_approx(f),
+            'baseline_label': baseline_label(f, (getattr(data, 'project', None) or {}).get('baseline_name'))}

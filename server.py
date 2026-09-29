@@ -737,6 +737,8 @@ class Handler(BaseHTTPRequestHandler):
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
             safe_result.update(baseline_fields(bl_info))   # embedded / attached / self — for the UI
+            from p6_evm.baseline import schedule_baseline
+            safe_result.update(schedule_baseline(data))    # '· approx' + the one 'Baseline:' line
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
@@ -1309,8 +1311,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.overview_excel import overview_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = overview_excel(report)
+            bl = (report.get('baseline_line') or '').replace('Baseline: ', '', 1)   # approx only
             write_sections_xlsx(os.path.abspath(output_path), sheets,
-                                meta=_excel_meta('Project Overview', report))
+                                meta=_excel_meta('Project Overview', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1326,8 +1330,10 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.wbs_excel import wbs_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
+            bl = (report.get('baseline_line') or '').replace('Baseline: ', '', 1)   # approx only
             write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report),
-                                meta=_excel_meta('WBS Summary', report))
+                                meta=_excel_meta('WBS Summary', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2459,6 +2465,12 @@ class Handler(BaseHTTPRequestHandler):
         bl_path = extras.get('baseline_path')
         if stored_bl:
             result.update(stored_bl)
+            try:                                  # '· approx' + the one 'Baseline:' line (R2)
+                from p6_evm.baseline import baseline_approx, baseline_label
+                result['baseline_approx'] = baseline_approx(stored_bl)
+                result['baseline_label'] = baseline_label(stored_bl, stored_bl.get('baseline_expected_name'))
+            except Exception:
+                pass
         elif bl_path and cached_path and os.path.isfile(cached_path):
             try:
                 sys.path.insert(0, resource_path('.'))
@@ -2478,6 +2490,8 @@ class Handler(BaseHTTPRequestHandler):
                                             'activity_count': c['activity_count'], 'overridden': c['overridden']}
                                         for n, c in rr['categories'].items()}
                 result.update(baseline_fields(getattr(data, 'baseline_info', None)))
+                from p6_evm.baseline import schedule_baseline
+                result.update(schedule_baseline(data))
             except Exception as bexc:
                 print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
 

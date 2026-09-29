@@ -77,7 +77,8 @@ OTHER_PROJECT = BASELINE_ALONE.replace('<Id>S1</Id>', '<Id>X1</Id>').replace(
 
 # Keys that SAY where the baseline came from — the only ones allowed to differ.
 _BL_KEYS = {'baseline_source', 'baseline_name', 'baseline_path', 'baseline_matched',
-            'baseline_total', 'baseline_missing', 'baseline_attached_project', 'baseline_mismatch'}
+            'baseline_total', 'baseline_missing', 'baseline_attached_project', 'baseline_mismatch',
+            'baseline_label'}
 
 
 def _post(port, route, body):

@@ -29,6 +29,24 @@ export function baselineExpected(result) {
   return !(result && result.baseline_expected === false);
 }
 
+// True when the result is measured against the update's OWN Planned dates standing in for a
+// baseline P6 names but the file does not carry (none attached) — every baseline-derived value
+// (Baseline Start/Finish, Planned %, PV, SPI, Delay) is then marked '· approx' on every screen
+// and in every report (p6_evm/baseline.py baseline_approx — the same rule).
+export function baselineApprox(result, path) {
+  return baselineSource(result, path) === 'self' && baselineExpected(result);
+}
+
+export const BASELINE_APPROX_LINE =
+  'Baseline: not in the file and none attached — the update’s own Planned dates stand in (approximate)';
+
+// The one 'Baseline: …' line shown with approx values ('' when the values are not approximate).
+export function baselineApproxLine(result, path) {
+  if (!baselineApprox(result, path)) return '';
+  const r = result || {};
+  return (r.baseline_source === 'self' && r.baseline_label) ? `Baseline: ${r.baseline_label}` : BASELINE_APPROX_LINE;
+}
+
 // WHICH P6 project to export — the baseline P6 names for this update (XER BASELINE_EXPORT /
 // XML <BaselineProject>, result.baseline_expected_name). '' when the file does not name it.
 // p6_evm/baseline.py expected_baseline_advice() says the same in the reports.

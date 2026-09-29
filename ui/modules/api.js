@@ -6,6 +6,7 @@ import { getSavedMode }                                          from './appeara
 import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate }                                               from './format.js';
+import { baselineApprox, baselineApproxLine }                    from './baseline.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -616,7 +617,10 @@ export async function exportOverviewExcel() {
     const data = await apiFetch('api/overview/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta() }, output_path: outputPath }),
+      body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta(),
+        // '· approx' + the 'Baseline:' line exactly as the screen shows them (R2)
+        baseline_approx: baselineApprox(state.currentResult, state.currentXmlPath),
+        baseline_line: baselineApproxLine(state.currentResult, state.currentXmlPath) }, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
@@ -644,6 +648,8 @@ export async function exportWbsExcel() {
       wbs_main:    r.wbs_main,
       project_name: r.project_name,
       data_date:   r.data_date,
+      baseline_approx: baselineApprox(r, state.currentXmlPath),        // as the screen marks it (R2)
+      baseline_line: baselineApproxLine(r, state.currentXmlPath),
     };
     const data = await apiFetch('api/wbs/excel', {
       method:  'POST',

@@ -314,10 +314,18 @@ function _locationCard() {
     </div>`;
 }
 
+// The one 'Baseline: …' line when the update's own Planned dates stand in for its baseline (none
+// inside the file, none attached) — the PDF prints the same line (p6_calendar/report._baseline_line).
+export function calBaselineLine(d) {
+  if (!d || !d.baseline_approx) return '';
+  const lbl = d.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)';
+  return `<div class="cal-note" data-baseline-approx>Baseline: ${escapeHtml(lbl)}</div>`;
+}
+
 function _dashboard(d) {
   const dates = [
-    _tile('Baseline Start', fmtCalDate(d.baseline_start), '', 'hl'),
-    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), 'plan of record', 'hl'),
+    _tile('Baseline Start', fmtCalDate(d.baseline_start), d.baseline_approx ? 'approx' : '', 'hl'),
+    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), d.baseline_approx ? 'Baseline (approx)' : 'plan of record', 'hl'),
   ].join('');
   // Row 1 (3 tiles): the calendar-day split. Row 2 (4 tiles): holidays, averages + normal hours.
   const stats1 = [
@@ -333,7 +341,7 @@ function _dashboard(d) {
   ].join('');
   return _sec(1, 'Execution Dashboard') +
     `<div class="cal-subhead">Key Dates</div>
-     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>${calBaselineLine(d)}
      <div class="cal-subhead">Calendar Statistics</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr)">${stats1}</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:10px">${stats2}</div>`;
@@ -639,13 +647,13 @@ function _weatherDashboard() {
   const wxAdd = w.net_finish_delay || 0;                            // weather adds (working days)
   return _sec(1, 'Execution Dashboard', '<span class="cal-pill warn">Estimate · not a P6 figure</span>') +
     `<div class="cal-flow">
-      <div class="cal-step bl"><div class="cal-k">Baseline Finish</div><div class="cal-v">${fmtCalDate(d.baseline_finish)}</div></div>
+      <div class="cal-step bl"><div class="cal-k">Baseline Finish${d.baseline_approx ? ' · approx' : ''}</div><div class="cal-v">${fmtCalDate(d.baseline_finish)}</div></div>
       <div class="cal-arrow"><div class="cal-alab">Schedule slip</div><div class="cal-avar ${slip > 0 ? 'pos' : 'zero'}">${slip > 0 ? '+' : ''}${slip} d</div><div class="cal-aln">→</div></div>
       <div class="cal-step fc"><div class="cal-k">Forecast Completion</div><div class="cal-v">${fmtCalDate(d.project_finish)}</div></div>
       <div class="cal-arrow"><div class="cal-alab">Weather adds</div><div class="cal-avar ${wxAdd > 0 ? 'pos' : 'zero'}">+${wxAdd} wd</div><div class="cal-aln">→</div></div>
       <div class="cal-step bw"><div class="cal-k">Bad-weather Completion</div><div class="cal-v">${fmtCalDate(w.weather_adjusted_finish)}</div></div>
     </div>
-    <div class="cal-note">Reads left → right: the baseline finish, the schedule's own forecast finish, then the weather-adjusted finish. Each arrow shows that step's variance — the schedule's own slip, then, separately, what bad weather adds.</div>`;
+    <div class="cal-note">Reads left → right: the baseline finish, the schedule's own forecast finish, then the weather-adjusted finish. Each arrow shows that step's variance — the schedule's own slip, then, separately, what bad weather adds.</div>${calBaselineLine(d)}`;
 }
 
 // Feature 2 §2 — 3-colour monthly histogram: net working (green) / bad-weather (amber) /
