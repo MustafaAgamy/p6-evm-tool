@@ -263,16 +263,156 @@ def test_nominatim_sends_the_brand_user_agent(monkeypatch):
         def read(self):
             return b'[]'
 
-    def fake_urlopen(req, timeout=None):
+    def fake_open_url(req, timeout=None, connect_timeout=utils.CONNECT_TIMEOUT):
         got['ua'] = req.get_header('User-agent')
         got['url'] = req.full_url
         got['timeout'] = timeout
+        got['connect'] = connect_timeout
         return Resp()
-    monkeypatch.setattr(urllib.request, 'urlopen', fake_urlopen)
+
+    def real_urlopen(*a, **k):
+        raise AssertionError('Nominatim must go through utils.open_url (short connect timeout)')
+    monkeypatch.setattr(utils, 'open_url', fake_open_url)
+    monkeypatch.setattr(urllib.request, 'urlopen', real_urlopen)
     assert srv._nominatim_get('search', {'q': 'x', 'format': 'json'}) == []
     assert got['ua'] == utils.USER_AGENT
     assert got['url'].startswith('https://nominatim.openstreetmap.org/search?')
-    assert got['timeout'] and got['timeout'] <= 20
+    assert got['timeout'] and got['timeout'] <= 10, 'a place search never holds the spinner long'
+    assert got['connect'] <= 6
+
+
+# ── NET-4: a black-holed network is reported in seconds, not minutes ────────
+def test_weather_goes_through_the_quick_connect_opener(monkeypatch):
+    from p6_calendar import weather
+    import utils
+    got = {}
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{}'
+
+    def fake_open_url(req, timeout=None):
+        got['ua'] = req.get_header('User-agent')
+        got['timeout'] = timeout
+        return Resp()
+    monkeypatch.setattr(weather, '_open_url', fake_open_url)
+    assert weather._get_json('https://api.open-meteo.com/v1/forecast?x=1') == {}
+    assert got['ua'] == utils.USER_AGENT
+    assert weather._open_url is not urllib.request.urlopen
+    import importlib
+    assert importlib.reload(weather)._open_url is utils.open_url
+
+
+def test_open_url_connects_quickly_then_reads_with_the_longer_timeout(monkeypatch):
+    """The TCP/TLS connect uses CONNECT_TIMEOUT; once connected the socket reads with the
+    caller's (longer) timeout — slow ERA5 history still arrives, a dead network fails fast."""
+    import threading
+    import utils
+    import urllib.request
+    seen = {}
+    real = socket.create_connection
+
+    def spy(address, timeout=None, *a, **k):
+        seen['connect_timeout'] = timeout
+        sock = real(address, timeout, *a, **k)
+        seen['sock'] = sock
+        return sock
+    monkeypatch.setattr(socket, 'create_connection', spy)
+
+    srv = socket.socket()
+    srv.bind(('127.0.0.1', 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+
+    def answer():
+        c, _ = srv.accept()
+        c.recv(4096)
+        c.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}')
+        c.close()
+    t = threading.Thread(target=answer, daemon=True)
+    t.start()
+    try:
+        with utils.open_url(urllib.request.Request(f'http://127.0.0.1:{port}/'),
+                            timeout=17, connect_timeout=3) as r:
+            assert r.read() == b'{}'
+            assert seen['connect_timeout'] == 3
+            assert seen['sock'].gettimeout() == 17
+    finally:
+        srv.close()
+
+
+def test_open_url_black_hole_reads_time_out_as_a_plain_message(monkeypatch):
+    """A server that accepts the connection but never answers (captive portal / broken proxy)
+    gives up after the read timeout with the 'did not answer in time' sentence."""
+    import time
+    import utils
+    import urllib.request
+    srv = socket.socket()
+    srv.bind(('127.0.0.1', 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    t0 = time.monotonic()
+    try:
+        with pytest.raises(Exception) as ei:
+            utils.open_url(urllib.request.Request(f'http://127.0.0.1:{port}/'),
+                           timeout=0.6, connect_timeout=0.3)
+    finally:
+        srv.close()
+    assert time.monotonic() - t0 < 5
+    msg = utils.network_error_message(ei.value, 'Open-Meteo', needs='the weather history')
+    assert 'did not answer in time' in msg, msg
+
+
+def test_open_url_connect_timeout_is_capped_by_a_shorter_read_timeout(monkeypatch):
+    import utils
+    seen = {}
+
+    def refuse(address, timeout=None, *a, **k):
+        seen['connect_timeout'] = timeout
+        raise ConnectionRefusedError(10061, 'refused')
+    monkeypatch.setattr(socket, 'create_connection', refuse)
+    with pytest.raises(urllib.error.URLError):
+        utils.open_url(urllib.request.Request('http://127.0.0.1:9/'), timeout=2, connect_timeout=6)
+    assert seen['connect_timeout'] == 2
+
+
+def test_quick_connect_opener_keeps_https_checks_and_proxies():
+    import utils
+    opener = utils._quick_connect_opener(6)
+    https = [h for h in opener.handlers if isinstance(h, urllib.request.HTTPSHandler)]
+    assert len(https) == 1 and type(https[0]).__name__ == 'QuickHTTPSHandler'
+    # Every other handler urlopen uses (proxy, redirects, errors, cookies-free defaults) is kept.
+    ours = {type(h) for h in opener.handlers}
+    default = {type(h) for h in urllib.request.build_opener().handlers}
+    assert default - {urllib.request.HTTPHandler, urllib.request.HTTPSHandler} <= ours
+    assert utils._quick_connect_opener(6) is opener, 'built once, reused'
+
+
+def test_dust_is_fetched_alongside_the_history_not_after_it(monkeypatch):
+    """Online, the air-quality call runs while the (slower) history downloads — the planner
+    waits for the slower of the two, never both in a row."""
+    import threading
+    from p6_calendar import weather
+    started = {'archive': threading.Event(), 'air': threading.Event()}
+    base = _fake_open_meteo()
+
+    def get_json(url, timeout=20):
+        kind = 'archive' if 'archive-api' in url else 'air' if 'air-quality' in url else 'forecast'
+        if kind in started:
+            started[kind].set()
+            other = started['air' if kind == 'archive' else 'archive']
+            assert other.wait(5), f'{kind} waited for the other call to finish first'
+        return base(url, timeout)
+    monkeypatch.setattr(weather, '_get_json', get_json)
+    net = {}
+    daily, climate, _h, meta = weather.build_daily_weather(1.0, 2.0, date(2024, 7, 1), date(2024, 12, 31), net=net)
+    assert net['errors'] == {} and climate and meta['year_start']
 
 
 # ── offline AI brain download (Hugging Face) ─────────────────────────────────

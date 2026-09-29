@@ -16,6 +16,7 @@ import http.client
 import json
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 # Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
@@ -588,6 +589,10 @@ try:                                   # identify the app honestly (brand consta
     from utils import USER_AGENT as _USER_AGENT
 except Exception:                      # pragma: no cover - utils always ships with the app
     _USER_AGENT = 'P6-schedule-analysis/1.0'
+try:                                   # short CONNECT timeout, normal READ timeout (utils.open_url)
+    from utils import open_url as _open_url
+except Exception:                      # pragma: no cover - utils always ships with the app
+    _open_url = urllib.request.urlopen
 
 # Every way an online call can fail: no connection / DNS / refused / timeout / HTTP error
 # (all OSError), a dropped connection mid-answer (HTTPException), an unreadable answer.
@@ -595,8 +600,10 @@ _NET_ERRORS = (OSError, http.client.HTTPException, ValueError, KeyError, TypeErr
 
 
 def _get_json(url, timeout=20):
+    # Connecting gives up after utils.CONNECT_TIMEOUT (a black-holed network is reported in
+    # seconds); reading keeps `timeout`, because five years of ERA5 history can be slow.
     req = urllib.request.Request(url, headers={'User-Agent': _USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _open_url(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
 
 
@@ -703,35 +710,40 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     # so the average/range and the "last N years" reference are honest.
     climate_samples = {}
     climate_meta = {'years': years, 'year_start': None, 'year_end': None}
-    if project_finish > horizon:
-        fut_start = data_date + timedelta(days=1)
-        # First future date for each (month, day) in the remaining window.
-        fut_by_md = {}
-        d = fut_start
-        while d <= project_finish:
-            fut_by_md.setdefault((d.month, d.day), d)
-            d += timedelta(days=1)
-        # The `years` full calendar years ending just before the run begins.
-        end_year = fut_start.year - 1
-        start_year = end_year - years + 1
-        # One archive call over those full years, then bucket each historical day onto its
-        # matching future date by (month, day) → every date gets exactly `years` samples.
-        hist_err = []
-        hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31),
-                                errors=hist_err)
-        if hist_err:
-            errs['history'] = hist_err[0]
-        for hd, rec in hist.items():
-            fd = fut_by_md.get((hd.month, hd.day))
-            if fd is not None and start_year <= hd.year <= end_year:
-                climate_samples.setdefault(fd, {})[hd.year] = rec
-        if hist:
-            climate_meta['year_start'] = start_year
-            climate_meta['year_end'] = end_year
-
-    # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
+    # Dust / sandstorm days for the near-term window (air-quality forecast) are fetched
+    # ALONGSIDE the climate history, not after it: the planner waits for the slower of the
+    # two calls, never for both in a row.
     aq_err = []
-    for d, aq in fetch_air_quality(lat, lon, errors=aq_err).items():
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        aq_future = pool.submit(fetch_air_quality, lat, lon, errors=aq_err)
+        if project_finish > horizon:
+            fut_start = data_date + timedelta(days=1)
+            # First future date for each (month, day) in the remaining window.
+            fut_by_md = {}
+            d = fut_start
+            while d <= project_finish:
+                fut_by_md.setdefault((d.month, d.day), d)
+                d += timedelta(days=1)
+            # The `years` full calendar years ending just before the run begins.
+            end_year = fut_start.year - 1
+            start_year = end_year - years + 1
+            # One archive call over those full years, then bucket each historical day onto its
+            # matching future date by (month, day) → every date gets exactly `years` samples.
+            hist_err = []
+            hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31),
+                                    errors=hist_err)
+            if hist_err:
+                errs['history'] = hist_err[0]
+            for hd, rec in hist.items():
+                fd = fut_by_md.get((hd.month, hd.day))
+                if fd is not None and start_year <= hd.year <= end_year:
+                    climate_samples.setdefault(fd, {})[hd.year] = rec
+            if hist:
+                climate_meta['year_start'] = start_year
+                climate_meta['year_end'] = end_year
+        dust_days = aq_future.result()
+
+    for d, aq in dust_days.items():
         if d in daily and aq.get('dust'):
             daily[d].update(aq)
     if aq_err:

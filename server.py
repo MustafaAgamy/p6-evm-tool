@@ -220,16 +220,18 @@ def _weather_download_gap(net, daily, climate_samples):
 _NOMINATIM = 'https://nominatim.openstreetmap.org/'
 
 
-def _nominatim_get(endpoint, params, timeout=15):
+def _nominatim_get(endpoint, params, timeout=10):
     """One OpenStreetMap Nominatim call ('search' | 'reverse') → parsed JSON. Raises on any
     network / HTTP / parse failure (the caller turns it into a plain message). The honest
-    User-Agent comes from the brand constants (Nominatim's usage policy requires one)."""
+    User-Agent comes from the brand constants (Nominatim's usage policy requires one).
+    utils.open_url gives up CONNECTING after utils.CONNECT_TIMEOUT, so a black-holed network
+    is reported in seconds rather than holding the search spinner."""
     import urllib.parse
     import urllib.request
-    from utils import USER_AGENT
+    import utils
     url = _NOMINATIM + endpoint + '?' + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    req = urllib.request.Request(url, headers={'User-Agent': utils.USER_AGENT})
+    with utils.open_url(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
 

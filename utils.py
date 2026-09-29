@@ -66,6 +66,63 @@ EXTERNAL_LINK_HOSTS = frozenset({
 # identifying User-Agent. Built from the brand constants, never hardcoded.
 USER_AGENT = f'{APP_NAME}/{APP_VERSION or "dev"} (desktop P6 schedule analysis)'
 
+# How long an online call may wait to CONNECT before the app says it cannot reach the
+# service. Reaching a server normally takes well under a second; a network that silently
+# drops the packets (firewall, captive portal, broken proxy) would otherwise hold the
+# spinner for the whole READ timeout, which stays longer because a large answer (e.g.
+# five years of weather history) can legitimately take a while to arrive.
+CONNECT_TIMEOUT = 6
+
+_QUICK_OPENERS = {}
+
+
+def _quick_connect_opener(connect_timeout):
+    """A urllib opener whose connections CONNECT (TCP + TLS handshake) within
+    ``connect_timeout`` seconds, then read with the caller's own timeout. Proxies, TLS
+    certificate checks and redirects behave exactly as with ``urllib.request.urlopen``."""
+    opener = _QUICK_OPENERS.get(connect_timeout)
+    if opener is not None:
+        return opener
+    import http.client
+    import urllib.request
+
+    def _quick(base):
+        class QuickConnect(base):
+            def connect(self):
+                read_timeout = self.timeout
+                numeric = isinstance(read_timeout, (int, float))
+                self.timeout = min(connect_timeout, read_timeout) if numeric else connect_timeout
+                try:
+                    super().connect()
+                finally:
+                    self.timeout = read_timeout
+                if numeric and self.sock is not None:
+                    self.sock.settimeout(read_timeout)
+        return QuickConnect
+
+    quick_http, quick_https = _quick(http.client.HTTPConnection), _quick(http.client.HTTPSConnection)
+
+    class QuickHTTPHandler(urllib.request.HTTPHandler):
+        def http_open(self, req):
+            return self.do_open(quick_http, req)
+
+    class QuickHTTPSHandler(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(quick_https, req, context=self._context)
+
+    opener = urllib.request.build_opener(QuickHTTPHandler, QuickHTTPSHandler)
+    _QUICK_OPENERS[connect_timeout] = opener
+    return opener
+
+
+def open_url(req, timeout=20, connect_timeout=CONNECT_TIMEOUT):
+    """``urllib.request.urlopen`` for the app's online services, with a short CONNECT
+    timeout (``connect_timeout``) and the longer READ timeout ``timeout`` — so an offline or
+    black-holed network is reported in seconds, while a slow but working service still has
+    time to answer. Raises exactly what ``urlopen`` raises (URLError / HTTPError /
+    TimeoutError), which ``network_error_message`` turns into plain English."""
+    return _quick_connect_opener(connect_timeout).open(req, timeout=timeout)
+
 
 def network_error_message(exc, service='this online service', needs=''):
     """One plain-English sentence for an online call that failed — shown in the page.
