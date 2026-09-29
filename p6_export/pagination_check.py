@@ -28,6 +28,8 @@ Defects (``flags``):
   graphic_cut                   a chart / diagram / picture is cut by the page break (part
                                 on each page, or clipped by the sheet edge)
   text_cut                      text runs off the sheet (content overflowed the page)
+  content_in_margin             a page's content starts inside the top margin (the page lost
+                                its margin / running header — an overflow page)
   large_blank_then_continuation a page ends more than 35 % blank and the next page goes on
                                 with a pushed block (not a new section)
   stranded_fragment             a page holds only a small tail of a chart / cards block
@@ -81,7 +83,8 @@ TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the
 DEFECT_TYPES = (
     'orphaned_heading', 'kpi_separated_from_heading', 'heading_separated_from_block',
     'picture_separated_from_caption', 'table_split_few_rows', 'small_table_split',
-    'table_header_not_repeated', 'graphic_cut', 'text_cut', 'large_blank_then_continuation',
+    'table_header_not_repeated', 'graphic_cut', 'text_cut', 'content_in_margin',
+    'large_blank_then_continuation',
     'stranded_fragment', 'empty_page',
 )
 INFO_TYPES = ('section_break_blank',)
@@ -230,28 +233,8 @@ def _read_pdf(path):
     return pages
 
 
-def _strip_running(pages):
-    """Set aside the running header / footer / frame and page numbers."""
-    n = len(pages)
-    pnum = re.compile(r'^(page )?\d+( (of|/) \d+)?$')
-    lkey = lambda l: (round(l.y0 / 3), re.sub(r'\d+', '#', l.n))
-    dkey = lambda d: (round(d.ry0 / 3), round(d.x0 / 3), round(d.w / 3), round((d.ry1 - d.ry0) / 3))
-    lcnt, dcnt = collections.Counter(), collections.Counter()
-    for P in pages:
-        lcnt.update({lkey(l) for l in P.lines})
-        dcnt.update({dkey(d) for d in P.draws if not d.img})
-    need = max(3, 0.3 * n)
-    lrun = {k for k, c in lcnt.items() if n >= 3 and c >= need}
-    drun = {k for k, c in dcnt.items() if n >= 3 and c >= need}
-    for P in pages:
-        edge = 0.07 * P.H
-        P.lines = [l for l in P.lines if lkey(l) not in lrun
-                   and not (pnum.match(l.n or '#') and (l.y1 < edge or l.y0 > P.H - edge))]
-        P.draws = [d for d in P.draws if d.img or dkey(d) not in drun]
-
-
-def _make_bands(P):
-    lines = sorted(P.lines, key=lambda l: (l.y0, l.x0))
+def _bands_of(lines):
+    lines = sorted(lines, key=lambda l: (l.y0, l.x0))
     bands, cur = [], []
     for l in lines:
         if cur and (abs(l.y0 - cur[0].y0) <= 2.5 and l.y0 < max(c.y1 for c in cur)):
@@ -262,7 +245,55 @@ def _make_bands(P):
             cur = [l]
     if cur:
         bands.append(_Band(cur))
-    P.bands = bands
+    return bands
+
+
+def _strip_running(pages):
+    """Set aside the running header / footer / frame and page numbers: the same row of text
+    (or the same drawing) at the same place on many pages. A table's REPEATED header row is
+    kept — it also sits elsewhere on a page (where the table starts), right above table rows."""
+    n = len(pages)
+    pnum = re.compile(r'^(page )?\d+( (of|/) \d+)?$')
+    sig = lambda b: re.sub(r'\d+', '#', norm(b.text))
+    per_page = [_row_clusters(_bands_of(P.lines)) for P in pages]
+    occ = collections.defaultdict(list)
+    for bands in per_page:
+        seen = set()
+        for j, b in enumerate(bands):
+            k = (round(b.y0 / 3), sig(b))
+            if k not in seen:
+                seen.add(k)
+                occ[k].append((b, bands[j + 1] if j + 1 < len(bands) else None))
+    need = max(3, 0.3 * n)
+
+    def table_header(k):
+        # a table's header row repeated on every page of the table: 3+ cells, and wherever
+        # it sits, table rows with the same columns follow right under it
+        return all(len(b.lines) >= 3 and nx is not None and nx.grid and nx.y0 - b.y1 <= 30
+                   and _col_match(b.lines, nx.lines) >= 3 for b, nx in occ[k])
+
+    def running(b):
+        k = (round(b.y0 / 3), sig(b))
+        return n >= 3 and len(occ[k]) >= need and not table_header(k)
+    dkey = lambda d: (round(d.ry0 / 3), round(d.x0 / 3), round(d.w / 3), round((d.ry1 - d.ry0) / 3))
+    dcnt = collections.Counter()
+    for P in pages:
+        dcnt.update({dkey(d) for d in P.draws if not d.img})
+    drun = {k for k, c in dcnt.items() if n >= 3 and c >= need}
+    for P, bands in zip(pages, per_page):
+        edge = 0.07 * P.H
+        keep = []
+        for b in bands:
+            if running(b):
+                continue
+            keep.extend(l for l in b.lines
+                        if not (pnum.match(l.n or '#') and (l.y1 < edge or l.y0 > P.H - edge)))
+        P.lines = keep
+        P.draws = [d for d in P.draws if d.img or dkey(d) not in drun]
+
+
+def _make_bands(P):
+    P.bands = _bands_of(P.lines)
 
 
 def _body_size(pages):
@@ -280,6 +311,9 @@ def _mark_headings(pages, body, hints):
             n = norm(txt)
             if len(n) < 3 or len(txt) > HEAD_MAX_CHARS or not re.search(r'[a-z]', n):
                 continue
+            alnum = re.sub(r'[^0-9a-z]', '', n)
+            if sum(ch.isdigit() for ch in alnum) > 0.4 * len(alnum):
+                continue                      # a value ("247 WD", "4.2%"), not a title
             if len(b.lines) > 2 or (len(b.lines) == 2 and b.lines[1].x0 - b.lines[0].x1 > 30):
                 continue                      # cells side by side, not a title
             styled = all((l.bold and l.size >= 0.8 * body) or l.size >= 1.25 * body for l in b.lines)
@@ -304,56 +338,106 @@ class _Region:
         self.rows = [band]
         self.members = [band]
         self.y0, self.y1 = band.y0, band.y1
+        self.col0 = band.x0
 
     def add(self, band, row):
         self.members.append(band)
         if row:
             self.rows.append(band)
         self.y1 = max(self.y1, band.y1)
+        self.col0 = min(self.col0, band.x0)
+
+    def pop_row(self):
+        band = self.rows.pop()
+        self.members = [m for m in self.members if m is not band]
+        self.y1 = max(m.y1 for m in self.members)
+        return band
 
     @property
     def lines(self):
         return [l for b in self.rows for l in b.lines]
 
-    def header_rows(self):
+    def header_rows(self, strict=False):
+        """Leading bold rows = the header. ``strict``: only when no later row is bold (bold
+        group / total / label rows make a bold first row ambiguous)."""
         k = 0
-        while k < len(self.rows) - 0 and k < 3 and self.rows[k].bold:
+        while k < len(self.rows) and k < 3 and self.rows[k].bold:
             k += 1
-        if k == len(self.rows) and k > 0 and len(self.rows) > 1:
-            return 0                     # every row bold: no separate header
+        if k == len(self.rows) and len(self.rows) > 1:
+            return 0                     # every row bold: no separate header row
+        if strict and (any(r.bold for r in self.rows[k:])
+                       or not all(re.search('[a-z]', _sig(r)) for r in self.rows[:k])):
+            return 0
         return k
+
+
+def _sig(band):
+    """A row's structure (digits ignored) — a repeated header row has the same signature."""
+    return re.sub(r'[0-9]+', '#', norm(band.text))
+
+
+def _continues_row(reg, b):
+    """A second line of the previous row (wrapped cells) rather than a new row."""
+    prev = reg.rows[-1]
+    return (b.y0 - prev.y0 < 1.5 * max(b.size, 1) and len(b.lines) < len(prev.lines)
+            and not any(abs(l.x0 - reg.col0) < 4 for l in b.lines))
+
+
+def _row_clusters(bands):
+    """Bands that overlap vertically are ONE table row (cells aligned top / middle / bottom,
+    wrapped cells, a two-line header cell)."""
+    out = []
+    for b in bands:
+        if out and not b.heading and not out[-1].heading and b.y0 < out[-1].y1 - 1.0:
+            out[-1] = _Band(out[-1].lines + b.lines)
+        else:
+            out.append(b)
+    return out
 
 
 def _make_regions(P):
     regs, cur, pend = [], None, []
-    pitch = 24.0
-    for b in P.bands:
-        if b.grid and not b.heading:
-            if cur is not None and b.y0 - cur.y1 <= pitch and _col_match(cur.lines, b.lines) >= 2:
-                for m in pend:
-                    cur.add(m, False)
-                cur.add(b, True)
+
+    def close_trailing():
+        for m in pend:
+            if m.y0 - cur.y1 <= 14 and cur.col0 - 4 <= m.x0 and not m.heading:
+                cur.add(m, False)       # the last row's wrapped cell lines
             else:
+                break
+    for b in _row_clusters(P.bands):
+        if b.grid and not b.heading:
+            last_y = max(cur.y1, pend[-1].y1) if (cur is not None and pend) else (cur.y1 if cur else 0)
+            if cur is not None and b.y0 - last_y <= 24 and _col_match(cur.lines, b.lines) >= 2:
+                if b.bold and len(cur.rows) > 1 and re.search('[a-z]', _sig(b))                         and any(_sig(r) == _sig(b) for r in cur.rows):
+                    # the same header row again: a new table starts here, with the bold title
+                    # row(s) sitting right on top of it
+                    lead = []
+                    while len(cur.rows) > 1 and cur.rows[-1].bold and b.y0 - cur.rows[-1].y1 <= 8 and not pend:
+                        lead.insert(0, cur.pop_row())
+                    new = _Region(lead[0] if lead else b)
+                    for r in lead[1:] + ([b] if lead else []):
+                        new.add(r, True)
+                    cur = new
+                    regs.append(cur)
+                else:
+                    for m in pend:
+                        cur.add(m, False)
+                    cur.add(b, not _continues_row(cur, b))
+            else:
+                if cur is not None:
+                    close_trailing()
                 cur = _Region(b)
                 regs.append(cur)
             pend = []
-        elif cur is not None and not b.heading and b.y0 - cur.y1 <= 14 and len(pend) < 3:
-            pend.append(b)               # a wrapped cell line / group row inside the table
+        elif (cur is not None and len(pend) < 12
+              and b.y0 - (pend[-1].y1 if pend else cur.y1) <= (6 if b.heading else 14)):
+            pend.append(b)               # a wrapped cell line / a group row inside the table
         else:
-            if cur is not None and pend:
-                # trailing wrapped lines of the last row belong to the table if aligned to a column
-                for m in pend:
-                    if any(abs(m.x0 - l.x0) < 4 for l in cur.lines) and m.y0 - cur.y1 <= 14:
-                        cur.add(m, False)
-                    else:
-                        break
+            if cur is not None:
+                close_trailing()
             cur, pend = None, []
-    if cur is not None and pend:
-        for m in pend:
-            if any(abs(m.x0 - l.x0) < 4 for l in cur.lines) and m.y0 - cur.y1 <= 14:
-                cur.add(m, False)
-            else:
-                break
+    if cur is not None:
+        close_trailing()
     P.regions = regs
 
 
@@ -375,19 +459,42 @@ def _tiles(P, y_top, y_lim):
                 boxes.append((x0, a, x1, b))
     boxes = [bx for bx in boxes if any(bx[0] - 1 <= l.x0 and l.x1 <= bx[2] + 1 and bx[1] - 1 <= l.y0
                                         and l.y1 <= bx[3] + 1 for l in P.lines)]
-    boxes.sort(key=lambda bx: (round(bx[1] / 3), bx[0]))
-    for i, a in enumerate(boxes):
-        row = [a]
-        for b in boxes[i + 1:]:
-            if abs(b[1] - a[1]) <= 3 and abs((b[3] - b[1]) - (a[3] - a[1])) <= 0.25 * (a[3] - a[1]) \
-                    and b[0] >= row[-1][2] + 2:
-                row.append(b)
-        if len(row) >= 2:
+    rows = []
+    for bx in sorted(boxes, key=lambda b: (b[1], b[0])):
+        for row in rows:
+            a = row[0]
+            if abs(bx[1] - a[1]) <= 3 and abs((bx[3] - bx[1]) - (a[3] - a[1])) <= 0.25 * (a[3] - a[1]):
+                if not any(abs(bx[0] - c[0]) < 3 and abs(bx[2] - c[2]) < 3 for c in row):
+                    row.append(bx)       # (a filled box and its border pair are the same tile)
+                break
+        else:
+            rows.append([bx])
+    for row in rows:
+        row.sort(key=lambda b: b[0])
+        gaps = [b[0] - a[2] for a, b in zip(row, row[1:])]
+        # cards stand apart; table cells touch (a row with touching boxes is a table row)
+        if len(row) >= 2 and all(g >= 2 for g in gaps):
             return row
     return None
 
 
-def _first_block(P, section_size):
+def _section_size(pages, body, firsts):
+    """The smallest heading size that marks a TOP-LEVEL section: clearly larger than the body
+    text and starting a page at least half of the times it occurs (sections that start on a
+    new page by design). A page-top heading at least this big is a section break."""
+    seen = collections.defaultdict(lambda: [0, 0])
+    for P in pages[1:]:
+        for b in P.bands:
+            if b.heading:
+                seen[round(b.size * 2) / 2][0] += 1
+    for P, (kind, _, size) in zip(pages[1:], firsts[1:]):
+        if kind == 'heading':
+            seen[round(size * 2) / 2][1] += 1
+    cands = [k for k, (n, t) in seen.items() if k >= 1.3 * body and t >= max(1, 0.5 * n)]
+    return min(cands) if cands else float('inf')
+
+
+def _first_block(P):
     """What page P starts with: ('heading'|'kpi'|'table'|'figure'|'text'|'empty', text, size)."""
     if P.empty:
         return 'empty', '', 0
@@ -433,11 +540,10 @@ def _below(P, y, head=None):
 def _table_split(A, B, a_reg, b_reg, area, flags):
     """Compare the table fragment ending page A with the one starting page B."""
     ha = a_reg.header_rows()
-    hdr_text = [norm(b.text) for b in a_reg.rows[:ha]]
     body_a = len(a_reg.rows) - ha
     hb = 0
-    while hb < len(b_reg.rows) and hb < 3 and b_reg.rows[hb].bold and (
-            not hdr_text or norm(b_reg.rows[hb].text) in hdr_text or hb < ha):
+    sigs = [_sig(r) for r in a_reg.rows[:ha]]
+    while hb < len(b_reg.rows) and hb < 3 and b_reg.rows[hb].bold and _sig(b_reg.rows[hb]) in sigs:
         hb += 1
     if hb == len(b_reg.rows) and hb > 1:
         hb = 0
@@ -452,13 +558,13 @@ def _table_split(A, B, a_reg, b_reg, area, flags):
         flags.append(_flag('small_table_split', A.no,
                            f'{what} ({body_a}+{body_b} rows, {height:.0f}pt = {height / area:.0%} of a page) '
                            f'fits on one page but is split p{A.no}->p{B.no}'))
-    if ha and not hb and body_b > 0:
+    if a_reg.header_rows(strict=True) and not hb and body_b > 0:
         flags.append(_flag('table_header_not_repeated', B.no,
                            f'{what} continues on p{B.no} without its header row '
                            f'{a_reg.rows[0].text[:40]!r}'))
 
 
-def _figure_cut(A, B):
+def _figure_cut(A, B, area_top, area_bottom):
     """A chart / diagram cut at the break between page A and page B (Chrome clips each part to
     its page: the part on A ends exactly on A's clip line, the part on B starts on B's)."""
     fa = [d for d in A.draws if not d.thin]
@@ -467,6 +573,8 @@ def _figure_cut(A, B):
         return None
     clip_a = max(d.y1 for d in A.draws)
     clip_b = min(d.y0 for d in B.draws)
+    if clip_a < area_bottom - 0.6 or clip_b > area_top + 0.6:
+        return None                       # ends above the page-area bottom: nothing was cut
     if A.bands and max(b.y1 for b in A.bands) > clip_a + 0.5:
         return None                       # text below the graphic: it ended on this page
     if B.bands and min(b.y0 for b in B.bands) < clip_b - 0.5:
@@ -507,10 +615,12 @@ def _analyze_pages(pages, hints=()):
     T = tops[len(tops) // 2]
     B = bots[int((len(bots) - 1) * 0.9)]
     area = max(B - T, 1.0)
-    heads = [b for P in pages[1:] for b in P.bands if b.heading] or [b for P in pages for b in P.bands if b.heading]
-    section_size = max((b.size for b in heads), default=0)
+    # the page-area edges: nothing on a normal page reaches past them (spilled pages aside)
+    area_bottom = max((P.bottom for P in full if P.bottom <= P.H - 8), default=B)
+    area_top = min((P.top for P in full if P.top >= 8), default=T)
+    firsts = [_first_block(P) for P in pages]
+    section_size = _section_size(pages, body, firsts)
     flags, info = [], []
-    firsts = [_first_block(P, section_size) for P in pages]
 
     for i, P in enumerate(pages):
         nxt = pages[i + 1] if i + 1 < n else None
@@ -521,10 +631,17 @@ def _analyze_pages(pages, hints=()):
                                                        'header / footer / frame'))
             continue
         # content running off the sheet
-        cut_t = [l for l in P.lines if l.y1 > P.H + 0.5 or l.y0 < -0.5]
+        cut_t = [l for l in P.lines if l.y1 > P.H - 0.5 or l.y0 < 0.5]
         if cut_t:
             flags.append(_flag('text_cut', P.no, 'text runs off the sheet: '
                                + '; '.join(repr(l.t[:50]) for l in cut_t[:3])))
+        elif P.no > 1 and T - 24 > 8:
+            high = [l for l in P.lines if l.y0 < T - 24]
+            if high:
+                flags.append(_flag('content_in_margin', P.no,
+                                   f'content starts at {min(l.y0 for l in high):.0f}pt, inside the top '
+                                   f'margin (the body starts at {T:.0f}pt on the other pages) - the page '
+                                   f'lost its margin / running header: ' + repr(high[0].t[:50])))
         edge = [d for d in P.draws if (d.ry1 > P.H + 0.5 and d.y0 < P.H - 2) or (d.ry0 < -0.5 and d.y1 > 2)]
         edge = [d for d in edge if d.img or (not d.thin and d.w < 0.85 * P.W and (d.ry1 - d.ry0) < 0.5 * P.H)]
         if edge:
@@ -553,10 +670,11 @@ def _analyze_pages(pages, hints=()):
         if P.regions and nxt.regions and kind_n == 'table':
             a_reg, b_reg = P.regions[-1], nxt.regions[0]
             tail = [it for it in _below(P, a_reg.y1 + 1) if it[2] != 'rule']
-            if not tail and b_reg.rows[0] is nxt.bands[0] and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2:
+            if (not tail and abs(b_reg.y0 - nxt.bands[0].y0) < 0.5
+                    and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2):
                 _table_split(P, nxt, a_reg, b_reg, area, flags)
         # a chart / diagram cut by the break
-        cut = _figure_cut(P, nxt)
+        cut = _figure_cut(P, nxt, area_top, area_bottom)
         if cut:
             flags.append(_flag('graphic_cut', P.no, f'a chart / diagram is cut by the page break '
                                                    f'p{P.no}->p{nxt.no} ({cut[0]} part(s) end on the '
@@ -566,7 +684,7 @@ def _analyze_pages(pages, hints=()):
         if fill < 1 - BLANK:
             what = f'page {P.no} ends at {max(fill, 0):.0%} of the page ({1 - max(fill, 0):.0%} blank); ' \
                    f'page {nxt.no} starts with {kind_n}' + (f' {text_n[:40]!r}' if text_n else '')
-            if kind_n == 'heading' and size_n >= section_size - 0.5:
+            if kind_n == 'heading' and size_n >= section_size - 0.3:
                 info.append(_flag('section_break_blank', P.no, what + ' (a new section)'))
             else:
                 flags.append(_flag('large_blank_then_continuation', P.no, what))
