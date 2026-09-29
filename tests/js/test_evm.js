@@ -91,6 +91,42 @@ test('attached but 0 matched → amber mismatch warning, not green', () => {
   assert.ok(s.title.toLowerCase().includes('no activities matched'));
   assert.deepEqual(s.actions, ['replace', 'remove']);
 });
+// baseline_source (server: embedded | attached | self) drives it — XER and XML alike (R4)
+test('XML exported WITHOUT its baseline (source self) → amber attach, says XML', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null });
+  assert.equal(s.cls, 'warn');
+  assert.deepEqual(s.actions, ['attach']);
+  assert.match(s.msg, /XML was exported without its baseline project/);
+  assert.match(s.msg, /XER or XML/);
+});
+test('XER update (source self) → amber attach, says P6 never writes it into an XER', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null });
+  assert.deepEqual(s.actions, ['attach']);
+  assert.match(s.msg, /XER/);
+});
+test('baseline embedded in the file → no banner, whatever the format', () => {
+  assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XML', attachedName: null }), null);
+  assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XER', attachedName: null }), null);
+});
+test('XML + attached baseline → green, same as XER + attached', () => {
+  const s = baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'BL.xer', matched: 10, total: 12 });
+  assert.equal(s.cls, 'ok');
+  assert.ok(s.title.includes('10/12 matched'));
+});
+test('an attached baseline that is no longer on disk is named in the banner', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null, missing: 'BL-Rev01.xer' });
+  assert.match(s.msg, /BL-Rev01\.xer\) is no longer available/);
+});
+{
+  const { baselineSource } = await import('../../ui/modules/baseline.js');
+  test('baselineSource: server value wins; attached name = attached; old results fall back by extension', () => {
+    assert.equal(baselineSource({ baseline_source: 'self' }, 'a.xml'), 'self');
+    assert.equal(baselineSource({ baseline_source: 'embedded' }, 'a.xer'), 'embedded');
+    assert.equal(baselineSource({ baseline_name: 'BL.xer' }, 'a.xml'), 'attached');
+    assert.equal(baselineSource({}, 'C:/x/update.XER'), 'self');
+    assert.equal(baselineSource({}, 'C:/x/update.xml'), 'embedded');
+  });
+}
 
 console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run again)');
 {

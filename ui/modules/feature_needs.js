@@ -128,7 +128,7 @@ export const FEATURE_NEEDS = [
   {
     id: 'evm', name: 'Earned Value', group: 'Progress & Performance',
     what: 'Planned vs earned value, SPI / CPI and finish delay from this update.',
-    hint: '1 update (XML with its baseline, or XER / XML + its baseline file) · optional E1 log (.xlsx)',
+    hint: '1 update + its baseline (inside the XML, or attached: XER or XML) · optional E1 log',
     files: [
       { n: 1, role: 'Current update (progressed, with a data date) — the imported file', formats: XER_OR_XML, k: 'p6' },
       { n: 1, role: 'Baseline — for an update that doesn’t carry it (an XER, or an XML exported without its baseline project); the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
