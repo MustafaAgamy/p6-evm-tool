@@ -201,17 +201,24 @@ def _output_target(args):
     return None
 
 
-def _stat(path):
+def _produced(target):
     try:
-        st = os.stat(path)
-        return (st.st_size, st.st_mtime_ns)
+        return os.path.getsize(target) > 0
     except OSError:
-        return None
+        return False
 
 
-def _produced(target, before):
-    now = _stat(target)
-    return bool(now) and now[0] > 0 and now != before
+def _clear_target(target):
+    """Remove an old file at the output path first, so 'the browser wrote it' is a fact and
+    a stale earlier export can never pass for the new one. A file the user has open (a PDF
+    viewer locks it) is a clear message, not a silent stale report."""
+    if not target or not os.path.exists(target):
+        return
+    try:
+        os.remove(target)
+    except OSError as exc:
+        raise RuntimeError(f'Cannot replace {os.path.basename(target)} - it is open in another '
+                           'program. Close it and export again.') from exc
 
 
 def run_chrome(chrome, args, timeout=180):
@@ -228,7 +235,7 @@ def run_chrome(chrome, args, timeout=180):
     if chrome is None and not _usable(_WORKING):
         chrome = find_working_chrome()                  # vet one before the real job
     target = _output_target(args)
-    before = _stat(target) if target else None
+    _clear_target(target)
     flags = [f for f in _BASE_FLAGS if not _has_flag(args, f)]
     own_profile = not _has_flag(args, '--user-data-dir')
     last = None
@@ -254,7 +261,7 @@ def run_chrome(chrome, args, timeout=180):
         finally:
             if prof:
                 shutil.rmtree(prof, ignore_errors=True)
-        if target and not _produced(target, before):
+        if target and not _produced(target):
             last = RuntimeError(f'{os.path.basename(exe)} ran but wrote no output')
             continue
         with _LOCK:
