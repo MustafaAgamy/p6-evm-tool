@@ -10,9 +10,13 @@
 //     *.xml;*.xer) and every engine reads the file through p6_evm/parser.parse_file, which
 //     accepts BOTH formats (p6_evm/xer.py for .xer). So "XER or XML" everywhere, except
 //     where a handler checks the extension (called out in `files[].note`).
-//   • baseline — an XML update carries its baseline only when it was exported from P6 WITH
-//     the baseline project (<BaselineProject>, parser.py). An XER never carries it: the XER
-//     reader takes the update's own Planned (target) dates instead (xer.py baseline_by_id).
+//   • baseline — ONE resolution for every feature (p6_evm/baseline.py, server._schedule_for):
+//     the baseline inside the file (an XML exported from P6 WITH its baseline project,
+//     <BaselineProject>, parser.py), else the baseline the planner attached for this update
+//     (XER or XML — "Attach baseline" on Earned Value / Update Analysis, remembered per snapshot:
+//     db.get_attached_baseline), else the file's own Planned dates stand in, flagged
+//     baseline_source 'self' (an XER never carries its baseline; nor does an XML exported
+//     without it — xer.py / parser.py baseline_by_id).
 //   • second / third files — from each feature's server handler + panel (compare.js,
 //     revcompare.js, period.js, critpath.js, special providers).
 //
@@ -33,11 +37,13 @@ const XER_OR_XML = 'XER or XML';
 
 // What to do when an update carries no baseline for Update Analysis. Shown on the Update Analysis
 // screen (update.js, code 'no_baseline') AND in the Help note below, so the two can never disagree.
-// /api/update/analyze reads only the one update file — it never uses a baseline attached on the
-// Earned Value screen — so the only fixes are a re-export with the baseline, or the XER.
+// /api/update/analyze reads the update through the one baseline resolver (server._schedule_for:
+// the baseline inside the file, else the one attached for this update) and refuses to measure it
+// against its own Planned dates — so attaching the baseline (XER or XML) is the fix.
 export const UPDATE_NO_BASELINE_ADVICE =
-  'Re-export this update from P6 as XML with its baseline project included, or import the update as an XER — ' +
-  'an XER uses the update’s own Planned dates as the baseline (approximate).';
+  'Attach the baseline (XER or XML) with the button on this screen or on Earned Value — it is remembered ' +
+  'for this update and used by every feature — or re-export the update from P6 as XML with its baseline ' +
+  'project included.';
 
 export const FEATURE_NEEDS = [
   {
@@ -122,17 +128,17 @@ export const FEATURE_NEEDS = [
   {
     id: 'evm', name: 'Earned Value', group: 'Progress & Performance',
     what: 'Planned vs earned value, SPI / CPI and finish delay from this update.',
-    hint: '1 update (XML with its baseline, or XER + baseline file) · optional E1 log (.xlsx)',
+    hint: '1 update (XML with its baseline, or XER / XML + its baseline file) · optional E1 log (.xlsx)',
     files: [
       { n: 1, role: 'Current update (progressed, with a data date) — the imported file', formats: XER_OR_XML, k: 'p6' },
-      { n: 1, role: 'Baseline — only for an XER update; the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
-        note: 'An XER never carries its baseline, so without it Planned Value, SPI and Delay are approximate. An XML must be exported from P6 with its baseline project included — a separate baseline cannot be attached to an XML (an XML without it shows no Planned Value or SPI).' },
+      { n: 1, role: 'Baseline — for an update that doesn’t carry it (an XER, or an XML exported without its baseline project); the tool asks for it after you run', formats: XER_OR_XML, k: 'optional',
+        note: 'An XER never carries its baseline, and an XML carries it only when exported from P6 with the baseline project included. Without it, Planned Value, SPI and Delay are measured against the update’s own Planned dates (approximate). With the baseline attached the results equal the XML exported with its baseline — and the attachment is remembered for this update and used by every feature (Update Analysis, reports, AI Chat).' },
     ],
     other: [
       'Project Setup (✎ on the Earned Value screen) — category weights and Actual Cost.',
       'Optional: one or more E1 / design / shop-drawing logs (Excel .xlsx or .xlsm) for the Engineering section.',
     ],
-    recommend: 'XML exported from P6 with its baseline project included — one file, exact Planned Value.',
+    recommend: 'XML exported from P6 with its baseline project included — one file, exact Planned Value. An update + its attached baseline gives the same numbers.',
     produces: 'PV, EV, AC, SPI, CPI, delay in days and category progress.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],   // the preview's export bar (report adopted: docs/report-picker-adoption.md)
     start: 'Navigator ▸ Progress & Performance ▸ Earned Value (Alt+1)',
@@ -149,12 +155,16 @@ export const FEATURE_NEEDS = [
   },
   {
     id: 'update', name: 'Update Analysis', group: 'Progress & Performance',
-    what: 'This update measured against the baseline carried inside the same file.',
-    hint: '1 update — XML exported with its baseline (XER: approximate)',
-    files: [{ n: 1, role: 'Current update — the imported file; the baseline must be INSIDE it', formats: XER_OR_XML, k: 'p6',
-      note: 'XML: export it from P6 with the baseline project included — an XML without it stops with "no baseline inside it". XER: an XER never carries its baseline, so the tool uses the update’s own Planned dates as the baseline (approximate). A baseline attached on the Earned Value screen is not used here. If the screen says there is no baseline: ' + UPDATE_NO_BASELINE_ADVICE }],
+    what: 'This update measured against its baseline — the one inside the file, or the one attached for it.',
+    hint: '1 update + its baseline (inside the XML, or attached: XER or XML)',
+    files: [
+      { n: 1, role: 'Current update — the imported file', formats: XER_OR_XML, k: 'p6',
+        note: 'Needs a real baseline. An XML exported from P6 with its baseline project included carries it; an XER never does, nor does an XML exported without it — then the screen stops with "no baseline" (it never measures the update against its own Planned dates) and offers to attach it. If the screen says there is no baseline: ' + UPDATE_NO_BASELINE_ADVICE },
+      { n: 1, role: 'Baseline — only when the update doesn’t carry it; attach it on this screen or on Earned Value', formats: XER_OR_XML, k: 'optional',
+        note: 'The same attachment Earned Value uses — remembered for this update and used by every feature. Update + attached baseline gives the same result as the XML exported with its baseline.' },
+    ],
     other: [],
-    recommend: 'XML exported from P6 with its baseline — the only way this feature reads the true baseline.',
+    recommend: 'XML exported from P6 with its baseline — one file. An XER (or an XML without it) + its attached baseline gives the same result.',
     produces: 'Time status, planned vs actual by activity code, activity counts, scope weights and the critical path.',
     exports: ['PDF', 'Excel'],
     start: 'Navigator ▸ Progress & Performance ▸ Update Analysis (Alt+3)',
@@ -255,7 +265,7 @@ export const FEATURE_NEEDS = [
     files: [
       { n: 1, role: 'An imported schedule (to open the Studio)', formats: XER_OR_XML, k: 'p6' },
       { n: 1, role: 'Only for comparison items: baseline, previous update or Rev.00 — the Studio asks for it', formats: XER_OR_XML, k: 'optional',
-        note: 'Every slot accepts XER or XML, whatever its label says ("Baseline XER", "Rescheduled corrected (but-for) XML"). The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
+        note: 'Every slot accepts XER or XML, whatever its label says (the "Rescheduled corrected (but-for) XML" slot too). The open schedule is read with its own baseline, else the one attached on Earned Value / Update Analysis. The but-for item needs the rescheduled corrected file — writing that corrected file (in Consultant Review) needs the update as XML; the rescheduled re-export itself can be XER or XML.' },
     ],
     other: [],
     produces: 'One composed report from the results you pick, in the order you choose.',
