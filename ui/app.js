@@ -29,7 +29,7 @@ import { needsHint, needsTooltip }              from './modules/feature_needs.js
 import { DOC_KINDS, docExportRoute, requestDocExport, clearDocExport, noDocExportMessage } from './modules/export_intent.js';
 import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
 import { playBoot }                            from './modules/boot.js';
-import { playFeatureReveal }                   from './modules/featurereveal.js';
+import { revealAndRun }                        from './modules/featurereveal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
@@ -150,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 
-  // Compute + render a feature's results (the actual analysis).
+  // Compute + render a feature's results (the actual analysis). Async features RETURN their
+  // work promise so the shared Run presentation reaches 100% only once their results are in.
   function runFeature(view) {
     const r = state.currentResult;
     switch (view) {
@@ -163,11 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'lag':        renderLagPanel(r.audit_modules); break;
       case 'calendar':   renderCalendar(r.calendar_audit); break;
       case 'weather':    renderWeatherView(r.calendar_audit); break;
-      case 'construct':  renderConstructPanel(); break;
+      case 'construct':  return renderConstructPanel();
       case 'chat':       renderChat(); break;
-      case 'narrative':  renderNarrative(); break;
-      case 'update':     renderUpdatePanel(); break;
-      case 'special':    renderSpecialPanel(); break;
+      case 'narrative':  return renderNarrative();
+      case 'update':     return renderUpdatePanel();
+      case 'special':    return renderSpecialPanel();
       case 'compare':    renderComparePanel(); break;
       case 'revcompare': renderRevComparePanel(); break;
       case 'period':     renderPeriodPanel(); break;
@@ -207,11 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
       gate.classList.add('hidden');
       switchView(view);
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // Brief branded "opening the feature" reveal (same motion family as the startup
-      // splash), then render the results underneath it. Overlay the full content area
-      // (the feature panel is still empty here, so it has no height to cover).
-      const host = document.querySelector('main.content') || document.getElementById('results-section') || document.getElementById(view + '-panel');
-      playFeatureReveal(host, { title: meta.title, onDone: () => runFeature(view) });
+      // Shared Run presentation (featurereveal.js): the feature computes + renders UNDER the
+      // overlay from the start, and the bar reaches 100% only once its results are painted —
+      // then the overlay lifts at once (owner comment 36: no wait after 100%).
+      const host = document.getElementById('analysis-views') || document.getElementById(view + '-panel');
+      revealAndRun(host, meta.title, () => runFeature(view));
     });
     // Secondary action — re-open the native file picker to import a different schedule.
     gate.querySelector('.fg-change').addEventListener('click', () => { triggerBrowse(); });

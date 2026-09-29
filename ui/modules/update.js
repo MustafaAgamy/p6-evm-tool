@@ -145,7 +145,7 @@ export function renderUpdatePanel() {
     return;
   }
   body.innerHTML = `<div class="ua-empty">Reading this update against its baseline…</div>`;
-  _runAnalyze();
+  return _runAnalyze();
 }
 
 async function _runAnalyze() {

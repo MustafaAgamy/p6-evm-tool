@@ -1179,7 +1179,7 @@ export function renderNarrativePanel() {
       '</div>';
     const edit = document.getElementById('bn-edit-setup');
     if (edit) edit.addEventListener('click', () => startSetupChat());
-    startSetupChat();
+    return startSetupChat();          // the Run presentation waits for the first question
   }
 }
 

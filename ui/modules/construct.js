@@ -345,5 +345,5 @@ async function fetchAndRender(forcedType) {
 
 export function renderConstructPanel() {
   if (state.constructReport) { renderReport(state.constructReport); return; }
-  fetchAndRender(state.constructForcedType || null);
+  return fetchAndRender(state.constructForcedType || null);
 }
