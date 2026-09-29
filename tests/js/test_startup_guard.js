@@ -269,6 +269,122 @@ test('install() registers once on window.__cxStartup', () => {
   assert.equal(G.install(w.win), a);
 });
 
+// ── real start-up steps (BLACK-9: the splash shows these, never a scripted stage) ──
+const healthGets = w => w.gets.filter(x => x.url === '/api/health');
+
+test('steps: health answered -> server; booted -> program; ready -> screen; app.js -> history', () => {
+  const w = fakeWorld();
+  const g = start(w);
+  const seen = [];
+  g.onChange(what => seen.push(what));
+  assert.deepEqual([...G.STEPS], ['server', 'program', 'screen', 'history']);
+  assert.equal(g.current(), 'server');
+  assert.equal(healthGets(w).length, 1, 'the readiness handshake is probed at once');
+  healthGets(w)[0].cb({ ok: true, db: { status: 'ok' } });
+  assert.equal(g.steps.server, true);
+  assert.deepEqual(g.health.db, { status: 'ok' });
+  assert.equal(g.current(), 'program');
+  g.booted();
+  assert.equal(g.current(), 'screen');
+  g.ready();
+  assert.equal(g.current(), 'history');
+  assert.equal(g.step('history'), true);
+  assert.equal(g.step('history'), false, 'a step happens once');
+  assert.equal(g.step('bogus'), false);
+  assert.equal(g.current(), '');
+  assert.deepEqual(seen, ['server', 'program', 'screen', 'phase', 'history']);
+});
+
+test('steps: a module graph that loaded proves the server answers, even before /api/health', () => {
+  const w = fakeWorld();
+  const g = start(w);
+  g.booted();
+  assert.equal(g.steps.server, true);
+  assert.equal(g.steps.program, true);
+});
+
+test('health: an error is re-probed with backoff; a later answer completes the step', () => {
+  const w = fakeWorld();
+  const calls = [];
+  w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
+  const g = G.create(w.win, w.opts).start();
+  calls[0].onErr('HTTP 500');
+  assert.equal(calls.length, 1);
+  w.advance(G.HEALTH_RETRY_MS[0]);
+  assert.equal(calls.length, 2, 're-probed after the first backoff');
+  calls[1].cb({ ok: true });
+  assert.equal(g.steps.server, true);
+  assert.equal(g.phase, 'loading');
+});
+
+test('health: a server that refuses every probe before the program loads fails the start (Retry path)', () => {
+  const w = fakeWorld();
+  const calls = [];
+  w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
+  const g = G.create(w.win, w.opts).start();
+  for (let i = 0; i <= G.HEALTH_RETRY_MS.length; i++) {
+    calls[i].onErr('Failed to fetch');
+    if (i < G.HEALTH_RETRY_MS.length) w.advance(G.HEALTH_RETRY_MS[i]);
+  }
+  assert.equal(calls.length, G.HEALTH_RETRY_MS.length + 1);
+  assert.equal(g.phase, 'retrying');
+  assert.ok(w.posts.some(p => p.kind === 'health' && /did not answer/.test(p.message)));
+  assert.ok(w.posts.some(p => p.kind === 'health' && /GET \/api\/health: Failed to fetch/.test(p.detail)));
+});
+
+test('health: probes failing after the program loaded are not fatal (the server clearly answers)', () => {
+  const w = fakeWorld();
+  const calls = [];
+  w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
+  const g = G.create(w.win, w.opts).start();
+  g.booted();
+  calls[0].onErr('HTTP 500');
+  w.advance(10000);
+  assert.equal(calls.filter(c => c.url === '/api/health').length, 1, 'no re-probe once the step is done');
+  assert.equal(g.phase, 'loading');
+  g.ready();
+  assert.equal(g.phase, 'ready');
+});
+
+test('phase changes are told to listeners (the splash steps aside on retry/failure)', () => {
+  const w = fakeWorld({ attempt: 3 });
+  const g = start(w);
+  const seen = [];
+  g.onChange((what, guard) => seen.push(what + ':' + guard.phase));
+  g.fail('load-failed', 'x.js');
+  assert.deepEqual(seen, ['phase:failed']);
+  const w2 = fakeWorld();
+  const g2 = start(w2);
+  const seen2 = [];
+  const off = g2.onChange((what, guard) => seen2.push(what + ':' + guard.phase));
+  w2.advance(G.SLOW_MS);
+  assert.deepEqual(seen2, ['phase:slow']);
+  off();
+  g2.ready();
+  assert.deepEqual(seen2, ['phase:slow'], 'unsubscribed');
+});
+
+test('a listener that throws never breaks the guard', () => {
+  const w = fakeWorld();
+  const g = start(w);
+  g.onChange(() => { throw new Error('boom'); });
+  g.booted();
+  g.ready();
+  assert.equal(g.phase, 'ready');
+});
+
+test('the cover says the real current step (server, then program files)', () => {
+  const w = fakeWorld();
+  const cover = fakeEl('span');
+  cover.id = 'cx-cover-stage';
+  w.doc.body.appendChild(cover);
+  const g = start(w);
+  assert.equal(cover.textContent, 'Starting local server…');
+  healthGets(w)[0].cb({ ok: true });
+  assert.equal(cover.textContent, 'Loading program files…');
+  void g;
+});
+
 // ── wiring ────────────────────────────────────────────────────────────────
 test('guard source is safe to inline and never uses alert/confirm/prompt (WebView2 no-ops)', () => {
   assert.ok(!SRC.includes('<!--'), 'no HTML comment opener inside an inline script');
@@ -283,6 +399,13 @@ test('index.html carries the guard marker before the stylesheet and a visible St
   const mark = html.indexOf('<!--cx:startup-guard-->');
   assert.ok(mark > 0 && mark < html.indexOf('/ui/style.css'), 'marker before the stylesheet');
   assert.match(html, /<div id="brand-splash"><div class="cxb-note">[\s\S]*Starting/);
+  assert.match(html, /<span id="cx-cover-stage">Starting local server…<\/span>/,
+    'the cover names the real first step, which the guard updates');
+});
+
+test('app.js marks the history step when the first Recent Projects call settles', () => {
+  const js = read('ui', 'app.js');
+  assert.match(js, /loadHistory\(\)\.finally\(\(\) => \{ if \(window\.__cxStartup\) window\.__cxStartup\.step\('history'\); \}\);/);
 });
 
 test('app.js reports booted() at module start and ready() at the end of startup', () => {

@@ -68,6 +68,9 @@ export const BOOT_STEPS = [
   ['history', 'Opening project history'],
 ];
 
+// A page served without the guard: nothing to wait for (a plain timed presentation).
+const NO_GUARD_STEPS = Object.fromEntries(BOOT_STEPS.map(s => [s[0], true]));
+
 // Caption + bar for timeline position t (0..1 of the 11-s presentation) given the steps
 // really done. The bar follows the timeline but never passes the first step not yet done;
 // the caption names the step the bar is on; 'Ready' only at 100 %, i.e. all steps done.
@@ -187,7 +190,7 @@ export function playBoot(opts) {
     wm.style.opacity = wp.toFixed(3); wm.style.transform = 'translate(-50%,' + ((1 - wp) * 10).toFixed(1) + 'px)';
     nm.style.clipPath = 'inset(0 ' + ((1 - wp) * 100).toFixed(1) + '% 0 0)';
     // Caption + bar from the REAL steps (held at the first one not yet done).
-    const p = bootProgress(t, guard ? guard.steps : null);
+    const p = bootProgress(t, guard ? guard.steps : NO_GUARD_STEPS);
     barf.style.width = (p.prog * 100).toFixed(1) + '%'; pct.textContent = p.pct + '%';
     if (capt.textContent !== p.label) capt.textContent = p.label;
     // The splash stays fully opaque through the presentation; finish() does one quick
