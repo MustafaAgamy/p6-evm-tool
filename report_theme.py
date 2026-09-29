@@ -387,6 +387,14 @@ def pagination_script():
         "if(hg>flow)todo.push([el,'rpt-flow']);"
         "else if(hg<=fit&&el.tagName!=='TR')todo.push([el,'rpt-fit']);"
         "if(el.tagName==='TABLE'){if(hg>fit&&!el.tHead)todo.push([el,'@head']);"
+        # a table too big to be "small" continues on the next page with its header repeated
+        # (owner: keep a table together when it fits, otherwise continue it intentionally) —
+        # never pushed whole to leave the page above it half blank. The renderer's own
+        # keep-whole on the table and on its thin wrappers (label + table blocks, flex
+        # pairs) is lifted; rows still never split and never strand 1-2 rows.
+        "if(hg>fit&&hg<=flow&&!el.closest('td,th')){todo.push([el,'rpt-flow']);"
+        "for(var a=el.parentElement,d=0;a&&a!==document.body&&d<3;d++,a=a.parentElement){"
+        "if(hOf(a)>flow)break;todo.push([a,'rpt-flow']);}}"
         "var host=el.parentElement,cs=host?getComputedStyle(host):null,"
         "avail=host?host.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0):0;"
         "if(avail>80&&r.width>avail+2)todo.push([el,'@zoom',Math.max(0.55,avail/r.width)]);}}\n"
