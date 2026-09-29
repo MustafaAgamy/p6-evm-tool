@@ -26,6 +26,11 @@ MAX_KEY_LEN = 200
 MAX_VALUE_LEN = 512 * 1024          # one value (a picker selection is a few hundred bytes)
 MAX_TOTAL_LEN = 4 * 1024 * 1024     # the whole file
 MAX_KEYS = 2000
+# Keys kept elsewhere, never here: the Baseline Narrative project setup ('bn_setup_<id>')
+# holds logos + a layout drawing (often over MAX_VALUE_LEN, and everything here is inlined
+# into index.html at every start) — it is saved per schedule in the database instead
+# (POST /api/narrative/setup). ui/prefs_bridge.js does not send these keys either.
+EXCLUDED_PREFIXES = ('bn_setup_',)
 
 _LOCK = threading.Lock()
 
@@ -42,7 +47,8 @@ def _clean(data):
     if not isinstance(data, dict):
         return {}
     return {k: v for k, v in data.items()
-            if isinstance(k, str) and isinstance(v, str) and 0 < len(k) <= MAX_KEY_LEN}
+            if isinstance(k, str) and isinstance(v, str) and 0 < len(k) <= MAX_KEY_LEN
+            and not k.startswith(EXCLUDED_PREFIXES)}
 
 
 def _read(path, attempts=5):
@@ -114,6 +120,7 @@ def update(store_dir, set_=None, remove=None):
         size = len(json.dumps(cur, ensure_ascii=False))
         for k, v in set_.items():
             if (not isinstance(k, str) or not k or len(k) > MAX_KEY_LEN
+                    or k.startswith(EXCLUDED_PREFIXES)
                     or not isinstance(v, str) or len(v) > MAX_VALUE_LEN):
                 skipped.append(k if isinstance(k, str) else repr(k))
                 continue

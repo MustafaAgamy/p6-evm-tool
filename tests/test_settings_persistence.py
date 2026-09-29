@@ -387,3 +387,73 @@ def test_lag_justification_survives_reopen_and_restart(test_server, tmp_path):
         assert reason(_reopen(httpd.server_address[1])['result']) == 'Cure 28 days per MS-07'
     finally:
         httpd.shutdown()
+
+
+# ── Baseline Narrative project setup (SET-2): in the database, not browser storage ──
+
+def _snapshot():
+    pid = db.upsert_project('NAR-1', 'Narrative Project')
+    return pid, db.insert_snapshot(pid, '2026-01-05', 'n.xml', None, 'hash-n', 3, 1)
+
+
+def test_narrative_setup_with_big_images_survives_restart(test_server, tmp_path):
+    """[startup:F3] SET-2: the setup (parties, contract details, logos + layout drawing) lived
+    only in the web view's storage — empty after every restart — and the screen-preferences
+    file skips any value over 512 KB, so a setup with a layout drawing was lost whole. It is
+    now kept per imported schedule in the database; nothing of it lands in ui_prefs.json
+    (which is inlined into index.html at every start)."""
+    import ui_prefs
+    _, sid = _snapshot()
+    drawing = 'data:image/jpeg;base64,' + 'Q' * (3 * 1024 * 1024)       # a 3 MB layout image
+    setup = {'owner': 'Roots Owner', 'contract_type': 'FIDIC Red Book', 'revision': 'REV.03',
+             'owner_logo': 'data:image/png;base64,' + 'L' * 90_000, 'layout': drawing}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid}) == {'ok': True, 'setup': None}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid, 'setup': setup}) == {'ok': True}
+    httpd = _restart()
+    try:
+        port = httpd.server_address[1]
+        got = _post(port, '/api/narrative/setup', {'snapshot_id': sid})
+        assert got['ok'] is True and got['setup'] == setup
+        _, page = _get(port, '/')
+        assert b'QQQQQQQQ' not in page and len(page) < 2_000_000       # never inlined
+    finally:
+        httpd.shutdown()
+    assert not any(k.startswith('bn_setup_') for k in ui_prefs.load(str(tmp_path)))
+    # clearing the setup (empty) removes the saved copy
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid, 'setup': {}}) == {'ok': True}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid})['setup'] is None
+
+
+def test_narrative_setup_refusals_are_plain(test_server, monkeypatch):
+    _, sid = _snapshot()
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': 99999})['error'] == 'Open a schedule first.'
+    assert _post(test_server, '/api/narrative/setup', {})['error'] == 'Open a schedule first.'
+    r = _post(test_server, '/api/narrative/setup', {'snapshot_id': sid, 'setup': ['x']})
+    assert r['ok'] is False and 'not understood' in r['error']
+
+    def busy(*a, **k):
+        import sqlite3
+        raise sqlite3.OperationalError('database is locked')
+    monkeypatch.setattr(db, 'save_snapshot_ui_state', busy)
+    conn = http.client.HTTPConnection('127.0.0.1', test_server, timeout=20)
+    conn.request('POST', '/api/narrative/setup', body=json.dumps({'snapshot_id': sid, 'setup': {'owner': 'A'}}),
+                 headers={'Content-Type': 'application/json'})
+    resp = conn.getresponse()
+    assert resp.status == 503 and 'busy' in json.loads(resp.read())['error']
+
+
+def test_ui_prefs_never_store_the_narrative_setup(tmp_path):
+    import ui_prefs
+    d = str(tmp_path)
+    n, skipped = ui_prefs.update(d, {'bn_setup_5': '{"owner":"x"}', 'p6evm_wbs_cols': '["a"]'})
+    assert skipped == ['bn_setup_5'] and ui_prefs.load(d) == {'p6evm_wbs_cols': '["a"]'}
+    with open(ui_prefs.prefs_path(d), 'w', encoding='utf-8') as f:     # an older file that has one
+        json.dump({'bn_setup_9': '{}', 'per_cp_style': 'bars'}, f)
+    assert ui_prefs.load(d) == {'per_cp_style': 'bars'}
+
+
+def test_deleting_a_project_removes_its_narrative_setup(test_server):
+    pid, sid = _snapshot()
+    db.save_snapshot_ui_state(sid, 'narrative_setup', {'owner': 'A'})
+    db.delete_project(pid)
+    assert db.get_snapshot_ui_state(sid, 'narrative_setup') is None

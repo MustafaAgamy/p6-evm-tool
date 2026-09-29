@@ -135,6 +135,21 @@ await test('a set after a remove (and vice versa) keeps only the newest intent',
   assert.deepEqual(io.posts[0].body, { set: { k: 'c' }, remove: ['j'] });
 });
 
+await test('[startup:F3] the Narrative project setup (bn_setup_*, logos + layout drawing) is never mirrored', async () => {
+  const big = 'data:image/png;base64,' + 'A'.repeat(700 * 1024);   // over ui_prefs' 512 KB cap
+  const { ls, io } = install({ stored: { bn_setup_7: '{"owner":"x"}', keep: 'y' }, saved: {} });
+  ls.setItem('bn_setup_12', JSON.stringify({ owner: 'Roots', owner_logo: big }));
+  ls.setItem('p6evm_wbs_cols', '["code","name"]');
+  ls.removeItem('bn_setup_7');
+  await io.tick();
+  assert.equal(io.posts.length, 1);
+  assert.deepEqual(io.posts[0].body, { set: { keep: 'y', p6evm_wbs_cols: '["code","name"]' }, remove: [] });
+  ls.clear();
+  await io.tick();
+  assert.deepEqual(io.posts[1].body.remove.sort(), ['keep', 'p6evm_wbs_cols']);
+  assert.ok(B.SKIP.test('bn_setup_default') && !B.SKIP.test('p6_report_appearance'));
+});
+
 await test('clear() removes every key the page held', async () => {
   const { ls, io } = install({ saved: { a: '1', b: '2' } });
   ls.clear();

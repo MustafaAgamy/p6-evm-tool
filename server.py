@@ -402,6 +402,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/narrative/setup':           # Narrative project setup (DB)
+            self._handle_narrative_setup(body)
         elif self.path == '/api/narrative/choices':
             self._handle_narrative_choices(body)
         elif self.path == '/api/narrative/docx':
@@ -3262,6 +3264,39 @@ class Handler(BaseHTTPRequestHandler):
             return
         db.save_project_settings(pid, {'evm_setup': setup})
         self._json(200, {'ok': True, 'evm_setup': setup})
+
+    # ── /api/narrative/setup ────────────────────────────────────────────────
+    _NARRATIVE_SETUP_MAX = 40 * 1024 * 1024      # JSON chars: logos + a large layout drawing
+
+    def _handle_narrative_setup(self, body):
+        """The Baseline Narrative project setup (parties, contract details, logos, layout
+        drawing) for one imported schedule, kept in the database. It used to live only in
+        the web view's storage, which is empty after every restart, and its images are too
+        big for ui_prefs.json (a value over 512 KB was skipped, losing the whole setup).
+        {snapshot_id} -> {ok, setup|None}; {snapshot_id, setup} saves (setup null clears)."""
+        sid = body.get('snapshot_id') if isinstance(body, dict) else None
+        if not sid or not db.get_project_id_for_snapshot(sid):
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        if 'setup' not in body:
+            self._json(200, {'ok': True, 'setup': db.get_snapshot_ui_state(sid, 'narrative_setup')})
+            return
+        setup = body.get('setup')
+        if setup is not None and not isinstance(setup, dict):
+            self._json(200, {'ok': False, 'error': 'The project setup was not understood.'})
+            return
+        if setup is not None and len(json.dumps(setup)) > self._NARRATIVE_SETUP_MAX:
+            self._json(200, {'ok': False, 'error': 'The logos and layout drawing are too large '
+                                                   'to keep (over 40 MB). Use smaller images.'})
+            return
+        try:
+            db.save_snapshot_ui_state(sid, 'narrative_setup', setup or None)
+        except Exception as exc:                  # noqa: BLE001 — DB busy/locked: page retries
+            app_startup.log('narrative setup not saved (%r)', exc)
+            self._json(503, {'ok': False, 'error': 'The database is busy; the setup was not '
+                                                   'saved yet.'})
+            return
+        self._json(200, {'ok': True})
 
     # ── /api/lag/justification ──────────────────────────────────────────────
     def _handle_lag_justification(self, body):

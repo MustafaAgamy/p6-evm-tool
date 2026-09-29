@@ -27,6 +27,9 @@
   var URL_PATH = '/api/ui-prefs';
   var DEBOUNCE_MS = 400;
   var RETRY_MS = [1000, 3000, 8000, 20000];
+  // Kept elsewhere (ui_prefs.EXCLUDED_PREFIXES): the Narrative project setup holds logos +
+  // a layout drawing and is saved per schedule in the database (/api/narrative/setup).
+  var SKIP = /^bn_setup_/;
 
   function hasOwn(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
   function any(o) { for (var k in o) { if (hasOwn(o, k)) return true; } return false; }
@@ -110,13 +113,13 @@
       try {
         for (i = 0; i < ls.length; i++) {
           k = ls.key(i);
-          if (k != null && !hasOwn(saved, k)) pendSet[k] = ls.getItem(k);
+          if (k != null && !hasOwn(saved, k) && !SKIP.test(k)) pendSet[k] = ls.getItem(k);
         }
       } catch (e) { /* ignore */ }
       // 3. every later change -> the app
       proto.setItem = function (key, value) {
         nativeSet.apply(this, arguments);                 // a quota error throws: nothing recorded
-        if (this === ls) {
+        if (this === ls && !SKIP.test(String(key))) {
           key = String(key);
           pendSet[key] = String(value);
           delete pendRem[key];
@@ -125,7 +128,7 @@
       };
       proto.removeItem = function (key) {
         nativeRem.apply(this, arguments);
-        if (this === ls) {
+        if (this === ls && !SKIP.test(String(key))) {
           key = String(key);
           delete pendSet[key];
           pendRem[key] = 1;
@@ -137,7 +140,10 @@
         if (this === ls) { try { for (var j = 0; j < ls.length; j++) gone.push(ls.key(j)); } catch (e) { /* ignore */ } }
         nativeClear.apply(this, arguments);
         if (this === ls) {
-          for (var n = 0; n < gone.length; n++) { delete pendSet[gone[n]]; pendRem[gone[n]] = 1; }
+          for (var n = 0; n < gone.length; n++) {
+            if (SKIP.test(String(gone[n]))) continue;
+            delete pendSet[gone[n]]; pendRem[gone[n]] = 1;
+          }
           schedule();
         }
       };
@@ -161,6 +167,6 @@
     return b;
   }
 
-  return { create: create, install: install, URL_PATH: URL_PATH,
+  return { create: create, install: install, URL_PATH: URL_PATH, SKIP: SKIP,
            DEBOUNCE_MS: DEBOUNCE_MS, RETRY_MS: RETRY_MS };
 }));

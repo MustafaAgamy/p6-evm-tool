@@ -169,6 +169,18 @@ def init_db():
                 settings_json TEXT
             );
 
+            -- What the user typed/attached on a screen for ONE imported schedule that is
+            -- too big for ui_prefs.json and must survive a restart: the Baseline Narrative
+            -- project setup (parties, contract details, logos + layout drawing as images).
+            -- Kept out of project_settings so those images never ride along with every
+            -- /api/parse and /api/project/load answer.
+            CREATE TABLE IF NOT EXISTS snapshot_ui_state (
+                snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),
+                key         TEXT    NOT NULL,
+                value_json  TEXT,
+                PRIMARY KEY (snapshot_id, key)
+            );
+
             -- Milestone finishes per snapshot, extracted once for the Update-vs-Update
             -- milestone trend (slip chart). A single '__none__' row marks a snapshot as
             -- scanned when it has no milestones, so it is never re-parsed.
@@ -572,6 +584,27 @@ def get_project_id_for_snapshot(snapshot_id):
     return row['project_id'] if row else None
 
 
+def get_snapshot_ui_state(snapshot_id, key):
+    """A screen's saved state for one imported schedule (e.g. the Narrative project
+    setup), or None when nothing was saved."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT value_json FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
+                           (snapshot_id, key)).fetchone()
+    return _json.loads(row['value_json']) if row and row['value_json'] else None
+
+
+def save_snapshot_ui_state(snapshot_id, key, value):
+    """Save (or with ``value=None`` clear) a screen's state for one imported schedule."""
+    with get_conn() as conn:
+        if value is None:
+            conn.execute('DELETE FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
+                         (snapshot_id, key))
+        else:
+            conn.execute('INSERT OR REPLACE INTO snapshot_ui_state (snapshot_id, key, value_json) '
+                         'VALUES (?, ?, ?)', (snapshot_id, key, _json.dumps(value, default=str)))
+    return value
+
+
 def save_calendar_audit(snapshot_id, result):
     """Store the Calendar Audit result (JSON) for a snapshot."""
     with get_conn() as conn:
@@ -736,6 +769,7 @@ def delete_project(project_id):
             conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM metrics          WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM snapshot_ui_state WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_settings WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
