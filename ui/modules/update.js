@@ -151,29 +151,40 @@ export function renderUpdatePanel() {
 
 async function _runAnalyze() {
   const body = document.getElementById('update-body');
+  // The import already recorded whether this file carries its own baseline (the very test the
+  // server makes, has_embedded_baseline). When it does not, answer at once — no whole-file
+  // re-read under the Run bar just to say so. Unknown (older snapshot) → ask the server.
+  if (state.currentResult && state.currentResult.has_embedded_baseline === false) {
+    _showAnalysis(body, { ok: false, code: 'no_baseline' });
+    return;
+  }
   revealStage('Reading this update against its baseline');   // the open Run bar names the real step
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', summary_level: _summaryLevel }),
     });
-    const data = await resp.json();
-    if (!data.ok) {
-      if (data.code === 'no_baseline') {
-        body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update has no baseline inside it.</div>
-          <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div></div>`;
-        return;
-      }
-      body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
-      return;
-    }
-    _shownReport = data.report;
-    if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
-    if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
-    _render(data.report);
+    _showAnalysis(body, await resp.json());
   } catch {
     if (body) body.innerHTML = `<div class="ua-empty">Could not reach the local server. Try re-importing the schedule.</div>`;
   }
+}
+
+// Paints one /api/update/analyze answer (or the instant no-baseline answer above) into the body.
+function _showAnalysis(body, data) {
+  if (!data.ok) {
+    if (data.code === 'no_baseline') {
+      body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update has no baseline inside it.</div>
+        <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div></div>`;
+      return;
+    }
+    body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
+    return;
+  }
+  _shownReport = data.report;
+  if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
+  if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
+  _render(data.report);
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────

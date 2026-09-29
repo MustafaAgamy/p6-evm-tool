@@ -232,5 +232,20 @@ await test('every feature that waits on the server names its real stage on the b
   }
 });
 
+await test('Update Analysis: a file with no baseline inside it is answered at once from the import flag (RUNUX-05)', () => {
+  const upd = read('ui', 'modules', 'update.js');
+  const fn = upd.slice(upd.indexOf('async function _runAnalyze'), upd.indexOf('function _showAnalysis'));
+  const flag = fn.indexOf('has_embedded_baseline === false'), fetchAt = fn.indexOf('fetch(');
+  assert.ok(flag > 0 && fetchAt > flag, 'the import flag must be checked BEFORE the /api/update/analyze request');
+  assert.match(fn.slice(flag, fetchAt), /_showAnalysis\(body, \{ ok: false, code: 'no_baseline' \}\);\s*return;/,
+    'the instant answer goes through the same no_baseline branch the server answer uses');
+  const srv = read('server.py');
+  assert.match(srv, /safe_result\['has_embedded_baseline'\] = bool\(getattr\(data, 'baseline_by_id', None\)\)/);
+  assert.match(srv, /'has_embedded_baseline': safe_result\.get\('has_embedded_baseline'\)/, 'kept for Recent Projects re-opens');
+  assert.match(srv, /result\['has_embedded_baseline'\] = extras\.get\('has_embedded_baseline'\)/);
+  // the analysis decides "no baseline" by the very same test the import flag records
+  assert.match(read('p6_update', 'analysis.py'), /has_baseline = bool\(getattr\(data, 'baseline_by_id', None\)\)/);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
