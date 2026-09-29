@@ -189,6 +189,101 @@ def init_db():
             conn.execute('ALTER TABLE audit_modules ADD COLUMN mgmt_json TEXT')
 
 
+# ── Startup resilience ─────────────────────────────────────────────────────
+# A damaged controlyx.db used to raise out of make_server() before the window existed
+# (raw traceback, no app — every launch). Startup now calls open_db_resilient(), which
+# never raises: a genuinely corrupt file is set aside as controlyx.db.corrupt-bak-<time>
+# (with its -wal/-shm) and a fresh DB is created; a locked or unreadable DB is reported
+# as 'degraded' and left untouched. GET /api/health exposes DB_STATUS so the page can
+# say what happened instead of silently showing an empty Recent Projects list.
+
+DB_STATUS = {'status': 'unknown', 'detail': None, 'backup': None}
+
+_CORRUPT_CODES = ('SQLITE_CORRUPT', 'SQLITE_NOTADB')
+_CORRUPT_TEXT = ('file is not a database', 'database disk image is malformed',
+                 'malformed database schema')
+
+
+def _is_corruption(exc):
+    """True only for 'the file is damaged' errors — never for locked / busy / cannot-open
+    (those must not cause a quarantine)."""
+    name = getattr(exc, 'sqlite_errorname', '') or ''
+    if any(name.startswith(c) for c in _CORRUPT_CODES):
+        return True
+    msg = str(exc).lower()
+    return any(t in msg for t in _CORRUPT_TEXT)
+
+
+def _quick_check_ok(path):
+    """PRAGMA quick_check on a separate connection: True / False, None if it can't run."""
+    try:
+        conn = sqlite3.connect(path, timeout=5)
+        try:
+            rows = conn.execute('PRAGMA quick_check').fetchall()
+        finally:
+            conn.close()
+        return bool(rows) and rows[0][0] == 'ok'
+    except sqlite3.DatabaseError as exc:
+        return False if _is_corruption(exc) else None
+    except Exception:
+        return None
+
+
+def _quarantine_db(path):
+    """Rename a damaged DB (and its WAL/SHM sidecars) out of the way. Returns the backup
+    file name, or None when the main file could not be moved (e.g. held open by another
+    running copy of the app)."""
+    stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    backup = f'{path}.corrupt-bak-{stamp}'
+    try:
+        os.replace(path, backup)
+    except OSError:
+        return None
+    for suffix in ('-wal', '-shm'):
+        try:
+            if os.path.exists(path + suffix):
+                os.replace(path + suffix, backup + suffix)
+        except OSError:
+            pass
+    return os.path.basename(backup)
+
+
+def open_db_resilient():
+    """Create/upgrade the schema without ever raising. Returns a copy of DB_STATUS:
+    status 'ok' | 'recovered' (damaged file set aside, fresh DB) | 'degraded'."""
+    try:
+        init_db()
+        DB_STATUS.update(status='ok', detail=None, backup=None)
+        return dict(DB_STATUS)
+    except sqlite3.DatabaseError as exc:
+        first = exc
+    except Exception as exc:                            # e.g. the folder is not writable
+        DB_STATUS.update(status='degraded', detail=f'{type(exc).__name__}: {exc}', backup=None)
+        return dict(DB_STATUS)
+
+    try:
+        path = _db_path()
+    except Exception:
+        DB_STATUS.update(status='degraded', detail=str(first), backup=None)
+        return dict(DB_STATUS)
+    damaged = _is_corruption(first) or (_quick_check_ok(path) is False)
+    if not damaged:                                     # locked / busy / cannot open
+        DB_STATUS.update(status='degraded', detail=str(first), backup=None)
+        return dict(DB_STATUS)
+    backup = _quarantine_db(path)
+    if not backup:
+        DB_STATUS.update(status='degraded', backup=None,
+                         detail=f'{first} (the damaged file could not be moved aside)')
+        return dict(DB_STATUS)
+    try:
+        init_db()
+        DB_STATUS.update(status='recovered', detail=str(first), backup=backup)
+    except Exception as exc:
+        DB_STATUS.update(status='degraded', detail=f'{first}; fresh DB failed: {exc}',
+                         backup=backup)
+    return dict(DB_STATUS)
+
+
 # ── File helpers ───────────────────────────────────────────────────────────
 
 def hash_file(path):
