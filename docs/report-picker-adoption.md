@@ -61,3 +61,13 @@ nested list's first item stays with its parent's label. A report that wraps its 
 table cell (the Reporting Studio's running-header shell) is treated like a plain page: the cell is a
 page container, and its repeated header/footer height is taken off every page. In Word, the Baseline
 Narrative draws a tall vertical WBS tree as stacked parts of about a third of a page for the same reason.
+
+Office-HTML Word (`.doc`, the Reporting Studio's own Word button) has no flex / grid: every `<div>` of a
+screen row prints as its own line. The shared Word pass (p6_export.doc_pagination) keeps a screen row's
+lines together (a short `<div>` made only of one-line `<div>`s: a score row, a bar row, a KPI card label +
+value) and a container's first short line (a card title) with its first block; the Studio re-lays the
+Calendar's month calendars (`.mgrid`) as 7-column week tables two a row whose rows never split. The checker
+reads the Studio's one-row heading table (number badge + title) as a heading, recognises the next row of
+whole month calendars (own titles over the same weekday header) as a new grid rather than a table split,
+a KPI card's big value under its label as card content, and a table header repeated at the very top of
+every page (a report with no running header) as the table's repeated header.
