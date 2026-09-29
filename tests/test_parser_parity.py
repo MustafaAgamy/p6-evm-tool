@@ -918,27 +918,21 @@ FIELDS = (
 # type / is_default read from the XER and weekly_working_days filled for the XML; P13 project window
 # (planned start / scheduled finish / must finish by) read from the XER, must-finish-by from both;
 # P14 / P15 XER "" and 0x7F 0x7F decoded; P16 lag days counted on the project's lag calendar
-# (predecessor) in both formats.
-_P18 = 'P18: XER activity_code_types lists unassigned code types'
-_P19 = 'P19: XER Units % complete counts labour units only (P6: labour + nonlabour)'
-_P20 = 'P20: XML assignment without PricePerUnit gives rate None'
+# (predecessor) in both formats; P17 relationships sorted into one order in both formats;
+# P18 XER activity_code_types = the code types assigned to this project's activities (like the XML);
+# P19 XER Units % complete counts labour + nonlabour units like P6; P20 XML assignment without
+# PricePerUnit (P6 19.x) takes PlannedCost / PlannedUnits, else the resource's rate.
 _P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or document)'
 
 # (format, 'entity.field') -> finding. Measured by running this harness against the parsers as
 # they stood at commit "[parser:AUDIT]" (every failure checked against the finding's evidence).
 TRUTH_XFAIL = {
     ('xml', 'activity.free_float_days'): _P24,
-    ('xml', 'assignment.rate'): _P20,
-    ('xer', 'data.activity_code_types'): _P18,
-    ('xer', 'activity.percent_complete'): _P19,
 }
 # 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
 # wrong the SAME way passes parity and is caught by test_truth only.)
 PARITY_XFAIL = {
-    'data.activity_code_types': _P18,
-    'activity.percent_complete': _P19,
     'activity.free_float_days': _P24,
-    'assignment.rate': _P20,
 }
 
 
@@ -976,8 +970,6 @@ def test_parity(parsed, entity, field):
     assert x == r, f'{entity}.{field}: XML vs XER\n{_explain(r, x)}'
 
 
-@pytest.mark.xfail(strict=True, reason='P17: relationship order follows the file (XML ObjectId '
-                                       'order vs XER TASKPRED order) - sort deterministically')
 def test_relationship_order_matches(parsed):
     """Order-sensitive outputs (a representative link, 'first' predecessor) must not depend on
     the file format: the same links in the same order from XML and XER."""
@@ -987,6 +979,7 @@ def test_relationship_order_matches(parsed):
         code = {oid: a['id'] for oid, a in d.activities.items()}
         order[fmt] = [(code[r['pred_id']], code[r['succ_id']]) for r in d.relationships]
     assert order['xml'] == order['xer']
+    assert order['xml'] == sorted(order['xml'])   # predecessor code, then successor code (P17)
 
 
 STRUCTURE_XFAIL = {}
@@ -1177,3 +1170,73 @@ def test_xer_reader_decodes_quotes_and_line_breaks(tmp_path):
     assert [r['rsrc_name'] for r in rows] == ['Monitor 65" inch', 'FANS\n - Approval',
                                               'Quote ""twice""']
     assert [r['rsrc_short_name'] for r in rows] == ['EPPM-Piping<4"', 'LF\nonly', '']
+
+
+# ── P18 / P19 / P20 variants ──────────────────────────────────────────────────────────────
+def test_xer_code_types_ignore_types_no_activity_uses(files):
+    """P18: the XER's ACTVTYPE table lists every code type in the file (here an unused one too);
+    only the dimensions this project's activities carry are offered - the same list as the XML."""
+    from p6_evm.xer import read_xer_tables
+    all_types = {r['actv_code_type'] for r in read_xer_tables(files['xer'])['ACTVTYPE']}
+    got = parse_file(files['xer']).activity_code_types
+    assert set(got) < all_types
+    assert got == truth('data', 'activity_code_types') == parse_file(files['xml']).activity_code_types
+
+
+def test_units_percent_complete_counts_labour_and_nonlabour():
+    """P19: P6 Units % Complete = (actual labour + actual nonlabour) / (at-completion labour +
+    nonlabour) - the rule both parsers share (xer.py via _pct_complete)."""
+    from p6_evm.parser import units_percent_complete
+    from p6_evm.xer import _pct_complete
+    assert units_percent_complete(10, 30, 8, 8) == pytest.approx(18 / 56)
+    assert units_percent_complete(0, 0, 5, 15) == pytest.approx(0.25)     # equipment-only
+    assert units_percent_complete(0, 0, 0, 0) == 0.0
+    row = {'status_code': 'TK_Active', 'complete_pct_type': 'CP_Units', 'act_work_qty': '10',
+           'remain_work_qty': '30', 'act_equip_qty': '8', 'remain_equip_qty': '8'}
+    assert _pct_complete(row) == pytest.approx(18 / 56)
+    assert _pct_complete(dict(row, act_equip_qty='', remain_equip_qty='')) == pytest.approx(0.25)
+
+
+def _xml_variant_rate(tmp_path, ra_extra, rates):
+    """The synthetic XML with assignment 4003 (no PricePerUnit, like P6 19.x) given extra
+    elements, and <ResourceRate> rows for its resource 3003."""
+    anchor = _x('ObjectId', '4003')
+    xml = build_xml()
+    assert xml.count(anchor) == 1
+    xml = xml.replace(anchor, anchor + ra_extra)
+    rr = ''.join('<ResourceRate>' + _x('EffectiveDate', eff) + _x('ObjectId', str(9500 + i))
+                 + ''.join(_x('PricePerUnit' + n, v) for n, v in prices.items())
+                 + _x('ResourceObjectId', '3003') + '</ResourceRate>'
+                 for i, (eff, prices) in enumerate(rates))
+    xml = xml.replace('<Project>', rr + '<Project>', 1)
+    d = parse_file(_write(tmp_path, 'rate.xml', xml))
+    return next(s['rate'] for s in d.assignments_by_activity['70004'] if s['resource_id'] == '3003')
+
+
+def test_xml_rate_without_price_per_unit_is_planned_cost_over_units(parsed):
+    """P20: a P6 19.x XML writes no PricePerUnit on the assignment; linked cost / units give the
+    price P6 applied (the XER's cost_per_qty) - 2500.5 / 100 = 25.005 for assignment 4003."""
+    for fmt in ('xml', 'xer'):
+        rate = next(s['rate'] for s in parsed[fmt].assignments_by_activity['70004']
+                    if s['resource_id'] == '3003')
+        assert rate == pytest.approx(25.005), fmt
+
+
+def test_xml_rate_unlinked_uses_the_resource_rate_in_force(tmp_path):
+    """P20: cost not linked to units -> the resource's <ResourceRate> of the assignment's
+    RateType in force at its start (not the later one, not Price / Unit when RateType is 2)."""
+    rates = [('2025-01-01T00:00:00', {'': '20', '2': '22'}),
+             ('2025-03-10T00:00:00', {'': '30', '2': '33'})]
+    start = _x('PlannedStartDate', '2025-03-04T06:00:00')
+    unlinked = _x('IsCostUnitsLinked', '0')
+    assert _xml_variant_rate(tmp_path, unlinked + start, rates) == 20.0
+    assert _xml_variant_rate(tmp_path, unlinked + start + _x('RateType', 'Price / Unit 2'),
+                             rates) == 22.0
+    assert _xml_variant_rate(tmp_path, unlinked + _x('PlannedStartDate', '2025-03-12T08:00:00'),
+                             rates) == 30.0
+
+
+def test_xml_rate_unknown_stays_none(tmp_path):
+    """P20: no price on the assignment, cost not linked to units and no resource rate -> None
+    (unknown), never an invented number."""
+    assert _xml_variant_rate(tmp_path, _x('IsCostUnitsLinked', '0'), []) is None

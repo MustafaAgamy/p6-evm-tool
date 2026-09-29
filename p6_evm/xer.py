@@ -1,6 +1,6 @@
 from datetime import datetime
 from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_calendar_id,
-                           lag_day_hours)
+                           lag_day_hours, sort_relationships, units_percent_complete)
 from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis
 from p6_evm.clndr import parse_clndr_data
 
@@ -105,7 +105,8 @@ def _pct_complete(t):
     0 for Duration-type activities — making the XER's EV wrong. Now:
       CP_Drtn  -> duration %  = (target − remaining) / target duration
       CP_Phys  -> physical % complete
-      CP_Units -> units %     = actual units / (actual + remaining units)
+      CP_Units -> units %     = actual units / (actual + remaining units), labour + nonlabour
+                                like P6 (finding P19 - it counted labour units only)
     A completed activity is 100%.
     """
     if (t.get('status_code') or '') == 'TK_Complete':
@@ -114,10 +115,10 @@ def _pct_complete(t):
     if typ == 'CP_Phys':
         return max(0.0, min(1.0, (_num(t.get('phys_complete_pct'), 0.0) or 0.0) / 100.0))
     if typ == 'CP_Units':
-        aw = _num(t.get('act_work_qty'), 0.0) or 0.0
-        rw = _num(t.get('remain_work_qty'), 0.0) or 0.0
-        tot = aw + rw
-        return max(0.0, min(1.0, aw / tot)) if tot else 0.0
+        return units_percent_complete(_num(t.get('act_work_qty'), 0.0),
+                                      _num(t.get('remain_work_qty'), 0.0),
+                                      _num(t.get('act_equip_qty'), 0.0),
+                                      _num(t.get('remain_equip_qty'), 0.0))
     tgt = _num(t.get('target_drtn_hr_cnt'), 0.0) or 0.0
     rem = _num(t.get('remain_drtn_hr_cnt'), 0.0) or 0.0
     return max(0.0, min(1.0, (tgt - rem) / tgt)) if tgt else 0.0
@@ -233,7 +234,6 @@ def parse_xer(path):
         val = actv_code_val.get(r.get('actv_code_id'))
         if dim and val:
             task_codes.setdefault(r.get('task_id'), {})[dim] = val
-    data.activity_code_types = sorted(actv_type_name.values())
 
     for t in tables.get('TASK', []):
         # Skip activities from other projects in multi-project XER exports
@@ -289,6 +289,12 @@ def parse_xer(path):
             'actual_finish': _dt(t.get('act_end_date')),
         }
 
+    # Dimensions actually assigned to THIS project's activities - the same rule as parser.py (the
+    # XML carries only the code types in use); ACTVTYPE lists every type in the file, including
+    # other projects' / unassigned ones (finding P18).
+    data.activity_code_types = sorted(
+        {dim for a in data.activities.values() for dim in a['activity_codes']})
+
     for r in tables.get('TASKPRED', []):
         succ = r.get('task_id')
         pred = r.get('pred_task_id')
@@ -306,6 +312,7 @@ def parse_xer(path):
             'lag_hours': lag_hr,
             'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
+    sort_relationships(data)   # one order for XML and XER (P17)
 
     # Resource names (additive) — resolve TASKRSRC assignments to a readable resource name.
     # 'code' is P6's human Resource Id (rsrc_short_name — the short code the planner sees), distinct

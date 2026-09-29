@@ -135,6 +135,28 @@ def lag_day_hours(data, pred_oid, succ_oid):
     return dh if dh and dh > 0 else 8.0
 
 
+def sort_relationships(data):
+    """Put data.relationships in ONE order whatever the file format (finding P17): the XML lists
+    <Relationship> in ObjectId order, the XER lists TASKPRED rows in its own order, so any
+    order-sensitive output (a representative link, the 'first' predecessor) differed between the
+    two files of the same schedule. Order: predecessor activity code, successor code, type, lag
+    hours, then the internal ids (a P6 export can carry duplicate activity codes)."""
+    code = {oid: (a.get('id') or '') for oid, a in (data.activities or {}).items()}
+    data.relationships.sort(key=lambda r: (
+        code.get(r.get('pred_id'), ''), code.get(r.get('succ_id'), ''), r.get('type') or '',
+        r.get('lag_hours') or 0.0, str(r.get('pred_id') or ''), str(r.get('succ_id') or '')))
+
+
+def units_percent_complete(act_labour, rem_labour, act_nonlabour, rem_nonlabour):
+    """P6 Units % Complete = actual units / (actual + remaining units), LABOUR + NONLABOUR
+    together (finding P19; checked against P6's own UnitsPercentComplete on the GBT / SG / ALSTOM
+    XML: 30 activities carrying equipment units match labour+nonlabour, none match labour-only).
+    0 when the activity carries no units."""
+    act = (act_labour or 0.0) + (act_nonlabour or 0.0)
+    tot = act + (rem_labour or 0.0) + (rem_nonlabour or 0.0)
+    return max(0.0, min(1.0, act / tot)) if tot else 0.0
+
+
 def _schedule_option(project_el, name):
     """A <Project><ScheduleOptions> value (namespace-agnostic), or None."""
     if project_el is None:
@@ -408,6 +430,37 @@ def parse_file(path) -> ScheduleData:
                                    'code': text(res_el, 'Id'),
                                    'type': _res_type_label(text(res_el, 'ResourceType'))}
 
+    res_rates = None   # ResourceObjectId -> [(EffectiveDate, {RateType: price})], read on demand
+
+    def assignment_rate(ra_el):
+        """The assignment's price / unit, as the XER's TASKRSRC.cost_per_qty holds it (finding
+        P20). P6 24.x writes <PricePerUnit> on the ResourceAssignment; a P6 19.x XML does not
+        (RateSource=Resource), so fall back to what P6 applied: PlannedCost / PlannedUnits when
+        cost and units are linked (matches cost_per_qty on all 1,561 GBT assignments), else the
+        resource's <ResourceRate> of the assignment's RateType in effect at its start, else None."""
+        nonlocal res_rates
+        ppu = parse_float(text(ra_el, 'PricePerUnit'), None)
+        if ppu is not None:
+            return ppu
+        units = parse_float(text(ra_el, 'PlannedUnits'), 0.0) or 0.0
+        if units and text(ra_el, 'IsCostUnitsLinked') not in ('0', 'false'):
+            return (parse_float(text(ra_el, 'PlannedCost'), 0.0) or 0.0) / units
+        if res_rates is None:
+            res_rates = {}
+            for rr in root.iter(tag('ResourceRate')):
+                prices = {('Price / Unit' + (' ' + n if n else '')): parse_float(
+                    text(rr, 'PricePerUnit' + n), None) for n in ('', '2', '3', '4', '5')}
+                res_rates.setdefault(text(rr, 'ResourceObjectId'), []).append(
+                    (parse_datetime(text(rr, 'EffectiveDate')) or datetime.min, prices))
+            for lst in res_rates.values():
+                lst.sort(key=lambda e: e[0])
+        rates = res_rates.get(text(ra_el, 'ResourceObjectId')) or []
+        if not rates:
+            return None
+        start = parse_datetime(text(ra_el, 'PlannedStartDate') or text(ra_el, 'StartDate'))
+        in_force = [e for e in rates if start is None or e[0] <= start] or rates[:1]
+        return in_force[-1][1].get(text(ra_el, 'RateType') or 'Price / Unit')
+
     for ra_el in project_el.findall(tag('ResourceAssignment')):
         activity_id = text(ra_el, 'ActivityObjectId')
         if not activity_id:
@@ -426,7 +479,7 @@ def parse_file(path) -> ScheduleData:
             'budget_units': parse_float(text(ra_el, 'PlannedUnits')),
             'actual_units': parse_float(text(ra_el, 'ActualUnits')),
             'budget_cost': planned_cost,
-            'rate': parse_float(text(ra_el, 'PricePerUnit'), None),
+            'rate': assignment_rate(ra_el),
         })
 
     # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics
@@ -466,5 +519,6 @@ def parse_file(path) -> ScheduleData:
             'lag_hours': lag_hours or 0.0,
             'lag_calendar_id': lag_calendar_id(data, pred, succ),
         })
+    sort_relationships(data)   # one order for XML and XER (P17)
 
     return data
