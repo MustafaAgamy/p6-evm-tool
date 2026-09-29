@@ -135,14 +135,8 @@ def theme_vars(mode=DEFAULT_MODE):
     return dict(THEMES[normalize(mode)])
 
 
-def theme_style_tag(mode=DEFAULT_MODE):
-    """A ``<style>`` block to drop at the END of a report's ``<head>``.
-
-    Emits the ``:root { --rpt-*: … }`` palette for the mode, the page background,
-    and the print-colour-adjust rule so dark backgrounds survive the PDF export.
-    Placed last in <head> so its ``html, body { background: var(--rpt-bg) }`` also
-    acts as a safety net for any rule a renderer forgot to convert to a token.
-    """
+def _theme_block(mode):
+    """The ``<style id="rpt-theme">`` palette block alone (what :func:`force_light` swaps)."""
     m = normalize(mode)
     body = '\n'.join(f'  --{k}: {THEMES[m][k]};' for k in _TOKEN_ORDER)
     return (
@@ -152,6 +146,22 @@ def theme_style_tag(mode=DEFAULT_MODE):
         'html, body { background: var(--rpt-bg); color: var(--rpt-ink); }\n'
         '</style>'
     )
+
+
+def theme_style_tag(mode=DEFAULT_MODE):
+    """A ``<style>`` block to drop at the END of a report's ``<head>``.
+
+    Emits the ``:root { --rpt-*: … }`` palette for the mode, the page background,
+    and the print-colour-adjust rule so dark backgrounds survive the PDF export.
+    Placed last in <head> so its ``html, body { background: var(--rpt-bg) }`` also
+    acts as a safety net for any rule a renderer forgot to convert to a token.
+
+    It is followed by the shared page-composition layer (:func:`pagination_tag`), so every
+    renderer that themes its report also gets the ONE set of pagination rules (headings
+    kept with their content, charts / KPI rows moved whole, tables with a repeated header
+    and never 1–2 stranded rows) — print-only, the screen is unchanged.
+    """
+    return _theme_block(mode) + pagination_tag()
 
 
 # OWNER DECISION (Tool-Wide Enhancement, comment 30): the appearance mode is reflected on
@@ -173,7 +183,7 @@ def force_light(html):
     block (a report that never used the tokens) is returned unchanged."""
     if not isinstance(html, str) or 'rpt-theme' not in html:
         return html
-    light = theme_style_tag(DOCUMENT_MODE)
+    light = _theme_block(DOCUMENT_MODE)
     return _THEME_TAG_RE.sub(lambda _m: light, html)
 
 
@@ -188,3 +198,201 @@ def var(token, fallback=None):
 def theme_meta():
     """List of {id, label, description} in picker order — for the UI / an API."""
     return [{'id': m, 'label': LABELS[m][0], 'description': LABELS[m][1]} for m in MODES]
+
+
+# ══ Shared page composition / pagination (owner point 14) ═══════════════════════
+# ONE set of print rules every report renderer shares (it rides along with
+# theme_style_tag; renderers that do not theme — the Baseline Narrative, the UI
+# printView, the chat report — include pagination_tag() themselves, and the
+# one-document PDF export runs every document through with_pagination()).
+#
+#   * headings never end a page: every heading (h1–h6 + the renderers' heading classes)
+#     is break-after:avoid, and so is a short intro paragraph right under it — the
+#     heading travels with its first content block (measured: Chrome 154 honours this in
+#     block, flex and grid flows once no tall "avoid" block is in the way);
+#   * charts, diagrams, pictures, KPI tiles / cards, month grids: moved WHOLE;
+#   * tables: the header repeats on every page (thead = table-header-group), a row never
+#     splits, the first 3 and the last 3 body rows stay together — so a page never holds
+#     only 1–2 rows of a table; a table that fits in about a third of a page is kept whole;
+#   * the print-time composer (pagination_script) measures blocks just before printing:
+#     a block taller than a page is let to flow (never pushed whole to leave a blank
+#     page), a small table / part / list is kept whole, a thead-less long table gets its
+#     header row promoted so it repeats, and an over-wide table is scaled to the page
+#     width instead of being cut. It runs on ``beforeprint`` only (headless Chrome fires
+#     it for --print-to-pdf), so the SCREEN is never touched, and undoes itself after.
+# Everything is inside @media print — the on-screen report is unchanged.
+
+# Elements that act as headings (a heading must never be the last thing on a page).
+HEADING_SELECTORS = (
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'caption', '[role="heading"]', '[data-rpt-heading]',
+    'div.sec', 'div.sub', '.sub2', '.subhd', '.subblue', '.subctr', '.ct', '.calname',
+    '.rescap', '.mgrid-t', '.sr-sec-h', '.seq-glabel', '.chart-h', '.chartt', '.chartlab',
+    '.h3title', '.h3sub', '.scope-h', '.rr-h', '.defs-h', '.rc-calhead', '.rc-assignhead',
+    '.pr-h', '.flagh', '.rf-h2',
+)
+
+# Always kept whole (small by nature, or cannot be split anyway).
+KEEP_WHOLE_SELECTORS = (
+    'svg', 'img', 'canvas', 'figure', '.rpt-keep', '[data-export="tile"]', '.tile', '.kpi',
+    '.vcard', '.lcard', '.grade-card', '.costcard', '.flagcard', '.chartcard', '.chartwrap',
+    '.chart2', '.mvchart', '.calfig', '.mgrid-wrap', '.rc-calcard', '.seqflow > div',
+)
+
+# Measured by the print-time composer: kept whole when small (<= FIT of a page), let to
+# flow when taller than a page (their own break-inside:avoid would push them to a new
+# page and leave a large blank area), left alone in between.
+MEASURED_SELECTORS = (
+    'table', 'tr', '[data-part]', '[data-export]', '.rpt-measure', '.tiles', '.kpis',
+    '.kpi-row', '.cards', '.vcards', '.card', '.card3', '.charts', '.lcharts', '.chart',
+    '.grid2', '.dt', '.codetbl', '.seqflow', '.mgrids', 'ul', 'ol', 'dl', 'pre', 'blockquote',
+) + KEEP_WHOLE_SELECTORS
+
+PAGINATION_FIT = 0.35        # a block up to 35 % of the page height is always kept whole
+PAGINATION_FLOW = 0.92       # a block taller than 92 % of the page height is let to flow
+PAGINATION_MIN_ROWS = 3      # a table fragment never holds fewer than 3 body rows
+
+
+def _sel(items, suffix=''):
+    return ',\n  '.join(s + suffix for s in items)
+
+
+def pagination_css():
+    """The shared print rules (a CSS string, everything inside ``@media print``).
+
+    Deliberately free of ``:is()`` / comma-in-parentheses selectors, so the Reporting
+    Studio's CSS scoper and the Word export's CSS engine read it safely."""
+    n = PAGINATION_MIN_ROWS
+    heads = _sel(HEADING_SELECTORS)
+    intro = _sel([h + ' + p' for h in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div.sub', '.sub2', '.ct')]
+                 + [h + ' + .h3sub' for h in ('h2', 'h3', '.chartt')])
+    keep = _sel(KEEP_WHOLE_SELECTORS)
+    return (
+        '@media print {\n'
+        '  /* 1 · a heading (and the short intro right under it) never ends a page */\n'
+        f'  {heads} {{\n    break-after: avoid; page-break-after: avoid;'
+        ' break-inside: avoid; page-break-inside: avoid;\n  }}\n'
+        f'  {intro} {{ break-after: avoid; page-break-after: avoid; }}\n'
+        '  figcaption, .figcaption, .figcap { break-before: avoid; page-break-before: avoid; }\n'
+        '  /* 2 · charts, diagrams, pictures, KPI tiles / cards, month grids: moved whole */\n'
+        f'  {keep} {{\n    break-inside: avoid; page-break-inside: avoid;\n  }}\n'
+        '  /* 3 · tables: header repeated, rows never split, never 1-2 stranded rows */\n'
+        '  thead { display: table-header-group; }\n'
+        '  tfoot { display: table-footer-group; }\n'
+        '  tr { break-inside: avoid; page-break-inside: avoid; }\n'
+        f'  tbody > tr:nth-child(-n+{n}) {{ break-after: avoid; page-break-after: avoid; }}\n'
+        f'  tbody > tr:nth-last-child(-n+{n - 1}) {{ break-before: avoid; page-break-before: avoid; }}\n'
+        '  /* composer marks (set just before printing, removed after) */\n'
+        '  .rpt-fit { break-inside: avoid; page-break-inside: avoid; }\n'
+        '  .rpt-flow { break-inside: auto !important; page-break-inside: auto !important; }\n'
+        '  /* 4 · text: no 1-2 line orphans / widows */\n'
+        '  p, li, dd, blockquote { orphans: 3; widows: 3; }\n'
+        '  li { break-inside: avoid; page-break-inside: avoid; }\n'
+        '  /* 5 · screen scroll boxes print in full (no scrollbar, no clipped columns) */\n'
+        '  .table-wrap, .tbl-wrap, .tblwrap, .scroll-x, .xscroll,\n'
+        '  [style*="overflow-x"], [style*="overflow-y"], [style*="overflow:auto"],'
+        ' [style*="overflow: auto"], [style*="overflow:scroll"], [style*="overflow: scroll"] {\n'
+        '    overflow: visible !important; max-height: none !important;\n  }\n'
+        '}\n'
+    )
+
+
+def pagination_script():
+    """The print-time composer (JavaScript, no ``</script>`` inside). See the module notes."""
+    measured = ','.join(MEASURED_SELECTORS).replace("'", "\\'")
+    return (
+        "(function(){\n"
+        "if(window.__rptPagination)return;window.__rptPagination=1;\n"
+        f"var SEL='{measured}',FIT={PAGINATION_FIT},FLOW={PAGINATION_FLOW},MM=96/25.4;\n"
+        "var SIZES={a3:[297,420],a4:[210,297],a5:[148,210],b5:[176,250],letter:[215.9,279.4],"
+        "legal:[215.9,355.6],ledger:[279.4,431.8]};\n"
+        "function mm(v,d){var m=/^(-?[\\d.]+)(mm|cm|in|px|pt)?$/.exec(String(v||'').trim());"
+        "if(!m)return d;var n=parseFloat(m[1]),u=m[2]||'px';"
+        "return u==='mm'?n:u==='cm'?n*10:u==='in'?n*25.4:u==='pt'?n*25.4/72:n/MM;}\n"
+        "function pageRules(list,out){for(var i=0;i<list.length;i++){var r=list[i];"
+        "if(r.type===6){if(!r.selectorText)out.push(r.style);}"
+        "else if(r.cssRules){if(r.type===4&&/screen/i.test(r.media.mediaText)"
+        "&&!/print/i.test(r.media.mediaText))continue;pageRules(r.cssRules,out);}}}\n"
+        "function pageHeight(){var w=210,h=297,mt=10,mb=10,st=[];"
+        "for(var s=0;s<document.styleSheets.length;s++){"
+        "try{pageRules(document.styleSheets[s].cssRules||[],st);}catch(e){}}"
+        "st.forEach(function(x){var size=(x.getPropertyValue('size')||'').toLowerCase().trim();"
+        "if(size){var t=size.split(/\\s+/),nm=null,l=[];t.forEach(function(k){if(SIZES[k])nm=SIZES[k];"
+        "else{var v=mm(k,null);if(v!=null)l.push(v);}});if(nm){w=nm[0];h=nm[1];}"
+        "if(l.length===2){w=l[0];h=l[1];}else if(l.length===1){w=h=l[0];}"
+        "if(t.indexOf('landscape')>=0){h=Math.min(w,h);}"
+        "else if(t.indexOf('portrait')>=0){h=Math.max(w,h);}}"
+        "var a=x.getPropertyValue('margin-top'),b=x.getPropertyValue('margin-bottom');"
+        "if(a)mt=mm(a,mt);if(b)mb=mm(b,mb);});"
+        "return Math.max(200,(h-mt-mb)*MM);}\n"
+        "var marks=[],moved=[],zoomed=[];\n"
+        "function bgOf(r){if(!r)return'';var c=r.cells&&r.cells[0];"
+        "return getComputedStyle(r).backgroundColor+'|'+(c?getComputedStyle(c).backgroundColor:'');}\n"
+        "function compose(){undo();var H=pageHeight(),fit=H*FIT,flow=H*FLOW,todo=[],i;\n"
+        "var els=document.querySelectorAll(SEL);\n"
+        "for(i=0;i<els.length;i++){var el=els[i],r=el.getBoundingClientRect(),hg=r.height;if(!hg)continue;"
+        "if(hg>flow)todo.push([el,'rpt-flow']);"
+        "else if(hg<=fit&&el.tagName!=='TR')todo.push([el,'rpt-fit']);"
+        "if(el.tagName==='TABLE'){if(hg>fit&&!el.tHead)todo.push([el,'@head']);"
+        "var host=el.parentElement,cs=host?getComputedStyle(host):null,"
+        "avail=host?host.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0):0;"
+        "if(avail>80&&r.width>avail+2)todo.push([el,'@zoom',Math.max(0.55,avail/r.width)]);}}\n"
+        "for(i=0;i<todo.length;i++){var t=todo[i],e=t[0];\n"
+        "if(t[1]==='@head'){var row=e.rows[0];if(!row||!row.cells.length)continue;var allTh=true;"
+        "for(var c=0;c<row.cells.length;c++){if(row.cells[c].tagName!=='TH'){allTh=false;break;}}"
+        "if(!allTh||row.parentNode.tagName!=='TBODY')continue;"
+        "var body=row.parentNode,probe=e.rows[2],before=bgOf(probe);"
+        "var th=e.createTHead();th.appendChild(row);"
+        "if(probe&&bgOf(probe)!==before){body.insertBefore(row,body.firstChild);e.deleteTHead();continue;}"
+        "moved.push([e,row,body]);}\n"
+        "else if(t[1]==='@zoom'){zoomed.push([e,e.style.zoom]);e.style.zoom=String(t[2]);}\n"
+        "else if(!e.classList.contains(t[1])){e.classList.add(t[1]);marks.push(t);}}}\n"
+        "function undo(){var i;for(i=0;i<marks.length;i++)marks[i][0].classList.remove(marks[i][1]);"
+        "for(i=moved.length-1;i>=0;i--){var m=moved[i];m[2].insertBefore(m[1],m[2].firstChild);"
+        "if(m[0].tHead&&!m[0].tHead.rows.length)m[0].deleteTHead();}"
+        "for(i=0;i<zoomed.length;i++)zoomed[i][0].style.zoom=zoomed[i][1]||'';"
+        "marks=[];moved=[];zoomed=[];}\n"
+        "window.__rptCompose=compose;window.__rptUncompose=undo;\n"
+        "window.addEventListener('beforeprint',compose);window.addEventListener('afterprint',undo);\n"
+        "})();"
+    )
+
+
+PAGINATION_STYLE_ID = 'rpt-pagination'
+
+
+def pagination_tag():
+    """``<style id="rpt-pagination">`` (the rules) + ``<script id="rpt-pagination-js">``
+    (the print-time composer) — drop into a report's ``<head>``."""
+    return (f'<style id="{PAGINATION_STYLE_ID}">\n{pagination_css()}</style>'
+            f'<script id="{PAGINATION_STYLE_ID}-js">{pagination_script()}</script>')
+
+
+_HEAD_CLOSE_RE = re.compile(r'</head\s*>', re.IGNORECASE)
+_HEAD_OPEN_RE = re.compile(r'<head\b[^>]*>', re.IGNORECASE)
+_PAGE_SIZE_RE = re.compile(r'@page\b[^{]*\{[^}]*\bsize\s*:', re.IGNORECASE)
+
+
+def with_pagination(html, page_size='A4 portrait'):
+    """Return ``html`` carrying the shared pagination layer exactly once (idempotent), and
+    an ``@page { size: A4 portrait }`` when the report never declared a page size (Chrome's
+    default is US Letter — the PDF must paginate like the A4 Word export). The size rule is
+    placed FIRST in ``<head>`` so the report's own ``@page`` margins still apply."""
+    if not isinstance(html, str) or not html:
+        return html
+    doc = html
+    if f'id="{PAGINATION_STYLE_ID}"' not in doc:
+        m = _HEAD_CLOSE_RE.search(doc)
+        tag = pagination_tag()
+        doc = doc[:m.start()] + tag + doc[m.start():] if m else tag + doc
+    if page_size and not _PAGE_SIZE_RE.search(doc):
+        size_tag = f'<style id="rpt-page-size">@page {{ size: {page_size}; }}</style>'
+        m = _HEAD_OPEN_RE.search(doc)
+        doc = doc[:m.end()] + size_tag + doc[m.end():] if m else size_tag + doc
+    return doc
+
+
+def keep_together(*blocks, cls=''):
+    """Wrap a heading and its first content block (or any small group) in ONE block that
+    is never split across pages — for renderers that know a group belongs together."""
+    extra = f' {cls}' if cls else ''
+    return f'<div class="rpt-keep{extra}">' + ''.join(b for b in blocks if b) + '</div>'
