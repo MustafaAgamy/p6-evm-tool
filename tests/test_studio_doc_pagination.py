@@ -113,38 +113,48 @@ def _calendar_body(n):
     return html[html.index('<div class="mgrids">'):]
 
 
-def test_month_calendars_become_week_tables_two_a_row():
+def _cells(row):
+    return re.findall(r'<t[dh](?: [^>]*)?>(.*?)</t[dh]>', row, re.S)
+
+
+def _day(cell):
+    m = re.search(r'<span class="dn">(\d+)</span>', cell)
+    return int(m.group(1)) if m else None
+
+
+def test_month_calendars_become_one_small_table_per_row_of_two_months():
     src = _calendar_body(3)
     out = WE._month_grids_as_tables(src)
-    assert 'class="mgrid"' not in out and 'class="mgrids"' not in out
-    assert out.count('class="mgrid-tbl"') == 3 and out.count('class="mgrids-tbl"') == 1
-    assert out.count('<tr style="page-break-inside:avoid">') == 2          # months two a row
-    for label, days in (('Jan 2026', 31), ('Feb 2026', 28), ('Mar 2026', 31)):
-        part = out.split(f'<div class="mgrid-t">{label}</div>')[1].split('</table>')[0]
-        assert re.findall(r'>(Mon|Tue|Wed|Thu|Fri|Sat|Sun)</th>', part) == ['Mon', 'Tue', 'Wed', 'Thu',
-                                                                           'Fri', 'Sat', 'Sun']
-        nums = [int(x) for x in re.findall(r'<span class="dn">(\d+)</span>', part)]
-        assert nums == list(range(1, days + 1))                            # every day, in order
-        rows = part.split('<tbody>')[1].count('<tr>')
-        assert all(r.count('<td') == 7 for r in part.split('<tbody>')[1].split('<tr>')[1:])
-        assert 4 <= rows <= 6
-    assert 'Public holiday' in out                                         # cell names kept
-    # every day-number and holiday name of the source survives, in the same order
-    assert re.findall(r'>(\d+|Public holiday)<', out) == re.findall(
-        r'>(\d+|Public holiday)<', src.replace('</div>', '</div>'))
+    assert 'class="mgrid"' not in out and 'class="mgrids"' not in out and 'mgrid-wrap' not in out
+    tables = re.findall(r'<table class="mgrid-tbl".*?</table>', out, re.S)
+    assert len(tables) == 2                                               # Jan+Feb, Mar
+    for t, labels in zip(tables, (('Jan 2026', 'Feb 2026'), ('Mar 2026',))):
+        head, body = t.split('<tbody>')
+        assert [x for x in labels if x in head] == list(labels)          # month titles over their grids
+        assert re.findall(r'>(Mon|Tue|Wed|Thu|Fri|Sat|Sun)</th>', head) == ['Mon', 'Tue', 'Wed', 'Thu', 'Fri',
+                                                                            'Sat', 'Sun'] * len(labels)
+        rows = body.split('<tr>')[1:]
+        assert 4 <= len(rows) <= 6
+        for k, label in enumerate(labels):                                # each month: 7 columns, every day in order
+            days = [d for r in rows for d in map(_day, _cells(r)[8 * k:8 * k + 7]) if d]
+            nd = _cal.monthrange(2026, _dt.datetime.strptime(label, '%b %Y').month)[1]
+            assert days == list(range(1, nd + 1)), (label, days)
+    assert 'Public holiday' in out and 'background:' in out               # cell names + colours kept
 
 
-def test_month_rows_carry_no_keep_rules_inside_only_the_legend_keeps_with_them():
-    """Word keeps a table row whose paragraphs keep-with-next with the NEXT row: keep rules
-    inside the (never-splitting) rows of months would chain them all into one pushed block."""
+def test_month_tables_are_kept_whole_and_free_between_rows_of_months():
+    """Each row of months is ONE small table kept whole (keep rules on every row but its last);
+    nothing chains one row of months to the next, and the legend keeps with the first."""
     src = ('<div class="sub2">Each month calendar</div><div class="legend"><span>Working</span>'
            '<span>Holiday</span></div>' + _calendar_body(6))
     out = DP.paginate_word_html(WE._month_grids_as_tables(src))
-    lay = out[out.index('class="mgrids-tbl"'):]
-    assert KWN not in lay, lay[:400]
-    assert lay.count('<tr style="page-break-inside:avoid">') == 3
-    assert lay.count('<thead>') == 6                                 # each month's weekday header
-    assert _kwn_texts(out[:out.index('class="mgrids-tbl"')]) == ['WorkingHoliday']   # legend + months
+    tables = re.findall(r'<table class="mgrid-tbl".*?</table>', out, re.S)
+    assert len(tables) == 3
+    for t in tables:
+        assert '<thead>' in t
+        rows = t.split('<tbody>')[1].split('<tr>')[1:]
+        assert all(KWN in r for r in rows[:-1]) and KWN not in rows[-1]
+    assert _kwn_texts(out[:out.index('<table class="mgrid-tbl"')]) == ['WorkingHoliday']
 
 
 def test_studio_word_document_carries_month_tables_and_row_rules():
