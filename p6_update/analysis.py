@@ -5,7 +5,7 @@ forecast dates, exactly as P6 wrote them.
 """
 from p6_evm.metrics import activity_planned_pct
 from p6_evm.calendars import signed_working_days
-from p6_evm.baseline import baseline_expected
+from p6_evm.baseline import baseline_expected, baseline_fields, baseline_label
 
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
 
@@ -685,6 +685,9 @@ def build_report_from_data(data, metrics, summary_level=0):
         'baseline_source': src,                                    # embedded / attached / self
         'baseline_name': bl_info.get('name') if src == 'attached' else None,
         'baseline_expected': expected,                             # False = none assigned in P6
+        # the baseline this report was measured against — shown on screen AND in the PDF / Excel
+        'baseline_label': baseline_label(dict(baseline_fields(bl_info), baseline_source=src,
+                                              baseline_expected=expected), proj.get('baseline_name')),
         'activity_count': len(getattr(data, 'activities', {}) or {}),
         'code_types': list(getattr(data, 'activity_code_types', None) or []),
         'time_status': ts,

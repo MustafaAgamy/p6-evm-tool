@@ -141,20 +141,22 @@ def _core_blocks(result, weights, actual_cost, meta):
     # ── dashboard (the 10 KPI tiles, in screen order) ─────────────────────────
     ac_note = 'entered' if actual_cost is not None else 'from P6'
     delay = result.get('delay_days')
+    from p6_evm.baseline import baseline_approx
+    ax = ' · approx' if baseline_approx(result) else ''
     dashboard = {
         'title': 'Executive Dashboard',
         'headers': ['KPI', 'Value', 'Detail'],
         'rows': [
-            ['SPI · Schedule', _as_pct(spi), _spi_status(spi)],
+            ['SPI · Schedule', _as_pct(spi), _spi_status(spi) + ax],
             ['Overall Planned %', _pct2(planned), 'weighted table'],
             ['Overall Actual %', _pct2(actual), 'weighted table'],
-            ['Planned Value', _egp_exact(pv), 'EGP'],
+            ['Planned Value', _egp_exact(pv), 'EGP' + ax],
             ['Earned Value', _egp_exact(ev), 'EGP'],
             ['Actual Cost', _egp_exact(ac), ac_note],
             ['CPI · Cost', _as_pct(cpi), 'auto from Actual Cost'],
-            ['Baseline Finish', _fmt_date(meta.get('baseline_finish')), ''],
+            ['Baseline Finish', _fmt_date(meta.get('baseline_finish')), ax[3:]],
             ['Expected Finish', _fmt_date(meta.get('expected_finish')), ''],
-            ['Delay', f'{delay} days' if delay is not None else '—', ''],
+            ['Delay', f'{delay} days' if delay is not None else '—', ax[3:]],
         ],
     }
 

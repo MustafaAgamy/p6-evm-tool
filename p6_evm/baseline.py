@@ -189,6 +189,36 @@ def load_for_project(path, snapshot_id=None, cached_path=None, baseline_path=Non
     return load_schedule(path, attached)
 
 
+def baseline_label(fields, embedded_name=None):
+    """ONE line naming the baseline the numbers were measured against — printed in every
+    report head and Excel header block (the counterpart of the screen's baseline banner), so
+    the baseline is labelled, never silent. ``fields`` has the baseline_fields() keys (a result
+    dict works too). None when nothing is known (older results)."""
+    f = fields or {}
+    src = f.get('baseline_source')
+    if src == 'embedded':
+        return f'inside the schedule file ({embedded_name})' if embedded_name else 'inside the schedule file'
+    if src == 'attached':
+        m, t = f.get('baseline_matched'), f.get('baseline_total')
+        cnt = f' ({m}/{t} activities matched)' if m is not None and t else ''
+        return f"attached: {f.get('baseline_name') or 'baseline file'}{cnt}"
+    if src == 'self':
+        if f.get('baseline_expected') is False:
+            return "none assigned in P6 — the schedule's own Planned dates are its baseline"
+        miss = f.get('baseline_missing')
+        lost = f' (the attached {miss} is no longer available)' if miss else ''
+        return ("not in the file and none attached — the schedule's own Planned dates stand in "
+                "(approximate)" + lost)
+    return None
+
+
+def baseline_approx(fields):
+    """True when Planned Value / SPI / Delay / Baseline Finish come from the file's own dates
+    standing in for a baseline P6 names but the file does not carry (marked 'approx')."""
+    f = fields or {}
+    return f.get('baseline_source') == 'self' and f.get('baseline_expected') is not False
+
+
 def baseline_fields(info):
     """The result-JSON keys the UI reads (EVM banner, Update Analysis, Help).
     ``baseline_expected`` False = no baseline is assigned to this project in P6, so its own

@@ -1168,8 +1168,10 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_update.exporters import report_excel_sections
             from p6_evm.xlsx_writer import write_sections_xlsx
+            bl = report.get('baseline_label')
             write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
-                                meta=_excel_meta('Update Analysis', report))
+                                meta=_excel_meta('Update Analysis', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1185,8 +1187,11 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.evm_excel import evm_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
+            from p6_evm.baseline import baseline_label
+            bl = baseline_label(report.get('result') or {})
             write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
-                                meta=_excel_meta('Earned Value Report', report))
+                                meta=_excel_meta('Earned Value Report', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2871,6 +2876,10 @@ class Handler(BaseHTTPRequestHandler):
             meta_in = body.get('meta') or {}
             if body.get('actual_cost') is not None:
                 meta_in['actual_cost'] = body.get('actual_cost')
+            from p6_evm.baseline import baseline_fields, baseline_label, baseline_approx
+            _blf = baseline_fields(getattr(data, 'baseline_info', None))   # labelled, never silent
+            meta_in['baseline_label'] = baseline_label(_blf, (data.project or {}).get('baseline_name'))
+            meta_in['baseline_approx'] = baseline_approx(_blf)
             dim = body.get('dimension')
             gap = gap_by_code(result['records'], dim) if dim else None
             engineering = body.get('engineering')

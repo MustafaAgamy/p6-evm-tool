@@ -232,14 +232,14 @@ function renderDashboard(result) {
     && baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   // Overall %: 2 decimals so the tile matches the Category Weights table's Overall row exactly.
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
-    ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
+    ${tile('SPI · Schedule', asPct(spi), noBaseline ? `${st.label} · approx` : st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
     ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, 'weighted table')}
     ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(2)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
     ${tile('Planned Value', egpExact(result.pv), noBaseline ? 'EGP · approx' : 'EGP')}
     ${tile('Earned Value', egpExact(result.ev), 'EGP')}
     ${tile('Actual Cost', egpExact(ac), acNote, _actualCost != null ? 'color-blue' : '')}
     ${tile('CPI · Cost', asPct(cpi), 'auto from Actual Cost')}
-    ${tile('Baseline Finish', fmtDate(result.baseline_finish))}
+    ${tile('Baseline Finish', fmtDate(result.baseline_finish), noBaseline ? 'approx' : '')}
     ${tile('Expected Finish', fmtDate(result.expected_finish))}
     ${tile('Delay', result.delay_days != null ? `${result.delay_days} days` : '—',
            noBaseline ? 'approx' : '', result.delay_days > 0 ? 'color-red' : 'color-green')}

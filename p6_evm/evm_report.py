@@ -107,21 +107,25 @@ def _dashboard(result, meta):
     spi = result.get('spi')
     cpi = result.get('cpi')
     status, color = spi_status(spi)
+    # measured against the file's own dates standing in for its baseline → 'approx', as on screen
+    approx = bool(meta.get('baseline_approx'))
+    ax = ' · approx' if approx else ''
     cats = result.get('categories', {}) or {}
     op = sum((c.get('weight') or 0) * (c.get('planned_pct') or 0) for c in cats.values())
     oa = sum((c.get('weight') or 0) * (c.get('actual_pct') or 0) for c in cats.values())
     tiles = [
-        _tile('SPI · Schedule', _pct(spi), status, accent=color),
+        _tile('SPI · Schedule', _pct(spi), status + ax, accent=color),
         _tile('Overall Planned %', f'{op * 100:.1f}%', 'weighted table'),
         _tile('Overall Actual %', f'{oa * 100:.1f}%', 'weighted table'),
-        _tile('Planned Value', _egp(result.get('pv')), 'EGP'),
+        _tile('Planned Value', _egp(result.get('pv')), 'EGP' + ax),
         _tile('Earned Value', _egp(result.get('ev')), 'EGP'),
         _tile('Actual Cost', _egp(meta.get('actual_cost', result.get('ac'))),
               'entered' if meta.get('actual_cost') is not None else 'from P6'),
         _tile('CPI · Cost', _pct(cpi), 'auto from Actual Cost'),
-        _tile('Baseline Finish', _fmt_date(meta.get('baseline_finish'))),
+        _tile('Baseline Finish', _fmt_date(meta.get('baseline_finish')), 'approx' if approx else ''),
         _tile('Expected Finish', _fmt_date(meta.get('expected_finish'))),
-        _tile('Delay', f"{result.get('delay_days')} days" if result.get('delay_days') is not None else '—'),
+        _tile('Delay', f"{result.get('delay_days')} days" if result.get('delay_days') is not None else '—',
+              'approx' if approx else ''),
     ]
     return _part('dashboard.kpis', 'Executive dashboard tiles (SPI, PV, EV, CPI, dates)',
                  f'<div class="dash-grid">{"".join(tiles)}</div>')
@@ -382,6 +386,7 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
       <div><span>Data Date:</span> {_esc(meta.get('data_date', ''))}</div>
       <div><span>Report Date:</span> {_esc(meta.get('report_date', ''))}</div>
       <div><span>Schedule File:</span> {_esc(meta.get('source_file', ''))}</div>
+      {f'<div><span>Baseline:</span> {_esc(meta.get("baseline_label"))}</div>' if meta.get('baseline_label') else ''}
     </div>
   </div>
 

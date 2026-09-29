@@ -206,6 +206,7 @@ function _render(report) {
       <button class="btn-secondary" id="ua-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="ua-export-xlsx">Export Excel</button>
     </div>
+    ${report.baseline_label ? `<div class="ua-note" id="ua-baseline" style="margin:0 0 6px">Baseline: ${escapeHtml(report.baseline_label)}</div>` : ''}
     <div class="ua-reco">${escapeHtml(report.conclusion || '')}</div>
 
     <div class="ua-sec">1 · Time Status</div>
