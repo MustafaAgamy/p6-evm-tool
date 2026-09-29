@@ -1040,7 +1040,7 @@ class Handler(BaseHTTPRequestHandler):
                     overrides = json.load(f)
 
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            data   = parse_file(resolved)
+            data   = _schedule_for(resolved, body)   # embedded > attached > self baseline
             config['categories'] = auto_categories(data)
             result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
@@ -1095,7 +1095,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_update.analysis import build_report_from_data
             with open(resource_path('config.json')) as f:
                 base_config = json.load(f)
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             cfg = dict(base_config)
             cfg['categories'] = auto_categories(data)
             metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
@@ -1125,7 +1125,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_update.analysis import activity_counts
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             counts = activity_counts(data, code_filter=code_filter)
             self._json(200, {'ok': True, 'counts': counts,
                              'code_types': list(getattr(data, 'activity_code_types', []) or [])})
@@ -1144,7 +1144,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_update.analysis import scope_weights
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             self._json(200, {'ok': True, 'scope': scope_weights(data, types)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1479,7 +1479,14 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_critpath.analysis import build_report
-            schedules = {role: parse_file(p) for role, p in paths.items()}
+            # One baseline resolution (embedded > attached > self): the current update uses the
+            # baseline attached for it; the previous update its own, else the same project's.
+            from p6_evm.baseline import attached_baseline_for
+            cur_bl = attached_baseline_for(current_path, body.get('snapshot_id'), body.get('cached_path'))
+            schedules = {role: (parse_file(p) if role == 'baseline'   # the picked baseline IS the baseline
+                                else _schedule_for(p, body) if role == 'current'
+                                else _schedule_for(p, {}, fallback_baseline=cur_bl))
+                         for role, p in paths.items()}
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
@@ -2274,15 +2281,20 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 base_config = json.load(f)
 
-            def parse_and_compute(path):
-                data = parse_file(path)
+            # One baseline resolution (embedded > attached > self): the current update uses the
+            # baseline attached for it; the previous update its own, else the same project's.
+            from p6_evm.baseline import attached_baseline_for
+            cur_bl = attached_baseline_for(curr_path, body.get('snapshot_id'), body.get('cached_path'))
+
+            def parse_and_compute(path, sched_body, fallback=None):
+                data = _schedule_for(path, sched_body, fallback_baseline=fallback)
                 cfg = dict(base_config)
                 cfg['categories'] = auto_categories(data)
                 metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
                 return data, metrics
 
-            prev_data, prev_m = parse_and_compute(prev_path)
-            curr_data, curr_m = parse_and_compute(curr_path)
+            prev_data, prev_m = parse_and_compute(prev_path, {'cached_path': body.get('prev_cached_path')}, cur_bl)
+            curr_data, curr_m = parse_and_compute(curr_path, body)
             report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
             report['prev_file'] = os.path.basename(prev_path)
             report['update_file'] = os.path.basename(curr_path)
@@ -2595,7 +2607,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.classify import auto_categories, build_wbs_classifier
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            data = parse_file(resolved)
+            data = _schedule_for(resolved, body)   # embedded > attached > self baseline
             config['categories'] = auto_categories(data)
             result = compute(data, config, classifier=build_wbs_classifier(data))
             self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
@@ -2837,11 +2849,8 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             weights = body.get('weights') or {}
-            data = parse_file(resolved)
-            bl_path = body.get('baseline_path')     # attached baseline (for correct PV)
-            if bl_path and os.path.isfile(bl_path):
-                from p6_evm.baseline import apply_baseline
-                apply_baseline(data, parse_file(bl_path))   # baseline dates + budget
+            # embedded > attached (for this snapshot, or the one the screen names) > self baseline
+            data = _schedule_for(resolved, body, fallback_baseline=body.get('baseline_path'))
             config['categories'] = auto_categories(data, saved_weights=weights)
             result = compute(data, config, classifier=build_wbs_classifier(data))
             meta_in = body.get('meta') or {}
@@ -3040,7 +3049,7 @@ class Handler(BaseHTTPRequestHandler):
                           or (resolve_site_thresholds(site_type) if site_type else None)
                           or saved.get('weather_thresholds')
                           or config.get('weather_thresholds'))
-            data = parse_file(resolved)
+            data = _schedule_for(resolved, body)   # embedded > attached > self baseline
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
@@ -3092,7 +3101,7 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_calendar import calendar_audit
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                ca = calendar_audit(parse_file(resolved), config, settings)
+                ca = calendar_audit(_schedule_for(resolved, body), config, settings)   # embedded > attached > self
                 if sid:
                     db.save_calendar_audit(sid, ca)
             except Exception as cexc:
@@ -3147,7 +3156,7 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_audit.health import schedule_health
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                data = parse_file(resolved)
+                data = _schedule_for(resolved, body)   # embedded > attached > self baseline
                 config['categories'] = auto_categories(data)
                 am = run_audit_modules(data, config)
                 hard = (am.get('modules') or {}).get('hard_constraints')
