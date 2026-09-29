@@ -134,6 +134,19 @@ def test_month_calendars_become_week_tables_two_a_row():
         r'>(\d+|Public holiday)<', src.replace('</div>', '</div>'))
 
 
+def test_month_rows_carry_no_keep_rules_inside_only_the_legend_keeps_with_them():
+    """Word keeps a table row whose paragraphs keep-with-next with the NEXT row: keep rules
+    inside the (never-splitting) rows of months would chain them all into one pushed block."""
+    src = ('<div class="sub2">Each month calendar</div><div class="legend"><span>Working</span>'
+           '<span>Holiday</span></div>' + _calendar_body(6))
+    out = DP.paginate_word_html(WE._month_grids_as_tables(src))
+    lay = out[out.index('class="mgrids-tbl"'):]
+    assert KWN not in lay, lay[:400]
+    assert lay.count('<tr style="page-break-inside:avoid">') == 3
+    assert lay.count('<thead>') == 6                                 # each month's weekday header
+    assert _kwn_texts(out[:out.index('class="mgrids-tbl"')]) == ['WorkingHoliday']   # legend + months
+
+
 def test_studio_word_document_carries_month_tables_and_row_rules():
     html = WE.build_word_document('Synthetic', {'project_name': 'Synthetic'}, _rendered(months=2, rows=3))
     assert 'class="mgrid-tbl"' in html and 'class="mgrid"' not in html
