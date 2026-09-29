@@ -659,7 +659,7 @@ def _norm(v):
 def _text(v):
     """Names compare on their words: a line break may be kept as \\n or folded to a space, but
     P6's XER escapes ("" for ", 0x7F 0x7F for a line break) must be decoded (P14 / P15)."""
-    return ' '.join(v.split(' ')).replace('\n', ' ') if isinstance(v, str) else v
+    return ' '.join(v.split()) if isinstance(v, str) else v
 
 
 def _truth_cal(c, field):
@@ -901,11 +901,103 @@ FIELDS = (
                                    'budget_units', 'actual_units', 'budget_cost', 'rate')]
 )
 
-# (format, 'entity.field') -> finding. Filled from the run of this harness against the parsers
-# as they stood at commit "[parser:AUDIT]".
-TRUTH_XFAIL = {}
-# 'entity.field' -> finding(s) that make XML and XER disagree today.
-PARITY_XFAIL = {}
+_P1 = 'P1: baseline not read from the export (XER self-baseline / no baseline_source / name)'
+_P4 = 'P4: XER 24-h shift s|00:00|f|00:00 dropped -> 24-h weekdays non-working, 24-h exception = holiday'
+_P5 = 'P5: XER imports the PROJWBS project-root node (proj_node_flag=Y)'
+_P6 = 'P6: XER status kept as TK_* codes instead of the P6 status words'
+_P7 = 'P7: XER constraint kept as CS_* codes'
+_P7B = 'P7: secondary constraint (cstr_type2/cstr_date2, SecondaryConstraintType/Date) not read'
+_P8 = 'P8: XML total float reconstructed as whole START-float days, not P6 finish float in hours/day (needs P10 too)'
+_P10 = 'P10: XML <WorkTime><Finish> is the last working minute (11:59 = 12:00, 23:59 = 24:00)'
+_P11 = 'P11: XML adds the <BaselineProject> calendars to the project calendar list'
+_P12 = 'P12: calendar metadata one-sided (XER type/is_default, XML weekly_working_days)'
+_P13 = 'P13: project window / must-finish-by / baseline pointer not read'
+_P14 = 'P14: XER "" (escaped quote) not un-escaped'
+_P15 = 'P15: XER line break 0x7F 0x7F kept in text'
+_P16 = 'P16: lag converted on the SUCCESSOR calendar; project option is the PREDECESSOR calendar'
+_P18 = 'P18: XER activity_code_types lists unassigned code types'
+_P19 = 'P19: XER Units % complete counts labour units only (P6: labour + nonlabour)'
+_P20 = 'P20: XML assignment without PricePerUnit gives rate None'
+_P23 = 'P23: multi-project XER - the baseline project rows are merged/ignored, not routed to the baseline'
+_P24 = 'P24: P6 XML exports no free float (format limitation - reconstruct or document)'
+
+# (format, 'entity.field') -> finding. Measured by running this harness against the parsers as
+# they stood at commit "[parser:AUDIT]" (every failure checked against the finding's evidence).
+TRUTH_XFAIL = {
+    ('xml', 'project.must_finish_by'): _P13,
+    ('xml', 'project.baseline_name'): _P1,
+    ('xml', 'data.baseline_source'): _P1,
+    ('xml', 'calendar.ids'): _P11,
+    ('xml', 'calendar.work_intervals'): _P10,
+    ('xml', 'calendar.exception_intervals'): _P10,
+    ('xml', 'calendar.weekly_working_days'): _P12,
+    ('xml', 'activity.total_float_days'): _P8,
+    ('xml', 'activity.free_float_days'): _P24,
+    ('xml', 'activity.secondary_constraint_type'): _P7B,
+    ('xml', 'activity.secondary_constraint_date'): _P7B,
+    ('xml', 'relationship.lag_days'): _P16,
+    ('xml', 'assignment.rate'): _P20,
+    ('xer', 'project.baseline_object_id'): _P13 + ' / ' + _P1,
+    ('xer', 'project.planned_start'): _P13,
+    ('xer', 'project.scheduled_finish'): _P13,
+    ('xer', 'project.must_finish_by'): _P13,
+    ('xer', 'project.baseline_name'): _P1,
+    ('xer', 'data.activity_code_types'): _P18,
+    ('xer', 'data.baseline_by_id'): _P1 + ' / ' + _P23,
+    ('xer', 'data.baseline_bac_by_activity'): _P1 + ' / ' + _P23,
+    ('xer', 'data.baseline_source'): _P1,
+    ('xer', 'calendar.ids'): _P23,
+    ('xer', 'calendar.nonworking_days'): _P4,
+    ('xer', 'calendar.holidays'): _P4,
+    ('xer', 'calendar.added_work_days'): _P4,
+    ('xer', 'calendar.work_intervals'): _P4,
+    ('xer', 'calendar.exception_intervals'): _P4,
+    ('xer', 'calendar.type'): _P12,
+    ('xer', 'calendar.is_default'): _P12,
+    ('xer', 'wbs.ids'): _P5,
+    ('xer', 'wbs.parent_object_id'): _P5,
+    ('xer', 'activity.name'): _P14 + ' / ' + _P15,
+    ('xer', 'activity.status'): _P6,
+    ('xer', 'activity.percent_complete'): _P19,
+    ('xer', 'activity.constraint_type'): _P7,
+    ('xer', 'activity.secondary_constraint_type'): _P7B,
+    ('xer', 'activity.secondary_constraint_date'): _P7B,
+    ('xer', 'activity.wbs_path'): _P5,
+    ('xer', 'relationship.lag_days'): _P16,
+    ('xer', 'resource.name'): _P14,
+    ('xer', 'assignment.resource_name'): _P14,
+}
+# 'entity.field' -> finding(s) that make XML and XER disagree today. (A field both parsers get
+# wrong the SAME way - P7 secondary constraint, P11/P23 calendar ids, P13 must-finish-by, P16 lag
+# days, P1 baseline_source/name - passes parity and is caught by test_truth only.)
+PARITY_XFAIL = {
+    'project.baseline_object_id': _P13 + ' / ' + _P1,
+    'project.planned_start': _P13,
+    'project.scheduled_finish': _P13,
+    'data.activity_code_types': _P18,
+    'data.baseline_by_id': _P1 + ' / ' + _P23,
+    'data.baseline_bac_by_activity': _P1 + ' / ' + _P23,
+    'calendar.nonworking_days': _P4,
+    'calendar.holidays': _P4,
+    'calendar.added_work_days': _P4,
+    'calendar.work_intervals': _P4 + ' / ' + _P10,
+    'calendar.exception_intervals': _P4 + ' / ' + _P10,
+    'calendar.weekly_working_days': _P12,
+    'calendar.type': _P12,
+    'calendar.is_default': _P12,
+    'wbs.ids': _P5,
+    'wbs.parent_object_id': _P5,
+    'activity.name': _P14 + ' / ' + _P15,
+    'activity.status': _P6,
+    'activity.percent_complete': _P19,
+    'activity.total_float_days': _P8,
+    'activity.free_float_days': _P24,
+    'activity.constraint_type': _P7,
+    'activity.wbs_path': _P5,
+    'resource.name': _P14,
+    'assignment.resource_name': _P14,
+    'assignment.rate': _P20,
+}
 
 
 def _params(kind):
