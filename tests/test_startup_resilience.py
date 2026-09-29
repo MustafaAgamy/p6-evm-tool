@@ -153,6 +153,29 @@ def test_static_file_persistent_lock_answers_503(test_server, monkeypatch):
     assert status == 503
 
 
+def test_locked_index_answers_a_self_retrying_starting_page(test_server, monkeypatch):
+    """[startup:F1] BLACK-2: when index.html itself is locked (antivirus scanning the freshly
+    unpacked exe files) the window used to show raw JSON on white and sat there until the
+    45 s watchdog. It now gets a visible 'Starting' page that reloads itself with backoff
+    and ends on an in-page Retry button (never alert/confirm - WebView2 no-ops)."""
+    import server
+    from utils import APP_NAME
+
+    def locked(path, *a, **k):
+        raise PermissionError(13, 'being used by another process')
+    monkeypatch.setattr(server, '_read_ui_file', locked)
+    status, headers, body = _get(test_server, '/')
+    html = body.decode('utf-8')
+    assert status == 503 and headers.get('Retry-After') == '1'
+    assert headers['Content-Type'] == 'text/html; charset=utf-8'
+    assert int(headers['Content-Length']) == len(body)
+    assert '<meta charset="utf-8">' in html and 'background:#06090f' in html
+    assert 'Starting ' + APP_NAME in html and 'id="cx-index-retry"' in html
+    assert 'location.reload' in html and 'sessionStorage' in html
+    for banned in ('alert(', 'confirm(', 'prompt('):
+        assert banned not in html
+
+
 def test_static_query_string_keeps_the_js_mime_type(test_server):
     status, headers, _ = _get(test_server, '/ui/app.js?v=2.8.0')
     assert status == 200 and headers['Content-Type'] == 'application/javascript'

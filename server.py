@@ -688,7 +688,17 @@ class Handler(BaseHTTPRequestHandler):
         except FileNotFoundError:
             self._json(404, {'ok': False, 'error': 'index.html not found'})
         except OSError as exc:
-            self._static_unavailable('ui/index.html', exc)
+            # index.html itself locked (antivirus): a visible, self-retrying 'Starting' page
+            # instead of raw JSON the window would sit on until the app's watchdog.
+            app_startup.log('static file unavailable: ui/index.html (%r)', exc)
+            body = _starting_page_html().encode('utf-8')
+            self.send_response(503)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Retry-After', '1')
+            self.end_headers()
+            self.wfile.write(body)
 
     def _serve(self, path, mime):
         try:
@@ -3830,6 +3840,43 @@ def _inline_startup_guard(html):
     if _GUARD_MARK in html:
         return html.replace(_GUARD_MARK, tag, 1)
     return html.replace('</head>', tag + '</head>', 1)
+
+
+def _starting_page_html():
+    """The page served (503) when index.html can't be read yet: the window background
+    colour, a visible 'Starting' line, automatic reloads with backoff (count kept in
+    sessionStorage, reset after a quiet minute), then an in-page Retry button. Plain ES5,
+    no alert/confirm/prompt (WebView2 no-ops); the name comes from utils.APP_NAME."""
+    from html import escape
+    name = json.dumps(APP_NAME)
+    return (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<title>' + escape(APP_TITLE) + '</title>'
+        '<style>html,body{margin:0;height:100%;background:#06090f;color:#c3cde3;'
+        'font:14px/1.5 "Segoe UI",system-ui,sans-serif}'
+        '#w{height:100%;display:flex;align-items:center;justify-content:center;padding:16px;'
+        'box-sizing:border-box;text-align:center}#t{color:#fff;font-size:16px;font-weight:600}'
+        '#cx-index-retry{display:none;margin:14px auto 0;background:#3b82f6;color:#fff;border:0;'
+        'border-radius:8px;padding:8px 18px;font:600 13px/1 "Segoe UI",system-ui,sans-serif;'
+        'cursor:pointer}</style>'
+        '</head><body><div id="w"><div><div id="t">Starting ' + escape(APP_NAME) + '…</div>'
+        '<div id="m">Waiting for the program files to become available.</div>'
+        '<button type="button" id="cx-index-retry">Retry</button></div></div>'
+        '<script>(function(){var K="cx_index_attempt",D=[1000,2000,3000,5000,8000],n=0,'
+        'now=Date.now(),s=null;try{s=window.sessionStorage;var v=JSON.parse(s.getItem(K)||"null");'
+        'if(v&&now-v.t<60000)n=v.n;}catch(e){}'
+        'var b=document.getElementById("cx-index-retry");'
+        'b.onclick=function(){try{s&&s.removeItem(K);}catch(e){}location.reload();};'
+        'if(n<D.length){try{s&&s.setItem(K,JSON.stringify({n:n+1,t:now}));}catch(e){}'
+        'document.getElementById("m").textContent="Waiting for the program files to become '
+        'available — trying again (attempt "+(n+1)+" of "+D.length+").";'
+        'setTimeout(function(){location.reload();},D[n]);}'
+        'else{document.getElementById("t").textContent=' + name + '+" couldn’t finish starting";'
+        'document.getElementById("m").textContent="The program files could not be read (they may '
+        'be held by antivirus). Your projects and data are safe. Click Retry; if this keeps '
+        'happening, close the app and open it again.";b.style.display="block";}'
+        '}());</script></body></html>'
+    )
 
 
 class _LoopbackServer(ThreadingHTTPServer):
