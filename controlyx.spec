@@ -96,6 +96,9 @@ hiddenimports = [
     'p6_kb.scoring',
     # Shared report appearance themes (imported by every report renderer)
     'report_theme',
+    # Startup reliability (black-screen fixes): startup log, readiness handshake, single-
+    # instance guard, gated safe graphics. Imported by app.py + server.py; listed for safety.
+    'app_startup',
     # Special Report — registry + context + renderer + all built-in providers.
     # discover() uses importlib dynamically, so force every submodule to ship
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
