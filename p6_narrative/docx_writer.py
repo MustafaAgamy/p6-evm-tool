@@ -1175,10 +1175,13 @@ def _code_pair(document, pair):
         long_t = _code_side_table(document, *pair[lk])
         if est(long_t) > fit_h:                                     # it continues across pages
             short_t = _code_side_table(document, *pair[1 - lk])
-            if est(short_t) <= fit_h:                               # kept whole → float it
-                long_t._tbl.addprevious(short_t._tbl)               # anchored at the pair start
-                _float_side(short_t, right=(lk == 0))
-                for row in short_t.rows:                           # travels with the long one
+            if est(short_t) <= fit_h:                               # kept whole → beside it
+                x_in = 0.0 if lk == 1 else sum(_CODE_PAIR_W[:3])
+                long_t._tbl.addprevious(_beside_box(short_t._tbl, x_in, sum(_CODE_PAIR_W[:2]),
+                                                    est(short_t) + 4, pair[1 - lk][0]))
+                # the long table keeps its header + as many rows as the short one has together,
+                # so the short one (same row pitch) always fits beside its first page part
+                for row in long_t.rows[:2 + max(len(pair[1 - lk][1]), 3) - 1]:
                     for c in row.cells:
                         for p in c.paragraphs:
                             p.paragraph_format.keep_with_next = True
@@ -1194,25 +1197,47 @@ def _code_pair(document, pair):
     return _code_pair_table(document, pair)
 
 
-def _float_side(table, right=True):
-    """Make ``table`` a floating (text-wrapped) table on the right / left margin, at the
-    position where it stands in the text — the next table then flows BESIDE it (Word's
-    side-by-side tables). It never overlaps other content."""
-    tblPr = table._tbl.tblPr
-    pp = OxmlElement('w:tblpPr')
-    for k, v in (('leftFromText', '0'), ('rightFromText', '0'), ('topFromText', '0'),
-                 ('bottomFromText', '0'), ('vertAnchor', 'text'), ('horzAnchor', 'margin'),
-                 ('tblpXSpec', 'right' if right else 'left'), ('tblpY', '1')):
-        pp.set(qn('w:' + k), v)
-    st = tblPr.find(qn('w:tblStyle'))                # CT_TblPr: tblStyle, tblpPr, tblOverlap, …
-    if st is not None:
-        st.addnext(pp)
-    else:
-        tblPr.insert(0, pp)
-    ov = OxmlElement('w:tblOverlap')
-    ov.set(qn('w:val'), 'never')
-    pp.addnext(ov)
-    return table
+_TB_XML = (
+    '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    ' xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+    '<w:pPr><w:keepNext/><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>'
+    '<w:rPr><w:sz w:val="2"/></w:rPr></w:pPr>'
+    '<w:r><w:rPr><w:sz w:val="2"/></w:rPr><w:drawing>'
+    '<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251659264"'
+    ' behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">'
+    '<wp:simplePos x="0" y="0"/>'
+    '<wp:positionH relativeFrom="margin"><wp:posOffset>{x}</wp:posOffset></wp:positionH>'
+    '<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>'
+    '<wp:extent cx="{cx}" cy="{cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>'
+    '<wp:wrapNone/><wp:docPr id="{id}" name="{name}"/><wp:cNvGraphicFramePr/>'
+    '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+    '<wps:wsp><wps:cNvSpPr txBox="1"/>'
+    '<wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr>'
+    '<wps:txbx><w:txbxContent/></wps:txbx>'
+    '<wps:bodyPr rot="0" vert="horz" wrap="square" lIns="{lins}" tIns="0" rIns="0" bIns="0"'
+    ' anchor="t" anchorCtr="0"><a:spAutoFit/></wps:bodyPr>'
+    '</wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r></w:p>')
+
+_EMU_IN, _EMU_PT = 914400, 12700
+
+
+def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
+    """A 1 pt paragraph that keeps with the next block and carries ``tbl`` in a borderless
+    text box on the same line, ``x_in`` from the left margin (in front of the text — it sits
+    in the empty half beside the block below). The box moves with its paragraph, so the
+    table always stays beside the block the paragraph keeps with."""
+    from docx.oxml import parse_xml
+    lins = int(0.08 * _EMU_IN)                        # room for the table's own left border
+    p = parse_xml(_TB_XML.format(x=int((x_in - 0.08) * _EMU_IN), cx=int((w_in + 0.1) * _EMU_IN),
+                                 cy=int(h_pt * _EMU_PT), id=9000, name=name, lins=lins))
+    box = p.find('.//' + qn('w:txbxContent'))
+    tbl.getparent().remove(tbl)
+    box.append(tbl)
+    box.append(OxmlElement('w:p'))                   # a text box ends with a paragraph
+    return p
 
 
 def _fill_code_half(t, c0, name, rows):
