@@ -113,6 +113,8 @@ def test_period_compare_reports_each_real_step(test_server, xml_path, monkeypatc
     r = _post(test_server, '/api/period/compare', {'prev_path': str(xml_path), 'update_path': str(xml_path),
                                                    'run_id': 'pc-1'})
     assert r['ok'] is True and r['report']['prev_file'] == 'minimal.xml'
-    assert seen == ['Reading the previous update — minimal.xml', 'Reading the current update — minimal.xml',
+    # [merge:runux] the current update is read FIRST (the previous one may inherit its baseline —
+    # one baseline resolution), and the bar names the steps in that real order.
+    assert seen == ['Reading the current update — minimal.xml', 'Reading the previous update — minimal.xml',
                     'Comparing the two periods']
     assert 'pc-1' not in srv._RUN_STAGES                      # cleared once the answer is sent
