@@ -65,7 +65,10 @@ Narrative draws a tall vertical WBS tree as stacked parts of about a third of a 
 Office-HTML Word (`.doc`, the Reporting Studio's own Word button) has no flex / grid: every `<div>` of a
 screen row prints as its own line. The shared Word pass (p6_export.doc_pagination) keeps a screen row's
 lines together (a short `<div>` made only of one-line `<div>`s: a score row, a bar row, a KPI card label +
-value) and a container's first short line (a card title) with its first block; the Studio re-lays the
+value) and a container's first short line (a card title) with its first block - unless that block opens
+with a title of its own (a heading, or a titled table block such as `1 · Main WBS` over a code table):
+a section intro then stays with the section heading only, so heading + intro + title + table never
+become one block Word pushes whole; the Studio re-lays the
 Calendar's month calendars (`.mgrid`) as 7-column week tables two a row whose rows never split. The checker
 reads the Studio's one-row heading table (number badge + title) as a heading, recognises the next row of
 whole month calendars (own titles over the same weekday header) as a new grid rather than a table split,
