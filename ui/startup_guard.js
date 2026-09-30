@@ -15,7 +15,9 @@
  * "Still starting..." instead of a blank cover; a start that stalls is treated as a
  * failure. Every event is reported to POST /api/client-log (the app's startup log), and
  * ready() completes the app's readiness handshake. After ready, GET /api/health reports
- * whether the history database had to be recovered; if so a dismissible notice says so.
+ * whether the history database had to be recovered, could not be opened, or is damaged
+ * (the background quick_check, waited for); a dismissible notice says so, and for a
+ * damaged one offers to set it aside and start fresh (POST /api/db/recover).
  * No alert/confirm/prompt anywhere (they are no-ops in WebView2). ES5 only.
  *
  * Real start-up steps (BLACK-9) - the cover and the animated splash (ui/modules/boot.js)
@@ -42,6 +44,9 @@
   var STEPS = ['server', 'program', 'screen', 'history'];
   var HEALTH_RETRY_MS = [500, 1500, 3000];   // /api/health re-probes after an error
   var COVER_TEXT = { server: 'Starting local server', program: 'Loading program files' };
+  var DB_CHECK_POLL_MS = 2500;         // after ready: wait for the background DB check (S3)
+  var DB_CHECK_POLLS = 24;             //   ... for up to ~60 s
+  var DB_FIX_LABEL = 'Set the damaged database aside and start fresh (a backup is kept)';
 
   function create(win, opts) {
     opts = opts || {};
@@ -52,6 +57,7 @@
     var reload = opts.reload || function () { win.location.reload(); };
     var post = opts.post || defaultPost;
     var getJson = opts.getJson || defaultGetJson;
+    var postJson = opts.postJson || defaultPostJson;
     var storage = opts.storage || safeSession();
     var t0 = now();
     var timers = [];
@@ -102,6 +108,19 @@
           try { cb(j); } catch (e) { /* the caller's own problem */ }
         }).catch(fail);
       } catch (e) { fail(e); }
+    }
+    // POST a JSON body; cb gets the parsed answer whatever the HTTP status (the server
+    // explains a refusal in its JSON), onErr when nothing usable came back.
+    function defaultPostJson(url, payload, cb, onErr) {
+      try {
+        if (typeof win.fetch !== 'function') { if (onErr) onErr('no fetch'); return; }
+        win.fetch(url, { method: 'POST', cache: 'no-store',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify(payload || {}) })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { try { cb(j); } catch (e) { /* the caller's own problem */ } })
+          .catch(function (e) { if (onErr) onErr(e && e.message ? e.message : String(e)); });
+      } catch (e) { if (onErr) onErr(String(e)); }
     }
     function report(kind, message, detail) {
       var rec = { kind: kind, message: message || '', detail: detail || '',
@@ -250,20 +269,46 @@
       writeAttempt(0);
       removeOverlay();
       report('ready', 'shell ready', g.attempt ? 'after ' + g.attempt + ' automatic reload(s)' : '');
-      getJson('/api/health', function (h) { g.notice(h); });
+      watchDb(0);
       g.step('screen');
       notify('phase');
     };
 
+    // After ready: the history DB is checked in the background (PRAGMA quick_check, S3);
+    // wait for that answer (bounded) before deciding there is nothing to say.
+    function watchDb(i) {
+      getJson('/api/health', function (h) {
+        var d = h && h.db;
+        var known = d && (d.status === 'recovered' || d.status === 'degraded' || d.status === 'damaged');
+        if (!known && d && (d.check === 'pending' || d.check === 'running') && i < DB_CHECK_POLLS) {
+          setT(function () { watchDb(i + 1); }, DB_CHECK_POLL_MS);
+          return;
+        }
+        g.notice(h);
+      });
+    }
+
+    function dbMessage(d) {
+      if (d.status === 'recovered') {
+        return 'Your project history database was damaged and could not be read. It was set aside as “' +
+          (d.backup || 'a backup file') + '” and a fresh one was started' +
+          (d.salvaged ? ' with every record that could still be read copied into it' : '') +
+          ' — re-import your schedules to rebuild anything missing from Recent Projects.';
+      }
+      if (d.status === 'damaged') {
+        return 'Your project history database is damaged (' + (d.detail || 'database disk image is malformed') +
+          '). Recent Projects and re-opening saved projects may fail until it is replaced; ' +
+          'analysing a schedule file still works. The damaged file is kept as a backup.';
+      }
+      return 'The project history database could not be opened (' + (d.detail || 'unknown reason') +
+        '). Analyses still work; Recent Projects may stay empty until the app is restarted.';
+    }
+
     g.notice = function (h) {
       var d = h && h.db;
-      if (!d || (d.status !== 'recovered' && d.status !== 'degraded')) return null;
-      var msg = d.status === 'recovered'
-        ? 'Your project history database was damaged and could not be read. It was set aside as “' +
-          (d.backup || 'a backup file') + '” and a fresh one was started — re-import your ' +
-          'schedules to rebuild Recent Projects.'
-        : 'The project history database could not be opened (' + (d.detail || 'unknown reason') +
-          '). Analyses still work; Recent Projects may stay empty until the app is restarted.';
+      if (!d || (d.status !== 'recovered' && d.status !== 'degraded' && d.status !== 'damaged')) return null;
+      var old = doc.getElementById('cx-db-notice');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
       var el = doc.createElement('div');
       el.id = 'cx-db-notice';
       el.setAttribute('role', 'status');
@@ -271,15 +316,59 @@
         'z-index:2147482000;max-width:640px;width:calc(100% - 32px);background:#fff7e6;' +
         'color:#5a3b00;border:1px solid #f0b95a;border-radius:10px;padding:10px 40px 10px 14px;' +
         'font:13px/1.45 "Segoe UI",system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)';
-      el.innerHTML = esc(msg) + '<button type="button" aria-label="Dismiss" ' +
-        'style="position:absolute;top:6px;right:8px;border:0;background:none;color:#5a3b00;' +
-        'font-size:18px;line-height:1;cursor:pointer">×</button>';
-      el.getElementsByTagName('button')[0].onclick = function () {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      };
+      var fix = null;
+      function paint(msg, withFix) {
+        if (fix && fix.parentNode) fix.parentNode.removeChild(fix);
+        fix = null;
+        el.innerHTML = esc(msg) + '<button type="button" aria-label="Dismiss" ' +
+          'style="position:absolute;top:6px;right:8px;border:0;background:none;color:#5a3b00;' +
+          'font-size:18px;line-height:1;cursor:pointer">×</button>';
+        el.getElementsByTagName('button')[0].onclick = function () {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        };
+        if (!withFix) return;
+        fix = doc.createElement('button');
+        fix.type = 'button';
+        fix.id = 'cx-db-recover';
+        fix.textContent = DB_FIX_LABEL;
+        fix.style.cssText = 'display:block;margin-top:8px;padding:5px 12px;border-radius:6px;' +
+          'border:1px solid #c98a1c;background:#fff;color:#5a3b00;font:600 12.5px "Segoe UI",system-ui,sans-serif;cursor:pointer';
+        fix.onclick = function () {
+          fix.disabled = true;
+          fix.textContent = 'Setting the damaged database aside…';
+          g.recoverDb(function (res) {
+            if (res && res.ok) paint(dbMessage({ status: 'recovered', backup: res.backup, salvaged: res.salvaged }), false);
+            else paint('The damaged database could not be set aside: ' +
+                       ((res && (res.error || res.message)) || 'no answer from the app') +
+                       '. Close every other copy of the app and try again.', true);
+          });
+        };
+        el.appendChild(fix);
+      }
+      paint(dbMessage(d), d.status === 'damaged');
       (doc.body || doc.documentElement).appendChild(el);
       report('notice', 'database ' + d.status, d.detail || '');
       return el;
+    };
+
+    // POST /api/db/recover (only honoured while the DB is damaged). Tells the page
+    // ('cx-db-recovered' event) so Recent Projects reloads from the fresh file.
+    g.recoverDb = function (cb) {
+      postJson('/api/db/recover', {}, function (res) {
+        report('db-recover', res && res.ok ? 'damaged database set aside' : 'database recovery failed',
+               res && (res.backup || res.error || res.message) || '');
+        if (res && res.ok) {
+          try {
+            if (typeof win.dispatchEvent === 'function' && typeof win.CustomEvent === 'function') {
+              win.dispatchEvent(new win.CustomEvent('cx-db-recovered', { detail: res }));
+            }
+          } catch (e) { /* no listeners is fine */ }
+        }
+        if (cb) cb(res);
+      }, function (err) {
+        report('db-recover', 'database recovery failed', err);
+        if (cb) cb({ ok: false, error: err });
+      });
     };
 
     // A module deep in the graph that fails is reported on app.js's script element; name
