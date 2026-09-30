@@ -104,5 +104,7 @@ def test_release_workflow_checks_the_version_before_building():
     assert check != -1, 'the release workflow must run tests/test_app_version.py'
     assert build != -1 and check < build, 'the version check must run before the exe is built'
     step = wf[wf.rfind('- name:', 0, check):build]
-    assert 'utils.APP_VERSION' in step and 'GITHUB_REF_NAME' in step and 'exit 1' in step, \
+    # Compared with the tag the decide job chose — a pushed v* tag or, for an automatic release
+    # on a push to master, the newest CHANGELOG heading (GITHUB_REF_NAME is then 'master').
+    assert 'utils.APP_VERSION' in step and 'needs.decide.outputs.tag' in step and 'exit 1' in step, \
         'a tag that differs from the newest CHANGELOG release must fail the build'
