@@ -319,16 +319,76 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     return t
 
 
+CELL_PAD_PT = 5.4          # Word's default left + right cell margin ('Table Grid': 0.08" each)
+LINE_PITCH = 1.15          # a Times New Roman line is ~1.15 x its font size
+
+
+def _tnr_width_pt(text, size):
+    """Width of ``text`` in Times New Roman at ``size`` pt — a per-character estimate that runs
+    2-7 % WIDE of the real metrics (checked against the font), so a wrap count from it never
+    comes out short."""
+    w = 0.0
+    for ch in str(text or ''):
+        if ch in "iljtf.,;:!|'()[]/ ":
+            w += 0.30
+        elif ch.isdigit():
+            w += 0.50
+        elif ch in 'mwMW':
+            w += 0.85
+        elif ch.isupper():
+            w += 0.70
+        else:
+            w += 0.46
+    return w * size
+
+
+def _wrapped_lines(text, width_pt, size):
+    """How many lines ``text`` wraps to in a cell ``width_pt`` wide (greedy, at spaces; a word
+    longer than the line is broken across as many lines as it needs)."""
+    words = str(text or '').split()
+    if not words or width_pt <= 0:
+        return 1
+    space = _tnr_width_pt(' ', size)
+    lines, cur = 1, 0.0
+    for wd in words:
+        ww = _tnr_width_pt(wd, size)
+        if cur and cur + space + ww <= width_pt:
+            cur += space + ww
+            continue
+        if cur:
+            lines += 1
+        extra = max(0, -(-int(ww * 100) // int(width_pt * 100)) - 1)   # ceil(ww / width) - 1
+        lines += extra
+        cur = ww - extra * width_pt if extra else ww
+    return lines
+
+
+def _equal_row_height(rows, widths, size, floor_pt):
+    """The ONE data-row height of an equal-row table: the floor, raised to the tallest wrapped
+    cell (lines x line pitch + 4 pt) so no cell is ever clipped by the shared height."""
+    need = floor_pt
+    for row_vals in rows or []:
+        for ci, val in enumerate(row_vals):
+            if not widths or ci >= len(widths):
+                continue
+            n = _wrapped_lines(val, widths[ci] * 72.0 - 2 * CELL_PAD_PT, size)
+            need = max(need, n * size * LINE_PITCH + 4.0)
+    return round(need, 1)
+
+
 def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
                      header_h_pt=30.0, cell_size=10):
-    """A navy-header data table whose DATA ROWS all share one EXACT height
-    (``WD_ROW_HEIGHT_RULE.EXACTLY``) — unlike :func:`data_table`, which grows each row to fit
-    (``AT_LEAST``). Used by §15 so every production row is the same height; ``row_h_pt`` is set
-    generously (≈0.55") so the tallest wrapped cell (crew / long resource names) still fits
-    without clipping. The header row keeps ``AT_LEAST`` so its multi-line labels are never cut.
-    Zebra striping; every cell centred and wrapping. Other sections' tables are untouched."""
+    """A navy-header data table whose DATA ROWS all share one height — unlike
+    :func:`data_table`, whose rows each grow to their own text. Used by §15 so every production
+    row is the same height. The shared height is ``row_h_pt`` (≈0.55") raised to the tallest
+    wrapped cell (:func:`_equal_row_height`), and it is AT LEAST, never EXACT: an exact 40 pt
+    row clipped SG's 4-line crew cell ('… +15 more' cut off, NARRFIX) — should a cell still
+    need more than the estimate, only that row grows; nothing is ever cut. Rows never split
+    (cantSplit) and the header repeats. The header row keeps ``AT_LEAST`` so its multi-line
+    labels are never cut. Zebra striping; every cell centred and wrapping."""
     if not headers:
         return None
+    row_h_pt = _equal_row_height(rows, widths, cell_size, row_h_pt)
     t = document.add_table(rows=1, cols=len(headers))
     t.style = 'Table Grid'
     t.autofit = False
@@ -345,7 +405,7 @@ def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
         run(p, hd, font=CAL, size=9.5, bold=True, color=WHITE)
     for ri, row_vals in enumerate(rows or []):
         rr = t.add_row()
-        _row_h(rr, row_h_pt, exact=True)              # EXACTLY: every data row shares one height
+        _row_h(rr, row_h_pt, exact=False)             # one shared height, AT LEAST: never clips
         for ci, val in enumerate(row_vals):
             if ci >= len(rr.cells):
                 break

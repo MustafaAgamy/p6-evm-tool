@@ -1174,9 +1174,12 @@ def _prodrate(p, number, title, meta, cur):
                    '</div>' % (_esc(number), sub))
         heads = p.get('headers') or []
         thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
-        rowsb = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
-                        for r in (p.get('rows') or []))
-        out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
+        # the figures (Total quantity, Working days) never break inside the number
+        # ('243,805, / 397', NARRFIX); a header label wraps only at its spaces (prodtbl CSS)
+        rowsb = ''.join('<tr>%s</tr>' % ''.join(
+            '<td%s>%s</td>' % (' class="nw"' if j in (2, 3) else '', _esc(c))
+            for j, c in enumerate(r)) for r in (p.get('rows') or []))
+        out.append('<table class="dt prodtbl" style="table-layout:fixed">%s%s%s</table>'
                    % (_cg(p.get('widths') or []), thead, rowsb))
 
     # Order (Ibrahim): {number}.1 method → {number}.2 per-activity breakdown → {number}.3 the
@@ -1589,6 +1592,8 @@ table { border-collapse: collapse; }
 .reshist .rbar { border-radius:3px 3px 0 0; min-height:1px; }
 .reshist .v { color:#17457a; }
 .dt th.num, .dt td.num { text-align:center; }
+.dt.prodtbl th { overflow-wrap:normal; word-break:normal; hyphens:none; }
+.dt.prodtbl td.nw { white-space:nowrap; overflow-wrap:normal; word-break:normal; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
 /* §15.3 per-activity breakdown — each resource's caption + table stay together on one page */
