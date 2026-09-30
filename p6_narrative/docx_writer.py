@@ -869,9 +869,14 @@ def _render_resload(document, p, number, note):
             else:
                 _keep_last_with_next(document)
             pu = (' ' + ch['peak_unit']) if ch.get('peak_unit') else ''
-            para(document, 'Peak %s%s in %s.'
-                 % (_wn(ch.get('peak_val')), pu, ch.get('peak_label') or ''),
-                 size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+            pk = para(document, 'Peak %s%s in %s.'
+                      % (_wn(ch.get('peak_val')), pu, ch.get('peak_label') or ''),
+                      size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+            # the Peak caption CLOSES the chart group (sub-heading, basis note, label, chart,
+            # Peak - kept together); the totals table below is its own block that follows or
+            # moves on alone. Chained to the table, the whole group + table (640 pt) did not
+            # fit under the §13 intro and left SG Word p22 85 % blank (NARRFIX).
+            pk.paragraph_format.keep_with_next = False
         rows = g.get('rows') or []
         if rows:
             data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
@@ -1692,6 +1697,9 @@ def write_docx(doc, output_path, chrome=None):
             hp = docx_template.heading(document, docx_template.format_number((number,)),
                                        section.get('title', ''))
         hp.paragraph_format.page_break_before = True           # each section on a new page
+        # Word keeps a 'page break before' heading's space-before at the page top (after a
+        # break paragraph it dropped it): 0 keeps every section title where it stood (y 95 pt)
+        hp.paragraph_format.space_before = Pt(0)
         if section.get('cover'):                               # cover/divider: also pushed down the page
             hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC

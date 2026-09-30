@@ -90,6 +90,15 @@ def _keep_next_on(p):
     return kn is not None and kn.get(qn('w:val'), 'true') not in ('0', 'false', 'off')
 
 
+def _keep_next_off(p):
+    """The renderer EXPLICITLY turned 'keep with next' off (``<w:keepNext w:val="0"/>``,
+    python-docx ``keep_with_next = False``): the paragraph closes the block above it — a
+    chart's 'Peak …' caption — and is not a lead of the block after it."""
+    ppr = p.find(qn('w:pPr'))
+    kn = ppr.find(qn('w:keepNext')) if ppr is not None else None
+    return kn is not None and kn.get(qn('w:val'), 'true') in ('0', 'false', 'off')
+
+
 def keep_with_next(p):
     """Set Word 'Keep with next' on a ``w:p`` element (schema order handled by python-docx)."""
     if p is None or p.tag != _W_P or _ends_page(p):
@@ -369,6 +378,8 @@ def paginate_docx(document):
         while j >= 0 and items[j].tag == _W_P and _blank(items[j]):
             chain.append(items[j])
             j -= 1
+        if j >= 0 and items[j].tag == _W_P and _keep_next_off(items[j]) and not _is_heading(items[j]):
+            return []                                       # a caption that closes its figure
         if j >= 0 and items[j].tag == _W_P and not _has_drawing(items[j]) and not _has_break(items[j]):
             t = _text(items[j]).strip()
             if t and len(t) <= _SHORT_LEAD:
