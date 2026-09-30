@@ -119,6 +119,16 @@ test('missing fields default to 0 (no NaN)', () => {
   assert.equal(g.netPx, 0); assert.equal(g.badPx, 0); assert.equal(g.nwPx, 0);
 });
 
+{
+  const { calBaselineLine } = await import('../../ui/modules/calendar.js');
+  test('Calendar Audit: the Baseline line appears only when the baseline is approximate (R1 F2)', () => {
+    assert.equal(calBaselineLine({ baseline_approx: false }), '');
+    assert.equal(calBaselineLine(null), '');
+    const s = calBaselineLine({ baseline_approx: true, baseline_label: 'not in the file and none attached — x (approximate)' });
+    assert.match(s, /Baseline: not in the file and none attached — x \(approximate\)/);
+  });
+}
+
 console.log('\nweatherSettingsPatch — the open project keeps what /api/weather saved');
 {
   const { weatherSettingsPatch } = await import('../../ui/modules/calendar.js');

@@ -243,6 +243,7 @@ def build_meta(rep, app_name='', feature='', project='', data_date='', generated
     ctx = [('Project', project or meta.get('project', '')),
            ('Data date', data_date or meta.get('data_date', '')),
            ('Schedule file', meta.get('source_file', '')),
+           ('Baseline', meta.get('baseline', '')),
            ('Generated', generated or datetime.now().strftime('%d-%b-%Y %H:%M'))]
     return {'app': app_name or None, 'title': feature or rep.title or 'Report',
             'context': [(k, v) for k, v in ctx if v]}

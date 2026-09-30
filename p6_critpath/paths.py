@@ -5,11 +5,55 @@ rolls it up to WBS work-front boxes — the same picture as the driving-path cha
 Update Analysis §3, drawn independently here from the on-master primitives
 (p6_compare.driving + p6_audit.graph) so this module needs no unmerged code.
 """
+import threading
 from datetime import datetime
 
 from p6_audit.graph import ScheduleGraph
 from p6_compare.driving import driving_predecessors
 from p6_critpath.analysis import _forecast_finish, _ref_calendar, _wd_between, _iso, _MILESTONES
+
+
+# ── Per-report memo ──────────────────────────────────────────────────────────
+# One report traces a driving path for EVERY finish milestone in every schedule. The facts
+# that depend only on the schedule (its logic graph, its construction filter, its WBS subtree
+# index) are worked out once per schedule inside ``report_memo()`` instead of once per
+# milestone (MAFI: 276 rebuilds -> 2). Thread-local, so parallel requests never share it;
+# outside ``report_memo()`` everything is computed fresh, exactly as before.
+_memo_local = threading.local()
+
+
+class report_memo:
+    def __enter__(self):
+        self._prev = getattr(_memo_local, 'm', None)
+        if self._prev is None:
+            _memo_local.m = {}
+        return self
+
+    def __exit__(self, *exc):
+        _memo_local.m = self._prev
+        return False
+
+
+def _memo(data, kind, build):
+    m = getattr(_memo_local, 'm', None)
+    if m is None:
+        return build()
+    key = (id(data), kind)
+    hit = m.get(key)
+    if hit is not None and hit[0] is data:          # the memo holds `data`, so its id is never reused
+        return hit[1]
+    val = build()
+    m[key] = (data, val)
+    return val
+
+
+def _subtree_index(data, wmap):
+    """WBS ancestor -> every activity under it (activity order kept)."""
+    subtree = {}
+    for a in data.activities.values():
+        for anc in _wbs_ancestor_ids(a.get('wbs_id'), wmap):
+            subtree.setdefault(anc, []).append(a)
+    return subtree
 
 
 def _slip(cal, bl, exp):
@@ -182,18 +226,15 @@ def path_boxes(data, milestone_code=None, summary_level=0, construction_only=Tru
     if not milestone:
         return {'milestone': None, 'boxes': []}
 
-    graph = ScheduleGraph(data)
+    graph = _memo(data, 'graph', lambda: ScheduleGraph(data))
     chain = trace_driving_chain(graph, next(k for k, v in data.activities.items() if v is milestone))
     wmap = getattr(data, 'wbs', None) or {}
     ref_cal = _ref_calendar(data, milestone)
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
-    cons = _construction_ids(data) if construction_only else None
+    cons = _memo(data, 'cons', lambda: _construction_ids(data)) if construction_only else None
 
     # subtree index: wbs ancestor -> its activities
-    subtree = {}
-    for a in data.activities.values():
-        for anc in _wbs_ancestor_ids(a.get('wbs_id'), wmap):
-            subtree.setdefault(anc, []).append(a)
+    subtree = _memo(data, 'subtree', lambda: _subtree_index(data, wmap))
 
     box_order, seen_wids, box_driver, path_acts = [], set(), {}, []
     for oid in chain:

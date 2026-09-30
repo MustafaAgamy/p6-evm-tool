@@ -99,3 +99,55 @@ def test_parse_xer_fills_intraday_calendar(tmp_path):
     assert cal.has_intraday() is True
     assert 'Saturday' in cal.nonworking_days and 'Sunday' in cal.nonworking_days
     assert date(2026, 1, 1) in cal.holidays
+
+
+# P6 writes a 24-hour day midnight-to-midnight, "s|00:00|f|00:00" (real SG 10095 "7 Days Per
+# Week (AS3) - 24 Hrs per day" and GBT exception 2025-10-08); the XML twin writes 00:00-23:59.
+# Finding P4: reading the 00:00 finish as minute 0 dropped the shift, so every 24-h weekday was
+# NON-working and every 24-h exception day became a holiday.
+TWENTY_FOUR_SEVEN = (
+    "(0||CalendarData()((0||DaysOfWeek()("
+    + "".join(f"(0||{n}()((0||0(s|00:00|f|00:00)())))" for n in range(1, 8))
+    + "))(0||VIEW(ShowTotal|N)())(0||Exceptions()("
+    "(0||0(d|45938)((0||0(s|00:00|f|00:00)())))"          # 2025-10-08 worked 24 h
+    "(0||1(d|45939)())"                                     # 2025-10-09 holiday
+    "(0||2(d|45940)((0||0(s|16:00|f|00:00)())))"          # 2025-10-10 16:00 to midnight
+    "))))"
+)
+
+
+def test_24_hour_weekdays_are_working():
+    c = parse_clndr_data(TWENTY_FOUR_SEVEN)
+    assert c['nonworking_days'] == set()
+    assert c['weekly_working_days'] == {'Sunday', 'Monday', 'Tuesday', 'Wednesday',
+                                        'Thursday', 'Friday', 'Saturday'}
+    for day, ivs in c['work_intervals'].items():
+        assert ivs == [(0, 1440)], day                       # 24 working hours
+
+
+def test_24_hour_exception_is_added_work_not_a_holiday():
+    c = parse_clndr_data(TWENTY_FOUR_SEVEN)
+    assert c['holidays'] == {date(2025, 10, 9)}
+    assert c['added_work_days'] == {date(2025, 10, 8), date(2025, 10, 10)}
+    assert c['exception_intervals'][date(2025, 10, 8)] == [(0, 1440)]
+    assert c['exception_intervals'][date(2025, 10, 10)] == [(960, 1440)]   # 16:00-24:00
+
+
+def test_24_hour_calendar_measures_working_time(tmp_path):
+    """End-to-end: a 24/7 XER calendar counts 24 working hours a day (was 0)."""
+    from datetime import datetime
+    xer = (
+        "ERMHDR\t19.12\n"
+        "%T\tCALENDAR\n"
+        "%F\tclndr_id\tclndr_name\tday_hr_cnt\tclndr_data\n"
+        f"%R\tC24\t24 Hrs\t24\t{TWENTY_FOUR_SEVEN}\n"
+        "%T\tPROJECT\n"
+        "%F\tproj_id\tproj_short_name\tlast_recalc_date\n"
+        "%R\t1\tJOB\t2026-02-09 00:00\n"
+        "%E\n"
+    )
+    p = tmp_path / "c24.xer"
+    p.write_text(xer, encoding='cp1252')
+    cal = parse_xer(str(p)).calendars['C24']
+    assert cal.nonworking_days == set()
+    assert cal.working_minutes(datetime(2026, 2, 2), datetime(2026, 2, 3)) == 1440

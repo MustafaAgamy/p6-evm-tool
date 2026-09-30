@@ -115,20 +115,23 @@ def _summary_block(result, meta):
     return {'title': 'Project Summary', 'headers': ['Field', 'Value'], 'rows': rows}
 
 
-def _kpi_block(result):
-    """The 10 KPI tiles, in screen order — numbers kept numeric, dates formatted."""
+def _kpi_block(result, approx=False):
+    """The 10 KPI tiles, in screen order — numbers kept numeric, dates formatted. ``approx``
+    (the update's own Planned dates stand in for its baseline) marks the baseline-derived rows
+    '· approx', as the screen does."""
+    ax = ' · approx' if approx else ''
     spi = result.get('spi')
     cpi = result.get('cpi')
     delay = _delay_days(result)
     delay_note = '' if delay is None else ('late' if delay > 0 else ('early' if delay < 0 else 'on time'))
     rows = [
-        ['SPI · schedule', _round2(spi) if spi is not None else '—', _spi_status(spi)],
+        ['SPI · schedule' + ax, _round2(spi) if spi is not None else '—', _spi_status(spi)],
         ['Forecast finish', _fmt_date(result.get('expected_finish')), ''],
-        ['Delay', delay if delay is not None else '—', ('days ' + delay_note).strip() if delay is not None else ''],
-        ['Baseline finish', _fmt_date(result.get('baseline_finish')), ''],
-        ['Overall planned %', _pct2(result.get('overall_planned_pct')), ''],
+        ['Delay' + ax, delay if delay is not None else '—', ('days ' + delay_note).strip() if delay is not None else ''],
+        ['Baseline finish' + ax, _fmt_date(result.get('baseline_finish')), ''],
+        ['Overall planned %' + ax, _pct2(result.get('overall_planned_pct')), ''],
         ['Overall actual %', _pct2(result.get('overall_actual_pct')), ''],
-        ['Planned value', _num(result.get('pv')), 'EGP'],
+        ['Planned value' + ax, _num(result.get('pv')), 'EGP'],
         ['Earned value', _num(result.get('ev')), 'EGP'],
         ['Actual cost', _num(result.get('ac')), 'EGP'],
         ['CPI · cost', _round2(cpi) if cpi is not None else '—', ''],
@@ -136,7 +139,7 @@ def _kpi_block(result):
     return {'title': 'Key Indicators', 'headers': ['Indicator', 'Value', 'Note'], 'rows': rows}
 
 
-def _category_block(result):
+def _category_block(result, approx=False):
     """Progress by category — one row per WBS category (screen's ov-cats list)."""
     cats = result.get('categories') or {}
     rows = []
@@ -153,7 +156,7 @@ def _category_block(result):
     return {
         'title': 'Progress by Category',
         'note': 'Planned vs actual % per WBS category — the same figures the modules and PDF use.',
-        'headers': ['WBS Category', 'Activities', 'Planned %', 'Actual %', 'Note'],
+        'headers': ['WBS Category', 'Activities', 'Planned % · approx' if approx else 'Planned %', 'Actual %', 'Note'],
         'rows': rows,
     }
 
@@ -168,6 +171,7 @@ def overview_excel(report):
     report = report or {}
     result = report.get('result') or {}
     meta = report.get('meta') or {}
+    approx = bool(report.get('baseline_approx'))
 
     has_any = bool(result.get('categories')) or result.get('spi') is not None \
         or result.get('pv') is not None or result.get('overall_actual_pct') is not None \
@@ -179,6 +183,6 @@ def overview_excel(report):
 
     return [{
         'name': 'Project Overview',
-        'blocks': [_summary_block(result, meta), _kpi_block(result), _category_block(result)],
+        'blocks': [_summary_block(result, meta), _kpi_block(result, approx), _category_block(result, approx)],
         'col_widths': {0: 30, 1: 20, 2: 18, 3: 14, 4: 18},
     }]

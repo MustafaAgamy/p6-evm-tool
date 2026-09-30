@@ -9,7 +9,8 @@ import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
 import { getSavedMode }      from './appearance.js';
 import { showReportPreview } from './preview.js';
-import { revealAndRun }      from './featurereveal.js';
+import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
+import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
 
 // The report-appearance mode chosen in this panel's PDF preview modal — remembered
 // across sessions via appearance.js, shared with every other report preview flow.
@@ -761,15 +762,28 @@ export function renderComparePanel() {
   _renderComparePrompt();
 }
 
+// The baseline the review compares against: the file chosen here, else the baseline attached to
+// this update on Earned Value / Update Analysis (remembered for every feature — R3 F9). The
+// chooser stays, so the planner can still pick another file.
+function _reviewBaseline() {
+  if (state.compareBaselinePath && state.compareBaselineName) {
+    return { path: state.compareBaselinePath, name: state.compareBaselineName, attached: false };
+  }
+  const a = attachedBaselineSlot(state.currentResult);
+  return a ? { ...a, attached: true } : null;
+}
+
 // The assign-inputs prompt: pick a baseline (assign only), then click Run to compare.
 // The review NEVER runs off the file pick — only off the explicit Run button below.
 function _renderComparePrompt() {
   const body = document.getElementById('compare-body');
   if (!body) return;
   const updName = (state.currentXmlPath || '').split(/[\\/]/).pop() || '—';
-  const ready   = !!(state.compareBaselinePath && state.compareBaselineName);
+  const bl      = _reviewBaseline();
+  const ready   = !!bl;
   const status  = ready
-    ? `<span style="font-size:13px">Baseline: <b>${escapeHtml(state.compareBaselineName)}</b>` +
+    ? `<span style="font-size:13px">Baseline: <b>${escapeHtml(bl.name)}</b>` +
+      (bl.attached ? ` <span class="mut" data-attached-baseline>(${ATTACHED_BASELINE_TAG})</span>` : '') +
       `<span style="color:var(--success);font-weight:700;margin-left:6px">✓ ready</span></span>`
     : `<span class="mut" style="font-size:13px">No baseline chosen yet.</span>`;
   body.innerHTML = `
@@ -813,17 +827,21 @@ export async function runConsultantReview() {
     showError('Open a schedule first, then compare it against a baseline.');
     return;
   }
-  const path = state.compareBaselinePath;
-  if (!path || !state.compareBaselineName) {
+  const bl = _reviewBaseline();
+  if (!bl) {
     showError('Choose a baseline programme file first, then run the review.');
     return;
   }
+  const path = bl.path;
+  state.compareBaselinePath = path;     // the before/after + corrected-XML steps use the same file
   clearError();
   const body = document.getElementById('compare-body');
   // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
   // comparison computes + renders — same experience as every other feature.
   revealAndRun(body, 'Consultant Review', async () => {
     if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
+    revealStage('Reading the baseline and comparing');
+    const stages = followRunStages(state.serverPort);     // the bar names the server's real step
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -831,8 +849,9 @@ export async function runConsultantReview() {
           baseline_path: path,
           update_path: state.currentXmlPath,
           cached_path: state.currentCachedPath,
+          run_id: stages.id,
         }),
-      });
+      }).finally(stages.stop);
       const data = await resp.json();
       if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
       state.compareReport = data.report;

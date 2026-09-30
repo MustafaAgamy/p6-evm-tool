@@ -107,6 +107,7 @@ export function oosBulkOutcome(touchedIds, freshAfter) {
 
 import { state } from './state.js';
 import { escapeHtml } from './format.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
 let _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
@@ -2005,6 +2006,15 @@ async function submitMilestones(am) {
   if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
   const runBtn = document.getElementById('ms-run');
   runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  // Shared Run presentation: the review saves + renders UNDER the bar, which reaches 100%
+  // only once the review is on screen (owner comment 36 — no wait after 100%).
+  return revealAndRun(document.getElementById('audit-body'), 'Schedule Health', async () => {
+    revealStage('Checking your contract milestones');
+    await _submitMilestonesWork(am, milestones, hint, runBtn);
+  });
+}
+
+async function _submitMilestonesWork(am, milestones, hint, runBtn) {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2546,14 +2556,39 @@ function renderLagRows(m) {
 
   // Auto-grow each justification box to fit ALL the text the planner types — no hidden
   // overflow, the full sentence is always visible (wrap handled by the textarea + CSS).
-  const autosize = ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; };
-  tbody.querySelectorAll('.lag-just').forEach(ta => {
-    const relKey = ta.dataset.relkey;
-    const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
-    autosize(ta);
-    ta.addEventListener('input', () => { sync(); autosize(ta); });
-    ta.addEventListener('change', async () => { sync(); lagJustNote(ta, await saveLagJustification(relKey, ta.value)); });
-  });
+  // Sized in ONE batch (or natively by CSS field-sizing) — never a per-row read/write
+  // interleave, which forced a full table layout per row (MAFI: a 30 s freeze on Run).
+  autosizeLagBoxes(tbody.querySelectorAll('.lag-just'));
+  // One delegated listener pair per table body (rows are re-rendered on every filter).
+  tbody._lagModel = m;
+  if (!tbody._lagWired) {
+    tbody._lagWired = true;
+    const findingFor = ta => ((tbody._lagModel && tbody._lagModel.findings) || []).find(x => x.rel_key === ta.dataset.relkey);
+    tbody.addEventListener('input', e => {
+      const ta = e.target.closest && e.target.closest('.lag-just'); if (!ta) return;
+      const f = findingFor(ta); if (f) f.justification = ta.value;
+      autosizeLagBoxes([ta]);
+    });
+    tbody.addEventListener('change', async e => {
+      const ta = e.target.closest && e.target.closest('.lag-just'); if (!ta) return;
+      const f = findingFor(ta); if (f) f.justification = ta.value;
+      // A failed save says so under the box (lagJustNote) — alert is a no-op in WebView2.
+      lagJustNote(ta, await saveLagJustification(ta.dataset.relkey, ta.value));
+    });
+  }
+}
+
+// Justification boxes grow to their text. Chromium 123+ (WebView2) does it natively with
+// CSS `field-sizing: content` (style.css) — no JS layout at all. Otherwise: every write,
+// then every read, then every write → ONE layout for the whole table, not one per row.
+const LAG_FIELD_SIZING = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('field-sizing', 'content');
+function autosizeLagBoxes(list) {
+  if (LAG_FIELD_SIZING) return;
+  const tas = Array.from(list || []);
+  if (!tas.length) return;
+  tas.forEach(ta => { ta.style.height = 'auto'; });
+  const hs = tas.map(ta => ta.scrollHeight);
+  tas.forEach((ta, i) => { ta.style.height = `${hs[i]}px`; });
 }
 
 // ── Lag Report — header filter popover (Excel-style AutoFilter) ────────────
@@ -2858,7 +2893,7 @@ export function renderLagPanel(auditModules) {
   const clampFs = px => Math.min(LAG_FS_MAX, Math.max(LAG_FS_MIN, px));
   const applyJustFs = px => {
     body.style.setProperty('--lag-just-fs', `${px}px`);
-    body.querySelectorAll('.lag-just').forEach(ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; });
+    autosizeLagBoxes(body.querySelectorAll('.lag-just'));
   };
   let justFs = LAG_FS_DEF;
   try { const v = parseInt(localStorage.getItem('p6_lag_just_fs'), 10); if (Number.isFinite(v)) justFs = clampFs(v); } catch { /* default */ }

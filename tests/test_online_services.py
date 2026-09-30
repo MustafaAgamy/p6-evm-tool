@@ -33,6 +33,14 @@ def _post(port, path, payload):
 OFFLINE = urllib.error.URLError(socket.gaierror(11001, 'getaddrinfo failed'))
 
 
+@pytest.fixture(autouse=True)
+def _fresh_history_cache(monkeypatch):
+    """Recorded past-year history is cached for the life of the app (one download per place);
+    each test here stubs Open-Meteo differently, so each starts with an empty cache."""
+    from p6_calendar import weather
+    monkeypatch.setattr(weather, '_HIST_CACHE', {})
+
+
 def _daily(start, end, rain=0.0):
     days = []
     d = start

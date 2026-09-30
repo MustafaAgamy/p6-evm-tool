@@ -341,7 +341,8 @@ console.log('\nLag justification: a failed save is said beside the box');
     assert.doesNotMatch(fn, /\balert\(/);
   });
   test('the change handler awaits the save and shows the outcome', () => {
-    assert.match(src, /lagJustNote\(ta, await saveLagJustification\(relKey, ta\.value\)\)/);
+    // runux: one delegated change listener per table body reads the key from the box itself.
+    assert.match(src, /lagJustNote\(ta, await saveLagJustification\((?:relKey|ta\.dataset\.relkey), ta\.value\)\)/);
   });
 }
 

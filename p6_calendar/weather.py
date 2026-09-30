@@ -14,9 +14,10 @@ is isolated in fetch_* helpers (Open-Meteo, free / no key) and never unit-tested
 """
 import http.client
 import json
+import threading
 import urllib.request
 import urllib.error
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import date, datetime, timedelta
 
 # Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
@@ -646,18 +647,53 @@ def fetch_forecast(lat, lon, errors=None):
         return {}
 
 
+# Recorded weather for FULL PAST years never changes, so one download per location and
+# year range is kept for the life of the app: re-running Bad Weather (new limits, new site
+# type) is then local — no second wait on the archive (owner comment 36: no slow Run).
+_HIST_CACHE = {}
+_HIST_CACHE_MAX = 16
+_HIST_LOCK = threading.Lock()
+
+
+def _hist_key(lat, lon, start, end):
+    try:
+        return (round(float(lat), 4), round(float(lon), 4), start.isoformat(), end.isoformat())
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def fetch_historical(lat, lon, start, end, errors=None):
     """Actual daily weather for a PAST [start, end] → {date: rec}. {} on failure (the
-    exception is appended to ``errors`` when a list is given)."""
+    exception is appended to ``errors`` when a list is given).
+    A complete answer for a range that is already over is cached (see _HIST_CACHE)."""
+    key = _hist_key(lat, lon, start, end)
+    if key is not None:
+        with _HIST_LOCK:
+            hit = _HIST_CACHE.get(key)
+        if hit is not None:
+            return {d: dict(r) for d, r in hit.items()}
     try:
         url = (f'{_ARCHIVE}?latitude={lat}&longitude={lon}'
                f'&start_date={start.isoformat()}&end_date={end.isoformat()}'
                f'&daily={_DAILY_VARS}&wind_speed_unit=kmh&timezone=auto')
-        return _parse_daily(_get_json(url))
+        out = _parse_daily(_get_json(url))
     except _NET_ERRORS as exc:
         if errors is not None:
             errors.append(exc)
         return {}
+    if key is not None and out and end < date.today():
+        with _HIST_LOCK:
+            if len(_HIST_CACHE) >= _HIST_CACHE_MAX:
+                _HIST_CACHE.pop(next(iter(_HIST_CACHE)))
+            _HIST_CACHE[key] = {d: dict(r) for d, r in out.items()}
+    return out
+
+
+# The live forecast gets this short head start before the history / air-quality downloads
+# begin: an offline PC (no route / the name lookup fails at once) is known inside it, so only
+# ONE call is attempted; online, the three downloads still overlap (the Run waits for the
+# slowest one, not for their sum).
+_OFFLINE_PROBE_S = 0.1
 
 
 def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5, net=None):
@@ -685,18 +721,45 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     errs = net.setdefault('errors', {})
     net.setdefault('offline', False)
 
+    # The three downloads (forecast, climate history, air quality) are independent, so they
+    # run AT THE SAME TIME: the Run waits for the slowest one, not for their sum. The
+    # forecast starts first (see _OFFLINE_PROBE_S) so an offline PC stops after one call.
+    need_hist = project_finish > horizon
+    fut_start = data_date + timedelta(days=1)
+    end_year = fut_start.year - 1
+    start_year = end_year - years + 1
+    hist_range = (date(start_year, 1, 1), date(end_year, 12, 31))
+    fc_err, hist_err, aq_err = [], [], []
+    f_hist = f_aq = None
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_fc = pool.submit(fetch_forecast, lat, lon, fc_err)
+        try:
+            f_fc.result(timeout=_OFFLINE_PROBE_S)
+        except FuturesTimeout:
+            pass
+        offline_now = f_fc.done() and bool(fc_err) and is_connection_error(fc_err[0])
+        if not offline_now:
+            if need_hist:
+                f_hist = pool.submit(fetch_historical, lat, lon, *hist_range, hist_err)
+            f_aq = pool.submit(fetch_air_quality, lat, lon, aq_err)
+        fc = f_fc.result()
+        hist_all = f_hist.result() if f_hist is not None else {}
+        aq_all = f_aq.result() if f_aq is not None else {}
+
     daily = {}
-    fc_err = []
-    fc = fetch_forecast(lat, lon, errors=fc_err)
     if fc_err:
         errs['forecast'] = fc_err[0]
         if is_connection_error(fc_err[0]):
-            # Could not reach Open-Meteo at all → the other calls would fail the same way.
+            # Could not reach Open-Meteo at all → the other calls fail (or failed) the same way.
             net['offline'] = True
             net['history_needed'] = project_finish > horizon
             errs['history'] = errs['dust'] = fc_err[0]
             return {}, {}, horizon, {'years': years, 'year_start': None, 'year_end': None}
         horizon = data_date        # no live forecast → the climate history covers every date
+        if not need_hist and project_finish > horizon:
+            # Only the near term was left, and it needed the forecast → the history covers it.
+            need_hist = True
+            hist_all = fetch_historical(lat, lon, *hist_range, errors=hist_err)
     for d, rec in fc.items():
         if data_date < d <= project_finish:
             daily[d] = rec
@@ -710,40 +773,30 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     # so the average/range and the "last N years" reference are honest.
     climate_samples = {}
     climate_meta = {'years': years, 'year_start': None, 'year_end': None}
-    # Dust / sandstorm days for the near-term window (air-quality forecast) are fetched
-    # ALONGSIDE the climate history, not after it: the planner waits for the slower of the
-    # two calls, never for both in a row.
-    aq_err = []
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        aq_future = pool.submit(fetch_air_quality, lat, lon, errors=aq_err)
-        if project_finish > horizon:
-            fut_start = data_date + timedelta(days=1)
-            # First future date for each (month, day) in the remaining window.
-            fut_by_md = {}
-            d = fut_start
-            while d <= project_finish:
-                fut_by_md.setdefault((d.month, d.day), d)
-                d += timedelta(days=1)
-            # The `years` full calendar years ending just before the run begins.
-            end_year = fut_start.year - 1
-            start_year = end_year - years + 1
-            # One archive call over those full years, then bucket each historical day onto its
-            # matching future date by (month, day) → every date gets exactly `years` samples.
-            hist_err = []
-            hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31),
-                                    errors=hist_err)
-            if hist_err:
-                errs['history'] = hist_err[0]
-            for hd, rec in hist.items():
-                fd = fut_by_md.get((hd.month, hd.day))
-                if fd is not None and start_year <= hd.year <= end_year:
-                    climate_samples.setdefault(fd, {})[hd.year] = rec
-            if hist:
-                climate_meta['year_start'] = start_year
-                climate_meta['year_end'] = end_year
-        dust_days = aq_future.result()
+    if hist_err:
+        errs['history'] = hist_err[0]
+    if need_hist:
+        # First future date for each (month, day) in the remaining window.
+        fut_by_md = {}
+        d = fut_start
+        while d <= project_finish:
+            fut_by_md.setdefault((d.month, d.day), d)
+            d += timedelta(days=1)
+        # The `years` full calendar years ending just before the run begins (start_year ..
+        # end_year above). One archive call over those full years, then bucket each
+        # historical day onto its matching future date by (month, day) → every date gets
+        # exactly `years` samples.
+        hist = hist_all
+        for hd, rec in hist.items():
+            fd = fut_by_md.get((hd.month, hd.day))
+            if fd is not None and start_year <= hd.year <= end_year:
+                climate_samples.setdefault(fd, {})[hd.year] = rec
+        if hist:
+            climate_meta['year_start'] = start_year
+            climate_meta['year_end'] = end_year
 
-    for d, aq in dust_days.items():
+    # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
+    for d, aq in aq_all.items():
         if d in daily and aq.get('dust'):
             daily[d].update(aq)
     if aq_err:
