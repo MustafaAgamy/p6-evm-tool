@@ -88,8 +88,11 @@ def render_calendar(document, payload, chrome=None, number=8):
             name = cal.get('name') or '—'
             acnt = cal.get('activity_count')
             title = name if acnt in (None, '') else '%s — %s activities' % (name, W._count(acnt))
-            W.para(document, title, size=10.5, bold=True, color=W.SUBNAVY,
-                   before=6, after=2, font=W.CAL)
+            cap = W.para(document, title, size=10.5, bold=True, color=W.SUBNAVY,
+                         before=6, after=2, font=W.CAL)
+            # the calendar's title travels with its chart / table (NARR-WORD-2: Word left
+            # "Roots Silos - 24 Hrs ... - 17 activities" alone at a page bottom)
+            cap.paragraph_format.keep_with_next = True
             months = cal.get('months') or []
             working = cal.get('net_working_days') or []
             nonworking = cal.get('nonworking_days') or []
