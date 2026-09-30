@@ -212,6 +212,15 @@ await test('RUNUX-R4: "Run the current feature again" (Ctrl+R) plays the same sh
   const fn = app.slice(at, app.indexOf('\n  }\n', at));
   assert.doesNotMatch(fn, /\{ runFeature\(view\); return; \}/, 'no bare re-render without the bar');
   assert.match(fn, /revealAndRun\(document\.getElementById\(view \+ '-panel'\), \(FEATURE_META\[view\] \|\| \{\}\)\.title \|\| view, \(\) => runFeature\(view\)\)/);
+  // Constructability: picking another project type re-reviews under the same bar
+  const ct = read('ui', 'modules', 'construct.js');
+  assert.match(ct, /import \{[^}]*\brevealAndRun\b[^}]*\}\s+from '\.\/featurereveal\.js'/);
+  assert.match(ct, /revealAndRun\(document\.getElementById\('construct-body'\), 'Constructability', \(\) => fetchAndRender\(forcedType\)\)/);
+  assert.match(ct, /sel\.addEventListener\('change', \(\) => rerunUnderBar\(sel\.value \|\| null\)\)/);
+  assert.match(ct, /rerunUnderBar\(\(sel && sel\.value\) \|\| null\);/);
+  // only the first Run (already under the gate's bar) and the re-run wrapper call fetchAndRender directly
+  const direct = [...ct.matchAll(/(?<!function |async function )fetchAndRender\(/g)].length;
+  assert.equal(direct, 2, 'fetchAndRender call sites: the gate Run + rerunUnderBar');
 });
 await test('async single-input features RETURN their work promise from runFeature', () => {
   for (const [view, fn] of [['construct', 'renderConstructPanel'], ['narrative', 'renderNarrative'], ['update', 'renderUpdatePanel'], ['special', 'renderSpecialPanel']]) {

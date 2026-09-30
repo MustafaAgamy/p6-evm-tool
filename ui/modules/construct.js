@@ -5,7 +5,7 @@
 import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
-import { revealStage }                              from './featurereveal.js';
+import { revealStage, revealAndRun }                from './featurereveal.js';
 import { showReportContentsPreview }                from './preview.js';
 import { showDatabase }                             from './database.js';
 
@@ -190,7 +190,7 @@ function renderReport(report, kb) {
     // only two sections; no repeated/duplicate information).
 
   const sel = document.getElementById('ct-type');
-  if (sel) sel.addEventListener('change', () => fetchAndRender(sel.value || null));
+  if (sel) sel.addEventListener('change', () => rerunUnderBar(sel.value || null));
   const pdf = document.getElementById('cx-pdf');
   if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
   const xls = document.getElementById('cx-xls');
@@ -322,8 +322,14 @@ function renderPick(report) {
   const go = document.getElementById('ct-go');
   if (go) go.addEventListener('click', () => {
     const sel = document.getElementById('ct-type');
-    fetchAndRender((sel && sel.value) || null);
+    rerunUnderBar((sel && sel.value) || null);
   });
+}
+
+// A re-review (another project type picked) plays the same shared Run bar as the first Run
+// (RUNUX-R4) — never a bare placeholder while the server works.
+function rerunUnderBar(forcedType) {
+  return revealAndRun(document.getElementById('construct-body'), 'Constructability', () => fetchAndRender(forcedType));
 }
 
 async function fetchAndRender(forcedType) {
