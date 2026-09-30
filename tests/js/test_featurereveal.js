@@ -191,6 +191,28 @@ await test('the single-input Run gate uses revealAndRun (gated on the work), not
   assert.match(app, /revealAndRun\(host, meta\.title, \(\) => runFeature\(view\)\)/);
   assert.doesNotMatch(app, /playFeatureReveal\(/);
 });
+await test('RUNUX-R1: the gate Run mounts its bar on the feature\'s OWN panel, not #analysis-views (never covers the next feature)', () => {
+  const at = app.indexOf("gate.querySelector('.fg-run').addEventListener('click'");
+  assert.ok(at > 0, 'gate Run handler');
+  const h = app.slice(at, app.indexOf('revealAndRun(host, meta.title', at));
+  const m = /const host = ([^;]+);/.exec(h);
+  assert.ok(m, 'host chosen in the gate Run handler');
+  assert.match(m[1], /^document\.getElementById\(view \+ '-panel'\)/, 'the view\'s own panel comes first: ' + m[1]);
+  // every gate-launched feature has its own .view-panel#<view>-panel to host the bar
+  const html = read('ui', 'index.html');
+  const meta = app.slice(app.indexOf('const FEATURE_META = {'), app.indexOf('};', app.indexOf('const FEATURE_META = {')));
+  const views = [...meta.matchAll(/^\s+([a-z]+):\s+\{ title:/gm)].map(x => x[1]);
+  assert.ok(views.length >= 12, 'FEATURE_META views: ' + views.join(','));
+  for (const v of views) assert.match(html, new RegExp(`class="view-panel[^"]*" id="${v}-panel"`), v + '-panel is a .view-panel');
+  // the .view-panel is the mount (mountFor → host.closest('.view-panel') is the panel itself)
+  assert.match(read('ui', 'modules', 'featurereveal.js'), /host\.closest\('\.view-panel'\)\) \|\| host/);
+});
+await test('RUNUX-R4: "Run the current feature again" (Ctrl+R) plays the same shared Run bar on the feature\'s panel', () => {
+  const at = app.indexOf('function runCurrentFeature(again)');
+  const fn = app.slice(at, app.indexOf('\n  }\n', at));
+  assert.doesNotMatch(fn, /\{ runFeature\(view\); return; \}/, 'no bare re-render without the bar');
+  assert.match(fn, /revealAndRun\(document\.getElementById\(view \+ '-panel'\), \(FEATURE_META\[view\] \|\| \{\}\)\.title \|\| view, \(\) => runFeature\(view\)\)/);
+});
 await test('async single-input features RETURN their work promise from runFeature', () => {
   for (const [view, fn] of [['construct', 'renderConstructPanel'], ['narrative', 'renderNarrative'], ['update', 'renderUpdatePanel'], ['special', 'renderSpecialPanel']]) {
     assert.match(app, new RegExp(`case '${view}':\\s+return ${fn}\\(\\);`), view);

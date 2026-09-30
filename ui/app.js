@@ -211,7 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // Shared Run presentation (featurereveal.js): the feature computes + renders UNDER the
       // overlay from the start, and the bar reaches 100% only once its results are painted —
       // then the overlay lifts at once (owner comment 36: no wait after 100%).
-      const host = document.getElementById('analysis-views') || document.getElementById(view + '-panel');
+      // The overlay lives on THIS feature's own panel — never #analysis-views, which also holds
+      // every other panel and the Run gate — so moving to another feature hides it with its
+      // panel: a long Run never covers or blocks the next feature (RUNUX-R1).
+      const host = document.getElementById(view + '-panel') || document.getElementById('analysis-views');
       revealAndRun(host, meta.title, () => runFeature(view));
     });
     // Secondary action — re-open the native file picker to import a different schedule.
@@ -587,7 +590,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!again) return;
     if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
-    if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) { runFeature(view); return; }
+    if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) {
+      // Same shared Run bar as the gate's Run (RUNUX-R4) — never a bare re-render.
+      revealAndRun(document.getElementById(view + '-panel'), (FEATURE_META[view] || {}).title || view, () => runFeature(view));
+      return;
+    }
     showError(onResults && SELF_GATING.has(view)
       ? 'Use this feature’s own Run button to run it again.'
       : 'Nothing to run again here — open a feature and run it first.');
