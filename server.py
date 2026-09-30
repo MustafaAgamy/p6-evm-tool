@@ -3296,13 +3296,18 @@ class Handler(BaseHTTPRequestHandler):
         drawing) for one imported schedule, kept in the database. It used to live only in
         the web view's storage, which is empty after every restart, and its images are too
         big for ui_prefs.json (a value over 512 KB was skipped, losing the whole setup).
-        {snapshot_id} -> {ok, setup|None}; {snapshot_id, setup} saves (setup null clears)."""
+        {snapshot_id} -> {ok, setup|None}; {snapshot_id, setup} saves (setup null clears).
+        A schedule with no setup of its own yet (a re-import or the project's next update)
+        gets the project's most recently saved one, marked inherited (R2 S6); the first
+        change saves it under this schedule."""
         sid = body.get('snapshot_id') if isinstance(body, dict) else None
         if not sid or not db.get_project_id_for_snapshot(sid):
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
         if 'setup' not in body:
-            self._json(200, {'ok': True, 'setup': db.get_snapshot_ui_state(sid, 'narrative_setup')})
+            setup, src = db.get_snapshot_ui_state_inherited(sid, 'narrative_setup')
+            self._json(200, {'ok': True, 'setup': setup,
+                             **({'inherited': True, 'from_snapshot_id': src} if src else {})})
             return
         setup = body.get('setup')
         if setup is not None and not isinstance(setup, dict):

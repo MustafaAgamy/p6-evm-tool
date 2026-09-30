@@ -457,3 +457,61 @@ def test_deleting_a_project_removes_its_narrative_setup(test_server):
     db.save_snapshot_ui_state(sid, 'narrative_setup', {'owner': 'A'})
     db.delete_project(pid)
     assert db.get_snapshot_ui_state(sid, 'narrative_setup') is None
+
+
+def test_narrative_setup_survives_reopen_reimport_and_restart(test_server, xml_path):
+    """[startup:R2] S6: the setup is kept per imported schedule, and every re-import (or the
+    project's next update) is a new snapshot that Recent Projects ▸ Open loads — so the
+    setup chat started empty after a re-import although the setup was still saved under
+    the old snapshot. A schedule with nothing of its own now gets the project's most
+    recently saved setup (marked inherited); its first change saves it under itself."""
+    sid1 = _import(test_server, xml_path)['snapshot_id']
+    setup = {'owner': 'Roots Owner', 'contract_type': 'FIDIC Red Book',
+             'owner_logo': 'data:image/png;base64,' + 'L' * 5000}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid1, 'setup': setup}) == {'ok': True}
+
+    # re-open: the same snapshot, its own setup
+    assert _reopen(test_server)['snapshot_id'] == sid1
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid1}) == {'ok': True, 'setup': setup}
+
+    # re-import the same schedule: a NEW snapshot, which Open now loads
+    sid2 = _import(test_server, xml_path)['snapshot_id']
+    assert sid2 != sid1 and _reopen(test_server)['snapshot_id'] == sid2
+    got = _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2})
+    assert got == {'ok': True, 'setup': setup, 'inherited': True, 'from_snapshot_id': sid1}
+
+    # the first change saves it under the new snapshot; the old one keeps its own
+    changed = {**setup, 'revision': 'REV.04'}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2, 'setup': changed}) == {'ok': True}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2}) == {'ok': True, 'setup': changed}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid1})['setup'] == setup
+
+    # app restart + the next import: the most recently SAVED setup of the project
+    httpd = _restart()
+    try:
+        port = httpd.server_address[1]
+        assert _post(port, '/api/narrative/setup', {'snapshot_id': sid2}) == {'ok': True, 'setup': changed}
+        sid3 = _import(port, xml_path)['snapshot_id']
+        assert _reopen(port)['snapshot_id'] == sid3
+        got = _post(port, '/api/narrative/setup', {'snapshot_id': sid3})
+        assert got['setup'] == changed and got['inherited'] is True and got['from_snapshot_id'] == sid2
+    finally:
+        httpd.shutdown()
+
+
+def test_narrative_setup_clear_is_not_undone_by_inheritance(test_server):
+    """Clearing a schedule's setup keeps it cleared (it does not fall back to an older
+    schedule's), and the project's next import inherits the clear, not the old setup.
+    Another project's setup is never inherited."""
+    pid, sid1 = _snapshot()
+    sid2 = db.insert_snapshot(pid, '2026-02-05', 'n2.xml', None, 'hash-n2', 3, 1)
+    other = db.insert_snapshot(db.upsert_project('NAR-2', 'Other Project'), '2026-02-05',
+                               'o.xml', None, 'hash-o', 3, 1)
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid1, 'setup': {'owner': 'A'}}) == {'ok': True}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': other}) == {'ok': True, 'setup': None}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2})['setup'] == {'owner': 'A'}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2, 'setup': {}}) == {'ok': True}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid2}) == {'ok': True, 'setup': None}
+    sid3 = db.insert_snapshot(pid, '2026-03-05', 'n3.xml', None, 'hash-n3', 3, 1)
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid3}) == {'ok': True, 'setup': None}
+    assert _post(test_server, '/api/narrative/setup', {'snapshot_id': sid1})['setup'] == {'owner': 'A'}

@@ -813,15 +813,39 @@ def get_snapshot_ui_state(snapshot_id, key):
     return _json.loads(row['value_json']) if row and row['value_json'] else None
 
 
-def save_snapshot_ui_state(snapshot_id, key, value):
-    """Save (or with ``value=None`` clear) a screen's state for one imported schedule."""
+def get_snapshot_ui_state_inherited(snapshot_id, key):
+    """Like get_snapshot_ui_state, but a schedule with nothing saved under ``key`` yet (a
+    re-import, or the project's next update: every import is a new snapshot) gets the
+    state most recently saved for ANOTHER schedule of the same project. Returns
+    ``(value, from_snapshot_id)`` — ``from_snapshot_id`` is None when the value is this
+    schedule's own. A schedule whose state was cleared keeps it cleared (the NULL row
+    save_snapshot_ui_state leaves), and a later import inherits that clear too.
+    [startup:R2] S6"""
     with get_conn() as conn:
-        if value is None:
-            conn.execute('DELETE FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
-                         (snapshot_id, key))
-        else:
-            conn.execute('INSERT OR REPLACE INTO snapshot_ui_state (snapshot_id, key, value_json) '
-                         'VALUES (?, ?, ?)', (snapshot_id, key, _json.dumps(value, default=str)))
+        row = conn.execute('SELECT value_json FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
+                           (snapshot_id, key)).fetchone()
+        if row is None:
+            row = conn.execute(
+                '''SELECT u.snapshot_id, u.value_json FROM snapshot_ui_state u
+                   JOIN snapshots s ON s.id = u.snapshot_id
+                   WHERE u.key = ? AND u.snapshot_id <> ?
+                     AND s.project_id = (SELECT project_id FROM snapshots WHERE id = ?)
+                   ORDER BY u.rowid DESC LIMIT 1''',          # REPLACE -> newest rowid = last saved
+                (key, snapshot_id, snapshot_id)).fetchone()
+            if row is None or not row['value_json']:
+                return None, None
+            return _json.loads(row['value_json']), row['snapshot_id']
+    return (_json.loads(row['value_json']) if row['value_json'] else None), None
+
+
+def save_snapshot_ui_state(snapshot_id, key, value):
+    """Save (or with ``value=None`` clear) a screen's state for one imported schedule. A
+    clear keeps a NULL row, so the schedule does not inherit an older schedule's state
+    again (get_snapshot_ui_state_inherited)."""
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO snapshot_ui_state (snapshot_id, key, value_json) '
+                     'VALUES (?, ?, ?)', (snapshot_id, key,
+                                          None if value is None else _json.dumps(value, default=str)))
     return value
 
 
