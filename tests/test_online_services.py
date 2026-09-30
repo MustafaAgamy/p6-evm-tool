@@ -265,7 +265,9 @@ def test_nominatim_sends_the_brand_user_agent(monkeypatch):
 
     def fake_open_url(req, timeout=None, connect_timeout=utils.CONNECT_TIMEOUT):
         got['ua'] = req.get_header('User-agent')
+        got['lang'] = req.get_header('Accept-language')
         got['url'] = req.full_url
+        got['urls'] = got.get('urls', []) + [req.full_url]
         got['timeout'] = timeout
         got['connect'] = connect_timeout
         return Resp()
@@ -279,6 +281,11 @@ def test_nominatim_sends_the_brand_user_agent(monkeypatch):
     assert got['url'].startswith('https://nominatim.openstreetmap.org/search?')
     assert got['timeout'] and got['timeout'] <= 10, 'a place search never holds the spinner long'
     assert got['connect'] <= 6
+    # [startup:R2] S8: names in English, not the local script (Arabic for Saudi sites)
+    assert got['lang'] == 'en' and 'accept-language=en' in got['url']
+    assert srv._nominatim_get('reverse', {'lat': 26.4, 'lon': 50.1, 'format': 'json'}) == []
+    assert got['url'].startswith('https://nominatim.openstreetmap.org/reverse?')
+    assert 'accept-language=en' in got['url'] and got['lang'] == 'en'
 
 
 # ── NET-4: a black-holed network is reported in seconds, not minutes ────────

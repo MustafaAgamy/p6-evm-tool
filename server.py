@@ -225,12 +225,17 @@ def _nominatim_get(endpoint, params, timeout=10):
     network / HTTP / parse failure (the caller turns it into a plain message). The honest
     User-Agent comes from the brand constants (Nominatim's usage policy requires one).
     utils.open_url gives up CONNECTING after utils.CONNECT_TIMEOUT, so a black-holed network
-    is reported in seconds rather than holding the search spinner."""
+    is reported in seconds rather than holding the search spinner.
+    Names come back in English (accept-language=en, R2 S8): without it Nominatim answers in
+    the local script (e.g. Arabic for Saudi sites), which then showed on the English
+    Bad Weather screen and PDF."""
     import urllib.parse
     import urllib.request
     import utils
+    params = {**params, 'accept-language': 'en'}
     url = _NOMINATIM + endpoint + '?' + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={'User-Agent': utils.USER_AGENT})
+    req = urllib.request.Request(url, headers={'User-Agent': utils.USER_AGENT,
+                                               'Accept-Language': 'en'})
     with utils.open_url(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
