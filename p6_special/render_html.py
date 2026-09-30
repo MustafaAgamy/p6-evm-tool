@@ -761,8 +761,14 @@ tr{break-inside:avoid;}
 # only when small (``rpt-fit``, <= a third of a page); its heading still travels with its
 # first block (``.sr-sec-h`` is a heading to the composer) and the blocks inside keep
 # their own rules (charts / cards whole, table rows unsplit, no 1-2 row tails).
+# A reused Schedule Health summary's score list (``.comp``, a div grid that cannot repeat
+# its header) prints whole (``rpt-keep``); in a Studio item, where it rarely starts a page, a
+# tighter print rhythm keeps it within about a third of a page so moving it whole never leaves
+# a large blank (GBT: 42 % blank before it -> it fits under the dashboard cards).
 _SECTION_FLOW_CSS = ('@media print{.sr-sec{break-inside:auto!important;page-break-inside:auto!important;}'
-                     '.sr-sec.rpt-fit{break-inside:avoid!important;page-break-inside:avoid!important;}}')
+                     '.sr-sec.rpt-fit{break-inside:avoid!important;page-break-inside:avoid!important;}'
+                     '.sr-sec .comp .crow{padding-top:4px;padding-bottom:4px;}'
+                     '.sr-sec .comp .ctot{padding-top:6px;}}')
 
 
 def _shell_css(C):

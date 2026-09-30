@@ -946,9 +946,6 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .sc {{ text-align:right; font-size:11px; font-weight:800; }} .wt {{ text-align:right; font-size:9.5px; color:var(--rpt-muted); }} .pt {{ text-align:right; font-size:10px; font-weight:700; color:var(--rpt-accent); }}
   .ctot {{ padding-top:9px; margin-top:2px; border-top:2px solid var(--rpt-hair-strong); }}
   .ctot .tl {{ font-size:11px; font-weight:800; }} .ctot .tw {{ text-align:right; font-weight:700; font-size:10px; }} .ctot .tv {{ text-align:right; font-size:14px; font-weight:800; }}
-  /* print: the score list is kept whole (rpt-keep) - a tighter rhythm keeps it within about a
-     third of a page, so moving it whole never leaves a large blank (owner point 14) */
-  @media print {{ .crow {{ padding:4px 0; }} .ctot {{ padding-top:6px; }} }}
   /* Where the problems are — bars */
   .wb {{ display:grid; grid-template-columns:152px 1fr 40px; align-items:center; gap:10px; margin:7px 0; }}
   .wb .l {{ font-size:10px; font-weight:600; white-space:normal; overflow-wrap:anywhere; line-height:1.2; }} .wb .c {{ text-align:right; font-size:10px; color:var(--rpt-ink-soft); font-weight:700; }}
