@@ -833,6 +833,72 @@ def test_watchdog_reports_a_running_page_so_app_py_does_not_relaunch(tmp_path):
                                      second_s=0.05, no_contact_s=0.01, contact=contact) == 'failed'
     assert time.monotonic() - t >= 0.55
     assert w.loads == ['u'] and app_startup.STATE['page_contact'] is True
+    # [startup:R2] S5: the page ran, so WebView2 renders: graphics are not the cause
+    assert not app_startup.safe_graphics_enabled()
+    prev = app_startup.begin_launch()                     # the next launch
+    assert prev['watchdog'] == 'failed' and prev['page_contact'] is True
+    assert not app_startup.previous_launch_failed(prev)
+    assert not app_startup.safe_graphics_enabled()
+
+
+# ── [startup:R2] S5: safe graphics only on graphics evidence (the page never ran) ──
+
+def _close_launch_after(seconds):
+    app_startup.T0 = time.monotonic() - seconds
+    try:
+        app_startup.end_launch()
+    finally:
+        app_startup.T0 = time.monotonic()
+
+
+def test_a_retry_card_launch_closed_at_30s_does_not_turn_safe_graphics_on(tmp_path):
+    """The page ran and showed its own 'couldn't finish starting' card (a module failed to
+    load / antivirus); the owner closed it after 30 s. That proves WebView2 renders: the
+    next launch must keep normal (GPU) graphics."""
+    app_startup.begin_launch()
+    app_startup.client_log({'kind': 'load-failed', 'message': 'startup failed',
+                            'detail': 'Could not load /ui/modules/boot.js'})
+    state = json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8'))
+    assert state['page_contact'] is True and state['ready'] is False
+    _close_launch_after(30)
+    prev = json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8'))
+    assert prev['closed_after_s'] >= 30 and prev['page_contact'] is True
+    assert not app_startup.previous_launch_failed(prev)
+    app_startup.begin_launch()
+    assert not app_startup.safe_graphics_enabled()
+
+
+def test_a_launch_where_the_page_never_ran_turns_safe_graphics_on(tmp_path):
+    app_startup.PAGE_CONTACT.clear()
+    app_startup.begin_launch()
+    _close_launch_after(30)                               # black window, nothing from the page
+    prev = json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8'))
+    assert 'page_contact' not in prev and prev['closed_after_s'] >= 30
+    assert app_startup.previous_launch_failed(prev)
+    app_startup.begin_launch()
+    assert app_startup.safe_graphics_enabled()
+
+
+def test_watchdog_failure_without_page_contact_still_turns_safe_graphics_on(tmp_path):
+    app_startup.begin_launch()
+    w = _FakeWindow()
+    assert app_startup.watch_startup(w, 'u', ready=threading.Event(), first_s=0.05,
+                                     second_s=0.01, no_contact_s=0.01,
+                                     contact=threading.Event()) == 'failed'
+    assert app_startup.safe_graphics_enabled()
+    assert app_startup.STATE['page_contact'] is False
+
+
+def test_page_contact_is_written_once_per_launch(tmp_path, monkeypatch):
+    app_startup.begin_launch()
+    writes = []
+    real = app_startup._update_launch_state
+    monkeypatch.setattr(app_startup, '_update_launch_state',
+                        lambda **f: (writes.append(f), real(**f)))
+    for kind in ('booted', 'info', 'notice'):
+        app_startup.client_log({'kind': kind})
+    assert writes == [{'page_contact': True}]
+    app_startup.PAGE_CONTACT.clear()
 
 
 def test_relaunch_in_safe_graphics_once_with_a_clean_environment(tmp_path):

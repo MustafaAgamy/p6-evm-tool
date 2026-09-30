@@ -13,7 +13,9 @@ stuck on them with no message and no trace. This module holds the app-side piece
   never happens and records the failure;
 * an evidence-gated **safe-graphics mode** for WebView2 (``--disable-gpu``) that is only
   switched on for the next launches after a launch on THIS machine never became ready
-  (closed on a non-ready window, or the watchdog gave up) — never for everyone;
+  (closed on a non-ready window, or the watchdog gave up) AND the page never ran — never
+  for everyone. A page that ran and showed its own Retry card proves WebView2 renders, so
+  its failure (a module, antivirus, a slow first start) is not graphics evidence;
 * a **single-instance guard** (named mutex) that brings the running window to the front
   instead of opening a second copy — but never blocks a launch when the other copy has
   no usable window (a leftover or hung process).
@@ -170,6 +172,8 @@ def client_log(payload):
     """Record a message from the page's startup guard. ``kind == 'ready'`` completes the
     readiness handshake. Returns the normalised record (for tests)."""
     PAGE_CONTACT.set()                    # the page is running (whatever it says next)
+    if _LAUNCH and not _LAUNCH.get('page_contact'):
+        _update_launch_state(page_contact=True)   # the next launch: WebView2 did render
     p = payload if isinstance(payload, dict) else {}
     kind = str(p.get('kind') or 'info')
     kind = kind if kind in _CLIENT_KINDS else 'info'
@@ -321,8 +325,10 @@ def _update_launch_state(**fields):
 
 def previous_launch_failed(prev):
     """True when the previous launch never showed a working page: the user closed a
-    non-ready window after NOT_READY_CLOSE_S, or the watchdog gave up on it."""
-    if not isinstance(prev, dict) or prev.get('ready'):
+    non-ready window after NOT_READY_CLOSE_S, or the watchdog gave up on it — and the page
+    never ran there. A page that ran (any message to /api/client-log, e.g. its own
+    'couldn't finish starting' card) proves WebView2 renders: not graphics evidence."""
+    if not isinstance(prev, dict) or prev.get('ready') or prev.get('page_contact'):
         return False
     if prev.get('watchdog') == 'failed':
         return True
@@ -444,7 +450,8 @@ def watch_startup(window, url, ready=None, first_s=45.0, second_s=30.0, closed=N
                   abort=None, contact=None, no_contact_s=20.0):
     """Wait for the page's ``ready``. If it never comes (WebView2 failed to initialise,
     the renderer died, the page never loaded), reload the page once; if that also never
-    becomes ready, record the failure so the next launch uses safe graphics. Stops
+    becomes ready, record the failure so the next launch uses safe graphics (only when the
+    page never ran: a running page's own failure is not graphics evidence). Stops
     quietly ('closed') when ``closed`` (the window's closed event) is set first.
 
     ``abort`` (WEBVIEW_INIT_FAILED) ends the wait at once: WebView2 never started, so a
@@ -495,8 +502,11 @@ def _startup_failed(reason, contact):
         ' - the page is running (its own Retry card is on screen)' if contact.is_set()
         else ' - the page never ran'), level=logging.ERROR)
     STATE['watchdog'] = 'failed'
-    _update_launch_state(watchdog='failed')
-    if not safe_graphics_enabled():
+    ran = contact is not None and contact.is_set()
+    _update_launch_state(watchdog='failed', **({'page_contact': True} if ran else {}))
+    if ran:          # the page runs (its own Retry card is on screen): WebView2 renders
+        log('safe graphics left as it is: the page ran, so graphics are not the cause')
+    elif not safe_graphics_enabled():
         enable_safe_graphics(reason)
     return 'failed'
 
