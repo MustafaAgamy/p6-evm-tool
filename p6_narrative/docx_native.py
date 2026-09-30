@@ -293,7 +293,8 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
     name = series_name or (title or 'Series 1')
     lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
                if num_fmt else '')
-    lbl_pt, lbl_rot, ax_max = _bar_label_fit(vals, num_fmt) if data_labels else (None, 0, None)
+    lbl_pt, lbl_rot, ax_max, ax_unit = (_bar_label_fit(vals, num_fmt) if data_labels
+                                        else (None, 0, None, None))
     lbl_tx = ('' if lbl_pt is None else
               f'<c:txPr><a:bodyPr rot="{lbl_rot}" vert="horz"/><a:lstStyle/><a:p><a:pPr>'
               f'<a:defRPr sz="{int(round(lbl_pt * 100))}"/></a:pPr><a:endParaRPr lang="en-US"/>'
@@ -302,7 +303,9 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
              f'<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
              f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
              if data_labels else '')
-    val_max = f'<c:max val="{ax_max:g}"/>' if ax_max else ''
+    # a raised axis starts at 0 with a round major unit (a max alone let Word start it at -1000)
+    val_max = f'<c:max val="{ax_max:g}"/><c:min val="0"/>' if ax_max else ''
+    val_unit = f'<c:majorUnit val="{ax_unit:g}"/>' if ax_unit else ''
 
     def build(rid):
         dpts = ''.join(
@@ -321,7 +324,7 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
             f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
             f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
             f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/>{val_max}</c:scaling>'
-            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
+            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/>{val_unit}</c:valAx>'
             f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}'
             f'</c:chartSpace>')
 
@@ -333,29 +336,32 @@ _PLOT_W_PT, _PLOT_H_PT = 400.0, 190.0    # the plot area of a _CX x _CY chart, r
 
 def _bar_label_fit(vals, num_fmt=None):
     """Data-label size / rotation for a column chart whose every bar carries its value:
-    ``(None, 0, None)`` when Word's default 10 pt labels fit side by side; ``(pt, 0, None)``
-    with a smaller size (>= 7 pt) when that fits; else ``(7.5, -5400000, axis_max)`` —
-    labels turned upright (like the PDF's cash-flow bars) with the value axis raised so the
-    tallest bar's label stays inside the plot. Many months of 5-6 digit man-hours printed
-    their labels over each other ('5,938' '5,913' '6,124' - GBT Word §13.1, NARRFIX)."""
+    ``(None, 0, None, None)`` when Word's default 10 pt labels fit side by side; ``(pt, 0,
+    None, None)`` with a smaller size (>= 7 pt) when that fits; else ``(7.5, -5400000, max,
+    unit)`` — labels turned upright (like the PDF's cash-flow bars) with the value axis
+    raised to ``max`` (from 0, major ``unit``) so the tallest bar's label stays inside the
+    plot. Many months of 5-6 digit man-hours printed their labels over each other ('5,938'
+    '5,913' '6,124' - GBT Word §13.1, NARRFIX)."""
     vals = [float(v) for v in vals]
     if not vals:
-        return None, 0, None
+        return None, 0, None, None
     texts = [('{:,.0f}'.format(v) if num_fmt else '%g' % v) for v in vals]
     chars = max(len(t) for t in texts)
     slot = _PLOT_W_PT / len(vals) - 3.0             # room per bar, less a small gap
     per = chars * 0.55                              # label width per 1 pt of font
     if 10.0 * per <= slot:
-        return None, 0, None
+        return None, 0, None, None
     if 7.0 * per <= slot:
-        return round(slot / per * 2) / 2.0, 0, None
+        return round(slot / per * 2) / 2.0, 0, None, None
     top = max(vals)
-    if top <= 0:
-        return 7.5, -5400000, None
+    if top <= 0 or min(vals) < 0:
+        return 7.5, -5400000, None, None
     room = (chars * 7.5 * 0.55 + 10.0) / _PLOT_H_PT  # the upright label's height, as a share
     need = top / max(1.0 - room, 0.4)
-    unit = 10 ** (len('%d' % int(need)) - 2) * 5 if need >= 100 else 5
-    return 7.5, -5400000, float(math.ceil(need / unit) * unit)
+    raw = need / 7.0                                 # about 6-7 gridlines
+    mag = 10 ** math.floor(math.log10(raw))
+    unit = next(m * mag for m in (1, 2, 2.5, 5, 10) if m * mag >= raw)
+    return 7.5, -5400000, float(math.ceil(need / unit) * unit), float(unit)
 
 
 def add_bar_chart_stacked(document, categories, series, title):

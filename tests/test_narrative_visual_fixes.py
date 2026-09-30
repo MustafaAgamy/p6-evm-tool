@@ -112,8 +112,12 @@ def test_word_many_monthly_labels_are_turned_upright_with_headroom(tmp_path):
     dl = re.search(r'<c:dLbls>.*?</c:dLbls>', xml).group(0)
     assert 'rot="-5400000"' in dl and 'sz="750"' in dl
     assert dl.index('<c:txPr>') < dl.index('<c:dLblPos')          # schema order
-    mx = float(re.search(r'<c:valAx>.*?<c:max val="([\d.]+)"/>', xml).group(1))
-    assert mx >= 11700 * 1.1
+    ax = re.search(r'<c:valAx>.*?</c:valAx>', xml).group(0)
+    mx = float(re.search(r'<c:max val="([\d.]+)"/>', ax).group(1))
+    unit = float(re.search(r'<c:majorUnit val="([\d.]+)"/>', ax).group(1))
+    assert mx >= 11700 * 1.1 and '<c:min val="0"/>' in ax          # raised, and from 0
+    assert (mx / unit) == int(mx / unit) and 4 <= mx / unit <= 8     # round gridlines
+    assert ax.index('<c:max ') < ax.index('<c:min ') and ax.index('<c:crossAx') < ax.index('<c:majorUnit')
 
 
 def test_word_few_bars_keep_the_default_labels(tmp_path):
@@ -123,9 +127,9 @@ def test_word_few_bars_keep_the_default_labels(tmp_path):
 
 
 def test_label_fit_steps_down_before_rotating():
-    assert N._bar_label_fit([1] * 19, '#,##0') == (None, 0, None)
-    pt, rot, mx = N._bar_label_fit([12345] * 13, '#,##0')                 # 13 bars of '12,345'
-    assert rot == 0 and 7 <= pt < 10 and mx is None
+    assert N._bar_label_fit([1] * 19, '#,##0') == (None, 0, None, None)
+    pt, rot, mx, unit = N._bar_label_fit([12345] * 13, '#,##0')           # 13 bars of '12,345'
+    assert rot == 0 and 7 <= pt < 10 and mx is None and unit is None
 
 
 # ── 4. doughnut on-ring labels ─────────────────────────────────────────────────
