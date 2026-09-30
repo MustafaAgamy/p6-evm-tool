@@ -74,7 +74,10 @@ def _note_point(bullet):
     else:
         point = _first_sentence(bullet)
     point = point.rstrip('.:;,').strip()
-    return point if len(point) <= 140 else point[:139].rstrip() + '…'
+    if len(point) <= 140:
+        return point
+    cut = point[:139]                               # never end mid-word ("wit…")
+    return (cut.rsplit(' ', 1)[0] if ' ' in cut else cut).rstrip(' .,;:—–-') + '…'
 
 
 def _note_items(lines, max_points):

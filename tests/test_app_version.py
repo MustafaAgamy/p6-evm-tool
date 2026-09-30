@@ -162,6 +162,14 @@ def test_release_notes_short_label_keeps_its_first_sentence(tmp_path):
                       'Used everywhere']
 
 
+def test_release_notes_long_point_is_cut_at_a_word(tmp_path):
+    words = ' '.join(['reloads itself automatically if needed'] * 6)
+    md = f'## [v3.1.4] - 2026-10-01\n\n### Fixed\n- **Now:** {words}.\n'
+    point = utils.release_notes(_write(tmp_path, md))['items'][0]['points'][0]
+    assert len(point) <= 140 and point.endswith('…')
+    assert point[:-1].split(' ')[-1] in words.split(' '), point   # a whole word, never "wit…"
+
+
 def test_release_notes_missing_changelog_is_empty(tmp_path):
     empty = {'version': '', 'date': '', 'items': [], 'upcoming': []}
     assert utils.release_notes(str(tmp_path / 'nope.md')) == empty
