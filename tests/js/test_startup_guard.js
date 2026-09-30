@@ -419,5 +419,92 @@ test('app.js reports booted() at module start and ready() at the end of startup'
     'ready() is the last statement of the startup handler');
 });
 
+// ── S3: a damaged history database (found by the background quick_check) ────────
+test('after ready the guard waits for the background DB check, then shows a damaged notice', () => {
+  const w = fakeWorld();
+  const g = start(w);
+  g.ready();
+  const last = () => w.gets[w.gets.length - 1];
+  assert.equal(last().url, '/api/health');
+  const n0 = w.gets.length;
+  last().cb({ db: { status: 'ok', check: 'running' } });       // not decided yet: ask again
+  assert.equal(w.doc.getElementById('cx-db-notice'), null);
+  w.advance(2500);
+  assert.equal(w.gets.length, n0 + 1, 're-probed while the check runs');
+  last().cb({ db: { status: 'damaged', check: 'done', detail: 'database disk image is malformed' } });
+  const el = w.doc.getElementById('cx-db-notice');
+  assert.ok(el, 'damaged is said');
+  assert.match(el.innerHTML, /damaged \(database disk image is malformed\)/);
+  const fix = el.children.find(c => c.id === 'cx-db-recover');
+  assert.ok(fix && /Set the damaged database aside and start fresh \(a backup is kept\)/.test(fix.textContent));
+});
+
+test('a healthy DB after the check says nothing; the wait for the check is bounded', () => {
+  const w = fakeWorld();
+  const g = start(w);
+  g.ready();
+  w.gets[w.gets.length - 1].cb({ db: { status: 'ok', check: 'done' } });
+  assert.equal(w.doc.getElementById('cx-db-notice'), null);
+  const w2 = fakeWorld();
+  const g2 = start(w2);
+  g2.ready();
+  for (let i = 0; i < 40; i++) {
+    const last = w2.gets[w2.gets.length - 1];
+    if (last.done) break;
+    last.done = true;
+    last.cb({ db: { status: 'ok', check: 'running' } });
+    w2.advance(2500);
+  }
+  const probes = w2.gets.filter(x => x.url === '/api/health').length;
+  assert.ok(probes <= 1 + 25 + 1, 'stops asking after ~60 s: ' + probes);
+});
+
+test('the damaged notice button sets the file aside (POST /api/db/recover) and says the result', () => {
+  const w = fakeWorld();
+  const posted = [];
+  let answer = { ok: false, error: 'OSError: the damaged file could not be moved aside' };
+  w.opts.postJson = (url, body, cb) => { posted.push({ url, body }); cb(answer); };
+  const g = start(w);
+  const el = g.notice({ db: { status: 'damaged', detail: 'database disk image is malformed' } });
+  let fix = el.children.find(c => c.id === 'cx-db-recover');
+  fix.onclick();
+  assert.equal(JSON.stringify(posted), JSON.stringify([{ url: '/api/db/recover', body: {} }]));
+  assert.match(el.innerHTML, /could not be set aside: OSError: the damaged file could not be moved aside/);
+  fix = el.children.find(c => c.id === 'cx-db-recover');
+  assert.ok(fix && !fix.disabled, 'the button stays for another try');
+  answer = { ok: true, backup: 'controlyx.db.corrupt-bak-20260930-101500', salvaged: { projects: 137 } };
+  fix.onclick();
+  assert.match(el.innerHTML, /set aside as “controlyx\.db\.corrupt-bak-20260930-101500”/);
+  assert.match(el.innerHTML, /every record that could still be read/);
+  assert.equal(el.children.filter(c => c.id === 'cx-db-recover').length, 0, 'done: no button');
+  assert.ok(w.posts.some(p => p.kind === 'db-recover'), 'reported to the startup log');
+});
+
+test('recover posts through fetch by default and tells the page (cx-db-recovered)', () => {
+  const w = fakeWorld();
+  const events = [];
+  w.win.CustomEvent = function (type, init) { this.type = type; this.detail = init && init.detail; };
+  w.win.dispatchEvent = ev => events.push(ev);
+  w.win.fetch = (url, init) => {
+    assert.equal(url, '/api/db/recover');
+    assert.equal(init.method, 'POST');
+    return { then(f) { const j = f({ json: () => ({ ok: true, backup: 'b' }) }); return { then(g2) { g2(j); return { catch() {} }; } }; } };
+  };
+  const g = start(w);
+  let got = null;
+  g.recoverDb(res => { got = res; });
+  assert.ok(got && got.ok);
+  assert.deepEqual(events.map(e => e.type), ['cx-db-recovered']);
+});
+
+test('api.js: a damaged history DB is not retried; the row says the real error with the fix button', () => {
+  const js = read('ui', 'modules', 'api.js');
+  assert.match(js, /if \(i >= retries \|\| damaged\) \{ renderHistoryUnavailable\(err\)/);
+  assert.match(js, /escapeHtml\(reason\)/);
+  assert.match(js, /id="recent-recover"/);
+  assert.match(js, /addEventListener\('cx-db-recovered'/);
+  assert.match(js, /api\/db\/recover/);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
