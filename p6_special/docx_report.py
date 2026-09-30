@@ -28,7 +28,6 @@ import base64
 import io
 import os
 import re
-import subprocess
 import tempfile
 from datetime import datetime
 from html.parser import HTMLParser
@@ -930,12 +929,11 @@ def _rasterize_section(fragment_html, css, mode, chrome):
             f.write(doc)
         fd2, png = tempfile.mkstemp(suffix='.png')
         os.close(fd2)
-        subprocess.run(
-            [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
-             '--window-size=920,1400', f'--screenshot={png}',
-             f'file:///{htmlpath.replace(os.sep, "/")}'],
-            check=True, capture_output=True, timeout=40)
+        from p6_export.pdf import run_chrome          # the ONE tool-wide browser helper
+        run_chrome(chrome, ['--headless=new', '--hide-scrollbars',
+                            '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
+                            '--window-size=920,1400', f'--screenshot={png}',
+                            f'file:///{htmlpath.replace(os.sep, "/")}'], timeout=40)
         with open(png, 'rb') as f:
             data = f.read()
         return data or None

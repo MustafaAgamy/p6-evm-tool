@@ -159,8 +159,20 @@ def test_compare_report_pdf_route_runs_without_reschedule(test_server, tmp_path,
     reschedule. Mock Chrome so the full route (tempfile → subprocess) runs end to end."""
     import server
     ran = {}
-    monkeypatch.setattr(server, '_find_chrome', lambda: 'chrome-stub')
-    monkeypatch.setattr(server.subprocess, 'run', lambda *a, **k: ran.update(ok=True))
+    from p6_export import pdf as pdfmod
+    stub = tmp_path / 'chrome-stub.exe'
+    stub.write_bytes(b'')
+    monkeypatch.setattr(pdfmod, '_WORKING', None)        # restored after the test
+    monkeypatch.setattr(pdfmod, '_BROKEN', set())
+    monkeypatch.setattr(server, '_find_chrome', lambda: str(stub))
+
+    def fake_run(cmd, *a, **k):                    # the print helper checks the PDF was written
+        ran.update(ok=True)
+        for arg in cmd:
+            if arg.startswith('--print-to-pdf='):
+                with open(arg.split('=', 1)[1], 'wb') as fh:
+                    fh.write(b'%PDF-1.4 stub')
+    monkeypatch.setattr(server.subprocess, 'run', fake_run)
     out = str(tmp_path / 'consultant_review.pdf')
     report = {'baseline_file': 'b.xer', 'update_file': 'u.xml',
               'dashboard': {'changed_activities': 0, 'logic_changed': 0, 'duration_only': 0,

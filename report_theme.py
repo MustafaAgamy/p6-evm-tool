@@ -150,8 +150,26 @@ def theme_style_tag(mode=DEFAULT_MODE):
         f':root {{\n{body}\n}}\n'
         '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n'
         'html, body { background: var(--rpt-bg); color: var(--rpt-ink); }\n'
+        f'{page_background_rule(m)}'
         '</style>'
     )
+
+
+def page_background_rule(mode=DEFAULT_MODE):
+    """``@page { background: <page colour> }`` for every mode whose page is not white.
+
+    Chrome prints a report's ``@page`` margin area (20 mm / 11 mm ...) OUTSIDE ``html``, so
+    painting only ``html, body`` left a white frame round every Dark / Midnight / Blueprint /
+    Sepia PDF page. A background on the page box paints the margins too (checked with Chrome,
+    Edge and the Playwright headless shell) and leaves each report's own margins and its
+    ``@page`` margin-box page counters untouched. A concrete hex: the page context does not
+    reliably see ``:root`` custom properties. A white page (Light, High-contrast) emits
+    nothing, so light PDFs and Word / Excel (always light, :func:`force_light`) are
+    unchanged."""
+    bg = THEMES[normalize(mode)]['rpt-bg']
+    if bg.lower() in ('#fff', '#ffffff'):
+        return ''
+    return f'@page {{ background: {bg}; }}\n'
 
 
 # OWNER DECISION (Tool-Wide Enhancement, comment 30): the appearance mode is reflected on

@@ -129,5 +129,32 @@ test('missing fields default to 0 (no NaN)', () => {
   });
 }
 
+console.log('\nweatherSettingsPatch — the open project keeps what /api/weather saved');
+{
+  const { weatherSettingsPatch } = await import('../../ui/modules/calendar.js');
+  const loc = { lat: 31.2, lon: 32.3, name: 'East Port Said' };
+  const thr = { rain_mm: 5, temp_max_c: 40, wind_kmh: 35, dust: true };
+  test('a computed estimate: location + site type + limits + the estimate', () => {
+    const wx = { total_days: 12 };
+    assert.deepEqual(weatherSettingsPatch({ ok: true, weather: wx, location: loc }, { thresholds: thr, siteType: 'marine' }),
+      { location: loc, site_type: 'marine', weather_thresholds: thr, last_weather: wx });
+  });
+  test('offline (settings saved, no estimate): location + limits kept, never an estimate', () => {
+    assert.deepEqual(weatherSettingsPatch({ ok: false, settings_saved: true, location: loc }, { thresholds: thr, siteType: null }),
+      { location: loc, weather_thresholds: thr });
+  });
+  test('any other failure saved nothing → nothing changes', () => {
+    assert.equal(weatherSettingsPatch({ ok: false, error: 'Schedule not available.' }, { thresholds: thr }), null);
+    assert.equal(weatherSettingsPatch(null, null), null);
+  });
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../../ui/modules/calendar.js', import.meta.url), 'utf8');
+  test('every Calendar Audit setting save goes through the helper that syncs the project copy', () => {
+    const direct = (src.match(/await saveCalendarSettings\(/g) || []).length;
+    assert.equal(direct, 1, 'only _saveCalSetting may call saveCalendarSettings');
+    assert.match(src, /state\.currentResult\.calendar_audit = resp\.calendar_audit/);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

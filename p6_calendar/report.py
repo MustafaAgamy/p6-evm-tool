@@ -305,6 +305,26 @@ def _weather_waterfall(d, w):
         + _baseline_line(d))
 
 
+# Headings of the 7 Bad-Weather sub-sections, used when a TICKED sub-section has nothing to
+# show (no estimate saved - e.g. the first Calculate ran offline, which saves nothing rather
+# than an invented zero - or an estimate without that part). Owner rule: a ticked-but-empty
+# part keeps its heading and says "No data available"; it never vanishes or invents numbers.
+_WX_TITLES = {
+    'wx_dashboard': '1 · Execution Dashboard',
+    'wx_timeline': '2 · Calendar Timeline &amp; Statistics',
+    'wx_why': '3 · Why This Result — How Each Limit Performed',
+    'wx_upcoming': '4 · Upcoming Bad-Weather Days',
+    'wx_causes': '5 · What&rsquo;s Causing the Lost Days — by Weather Type',
+    'wx_milestones': '6 · Impact on Milestone Completion',
+    'wx_recovery': '7 · Recovery Recommendations',
+}
+
+
+def _wx_nodata(key):
+    return (f'<h2 class="sec">{_WX_TITLES.get(key, "")}</h2>'
+            '<div class="rpt-nodata">No data available</div>')
+
+
 def _wx_hist3(histogram, scope=''):
     """§2 Calendar Timeline & Statistics — the 3-colour monthly histogram (net working / bad-weather
     / non-working), matching the screen. Reads weather['histogram']. Print-safe stacked CSS bars."""
@@ -468,6 +488,10 @@ def _weather_section(weather, dashboard=None, scope=''):
         ]
         if loc:
             ref_pairs.append(('Location', loc))
+        # What the estimate ran without (the online forecast / dust feed was unavailable) —
+        # the same lines the screen shows, so the reader knows the gap.
+        for g in (ref.get('gaps') or []):
+            ref_pairs.append(('Data gap', _esc(str(g))))
         ref_rows = ''.join(f'<tr><td>{_esc(k)}</td><td>{v}</td></tr>' for k, v in ref_pairs)
         source_ref = (
             f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-good")}">Where These Bad-Weather Days Come From</span></div>'
@@ -553,7 +577,9 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         # Each subsection gets its own data-sec wrapper so the live preview can toggle it
         # client-side; the `sections` filter makes the SAVED pdf honour the ticks. The
         # footnotes (auto conclusion + climate/source reference) always render, not selectable.
-        body = ''.join(_wrap(k, h) for k, h in wx_sections if inc(k)) + wx_footnotes
+        got = dict(wx_sections)
+        body = ''.join(_wrap(k, got.get(k) or _wx_nodata(k))
+                       for k in WX_KEYS if inc(k)) + wx_footnotes
     else:
         # Legacy single 'weather' key — the Special Report's Calendar & Weather provider requests
         # the weather body under feature='calendar'. It renders as one block ONLY when explicitly

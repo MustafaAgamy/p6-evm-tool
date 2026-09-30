@@ -84,4 +84,5 @@ def test_module_exports_carry_the_check_name_file_name_and_meta():
     # Word header / Excel header block get the project and a FORMATTED data date
     assert 'project: reqBody.meta.project_name' in body
     assert re.search(r'data_date: reqBody\.meta\.data_date \? fmtDate\(', body)
-    assert "import { fmtDate }" in _read('api.js')
+    # fmtDate imported from format.js (other helpers may share the import line)
+    assert re.search(r"^import \{[^}]*\bfmtDate\b[^}]*\}\s+from '\./format\.js';", _read('api.js'), re.M)

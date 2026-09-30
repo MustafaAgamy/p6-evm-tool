@@ -12,9 +12,11 @@ HONEST BY DESIGN:
 The pure functions here are unit-tested with injected weather; all network access
 is isolated in fetch_* helpers (Open-Meteo, free / no key) and never unit-tested.
 """
+import http.client
 import json
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 # Ibrahim's stop-work rule (tunable per project in the app): a day is a lost
@@ -577,17 +579,40 @@ def weather_inputs(data):
     }
 
 
-# ── network (Open-Meteo, free / no key) — isolated, not unit-tested ───────────
+# ── network (Open-Meteo, free / no key) — isolated; tests stub _get_json ───────
 
 _ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive'
 _FORECAST = 'https://api.open-meteo.com/v1/forecast'
 _DAILY_VARS = 'precipitation_sum,temperature_2m_max,wind_speed_10m_max'
 
+try:                                   # identify the app honestly (brand constants, not hardcoded)
+    from utils import USER_AGENT as _USER_AGENT
+except Exception:                      # pragma: no cover - utils always ships with the app
+    _USER_AGENT = 'P6-schedule-analysis/1.0'
+try:                                   # short CONNECT timeout, normal READ timeout (utils.open_url)
+    from utils import open_url as _open_url
+except Exception:                      # pragma: no cover - utils always ships with the app
+    _open_url = urllib.request.urlopen
+
+# Every way an online call can fail: no connection / DNS / refused / timeout / HTTP error
+# (all OSError), a dropped connection mid-answer (HTTPException), an unreadable answer.
+_NET_ERRORS = (OSError, http.client.HTTPException, ValueError, KeyError, TypeError)
+
 
 def _get_json(url, timeout=20):
-    req = urllib.request.Request(url, headers={'User-Agent': 'nPace-CalendarAudit/1.0'})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # Connecting gives up after utils.CONNECT_TIMEOUT (a black-holed network is reported in
+    # seconds); reading keeps `timeout`, because five years of ERA5 history can be slow.
+    req = urllib.request.Request(url, headers={'User-Agent': _USER_AGENT})
+    with _open_url(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
+
+
+def is_connection_error(exc):
+    """True when the call never reached the service (offline, DNS, refused, timed out) —
+    as opposed to the service answering with an HTTP error or an unreadable body. Used to
+    stop after the first failure instead of waiting on every other call when offline."""
+    return (isinstance(exc, (OSError, http.client.HTTPException))
+            and not isinstance(exc, urllib.error.HTTPError))
 
 
 def _parse_daily(payload):
@@ -608,28 +633,34 @@ def _parse_daily(payload):
     return out
 
 
-def fetch_forecast(lat, lon):
-    """Next ~16 days of real forecast → {date: rec}. Returns {} on any failure."""
+def fetch_forecast(lat, lon, errors=None):
+    """Next ~16 days of real forecast → {date: rec}. Returns {} on any failure (the
+    exception is appended to ``errors`` when a list is given, so the caller can say why)."""
     try:
         url = (f'{_FORECAST}?latitude={lat}&longitude={lon}&daily={_DAILY_VARS}'
                f'&wind_speed_unit=kmh&timezone=auto&forecast_days=16')
         return _parse_daily(_get_json(url))
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
+    except _NET_ERRORS as exc:
+        if errors is not None:
+            errors.append(exc)
         return {}
 
 
-def fetch_historical(lat, lon, start, end):
-    """Actual daily weather for a PAST [start, end] → {date: rec}. {} on failure."""
+def fetch_historical(lat, lon, start, end, errors=None):
+    """Actual daily weather for a PAST [start, end] → {date: rec}. {} on failure (the
+    exception is appended to ``errors`` when a list is given)."""
     try:
         url = (f'{_ARCHIVE}?latitude={lat}&longitude={lon}'
                f'&start_date={start.isoformat()}&end_date={end.isoformat()}'
                f'&daily={_DAILY_VARS}&wind_speed_unit=kmh&timezone=auto')
         return _parse_daily(_get_json(url))
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
+    except _NET_ERRORS as exc:
+        if errors is not None:
+            errors.append(exc)
         return {}
 
 
-def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5):
+def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5, net=None):
     """Assemble the weather the estimate runs on:
       * near term (≤ ~16 days from today) → live FORECAST → `daily` {date: rec}
       * beyond the forecast → MULTI-YEAR CLIMATE HISTORY: the same calendar date across the
@@ -637,17 +668,40 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
         year can't skew it → `climate_samples` {future_date: [rec, rec, ...]}.
     Returns (daily, climate_samples, forecast_horizon, climate_meta). Network failures
     degrade to empty dicts (offline-safe). climate_meta = {years, year_start, year_end}.
+
+    ``net`` (optional dict) is filled with what went wrong online so the caller can tell
+    the planner instead of presenting an empty (zero-impact) estimate as a result:
+    ``net['errors']`` = {'forecast'|'history'|'dust': exception} and ``net['offline']`` =
+    True when the first call never reached the service (then the other calls are skipped —
+    no minutes of waiting when the PC is offline). If only the live forecast fails, the
+    climate history covers the near term too (horizon = data date) rather than leaving the
+    next ~16 days uncounted.
     """
     data_date = _to_date(data_date)
     project_finish = _to_date(project_finish)
     today = _to_date(today) if today else data_date
     horizon = min(today + timedelta(days=15), project_finish)
+    net = net if net is not None else {}
+    errs = net.setdefault('errors', {})
+    net.setdefault('offline', False)
 
     daily = {}
-    fc = fetch_forecast(lat, lon)
+    fc_err = []
+    fc = fetch_forecast(lat, lon, errors=fc_err)
+    if fc_err:
+        errs['forecast'] = fc_err[0]
+        if is_connection_error(fc_err[0]):
+            # Could not reach Open-Meteo at all → the other calls would fail the same way.
+            net['offline'] = True
+            net['history_needed'] = project_finish > horizon
+            errs['history'] = errs['dust'] = fc_err[0]
+            return {}, {}, horizon, {'years': years, 'year_start': None, 'year_end': None}
+        horizon = data_date        # no live forecast → the climate history covers every date
     for d, rec in fc.items():
         if data_date < d <= project_finish:
             daily[d] = rec
+    # Dates after the forecast horizon can only come from the climate history.
+    net['history_needed'] = project_finish > horizon
 
     # Multi-year climate for the WHOLE remaining window (so the monthly averages are complete):
     # for each future date, the same calendar date across the last `years` FULL calendar years
@@ -656,32 +710,44 @@ def build_daily_weather(lat, lon, data_date, project_finish, today=None, years=5
     # so the average/range and the "last N years" reference are honest.
     climate_samples = {}
     climate_meta = {'years': years, 'year_start': None, 'year_end': None}
-    if project_finish > horizon:
-        fut_start = data_date + timedelta(days=1)
-        # First future date for each (month, day) in the remaining window.
-        fut_by_md = {}
-        d = fut_start
-        while d <= project_finish:
-            fut_by_md.setdefault((d.month, d.day), d)
-            d += timedelta(days=1)
-        # The `years` full calendar years ending just before the run begins.
-        end_year = fut_start.year - 1
-        start_year = end_year - years + 1
-        # One archive call over those full years, then bucket each historical day onto its
-        # matching future date by (month, day) → every date gets exactly `years` samples.
-        hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31))
-        for hd, rec in hist.items():
-            fd = fut_by_md.get((hd.month, hd.day))
-            if fd is not None and start_year <= hd.year <= end_year:
-                climate_samples.setdefault(fd, {})[hd.year] = rec
-        if hist:
-            climate_meta['year_start'] = start_year
-            climate_meta['year_end'] = end_year
+    # Dust / sandstorm days for the near-term window (air-quality forecast) are fetched
+    # ALONGSIDE the climate history, not after it: the planner waits for the slower of the
+    # two calls, never for both in a row.
+    aq_err = []
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        aq_future = pool.submit(fetch_air_quality, lat, lon, errors=aq_err)
+        if project_finish > horizon:
+            fut_start = data_date + timedelta(days=1)
+            # First future date for each (month, day) in the remaining window.
+            fut_by_md = {}
+            d = fut_start
+            while d <= project_finish:
+                fut_by_md.setdefault((d.month, d.day), d)
+                d += timedelta(days=1)
+            # The `years` full calendar years ending just before the run begins.
+            end_year = fut_start.year - 1
+            start_year = end_year - years + 1
+            # One archive call over those full years, then bucket each historical day onto its
+            # matching future date by (month, day) → every date gets exactly `years` samples.
+            hist_err = []
+            hist = fetch_historical(lat, lon, date(start_year, 1, 1), date(end_year, 12, 31),
+                                    errors=hist_err)
+            if hist_err:
+                errs['history'] = hist_err[0]
+            for hd, rec in hist.items():
+                fd = fut_by_md.get((hd.month, hd.day))
+                if fd is not None and start_year <= hd.year <= end_year:
+                    climate_samples.setdefault(fd, {})[hd.year] = rec
+            if hist:
+                climate_meta['year_start'] = start_year
+                climate_meta['year_end'] = end_year
+        dust_days = aq_future.result()
 
-    # Dust / sandstorm days for the near-term window (air-quality forecast), merged in.
-    for d, aq in fetch_air_quality(lat, lon).items():
+    for d, aq in dust_days.items():
         if d in daily and aq.get('dust'):
             daily[d].update(aq)
+    if aq_err:
+        errs['dust'] = aq_err[0]
     return daily, climate_samples, horizon, climate_meta
 
 
@@ -689,8 +755,9 @@ _AIR_QUALITY = 'https://air-quality-api.open-meteo.com/v1/air-quality'
 DUST_PM10_THRESHOLD = 150.0   # µg/m³ daily-max → treat as a dust/sandstorm day
 
 
-def fetch_air_quality(lat, lon):
-    """Near-term dust from Open-Meteo air-quality (free). {date: {dust, pm10}}; {} on failure.
+def fetch_air_quality(lat, lon, errors=None):
+    """Near-term dust from Open-Meteo air-quality (free). {date: {dust, pm10}}; {} on failure
+    (the exception is appended to ``errors`` when a list is given).
     A day counts as dust when its peak PM10 reaches DUST_PM10_THRESHOLD."""
     try:
         url = (f'{_AIR_QUALITY}?latitude={lat}&longitude={lon}'
@@ -713,7 +780,9 @@ def fetch_air_quality(lat, lon):
             if v['pm10'] >= DUST_PM10_THRESHOLD or v['dust_conc'] >= DUST_PM10_THRESHOLD:
                 out[d] = {'dust': True, 'pm10': round(v['pm10'])}
         return out
-    except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
+    except _NET_ERRORS as exc:
+        if errors is not None:
+            errors.append(exc)
         return {}
 
 

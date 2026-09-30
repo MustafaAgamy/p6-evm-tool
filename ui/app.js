@@ -22,6 +22,7 @@ import { renderSchedule }                       from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { installExternalLinks }                 from './modules/external_links.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
@@ -31,14 +32,19 @@ import { openPalette, closePalette, buildPaletteItems } from './modules/palette.
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
+// Startup guard (ui/startup_guard.js, inlined into index.html): every module loaded.
+if (window.__cxStartup) window.__cxStartup.booted();
+
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
   playBoot({ onDone: grabKeyFocus });   // branded startup splash; on lift, pull key focus into the page so shortcuts receive keys
   initTheme();
   initTooltips();
+  installExternalLinks();   // every web link → the default browser (never navigates the app window away)
   initDatabase();
-  loadHistory();
+  // Real start-up step for the splash (BLACK-9): Recent Projects answered (or its own Retry shown).
+  loadHistory().finally(() => { if (window.__cxStartup) window.__cxStartup.step('history'); });
 
   // Unified Appearance control (six modes) — themes the whole app screen AND every report
   // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
@@ -753,4 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+  // Startup guard: the shell is built — lifts the "couldn't start" watchdog and completes
+  // the app's readiness handshake (POST /api/client-log kind=ready).
+  if (window.__cxStartup) window.__cxStartup.ready();
 });

@@ -14,6 +14,7 @@
 
 import { shortcutGroups } from './shortcuts.js';
 import { filterNeeds, needsGroups, fileTag, requiredFileCount, FEATURE_NEEDS } from './feature_needs.js';
+import { openExternal } from './external_links.js';
 
 // Product name from the server-injected brand (utils.APP_NAME / APP_TITLE) — never hardcoded.
 const APP_NAME = (typeof window !== 'undefined' && window.__APP_NAME__) || 'Controlyx';
@@ -294,6 +295,20 @@ function injectStyle() {
     padding:13px 16px; font-size:13px; color:var(--ink-soft,#41506a); font-weight:500;
   }
   .hc-resp .rdot{ width:9px; height:9px; border-radius:50%; flex:none; background:var(--success,#15803d); }
+  /* ---- Contact: Safe graphics (window opens black) ---- */
+  .hc-gfx{ margin-top:16px; background:var(--card-bg,#fff); border:1px solid var(--border,#e2e8f0); border-radius:13px; padding:16px 18px; display:flex; gap:16px; align-items:flex-start; }
+  .hc-gfx-txt{ flex:1; min-width:0; font-size:13px; line-height:1.5; color:var(--ink-soft,#41506a); }
+  .hc-gfx-txt b{ color:var(--text,#1e293b); }
+  .hc-gfx-status{ margin-top:6px; font-size:12.5px; font-weight:600; color:var(--muted,#64748b); }
+  .hc-gfx-status.err{ color:var(--danger,#b91c1c); }
+  .hc-gfx-sw{ flex:none; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text,#1e293b); cursor:pointer; white-space:nowrap; }
+  .hc-gfx-sw input{ width:17px; height:17px; accent-color:var(--accent,#2563eb); cursor:pointer; }
+  .hc-gfx-sw input:disabled{ cursor:default; }
+  .hc-log .hc-gfx-status{ font-weight:500; word-break:break-all; }
+  .hc-log-btn{ flex:none; padding:7px 13px; border-radius:9px; border:1px solid var(--border,#e2e8f0); background:var(--surface-2,var(--card-bg,#fff)); color:var(--text,#1e293b); font-family:inherit; font-size:13px; font-weight:700; line-height:1.2; cursor:pointer; white-space:nowrap; }
+  .hc-log-btn:hover{ border-color:var(--accent,#2563eb); color:var(--accent,#2563eb); }
+  .hc-log-btn:disabled{ opacity:.6; cursor:default; }
+  @media (max-width:640px){ .hc-gfx{ flex-direction:column; } }
 
   /* ---- About ---- */
   .hc-about{ text-align:center; padding:44px 30px; position:relative; overflow:hidden; }
@@ -378,7 +393,7 @@ function screenGettingStarted() {
       <p>${esc(APP_NAME)} reads your Primavera P6 exports and turns them into clear schedule intelligence — earned value, health checks, delay analysis and board-ready reports. No spreadsheets, no manual number-crunching. Follow four steps.</p>
     </div>
     <div class="hc-flow">
-      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML/XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
+      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML or XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
       <div class="hc-step"><div class="num">2</div><h4>Choose a feature</h4><p>Pick what you need — Earned Value, Schedule Health, Consultant Review and more.</p></div>
       <div class="hc-step"><div class="num">3</div><h4>Run</h4><p>Confirm the inputs and click Run. Every analysis is explicit — nothing fires until you ask.</p></div>
       <div class="hc-step"><div class="num">4</div><h4>Results</h4><p>Read the KPIs on screen, then export a polished one-page PDF or a custom report.</p></div>
@@ -546,7 +561,98 @@ function screenContact() {
       </div>
     </div>
     <div class="hc-resp"><span class="rdot"></span>We usually respond within 2 days.</div>
+    <div class="hc-gfx" id="hc-gfx">
+      <div class="hc-gfx-txt"><b>Window opens black?</b> Turn on <b>Safe graphics</b>: the app then draws its window without the graphics card (scrolling can feel a little slower). ${esc(APP_NAME)} also turns it on by itself after a start that never showed the page. It applies the next time you open the app.
+        <div class="hc-gfx-status" id="hc-gfx-status" role="status" aria-live="polite">Checking…</div>
+      </div>
+      <label class="hc-gfx-sw"><input type="checkbox" id="hc-gfx-toggle" disabled> Safe graphics</label>
+    </div>
+    <div class="hc-gfx hc-log" id="hc-log">
+      <div class="hc-gfx-txt"><b>Problem when the app starts?</b> ${esc(APP_NAME)} notes every step of each start in a small file, <b>startup.log</b>. Open its folder and send that file to Technical Software Support so they can see which step went wrong.
+        <div class="hc-gfx-status" id="hc-log-status" role="status" aria-live="polite"></div>
+      </div>
+      <button type="button" class="hc-log-btn" id="hc-log-open">Open log folder</button>
+    </div>
   </section>`;
+}
+
+// ---- Contact: start-up log folder (startup BLACK-8) ----
+// Opens the folder through the desktop app's bridge (window.pywebview.api.open_log_folder);
+// the log file's path is always shown in words too (from GET /api/health), so the owner can
+// find it even when the folder cannot be opened. Never alert/confirm.
+export function wireLogFolder(root, win) {
+  const w = win || (typeof window !== 'undefined' ? window : globalThis);
+  const btn = root.querySelector('#hc-log-open');
+  const out = root.querySelector('#hc-log-status');
+  if (!btn || !out) return;
+  const say = (text, err) => { out.textContent = text; out.classList.toggle('err', !!err); };
+  const logPath = () => (typeof fetch === 'function'
+    ? fetch('/api/health').then(r => r.json()).then(h => (h && h.log_path) || '').catch(() => '')
+    : Promise.resolve(''));
+  logPath().then(p => { if (p && !out.textContent) say('Log file: ' + p); });
+  btn.addEventListener('click', () => {
+    const api = w && w.pywebview && w.pywebview.api;
+    btn.disabled = true;
+    say('Opening…');
+    const fail = p => say('Could not open the folder' + (p ? ' — the log file is here: ' + p : ' (the app is not answering).'), true);
+    if (!api || typeof api.open_log_folder !== 'function') {
+      logPath().then(p => { btn.disabled = false; p ? say('Open this folder in Explorer: ' + p) : fail(''); });
+      return;
+    }
+    Promise.resolve().then(() => api.open_log_folder()).then(res => {
+      btn.disabled = false;
+      if (res && res.ok) say('Opened. Send the file startup.log to support — ' + res.path);
+      else fail(res && res.path);
+    }).catch(() => logPath().then(p => { btn.disabled = false; fail(p); }));
+  });
+}
+
+// ---- Contact: Safe graphics switch (GET/POST /api/graphics-mode) ----
+// Plain words only; never alert/confirm (no-ops in the app's WebView2).
+export function graphicsStatusText(st) {
+  if (!st || !st.ok) return (st && st.error) || 'Could not read the graphics setting.';
+  const since = st.since ? ` since ${String(st.since).slice(0, 10)}` : '';
+  let t = st.saved ? `On${since}` : 'Off (normal graphics)';
+  if (st.saved && st.reason && st.reason !== 'turned on in Help') t += ` — turned on automatically (${st.reason})`;
+  if (st.forced) t += ` — note: the ${st.forced === '1' ? 'on' : 'off'} setting in this computer's CONTROLYX_SAFE_GRAPHICS variable wins`;
+  const now = st.this_launch === 'safe';
+  if (now !== !!st.saved) t += '. Takes effect the next time you open the app.';
+  else t += now ? '. This window is using it now.' : '.';
+  return t;
+}
+
+export function wireGraphicsSwitch(root) {
+  const box = root.querySelector('#hc-gfx-toggle');
+  const out = root.querySelector('#hc-gfx-status');
+  if (!box || !out || typeof fetch !== 'function') return;
+  const show = (st, err) => {
+    out.textContent = err || graphicsStatusText(st);
+    out.classList.toggle('err', !!err || !(st && st.ok));
+  };
+  const read = r => r.json().catch(() => ({ ok: false }));
+  fetch('/api/graphics-mode').then(read).then(st => {
+    if (st && st.ok) { box.checked = !!st.saved; box.disabled = false; }
+    show(st);
+  }).catch(() => show(null, 'Could not read the graphics setting (the app is not answering).'));
+  box.addEventListener('change', () => {
+    const want = box.checked;
+    box.disabled = true;
+    out.textContent = 'Saving…';
+    out.classList.remove('err');
+    fetch('/api/graphics-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ safe: want }),
+    }).then(read).then(st => {
+      box.disabled = false;
+      if (st && st.ok) { box.checked = !!st.saved; show(st); return; }
+      box.checked = !want;
+      show(st, 'Not saved — ' + ((st && st.error) || 'the app did not accept the change.'));
+    }).catch(() => {
+      box.disabled = false;
+      box.checked = !want;
+      show(null, 'Not saved — the app is not answering. Try again.');
+    });
+  });
 }
 
 function screenAbout() {
@@ -709,15 +815,17 @@ export function openHelp(section) {
   const box = overlay.querySelector('#hc-fg-search');
   if (box) box.addEventListener('input', () => renderFeatures(overlay, box.value));
   renderFeatures(overlay, '');
+  wireGraphicsSwitch(overlay);
+  wireLogFolder(overlay);
 
-  // External links → the default browser (packaged app: js_api.open_external with an https
-  // allow-list; browser/dev harness: the plain target=_blank link).
+  // External links → the default browser. The app-wide interceptor (external_links.js,
+  // installed by app.js) normally handles the click first; this is the fallback when Help is
+  // shown without it. Same path either way: js_api.open_external (https allow-list) or a new
+  // tab in a plain browser, with a visible note if it could not open.
   overlay.querySelectorAll('a[data-external]').forEach(a => a.addEventListener('click', e => {
-    const api = window.pywebview && window.pywebview.api;
-    if (api && typeof api.open_external === 'function') {
-      e.preventDefault();
-      try { api.open_external(a.href); } catch (err) { /* fall back to nothing — link stays visible */ }
-    }
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    openExternal(a.href);
   }));
 
   // Close: ✕ button and clicking the scrim (outside the shell).

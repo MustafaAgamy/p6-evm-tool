@@ -66,6 +66,21 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium
 
+      # The app shows the version read from the newest "## [vX.Y.Z]" heading of CHANGELOG.md
+      # (utils.APP_VERSION). Stop before building when that heading is missing or does not
+      # match the tag being released — the exe would otherwise say the wrong version.
+      - name: Check the version (CHANGELOG = tag = app)
+        shell: bash
+        run: |
+          pip install pytest
+          python -m pytest tests/test_app_version.py -q -p no:cacheprovider
+          APPV=$(python -c "import utils; print(utils.APP_VERSION)" | tr -d '\r')
+          echo "Version from CHANGELOG.md: v${APPV}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* && "v${APPV}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} but the newest CHANGELOG.md release is v${APPV} - add the '## [${GITHUB_REF_NAME}] - date' section to CHANGELOG.md first."
+            exit 1
+          fi
+
       - name: Build exe
         run: pyinstaller controlyx.spec
 
