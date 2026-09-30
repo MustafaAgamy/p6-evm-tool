@@ -227,10 +227,15 @@ def theme_meta():
 # Everything is inside @media print — the on-screen report is unchanged.
 
 # Elements that act as headings (a heading must never be the last thing on a page).
+# ``p.rescap`` only: the Narrative's <p class="rescap"> is a lead-in ABOVE a chart group,
+# but its <div class="rescap"> ("Peak 7,653 m3 in June 2026.") is the caption UNDER a
+# chart, the last child of the .calfig — a break-after:avoid there propagates to the
+# figure, forbids every break between a run of figures, and Chrome then cuts the next
+# figure itself across the page (finding NARR-PDF-4, §14 material charts).
 HEADING_SELECTORS = (
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'caption', '[role="heading"]', '[data-rpt-heading]',
     'div.sec', 'div.sub', '.sub2', '.subhd', '.subblue', '.subctr', '.ct', '.calname',
-    '.rescap', '.mgrid-t', '.sr-sec-h', '.seq-glabel', '.chart-h', '.chartt', '.chartlab',
+    'p.rescap', '.mgrid-t', '.sr-sec-h', '.seq-glabel', '.chart-h', '.chartt', '.chartlab',
     '.h3title', '.h3sub', '.scope-h', '.rr-h', '.defs-h', '.rc-calhead', '.rc-assignhead',
     '.pr-h', '.flagh', '.rf-h2',
 )
