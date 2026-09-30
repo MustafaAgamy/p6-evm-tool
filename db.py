@@ -4,6 +4,8 @@ DB lives at %APPDATA%/Controlyx/controlyx.db — one per OS user.
 """
 
 import sqlite3
+import threading
+import time
 import os
 import hashlib
 import shutil
@@ -36,8 +38,8 @@ def _db_path():
                 pass
     return new
 
-def get_conn():
-    conn = sqlite3.connect(_db_path())
+def get_conn(path=None):
+    conn = sqlite3.connect(path or _db_path())
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA foreign_keys=ON')
@@ -46,8 +48,8 @@ def get_conn():
 
 # ── Schema ─────────────────────────────────────────────────────────────────
 
-def init_db():
-    with get_conn() as conn:
+def init_db(path=None):
+    with get_conn(path) as conn:
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS projects (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,6 +300,209 @@ def open_db_resilient():
         DB_STATUS.update(status='degraded', detail=f'{first}; fresh DB failed: {exc}',
                          backup=backup)
     return dict(DB_STATUS)
+
+
+# ── Damage found AFTER start-up (S3) ───────────────────────────────────────
+# CREATE TABLE IF NOT EXISTS only reads the schema pages, so a file whose DATA pages are
+# damaged (the common case) opened as 'ok' and then every read of those rows failed with
+# "database disk image is malformed" — Recent Projects kept failing with no way out.
+# Now: (1) PRAGMA quick_check runs on a background thread once the server is listening
+# (never before the first paint); (2) any request that meets a corruption error marks the
+# DB 'damaged' (server._json notes it); (3) the page offers "set the damaged database aside
+# and start fresh" — POST /api/db/recover -> recover_damaged_db(), which copies every row
+# that can still be read into a new file and keeps the damaged one as .corrupt-bak-<time>.
+
+_DAMAGE_LOCK = threading.Lock()
+
+
+def mark_damaged(detail):
+    """Record that the history database is damaged (status 'damaged'). Returns True when
+    the status changed."""
+    text = str(detail or 'database disk image is malformed')
+    with _DAMAGE_LOCK:
+        if DB_STATUS.get('status') == 'damaged':
+            return False
+        DB_STATUS.update(status='damaged', detail=text, backup=None)
+    return True
+
+
+def note_error(err):
+    """Mark the DB damaged when ``err`` (an exception or its text) is a corruption error;
+    locked / busy / any other error is ignored. Returns True when it was corruption."""
+    if err is None:
+        return False
+    if isinstance(err, BaseException):
+        bad = _is_corruption(err)
+    else:
+        bad = any(t in str(err).lower() for t in _CORRUPT_TEXT)
+    if bad:
+        mark_damaged(str(err))
+    return bad
+
+
+def integrity_check(path=None):
+    """PRAGMA quick_check on its own connection. Returns (ok, detail): ok True, False
+    (damaged — recorded in DB_STATUS) or None (could not run: locked, missing ...)."""
+    DB_STATUS['check'] = 'running'
+    try:
+        path = path or _db_path()
+        if not os.path.exists(path):
+            return None, None
+        conn = sqlite3.connect(path, timeout=5)
+        try:
+            rows = [r[0] for r in conn.execute('PRAGMA quick_check(20)').fetchall()]
+        finally:
+            conn.close()
+        if rows and rows[0] == 'ok':
+            return True, None
+        detail = ('database disk image is malformed (' +
+                  '; '.join(str(r) for r in rows[:3]) + ')')
+        mark_damaged(detail)
+        return False, detail
+    except sqlite3.DatabaseError as exc:
+        if _is_corruption(exc):
+            mark_damaged(str(exc))
+            return False, str(exc)
+        return None, str(exc)
+    except Exception as exc:
+        return None, str(exc)
+    finally:
+        DB_STATUS['check'] = 'done'
+
+
+def start_background_check(delay_s=2.0):
+    """Run integrity_check() on a daemon thread after ``delay_s`` (the window paints first).
+    GET /api/health shows db.check: 'pending' -> 'running' -> 'done'."""
+    DB_STATUS['check'] = 'pending'
+
+    def run():
+        time.sleep(max(0.0, delay_s))
+        integrity_check()
+    t = threading.Thread(target=run, name='db-quick-check', daemon=True)
+    t.start()
+    return t
+
+
+def _salvage_rows(src, table, max_jumps=24):
+    """Every row of ``table`` that can still be read, in rowid order, as
+    (column names, rows). When a damaged page stops the scan, jump past it (growing steps)
+    and carry on; gives up after ``max_jumps`` failed jumps."""
+    q = 'SELECT rowid, * FROM "%s"' % table.replace('"', '""')
+    rows, names, last, step, jumps = [], None, None, 1, 0
+    while True:
+        try:
+            if last is None:
+                cur = src.execute(q + ' ORDER BY rowid')
+            else:
+                cur = src.execute(q + ' WHERE rowid > ? ORDER BY rowid', (last,))
+            names = [d[0] for d in cur.description]
+            for r in cur:
+                rows.append(tuple(r))
+                last = r[0]
+                step = 1
+            return names, rows
+        except sqlite3.DatabaseError:
+            jumps += 1
+            if jumps > max_jumps:
+                return names, rows
+            last = (last if last is not None else 0) + step
+            step *= 2
+
+
+def _copy_readable_rows(path, dst):
+    """Copy every readable row of every table of the damaged file at ``path`` into ``dst``
+    (a fresh schema). Returns ({table: rows copied}, [tables that could not be read])."""
+    salvaged, lost = {}, []
+    try:
+        src = sqlite3.connect('file:%s?mode=ro' % os.path.abspath(path).replace(os.sep, '/'),
+                              uri=True, timeout=5)
+    except sqlite3.Error:
+        return salvaged, lost
+    try:
+        tables = [r[0] for r in dst.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY rowid")]
+        for t in tables:
+            cols = [r[1] for r in dst.execute('PRAGMA table_info("%s")' % t)]
+            try:
+                have = {r[1] for r in src.execute('PRAGMA table_info("%s")' % t)}
+            except sqlite3.DatabaseError:
+                lost.append(t)
+                continue
+            use = [c for c in cols if c in have]
+            if not use:
+                continue
+            names, rows = _salvage_rows(src, t)
+            if names is None and not rows:
+                lost.append(t)
+                continue
+            idx = [names.index(c) for c in use] if names else []
+            sql = 'INSERT OR IGNORE INTO "%s" (%s) VALUES (%s)' % (
+                t, ', '.join('"%s"' % c for c in use), ', '.join('?' * len(use)))
+            n = 0
+            for r in rows:
+                try:
+                    n += dst.execute(sql, [r[i] for i in idx]).rowcount or 0
+                except sqlite3.Error:
+                    pass
+            salvaged[t] = n
+    finally:
+        src.close()
+    return salvaged, lost
+
+
+def recover_damaged_db(retries=10):
+    """Set the damaged history database aside and start a fresh one, copying across every
+    row that can still be read. Returns {'ok', 'backup', 'salvaged': {table: n},
+    'lost_tables': [...]} or {'ok': False, 'error'}; DB_STATUS becomes 'recovered'."""
+    import gc
+    with _DAMAGE_LOCK:
+        path = _db_path()
+        tmp = '%s.rebuild-%s' % (path, datetime.now().strftime('%Y%m%d-%H%M%S'))
+        salvaged, lost = {}, []
+        try:
+            init_db(tmp)                                # the fresh schema, in a side file
+            gc.collect()
+            dst = sqlite3.connect(tmp)
+            try:
+                dst.execute('PRAGMA foreign_keys=OFF')
+                if os.path.exists(path):
+                    salvaged, lost = _copy_readable_rows(path, dst)
+                dst.commit()
+                dst.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+            finally:
+                dst.close()
+            gc.collect()                                # release every handle on the file
+            backup = None
+            if os.path.exists(path):
+                for _ in range(max(1, retries)):
+                    backup = _quarantine_db(path)
+                    if backup:
+                        break
+                    gc.collect()
+                    time.sleep(0.2)
+                if not backup:
+                    raise OSError('the damaged file could not be moved aside '
+                                  '(is another copy of the app still open?)')
+            os.replace(tmp, path)
+            for suffix in ('-wal', '-shm'):
+                try:
+                    if os.path.exists(tmp + suffix):
+                        os.replace(tmp + suffix, path + suffix)
+                except OSError:
+                    pass
+            DB_STATUS.update(status='recovered', backup=backup, salvaged=salvaged,
+                             detail=DB_STATUS.get('detail'))
+            return {'ok': True, 'backup': backup, 'salvaged': salvaged, 'lost_tables': lost}
+        except Exception as exc:
+            for f in (tmp, tmp + '-wal', tmp + '-shm'):
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except OSError:
+                    pass
+            return {'ok': False, 'error': '%s: %s' % (type(exc).__name__, exc),
+                    'salvaged': salvaged}
 
 
 # ── File helpers ───────────────────────────────────────────────────────────
