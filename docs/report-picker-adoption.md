@@ -43,11 +43,13 @@ page numbers, `counts`, `info`); exit 0 = clean, 1 = flags, 2 = error, 3 = skipp
 It flags: orphaned_heading, kpi_separated_from_heading, heading_separated_from_block,
 picture_separated_from_caption (Word), table_split_few_rows (< 3 body rows on a page),
 small_table_split (a table <= 35 % of a page split), table_header_not_repeated, graphic_cut,
-text_cut, content_in_margin, large_blank_then_continuation (> 35 % blank before a pushed block),
+text_cut, content_in_margin, large_blank_then_continuation (> 40 % blank before a pushed block: a
+block of up to 35 % kept whole with its heading may leave up to ~40 % by design),
 stranded_fragment, empty_page, and for a .docx's own pictures picture_truncated (content runs into
 the picture's bottom edge - a section cut off) and picture_mostly_blank (< 50 % painted, >= 2 in of
-white). `info.section_break_blank` (a new top-level section on a new page) is
-not a defect. Word files are laid out by Word itself (COM, ~1-2 s a page) or, without Word, by
+white). `info.section_break_blank` (a new top-level section on a new page, the cover page - page 1
+with its content set well down the page - or the end of the contents list, the body starting on a
+fresh page) is not a defect. Word files are laid out by Word itself (COM, ~1-2 s a page) or, without Word, by
 Spire.Doc (first 10 pages only). `--html report.html` passes the renderer's heading texts as hints.
 Target: zero flags on GBT_XML for your feature's PDF and Word. In a test: `pc.check_pdf(path)['flags'] == []`
 (see tests/test_pagination_check.py for the synthetic-report pattern).
@@ -74,3 +76,14 @@ reads the Studio's one-row heading table (number badge + title) as a heading, re
 whole month calendars (own titles over the same weekday header) as a new grid rather than a table split,
 a KPI card's big value under its label as card content, and a table header repeated at the very top of
 every page (a report with no running header) as the table's repeated header.
+
+Keep-together blocks you own (findings STUDIO-PDF-4 / STUDIO-PDF-5, CAL-WORD-1, NARR-WORD-2):
+never put `page-break-inside:avoid` on a WHOLE section that can exceed a third of a page in the
+PDF - it is pushed whole and leaves the page above it half blank. Mark it `rpt-measure` (the
+composer keeps it whole only when small) and keep the small units inside it together instead
+(a label + its bars, a card, a row of charts). A div-grid list (no `<table>`) cannot repeat its
+header on a new page: keep it `rpt-keep` and within about a third of a page (the Schedule Health
+score list). A row of KPI cards: at most five a row, the value font sized so the longest value
+stays on one line (the Studio's `_kpi_layout`). In Word, a title / label paragraph right above a
+chart or table sets `keep_with_next` itself (the shared pass also does), and a table that fits in
+about a third of a page keeps every row but the last with the next.
