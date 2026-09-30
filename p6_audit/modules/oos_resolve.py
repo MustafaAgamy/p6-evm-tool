@@ -17,7 +17,7 @@ engine re-check it.
 """
 import types
 
-from p6_evm.parser import parse_file
+from p6_evm.parser import parse_file, lag_day_hours
 from p6_audit.graph import ScheduleGraph
 from p6_audit.modules.out_of_sequence import run_out_of_sequence
 
@@ -137,12 +137,12 @@ def revalidate_from_path(path, config, accepted):
 
 # ── Corrected-file export ────────────────────────────────────────────────────
 
-def _succ_day_hours(data, succ_code):
-    for _oid, a in data.activities.items():
-        if a.get('id') == succ_code:
-            cal = (getattr(data, 'calendars', {}) or {}).get(a.get('calendar_id'))
-            return (getattr(cal, 'day_hours', 8.0) or 8.0) if cal is not None else 8.0
-    return 8.0
+def _lag_day_hours(data, pred_code, succ_code):
+    """Hours per day of the link's LAG calendar (the project's 'Calendar for scheduling
+    Relationship Lag' - predecessor by default) - the same basis the parser used to turn the
+    file's lag hours into lag_days (finding P16), so days -> hours round-trips exactly."""
+    by_code = {a.get('id'): oid for oid, a in data.activities.items()}
+    return lag_day_hours(data, by_code.get(pred_code), by_code.get(succ_code))
 
 
 def _current_type(data, pc, sc):
@@ -163,9 +163,9 @@ def to_file_ops(accepted, data):
         act, pc, sc = o['action'], o['pred_id'], o['succ_id']
         if act in ('data', 'manual') or not sc:
             continue
-        day_hours = _succ_day_hours(data, sc)
         lag_days = o['new_lag_days'] if o['new_lag_days'] is not None else 0.0
-        lag_hours = float(lag_days) * day_hours
+        new_pc = o['new_pred_id'] if act == 'replace' and o['new_pred_id'] else pc
+        lag_hours = float(lag_days) * _lag_day_hours(data, new_pc, sc)
         typ = o['new_type'] or _current_type(data, pc, sc)
         if act == 'remove':
             ops.append({'kind': 'remove_rel', 'pred_code': pc, 'succ_code': sc})

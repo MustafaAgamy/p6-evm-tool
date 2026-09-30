@@ -5,7 +5,6 @@ is project-specific — it renders whatever SVG it's given.
 """
 import os
 import shutil
-import subprocess
 import tempfile
 
 
@@ -26,12 +25,11 @@ def render_svg_png(svg, width, height, chrome=None):
         # Isolated profile dir: a stale default-profile lock (a prior headless run, or
         # two exports at once) otherwise makes launch hang -> timeout -> silent table.
         tmp_profile = tempfile.mkdtemp(prefix='p6chrome_')
-        subprocess.run([
-            chrome, '--headless', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-            f'--user-data-dir={tmp_profile}',
-            '--force-device-scale-factor=2', f'--window-size={width},{height}',
-            f'--screenshot={tmp_png}', f'file:///{tmp_html.replace(os.sep, "/")}',
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+        from p6_export.pdf import run_chrome          # the ONE tool-wide browser helper
+        run_chrome(chrome, ['--hide-scrollbars', f'--user-data-dir={tmp_profile}',
+                            '--force-device-scale-factor=2', f'--window-size={width},{height}',
+                            f'--screenshot={tmp_png}', f'file:///{tmp_html.replace(os.sep, "/")}'],
+                   timeout=60)
         with open(tmp_png, 'rb') as f:
             return f.read()
     except Exception:

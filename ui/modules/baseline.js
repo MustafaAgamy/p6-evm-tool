@@ -1,0 +1,149 @@
+// One "Attach baseline (XER or XML)" flow for every screen that needs a baseline
+// (Earned Value banner + prompt, Update Analysis "no baseline" state).
+//
+// The server resolves a schedule's baseline ONE way for every feature (p6_evm/baseline.py):
+//   embedded — the file carries its baseline project (an XML exported WITH it, or an XER that
+//              includes the baseline project's rows)
+//   attached — else the baseline file attached here, remembered for this update (snapshot)
+//   self     — else the file's own Planned dates stand in (approximate) — an XER update
+//              (a P6 XER update export carries only a pointer to its baseline) or an XML exported without it.
+// Attaching (or removing) recomputes the snapshot in place (/api/baseline/upload → the import
+// pipeline), so the fresh result replaces state.currentResult and every view agrees.
+import { state } from './state.js';
+
+export const ATTACH_BASELINE_LABEL = '📎 Attach baseline (XER or XML)';
+
+// The baseline attached to the open update — remembered for this update and for every feature.
+// The two-file features (Critical Path Analyzer, Consultant Review, Reporting Studio) pre-fill
+// their Baseline slot with it (its cached, content-exact copy) and name it; their picker stays,
+// so the planner can still choose another file (R3 F9). null when nothing is attached.
+export const ATTACHED_BASELINE_TAG = 'attached to this update';
+export function attachedBaselineSlot(result) {
+  const r = result || {};
+  if (!r.baseline_path || !(r.baseline_source === 'attached' || r.baseline_name)) return null;
+  const name = r.baseline_name || String(r.baseline_path).split(/[\\/]/).pop().replace(/^[0-9a-f]{12}_/i, '');
+  return { path: r.baseline_path, name };
+}
+
+// Which baseline the current result is measured against. Results stored before the server
+// reported `baseline_source` fall back to the old rule (an XER update export is 'self').
+export function baselineSource(result, path) {
+  const r = result || {};
+  if (r.baseline_name || r.baseline_source === 'attached') return 'attached';
+  if (r.baseline_source) return r.baseline_source;
+  return (typeof path === 'string' && /\.xer$/i.test(path)) ? 'self' : 'embedded';
+}
+
+// Whether the P6 project NAMES a baseline. False = no baseline is assigned to it in P6 (a
+// baseline programme): its own Planned dates ARE its baseline, so a 'self' result is exact — no
+// prompt, no "approx". Results stored before the server reported it count as expected.
+export function baselineExpected(result) {
+  return !(result && result.baseline_expected === false);
+}
+
+// True when the result is measured against the update's OWN Planned dates standing in for a
+// baseline P6 names but the file does not carry (none attached) — every baseline-derived value
+// (Baseline Start/Finish, Planned %, PV, SPI, Delay) is then marked '· approx' on every screen
+// and in every report (p6_evm/baseline.py baseline_approx — the same rule).
+export function baselineApprox(result, path) {
+  return baselineSource(result, path) === 'self' && baselineExpected(result);
+}
+
+export const BASELINE_APPROX_LINE =
+  'Baseline: not in the file and none attached — the update’s own Planned dates stand in (approximate)';
+
+// The one 'Baseline: …' line shown with approx values ('' when the values are not approximate).
+export function baselineApproxLine(result, path) {
+  if (!baselineApprox(result, path)) return '';
+  const r = result || {};
+  return (r.baseline_source === 'self' && r.baseline_label) ? `Baseline: ${r.baseline_label}` : BASELINE_APPROX_LINE;
+}
+
+// The baseline INSIDE the file, named on screen the same way the EVM PDF head and the Excel
+// header name it (R2 F8: every report line has its screen counterpart) — nothing to attach, so
+// the EVM banner is a quiet info line. '' unless the server said the baseline is embedded.
+export function baselineEmbeddedLine(result) {
+  const r = result || {};
+  if (r.baseline_source !== 'embedded') return '';
+  if (r.baseline_label) return `Baseline: ${r.baseline_label}`;
+  const n = r.baseline_embedded_name;
+  return `Baseline: inside the schedule file${n ? ` (${n})` : ''}`;
+}
+
+// WHICH P6 project to export — the baseline P6 names for this update (XER BASELINE_EXPORT /
+// XML <BaselineProject>, result.baseline_expected_name). '' when the file does not name it.
+// p6_evm/baseline.py expected_baseline_advice() says the same in the reports.
+export function expectedBaselineAdvice(name) {
+  return name ? `P6 names “${name}” as this update’s baseline — export that project (XER or XML) and attach it.` : '';
+}
+
+// Keys the import pipeline does not rebuild (engineering logs are stored per snapshot and
+// re-applied on open) — carried over when the refreshed result replaces the current one.
+const _CARRY = ['engineering_e1', 'e1_extras'];
+
+function _adopt(fresh) {
+  if (!fresh) return null;
+  const old = state.currentResult || {};
+  for (const k of _CARRY) if (fresh[k] === undefined && old[k] !== undefined) fresh[k] = old[k];
+  state.currentResult = fresh;
+  // Every OTHER feature already run on this import was drawn from the old baseline: forget it,
+  // so opening it runs again from the fresh result instead of showing stale numbers.
+  if (state.ranFeatures && typeof state.ranFeatures.forEach === 'function') {
+    [...state.ranFeatures].forEach(v => { if (v !== state.currentView) state.ranFeatures.delete(v); });
+  }
+  return fresh;
+}
+
+async function _post(route, body) {
+  const resp = await fetch(`http://localhost:${state.serverPort}/${route}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  return resp.json();
+}
+
+// Pick a baseline file (XER or XML) and attach it to the open update.
+// Resolves { ok, cancelled?, matched, total, baseline_name, result?, error?, code? }.
+// `result` (the recomputed import result) has already replaced state.currentResult.
+export async function attachBaselineFile() {
+  let path;
+  try { path = await window.pywebview.api.choose_file(); } catch { path = null; }
+  if (!path) return { ok: false, cancelled: true };
+  let data;
+  try {
+    data = await _post('api/baseline/upload', {
+      path, xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      snapshot_id: state.currentSnapshotId,
+    });
+  } catch {
+    return { ok: false, error: 'Could not reach the local server. Try again.' };
+  }
+  if (data.ok && data.matched > 0) _adopt(data.result);
+  return data;
+}
+
+// Forget the attached baseline for the open update (back to its own baseline).
+export async function removeBaselineFile() {
+  let data;
+  try {
+    data = await _post('api/baseline/clear', {
+      xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+      snapshot_id: state.currentSnapshotId,
+    });
+  } catch {
+    return { ok: false, error: 'Could not reach the local server. Try again.' };
+  }
+  if (data.ok) _adopt(data.result);
+  return data;
+}
+
+// One plain sentence for a failed / unmatched attach — shown in the page (WebView2 alert()
+// is a no-op in the packaged app).
+export function attachProblem(data) {
+  if (!data || data.cancelled) return '';
+  if (!data.ok) return `Baseline not attached: ${String(data.error || 'the file could not be read').replace(/\.$/, '')}.`;
+  if (!data.matched) {
+    return `No activities in “${data.baseline_name || 'that file'}” match this update by Activity ID — ` +
+      'it is probably another project’s baseline, so it was not attached.';
+  }
+  return '';
+}

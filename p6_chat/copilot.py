@@ -542,19 +542,13 @@ def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, m
             html_content = html_content.replace(f"· {later} later</div>", f"· {later}</div>")
         if preview:
             return {'ok': True, 'report': report, 'html': html_content}
-        import subprocess
         import tempfile
-        from server import _find_chrome
+        from server import _find_chrome, _chrome_print_pdf
         with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
             tmp.write(html_content)
             html_path = tmp.name
         try:
-            chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), _find_chrome())
         finally:
             try:
                 os.unlink(html_path)

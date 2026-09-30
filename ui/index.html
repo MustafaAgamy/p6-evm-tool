@@ -2,17 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Controlyx 2026</title>
+  <!--cx:startup-guard-->
+  <title data-brand="title"></title>
   <link rel="stylesheet" href="/ui/style.css">
   <script>(function(){try{var ok=['light','dark','midnight','sepia','contrast','blueprint'];var m=localStorage.getItem('p6_report_appearance');if(ok.indexOf(m)<0){var l=localStorage.getItem('p6_evm_theme');m=(l==='light'||l==='dark')?l:'light';}document.documentElement.setAttribute('data-appearance',m);}catch(e){document.documentElement.setAttribute('data-appearance','light');}}());</script>
   <style>
-    /* Immediate dark cover — prevents any flash of the app before the single
-       animated startup splash (ui/modules/boot.js) paints; boot.js removes it. */
-    #brand-splash{position:fixed;inset:0;z-index:2000;background:#06090f;}
+    /* The start-up screen from the very first paint: the animated splash's own background
+       with its caption line, saying the REAL current step (the startup guard,
+       ui/startup_guard.js, writes #cx-cover-stage: "Starting local server" until
+       /api/health answers, then "Loading program files"). The animated splash
+       (ui/modules/boot.js) takes over from here once the program has loaded; the guard
+       shows Retry if loading fails or stalls. Never a blank black box (BLACK-9). */
+    #brand-splash{position:fixed;inset:0;z-index:2000;
+      background:radial-gradient(125% 95% at 50% 40%,#14284f 0%,#0a1330 42%,#06090f 100%);}
+    #brand-splash .cxb-note{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);
+      width:min(440px,74vw);text-align:center;color:#9fb0d6;
+      font:600 12px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;
+      opacity:0;animation:cxb-in .3s ease .2s forwards;}
+    #brand-splash .cxb-note i{display:inline-block;width:11px;height:11px;margin-right:9px;
+      vertical-align:-2px;border:2px solid #2c3c5e;border-top-color:#5b9bff;border-radius:50%;
+      animation:cxb-spin .8s linear infinite;}
+    #brand-splash .cxb-track{margin-top:9px;height:3px;border-radius:3px;background:rgba(120,150,220,.16);}
+    #brand-splash .cxb-ver{position:absolute;left:0;right:0;bottom:20px;text-align:center;color:#556488;
+      font:10.5px/1.2 "Segoe UI",system-ui,sans-serif;letter-spacing:.28em;text-transform:uppercase;}
+    @keyframes cxb-in{to{opacity:1}}
+    @keyframes cxb-spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
-<div id="brand-splash"></div>
+<div id="brand-splash"><div class="cxb-note"><i></i><span id="cx-cover-stage">Starting local server…</span><div class="cxb-track"></div></div><div class="cxb-ver"><span data-brand="title"></span> · Project Control Intelligence Platform</div></div>
 <div class="app">
 
   <!-- MENU BAR — the single home for global commands (File · View · Analysis · Tools · Help) -->
@@ -20,7 +38,7 @@
     <span class="mb-mark">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg>
     </span>
-    <span class="mb-brand" id="app-title">Controlyx 2026</span>
+    <span class="mb-brand" id="app-title" data-brand="title"></span>
     <div class="menu" data-menu="file">File</div>
     <div class="menu" data-menu="view">View</div>
     <div class="menu" data-menu="analysis">Analysis</div>
@@ -42,7 +60,7 @@
   <aside class="side" id="side">
     <div class="navh"><span>Project Navigator</span><button class="navx" id="nav-collapse" title="Hide navigator">‹‹</button></div>
     <nav class="tree" id="nav-tree"></nav>
-    <div class="acct"><span class="acct-av"></span><div class="acct-who"><b id="acct-name">Planner</b><span>Controlyx 2026</span></div></div>
+    <div class="acct"><span class="acct-av"></span><div class="acct-who"><b id="acct-name">Planner</b><span data-brand="title"></span></div></div>
   </aside>
 
   <!-- Main -->
@@ -70,7 +88,7 @@
         <div class="aurora-empty" id="drop-strip">
           <div class="ae-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></div>
           <h1 class="ae-title">Import a P6 schedule to begin</h1>
-          <p class="ae-sub">Controlyx reads a Primavera P6 file — an XER or XML export. Nothing is analysed until you import a Primavera P6 file, then pick a module and run it.</p>
+          <p class="ae-sub"><span data-brand="name"></span> reads a Primavera P6 file — an XER or XML export. Nothing is analysed until you import a Primavera P6 file, then pick a module and run it.</p>
           <button class="ae-drop" id="browse-btn">
             <span class="ae-dz"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg></span>
             <b>Pick a P6 file (XER or XML) — or drag it here</b>

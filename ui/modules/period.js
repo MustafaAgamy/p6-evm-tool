@@ -480,20 +480,21 @@ function _milestoneSection(report) {
   const overall = ms.overall;                 // project completion — the only row in the table
   if (!rows.length || !overall) return '<p class="cmp-empty">No project-completion milestone found in the update.</p>';
   const slip = (sp, sb) => sp == null ? '—'
-    : (sp > 0 ? `<span class="per-slip-bad">▼ +${sp} d${sb != null ? ` (→ +${sb} d vs baseline)` : ''}</span>`
+    : (sp > 0 ? `<span class="per-slip-bad">▼ +${sp} d${sb != null ? ` (→ +${sb} d vs baseline${report.baseline_approx ? ', approx' : ''})` : ''}</span>`
       : (sp < 0 ? `<span class="per-slip-good">▲ ${Math.abs(sp)} d earlier</span>` : `<span class="per-slip-good">• on track</span>`));
   const r = overall;
+  const ax = report.baseline_approx ? ' · approx' : '';   // own Planned dates stand in for the baseline
   const table = `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Project completion milestone</th><th class="num">Baseline</th><th class="num">Previous forecast</th>
+    <thead><tr><th>Project completion milestone</th><th class="num">Baseline${ax}</th><th class="num">Previous forecast</th>
       <th class="num">Current forecast</th><th>Slippage this period</th></tr></thead>
     <tbody><tr><td>${escapeHtml(r.name)}</td>
       <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
       <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr></tbody></table></div>`;
   // chart shows ALL finish milestones
-  return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows)}</div>`;
+  return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows, !!report.baseline_approx)}</div>`;
 }
 
-function _milestoneDriftSvg(rows) {
+function _milestoneDriftSvg(rows, approx = false) {
   const od = iso => Date.parse(iso);
   const all = [];
   rows.forEach(r => ['baseline_iso', 'prev_iso', 'curr_iso'].forEach(k => { if (r[k]) all.push(od(r[k])); }));
@@ -517,7 +518,7 @@ function _milestoneDriftSvg(rows) {
     if (r.prev_iso) parts += `<circle cx="${xAt(od(r.prev_iso)).toFixed(0)}" cy="${y}" r="4.5" fill="var(--warning)"/>`;
     if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--danger)"/>`;
   });
-  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
+  return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline${approx ? ' · approx' : ''}</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
     <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
@@ -528,7 +529,7 @@ function _recoveryHtml(report) {
   let left = `Work remaining <b>${r.work_remaining == null ? '—' : r.work_remaining + '%'}</b> · this period earned <b>${r.current_rate == null ? '—' : r.current_rate + '%'}</b>.`;
   if (r.required_rate != null) {
     const ra = r.required_achievement;
-    left += `<br>To still hit the <b>baseline finish (${escapeHtml(r.baseline_finish || '—')})</b> you'd need about <b>${r.required_rate}%/period</b>${ra != null ? ` (≈${Math.round(ra * 100)}% achievement)` : ''}.`;
+    left += `<br>To still hit the <b>baseline finish (${escapeHtml(r.baseline_finish || '—')}${report.baseline_approx ? ' · approx' : ''})</b> you'd need about <b>${r.required_rate}%/period</b>${ra != null ? ` (≈${Math.round(ra * 100)}% achievement)` : ''}.`;
   } else if (r.note) {
     left += `<br>${escapeHtml(r.note)}`;
   }
@@ -1048,7 +1049,7 @@ function _fileBar(report) {
     <span class="cmp-file"><span class="k">Previous</span> <b>${escapeHtml(report.prev_file || '—')}</b> · ${escapeHtml(report.data_date_prev || '')}</span>
     <span class="cmp-vs">→</span>
     <span class="cmp-file"><span class="k">Current</span> <b>${escapeHtml(report.update_file || '—')}</b> · ${escapeHtml(report.data_date_now || '')}</span>
-  </div>`;
+  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : ''}`;
 }
 
 // Pure helpers exposed for unit tests.

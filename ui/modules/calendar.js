@@ -127,11 +127,13 @@ let _map = null;          // Leaflet map instance (location picker)
 let _marker = null;       // the draggable location pin
 let _leafletPromise = null;
 let _mapRO = null;        // ResizeObserver that re-measures the map when the tab is shown
+let _wxNotice = null;     // {text, kept} — why the last Calculate produced no estimate (offline…)
 const _openMonths = new Set();
 
 export function renderCalendar(ca) {
   _ca = ca || null;
   _weather = null;
+  _wxNotice = null;
   _pendingLoc = null;
   _thresholds = { ...DEFAULT_THRESHOLDS };
   _siteType = null;
@@ -301,7 +303,7 @@ function _locationCard() {
       <div class="cal-loc-left">
         <div class="cal-muted" style="font-size:12px;margin-bottom:8px"><b>Search a place, or click the map to drop a pin on the exact site</b> (drag it to fine-tune). Saved with the project.</div>
         <div class="cal-loc-search">
-          <input id="cal-loc-q" placeholder="Search a place or address… (e.g. Jubail, Saudi Arabia)" value="">
+          <input id="cal-loc-q" placeholder="Search a place, or type coordinates… (e.g. Jubail, Saudi Arabia · 26.96, 49.57)" value="">
           <button class="cal-btn pri" id="cal-loc-search-btn">Search</button>
         </div>
         <div id="cal-loc-results" class="cal-loc-results"></div>
@@ -314,10 +316,18 @@ function _locationCard() {
     </div>`;
 }
 
+// The one 'Baseline: …' line when the update's own Planned dates stand in for its baseline (none
+// inside the file, none attached) — the PDF prints the same line (p6_calendar/report._baseline_line).
+export function calBaselineLine(d) {
+  if (!d || !d.baseline_approx) return '';
+  const lbl = d.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)';
+  return `<div class="cal-note" data-baseline-approx>Baseline: ${escapeHtml(lbl)}</div>`;
+}
+
 function _dashboard(d) {
   const dates = [
-    _tile('Baseline Start', fmtCalDate(d.baseline_start), '', 'hl'),
-    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), 'plan of record', 'hl'),
+    _tile('Baseline Start', fmtCalDate(d.baseline_start), d.baseline_approx ? 'approx' : '', 'hl'),
+    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), d.baseline_approx ? 'Baseline (approx)' : 'plan of record', 'hl'),
   ].join('');
   // Row 1 (3 tiles): the calendar-day split. Row 2 (4 tiles): holidays, averages + normal hours.
   const stats1 = [
@@ -333,7 +343,7 @@ function _dashboard(d) {
   ].join('');
   return _sec(1, 'Execution Dashboard') +
     `<div class="cal-subhead">Key Dates</div>
-     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>${calBaselineLine(d)}
      <div class="cal-subhead">Calendar Statistics</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr)">${stats1}</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:10px">${stats2}</div>`;
@@ -590,6 +600,22 @@ function _whyResultHtml() {
     `<div class="cal-why">${rows}</div>`;
 }
 
+// Why the last Calculate gave no estimate (offline / service down) and what the current
+// estimate ran without (forecast / dust feed gaps) — visible, not buried in the footnote.
+function _wxNoticeHtml() {
+  const parts = [];
+  if (_wxNotice) {
+    parts.push(`<div class="cal-wx-notice" role="status"><b>⚠ No new weather estimate.</b> ${escapeHtml(_wxNotice.text)}`
+      + (_wxNotice.kept ? ' <span class="cal-muted">The estimate below is the last one calculated.</span>' : '')
+      + '</div>');
+  }
+  const gaps = (_weather && _weather.climate_reference && _weather.climate_reference.gaps) || [];
+  if (gaps.length) {
+    parts.push(`<div class="cal-wx-notice info" role="status"><b>Calculated with a data gap:</b> ${gaps.map(g => escapeHtml(g)).join(' ')}</div>`);
+  }
+  return parts.join('');
+}
+
 // Source & climate reference — where the bad-weather days come from (shown on import).
 function _climateRefHtml() {
   const r = _weather && _weather.climate_reference;
@@ -598,6 +624,10 @@ function _climateRefHtml() {
     (r.lat != null ? `${(+r.lat).toFixed(2)}°, ${(+r.lon).toFixed(2)}°` : '');
   const yrs = (r.year_start && r.year_end) ? `${r.year_start}–${r.year_end} (${r.years} years)` : `${r.years} years`;
   const row = (k, v) => `<div class="cal-ref-row"><div class="cal-ref-k">${k}</div><div class="cal-ref-v">${v}</div></div>`;
+  // The weather service's site opens in the default browser (external_links.js → allow-list).
+  const _srcLink = (host) => (host === 'open-meteo.com'
+    ? `<a class="cal-ref-url" href="https://open-meteo.com/" target="_blank" rel="noopener">${escapeHtml(host)}</a>`
+    : `<span class="cal-ref-url">${escapeHtml(host || '')}</span>`);
   // Demoted to a footnote (collapsible) below §7 — reference, not a headline section.
   return `<details class="cal-foot-details">
       <summary>🔗 Where these bad-weather days come from — data source &amp; climate reference</summary>
@@ -605,8 +635,9 @@ function _climateRefHtml() {
       ${row('Climate history', `<b>${escapeHtml(r.history_source)}</b> — <span class="cal-ref-url">${escapeHtml(r.history_url)}</span>`)}
       ${row('History window', `<b>${yrs}</b>, averaged per month`)}
       ${loc ? row('Location', loc) : ''}
-      ${row('Live forecast', `${escapeHtml(r.forecast_source)} — <span class="cal-ref-url">${escapeHtml(r.forecast_url)}</span> (next ~16 days)`)}
+      ${row('Live forecast', `${escapeHtml(r.forecast_source)} — ${_srcLink(r.forecast_url)} (next ~16 days)`)}
       ${row('Dust / sandstorm', escapeHtml(r.dust_source))}
+      ${(r.gaps || []).map(g => row('Data gap', escapeHtml(g))).join('')}
       <div class="cal-ref-note">Beyond ~16 days these are <b>climate-based expectations</b> (5-year average for this site) — not a guaranteed forecast. Kept separate from the exact P6 Delay.</div>
     </div></details>`;
 }
@@ -639,13 +670,13 @@ function _weatherDashboard() {
   const wxAdd = w.net_finish_delay || 0;                            // weather adds (working days)
   return _sec(1, 'Execution Dashboard', '<span class="cal-pill warn">Estimate · not a P6 figure</span>') +
     `<div class="cal-flow">
-      <div class="cal-step bl"><div class="cal-k">Baseline Finish</div><div class="cal-v">${fmtCalDate(d.baseline_finish)}</div></div>
+      <div class="cal-step bl"><div class="cal-k">Baseline Finish${d.baseline_approx ? ' · approx' : ''}</div><div class="cal-v">${fmtCalDate(d.baseline_finish)}</div></div>
       <div class="cal-arrow"><div class="cal-alab">Schedule slip</div><div class="cal-avar ${slip > 0 ? 'pos' : 'zero'}">${slip > 0 ? '+' : ''}${slip} d</div><div class="cal-aln">→</div></div>
       <div class="cal-step fc"><div class="cal-k">Forecast Completion</div><div class="cal-v">${fmtCalDate(d.project_finish)}</div></div>
       <div class="cal-arrow"><div class="cal-alab">Weather adds</div><div class="cal-avar ${wxAdd > 0 ? 'pos' : 'zero'}">+${wxAdd} wd</div><div class="cal-aln">→</div></div>
       <div class="cal-step bw"><div class="cal-k">Bad-weather Completion</div><div class="cal-v">${fmtCalDate(w.weather_adjusted_finish)}</div></div>
     </div>
-    <div class="cal-note">Reads left → right: the baseline finish, the schedule's own forecast finish, then the weather-adjusted finish. Each arrow shows that step's variance — the schedule's own slip, then, separately, what bad weather adds.</div>`;
+    <div class="cal-note">Reads left → right: the baseline finish, the schedule's own forecast finish, then the weather-adjusted finish. Each arrow shows that step's variance — the schedule's own slip, then, separately, what bad weather adds.</div>${calBaselineLine(d)}`;
 }
 
 // Feature 2 §2 — 3-colour monthly histogram: net working (green) / bad-weather (amber) /
@@ -677,7 +708,7 @@ function _weatherSection() {
   // (above this). The stop-work criteria/limits editor holds the single "Apply & Recalculate"
   // button, so it's shown up-front (button disabled until a location is set) — one always-
   // available CTA that serves both the first calculation and every recalculation.
-  const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>`;
+  const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>` + _wxNoticeHtml();
   if (!_pendingLoc) {
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
       Pick a <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin), then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
@@ -816,8 +847,14 @@ function _wireLocation() {
     if (!term) return;
     results.innerHTML = '<div class="cal-muted" style="font-size:12px">Searching…</div>';
     const resp = await geocodePlace(term);
-    if (!resp.ok || !(resp.results || []).length) {
-      results.innerHTML = `<div class="cal-muted" style="font-size:12px">No matches (offline?).</div>`;
+    if (!resp.ok) {
+      // Offline / the map service refused: say so plainly (the server's message names the
+      // cause and offers typed coordinates, which work with no internet).
+      results.innerHTML = `<div class="cal-loc-err" role="status">⚠ ${escapeHtml(resp.error || 'The place search failed — try again.')}</div>`;
+      return;
+    }
+    if (!(resp.results || []).length) {
+      results.innerHTML = `<div class="cal-muted" style="font-size:12px">No places match “${escapeHtml(term)}”. Try a nearby town, or type the site coordinates (e.g. 26.9598, 49.5687).</div>`;
       return;
     }
     results.innerHTML = resp.results.map((r, i) =>
@@ -911,7 +948,10 @@ async function _initMap() {
   const L = await _ensureLeaflet();
   // The body may have re-rendered while Leaflet loaded — bail if this node is gone.
   if (!L || !document.body.contains(el)) {
-    if (el && !L) el.innerHTML = '<div class="cal-map-empty">Map needs an internet connection.</div>';
+    // Leaflet ships inside the app (ui/vendor/leaflet), so this is not an internet problem —
+    // say what still works instead of blaming the connection.
+    if (el && !L) el.innerHTML = '<div class="cal-map-empty">The map could not be shown. Type the site '
+      + 'coordinates (e.g. 26.9598, 49.5687) or a place name in the search box instead.</div>';
     return;
   }
   if (_mapRO) { try { _mapRO.disconnect(); } catch { /* gone */ } _mapRO = null; }
@@ -919,9 +959,13 @@ async function _initMap() {
   const hasLoc = _pendingLoc && _pendingLoc.lat != null;
   const center = hasLoc ? [+_pendingLoc.lat, +_pendingLoc.lon] : [24.5, 46.6]; // default: Arabian Peninsula
   _map = L.map(el, { attributionControl: true }).setView(center, hasLoc ? 11 : 5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '© OpenStreetMap contributors',
+  // OpenStreetMap's current tile address (the old a/b/c.tile… subdomains are deprecated).
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    // Links open in the default browser (external_links.js), never inside the app window.
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(_map);
+  _watchTiles(tiles, el);
   if (hasLoc) {
     _marker = L.marker(center, { draggable: true, icon: _pinIcon(L) }).addTo(_map);
     _marker.on('dragend', () => _setFromMap(_marker.getLatLng()));
@@ -965,6 +1009,27 @@ async function _initMap() {
   setTimeout(recentre, 400);
 }
 
+// The map pictures come from OpenStreetMap online. Offline they fail silently (a grey map),
+// so after a few failed tiles in a row, show a plain note over the map — the pin can still be
+// dropped (coordinates need no internet) and coordinates can be typed in the search. Counted
+// since the last tile that loaded, so a connection lost AFTER the map first drew (panning to
+// a new area then shows grey squares) is said too; a tile that loads again clears the note.
+function _watchTiles(tiles, el) {
+  let failedInARow = 0;
+  const note = () => el.querySelector('.cal-map-offline');
+  tiles.on('tileload', () => { failedInARow = 0; const n = note(); if (n) n.remove(); });
+  tiles.on('tileerror', () => {
+    failedInARow++;
+    if (failedInARow < 3 || note()) return;
+    const n = document.createElement('div');
+    n.className = 'cal-map-offline';
+    n.setAttribute('role', 'status');
+    n.textContent = '🌐 The map pictures need an internet connection. You can still click to drop the pin, '
+      + 'or type the site coordinates (e.g. 26.9598, 49.5687) in the search box.';
+    el.appendChild(n);
+  });
+}
+
 // Wire the Weather-Impact "Apply & recalculate" (edited stop-work limits).
 function _wireWeather() {
   const applyBtn = document.getElementById('thr-apply');
@@ -983,21 +1048,77 @@ async function _runWeather(btn, statusEl) {
   revealAndRun(document.getElementById('weather-body'), 'Bad Weather', async () => {
     if (statusEl) statusEl.textContent = 'Calculating weather…';
     try {
+      const sent = { thresholds: _thresholds, siteType: _siteType };
       const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
       if (resp.ok) {
         _weather = resp.weather;
+        _wxNotice = null;
         _pendingLoc = resp.location || _pendingLoc;
         if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;
-        if (resp.offline && statusEl) statusEl.textContent = 'No weather data (offline) — location saved.';
+        _syncProjectSettings(weatherSettingsPatch(resp, sent));
         _renderWeatherBody();
-      } else if (statusEl) {
-        statusEl.textContent = resp.error || 'Weather failed.'; if (btn) btn.disabled = false;
+      } else {
+        _syncProjectSettings(weatherSettingsPatch(resp, sent));   // location/limits kept when saved
+        // No estimate (offline / Open-Meteo down): a visible card says why; the previous
+        // estimate (if any) stays on screen, never replaced by an invented zero.
+        _wxNotice = { text: resp.error || 'The weather could not be calculated — try again.',
+                      kept: !!(_weather && resp.kept_previous !== false) };
+        if (resp.location) _pendingLoc = resp.location;
+        _renderWeatherBody();
       }
     } catch {
-      if (statusEl) statusEl.textContent = 'Weather failed (offline?).';
-      if (btn) btn.disabled = false;
+      _wxNotice = { text: 'The weather request did not complete — the app could not reach its own local service. Try again.',
+                    kept: !!_weather };
+      _renderWeatherBody();
     }
   });
+}
+
+// The open project's copy of its saved settings (state.currentResult.calendar_settings) is
+// what P6 Calendar Audit / Bad Weather load when they are run again in this session — keep
+// it in step with every save, or re-running shows the settings as they were at import.
+function _syncProjectSettings(patch) {
+  const r = state.currentResult;
+  if (!r || !patch) return;
+  r.calendar_settings = { ...(r.calendar_settings || {}), ...patch };
+}
+
+/** Pure (unit-tested): what /api/weather saved for the project → the patch for the open
+ *  project's settings. A computed estimate saves location + site type + limits + the estimate;
+ *  a failed download (settings_saved) keeps location + site type + limits, never an estimate. */
+export function weatherSettingsPatch(resp, sent) {
+  if (!resp || !(resp.ok || resp.settings_saved)) return null;
+  const patch = {};
+  if (resp.location) patch.location = resp.location;
+  if (sent && sent.siteType) patch.site_type = sent.siteType;
+  if (sent && sent.thresholds) patch.weather_thresholds = sent.thresholds;
+  if (resp.ok && resp.weather) patch.last_weather = resp.weather;
+  return patch;
+}
+
+// Save one Calendar Audit setting: the recomputed audit and the saved settings replace the
+// open project's copies (so a re-run in this session shows them); a failed save is said on
+// screen (alert is a no-op in WebView2) and the edit is not shown as saved.
+async function _saveCalSetting(patch) {
+  let resp;
+  try { resp = await saveCalendarSettings(patch); }
+  catch { resp = { ok: false, error: 'the app could not reach its own local service' }; }
+  if (resp && resp.ok) {
+    if (resp.settings) _syncProjectSettings(resp.settings);
+    if (resp.calendar_audit) {
+      _ca = resp.calendar_audit;
+      if (state.currentResult) state.currentResult.calendar_audit = resp.calendar_audit;
+      _renderCalendarBody();
+    }
+  } else {
+    const txt = document.getElementById('error-text');
+    const banner = document.getElementById('error-banner');
+    if (txt && banner) {
+      txt.textContent = `Calendar setting not saved — ${(resp && resp.error) || 'try again'}.`;
+      banner.classList.remove('hidden');
+    }
+  }
+  return resp;
 }
 
 function _wireShutdowns() {
@@ -1012,24 +1133,21 @@ function _wireShutdowns() {
     if (!start) return;
     const existing = _existingManualShutdowns();
     existing.push({ start, end: end || start, reason });
-    const resp = await saveCalendarSettings({ manual_shutdowns: existing });
-    if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+    await _saveCalSetting({ manual_shutdowns: existing });
   });
   // reason inline-edit (both P6 and manual shutdowns) → store per project
   document.querySelectorAll('#calendar-body .cal-reason').forEach(inp =>
     inp.addEventListener('change', async () => {
       const key = inp.dataset.key; if (!key) return;
       const reasons = {}; reasons[key] = inp.value;
-      const resp = await saveCalendarSettings({ shutdown_reasons: reasons });
-      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+      await _saveCalSetting({ shutdown_reasons: reasons });
     }));
   // working-hours note inline-edit (§5) → store per project (mirrors the shutdown reasons)
   document.querySelectorAll('#calendar-body .cal-hnote').forEach(inp =>
     inp.addEventListener('change', async () => {
       const key = inp.dataset.key; if (!key) return;
       const notes = {}; notes[key] = inp.value;
-      const resp = await saveCalendarSettings({ hours_notes: notes });
-      if (resp.ok && resp.calendar_audit) { _ca = resp.calendar_audit; _renderCalendarBody(); }
+      await _saveCalSetting({ hours_notes: notes });
     }));
 }
 

@@ -71,8 +71,10 @@ def _header(report):
         if dd.get(role):
             strip.append(f'<span class="ddpill">{_ROLE_SHORT[role]} data date <b>{_e(dd[role])}</b></span>')
     pills = f'<div class="ddstrip">{"".join(strip)}</div>' if strip else ''
+    bl = (f'<div class="meta">Baseline: {_e(report.get("baseline_label"))}</div>'
+          if report.get('baseline_approx') and report.get('baseline_label') else '')
     return (f'<div class="rh"><div><h1>Critical Path Analyzer</h1>'
-            f'<div class="meta">{" &nbsp;·&nbsp; ".join(parts)}</div>{pills}</div></div>')
+            f'<div class="meta">{" &nbsp;·&nbsp; ".join(parts)}</div>{bl}{pills}</div></div>')
 
 
 def _banner(report):
@@ -246,8 +248,9 @@ def _dashboard(report):
     return dash + charts_html
 
 
-def _lane(lane):
+def _lane(lane, approx=False):
     role = lane.get('role')
+    ax = ' · approx' if approx and role != 'baseline' else ''   # own Planned dates stand in
     ms = lane.get('milestone') or {}
     if not ms.get('name') and not lane.get('boxes'):
         # This milestone doesn't exist in this schedule — show a placeholder, not an empty box.
@@ -256,7 +259,7 @@ def _lane(lane):
     fin = ms.get('baseline_finish') if role == 'baseline' else ms.get('expected_finish')
     boxes = [f'<div class="msbox"><div class="msflag">◆ Milestone</div><div class="mst">{_e(ms.get("name"))}</div>'
              f'<div class="msr"><span>{"BL Finish" if role == "baseline" else "Exp Finish"}</span><b>{_e(fin)}</b></div>'
-             f'<div class="msr"><span>Delay</span><b>{_sd(ms.get("slip_days"))}</b></div></div>']
+             f'<div class="msr"><span>Delay{ax}</span><b>{_sd(ms.get("slip_days"))}</b></div></div>']
     lane_boxes = lane.get('boxes', [])
     first_new = next((i for i, x in enumerate(lane_boxes) if x.get('state') == 'new'), -1)
     for i, b in enumerate(lane_boxes):
@@ -275,11 +278,11 @@ def _lane(lane):
             f'{arrow}<div class="box {cls}">{flag}<div class="bt">{_e(b.get("name"))}</div>'
             f'<div class="bcrumb">{_e(b.get("crumb"))}</div>'
             f'<div class="bgrid">'
-            f'<div><div class="bk">Planned</div><div class="bv">{planned}</div></div>'
+            f'<div><div class="bk">Planned{ax}</div><div class="bv">{planned}</div></div>'
             f'<div><div class="bk">Actual</div><div class="bv">{actual}</div></div>'
-            f'<div><div class="bk">BL finish</div><div class="bv">{_e(b.get("bl_finish"))}</div></div>'
+            f'<div><div class="bk">BL finish{ax}</div><div class="bv">{_e(b.get("bl_finish"))}</div></div>'
             f'<div><div class="bk">Expected</div><div class="bv">{_e(b.get("exp_finish"))}</div></div>'
-            f'<div class="bfull"><div class="bk">Slip / Total float</div><div class="bv">{_sd(b.get("slip_days"))} / {tf}</div></div>'
+            f'<div class="bfull"><div class="bk">Slip{ax} / Total float</div><div class="bv">{_sd(b.get("slip_days"))} / {tf}</div></div>'
             f'</div></div>')
     return (f'<div class="lane"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
             f'<span class="lanesub">{_e(lane.get("sub"))}</span></div><div class="chain">{"".join(boxes)}</div></div>')
@@ -303,7 +306,7 @@ def _lanes(report, milestone_ids=None):
                f'<span class="mpfin">Baseline {_e(b.get("baseline_finish")) or "—"} '
                f'· Current {_e(b.get("current_finish")) or "—"} '
                f'· Slip {_sd(b.get("slip_days"))}</span></div>')
-        lanes_html = ''.join(_lane(l) for l in b.get('lanes', []))
+        lanes_html = ''.join(_lane(l, report.get('baseline_approx')) for l in b.get('lanes', []))
         out.append(f'<div class="mpblock">{hdr}{lanes_html}</div>')
     return ''.join(out) + legend
 
@@ -663,9 +666,10 @@ def _driving_path_sheet(report):
     cur = next((l for l in report.get('lanes', []) if l.get('role') == 'current'), None)
     gov = next((m for m in report.get('milestones', []) if m.get('is_governing')), None)
     gov_name = gov.get('name') if gov else None
-    headers = ['Work front', 'Path / WBS', 'Change on critical path', 'Planned % complete',
-               'Actual % complete', 'Baseline finish', 'Expected finish',
-               'Slip vs baseline (days, + = behind plan)', 'Total float now (working days)', 'Criticality']
+    ax = ' · approx' if report.get('baseline_approx') else ''   # own Planned dates stand in
+    headers = ['Work front', 'Path / WBS', 'Change on critical path', 'Planned % complete' + ax,
+               'Actual % complete', 'Baseline finish' + ax, 'Expected finish',
+               'Slip vs baseline (days, + = behind plan)' + ax, 'Total float now (working days)', 'Criticality']
     rows = []
     for b in (cur.get('boxes', []) if cur else []):
         rows.append([

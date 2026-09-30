@@ -166,8 +166,18 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     milestones = milestone_drift(matched)
     conclusion = _conclusion(summary, crit, buck)
     project_conclusion = _project_conclusion(summary, crit, recovery)
+    # Baseline finish / slip vs baseline / the recovery target come from the CURRENT update's
+    # baseline (the previous inherits it) — approximate when its own Planned dates stand in for
+    # the baseline P6 names (none in the file, none attached): '· approx' + one Baseline line.
+    try:
+        from p6_evm.baseline import schedule_baseline
+        _bl = schedule_baseline(curr)
+    except Exception:
+        _bl = {'baseline_approx': False, 'baseline_label': None}
 
     return {
+        'baseline_approx': _bl['baseline_approx'],
+        'baseline_label': _bl['baseline_label'] if _bl['baseline_approx'] else None,
         'project_name': summary['project_name'],
         'data_date_prev': summary['data_date_prev'],
         'data_date_now': summary['data_date_now'],

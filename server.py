@@ -8,6 +8,8 @@ from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
 import db
 import report_theme
+import app_startup          # startup log + readiness handshake (black-screen fixes)
+import ui_prefs             # screen preferences kept across restarts (<app data>/ui_prefs.json)
 
 
 def _fmt_meta_date(v):
@@ -78,6 +80,20 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
             ctx.append((k.replace('_', ' ').capitalize(), str(v)))
     ctx.append(('Generated', datetime.now().strftime('%d %b %Y')))
     return {'app': APP_NAME, 'title': title, 'context': ctx}
+
+
+def _schedule_for(path, body=None, snapshot_key='snapshot_id', cached_key='cached_path',
+                  fallback_baseline=None):
+    """The open schedule with its baseline resolved the ONE way every feature uses
+    (p6_evm.baseline): embedded in the file, else the baseline attached for this snapshot /
+    file (Earned Value or Update Analysis "Attach baseline"), else the file's own Planned dates
+    (flagged data.baseline_source='self'). XER and XML therefore give the same result."""
+    sys.path.insert(0, resource_path('.'))
+    from p6_evm.baseline import attached_baseline_for, load_schedule
+    body = body or {}
+    attached = (attached_baseline_for(path, body.get(snapshot_key), body.get(cached_key))
+                or fallback_baseline)
+    return load_schedule(path, attached)
 
 
 def _prodintel_excel_sections(r):
@@ -158,6 +174,115 @@ def _prodintel_excel_sections(r):
     return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
 
 
+# ── Project Setup (EVM category weights + Actual Cost) ─────────────────────
+def clean_evm_setup(weights, actual_cost):
+    """Validate Project Setup before it is saved: {'weights': {category: fraction 0–1},
+    'actual_cost': number >= 0 | None}. Raises ValueError with a plain message."""
+    import math
+    out = {}
+    if weights is not None and not isinstance(weights, dict):
+        raise ValueError('Category weights were not understood.')
+    for name, w in (weights or {}).items():
+        if not isinstance(name, str) or not name or len(name) > 200:
+            raise ValueError('A category name was not understood.')
+        if isinstance(w, bool) or not isinstance(w, (int, float)) or not math.isfinite(w):
+            raise ValueError(f'The weight for {name} is not a number.')
+        if w < 0 or w > 1:
+            raise ValueError(f'The weight for {name} must be between 0% and 100%.')
+        out[name] = float(w)
+    if len(out) > 200:
+        raise ValueError('Too many categories.')
+    ac = None
+    if actual_cost is not None:
+        if (isinstance(actual_cost, bool) or not isinstance(actual_cost, (int, float))
+                or not math.isfinite(actual_cost)):
+            raise ValueError('Actual Cost is not a number.')
+        if actual_cost < 0:
+            raise ValueError('Actual Cost cannot be negative.')
+        ac = float(actual_cost)
+    return {'weights': out, 'actual_cost': ac}
+
+
+# ── online-service messages (Bad Weather / place search) ───────────────────────
+def _weather_download_gap(net, daily, climate_samples):
+    """The plain message when the weather the estimate NEEDS could not be downloaded, else
+    None. `net` is filled by p6_calendar.weather.build_daily_weather: offline → nothing
+    reached Open-Meteo; history_needed → dates after the forecast horizon exist (they can
+    only come from the climate history)."""
+    from utils import network_error_message
+    errs = (net or {}).get('errors') or {}
+    if (net or {}).get('offline'):
+        return network_error_message(errs.get('forecast') or OSError('offline'),
+                                     'Open-Meteo (the weather service)',
+                                     needs='the weather estimate') + (
+            ' Your location, site type and limits are saved; the last estimate (if any) is kept.')
+    if (net or {}).get('history_needed') and not climate_samples:
+        if errs.get('history') is not None:
+            why = network_error_message(errs['history'], 'Open-Meteo (the weather history)',
+                                        needs='the climate history')
+        else:
+            why = 'Open-Meteo returned no weather history for this location.'
+        return why + ' The estimate needs it for the dates after the 16-day forecast, so no estimate was made.'
+    if not (net or {}).get('history_needed') and not daily:
+        if errs.get('forecast') is not None:
+            return network_error_message(errs['forecast'], 'Open-Meteo (the weather forecast)',
+                                         needs='the weather forecast') + ' No estimate was made.'
+        return 'Open-Meteo returned no forecast for this location — no estimate was made.'
+    return None
+
+
+_NOMINATIM = 'https://nominatim.openstreetmap.org/'
+
+
+def _nominatim_get(endpoint, params, timeout=10):
+    """One OpenStreetMap Nominatim call ('search' | 'reverse') → parsed JSON. Raises on any
+    network / HTTP / parse failure (the caller turns it into a plain message). The honest
+    User-Agent comes from the brand constants (Nominatim's usage policy requires one).
+    utils.open_url gives up CONNECTING after utils.CONNECT_TIMEOUT, so a black-holed network
+    is reported in seconds rather than holding the search spinner.
+    Names come back in English (accept-language=en, R2 S8): without it Nominatim answers in
+    the local script (e.g. Arabic for Saudi sites), which then showed on the English
+    Bad Weather screen and PDF."""
+    import urllib.parse
+    import urllib.request
+    import utils
+    params = {**params, 'accept-language': 'en'}
+    url = _NOMINATIM + endpoint + '?' + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={'User-Agent': utils.USER_AGENT,
+                                               'Accept-Language': 'en'})
+    with utils.open_url(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def _parse_coordinates(text):
+    """'26.9598, 49.5687' / '26.9598 49.5687' → (lat, lon), or None. Lets the planner set the
+    site location with no internet (typed coordinates need no place search)."""
+    import re
+    m = re.fullmatch(r'\s*([-+]?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*([-+]?\d{1,3}(?:\.\d+)?)\s*', text or '')
+    if not m:
+        return None
+    lat, lon = float(m.group(1)), float(m.group(2))
+    if -90 <= lat <= 90 and -180 <= lon <= 180:
+        return lat, lon
+    return None
+
+
+def _weather_partial_gaps(net):
+    """What the estimate ran WITHOUT (listed with the source reference on screen + PDF)."""
+    from utils import network_error_message
+    errs = (net or {}).get('errors') or {}
+    gaps = []
+    if errs.get('forecast') is not None:
+        gaps.append('Live forecast unavailable (' + network_error_message(
+            errs['forecast'], 'Open-Meteo forecast').rstrip('.') +
+            ') — the next ~16 days use the climate history as well.')
+    if errs.get('dust') is not None:
+        gaps.append('Dust forecast unavailable (' + network_error_message(
+            errs['dust'], 'Open-Meteo air-quality').rstrip('.') +
+            ') — sandstorm days in the next 5 days are not counted.')
+    return gaps
+
+
 class _Encoder(json.JSONEncoder):
     """Handle datetime/date objects that metrics.py returns in data_date."""
     def default(self, obj):
@@ -171,18 +296,25 @@ class Handler(BaseHTTPRequestHandler):
         pass  # silence request logs
 
     def do_GET(self):
-        if self.path in ('/', '/index.html'):
+        if self.path.split('?', 1)[0] == '/api/health':        # startup readiness probe
+            self._handle_app_health()
+        elif self.path.split('?', 1)[0] in ('/', '/index.html'):
             self._serve_index()
         elif self.path.startswith('/ui/'):
-            ext = self.path.rsplit('.', 1)[-1]
+            _p = self.path.split('?', 1)[0]                   # a ?v= query never breaks the MIME type
+            ext = _p.rsplit('.', 1)[-1]
             mime = {'css': 'text/css', 'js': 'application/javascript',
                     'html': 'text/html',
                     'png': 'image/png', 'svg': 'image/svg+xml', 'ico': 'image/x-icon',
                     'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif',
                     'webp': 'image/webp'}.get(ext, 'text/plain')
-            self._serve(resource_path(self.path.lstrip('/')), mime)
+            self._serve(resource_path(_p.lstrip('/')), mime)
         elif self.path == '/api/history':
             self._handle_history()
+        elif self.path.split('?', 1)[0] == '/api/ui-prefs':      # saved screen preferences
+            self._handle_ui_prefs_get()
+        elif self.path == '/api/graphics-mode':                  # Help: Safe graphics switch
+            self._json(200, {'ok': True, **app_startup.graphics_status()})
         elif self.path == '/api/ai/settings':
             self._handle_ai_settings_get()
         elif self.path == '/api/kb':
@@ -207,6 +339,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get('Content-Length', 0))
         body = json.loads(self.rfile.read(length))
+        if self.path == '/api/client-log':                 # page startup guard -> startup log
+            self._json(200, {'ok': True, 'kind': app_startup.client_log(body)['kind']})
+            return
+        if self.path == '/api/ui-prefs':                   # ui/prefs_bridge.js -> ui_prefs.json
+            self._handle_ui_prefs_post(body)
+            return
+        if self.path == '/api/graphics-mode':              # Help: Safe graphics switch
+            self._handle_graphics_mode_post(body)
+            return
+        if self.path == '/api/db/recover':                 # S3: set a damaged history DB aside
+            self._handle_db_recover()
+            return
         if self.path == '/api/parse':
             self._handle_parse(body)
         elif self.path == '/api/report':
@@ -285,6 +429,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/narrative/setup':           # Narrative project setup (DB)
+            self._handle_narrative_setup(body)
         elif self.path == '/api/narrative/choices':
             self._handle_narrative_choices(body)
         elif self.path == '/api/narrative/docx':
@@ -336,6 +482,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_weather(body)
         elif self.path == '/api/calendar/settings':
             self._handle_calendar_settings(body)
+        elif self.path == '/api/project/evm-setup':
+            self._handle_evm_setup(body)
         elif self.path == '/api/lag/justification':
             self._handle_lag_justification(body)
         elif self.path == '/api/milestones/save':
@@ -590,8 +738,10 @@ class Handler(BaseHTTPRequestHandler):
     # ── Static files ───────────────────────────────────────────────────────
     def _serve_index(self):
         try:
-            with open(resource_path('ui/index.html'), 'rb') as f:
-                html = f.read().decode()
+            html = _read_ui_file(resource_path('ui/index.html')).decode()
+            html = _fill_brand(html)               # data-brand spans: name at first paint
+            html = _inline_ui_prefs(html)          # before the guard fills its marker
+            html = _inline_startup_guard(html)
             port = self.server.server_address[1]
             # Inject runtime globals so the UI derives its branding from the
             # single source of truth (utils.APP_*). Any current or future UI
@@ -615,25 +765,124 @@ class Handler(BaseHTTPRequestHandler):
                 + '</script>'
             )
             html = html.replace('</head>', brand_script + '</head>', 1)
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html')
-            self.end_headers()
-            self.wfile.write(html.encode())
+            self._send_static(html.encode(), 'text/html; charset=utf-8')
         except FileNotFoundError:
             self._json(404, {'ok': False, 'error': 'index.html not found'})
+        except OSError as exc:
+            # index.html itself locked (antivirus): a visible, self-retrying 'Starting' page
+            # instead of raw JSON the window would sit on until the app's watchdog.
+            app_startup.log('static file unavailable: ui/index.html (%r)', exc)
+            body = _starting_page_html().encode('utf-8')
+            self.send_response(503)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Retry-After', '1')
+            self.end_headers()
+            self.wfile.write(body)
 
     def _serve(self, path, mime):
         try:
-            with open(path, 'rb') as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header('Content-Type', mime)
-            self.end_headers()
-            self.wfile.write(data)
+            data = _read_ui_file(path)
+            self._send_static(data, mime)
         except FileNotFoundError:
             self._json(404, {'ok': False, 'error': f'file not found: {path}'})
+        except OSError as exc:
+            # An antivirus scan of the freshly unpacked files (PermissionError / sharing
+            # violation) used to escape here and DROP the connection: one failed module and
+            # the page stayed on its black startup cover. Answer 503 instead (the page's
+            # startup guard retries) and log it.
+            self._static_unavailable(path, exc)
+
+    def _send_static(self, data, mime):
+        self.send_response(200)
+        self.send_header('Content-Type', mime)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'no-cache')    # never mix files from two builds
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _static_unavailable(self, path, exc):
+        app_startup.log('static file unavailable: %s (%r)', path, exc)
+        body = json.dumps({'ok': False, 'error': f'temporarily unavailable: {exc}'}).encode()
+        self.send_response(503)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Retry-After', '1')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_db_recover(self):
+        """POST /api/db/recover: only when the history DB is known to be damaged — set it
+        aside (kept as .corrupt-bak-<time>) and start a fresh one with every row that can
+        still be read (db.recover_damaged_db). Never touches a healthy or locked DB."""
+        if db.DB_STATUS.get('status') != 'damaged':
+            self._json(409, {'ok': False, 'db': dict(db.DB_STATUS),
+                             'message': 'The project history database is not damaged.'})
+            return
+        res = db.recover_damaged_db()
+        app_startup.log('database recovery: %s', res)
+        self._json(200, {**res, 'db': dict(db.DB_STATUS)})
+
+    def _handle_app_health(self):
+        """GET /api/health: a light readiness probe (the server answers, the DB state
+        ok / recovered / degraded, and the page handshake state). Never touches XML.
+        Always answers 200 with whatever it has (R2 S7) — never a dropped connection."""
+        try:
+            app = app_startup.health()
+        except Exception as exc:                        # noqa: BLE001 — the probe must answer
+            app = {'health_error': str(exc)}
+        self._json(200, {'ok': True, 'app': APP_NAME, 'version': APP_VERSION,
+                         'db': dict(db.DB_STATUS), **app})
+
+    # ── /api/ui-prefs — screen preferences that survive an app restart ─────
+    # (Appearance, Report Contents picks, table columns …; owner comment 31 b.) The page
+    # keeps them in its browser storage, which the app window loses at every restart;
+    # ui/prefs_bridge.js mirrors that storage here and _serve_index hands it back.
+    def _handle_ui_prefs_get(self):
+        self._json(200, {'ok': True, 'prefs': ui_prefs.load(_ui_prefs_dir())})
+
+    def _handle_ui_prefs_post(self, body):
+        if not isinstance(body, dict):
+            self._json(400, {'ok': False, 'error': 'Preferences were not understood.'})
+            return
+        try:
+            count, skipped = ui_prefs.update(_ui_prefs_dir(), body.get('set'), body.get('remove'))
+        except ValueError as exc:
+            self._json(400, {'ok': False, 'error': str(exc)})
+            return
+        except OSError as exc:                  # file locked / disk full: the page retries
+            app_startup.log('ui prefs not saved (%r)', exc)
+            self._json(503, {'ok': False, 'error': 'Screen preferences could not be saved right now.'})
+            return
+        self._json(200, {'ok': True, 'count': count, 'skipped': skipped})
+
+    # Help ▸ Contact & Support 'Safe graphics' switch (BLACK-6): WebView2 without the GPU
+    # (--disable-gpu) from the NEXT launch. The app also turns it on by itself after a
+    # launch that never showed the page; this is the way back (and a manual way in).
+    def _handle_graphics_mode_post(self, body):
+        safe = body.get('safe') if isinstance(body, dict) else None
+        if not isinstance(safe, bool):
+            self._json(400, {'ok': False, 'error': 'Say safe: true or false.'})
+            return
+        if safe:
+            app_startup.enable_safe_graphics('turned on in Help')
+        else:
+            app_startup.disable_safe_graphics('turned off in Help')
+        status = app_startup.graphics_status()
+        if status['saved'] != safe:
+            self._json(500, {'ok': False, **status,
+                             'error': 'The graphics setting could not be saved (the app '
+                                      'data folder is not writable).'})
+            return
+        self._json(200, {'ok': True, **status})
 
     def _json(self, status, data):
+        if isinstance(data, dict) and data.get('error') and data.get('ok') is not True:
+            try:
+                db.note_error(str(data.get('error')))   # S3: damaged history DB -> said
+            except Exception:
+                pass
         body = json.dumps(data, cls=_Encoder).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
@@ -684,12 +933,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/parse ─────────────────────────────────────────────────────────
     def _handle_parse(self, body):
+        self._json(200, self._parse_pipeline(body))
+
+    def _parse_pipeline(self, body):
+        """The import pipeline (/api/parse) as a dict — also re-run IN PLACE for a snapshot
+        (refresh_snapshot_id) when its baseline is attached or removed, so every derived view
+        (EVM, WBS, gap, calendar, audit…) is rebuilt from the same code as an import."""
         xml_path = body.get('path', '')
         overrides_path = body.get('overrides_path')
+        refresh_sid = body.get('refresh_snapshot_id')     # recompute an existing snapshot in place
+        if refresh_sid:
+            if db.snapshot_exists(refresh_sid):
+                xml_path = db.get_snapshot_source(refresh_sid) or xml_path   # its exact content
+            else:
+                refresh_sid = None
 
         if not xml_path or not os.path.isfile(xml_path):
-            self._json(200, {'ok': False, 'error': f'File not found: {xml_path}'})
-            return
+            return {'ok': False, 'error': f'File not found: {xml_path}'}
 
         try:
             sys.path.insert(0, resource_path('.'))
@@ -705,15 +965,47 @@ class Handler(BaseHTTPRequestHandler):
                     overrides = json.load(f)
 
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            data = parse_file(xml_path)
+            from p6_evm.baseline import load_schedule, baseline_fields
+            # Baseline — the ONE resolution every feature uses: embedded in the file, else the
+            # baseline attached for this snapshot (a baseline attach/remove re-runs this route
+            # with refresh_snapshot_id to recompute that snapshot IN PLACE), else the one
+            # attached to an earlier import of the same file, else the file's own dates.
+            file_hash = db.hash_file(xml_path)
+            # /api/baseline/upload hands the baseline file the planner just picked
+            # (attach_baseline): the pipeline itself decides 'already inside the file' / 'matches
+            # no activity' BEFORE anything is stored, so an attach parses the update and the
+            # baseline once, not twice (R3 F11).
+            trial_bl = body.get('attach_baseline') if refresh_sid else None
+            attached_bl = trial_bl or (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
+                                       else db.get_prior_baseline_for_hash(file_hash))
+            data = load_schedule(xml_path, attached_bl)
+            bl_info = getattr(data, 'baseline_info', None) or {}
+            if trial_bl:
+                if bl_info.get('source') == 'embedded':    # nothing to attach — nothing stored
+                    return {'ok': False, 'code': 'embedded', 'baseline_info': bl_info}
+                if not bl_info.get('matched'):             # another project's baseline — never stored
+                    return {'ok': True, 'code': 'no_match', 'baseline_info': bl_info,
+                            'total': len(data.activities)}
+                # It lines up: keep its content-exact cached copy with the snapshot.
+                attached_bl = db.cache_xml(trial_bl, db.hash_file(trial_bl))
+                bl_info['path'] = attached_bl
+                db.save_baseline(refresh_sid, attached_bl, trial_bl)
+            if bl_info.get('matched') == 0:
+                attached_bl = None                         # the wrong project's baseline — forget it
             config['categories'] = auto_categories(data)   # auto-detect categories per project
             result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
             # Strip the large records list — UI only needs rolled-up metrics
             safe_result = {k: v for k, v in result.items() if k != 'records'}
+            safe_result.update(baseline_fields(bl_info))   # embedded / attached / self — for the UI
+            from p6_evm.baseline import schedule_baseline
+            safe_result.update(schedule_baseline(data))    # '· approx' + the one 'Baseline:' line
             safe_result['activity_count'] = len(data.activities)
             safe_result['calendar_count'] = len(data.calendars)
             safe_result['project_name']   = data.project.get('name', '')
+            if getattr(data, 'unparsed_dates', None):   # P22: values in date fields that are not dates
+                safe_result['unparsed_dates'] = {'count': sum(data.unparsed_dates.values()),
+                                                 'samples': list(data.unparsed_dates)[:5]}
 
             # ── Schedule audit — isolated modules (never break EVM import) ──
             audit_modules_result = None
@@ -894,8 +1186,7 @@ class Handler(BaseHTTPRequestHandler):
                 safe_result['gap'] = None
 
             # ── Persist to DB ──────────────────────────────────────────────
-            file_hash      = db.hash_file(xml_path)
-            prior_import   = db.get_prior_import_date(file_hash)
+            prior_import   = None if refresh_sid else db.get_prior_import_date(file_hash)
             cached_path    = db.cache_xml(xml_path, file_hash)
 
             # NOTE: importing an XER for ANALYSIS no longer adds it to the Knowledge Base
@@ -932,15 +1223,19 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as mc_exc:
                     print(f'[milestone] attach skipped: {mc_exc}', file=sys.stderr)
 
-            sid = db.insert_snapshot(
-                project_id     = pid,
-                data_date      = result.get('data_date'),
-                original_path  = xml_path,
-                cached_path    = cached_path,
-                file_hash      = file_hash,
-                activity_count = len(data.activities),
-                calendar_count = len(data.calendars),
-            )
+            if refresh_sid:                        # baseline attached / removed: same snapshot
+                sid = refresh_sid
+                db.clear_snapshot_results(sid)
+            else:
+                sid = db.insert_snapshot(
+                    project_id     = pid,
+                    data_date      = result.get('data_date'),
+                    original_path  = xml_path,
+                    cached_path    = cached_path,
+                    file_hash      = file_hash,
+                    activity_count = len(data.activities),
+                    calendar_count = len(data.calendars),
+                )
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:
@@ -956,7 +1251,12 @@ class Handler(BaseHTTPRequestHandler):
                 db.save_calendar_audit(sid, cal_result)
             except Exception as cal_exc:
                 safe_result['calendar_audit'] = None
-                safe_result['calendar_settings'] = {}
+                # The project's saved settings (Project Setup weights/Actual Cost, weather
+                # location/limits…) are returned even when the calendar audit fails.
+                try:
+                    safe_result['calendar_settings'] = db.get_project_settings(pid) or {}
+                except Exception:
+                    safe_result['calendar_settings'] = {}
                 print(f'[calendar] skipped: {cal_exc}', file=sys.stderr)
             db.save_evm_extras(sid, {
                 'engineering_p6': safe_result.get('engineering_p6', []),
@@ -964,14 +1264,16 @@ class Handler(BaseHTTPRequestHandler):
                 'gap': safe_result.get('gap'),
                 'baseline_finish': safe_result.get('baseline_finish'),
                 'expected_finish': safe_result.get('expected_finish'),
+                'baseline_path': attached_bl,      # the attached baseline stays with the snapshot
+                'baseline_fields': baseline_fields(bl_info),   # what the stored numbers used
             })
             # ──────────────────────────────────────────────────────────────
 
-            self._json(200, {'ok': True, 'result': safe_result, 'cached_path': cached_path,
-                             'previous_import': prior_import, 'snapshot_id': sid})
+            return {'ok': True, 'result': safe_result, 'cached_path': cached_path,
+                    'previous_import': prior_import, 'snapshot_id': sid}
 
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': str(exc)})
+            return {'ok': False, 'error': str(exc)}
 
     # ── /api/report ────────────────────────────────────────────────────────
     def _handle_report(self, body):
@@ -1009,7 +1311,7 @@ class Handler(BaseHTTPRequestHandler):
                     overrides = json.load(f)
 
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            data   = parse_file(resolved)
+            data   = _schedule_for(resolved, body)   # embedded > attached > self baseline
             config['categories'] = auto_categories(data)
             result = compute(data, config, overrides=overrides, classifier=build_wbs_classifier(data))
 
@@ -1035,11 +1337,7 @@ class Handler(BaseHTTPRequestHandler):
 
             chrome  = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
 
             os.unlink(html_path)
             self._json(200, {'ok': True})
@@ -1049,8 +1347,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/update/* — Update Analysis (single file vs its baseline) ───────
     def _handle_update_analyze(self, body):
-        """Update Analysis — a single-file read of the current schedule against the baseline
-        embedded in it. Returns Time Status, Planned-vs-Actual by code and the Critical Path
+        """Update Analysis — the current schedule read against its baseline, resolved the one
+        way every feature uses (p6_evm.baseline): embedded in the file, else the baseline
+        attached for this update (here or on Earned Value, XER or XML). Returns Time Status, Planned-vs-Actual by code and the Critical Path
         Analyzer. EVM figures reused from metrics.compute so they match the EVM tab. No records."""
         curr_path = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not curr_path or not os.path.isfile(curr_path):
@@ -1064,7 +1363,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_update.analysis import build_report_from_data
             with open(resource_path('config.json')) as f:
                 base_config = json.load(f)
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             cfg = dict(base_config)
             cfg['categories'] = auto_categories(data)
             metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
@@ -1072,10 +1371,15 @@ class Handler(BaseHTTPRequestHandler):
             report = build_report_from_data(data, metrics, summary_level=summary_level)
             report['file'] = os.path.basename(curr_path)
             if not report.get('has_baseline'):
+                # Neither inside the file nor attached (an XER never carries it; an XML exported
+                # without its baseline project neither) — never measure it against its own plan.
                 self._json(200, {'ok': False, 'code': 'no_baseline', 'report': report,
-                                 'error': 'This update has no baseline inside it. Re-export it from P6 as XML with its '
-                                          'baseline project included, or import the update as an XER '
-                                          '(it uses the update’s own Planned dates as the baseline).'})
+                                 'baseline_missing': (getattr(data, 'baseline_info', None) or {}).get('missing'),
+                                 'baseline_expected_name': report.get('baseline_expected_name'),
+                                 'error': 'This update carries no baseline and none is attached. Attach the '
+                                          'baseline (XER or XML) — it is remembered for this update and used by '
+                                          'every feature — or re-export the update from P6 as XML with its '
+                                          'baseline project included.'})
                 return
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
@@ -1094,7 +1398,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_update.analysis import activity_counts
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             counts = activity_counts(data, code_filter=code_filter)
             self._json(200, {'ok': True, 'counts': counts,
                              'code_types': list(getattr(data, 'activity_code_types', []) or [])})
@@ -1113,7 +1417,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_update.analysis import scope_weights
-            data = parse_file(curr_path)
+            data = _schedule_for(curr_path, body)   # embedded > attached > self baseline
             self._json(200, {'ok': True, 'scope': scope_weights(data, types)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1129,8 +1433,10 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_update.exporters import report_excel_sections
             from p6_evm.xlsx_writer import write_sections_xlsx
+            bl = report.get('baseline_label')
             write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
-                                meta=_excel_meta('Update Analysis', report))
+                                meta=_excel_meta('Update Analysis', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1146,8 +1452,12 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.evm_excel import evm_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
+            from p6_evm.baseline import baseline_label
+            res = report.get('result') or {}      # the label the screen + PDF print (R2 F8)
+            bl = res.get('baseline_label') or baseline_label(res)
             write_sections_xlsx(os.path.abspath(output_path), evm_excel(report),
-                                meta=_excel_meta('Earned Value Report', report))
+                                meta=_excel_meta('Earned Value Report', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1264,8 +1574,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.overview_excel import overview_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             sheets = overview_excel(report)
+            bl = (report.get('baseline_line') or '').replace('Baseline: ', '', 1)   # approx only
             write_sections_xlsx(os.path.abspath(output_path), sheets,
-                                meta=_excel_meta('Project Overview', report))
+                                meta=_excel_meta('Project Overview', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1281,8 +1593,10 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.wbs_excel import wbs_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
+            bl = (report.get('baseline_line') or '').replace('Baseline: ', '', 1)   # approx only
             write_sections_xlsx(os.path.abspath(output_path), wbs_excel(report),
-                                meta=_excel_meta('WBS Summary', report))
+                                meta=_excel_meta('WBS Summary', report,
+                                                 **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1331,11 +1645,7 @@ class Handler(BaseHTTPRequestHandler):
                 html_path = tmp.name
             chrome = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -1411,8 +1721,10 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             report = build_report(baseline_path, update_path, config)
-            report['baseline_file'] = os.path.basename(baseline_path)
-            report['update_file'] = os.path.basename(update_path)
+            # The attached baseline is its cached copy ({hash12}_name) — name the planner's file (R3 F9).
+            from p6_evm.baseline import display_name
+            report['baseline_file'] = display_name(baseline_path)
+            report['update_file'] = display_name(update_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1448,11 +1760,23 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
             from p6_critpath.analysis import build_report
-            schedules = {role: parse_file(p) for role, p in paths.items()}
+            # One baseline resolution (embedded > attached > self): the current update first (its
+            # embedded baseline, else the one attached for it); the previous update its own, else
+            # the CURRENT update's baseline — inside the XML or attached, the same (R4).
+            from p6_evm.baseline import inherit_baseline
+            schedules = {'current': _schedule_for(current_path, body)}
+            for role, p in paths.items():
+                if role == 'baseline':                # the picked baseline IS the baseline
+                    schedules[role] = parse_file(p)
+                elif role == 'previous':
+                    schedules[role] = _schedule_for(p, {})
+                    inherit_baseline(schedules[role], schedules['current'])
+            schedules = {role: schedules[role] for role in paths}   # keep the caller's role order
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
-            report['files'] = {role: os.path.basename(p) for role, p in paths.items()}
+            from p6_evm.baseline import display_name    # cached copies ({hash12}_name) → file name (R3 F9)
+            report['files'] = {role: display_name(p) for role, p in paths.items()}
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1482,11 +1806,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -1503,9 +1823,11 @@ class Handler(BaseHTTPRequestHandler):
             sys.path.insert(0, resource_path('.'))
             from p6_critpath.exporters import critpath_excel_sections
             from p6_evm.xlsx_writer import write_sections_xlsx
+            _bl = report.get('baseline_label') if report.get('baseline_approx') else None
             write_sections_xlsx(os.path.abspath(output_path), critpath_excel_sections(report),
                                 meta=_excel_meta('Critical Path Analyzer', report,
-                                                 snapshot_id=body.get('snapshot_id')))
+                                                 snapshot_id=body.get('snapshot_id'),
+                                                 **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1561,11 +1883,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2088,11 +2406,7 @@ class Handler(BaseHTTPRequestHandler):
             html_path = tmp.name
         try:
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
         finally:
             try:
                 os.unlink(html_path)
@@ -2122,11 +2436,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2348,11 +2658,7 @@ class Handler(BaseHTTPRequestHandler):
             # DEVNULL (not PIPE) so a verbose/large Chrome render can't dead-lock on a full
             # pipe buffer — that was the "Export PDF does nothing" hang on big schedules.
             # A timeout turns any remaining hang into a clear error instead of silence.
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2382,15 +2688,23 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 base_config = json.load(f)
 
-            def parse_and_compute(path):
-                data = parse_file(path)
+            # One baseline resolution (embedded > attached > self): the current update first (its
+            # embedded baseline, else the one attached for it); the previous update its own, else
+            # the CURRENT update's baseline — inside the XML or attached, the same (R4).
+            from p6_evm.baseline import inherit_baseline
+
+            def parse_and_compute(path, sched_body, curr=None):
+                data = _schedule_for(path, sched_body)
+                if curr is not None:
+                    inherit_baseline(data, curr)
                 cfg = dict(base_config)
                 cfg['categories'] = auto_categories(data)
                 metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
                 return data, metrics
 
-            prev_data, prev_m = parse_and_compute(prev_path)
-            curr_data, curr_m = parse_and_compute(curr_path)
+            curr_data, curr_m = parse_and_compute(curr_path, body)
+            prev_data, prev_m = parse_and_compute(prev_path, {'cached_path': body.get('prev_cached_path')},
+                                                  curr_data)
             report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
             report['prev_file'] = os.path.basename(prev_path)
             report['update_file'] = os.path.basename(curr_path)
@@ -2451,8 +2765,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import report_excel
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
+            _bl = report.get('baseline_label') if report.get('baseline_approx') else None   # approx only
             write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
-                       meta=_excel_meta('Update vs Update — Windows Analysis', report))
+                       meta=_excel_meta('Update vs Update — Windows Analysis', report,
+                                        **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2485,11 +2801,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2509,6 +2821,25 @@ class Handler(BaseHTTPRequestHandler):
         snapshot_id   = result.pop('_snapshot_id', None)
         cached_path   = result.pop('_cached_path', None)
         original_path = result.pop('_original_path', None)
+        # A snapshot stored before the one baseline resolver keeps no record of which baseline its
+        # numbers used, so an XML exported without its baseline re-opened with PV 0, no banner and
+        # no Attach button (R2 F6). Recompute it ONCE, in place, through the import pipeline (the
+        # same code an import / a baseline attach runs: embedded, else attached, else own dates)
+        # — every derived view is rebuilt and baseline_fields stored, so later opens read the DB.
+        if snapshot_id and not (db.get_evm_extras(snapshot_id) or {}).get('baseline_fields'):
+            src = db.get_snapshot_source(snapshot_id)
+            if src:
+                try:
+                    fresh = self._parse_pipeline({'path': src, 'refresh_snapshot_id': snapshot_id})
+                except Exception as exc:
+                    fresh = {'ok': False, 'error': str(exc)}
+                if fresh.get('ok'):
+                    result = db.get_project_result(project_id) or result
+                    for k in ('_snapshot_id', '_cached_path', '_original_path'):
+                        result.pop(k, None)
+                else:
+                    print(f"[baseline] old snapshot {snapshot_id} not recomputed: {fresh.get('error')}",
+                          file=sys.stderr)
         result['audit_modules'] = db.get_audit_modules_for_snapshot(snapshot_id) if snapshot_id else None
         result['calendar_audit'] = db.get_calendar_audit(snapshot_id) if snapshot_id else None
         result['calendar_settings'] = db.get_project_settings(project_id) or {}
@@ -2526,20 +2857,30 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
-        # Re-apply an attached baseline (re-parse update + baseline) so PV/SPI/Delay stay correct.
+        # Baseline: a snapshot stored since the one-resolver change carries what its stored
+        # numbers used (embedded / attached / self) — nothing to re-parse. An older snapshot
+        # whose baseline was attached the old way (numbers stored WITHOUT it) is recomputed
+        # through the same resolver so PV / SPI / Delay stay correct.
+        stored_bl = extras.get('baseline_fields')
         bl_path = extras.get('baseline_path')
-        if bl_path and os.path.isfile(bl_path) and cached_path and os.path.isfile(cached_path):
+        if stored_bl:
+            result.update(stored_bl)
+            try:                                  # '· approx' + the one 'Baseline:' line (R2)
+                from p6_evm.baseline import baseline_approx, baseline_label
+                result['baseline_approx'] = baseline_approx(stored_bl)
+                result['baseline_label'] = baseline_label(stored_bl, stored_bl.get('baseline_embedded_name')
+                                                          or stored_bl.get('baseline_expected_name'))
+            except Exception:
+                pass
+        elif bl_path and cached_path and os.path.isfile(cached_path):
             try:
                 sys.path.insert(0, resource_path('.'))
-                from p6_evm.parser import parse_file
                 from p6_evm.metrics import compute
                 from p6_evm.classify import auto_categories, build_wbs_classifier
-                from p6_evm.baseline import apply_baseline
+                from p6_evm.baseline import baseline_fields
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                data = parse_file(cached_path)
-                bl = parse_file(bl_path)
-                rep = apply_baseline(data, bl)      # baseline dates + budget
+                data = _schedule_for(cached_path, {'snapshot_id': snapshot_id})
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
@@ -2549,10 +2890,9 @@ class Handler(BaseHTTPRequestHandler):
                                             'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
                                             'activity_count': c['activity_count'], 'overridden': c['overridden']}
                                         for n, c in rr['categories'].items()}
-                result['baseline_path'] = bl_path
-                result['baseline_name'] = os.path.basename(bl_path)
-                result['baseline_matched'] = rep['matched']
-                result['baseline_total'] = rep['total']
+                result.update(baseline_fields(getattr(data, 'baseline_info', None)))
+                from p6_evm.baseline import schedule_baseline
+                result.update(schedule_baseline(data))
             except Exception as bexc:
                 print(f'[evm] baseline re-apply skipped: {bexc}', file=sys.stderr)
 
@@ -2677,11 +3017,7 @@ class Handler(BaseHTTPRequestHandler):
                 html_path = tmp.name
             chrome = _find_chrome()
             out_path = os.path.abspath(output_path)
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={out_path}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, out_path, chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -2703,7 +3039,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.classify import auto_categories, build_wbs_classifier
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            data = parse_file(resolved)
+            data = _schedule_for(resolved, body)   # embedded > attached > self baseline
             config['categories'] = auto_categories(data)
             result = compute(data, config, classifier=build_wbs_classifier(data))
             self._json(200, {'ok': True, 'gap': gap_by_code(result['records'], dim)})
@@ -2824,10 +3160,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/baseline/upload ───────────────────────────────────────────────
+    @staticmethod
+    def _evm_numbers(result):
+        """The EVM figures the baseline banner merges (from compute() or a refreshed import)."""
+        cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
+                    'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
+                    'activity_count': c['activity_count'], 'overridden': c['overridden']}
+                for n, c in (result.get('categories') or {}).items()}
+        out = {k: result.get(k) for k in ('pv', 'ev', 'spi', 'cpi', 'delay_days',
+                                          'overall_planned_pct', 'overall_actual_pct')}
+        out['categories'] = cats
+        return out
+
+    def _refresh_snapshot(self, sid, resolved, out):
+        """Recompute the snapshot IN PLACE through the import pipeline (same code as an import,
+        now reading the attached / removed baseline) and hand the fresh result to the UI, so
+        every view — EVM, WBS, gap, calendar, audits — and every later feature agree."""
+        full = self._parse_pipeline({'refresh_snapshot_id': sid, 'path': resolved})
+        if not full.get('ok'):
+            raise RuntimeError(full.get('error') or 'recompute failed')
+        out.update(self._evm_numbers(full['result']))
+        out['result'] = full['result']
+        return out
+
     def _handle_baseline_upload(self, body):
-        """Attach a baseline schedule (XER/XML) so Planned Value uses the TRUE baseline
-        dates. A XER update doesn't embed its baseline, so its PV is wrong without this;
-        matching by Activity ID, we override the update's baseline and recompute."""
+        """Attach a baseline schedule (XER or XML) to the open update — an XER update (P6 never
+        writes the baseline rows into an XER) or an XML exported WITHOUT its baseline project.
+        Matched by Activity Id, remembered for the snapshot, and the snapshot is recomputed in
+        place, so EVERY feature reads the same baseline (p6_evm.baseline: embedded > attached >
+        self) — XML-with-baseline == XML + attached baseline == XER + attached baseline."""
         bl_path = body.get('path', '')
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not bl_path or not os.path.isfile(bl_path):
@@ -2841,62 +3202,97 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            from p6_evm.baseline import apply_baseline
-            bl = parse_file(bl_path)
+            from p6_evm.baseline import (resolve_baseline, display_name, baseline_fields,
+                                         schedule_baseline)
+            fmt = 'XER' if os.path.splitext(body.get('xml_path') or resolved)[1].lower() == '.xer' else 'XML'
+            embedded_msg = (f'This {fmt} already carries its baseline project inside it, and that '
+                            'baseline is the one used — there is nothing to attach.')
+
+            def _answer(info, total):
+                return {'ok': True, 'baseline_name': display_name(bl_path),
+                        'matched': info.get('matched') or 0, 'total': total,
+                        # the baseline P6 names vs the project attached — a wrong revision is flagged
+                        'baseline_expected_name': info.get('expected_name'),
+                        'baseline_attached_project': info.get('attached_project'),
+                        'baseline_mismatch': bool(info.get('mismatch'))}
+
+            sid = body.get('snapshot_id')
+            if sid and db.snapshot_exists(sid):
+                # The import pipeline reads the update + this baseline ONCE, refuses / skips before
+                # storing anything, else remembers it for the snapshot and recomputes it in place.
+                full = self._parse_pipeline({'refresh_snapshot_id': sid, 'path': resolved,
+                                             'attach_baseline': bl_path})
+                if full.get('code') == 'embedded':
+                    self._json(200, {'ok': False, 'code': 'embedded', 'error': embedded_msg})
+                    return
+                if not full.get('ok'):
+                    raise RuntimeError(full.get('error') or 'recompute failed')
+                if full.get('code') == 'no_match':    # the wrong project's baseline — never remembered
+                    self._json(200, _answer(full['baseline_info'], full['total']))
+                    return
+                res = full['result']
+                out = _answer({'matched': res.get('baseline_matched'),
+                               'expected_name': res.get('baseline_expected_name'),
+                               'attached_project': res.get('baseline_attached_project'),
+                               'mismatch': res.get('baseline_mismatch')}, res.get('activity_count'))
+                out['baseline_cached'] = res.get('baseline_path')
+                out.update(self._evm_numbers(res))
+                out['result'] = res
+                self._json(200, out)
+                return
+
+            # No snapshot to recompute (nothing stored): read both here, hand back the numbers.
+            data = parse_file(resolved)
+            if getattr(data, 'baseline_source', None) == 'embedded':
+                self._json(200, {'ok': False, 'code': 'embedded', 'error': embedded_msg})
+                return
+            info = resolve_baseline(data, bl_path, parse_file)
+            out = _answer(info, len(data.activities))
+            if not out['matched']:                    # the wrong project's baseline — never remembered
+                self._json(200, out)
+                return
+            bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
+            info['path'] = bl_cached
+            out['baseline_cached'] = bl_cached
+            # the result's baseline keys (source, label, approx …) for the screen to adopt
+            out['baseline_fields'] = {**baseline_fields(info), **schedule_baseline(data)}
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            data = parse_file(resolved)
-            report = apply_baseline(data, bl)       # baseline dates + budget, matched by Activity Id
             config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=build_wbs_classifier(data))
-            bl_cached = db.cache_xml(bl_path, db.hash_file(bl_path))
-            if body.get('snapshot_id'):
-                db.save_baseline(body['snapshot_id'], bl_cached)   # remember per project
-            matched = report['matched']
-            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
-                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
-                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
-                    for n, c in result['categories'].items()}
-            self._json(200, {'ok': True, 'baseline_name': os.path.basename(bl_path),
-                             'baseline_cached': bl_cached, 'matched': matched,
-                             'total': len(data.activities),
-                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
-                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
-                             'overall_planned_pct': result['overall_planned_pct'],
-                             'overall_actual_pct': result['overall_actual_pct'],
-                             'categories': cats})
+            out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
+            self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
     # ── /api/baseline/clear ────────────────────────────────────────────────
     def _handle_baseline_clear(self, body):
-        """Remove an attached baseline: forget it for this snapshot and recompute the plain
-        (no-baseline, approximate) EVM so the UI can revert the numbers."""
+        """Remove an attached baseline: forget it for this snapshot and recompute the snapshot
+        in place — back to the file's own baseline (embedded, else its own Planned dates)."""
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if not resolved:
             self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import the file.'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_evm.parser import parse_file
             from p6_evm.metrics import compute
             from p6_evm.classify import auto_categories, build_wbs_classifier
-            with open(resource_path('config.json')) as f:
-                config = json.load(f)
-            if body.get('snapshot_id'):
-                db.save_baseline(body['snapshot_id'], None)   # forget the attached baseline
-            data = parse_file(resolved)
-            config['categories'] = auto_categories(data)
-            result = compute(data, config, classifier=build_wbs_classifier(data))
-            cats = {n: {'weight': c['weight'], 'planned_pct': c['planned_pct'],
-                        'actual_pct': c['actual_pct'], 'bac': c['bac'], 'ac': c['ac'],
-                        'activity_count': c['activity_count'], 'overridden': c['overridden']}
-                    for n, c in result['categories'].items()}
-            self._json(200, {'ok': True,
-                             'pv': result['pv'], 'ev': result['ev'], 'spi': result['spi'],
-                             'cpi': result['cpi'], 'delay_days': result['delay_days'],
-                             'overall_planned_pct': result['overall_planned_pct'],
-                             'overall_actual_pct': result['overall_actual_pct'], 'categories': cats})
+            from p6_evm.baseline import load_schedule
+            out = {'ok': True}
+            sid = body.get('snapshot_id')
+            if sid and db.snapshot_exists(sid):
+                db.save_baseline(sid, None)            # forget the attached baseline
+                self._refresh_snapshot(sid, resolved, out)
+            else:
+                with open(resource_path('config.json')) as f:
+                    config = json.load(f)
+                data = load_schedule(resolved)
+                from p6_evm.baseline import baseline_fields, schedule_baseline
+                # the result's baseline keys for the screen (source 'self', not null — R3 F11)
+                out['baseline_fields'] = {**baseline_fields(getattr(data, 'baseline_info', None)),
+                                          **schedule_baseline(data)}
+                config['categories'] = auto_categories(data)
+                out.update(self._evm_numbers(compute(data, config, classifier=build_wbs_classifier(data))))
+            self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -2923,16 +3319,17 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             weights = body.get('weights') or {}
-            data = parse_file(resolved)
-            bl_path = body.get('baseline_path')     # attached baseline (for correct PV)
-            if bl_path and os.path.isfile(bl_path):
-                from p6_evm.baseline import apply_baseline
-                apply_baseline(data, parse_file(bl_path))   # baseline dates + budget
+            # embedded > attached (for this snapshot, or the one the screen names) > self baseline
+            data = _schedule_for(resolved, body, fallback_baseline=body.get('baseline_path'))
             config['categories'] = auto_categories(data, saved_weights=weights)
             result = compute(data, config, classifier=build_wbs_classifier(data))
             meta_in = body.get('meta') or {}
             if body.get('actual_cost') is not None:
                 meta_in['actual_cost'] = body.get('actual_cost')
+            from p6_evm.baseline import baseline_fields, baseline_label, baseline_approx
+            _blf = baseline_fields(getattr(data, 'baseline_info', None))   # labelled, never silent
+            meta_in['baseline_label'] = baseline_label(_blf, (data.project or {}).get('baseline_name'))
+            meta_in['baseline_approx'] = baseline_approx(_blf)
             dim = body.get('dimension')
             gap = gap_by_code(result['records'], dim) if dim else None
             engineering = body.get('engineering')
@@ -2958,11 +3355,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -3000,11 +3393,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -3029,8 +3418,11 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_calendar_xlsx
             pid = db.get_project_id_for_snapshot(snapshot_id) if snapshot_id else None
             weather = (db.get_project_settings(pid) or {}).get('last_weather') if pid else None
+            _d = ca.get('dashboard') or {}
+            _bl = _d.get('baseline_label') if _d.get('baseline_approx') else None   # approx only
             write_calendar_xlsx(os.path.abspath(output_path), ca, weather=weather,
-                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id))
+                                meta=_excel_meta('Calendar Audit', snapshot_id=snapshot_id,
+                                                 **({'baseline': _bl} if _bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -3065,40 +3457,57 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_geocode(self, body):
         """Place name → coordinates (search), OR lat/lon → place name (reverse), via
         OpenStreetMap Nominatim (server-side: proper User-Agent, dodges browser CORS).
-        Free, no key. Reverse is used when the user drops/drags a pin on the map."""
-        import urllib.request, urllib.parse
+        Free, no key. Reverse is used when the user drops/drags a pin on the map.
+        Typed coordinates ("30.0444, 31.2357") are answered locally — no internet needed.
+        Offline / service errors come back as {ok:false, offline, error} in plain English."""
+        import urllib.parse
+        from utils import network_error_message
         lat, lon = body.get('lat'), body.get('lon')
         try:
             if lat is not None and lon is not None:
-                url = 'https://nominatim.openstreetmap.org/reverse?' + urllib.parse.urlencode(
-                    {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 13})
-                req = urllib.request.Request(url, headers={'User-Agent': f'{APP_NAME}-CalendarAudit/1.0'})
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    data = json.loads(r.read().decode())
-                name = data.get('display_name') or f'{float(lat):.4f}, {float(lon):.4f}'
+                fallback = f'{float(lat):.4f}, {float(lon):.4f}'
+                try:
+                    data = _nominatim_get('reverse', {'lat': lat, 'lon': lon, 'format': 'json',
+                                                      'zoom': 13})
+                except Exception as exc:     # offline: the pin still works, named by its coordinates
+                    self._json(200, {'ok': False, 'offline': True, 'name': fallback,
+                                     'error': network_error_message(
+                                         exc, 'OpenStreetMap', needs='naming the pinned place')})
+                    return
+                name = (data or {}).get('display_name') or fallback
                 self._json(200, {'ok': True, 'name': name})
                 return
             q = (body.get('q') or '').strip()
             if not q:
                 self._json(200, {'ok': False, 'error': 'Type a place to search.'})
                 return
-            url = 'https://nominatim.openstreetmap.org/search?' + urllib.parse.urlencode(
-                {'q': q, 'format': 'json', 'limit': 5})
-            req = urllib.request.Request(url, headers={'User-Agent': f'{APP_NAME}-CalendarAudit/1.0'})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                data = json.loads(r.read().decode())
+            coords = _parse_coordinates(q)
+            if coords:
+                self._json(200, {'ok': True, 'results': [
+                    {'name': f'{coords[0]:.4f}, {coords[1]:.4f}', 'lat': coords[0], 'lon': coords[1]}]})
+                return
+            try:
+                data = _nominatim_get('search', {'q': q, 'format': 'json', 'limit': 5})
+            except Exception as exc:
+                self._json(200, {'ok': False, 'offline': True, 'error': network_error_message(
+                    exc, 'OpenStreetMap', needs='the place search') + (
+                    ' Offline, type the site coordinates instead (e.g. 26.9598, 49.5687).')})
+                return
             results = [{'name': x.get('display_name'), 'lat': float(x['lat']), 'lon': float(x['lon'])}
-                       for x in data]
+                       for x in (data or []) if isinstance(x, dict) and 'lat' in x and 'lon' in x]
             self._json(200, {'ok': True, 'results': results})
         except Exception as exc:
-            self._json(200, {'ok': False, 'error': f'Geocode failed (offline?): {exc}'})
+            self._json(200, {'ok': False, 'error': f'The place search failed: {exc}'})
 
     # ── /api/weather ───────────────────────────────────────────────────────
     def _handle_weather(self, body):
         """Compute the Weather Impact for a location. Re-parses the schedule (needs
         construction calendars + milestones), fetches historical/forecast weather,
-        and returns the estimate. Saves the location per project. Network failures
-        degrade to an empty (zero-impact) estimate rather than an error."""
+        and returns the estimate. Saves the location per project. When the weather could
+        not be downloaded (offline / Open-Meteo down) it answers {ok:false, offline, error}
+        with a plain message and KEEPS the last good estimate — an empty download is never
+        presented (or saved) as a zero-impact result. Partial gaps (live forecast / dust
+        forecast unavailable) are listed in climate_reference.gaps (screen + PDF)."""
         lat, lon = body.get('lat'), body.get('lon')
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
         if lat is None or lon is None:
@@ -3126,32 +3535,48 @@ class Handler(BaseHTTPRequestHandler):
                           or (resolve_site_thresholds(site_type) if site_type else None)
                           or saved.get('weather_thresholds')
                           or config.get('weather_thresholds'))
-            data = parse_file(resolved)
+            data = _schedule_for(resolved, body)   # embedded > attached > self baseline
             inp = weather_inputs(data)
             if not inp['data_date'] or not inp['project_finish']:
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
+            net = {}
             daily, climate_samples, horizon, climate_meta = build_daily_weather(
-                lat, lon, inp['data_date'], inp['project_finish'])
+                lat, lon, inp['data_date'], inp['project_finish'], net=net)
+            location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
+            # The location, site type and edited limits are the planner's settings — keep them
+            # even when the weather itself could not be downloaded.
+            patch = {'location': location}
+            if site_type is not None:
+                patch['site_type'] = site_type
+            if body.get('thresholds'):
+                patch['weather_thresholds'] = body['thresholds']
+            gap = _weather_download_gap(net, daily, climate_samples)
+            if gap:
+                # Never present (or save) an empty download as a zero-impact estimate: tell
+                # the planner plainly and keep the last good estimate as it was.
+                if pid:
+                    db.save_project_settings(pid, patch)
+                self._json(200, {'ok': False, 'offline': bool(net.get('offline')),
+                                 'error': gap, 'location': location,
+                                 'kept_previous': bool(saved.get('last_weather')),
+                                 'settings_saved': bool(pid)})
+                return
             wx = weather_impact(**inp, daily_weather=daily, forecast_horizon=horizon,
                                 thresholds=thresholds, site_type=site_type,
                                 climate_samples=climate_samples, climate_meta=climate_meta)
-            location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
             # Fill the climate reference's location so the user sees exactly where it applies.
             if isinstance(wx.get('climate_reference'), dict):
                 wx['climate_reference'].update({'lat': lat, 'lon': lon,
-                                                'place_name': body.get('place_name', '')})
+                                                'place_name': body.get('place_name', ''),
+                                                'gaps': _weather_partial_gaps(net)})
             if pid:
                 # Persist location, the site type, the edited limits, and the latest weather
                 # (so re-opening restores the picker and the PDF can include it).
-                patch = {'location': location, 'last_weather': wx}
-                if site_type is not None:
-                    patch['site_type'] = site_type
-                if body.get('thresholds'):
-                    patch['weather_thresholds'] = body['thresholds']
+                patch['last_weather'] = wx
                 db.save_project_settings(pid, patch)
             self._json(200, {'ok': True, 'weather': wx, 'location': location,
-                             'offline': not daily and not climate_samples})
+                             'offline': False})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
@@ -3168,6 +3593,19 @@ class Handler(BaseHTTPRequestHandler):
         patch = {k: body[k] for k in ('location', 'manual_shutdowns', 'shutdown_reasons',
                                       'hours_notes')
                  if body.get(k) is not None}
+        # Reasons / hours notes are edited ONE row at a time: merge into what is saved
+        # (a blank text clears that row) instead of replacing the whole set — before, each
+        # edit silently wiped every other row's saved reason.
+        saved = db.get_project_settings(pid)
+        for k in ('shutdown_reasons', 'hours_notes'):
+            if isinstance(patch.get(k), dict):
+                merged = dict(saved.get(k) or {})
+                for rk, rv in patch[k].items():
+                    if rv is None or (isinstance(rv, str) and not rv.strip()):
+                        merged.pop(rk, None)
+                    else:
+                        merged[rk] = rv
+                patch[k] = merged
         settings = db.save_project_settings(pid, patch)
         ca = None
         resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
@@ -3178,12 +3616,71 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_calendar import calendar_audit
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                ca = calendar_audit(parse_file(resolved), config, settings)
+                ca = calendar_audit(_schedule_for(resolved, body), config, settings)   # embedded > attached > self
                 if sid:
                     db.save_calendar_audit(sid, ca)
             except Exception as cexc:
                 print(f'[calendar] settings recompute skipped: {cexc}', file=sys.stderr)
         self._json(200, {'ok': True, 'settings': settings, 'calendar_audit': ca})
+
+    # ── /api/project/evm-setup ──────────────────────────────────────────────
+    def _handle_evm_setup(self, body):
+        """Save Project Setup (category weights + Actual Cost override) for the project the
+        snapshot belongs to. Held in the project's settings (keyed by project id, so two
+        projects with the same name never share them) and returned by /api/parse and
+        /api/project/load as calendar_settings.evm_setup — it survives re-opening the
+        project, re-importing an update and restarting the app (the web view's own storage
+        does not). Answers {ok, evm_setup} or {ok:false, error} in plain English."""
+        sid = body.get('snapshot_id')
+        pid = db.get_project_id_for_snapshot(sid) if sid else None
+        if not pid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        try:
+            setup = clean_evm_setup(body.get('weights'), body.get('actual_cost'))
+        except ValueError as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+            return
+        db.save_project_settings(pid, {'evm_setup': setup})
+        self._json(200, {'ok': True, 'evm_setup': setup})
+
+    # ── /api/narrative/setup ────────────────────────────────────────────────
+    _NARRATIVE_SETUP_MAX = 40 * 1024 * 1024      # JSON chars: logos + a large layout drawing
+
+    def _handle_narrative_setup(self, body):
+        """The Baseline Narrative project setup (parties, contract details, logos, layout
+        drawing) for one imported schedule, kept in the database. It used to live only in
+        the web view's storage, which is empty after every restart, and its images are too
+        big for ui_prefs.json (a value over 512 KB was skipped, losing the whole setup).
+        {snapshot_id} -> {ok, setup|None}; {snapshot_id, setup} saves (setup null clears).
+        A schedule with no setup of its own yet (a re-import or the project's next update)
+        gets the project's most recently saved one, marked inherited (R2 S6); the first
+        change saves it under this schedule."""
+        sid = body.get('snapshot_id') if isinstance(body, dict) else None
+        if not sid or not db.get_project_id_for_snapshot(sid):
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        if 'setup' not in body:
+            setup, src = db.get_snapshot_ui_state_inherited(sid, 'narrative_setup')
+            self._json(200, {'ok': True, 'setup': setup,
+                             **({'inherited': True, 'from_snapshot_id': src} if src else {})})
+            return
+        setup = body.get('setup')
+        if setup is not None and not isinstance(setup, dict):
+            self._json(200, {'ok': False, 'error': 'The project setup was not understood.'})
+            return
+        if setup is not None and len(json.dumps(setup)) > self._NARRATIVE_SETUP_MAX:
+            self._json(200, {'ok': False, 'error': 'The logos and layout drawing are too large '
+                                                   'to keep (over 40 MB). Use smaller images.'})
+            return
+        try:
+            db.save_snapshot_ui_state(sid, 'narrative_setup', setup or None)
+        except Exception as exc:                  # noqa: BLE001 — DB busy/locked: page retries
+            app_startup.log('narrative setup not saved (%r)', exc)
+            self._json(503, {'ok': False, 'error': 'The database is busy; the setup was not '
+                                                   'saved yet.'})
+            return
+        self._json(200, {'ok': True})
 
     # ── /api/lag/justification ──────────────────────────────────────────────
     def _handle_lag_justification(self, body):
@@ -3217,11 +3714,23 @@ class Handler(BaseHTTPRequestHandler):
         if not pid:
             self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
             return
-        milestones = body.get('milestones') or []
-        db.save_contract_milestones(pid, milestones)
+        # only complete rows ({name, date} text) are kept — a stray blank row never wipes the list
+        milestones = [{'name': str(m.get('name') or '').strip(), 'date': str(m.get('date') or '').strip()}
+                      for m in (body.get('milestones') or []) if isinstance(m, dict)]
+        milestones = [m for m in milestones if m['name'] and m['date']]
+        try:
+            db.save_contract_milestones(pid, milestones)
+        except Exception as sexc:                       # DB busy/locked -> say so, keep the old list
+            self._json(200, {'ok': False, 'error': 'Your contract milestones could not be saved '
+                                                   f'just now ({sexc}) — please press Run again.'})
+            return
         module = None
         health = None
+        eval_error = None
         resolved = db.get_snapshot_xml_path(sid)
+        if not resolved:
+            eval_error = ('the schedule file for this project could not be found '
+                          '(re-import it to check them)')
         if resolved:
             try:
                 sys.path.insert(0, resource_path('.'))
@@ -3233,7 +3742,7 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_audit.health import schedule_health
                 with open(resource_path('config.json')) as f:
                     config = json.load(f)
-                data = parse_file(resolved)
+                data = _schedule_for(resolved, body)   # embedded > attached > self baseline
                 config['categories'] = auto_categories(data)
                 am = run_audit_modules(data, config)
                 hard = (am.get('modules') or {}).get('hard_constraints')
@@ -3244,7 +3753,12 @@ class Handler(BaseHTTPRequestHandler):
                 health = schedule_health(am['modules'])
             except Exception as mexc:
                 print(f'[milestone] save recompute skipped: {mexc}', file=sys.stderr)
-        self._json(200, {'ok': True, 'milestones': milestones, 'milestone_module': module, 'health': health})
+                eval_error = f'the schedule could not be read ({mexc})'
+        out = {'ok': True, 'saved': True, 'milestones': milestones,
+               'milestone_module': module, 'health': health}
+        if module is None and eval_error:
+            out['error'] = eval_error
+        self._json(200, out)
 
     # ── /api/history ───────────────────────────────────────────────────────
     # ── /api/export/{pdf,html,docx,xlsx} — ONE-DOCUMENT exports ─────────────
@@ -3315,11 +3829,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp.write(html_content)
                 html_path = tmp.name
             chrome = _find_chrome()
-            subprocess.run([
-                chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                f'--print-to-pdf={os.path.abspath(output_path)}', '--no-pdf-header-footer',
-                f'file:///{html_path.replace(os.sep, "/")}',
-            ], check=True, capture_output=True)
+            _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
         except Exception as exc:
@@ -3711,12 +4221,7 @@ class Handler(BaseHTTPRequestHandler):
                     tmp.write(html_str)
                     html_path = tmp.name
                 try:
-                    subprocess.run([
-                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
-                        f'file:///{html_path.replace(os.sep, "/")}',
-                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                        timeout=180)
+                    _chrome_print_pdf(html_path, out_pdf, chrome)
                 finally:
                     try:
                         os.unlink(html_path)
@@ -3770,7 +4275,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_history(self):
-        rows = db.get_recent_projects(limit=10)
+        try:
+            rows = db.get_recent_projects(limit=10)
+        except Exception as exc:          # a damaged/locked DB: answer, don't drop the socket
+            app_startup.log('history unavailable: %s', repr(exc))   # text only: a kept record
+            # holding the exception would pin the failed connection (and the damaged file)
+            damaged = db.note_error(exc)
+            self._json(503, {'ok': False, 'error': f'Recent projects could not be read: {exc}',
+                             'damaged': damaged, 'db': dict(db.DB_STATUS)})
+            return
         # Normalise to the shape app.js already expects
         history = []
         for r in rows:
@@ -3789,28 +4302,36 @@ class Handler(BaseHTTPRequestHandler):
 
 
 # ── Chrome finder ──────────────────────────────────────────────────────────
-CHROME_CANDIDATES = [
-    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-    r'C:\Program Files\Chromium\Application\chrome.exe',
-]
+# ONE tool-wide browser helper (p6_export.pdf): every candidate is PROBED once (a real
+# one-line headless print) and the first that works is cached for the session —
+# installed Google Chrome → Microsoft Edge → Chromium → Playwright headless shell →
+# Playwright full Chromium last (on the owner's PC that one fails to start with
+# "[WinError 14001] side-by-side configuration is incorrect"; it used to be tried FIRST
+# with no fallback, so every per-feature PDF route could fail).
+
+def _export_pkg():
+    root = resource_path('.')
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from p6_export import pdf
+    return pdf
+
 
 def _find_chrome():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            path = p.chromium.executable_path
-            if path and os.path.exists(path):
-                return path
-    except Exception:
-        pass
-    for path in CHROME_CANDIDATES:
-        if os.path.exists(path):
-            return path
-    raise RuntimeError(
-        'No Chrome/Chromium found. Install Google Chrome or run: '
-        'pip install playwright && playwright install chromium'
-    )
+    """The Chrome/Edge/Chromium this machine can actually print with (probed once, cached).
+    Raises a clear error when none works."""
+    path = _export_pkg().find_working_chrome()
+    if path:
+        return path
+    raise RuntimeError('No working Chrome, Edge or Chromium found to print the PDF. '
+                       'Install Google Chrome or Microsoft Edge and try again.')
+
+
+def _chrome_print_pdf(html_path, output_path, chrome=None, timeout=300):
+    """Print a report HTML file to ``output_path`` — EVERY PDF route goes through here
+    (p6_export.pdf.run_chrome: the cached browser first, then the next candidate when one
+    cannot start or writes nothing)."""
+    return _export_pkg().print_html_file(html_path, output_path, chrome=chrome, timeout=timeout)
 
 
 def _narrative_page_map(pdf_path, sections):
@@ -3850,20 +4371,225 @@ def _narrative_page_map(pdf_path, sections):
     return page_map or None
 
 
-def make_server():
-    # Migrate legacy history and initialise the DB. A corrupt or locked database
-    # must never stop the app from opening — persistence degrades gracefully but
-    # the Knowledge Base and analysis screens (which don't need the DB) still work.
+# ── Startup: static-file reads, startup guard, loopback server ────────────
+
+def _read_ui_file(path, attempts=4, delays=(0.1, 0.25, 0.5)):
+    """Read a bundled UI file, retrying transient OSErrors (antivirus sharing violations
+    on the files PyInstaller has just unpacked). FileNotFoundError is not retried."""
+    import time as _time
+    for i in range(attempts):
+        try:
+            with open(path, 'rb') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise
+        except OSError:
+            if i == attempts - 1:
+                raise
+            _time.sleep(delays[min(i, len(delays) - 1)])
+
+
+_GUARD_MARK = '<!--cx:startup-guard-->'
+
+
+def _ui_prefs_dir():
+    """Where ui_prefs.json lives: the per-user app data folder, beside the database
+    (db.app_data_dir, so a test's temporary data folder holds it too)."""
+    return db.app_data_dir()
+
+
+def _inline_ui_prefs(html):
+    """Put the saved screen preferences (window.__UI_PREFS__) and ui/prefs_bridge.js inline
+    at the top of <head>, before the early Appearance script and every module, so the saved
+    Appearance paints first and each module reads its remembered setting as before. Never
+    fails the page: an unreadable store gives {} and a missing bridge file a script tag."""
     try:
-        legacy = os.path.join(exe_dir(), 'history.json')
+        prefs = ui_prefs.load(_ui_prefs_dir())
+    except Exception:                                    # noqa: BLE001 — never block the page
+        prefs = {}
+    head = '<script>window.__UI_PREFS__=' + ui_prefs.script_json(prefs) + ';</script>'
+    try:
+        js = _read_ui_file(resource_path('ui/prefs_bridge.js')).decode('utf-8')
+        head += '<script>' + js.replace('</script', '<\\/script') + '</script>'
+    except OSError:
+        head += '<script src="/ui/prefs_bridge.js"></script>'
+    if _GUARD_MARK in html:
+        return html.replace(_GUARD_MARK, _GUARD_MARK + head, 1)
+    return html.replace('<head>', '<head>' + head, 1)
+
+
+_BRAND_RE = None
+
+
+def _fill_brand(html):
+    """Write the product name into every element marked data-brand="name|edition|title"
+    in index.html (the start-up screens, the menu bar, the account block, the landing page)
+    before the page is sent, so it paints with the name from utils.APP_* - index.html
+    itself never hardcodes it (startup audit VER-2)."""
+    global _BRAND_RE
+    import re
+    from html import escape
+    if _BRAND_RE is None:
+        _BRAND_RE = re.compile(
+            r'(<(\w+)\b[^>]*\sdata-brand="(name|edition|title)"[^>]*>)[^<]*(</\2>)')
+    values = {'name': APP_NAME, 'edition': APP_EDITION, 'title': APP_TITLE}
+    return _BRAND_RE.sub(
+        lambda m: m.group(1) + escape(str(values[m.group(3)])) + m.group(4), html)
+
+
+def _inline_startup_guard(html):
+    """Inline ui/startup_guard.js into index.html (at its marker, else before </head>) so
+    the startup watchdog runs even when a program file fails to load. If it can't be read,
+    fall back to a normal script tag."""
+    try:
+        js = _read_ui_file(resource_path('ui/startup_guard.js')).decode('utf-8')
+        tag = '<script>' + js.replace('</script', '<\\/script') + '</script>'
+    except OSError:
+        tag = '<script src="/ui/startup_guard.js"></script>'
+    if _GUARD_MARK in html:
+        return html.replace(_GUARD_MARK, tag, 1)
+    return html.replace('</head>', tag + '</head>', 1)
+
+
+def _starting_page_html():
+    """The page served (503) when index.html can't be read yet: the window background
+    colour, a visible 'Starting' line, automatic reloads with backoff (count kept in
+    sessionStorage, reset after a quiet minute), then an in-page Retry button. Plain ES5,
+    no alert/confirm/prompt (WebView2 no-ops); the name comes from utils.APP_NAME."""
+    from html import escape
+    name = json.dumps(APP_NAME)
+    return (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<title>' + escape(APP_TITLE) + '</title>'
+        '<style>html,body{margin:0;height:100%;background:#06090f;color:#c3cde3;'
+        'font:14px/1.5 "Segoe UI",system-ui,sans-serif}'
+        '#w{height:100%;display:flex;align-items:center;justify-content:center;padding:16px;'
+        'box-sizing:border-box;text-align:center}#t{color:#fff;font-size:16px;font-weight:600}'
+        '#cx-index-retry{display:none;margin:14px auto 0;background:#3b82f6;color:#fff;border:0;'
+        'border-radius:8px;padding:8px 18px;font:600 13px/1 "Segoe UI",system-ui,sans-serif;'
+        'cursor:pointer}</style>'
+        '</head><body><div id="w"><div><div id="t">Starting ' + escape(APP_NAME) + '…</div>'
+        '<div id="m">Waiting for the program files to become available.</div>'
+        '<button type="button" id="cx-index-retry">Retry</button></div></div>'
+        '<script>(function(){var K="cx_index_attempt",D=[1000,2000,3000,5000,8000],n=0,'
+        'now=Date.now(),s=null;try{s=window.sessionStorage;var v=JSON.parse(s.getItem(K)||"null");'
+        'if(v&&now-v.t<60000)n=v.n;}catch(e){}'
+        'var b=document.getElementById("cx-index-retry");'
+        'b.onclick=function(){try{s&&s.removeItem(K);}catch(e){}location.reload();};'
+        'if(n<D.length){try{s&&s.setItem(K,JSON.stringify({n:n+1,t:now}));}catch(e){}'
+        'document.getElementById("m").textContent="Waiting for the program files to become '
+        'available — trying again (attempt "+(n+1)+" of "+D.length+").";'
+        'setTimeout(function(){location.reload();},D[n]);}'
+        'else{document.getElementById("t").textContent=' + name + '+" couldn’t finish starting";'
+        'document.getElementById("m").textContent="The program files could not be read (they may '
+        'be held by antivirus). Your projects and data are safe. Click Retry; if this keeps '
+        'happening, close the app and open it again.";b.style.display="block";}'
+        '}());</script></body></html>'
+    )
+
+
+class _LoopbackServer(ThreadingHTTPServer):
+    """Loopback-only threaded server. Threaded so a long local-AI generation (the chat
+    streams for minutes on a CPU) doesn't block every other request. The listen backlog is
+    128, not socketserver's 5: on Windows a full backlog REFUSES the ~40 parallel UI-file
+    requests at startup, and one refused module used to mean a black screen."""
+    request_queue_size = 128
+    daemon_threads = True
+    allow_reuse_address = False       # plus SO_EXCLUSIVEADDRUSE: never share a port
+
+    def server_bind(self):
+        import socket as _socket
+        import socketserver
+        if sys.platform == 'win32' and hasattr(_socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_EXCLUSIVEADDRUSE, 1)
+        socketserver.TCPServer.server_bind(self)        # skip HTTPServer's getfqdn() lookup
+        self.server_name = 'localhost'
+        self.server_port = self.server_address[1]
+
+    def handle_error(self, request, client_address):
+        # The windowed exe has no stderr: log handler crashes instead of losing them.
+        app_startup.log_exception('request handler error (%s)', client_address)
+
+
+class _LoopbackServer6(_LoopbackServer):
+    address_family = __import__('socket').AF_INET6
+
+
+class _AppServer(_LoopbackServer):
+    """127.0.0.1 server with an optional [::1] twin on the SAME port. The window and every
+    UI call use http://localhost:PORT; Windows resolves localhost to ::1 first, and a
+    connect to a closed ::1 port takes ~2 s to fail before the IPv4 fallback, per request
+    (measured 2.8 s vs 0.1 s to DOMContentLoaded). A foreign process listening on
+    [::1]:PORT would even have received the page. Owning both addresses fixes both."""
+    companion = None
+    _companion_running = False
+
+    def serve_forever(self, poll_interval=0.5):
+        import threading as _threading
+        if self.companion is not None and not self._companion_running:
+            self._companion_running = True
+            _threading.Thread(target=self.companion.serve_forever, args=(poll_interval,),
+                              daemon=True).start()
+        super().serve_forever(poll_interval)
+
+    def shutdown(self):
+        if self.companion is not None and self._companion_running:
+            self.companion.shutdown()
+            self._companion_running = False
+        super().shutdown()
+
+    def server_close(self):
+        if self.companion is not None:
+            try:
+                self.companion.server_close()
+            except OSError:
+                pass
+        super().server_close()
+
+
+def _bind_loopback(attempts=8):
+    """Bind 127.0.0.1 on a free port and [::1] on the same port. If ::1 is taken on that
+    port, try another port; if IPv6 is unavailable, serve IPv4 only (the old behaviour)."""
+    import errno
+    last = None
+    for _ in range(attempts):
+        srv = _AppServer(('127.0.0.1', 0), Handler)
+        port = srv.server_address[1]
+        try:
+            srv.companion = _LoopbackServer6(('::1', port), Handler)
+            return srv
+        except OSError as exc:
+            last = exc
+            in_use = (exc.errno in (errno.EADDRINUSE, errno.EACCES)
+                      or getattr(exc, 'winerror', None) in (10048, 10013))
+            if in_use:
+                srv.server_close()
+                continue                              # someone owns [::1]:port: new port
+            app_startup.log('IPv6 loopback unavailable (%r): serving 127.0.0.1 only', exc)
+            return srv
+    app_startup.log('could not pair [::1] with a port (%r): serving 127.0.0.1 only', last)
+    return _AppServer(('127.0.0.1', 0), Handler)
+
+
+def make_server():
+    # Run migration from legacy history.json if it exists
+    legacy = os.path.join(exe_dir(), 'history.json')
+    try:
         if os.path.exists(legacy):
             db.migrate_history_json(legacy)
-        db.init_db()
-    except Exception as exc:
-        print(f'[db] initialisation failed, continuing without persistence: {exc}',
-              file=sys.stderr)
-    # Threaded so a long local-AI generation (the chat streams for minutes on a CPU)
-    # doesn't block every other request — the UI stays responsive during an answer.
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    srv.daemon_threads = True
+    except Exception:
+        app_startup.log_exception('legacy history.json migration failed')
+
+    # Never let the database stop the app from opening: a damaged file is set aside and a
+    # fresh one created; a locked one is reported as degraded (see /api/health).
+    status = db.open_db_resilient()
+    app_startup.log('database: %s%s', status.get('status'),
+                    (' (' + str(status.get('detail')) + ')') if status.get('detail') else '')
+    srv = _bind_loopback()
+    app_startup.log('server listening on port %s (%s)', srv.server_address[1],
+                    'IPv4 + IPv6 loopback' if srv.companion is not None else 'IPv4 loopback')
+    # A file whose DATA pages are damaged opens as 'ok' (S3): check it in the background,
+    # after the window has painted; damage is reported through /api/health (db.status).
+    if status.get('status') == 'ok':
+        db.start_background_check()
     return srv

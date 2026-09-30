@@ -1,5 +1,6 @@
 """Golden reconciliation on REAL P6 exports: a XER update + its baseline must produce the SAME EVM
-as the XML update, to the penny. Auto-discovers project triples (Update.xml + Update.xer + a
+as the XML update, to the penny (money within the XER 4-dp rounding bound - genuine finding G2,
+see tests/test_parser_parity.money_tolerance). Auto-discovers project triples (Update.xml + Update.xer + a
 *baseline*.xer) in a local sample folder. Skips when that folder isn't present, so it validates on
 Ibrahim's machine and never breaks CI (the real client schedules are NOT committed to the repo).
 
@@ -17,6 +18,7 @@ from p6_evm.parser import parse_file
 from p6_evm.metrics import compute
 from p6_evm.classify import auto_categories, build_wbs_classifier
 from p6_evm.baseline import apply_baseline
+from tests.test_parser_parity import money_tolerance
 
 
 def _golden_dir():
@@ -66,12 +68,18 @@ PROJECTS = _discover(GOLDEN) if GOLDEN else []
 def test_xer_update_matches_xml_update(stem, xml, xer, bl):
     rx = _evm(parse_file(os.path.join(GOLDEN, xml)))
     dy = parse_file(os.path.join(GOLDEN, xer))
-    apply_baseline(dy, parse_file(os.path.join(GOLDEN, bl)))
+    db = parse_file(os.path.join(GOLDEN, bl))
+    apply_baseline(dy, db)
     ry = _evm(dy)
 
-    assert round(rx['pv'], 2) == round(ry['pv'], 2), 'PV'
-    assert round(rx['ev'], 2) == round(ry['ev'], 2), 'EV'
-    assert round(rx['ac'], 2) == round(ry['ac'], 2), 'AC'
+    # P6 writes XER money to 4 dp (XML: full precision) - genuine finding G2: each summed value
+    # may be 0.00005 off, so compare within that bound (never looser than a cent), not by
+    # round(.., 2) equality, which flips on a half-cent boundary.
+    n = sum(len(v) for v in dy.assignments_by_activity.values()) +         sum(len(v) for v in db.assignments_by_activity.values())
+    tol = money_tolerance(n)
+    assert abs(rx['pv'] - ry['pv']) <= tol, 'PV'
+    assert abs(rx['ev'] - ry['ev']) <= tol, 'EV'
+    assert abs(rx['ac'] - ry['ac']) <= tol, 'AC'
     assert rx['delay_days'] == ry['delay_days'], 'Delay'
     for k in ('spi', 'cpi', 'overall_planned_pct', 'overall_actual_pct'):
         a, b = rx[k], ry[k]
@@ -82,4 +90,4 @@ def test_xer_update_matches_xml_update(stem, xml, xer, bl):
         assert cx and cy, f'category {name} missing on one side'
         assert abs(cx['planned_pct'] - cy['planned_pct']) <= 0.0005, f'{name} planned%'
         assert abs(cx['actual_pct'] - cy['actual_pct']) <= 0.0005, f'{name} actual%'
-        assert abs(cx['bac'] - cy['bac']) <= 0.01, f'{name} BAC'
+        assert abs(cx['bac'] - cy['bac']) <= tol, f'{name} BAC'

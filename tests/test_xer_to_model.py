@@ -26,8 +26,10 @@ def test_parse_xer_builds_model(tmp_path):
     assert a['total_float_days'] == 40.0      # 320 / 8
     assert a['free_float_days'] == 10.0
     assert a['is_critical'] is False
-    assert a['constraint_type'] == 'CS_MSO'
-    assert a['wbs_path'] == 'Tower 33 > Structure'
+    assert a['constraint_type'] == 'Start On'      # CS_MSO read as P6's word, like the XML (P7)
+    assert a['wbs_path'] == 'Structure'            # project-root node is not a WBS level (P5)
+    assert '100' not in data.wbs and data.wbs['101']['parent_object_id'] is None
+    assert data.project['wbs_root_id'] == '100'
     crit = data.activities['1001']
     assert crit['is_critical'] is True         # 0 float
     rel = data.relationships[0]

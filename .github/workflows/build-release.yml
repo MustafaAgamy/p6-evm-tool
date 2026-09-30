@@ -3,7 +3,8 @@ name: Build & Release
 # Three ways in:
 #   • push to master that touches the changelog / version → if the newest `## [vX.Y.Z]`
 #     heading in CHANGELOG.md has no tag yet, tag it, build the exe and publish the Release
-#     (automatic releases: bump the changelog + utils.APP_VERSION, merge to master, done)
+#     (automatic releases: add the changelog section — utils.APP_VERSION is read from it —
+#     merge to master, done)
 #   • push of a v* tag → build + Release for that tag (manual tagging still works)
 #   • workflow_dispatch → build only; the exe is uploaded as a run artifact, no Release
 on:
@@ -65,9 +66,11 @@ jobs:
           fi
 
           # Guard: the version shown in the app must match the release being published.
-          APP_VERSION=$(grep -m1 -oP "^APP_VERSION = '\K[^']+" utils.py || true)
+          # utils.APP_VERSION is read from the newest CHANGELOG heading (utils.release_version),
+          # so ask Python for the value the app will show rather than grep a literal.
+          APP_VERSION=$(python3 -c "import utils; print(utils.APP_VERSION)" | tr -d '\r' || true)
           if [ "$APP_VERSION" != "$VERSION" ]; then
-            echo "::error::CHANGELOG.md's newest release is ${TAG} but utils.APP_VERSION is '${APP_VERSION}' — bump APP_VERSION with the changelog"
+            echo "::error::CHANGELOG.md's newest release is ${TAG} but utils.APP_VERSION is '${APP_VERSION}' — the app must show the changelog's version"
             exit 1
           fi
 
@@ -136,6 +139,23 @@ jobs:
           pip install pywebview pyinstaller playwright
           pip install -r requirements.txt
           playwright install chromium
+
+      # The app shows the version read from the newest "## [vX.Y.Z]" heading of CHANGELOG.md
+      # (utils.APP_VERSION). Stop before building when that heading is missing or does not
+      # match the tag being released — the exe would otherwise say the wrong version.
+      - name: Check the version (CHANGELOG = tag = app)
+        shell: bash
+        env:
+          TAG: ${{ needs.decide.outputs.tag }}
+        run: |
+          pip install pytest
+          python -m pytest tests/test_app_version.py -q -p no:cacheprovider
+          APPV=$(python -c "import utils; print(utils.APP_VERSION)" | tr -d '\r')
+          echo "Version from CHANGELOG.md: v${APPV}"
+          if [[ -n "${TAG}" && "v${APPV}" != "${TAG}" ]]; then
+            echo "::error::Releasing ${TAG} but the newest CHANGELOG.md release is v${APPV} - add the '## [${TAG}] - date' section to CHANGELOG.md first."
+            exit 1
+          fi
 
       - name: Build exe
         run: pyinstaller controlyx.spec

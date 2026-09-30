@@ -21,6 +21,7 @@ import { renderSchedule }                       from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { installExternalLinks }                 from './modules/external_links.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
@@ -30,13 +31,18 @@ import { openPalette, closePalette, buildPaletteItems } from './modules/palette.
 import { playBoot }                            from './modules/boot.js';
 import { playFeatureReveal }                   from './modules/featurereveal.js';
 
+// Startup guard (ui/startup_guard.js, inlined into index.html): every module loaded.
+if (window.__cxStartup) window.__cxStartup.booted();
+
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
   state.ranFeatures = new Set();   // features the user has explicitly Run this session (issues #3/#4)
   playBoot({ onDone: grabKeyFocus });   // branded startup splash; on lift, pull key focus into the page so shortcuts receive keys
   initTheme();
   initTooltips();
-  loadHistory();
+  installExternalLinks();   // every web link → the default browser (never navigates the app window away)
+  // Real start-up step for the splash (BLACK-9): Recent Projects answered (or its own Retry shown).
+  loadHistory().finally(() => { if (window.__cxStartup) window.__cxStartup.step('history'); });
 
   // Unified Appearance control (six modes) — themes the whole app screen AND every report
   // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
@@ -143,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     calendar:  { title:'P6 Calendar Audit',       icon:'calendar',  verb:'Run Calendar Audit',    desc:'Working-time calendars, net working days and comparisons.' },
     chat:      { title:'AI Chat',                 icon:'ai',        verb:'Open AI Chat',          desc:'Ask a senior planning manager anything about this schedule, run a time-impact analysis, a what-if, or a manager’s briefing — offline, grounded in your data.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
+    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its baseline — inside the file, or attached (XER or XML).' },
     special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 
@@ -748,4 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+  // Startup guard: the shell is built — lifts the "couldn't start" watchdog and completes
+  // the app's readiness handshake (POST /api/client-log kind=ready).
+  if (window.__cxStartup) window.__cxStartup.ready();
 });

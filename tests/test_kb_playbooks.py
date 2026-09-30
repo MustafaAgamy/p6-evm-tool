@@ -70,6 +70,11 @@ def test_data_center_schema2_sections_present():
     assert bop['sections'] and any('table' in s for s in bop['sections'])
 
 
+def _screen_wbs_names(pb):
+    """The screen's suggested WBS below the project row (level 1 = the project node)."""
+    return sorted(w['name'] for w in pb['curated']['wbs'] if w['level'] > 1)
+
+
 def test_starter_xer_round_trips_and_matches_curated_wbs(tmp_path):
     """The baseline XER imports through the tool's own parser and its WBS == the screen WBS."""
     from p6_kb.starter_xer import write_starter_xer
@@ -82,7 +87,9 @@ def test_starter_xer_round_trips_and_matches_curated_wbs(tmp_path):
     assert sum(1 for w in tabs['PROJWBS'] if w['proj_node_flag'] == 'Y') == 1
     assert not [w for w in tabs['PROJWBS'] if w['proj_node_flag'] != 'Y' and not w['parent_wbs_id']]
     data = parse_xer(out)
-    assert len(data.wbs) == len(pb['curated']['wbs'])
+    # The level-1 row is the project itself (proj_node_flag='Y'): P6 keeps it as the project,
+    # not a WBS element, and the parser reads an XER the same way as an XML (no project node).
+    assert sorted(w['name'] for w in data.wbs.values()) == _screen_wbs_names(pb)
     assert data.activities and data.relationships
 
 
@@ -99,7 +106,7 @@ def test_detailed_xer_is_1000_plus_activities_and_round_trips(tmp_path):
     assert tabs.get('TASKACTV') and tabs.get('ACTVCODE')      # zone activity codes present
     data = parse_xer(out)
     assert len(data.activities) == res['activities']
-    assert len(data.wbs) == len(pb['curated']['wbs'])         # screen == file
+    assert sorted(w['name'] for w in data.wbs.values()) == _screen_wbs_names(pb)   # screen == file
     assert data.relationships
 
 

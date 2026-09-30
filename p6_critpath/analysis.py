@@ -287,6 +287,16 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
         'float_migration': migration,
         'float_migration_base': base_role,
     }
+    # The current update's baseline-derived values (BL finish, Planned %, Slip) are approximate
+    # when its own Planned dates stand in for the baseline P6 names (none in the file, none
+    # attached) — marked '· approx' + one 'Baseline:' line on screen, PDF and Excel (R4 F2).
+    try:
+        from p6_evm.baseline import schedule_baseline
+        _bl = schedule_baseline(schedules.get('current'))
+    except Exception:
+        _bl = {'baseline_approx': False, 'baseline_label': None}
+    report['baseline_approx'] = _bl['baseline_approx']
+    report['baseline_label'] = _bl['baseline_label'] if _bl['baseline_approx'] else None
     from p6_critpath.dashboard import build_dashboard, build_narrative
     report['dashboard'] = build_dashboard(report)
     narrative = build_narrative(report)

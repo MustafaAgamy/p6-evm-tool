@@ -5,6 +5,8 @@
 // Construction) and every WBS beneath it is shown, expanded to the level that
 // holds activities, with weighted planned/actual % and a start→finish bar.
 import { fmtEGP, fmtDate } from './format.js';
+import { state } from './state.js';
+import { baselineApprox, baselineApproxLine } from './baseline.js';
 
 // printable sections for the global File ▸ Print flow
 let _ovPrint = null, _wbsPrint = null;
@@ -34,26 +36,31 @@ export function renderOverview(result) {
   }
   const delay = delayDays != null ? `${delayDays} d` : '—';
   const delayCls = delayDays > 0 ? 'bad' : (delayDays < 0 ? 'good' : '');
+  // No baseline in the file and none attached: the update's own Planned dates stand in, so every
+  // baseline-derived value is marked '· approx' + one 'Baseline:' line (printed too — R2).
+  const approx = baselineApprox(result, state.currentXmlPath);
+  const ax = approx ? ' · approx' : '';
+  const blLine = approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(baselineApproxLine(result, state.currentXmlPath))}</p>` : '';
   const cats = Object.entries(result.categories || {});
   const catRows = cats.map(([name, c]) => `
     <div class="ov-cat">
       <div class="ov-cat-name">${name}<span>${c.activity_count} activities${c.overridden ? ' · manual override' : ''}</span></div>
       ${bar(c.planned_pct, c.actual_pct)}
-      <div class="ov-cat-val"><b>${pct(c.actual_pct)}</b><span>plan ${pct(c.planned_pct)}</span></div>
+      <div class="ov-cat-val"><b>${pct(c.actual_pct)}</b><span>plan ${pct(c.planned_pct)}${ax}</span></div>
     </div>`).join('');
 
   const kpisHtml = `<div class="ov-kpis">
-      <div class="ov-kpi"><div class="k">SPI · schedule</div><div class="v ${result.spi != null && result.spi < 1 ? 'bad' : ''}">${spi}</div></div>
+      <div class="ov-kpi"><div class="k">SPI · schedule${ax}</div><div class="v ${result.spi != null && result.spi < 1 ? 'bad' : ''}">${spi}</div></div>
       <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Delay</div><div class="v ${delayCls}">${delay}</div></div>
-      <div class="ov-kpi"><div class="k">Baseline finish</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Overall planned</div><div class="v">${pct(result.overall_planned_pct)}</div></div>
+      <div class="ov-kpi"><div class="k">Delay${ax}</div><div class="v ${delayCls}">${delay}</div></div>
+      <div class="ov-kpi"><div class="k">Baseline finish${ax}</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
+      <div class="ov-kpi"><div class="k">Overall planned${ax}</div><div class="v">${pct(result.overall_planned_pct)}</div></div>
       <div class="ov-kpi"><div class="k">Overall actual</div><div class="v">${pct(result.overall_actual_pct)}</div></div>
-      <div class="ov-kpi"><div class="k">Planned value</div><div class="v sm">${fmtEGP(result.pv)}</div></div>
+      <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(result.pv)}</div></div>
       <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(result.ev)}</div></div>
       <div class="ov-kpi"><div class="k">Actual cost</div><div class="v sm">${fmtEGP(result.ac)}</div></div>
       <div class="ov-kpi"><div class="k">CPI · cost</div><div class="v">${cpi}</div></div>
-    </div>`;
+    </div>${blLine}`;
   const catsHtml = `<div class="ov-cats">${catRows || '<p class="ov-empty">No categories configured for this schedule.</p>'}</div>`;
 
   _ovPrint = [
@@ -115,6 +122,13 @@ function wbsDelay(n) {
   const ef = toMs(n.finish), bf = toMs(n.baseline_finish);
   if (Number.isNaN(ef) || Number.isNaN(bf)) return null;
   return Math.round((ef - bf) / DAY);
+}
+
+// Columns measured against the baseline — marked '· approx' when the update's own Planned dates
+// stand in for it (no baseline in the file, none attached).
+const WBS_BL_COLS = new Set(['baseline_start', 'baseline_finish', 'planned', 'delay']);
+function wbsColLabel(col, approx) {
+  return approx && WBS_BL_COLS.has(col.key) ? `${col.label} · approx` : col.label;
 }
 
 function wbsCellVal(col, n) {
@@ -229,7 +243,9 @@ export function renderWbs(result) {
   }).join('');
 
   // printable WBS: a clean static table of the visible columns (no scrolling timeline)
-  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${c.label}</th>`).join('');
+  const approx = baselineApprox(result, state.currentXmlPath);
+  const blLine = approx ? baselineApproxLine(result, state.currentXmlPath) : '';
+  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('');
   const bodyRows = subset.map((n) => {
     const rd = n.depth - baseDepth;
     const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
@@ -245,8 +261,9 @@ export function renderWbs(result) {
       <tr><td>WBS nodes shown</td><td>${subset.length} (${_wbsLeaves} at activity level)</td></tr>
       <tr><td>Date span</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>
       <tr><td>Data date</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
-      <tr><td>Overall planned</td><td>${pctVal(branch.planned)}</td></tr>
-      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>
+      <tr><td>Overall planned${approx ? ' · approx' : ''}</td><td>${pctVal(branch.planned)}</td></tr>
+      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>${approx ? `
+      <tr><td>Baseline</td><td>${escapeHtml(blLine.replace(/^Baseline: /, ''))}</td></tr>` : ''}
     </tbody></table>`;
   _wbsPrint = [
     { key: 'overview', label: `WBS overview — ${branch.name || 'all'}`, html: _wbsOverview },
@@ -273,8 +290,8 @@ export function renderWbs(result) {
       <div class="ov-chips">
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
-        <span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned · <b>${pctVal(branch.actual)}</b> actual</span>
-      </div></div></div>
+        <span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>
+      </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
@@ -285,7 +302,7 @@ export function renderWbs(result) {
     <div class="wbst-wrap"><div class="wbst-inner" style="--trackw:${trackW}px;width:calc(${leftW}px + ${trackW}px)">
       <div class="wbst-scale">
         <div class="wc-wbs wbst-h">WBS</div>
-        ${cols.map((c) => `<div class="wc-cell wbst-h ${c.kind === 'date' ? 'wc-date' : 'wc-num'}" style="width:${c.w}px">${c.label}</div>`).join('')}
+        ${cols.map((c) => `<div class="wc-cell wbst-h ${c.kind === 'date' ? 'wc-date' : 'wc-num'}" style="width:${c.w}px">${wbsColLabel(c, approx)}</div>`).join('')}
         <div class="wc-tl wbst-scale-track">${ticks}</div>
       </div>
       <div class="wbst-grids">${grid}${ddx != null ? `<div class="wbst-dd" style="left:calc(${leftW}px + ${ddx.toFixed(1)}px)"></div>` : ''}</div>

@@ -9,6 +9,7 @@ import { showError }  from './render.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { escapeHtml } from './format.js';
 import { revealAndRun } from './featurereveal.js';
+import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
 
 const MODES = [
   ['two_updates',       'Two updates',          'Update A vs Update B — this period vs a prior one',  ['previous']],
@@ -31,6 +32,20 @@ function _currName() {
 
 function _neededRoles() {
   return (MODES.find(m => m[0] === _mode) || MODES[1])[3];
+}
+
+// The baseline attached to the open update (Earned Value / Update Analysis — remembered for every
+// feature) fills the Baseline slot until the planner picks another file (R3 F9). Only while the
+// open schedule is the current update: another current file may belong to another baseline.
+function _attachedBl() {
+  return _currentOverride ? null : attachedBaselineSlot(state.currentResult);
+}
+
+// The file a slot will send: the planner's pick, else (Baseline) the attached baseline.
+function _slotPath(role) {
+  if (_picked[role]) return _picked[role];
+  const a = role === 'baseline' ? _attachedBl() : null;
+  return a ? a.path : null;
 }
 
 // ── Entry ────────────────────────────────────────────────────────────────────
@@ -75,10 +90,14 @@ function _renderInputs() {
       <div class="cpa-sval"><b>${escapeHtml(curName)}</b>${curAffordance}
         <button class="btn-mini cpa-cur-change">Change…</button></div></div>`];
   for (const role of _neededRoles()) {
-    const name = _picked[role] ? _picked[role].split(/[\\/]/).pop() : null;
+    const att = role === 'baseline' ? _attachedBl() : null;
+    const auto = !_picked[role] && att;               // the attached baseline fills the slot
+    const name = _picked[role] ? _picked[role].split(/[\\/]/).pop() : (auto ? att.name : null);
+    const tag = auto ? `<span class="cpa-tag" data-attached-baseline>${ATTACHED_BASELINE_TAG}</span>`
+      : (_picked[role] && att ? `<button class="btn-mini cpa-bl-reset">Use attached baseline</button>` : '');
     slots.push(`<div class="cpa-slot${name ? ' filled' : ''}" data-role="${role}">
         <div class="cpa-slbl">${ROLE_LABEL[role]}</div>
-        <div class="cpa-sval">${name ? `<b>${escapeHtml(name)}</b>` : '<span class="cpa-dim">No file chosen</span>'}
+        <div class="cpa-sval">${name ? `<b>${escapeHtml(name)}</b>` : '<span class="cpa-dim">No file chosen</span>'}${tag}
           <button class="btn-mini cpa-pick" data-role="${role}">${name ? 'Change…' : 'Choose file…'}</button></div>
       </div>`);
   }
@@ -89,6 +108,8 @@ function _renderInputs() {
   if (changeBtn) changeBtn.addEventListener('click', _pickCurrent);
   const resetBtn = box.querySelector('.cpa-cur-reset');
   if (resetBtn) resetBtn.addEventListener('click', () => { _currentOverride = null; _renderInputs(); });
+  const blReset = box.querySelector('.cpa-bl-reset');
+  if (blReset) blReset.addEventListener('click', () => { _picked.baseline = null; _renderInputs(); });
   _syncRun();
 }
 
@@ -111,7 +132,7 @@ async function _pick(role) {
 }
 
 function _syncRun() {
-  const ready = _neededRoles().every(r => _picked[r]);
+  const ready = _neededRoles().every(r => _slotPath(r));
   const btn = document.getElementById('cpa-run');
   if (btn) btn.disabled = !ready;
 }
@@ -123,7 +144,7 @@ function _run() {
     const payload = { mode: _mode, current_path: _currentOverride || state.currentXmlPath || '' };
     // Only pass the cached copy of the open schedule when we're using it (no override).
     if (!_currentOverride) payload.cached_path = state.currentCachedPath || '';
-    for (const role of _neededRoles()) payload[`${role}_path`] = _picked[role];
+    for (const role of _neededRoles()) payload[`${role}_path`] = _slotPath(role);
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/analyze`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -160,12 +181,15 @@ function _windowStrip(report) {
 }
 
 function _renderReport(report) {
+  _cpaApprox = !!report.baseline_approx;
+  const blLine = report.baseline_approx
+    ? `<div class="cpa-note" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : '';
   document.getElementById('cpa-report').innerHTML = `
     <div class="cpa-exports">
       <button class="btn-secondary" id="cpa-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="cpa-export-xlsx">Export Excel</button>
     </div>
-    ${_windowStrip(report)}
+    ${_windowStrip(report)}${blLine}
     ${_conclusionBanner(report)}
 
     <div class="cpa-sech">Execution dashboard</div>
@@ -504,7 +528,13 @@ function _barsMsVar(charts) {
 
 const _LANE_CLS = { baseline: 'bl', previous: 'prev', current: 'curr' };
 
-function _boxHtml(b, st) {
+// The current (and previous) update is measured against its own Planned dates standing in for
+// the baseline P6 names (none in the file, none attached): its BL finish / Planned / Slip are
+// approximate. The picked baseline's own lane is exact.
+let _cpaApprox = false;
+function _ax(role) { return _cpaApprox && role !== 'baseline' ? ' · approx' : ''; }
+
+function _boxHtml(b, st, role) {
   const flag = st === 'new' ? `<div class="cpa-newflag">NEW ON PATH</div>`
              : st === 'left' ? `<div class="cpa-dropflag">LEFT PATH</div>` : '';
   const cls = st === 'new' ? 'cpa-new' : st === 'left' ? 'cpa-left' : st === 'done' ? 'cpa-done' : '';
@@ -516,11 +546,11 @@ function _boxHtml(b, st) {
       <div class="cpa-bt">${escapeHtml(b.name || '')}</div>
       <div class="cpa-bcrumb">${escapeHtml(b.crumb || '')}</div>
       <div class="cpa-b4">
-        <div><div class="cpa-k">Planned</div><div class="cpa-v">${planned}</div></div>
+        <div><div class="cpa-k">Planned${_ax(role)}</div><div class="cpa-v">${planned}</div></div>
         <div><div class="cpa-k">Actual</div><div class="cpa-v">${actual}</div></div>
-        <div><div class="cpa-k">BL finish</div><div class="cpa-v">${_fdate(b.bl_finish)}</div></div>
+        <div><div class="cpa-k">BL finish${_ax(role)}</div><div class="cpa-v">${_fdate(b.bl_finish)}</div></div>
         <div><div class="cpa-k">Expected</div><div class="cpa-v">${_fdate(b.exp_finish)}</div></div>
-        <div class="cpa-full"><div class="cpa-k">Slip / Total float</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${slip} / ${tf}</div></div>
+        <div class="cpa-full"><div class="cpa-k">Slip${_ax(role)} / Total float</div><div class="cpa-v ${(b.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${slip} / ${tf}</div></div>
       </div></div>`;
 }
 
@@ -538,7 +568,7 @@ function _laneHtml(lane) {
       <div class="cpa-msflag">◆ Milestone</div>
       <div class="cpa-mst">${escapeHtml(ms.name || '')}</div>
       <div class="cpa-msr"><span>${role === 'baseline' ? 'BL finish' : 'Exp finish'}</span><b>${_fdate(finishVal)}</b></div>
-      <div class="cpa-msr"><span>Slip</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
+      <div class="cpa-msr"><span>Slip${_ax(role)}</span><b class="${(ms.slip_days || 0) > 0 ? 'cpa-bad' : ''}">${ms.slip_days == null ? '—' : _sign(ms.slip_days) + ' d'}</b></div>
     </div>`];
   const boxes = lane.boxes || [];
   const firstNew = boxes.findIndex(b => (b.state || 'stayed') === 'new');
@@ -549,7 +579,7 @@ function _laneHtml(lane) {
     // new critical path (Ibrahim: "remove the arrow before the new critical path").
     const arrowBefore = st !== 'left' && !(st === 'new' && i === firstNew);
     if (arrowBefore) parts.push(`<div class="cpa-arw">▸</div>`);
-    parts.push(_boxHtml(b, st));
+    parts.push(_boxHtml(b, st, role));
   });
   return `<div class="cpa-lane">
       <div class="cpa-lanehdr"><span class="cpa-lanetag ${_LANE_CLS[role] || ''}">${escapeHtml(lane.label || '')}</span>

@@ -7,6 +7,7 @@ call would bloat the bundle and complicate the build, so this makes the single
 ``POST /v1/messages`` call directly. It returns the parsed JSON object the model
 produced under structured outputs.
 """
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -62,9 +63,14 @@ def call_claude(request, api_key, *, timeout=120, _opener=None):
         except Exception:
             pass
         raise _friendly_http(e.code, body)
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+        # No answer in time (connect or read — TimeoutError is an OSError), offline, or the
+        # connection dropped mid-answer: a network problem, never "an unexpected response".
+        if isinstance(e, TimeoutError) or isinstance(getattr(e, 'reason', None), TimeoutError):
+            raise AiError('network', 'Could not reach the AI service — it did not answer in time. '
+                                     'Check your internet connection and try again.')
         raise AiError('network', 'Could not reach the AI service. Check your internet connection and try again.')
-    except (ValueError, TimeoutError):
+    except ValueError:
         raise AiError('bad_response', 'The AI service returned an unexpected response. Try again.')
 
     if payload.get('stop_reason') == 'refusal':

@@ -7,6 +7,7 @@
 #
 # Output: dist\Controlyx.exe  (single self-contained executable)
 
+import os
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
@@ -26,6 +27,9 @@ datas = [
                                           # which PyInstaller's graph can miss, so ship the whole
                                           # package (see collect_submodules below).
     ('config.json',    '.'),              # Config at root of bundle
+    ('CHANGELOG.md',   '.'),              # Release notes at the bundle root — utils.APP_VERSION
+                                          # (Help ▸ About, footer, /api/health) is read from its
+                                          # newest `## [vX.Y.Z]` heading: one version source.
     ('knowledge_base', 'knowledge_base'), # Construction Knowledge Base (data files)
     ('p6_prodintel',   'p6_prodintel'),   # Productivity & Resource Intelligence engine
     ('productivity_kb', 'productivity_kb'),# Productivity norm KB (component-based JSON data)
@@ -96,6 +100,11 @@ hiddenimports = [
     'p6_kb.scoring',
     # Shared report appearance themes (imported by every report renderer)
     'report_theme',
+    # Startup reliability (black-screen fixes): startup log, readiness handshake, single-
+    # instance guard, gated safe graphics. Imported by app.py + server.py; listed for safety.
+    'app_startup',
+    # Screen preferences kept across restarts (<app data>/ui_prefs.json). Imported by server.py.
+    'ui_prefs',
     # Special Report — registry + context + renderer + all built-in providers.
     # discover() uses importlib dynamically, so force every submodule to ship
     # (mirrors the p6_audit fix; a missing provider would show an empty catalog).
@@ -188,9 +197,49 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# ── Startup splash (startup DB-2) ─────────────────────────────────────────
+# The one-file exe unpacks ~1,000 files (~230 MB) into %TEMP%\_MEI* before Python even
+# starts; nothing was visible for those seconds, so the owner clicked again. The bootloader
+# shows this picture at once (its text line names each file being unpacked, then the start-up
+# stage) and app.py closes it as soon as the app window is on screen
+# (app_startup.close_splash). Not always-on-top. Picture: packaging/splash.png (made from
+# packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE;
+# the picture is committed — .gitignore has '!packaging/*.png').
+# If Tcl/Tk is missing on the build machine (PyInstaller raises SystemExit for that) a LOCAL
+# build is simply made without a splash. On the release runner (GITHUB_ACTIONS) any other
+# failure — e.g. the picture missing from the checkout — stops the build instead of silently
+# shipping an exe with no start-up picture.
+splash_parts = []
+if sys.platform == 'win32':
+    try:
+        sys.path.insert(0, SPECPATH)
+        from utils import APP_TITLE as _SPLASH_TITLE
+    except Exception:
+        _SPLASH_TITLE = ''
+    _splash_kw = dict(text_pos=(22, 256), text_size=9, text_color='#8a99bd',
+                      text_default=('Starting %s...' % _SPLASH_TITLE).replace('  ', ' '),
+                      minify_script=True, always_on_top=False)
+    for _drop in ((), ('always_on_top',)):          # older PyInstaller: no always_on_top
+        try:
+            _kw = {k: v for k, v in _splash_kw.items() if k not in _drop}
+            splash = Splash(str(Path(SPECPATH) / 'packaging' / 'splash.png'), binaries=a.binaries, datas=a.datas, **_kw)
+            splash_parts = [splash, splash.binaries]
+            break
+        except TypeError:
+            continue
+        except (Exception, SystemExit) as _exc:     # SystemExit = PyInstaller: no usable Tcl/Tk
+            _no_tcltk = isinstance(_exc, SystemExit)
+            if os.environ.get('GITHUB_ACTIONS') and not _no_tcltk:
+                print('::error::startup splash not built (%r) - the release exe would open '
+                      'with nothing on screen while it unpacks' % (_exc,))
+                raise
+            print('WARNING: startup splash not built (%r)' % (_exc,))
+            break
+
 exe = EXE(
     pyz,
     a.scripts,
+    *splash_parts,          # the startup splash (empty when not built)
     a.binaries,
     a.zipfiles,
     a.datas,

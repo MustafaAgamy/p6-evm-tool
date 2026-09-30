@@ -17,7 +17,6 @@ export never fails.
 """
 import os
 import re
-import subprocess
 import tempfile
 
 _MARKER_RE = re.compile(r'SECPGMARK-(\d+)-')
@@ -31,11 +30,9 @@ def chrome_pdf(html, chrome, pdf_path, timeout=180):
         fd, html_path = tempfile.mkstemp(suffix='.html')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(html)
-        subprocess.run(
-            [chrome, '--headless', '--disable-gpu', '--no-sandbox',
-             f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
-             f'file:///{html_path.replace(os.sep, "/")}'],
-            check=True, capture_output=True, timeout=timeout)
+        from p6_export.pdf import run_chrome          # the ONE tool-wide browser helper
+        run_chrome(chrome, [f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
+                            f'file:///{html_path.replace(os.sep, "/")}'], timeout=timeout)
     finally:
         if html_path and os.path.exists(html_path):
             try:

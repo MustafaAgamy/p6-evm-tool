@@ -58,7 +58,9 @@ def test_parses_project_and_baseline_nested_calendars(tmp_path):
     """P6 nests project calendars (Type=Project) inside <Project> and baseline calendars
     inside <BaselineProject>; only root-level <Calendar> used to be read, so an activity's
     calendar (e.g. '6 Days Per Week', used by nearly every activity) was left unresolved →
-    wrong working-time and a blank Delay. All calendars must be parsed, keyed by ObjectId."""
+    wrong working-time and a blank Delay. All calendars must be parsed, keyed by ObjectId.
+    The <BaselineProject>'s own calendars are parsed into data.baseline_calendars - NOT the
+    project calendar list - so the XML lists the same calendars as the XER (finding P11)."""
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<APIBusinessObjects>\n'
@@ -79,7 +81,9 @@ def test_parses_project_and_baseline_nested_calendars(tmp_path):
     assert 'GLOBAL1' in data.calendars           # root-level still parsed
     assert 'PROJCAL' in data.calendars           # project-nested now parsed (the fix)
     assert data.calendars['PROJCAL'].name == '6 Days Per Week'
-    assert 'BLCAL' in data.calendars             # baseline-nested parsed too
+    assert 'BLCAL' in data.baseline_calendars    # baseline-nested parsed too ...
+    assert 'BLCAL' not in data.calendars         # ... but kept out of the project's list (P11)
+    assert data.baseline_calendars['BLCAL'].name == 'Baseline Cal'
 
 def test_activity_fields_obj001(parsed):
     act = parsed.activities['OBJ001']

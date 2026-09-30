@@ -263,7 +263,9 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
     driving · counts · scope. `code_filter` = {'types': [...]} picks Section 2's charts;
     `scope_code` picks Section 5's activity-code dimension."""
     header = (f'<div class="rh"><div><h1>Update Analysis</h1>'
-              f'<div class="meta">{_e(report.get("project_name"))} · single-update read against its baseline</div></div>'
+              f'<div class="meta">{_e(report.get("project_name"))} · single-update read against its baseline</div>'
+              + (f'<div class="meta">Baseline: {_e(report.get("baseline_label"))}</div>' if report.get('baseline_label') else '')
+              + '</div>'
               f'<div class="win">Data date<br><b>{_fdate(report.get("data_date"))}</b>'
               f'<br>{_e(report.get("file") or "")}</div></div>')
     secs = [
