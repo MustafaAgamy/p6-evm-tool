@@ -1156,10 +1156,14 @@ def _code_pair(document, pair):
     Civil Work' continued (the title and header rows repeat as one row for both halves).
     So when the pair is unequal and its long half continues across pages, the halves are two
     tables: the long one breaks like any long table (its own title + header repeated, >= 3
-    rows a page) and the short one — small enough to be kept whole — FLOATS beside the long
-    one's first rows (Word's side-by-side tables), its rows kept with them, so it never
-    splits and never repeats on the next page. Two long halves of unequal length are stacked
-    (each breaks on its own). A pair that is kept whole, or of equal halves, stays one table."""
+    rows a page) and the short one — small enough to be kept whole — rides in a borderless
+    text box on a 1 pt line that keeps with the long one, in the other half beside its first
+    rows: it never splits and never repeats on the next page. (A floating table does NOT
+    work: Word leaves it where it stands, and splits it, when keep rules push the long table
+    to the next page.) The long table keeps its header + as many rows as the short one has
+    together, so the box always fits beside its first page part. Two long halves of unequal
+    length are stacked (each breaks on its own). A pair that is kept whole, or of equal
+    halves, stays one table."""
     if len(pair) == 2 and len(pair[0][1]) != len(pair[1][1]):
         try:
             from p6_export import docx_pagination as _dp
