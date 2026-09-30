@@ -1236,7 +1236,9 @@ def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
     box = p.find('.//' + qn('w:txbxContent'))
     tbl.getparent().remove(tbl)
     box.append(tbl)
-    box.append(OxmlElement('w:p'))                   # a text box ends with a paragraph
+    end = parse_xml(_TB_XML[:_TB_XML.index('<w:r>')] + '</w:p>')   # a text box ends with a
+    end.find(qn('w:pPr')).remove(end.find(qn('w:pPr')).find(qn('w:keepNext')))  # paragraph: 1 pt
+    box.append(end)
     return p
 
 
