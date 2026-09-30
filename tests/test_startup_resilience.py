@@ -527,14 +527,86 @@ def test_a_normal_launch_leaves_graphics_alone(tmp_path):
     assert not app_startup.previous_launch_failed(None)
 
 
+def _mutex_holder(name, hold_s, tmp_path, closed=False):
+    """Another copy in its own process: takes the instance mutex (like app.py), optionally
+    writes a 'window already closed' launch record for its pid, then lives ``hold_s``."""
+    import subprocess
+    import sys
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    record = ''
+    if closed:
+        record = ("open(%r, 'w').write(json.dumps({'pid': os.getpid(), 'ready': True, "
+                  "'closed_after_s': 9.0}));" % str(tmp_path / 'launch_state.json'))
+    code = ("import os, sys, time, json; sys.path.insert(0, %r); import app_startup;"
+            "ok = app_startup.single_instance(%r, 'cx-no-such-window', wait_s=0);"
+            "%s print('held', ok, flush=True); time.sleep(%r)" % (root, name, record, hold_s))
+    p = subprocess.Popen([sys.executable, '-c', code], stdout=subprocess.PIPE, text=True)
+    assert p.stdout.readline().strip() == 'held True'
+    return p
+
+
+def _mutex_name(tag):
+    return r'Local\cx-test-%s-%d-%d' % (tag, os.getpid(), int(time.time() * 1000))
+
+
 @pytest.mark.skipif(os.name != 'nt', reason='named mutex is Windows-only')
-def test_single_instance_never_blocks_without_a_usable_window():
-    name = 'Local\\cx-test-%d-%d' % (os.getpid(), int(time.time() * 1000))
-    title = 'cx-no-such-window-%d' % os.getpid()
-    assert app_startup.single_instance(name, title, wait_s=0) is True     # first owner
+def test_single_instance_waits_for_a_live_copy_without_a_window_then_launches(tmp_path):
+    name = _mutex_name('live')
+    holder = _mutex_holder(name, 5.0, tmp_path)
+    try:
+        t = time.monotonic()
+        assert app_startup.single_instance(name, 'cx-no-such-window', wait_s=0.6, poll_s=0.05) is True
+        assert 0.55 <= time.monotonic() - t < 3.0   # it waited for the starting copy's window
+        assert app_startup.STATE.get('other_copy') is True
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='named mutex is Windows-only')
+def test_single_instance_goes_on_as_soon_as_the_other_copy_exits(tmp_path):
+    """S2: the copy that is closing exits after ~1 s - the launch must go on right then,
+    not after the full 12-s wait (the owner's 'close and reopen')."""
+    name = _mutex_name('exit')
+    holder = _mutex_holder(name, 1.0, tmp_path)
     t = time.monotonic()
-    assert app_startup.single_instance(name, title, wait_s=0.3, poll_s=0.05) is True
-    assert time.monotonic() - t >= 0.25                   # it looked for the window first
+    assert app_startup.single_instance(name, 'cx-no-such-window', wait_s=12.0) is True
+    took = time.monotonic() - t
+    holder.wait()
+    assert took < 1.5, took
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='named mutex is Windows-only')
+def test_single_instance_does_not_wait_on_a_copy_whose_window_already_closed(tmp_path):
+    name = _mutex_name('closing')
+    holder = _mutex_holder(name, 5.0, tmp_path, closed=True)   # hung while shutting down
+    try:
+        t = time.monotonic()
+        assert app_startup.single_instance(name, 'cx-no-such-window', wait_s=12.0) is True
+        assert time.monotonic() - t < 1.0
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='named mutex is Windows-only')
+def test_single_instance_takes_over_the_mutex_after_a_timed_out_wait(tmp_path):
+    """A launch that stopped waiting (the other copy hung) takes the mutex over once that
+    copy exits, so the NEXT launch still finds a running copy to wait for."""
+    import subprocess
+    import sys
+    name = _mutex_name('take')
+    holder = _mutex_holder(name, 0.8, tmp_path)
+    assert app_startup.single_instance(name, 'cx-no-such-window', wait_s=0.1, poll_s=0.05) is True
+    holder.wait()
+    time.sleep(0.3)
+    assert app_startup._MUTEX_KEEPER.is_alive()          # it got the mutex and keeps it
+    probe = subprocess.run([sys.executable, '-c',
+        "import ctypes; k=ctypes.WinDLL('kernel32'); k.OpenMutexW.restype=ctypes.c_void_p;"
+        "k.WaitForSingleObject.argtypes=(ctypes.c_void_p, ctypes.c_ulong);"
+        "h=k.OpenMutexW(0x00100000, 0, %r); print(k.WaitForSingleObject(h, 0))" % name],
+        capture_output=True, text=True, timeout=30)
+    assert probe.stdout.strip() == '258'                  # WAIT_TIMEOUT: this copy owns it
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Win32 windows')

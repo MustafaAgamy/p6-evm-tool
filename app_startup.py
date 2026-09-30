@@ -834,13 +834,72 @@ def _running_copy_is_ready(hwnd):
         return False
 
 
+WAIT_OBJECT_0 = 0x0
+WAIT_ABANDONED = 0x80
+_MUTEX_KEEPER = None
+
+
+def _pid_alive(pid):
+    """True while process ``pid`` is still running (Windows); False when it has exited or
+    cannot be asked."""
+    import ctypes
+    if not pid:
+        return False
+    k32 = ctypes.windll.kernel32
+    SYNCHRONIZE = 0x00100000
+    h = k32.OpenProcess(SYNCHRONIZE, False, int(pid))
+    if not h:
+        return False
+    try:
+        return k32.WaitForSingleObject(h, 0) != WAIT_OBJECT_0
+    finally:
+        k32.CloseHandle(h)
+
+
+def _other_copy_is_closing():
+    """True when the newest launch record belongs to ANOTHER live process whose window has
+    already closed (end_launch wrote closed_after_s): that copy is shutting down and will
+    never show a window, so there is nothing to wait for."""
+    state = _read_json(_launch_state_path())
+    try:
+        pid = int((state or {}).get('pid') or 0)
+    except (TypeError, ValueError):
+        return False
+    return bool(state and 'closed_after_s' in state and pid and pid != os.getpid()
+                and _pid_alive(pid))
+
+
+def _keep_mutex_when_free(kernel32, handle):
+    """Take ownership of the instance mutex as soon as the copy that holds it exits, on a
+    thread that lives as long as this process — so the NEXT launch can tell when this copy
+    has gone (its wait ends at once instead of running out)."""
+    global _MUTEX_KEEPER
+    stop = threading.Event()
+
+    def keep():
+        INFINITE = 0xFFFFFFFF
+        try:
+            r = kernel32.WaitForSingleObject(handle, INFINITE)
+        except Exception:
+            return
+        if r in (WAIT_OBJECT_0, WAIT_ABANDONED):
+            stop.wait()                      # hold it until the process ends
+    t = threading.Thread(target=keep, name='instance-mutex', daemon=True)
+    t.start()
+    _MUTEX_KEEPER = t
+    return t
+
+
 def single_instance(name, title, wait_s=12.0, poll_s=0.25):
     """Return True to continue launching, False when another running copy's window was
-    brought to the front instead. Only a copy whose page is WORKING is brought forward;
-    a copy that is still starting is waited for up to ``wait_s``, and one that never
-    became ready (a black or blank window), is hung, or has no window at all never
-    blocks this launch. A copy started by relaunch_safe_graphics() does not wait on the
-    copy it replaces (that one is closing its never-shown window)."""
+    brought to the front instead. Only a copy whose page is WORKING is brought forward.
+    While another copy is starting (no window yet, or a window whose page is not ready)
+    this launch waits up to ``wait_s`` — but it continues AT ONCE when that copy exits
+    (the instance mutex is owned by the running copy for its whole life, so its exit
+    ends the wait) or when that copy's window has already closed (it is shutting down).
+    A copy that never became ready, is hung, or has no window never stops this launch.
+    A copy started by relaunch_safe_graphics() does not wait on the copy it replaces
+    (that one is closing its never-shown window)."""
     global _MUTEX
     if sys.platform != 'win32':
         return True
@@ -851,7 +910,11 @@ def single_instance(name, title, wait_s=12.0, poll_s=0.25):
         kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         kernel32.CreateMutexW.restype = ctypes.c_void_p
         kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p)
-        handle = kernel32.CreateMutexW(None, False, name)
+        kernel32.WaitForSingleObject.restype = ctypes.c_ulong
+        kernel32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_ulong)
+        # OWNED by the calling (main) thread, which lives as long as the process: when this
+        # copy exits the mutex is released/abandoned and a waiting launch goes on at once.
+        handle = kernel32.CreateMutexW(None, True, name)
         already = ctypes.get_last_error() == ERROR_ALREADY_EXISTS
         _MUTEX = handle                                 # keep it for the process lifetime
         if not already:
@@ -859,7 +922,9 @@ def single_instance(name, title, wait_s=12.0, poll_s=0.25):
         STATE['other_copy'] = True          # its WebView2 folder is not ours to reuse
         log('another copy is already running: looking for its window')
         deadline = time.monotonic() + max(0.0, wait_s)
+        poll_ms = max(1, int(poll_s * 1000))
         seen = False
+        told = False
         while True:
             hwnd = _find_window(title)
             if hwnd:
@@ -868,12 +933,25 @@ def single_instance(name, title, wait_s=12.0, poll_s=0.25):
                     _focus_window(hwnd)
                     log('brought the running copy to the front; this launch exits')
                     return False
+            if _other_copy_is_closing():
+                log('the running copy is closing (its window is already shut): launching')
+                _keep_mutex_when_free(kernel32, handle)
+                return True
+            if not told and wait_s > 0:
+                splash_text('Waiting for the copy that is already starting...')
+                told = True
+            left = deadline - time.monotonic()
+            r = kernel32.WaitForSingleObject(handle, max(0, min(poll_ms, int(left * 1000))))
+            if r in (WAIT_OBJECT_0, WAIT_ABANDONED):
+                # we own it now (on this thread) — the other copy has exited
+                log('the other copy has exited: launching')
+                return True
             if time.monotonic() >= deadline:
                 break
-            time.sleep(poll_s)
         log('the running copy %s: launching anyway' % (
             'never showed a working page' if seen else 'has no usable window'),
             level=logging.WARNING)
+        _keep_mutex_when_free(kernel32, handle)
         return True
     except Exception:
         log_exception('single-instance check failed: launching anyway')
