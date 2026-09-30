@@ -28,7 +28,6 @@ import base64
 import io
 import os
 import re
-import subprocess
 import tempfile
 from datetime import datetime
 from html.parser import HTMLParser
@@ -930,12 +929,11 @@ def _rasterize_section(fragment_html, css, mode, chrome):
             f.write(doc)
         fd2, png = tempfile.mkstemp(suffix='.png')
         os.close(fd2)
-        subprocess.run(
-            [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
-             '--window-size=920,1400', f'--screenshot={png}',
-             f'file:///{htmlpath.replace(os.sep, "/")}'],
-            check=True, capture_output=True, timeout=40)
+        from p6_export.pdf import run_chrome     # falls back past a browser that cannot start
+        run_chrome(chrome, ['--headless=new', '--hide-scrollbars',
+                            '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
+                            '--window-size=920,1400', f'--screenshot={png}',
+                            f'file:///{htmlpath.replace(os.sep, "/")}'], timeout=40)
         with open(png, 'rb') as f:
             data = f.read()
         return data or None
@@ -1096,19 +1094,16 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
     px = lambda pt: pt / _PT_PER_PX
     page_h = px(room_pt)
     first_top = page_h - px(first_room_pt)
-    htmlpath = pdf = prof = None
+    htmlpath = pdf = None
     try:
         fd, htmlpath = tempfile.mkstemp(suffix='.html')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(_section_print_doc(fragment_html, css, mode, page_h, first_top))
         fd2, pdf = tempfile.mkstemp(suffix='.pdf')
         os.close(fd2)
-        prof = tempfile.mkdtemp(prefix='cx_slice_')
-        subprocess.run(
-            [chrome, '--headless', '--disable-gpu', '--no-sandbox', f'--user-data-dir={prof}',
-             f'--print-to-pdf={pdf}', '--no-pdf-header-footer',
-             f'file:///{htmlpath.replace(os.sep, "/")}'],
-            check=True, capture_output=True, timeout=90)
+        from p6_export.pdf import run_chrome     # own profile dir + fallback past a browser
+        run_chrome(chrome, [f'--print-to-pdf={pdf}', '--no-pdf-header-footer',   # that cannot start
+                            f'file:///{htmlpath.replace(os.sep, "/")}'], timeout=90)
         out = []
         with pymupdf.open(pdf) as doc:
             for i, pg in enumerate(doc):
@@ -1134,8 +1129,6 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
                     os.remove(p)
             except Exception:
                 pass
-        if prof:
-            shutil.rmtree(prof, ignore_errors=True)
 
 
 def _add_slice(document, png, height_pt, max_pt):

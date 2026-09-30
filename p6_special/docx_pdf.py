@@ -20,7 +20,6 @@ unavailable, so the export never hard-fails.
 """
 import io
 import os
-import subprocess
 import tempfile
 
 
@@ -34,17 +33,16 @@ _DPI = 200.0
 
 def _html_to_pdf(html, chrome, pdf_path):
     """Print ``html`` to ``pdf_path`` with the SAME Chrome invocation the PDF export
-    uses (``--headless --print-to-pdf --no-pdf-header-footer``) so the bytes match."""
+    uses (``--headless --print-to-pdf --no-pdf-header-footer``) so the bytes match — with the
+    same fallback past a browser that cannot start (:func:`p6_export.pdf.run_chrome`)."""
+    from p6_export.pdf import run_chrome
     html_path = None
     try:
         fd, html_path = tempfile.mkstemp(suffix='.html')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(html)
-        subprocess.run(
-            [chrome, '--headless', '--disable-gpu', '--no-sandbox',
-             f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
-             f'file:///{html_path.replace(os.sep, "/")}'],
-            check=True, capture_output=True, timeout=180)
+        run_chrome(chrome, [f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
+                            f'file:///{html_path.replace(os.sep, "/")}'], timeout=180)
     finally:
         if html_path and os.path.exists(html_path):
             try:

@@ -3566,12 +3566,10 @@ class Handler(BaseHTTPRequestHandler):
                     tmp.write(html_str)
                     html_path = tmp.name
                 try:
-                    subprocess.run([
-                        chrome, '--headless', '--disable-gpu', '--no-sandbox',
-                        f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
-                        f'file:///{html_path.replace(os.sep, "/")}',
-                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                        timeout=180)
+                    # falls back past a browser that cannot start (a broken Playwright build)
+                    from p6_export.pdf import run_chrome
+                    run_chrome(chrome, [f'--print-to-pdf={out_pdf}', '--no-pdf-header-footer',
+                                        f'file:///{html_path.replace(os.sep, "/")}'], timeout=180)
                 finally:
                     try:
                         os.unlink(html_path)
