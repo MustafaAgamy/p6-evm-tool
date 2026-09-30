@@ -1189,8 +1189,8 @@ def _code_pair(document, pair):
                     for c in row.cells:
                         for p in c.paragraphs:
                             p.paragraph_format.keep_with_next = True
-                if lk == 1:
-                    long_t.alignment = WD_TABLE_ALIGNMENT.RIGHT
+                if lk == 1:                     # in the right column, exactly where the right
+                    _table_indent(long_t, sum(_CODE_PAIR_W[:3]))   # half of a one-table pair sits
                 return long_t
             # both halves continue: stacked in reading order, each breaks on its own
             first, second = (long_t, short_t) if lk == 0 else (short_t, long_t)
@@ -1199,6 +1199,29 @@ def _code_pair(document, pair):
             return second
         long_t._tbl.getparent().remove(long_t._tbl)                 # a small pair: one table
     return _code_pair_table(document, pair)
+
+
+def _table_indent(t, inches):
+    """Left-align table ``t`` and indent it ``inches`` from the left margin (w:tblInd, dxa).
+    A right-aligned table was pushed to the right text margin — onto the page border and
+    0.57 in right of the column every other right-hand code table uses (NARRFIX)."""
+    tblPr = t._tbl.tblPr
+    for tag in ('w:jc', 'w:tblInd'):
+        for el in tblPr.findall(qn(tag)):
+            tblPr.remove(el)
+    ind = OxmlElement('w:tblInd')
+    ind.set(qn('w:w'), str(int(round(inches * 1440))))
+    ind.set(qn('w:type'), 'dxa')
+    # schema order (CT_TblPr): tblStyle, tblpPr, tblOverlap, bidiVisual, tblStyleRowBandSize,
+    # tblStyleColBandSize, tblW, jc, tblCellSpacing, tblInd, tblBorders, shd, tblLayout, …
+    after = [qn('w:' + n) for n in ('tblStyle', 'tblpPr', 'tblOverlap', 'bidiVisual',
+                                    'tblStyleRowBandSize', 'tblStyleColBandSize', 'tblW',
+                                    'jc', 'tblCellSpacing')]
+    k = 0
+    for i, ch in enumerate(tblPr):
+        if ch.tag in after:
+            k = i + 1
+    tblPr.insert(k, ind)
 
 
 _TB_XML = (
@@ -1280,14 +1303,16 @@ def _code_grid(document, n, widths):
             _no_space(cell)
             cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
     _row_h(t.rows[0], 22, exact=False)
-    _row_h(t.rows[1], 18)
+    _row_h(t.rows[1], 18, exact=False)
     return t
 
 
 def _code_head_rows(t):
-    """Code rows 18 pt; every row cantSplit; the title AND 'Code Value' header rows repeat."""
+    """Code rows AT LEAST 18 pt (a long description wraps onto a second line — an EXACT
+    18 pt row cut it off: 'Delivery Bins.Mechanical Inst. Seq.' lost 'Seq.', NARRFIX); every
+    row cantSplit; the title AND 'Code Value' header rows repeat."""
     for rr in t.rows[2:]:
-        _row_h(rr, 18)
+        _row_h(rr, 18, exact=False)
     _keep_table_together(t, header=True)             # every row cantSplit, title row repeats
     th = OxmlElement('w:tblHeader')                   # … and the Code Value header row too
     th.set(qn('w:val'), 'true')

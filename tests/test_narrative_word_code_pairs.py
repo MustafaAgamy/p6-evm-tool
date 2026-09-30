@@ -111,8 +111,37 @@ def test_a_short_table_left_of_a_long_one_sits_in_the_left_half():
     anchor, st = _box_before(d, lt)
     assert st is not None and _text(st).startswith('5 · EXC - EXC Movement')
     assert _box_x(anchor) <= 0                            # left margin
-    jc = lt.find(qn('w:tblPr')).find(qn('w:jc'))
-    assert jc is not None and jc.get(qn('w:val')) in ('right', 'end')
+    # the long table sits in the RIGHT column of a one-table pair: left-aligned, indented by
+    # the left half + gap (a right-aligned table ran onto the page border - NARRFIX)
+    tblPr = lt.find(qn('w:tblPr'))
+    jc = tblPr.find(qn('w:jc'))
+    assert jc is None or jc.get(qn('w:val')) in ('left', 'start')
+    ind = tblPr.find(qn('w:tblInd'))
+    assert ind is not None and ind.get(qn('w:type')) == 'dxa'
+    assert int(ind.get(qn('w:w'))) == int(round(sum(W._CODE_PAIR_W[:3]) * 1440)) == 5184
+    kids = [c.tag.split('}')[1] for c in tblPr]           # schema order kept (Word rejects others)
+    assert kids.index('tblInd') > kids.index('tblW')
+
+
+def test_code_rows_grow_with_a_wrapped_description():
+    """A code row is AT LEAST 18 pt, never EXACTLY: an exact row cut the second line of a
+    long description off ('Delivery Bins.Mechanical Inst. Seq.' lost 'Seq.' - NARRFIX)."""
+    long_desc = 'Delivery Bins.Mechanical Inst. Seq. and a longer tail that surely wraps'
+    tabs = {'tables': [{'dimension': 'MECH.MOV. - Silo Name',
+                        'rows': [{'code': 'DE.MECH', 'description': long_desc}]
+                        + [{'code': f'S{i}.MECH', 'description': f'Silo {i}.Mechanical Inst. Seq.'}
+                           for i in range(1, 9)]},
+                       _table('EX.MOV. - Silo Name', 40, 'E'),       # a long partner (boxed layout)
+                       _table('Main WBS', 5, 'W'), _table('Design Cycle', 5, 'D')]}   # one-table pair
+    d = _doc(tabs)
+    tables = [el for el in d.element.body.iter(_TBL)]
+    assert len(tables) >= 3
+    for tbl in tables:
+        for tr in tbl.findall(_TR):
+            trh = tr.find(qn('w:trPr')).find(qn('w:trHeight'))
+            assert trh is not None
+            assert trh.get(qn('w:hRule')) != 'exact', _text(tr)
+            assert int(trh.get(qn('w:val'))) >= 18 * 20
 
 
 def test_small_pairs_stay_one_table_and_two_long_halves_are_stacked():
@@ -224,3 +253,65 @@ def test_word_one_table_pair_is_flagged_and_the_boxed_layout_is_clean(tmp_path, 
             nxt = items[j + 1]
             assert nxt['k'] == 'table' and nxt['page'] == it['page']      # … beside its partner
             assert it['shape_h'] <= 22 + 18 + 18 * 4 + 8                   # the box is the table's height
+
+
+def _word_table_edges(path):
+    """Word's own geometry (COM) of every table: {title: (left, right)} in points from the
+    page's left edge, measured on the first code row (cell text x - left padding, + width)."""
+    import pythoncom
+    import win32com.client as wc
+    pythoncom.CoInitialize()
+    word = wc.DispatchEx('Word.Application')
+    out = {}
+    try:
+        word.Visible = False
+        word.DisplayAlerts = 0
+        doc = word.Documents.Open(str(path), False, True, False)
+        try:
+            doc.Repaginate()
+            ps = doc.PageSetup
+            out['_page'] = (ps.PageWidth, ps.LeftMargin, ps.RightMargin)
+            for ti in range(1, doc.Tables.Count + 1):
+                tb = doc.Tables(ti)
+                title = tb.Range.Text.replace('\r\x07', ' | ').replace('\x07', '').strip()[:30]
+                row = tb.Rows(3)
+                cells = [row.Cells(k) for k in range(1, row.Cells.Count + 1)]
+                xs = []
+                for c in cells:
+                    at = doc.Range(c.Range.Start, c.Range.Start)
+                    x0 = at.Information(5) - c.LeftPadding
+                    xs.append((x0, x0 + c.Width))
+                out[title] = xs
+        finally:
+            doc.Close(False)
+    finally:
+        try:
+            word.Quit(False)
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
+    return out
+
+
+def test_word_a_long_right_hand_table_sits_in_the_right_column_inside_the_frame(tmp_path):
+    """Word proof (NARRFIX): the long RIGHT-hand table of an unequal pair (its short partner in
+    the left box) sits exactly in the right column of a one-table pair — its right edge at or
+    inside that column's edge and well inside the double page border (a right-aligned table
+    ran onto the border at 570.6 pt, GBT Word p26 '22 · EX.MOV. - Silo Name')."""
+    _need_word()
+    tabs = {'tables': [_table('Main WBS', 5, 'W'), _table('Design Cycle', 5, 'D'),     # one-table pair
+                       _table('EXC - EXC Movement', 1, 'X'), _table('EX.MOV. - Silo Name', 40, 'M')]}
+    d = _doc(tabs)
+    T.add_page_border(d.sections[0])
+    path = tmp_path / 'right.docx'
+    d.save(str(path))
+    geo = _word_table_edges(path)
+    page_w = geo['_page'][0]
+    border_x = page_w - 24.0                              # w:pgBorders offsetFrom=page, space 24 pt
+    pair = next(v for k, v in geo.items() if k.startswith('1 · Main WBS'))
+    long_ = next(v for k, v in geo.items() if k.startswith('4 · EX.MOV.'))
+    pair_left, pair_right = pair[3][0], pair[4][1]        # the right half: columns 4-5
+    l_left, l_right = long_[0][0], long_[-1][1]
+    assert abs(l_left - pair_left) <= 1.5, (l_left, pair_left)
+    assert l_right <= pair_right + 1.5, (l_right, pair_right)
+    assert l_right <= border_x - 20, (l_right, border_x)
