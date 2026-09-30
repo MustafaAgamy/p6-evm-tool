@@ -30,7 +30,8 @@ Defects (``flags``):
                                 where it has no rows left
   graphic_cut                   a chart / diagram / picture is cut by the page break (part
                                 on each page, or clipped by the sheet edge)
-  text_cut                      text runs off the sheet (content overflowed the page)
+  text_cut                      text runs off the sheet (content overflowed the page), or
+                                (Word) a table cell's text is clipped by an EXACT row height
   content_in_margin             a page's content starts inside the top margin (the page lost
                                 its margin / running header — an overflow page)
   large_blank_then_continuation a page ends more than 40 % blank and the next page goes on
@@ -1045,6 +1046,9 @@ def word_layout(path):
                         if rows[-1]['n'] >= 4:        # a wide row: which cells hold text (side-by-side parts)
                             rows[-1]['cells'] = [bool(c.Range.Text.replace('\r', '').replace('\x07', '').strip())
                                                  for c in row.Cells]
+                        cut = _w_exact_row_cut(doc, row)
+                        if cut:
+                            rows[-1]['cut'] = cut
                     # the row that ENDS a page fragment: where its tallest cell's last line sits
                     # (a wrapped last row is taller than the table's usual row step, so the
                     # fragment height is not under-counted - a table of 40 % of a page read as
@@ -1120,6 +1124,40 @@ def word_layout(path):
             pass
         pythoncom.CoUninitialize()
     return res
+
+
+EXACT_ROW_LINE = 1.15      # a text line is ~1.15 x its font size (Times / Calibri single spacing)
+EXACT_ROW_TOL = 1.0        # pt of slack before an EXACT-height row counts as clipping its text
+
+
+def _w_exact_row_cut(doc, row):
+    """A row whose height is EXACT (``wdRowHeightExactly``) clips whatever does not fit: Word
+    still lays the lines out, so the first and last character of each cell give the height its
+    text needs. Returns ``{'cell', 'need', 'have', 't'}`` for the worst clipped cell, else None
+    (SG Word §15.2: a 4-line crew cell in a 40 pt row lost '+15 more', NARRFIX)."""
+    try:
+        if row.HeightRule != 2:              # wdRowHeightExactly
+            return None
+        have = float(row.Height)
+        worst = None
+        for ci, c in enumerate(row.Cells):
+            r = c.Range
+            txt = r.Text.replace('\r\x07', '').replace('\x07', '').strip()
+            if not txt:
+                continue
+            s, e = r.Start, max(r.Start, r.End - 2)
+            y0 = doc.Range(s, s).Information(6)
+            y1 = doc.Range(e, e).Information(6)
+            fs = doc.Range(e, e + 1).Font.Size or 10
+            if fs > 200:                     # wdUndefined (mixed sizes): take the cell's first
+                fs = doc.Range(s, s + 1).Font.Size or 10
+            need = (y1 - y0) + fs * EXACT_ROW_LINE
+            if need > have + EXACT_ROW_TOL and (worst is None or need - have > worst['need'] - worst['have']):
+                worst = {'cell': ci + 1, 'need': round(need, 1), 'have': round(have, 1),
+                         't': ' '.join(txt.split())[:60]}
+        return worst
+    except Exception:
+        return None
 
 
 def _w_heading_table(it):
@@ -1347,6 +1385,16 @@ def analyze_word_layout(layout):
     for p in range(1, (npages or 0) + 1):
         if p not in covered and npages > 1:
             flags.append(_flag('empty_page', p, 'the page has nothing on it'))
+    for it in items:                          # text clipped inside an EXACT-height table row
+        if it.get('k') != 'table':
+            continue
+        for rw in it.get('rows') or []:
+            cut = rw.get('cut')
+            if cut:
+                flags.append(_flag('text_cut', rw.get('page') or it['page'],
+                                   f"a table cell's text is cut off by its exact row height: "
+                                   f"cell {cut['cell']} {cut['t']!r} needs ~{cut['need']:.0f} pt, "
+                                   f"the row is {cut['have']:.0f} pt"))
     for p in sorted(last_on):
         e, it, j = last_on[p]
         if p + 1 not in first_on:
