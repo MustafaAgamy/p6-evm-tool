@@ -67,6 +67,25 @@ def test_body_text_and_long_groups_are_left_free():
     assert _kwn_texts(out) == ['Short', 'x'], out
 
 
+def test_section_intro_over_titled_table_blocks_is_not_chained_into_them():
+    """GBT Studio .doc: "35 Activity Codes" + its intro + "1 · Main WBS" + an 11-row code table
+    were one chained block (the intro kept with the first titled table block) and Word pushed it
+    whole, leaving page 75 40 % blank. An intro that opens several TITLED table blocks stays with
+    the section heading only; each block's own title keeps with its table."""
+    tbl = '<table><tr><th>Code</th><th>Description</th></tr>' + '<tr><td>A</td><td>b</td></tr>' * 11 + '</table>'
+    html = ('<div class="srf-narrative"><p>The baseline uses the following activity-code structures.</p>'
+            '<div class="codes"><div><div class="ct">1 &middot; Main WBS</div>' + tbl + '</div>'
+            '<div><div class="ct">2 &middot; Design Cycle</div>' + tbl + '</div></div></div>')
+    out = DP.paginate_word_html(html)
+    kept = _kwn_texts(out)
+    assert 'The baseline uses the following activity-code structures.' not in kept, kept
+    assert '1 &middot; Main WBS' in kept and '2 &middot; Design Cycle' in kept, kept   # title with table
+    # control: an intro right over ONE block without a title of its own still keeps with it
+    plain = ('<div class="box"><p>Share of the scope by type of work.</p>'
+             '<div class="rows"><div>Pile Works</div><div>57.6%</div></div></div>')
+    assert _kwn_texts(DP.paginate_word_html(plain))[0] == 'Share of the scope by type of work.'
+
+
 def test_heading_table_and_data_tables_keep_rules():
     head = ('<table class="sr-sec-h"><tr><td><span class="sr-num">7</span></td>'
             '<td>Delay in working days</td></tr></table>')

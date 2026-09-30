@@ -265,9 +265,26 @@ def _line_groups(toks):
                 and 0 < nd['chars'] <= LABEL_MAX_CHARS
                 and not any(toks[j][0] in ('start', 'startend') and toks[j][1] in _BLOCK
                             or (toks[j][0] == 'data' and not _WS_RE.match(toks[j][2]))
-                            for j in range(par['start'] + 1, nd['start']))):
+                            for j in range(par['start'] + 1, nd['start']))
+                and not _opens_titled_block(par['kids'][1], toks)):
             keep.append(nd['start'])
     return keep
+
+
+def _opens_titled_block(sib, toks):
+    """True when ``sib`` is a block holding a table / picture that opens with its OWN short title
+    (``1 · Main WBS`` over a code table). An intro over such blocks stays with the section heading
+    only: chaining it into the first titled block (whose title already keeps with its table) made
+    heading + intro + title + table one block Word pushed whole (GBT Studio .doc: 40 % blank)."""
+    if not sib['block'] or not sib['kids']:
+        return False
+    s = sib
+    while s['kids']:
+        if any(toks[j][0] == 'data' and not _WS_RE.match(toks[j][2])
+               for j in range(s['start'] + 1, s['kids'][0]['start'])):
+            return False                        # text before the first child: no own title
+        s = s['kids'][0]
+    return _leaf(s) and 0 < s['chars'] <= LABEL_MAX_CHARS
 
 
 def _unsplit_rows(toks):
