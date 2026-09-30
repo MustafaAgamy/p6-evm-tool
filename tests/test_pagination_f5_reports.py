@@ -228,3 +228,45 @@ def test_a_note_under_cards_does_not_travel_with_the_next_heading_in_word():
     by = {getattr(b, 'text', ''): b for b in flat if b.kind in ('paragraph', 'heading')}
     assert by['Kicker line'].keep_with_next is True
     assert by['Short note under the table.'].keep_with_next is False
+
+
+# ── EVM-PDF-1 ───────────────────────────────────────────────────────────────────
+def _appr_header_and_last_value(html, chrome, folder, name):
+    """(x1 of the table's 'Appr %' header or None, page width, is the last Appr value
+    printed) for the EVM report printed exactly as the renderer emits it."""
+    import pymupdf
+    from p6_export.pdf import run_chrome
+    src, out = os.path.join(folder, name + '.html'), os.path.join(folder, name + '.pdf')
+    with open(src, 'w', encoding='utf-8') as fh:
+        fh.write(html)
+    run_chrome(chrome, [f'--print-to-pdf={out}', '--no-pdf-header-footer',
+                        'file:///' + src.replace(os.sep, '/')], timeout=120)
+    with pymupdf.open(out) as d:
+        heads = [(r, p.rect.width) for p in d for r in p.search_for('Appr %')
+                 if not p.search_for('Actual APP ÷ Req') or r.y0 > p.search_for('Actual APP ÷ Req')[0].y1]
+        last = any('7.0%' in p.get_text() for p in d)
+        width = d[0].rect.width
+    return (heads[0][0].x1 if heads else None), width, last
+
+
+def test_evm_engineering_table_prints_every_column_without_a_scrollbar():
+    """GBT: 'Engineering progress - drawings by trade' kept its screen overflow-x:auto box
+    in print - a scrollbar was drawn under the table and the right-hand 'Appr %' column was
+    cut. The shared print layer shows scroll boxes in full and fits the table to the page."""
+    from p6_evm.evm_report import render_evm_report
+    chrome = _chrome_or_skip()
+    rows = [{'trade': t, 'submittal_type': s, 'req': 19, 'planned_sub': 0, 'actual_sub': 2,
+             'planned_appr': 0, 'actual_appr': 1, 'actual_sub_pct': 8.0,
+             'actual_appr_pct': 5.0 + i}
+            for i, (t, s) in enumerate([('Arch.', 'Detailed Design'), ('Civil', 'Schematic Design'),
+                                        ('MEP', 'Shop Drawing')])]
+    html = render_evm_report(_evm_result(4), META, engineering={'mode': 'P6', 'rows': rows})
+    assert 'overflow-x:auto' in html                        # the screen keeps its scroll box
+    bare = re.sub(r'<style id="rpt-pagination">.*?</style><script id="rpt-pagination-js">.*?</script>',
+                  '', html, flags=re.S)
+    assert bare != html
+    with tempfile.TemporaryDirectory() as folder:
+        x_before, _, last_before = _appr_header_and_last_value(bare, chrome, folder, 'before')
+        x_after, width, last_after = _appr_header_and_last_value(html, chrome, folder, 'after')
+    assert x_before is None and not last_before             # without the layer: column cut
+    assert x_after is not None and x_after <= width - 30 and last_after, (x_after, width)
