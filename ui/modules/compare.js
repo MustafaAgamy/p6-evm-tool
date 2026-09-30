@@ -9,7 +9,7 @@ import { showError, clearError } from './render.js';
 import { escapeHtml }        from './format.js';
 import { getSavedMode }      from './appearance.js';
 import { showReportPreview } from './preview.js';
-import { revealAndRun }      from './featurereveal.js';
+import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
 import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
 
 // The report-appearance mode chosen in this panel's PDF preview modal — remembered
@@ -840,6 +840,8 @@ export async function runConsultantReview() {
   // comparison computes + renders — same experience as every other feature.
   revealAndRun(body, 'Consultant Review', async () => {
     if (body) body.innerHTML = '<div class="cmp-loading">Comparing against the baseline…</div>';
+    revealStage('Reading the baseline and comparing');
+    const stages = followRunStages(state.serverPort);     // the bar names the server's real step
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -847,8 +849,9 @@ export async function runConsultantReview() {
           baseline_path: path,
           update_path: state.currentXmlPath,
           cached_path: state.currentCachedPath,
+          run_id: stages.id,
         }),
-      });
+      }).finally(stages.stop);
       const data = await resp.json();
       if (!data.ok) { showError(data.error || 'Comparison failed.'); _renderComparePrompt(); return; }
       state.compareReport = data.report;

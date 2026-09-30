@@ -6,6 +6,8 @@ import { fmtDate, escapeHtml } from './format.js';
 
 const DAY = 86400000;
 const LBLW = 248;
+const ROW_H = 30, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
+const GANTT_BLOCK = 60;         // rows per lazily laid-out block
 
 export function renderSchedule(result) {
   const el = document.getElementById('schedule-body');
@@ -42,27 +44,40 @@ export function renderSchedule(result) {
   }
   const ddx = (dd != null && !Number.isNaN(dd)) ? xOf(dd) : null;
 
-  // group by top-level WBS, ordered by earliest start
-  const groups = {};
-  for (const a of acts) (groups[a.wbs_top || 'Ungrouped'] ??= []).push(a);
-  const order = Object.keys(groups).sort((ga, gb) =>
-    Math.min(...groups[ga].map(x => toMs(x.start))) - Math.min(...groups[gb].map(x => toMs(x.start))));
+  // group by top-level WBS, ordered by earliest start (each date parsed ONCE, not per compare)
+  const groups = {}, first = {};
+  for (const a of acts) {
+    const g = a.wbs_top || 'Ungrouped', sMs = toMs(a.start);
+    (groups[g] ??= []).push({ a, sMs, fMs: toMs(a.finish) });
+    if (!(first[g] <= sMs)) first[g] = sMs;
+  }
+  const order = Object.keys(groups).sort((ga, gb) => first[ga] - first[gb]);
 
-  let rows = '';
+  // Rows are built in blocks of GANTT_BLOCK lines; each block carries its exact height, so
+  // the browser lays out only the blocks on screen (content-visibility) — a 6,000-activity
+  // schedule then opens without a long freeze of the Run bar (owner comment 36).
+  const blocks = [];
+  let blk = '', blkH = 0, blkN = 0;
+  const push = (html, h) => {
+    blk += html; blkH += h; blkN++;
+    if (blkN >= GANTT_BLOCK) { blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`); blk = ''; blkH = 0; blkN = 0; }
+  };
   for (const g of order) {
-    rows += `<div class="g-grp"><div class="g-lbl g-grp-lbl">${escapeHtml(g)}</div><div class="g-track"></div></div>`;
-    for (const a of groups[g].sort((x, y) => toMs(x.start) - toMs(y.start))) {
-      const left = xOf(toMs(a.start));
-      const w = Math.max(3, xOf(toMs(a.finish)) - left);
+    push(`<div class="g-grp"><div class="g-lbl g-grp-lbl">${escapeHtml(g)}</div><div class="g-track"></div></div>`, GRP_H);
+    for (const { a, sMs, fMs } of groups[g].sort((x, y) => x.sMs - y.sMs)) {
+      const left = xOf(sMs);
+      const w = Math.max(3, xOf(fMs) - left);
       const lbl = `<div class="g-lbl"><b>${escapeHtml(a.id)}</b><span>${escapeHtml(a.name)}</span></div>`;
       const bar = a.milestone
         ? `<div class="g-ms" style="left:${(left - 6).toFixed(1)}px" title="Milestone"></div>`
         : `<div class="g-bar${a.critical ? ' crit' : ''}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px">
              <span class="g-fill" style="width:${Math.max(0, Math.min(100, a.pct))}%"></span></div>
            <span class="g-plabel" style="left:${(left + w + 6).toFixed(1)}px">${a.pct}%</span>`;
-      rows += `<div class="g-row">${lbl}<div class="g-track">${bar}</div></div>`;
+      push(`<div class="g-row">${lbl}<div class="g-track">${bar}</div></div>`, ROW_H);
     }
   }
+  if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
+  const rows = blocks.join('');
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt)</h2>
@@ -71,7 +86,7 @@ export function renderSchedule(result) {
         <span class="ov-chip">data date <b>${fmtDate(result.data_date)}</b></span>
         <span class="ov-chip"><i class="g-key"></i>on track &nbsp;<i class="g-key crit"></i>critical</span>
       </div></div></div>
-    <div class="g-wrap"><div class="g-inner" style="--trackw:${trackW}px">
+    <div class="g-wrap"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
       <div class="g-scale"><div class="g-lbl g-scale-lbl">Activity</div>
         <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>data date</span></div>` : ''}</div></div>
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(${LBLW}px + ${ddx.toFixed(1)}px)"></div>` : ''}</div>

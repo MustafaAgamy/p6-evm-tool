@@ -1,0 +1,198 @@
+"""Owner comment 36 (no wait after Run) — RUNUX-02: the Reporting Studio catalog must not do the
+same heavy work twice. Two duplicates made it cost seconds on every open:
+
+* ``p6_update.analysis.scope_all`` recomputed the construction filter (a WBS-ancestry walk over
+  every activity) once PER activity-code dimension — 27x on Grain Bulk;
+* ``p6_narrative.resload.read_resource_meta`` re-parsed the whole schedule file for §13 and
+  again for §15.
+
+Both are pure functions of the schedule, so doing them once must give identical results.
+"""
+import os
+
+import pytest
+
+from tests.test_update_analysis import _xml, _parse_and_compute
+
+
+def _two_dim_schedule():
+    return _parse_and_compute(_xml('2025-07-02', [
+        (10, 'M1', 'Mech 1', 0.7, '2025-01-01', '2025-12-31', 80, 100,
+         {'Discipline': 'Mechanical', 'Area': 'Zone A'}),
+        (11, 'C1', 'Civil 1', 0.2, '2025-01-01', '2025-12-31', 800, 100,
+         {'Discipline': 'Civil', 'Area': 'Zone B'}),
+        (12, 'C2', 'Civil 2', 0.5, '2025-02-01', '2025-11-30', 400, 100,
+         {'Discipline': 'Civil', 'Area': 'Zone A'}),
+    ]))[0]
+
+
+def test_scope_all_works_out_the_construction_filter_once(monkeypatch):
+    import p6_compare.report as cr
+    from p6_update.analysis import scope_all, scope_weights
+    data = _two_dim_schedule()
+    assert len(data.activity_code_types) >= 2
+
+    # the per-dimension answer, exactly as before (each call works out its own filter)
+    expected = {}
+    for t in data.activity_code_types:
+        s = scope_weights(data, t)
+        if s['rows']:
+            expected[t] = s
+    assert expected, 'fixture is cost-loaded'
+
+    real, calls = cr._construction_codes, []
+    monkeypatch.setattr(cr, '_construction_codes', lambda d: (calls.append(1), real(d))[1])
+    got = scope_all(data)
+    assert len(calls) == 1, f'construction filter worked out {len(calls)} times'
+    assert got == expected                          # identical numbers + recommendations
+
+
+def test_scope_weights_alone_still_filters_to_construction():
+    from p6_update.analysis import scope_weights
+    data = _two_dim_schedule()
+    with_filter = scope_weights(data, 'Discipline')
+    no_filter = scope_weights(data, 'Discipline', construction_only=False)
+    assert with_filter['rows'] and no_filter['rows']
+
+
+_XER = ('ERMHDR\t8.0\n'
+        '%T\tUMEASURE\n%F\tunit_id\tunit_abbrev\tunit_name\n%R\t1\tm3\tMETR CUBED\n'
+        '%T\tRSRC\n%F\trsrc_id\trsrc_type\tunit_id\n'
+        '%R\t100\tRT_Labor\t\n%R\t200\tRT_Mat\t1\n%E\n')
+
+
+@pytest.fixture
+def resload_fresh(monkeypatch):
+    from p6_narrative import resload
+    monkeypatch.setattr(resload, '_META_CACHE', {})
+    calls = []
+    real = resload._res_from_xer
+    monkeypatch.setattr(resload, '_res_from_xer', lambda p: (calls.append(p), real(p))[1])
+    return resload, calls
+
+
+def test_resource_meta_is_read_once_per_file(tmp_path, resload_fresh):
+    resload, calls = resload_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER, encoding='utf-8')
+    a = resload.read_resource_meta(str(p))
+    b = resload.read_resource_meta(str(p))
+    assert a == b == {'100': {'type': 'RT_Labor', 'unit': None}, '200': {'type': 'RT_Mat', 'unit': 'm3'}}
+    assert len(calls) == 1, 'second section re-read the whole file'
+    a['100']['type'] = 'changed'                    # each caller gets its own copy
+    assert resload.read_resource_meta(str(p))['100']['type'] == 'RT_Labor'
+
+
+def test_resource_meta_rereads_a_changed_file(tmp_path, resload_fresh):
+    resload, calls = resload_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER, encoding='utf-8')
+    resload.read_resource_meta(str(p))
+    p.write_text(_XER.replace('%R\t100\tRT_Labor\t\n', '%R\t100\tRT_Equip\t\n%R\t300\tRT_Labor\t\n'),
+                 encoding='utf-8')
+    st = os.stat(p)
+    os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns + 10_000_000))
+    again = resload.read_resource_meta(str(p))
+    assert len(calls) == 2
+    assert again['100']['type'] == 'RT_Equip' and '300' in again
+
+
+def test_resource_meta_missing_file_is_empty(tmp_path, resload_fresh):
+    resload, _ = resload_fresh
+    assert resload.read_resource_meta(str(tmp_path / 'nope.xer')) == {}
+    assert resload.read_resource_meta(None) == {}
+
+
+# ── the activity-code catalog (§ code breakdowns) is read once per file too ───────────────────
+_XER_CODES = ('ERMHDR\t8.0\n'
+              '%T\tACTVTYPE\n%F\tactv_code_type_id\tactv_code_type\n%R\t7\tDiscipline\n'
+              '%T\tACTVCODE\n%F\tactv_code_id\tactv_code_type_id\tshort_name\tactv_code_name\n'
+              '%R\t1\t7\tCIV\tCivil\n%R\t2\t7\tMEC\tMechanical\n%E\n')
+
+
+@pytest.fixture
+def codes_fresh(monkeypatch):
+    from p6_narrative import codes
+    monkeypatch.setattr(codes, '_CATALOG_CACHE', {})
+    calls = []
+    real = codes._from_xer
+    monkeypatch.setattr(codes, '_from_xer', lambda p: (calls.append(p), real(p))[1])
+    return codes, calls
+
+
+def test_code_catalog_is_read_once_per_file(tmp_path, codes_fresh):
+    codes, calls = codes_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER_CODES, encoding='utf-8')
+    a = codes.read_code_catalog(str(p))
+    b = codes.read_code_catalog(str(p))
+    assert a == b == {'Discipline': [{'code': 'CIV', 'description': 'Civil'},
+                                     {'code': 'MEC', 'description': 'Mechanical'}]}
+    assert len(calls) == 1, 'a second report / catalog open re-read the whole file'
+    a['Discipline'][0]['code'] = 'changed'          # each caller gets its own copy
+    a['Discipline'].append({'code': 'x', 'description': 'x'})
+    again = codes.read_code_catalog(str(p))
+    assert again['Discipline'][0]['code'] == 'CIV' and len(again['Discipline']) == 2
+
+
+def test_code_catalog_rereads_a_changed_file(tmp_path, codes_fresh):
+    codes, calls = codes_fresh
+    p = tmp_path / 'sched.xer'
+    p.write_text(_XER_CODES, encoding='utf-8')
+    codes.read_code_catalog(str(p))
+    p.write_text(_XER_CODES.replace('%R\t2\t7\tMEC\tMechanical\n', '%R\t2\t7\tELE\tElectrical\n'),
+                 encoding='utf-8')
+    st = os.stat(p)
+    os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns + 10_000_000))
+    again = codes.read_code_catalog(str(p))
+    assert len(calls) == 2
+    assert again['Discipline'][1] == {'code': 'ELE', 'description': 'Electrical'}
+
+
+def test_code_catalog_missing_file_is_empty(tmp_path, codes_fresh):
+    codes, _ = codes_fresh
+    assert codes.read_code_catalog(str(tmp_path / 'nope.xer')) == {}
+
+
+# ── one XML parse serves BOTH readers (codes + resource types read the same file) ────────────
+_XML_META = '''<?xml version="1.0" encoding="UTF-8"?>
+<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V8.3/API/BusinessObjects">
+  <UnitOfMeasure><Abbreviation>m3</Abbreviation><Name>Cubic metre</Name><ObjectId>1</ObjectId></UnitOfMeasure>
+  <ActivityCodeType><Name>Discipline</Name><ObjectId>7</ObjectId></ActivityCodeType>
+  <ActivityCode><CodeTypeObjectId>7</CodeTypeObjectId><CodeValue>CIV</CodeValue><Description>Civil</Description><ObjectId>1</ObjectId></ActivityCode>
+  <Resource><ObjectId>100</ObjectId><ResourceType>Labor</ResourceType></Resource>
+  <Resource><ObjectId>200</ObjectId><ResourceType>Material</ResourceType><UnitOfMeasureObjectId>1</UnitOfMeasureObjectId></Resource>
+</APIBusinessObjects>
+'''
+
+
+@pytest.mark.parametrize('first', ['codes', 'resources'])
+def test_one_xml_parse_serves_code_catalog_and_resource_meta(tmp_path, monkeypatch, first):
+    from xml.etree import ElementTree as ET
+    from p6_narrative import codes, resload
+    p = str(tmp_path / 'sched.xml')
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(_XML_META)
+
+    def fresh():
+        monkeypatch.setattr(codes, '_CATALOG_CACHE', {})
+        monkeypatch.setattr(resload, '_META_CACHE', {})
+
+    fresh()
+    exp_codes = codes.read_code_catalog(p)          # each reader on its own
+    fresh()
+    exp_res = resload.read_resource_meta(p)
+    assert exp_codes == {'Discipline': [{'code': 'CIV', 'description': 'Civil'}]}
+    assert exp_res == {'100': {'type': 'RT_Labor', 'unit': None}, '200': {'type': 'RT_Mat', 'unit': 'm3'}}
+
+    fresh()
+    real, calls = ET.parse, []
+    monkeypatch.setattr(ET, 'parse', lambda *a, **k: (calls.append(1), real(*a, **k))[1])
+    if first == 'codes':
+        c = codes.read_code_catalog(p)
+        r = resload.read_resource_meta(p)
+    else:
+        r = resload.read_resource_meta(p)
+        c = codes.read_code_catalog(p)
+    assert c == exp_codes and r == exp_res          # identical answers
+    assert len(calls) == 1, f'the schedule XML was parsed {len(calls)} times for codes + resources'

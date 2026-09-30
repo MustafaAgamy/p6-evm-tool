@@ -93,3 +93,55 @@ def test_milestone_list_across_schedules():
     a = _sched(['Foundations', 'MEP'], datetime(2027, 1, 23), datetime(2026, 12, 10))
     ms = milestone_list({'current': a})
     assert any(m['id'] == 'M999' and m['name'] == 'Completion' for m in ms)
+
+
+# ── Per-report memo (owner comment 36: no long wait on Run) ─────────────────────────────
+# One report traces a path for every finish milestone; the schedule's logic graph,
+# construction filter and WBS index are built once per schedule inside report_memo().
+
+def _count_graphs(monkeypatch):
+    import p6_critpath.paths as P
+    built = []
+    real = P.ScheduleGraph
+
+    def counting(data):
+        built.append(data)
+        return real(data)
+    monkeypatch.setattr(P, 'ScheduleGraph', counting)
+    return built
+
+
+def test_report_memo_builds_each_schedules_graph_once(monkeypatch):
+    from p6_critpath.paths import report_memo
+    built = _count_graphs(monkeypatch)
+    a = _sched(['Foundations', 'Frame'], datetime(2026, 9, 1), datetime(2026, 9, 1))
+    b = _sched(['Foundations', 'Frame'], datetime(2026, 9, 1), datetime(2026, 9, 1))
+    fresh = path_boxes(a)
+    with report_memo():
+        r1, r2, r3 = path_boxes(a), path_boxes(a), path_boxes(b)
+    assert len(built) == 1 + 2                       # outside: fresh; inside: once per schedule
+    assert r1 == r2 == fresh and r3 == fresh
+    path_boxes(a)                                    # memo closed → fresh again
+    assert len(built) == 4
+
+
+def test_report_memo_is_per_thread(monkeypatch):
+    import threading
+    from p6_critpath.paths import report_memo
+    built = _count_graphs(monkeypatch)
+    a = _sched(['Foundations'], datetime(2026, 9, 1), datetime(2026, 9, 1))
+    with report_memo():
+        path_boxes(a)
+        t = threading.Thread(target=lambda: path_boxes(a))   # another request: no shared memo
+        t.start(); t.join()
+        path_boxes(a)
+    assert len(built) == 2
+
+
+def test_build_report_same_with_and_without_memo(monkeypatch):
+    from p6_critpath import analysis
+    cur = _sched(['Foundations', 'Roof'], datetime(2026, 9, 10), datetime(2026, 9, 1))
+    base = _sched(['Foundations', 'MEP'], datetime(2026, 9, 1), datetime(2026, 9, 1))
+    with_memo = analysis.build_report({'current': cur, 'baseline': base}, 'update_baseline')
+    plain = analysis._build_report({'current': cur, 'baseline': base}, 'update_baseline')
+    assert with_memo == plain
