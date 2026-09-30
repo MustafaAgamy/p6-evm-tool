@@ -6,6 +6,7 @@ import sys
 import tempfile
 from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
+from utils import APP_RELEASE_NOTES
 import db
 import report_theme
 import app_startup          # startup log + readiness handshake (black-screen fixes)
@@ -291,6 +292,43 @@ class _Encoder(json.JSONEncoder):
         return super().default(obj)
 
 
+# ── Run stages (owner comment 36: an honest Run bar on long waits) ────────────
+# A long Run (read two or three schedules, then compare) names the step it is really on, so
+# the feature's Run bar can say "Reading Rev.01 — <file>" and move through that step's share
+# of the bar instead of one long guess. The page sends a `run_id` with its request and polls
+# GET /api/run/stage?id=<run_id> while it waits. In memory only — nothing is stored.
+_RUN_STAGES = {}
+_PARSE_MB_PER_S = 16.0      # measured: P6 XML and XER are both read at ~16-18 MB/s
+
+
+def _parse_secs(path):
+    """Estimated seconds to read a schedule file (its size at the measured read rate)."""
+    try:
+        return os.path.getsize(path) / 1e6 / _PARSE_MB_PER_S
+    except OSError:
+        return 1.0
+
+
+class _RunStages:
+    def __init__(self, body, steps):
+        """steps = [(label, estimated seconds)] in order; each step owns its share of the bar."""
+        self.id = str((body or {}).get('run_id') or '')[:80]
+        secs = [max(0.05, float(e or 0)) for _, e in steps]
+        total = sum(secs) or 1.0
+        self.bands, acc = [], 0.0
+        for (label, _), e in zip(steps, secs):
+            self.bands.append({'label': label, 'from': round(acc / total, 4),
+                               'to': round((acc + e) / total, 4), 'est_s': round(e, 2)})
+            acc += e
+
+    def enter(self, i):
+        if self.id and 0 <= i < len(self.bands):
+            _RUN_STAGES[self.id] = dict(self.bands[i], step=i + 1, steps=len(self.bands))
+
+    def close(self):
+        _RUN_STAGES.pop(self.id, None)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # silence request logs
@@ -333,6 +371,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_library2()
         elif self.path == '/api/chat/status':
             self._handle_chat_status()
+        elif self.path.startswith('/api/run/stage'):
+            from urllib.parse import urlparse, parse_qs
+            rid = (parse_qs(urlparse(self.path).query).get('id') or [''])[0]
+            self._json(200, {'ok': True, 'stage': _RUN_STAGES.get(rid)})
         else:
             self._json(404, {'ok': False, 'error': 'not found'})
 
@@ -747,13 +789,16 @@ class Handler(BaseHTTPRequestHandler):
             # single source of truth (utils.APP_*). Any current or future UI
             # feature reads window.__APP_NAME__ / window.__APP_TITLE__ instead
             # of hardcoding the product name.
+            def _js(v):   # '</' escaped: text read from the changelog can never close the <script>
+                return json.dumps(v).replace('</', '<\\/')
             assigns = ''.join(
-                f'window.{k} = {json.dumps(v)};' for k, v in (
+                f'window.{k} = {_js(v)};' for k, v in (
                     ('__SERVER_PORT__', port),
                     ('__APP_NAME__', APP_NAME),
                     ('__APP_EDITION__', APP_EDITION),
                     ('__APP_TITLE__', APP_TITLE),
                     ('__APP_VERSION__', APP_VERSION),
+                    ('__APP_RELEASE_NOTES__', APP_RELEASE_NOTES),   # Help ▸ What's New
                 )
             )
             brand_script = (
@@ -1006,6 +1051,15 @@ class Handler(BaseHTTPRequestHandler):
             if getattr(data, 'unparsed_dates', None):   # P22: values in date fields that are not dates
                 safe_result['unparsed_dates'] = {'count': sum(data.unparsed_dates.values()),
                                                  'samples': list(data.unparsed_dates)[:5]}
+            # Does this update have a REAL baseline (inside the file, or attached)? The very rule
+            # /api/update/analyze applies (update_has_baseline) — lets Update Analysis answer
+            # "no baseline" at once, without a re-read. An attach / remove re-runs this pipeline,
+            # so the flag follows the attached baseline.
+            try:
+                from p6_update.analysis import update_has_baseline
+                safe_result['has_embedded_baseline'] = bool(update_has_baseline(data))
+            except Exception:
+                safe_result['has_embedded_baseline'] = None   # unknown → the screen asks the server
 
             # ── Schedule audit — isolated modules (never break EVM import) ──
             audit_modules_result = None
@@ -1266,6 +1320,7 @@ class Handler(BaseHTTPRequestHandler):
                 'expected_finish': safe_result.get('expected_finish'),
                 'baseline_path': attached_bl,      # the attached baseline stays with the snapshot
                 'baseline_fields': baseline_fields(bl_info),   # what the stored numbers used
+                'has_embedded_baseline': safe_result.get('has_embedded_baseline'),
             })
             # ──────────────────────────────────────────────────────────────
 
@@ -1715,12 +1770,24 @@ class Handler(BaseHTTPRequestHandler):
         if not update_path:
             self._json(200, {'ok': False, 'error': 'Update schedule not available. Re-import it first.'})
             return
+        read = _parse_secs(baseline_path) + _parse_secs(update_path)
+        stages = _RunStages(body, [
+            (f'Reading the baseline — {os.path.basename(baseline_path)}', _parse_secs(baseline_path)),
+            (f'Reading the update — {os.path.basename(update_path)}', _parse_secs(update_path)),
+            ('Comparing logic, durations and milestones', 0.2 + 0.1 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_compare.report import build_report
+            from p6_evm.parser import parse_file
+            from p6_compare.report import build_report_from_data
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            report = build_report(baseline_path, update_path, config)
+            stages.enter(0)
+            baseline = parse_file(baseline_path)
+            stages.enter(1)
+            update = parse_file(update_path)
+            stages.enter(2)
+            report = build_report_from_data(baseline, update, config)
             # The attached baseline is its cached copy ({hash12}_name) — name the planner's file (R3 F9).
             from p6_evm.baseline import display_name
             report['baseline_file'] = display_name(baseline_path)
@@ -1728,6 +1795,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     # ── /api/critpath/* — Critical Path Analyzer (2–3 schedules) ────────────
     def _handle_critpath_analyze(self, body):
@@ -1756,6 +1825,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': f'Pick the {label} file to compare against.'})
                 return
             paths[role] = p
+        role_name = {'current': 'the current schedule', 'previous': 'the previous update', 'baseline': 'the baseline'}
+        read = sum(_parse_secs(p) for p in paths.values())
+        stages = _RunStages(body, [(f'Reading {role_name.get(r, r)} — {os.path.basename(p)}', _parse_secs(p))
+                                   for r, p in paths.items()]
+                            + [('Tracing the driving path to every finish milestone', 0.2 + 0.05 * read)])
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
@@ -1763,15 +1837,21 @@ class Handler(BaseHTTPRequestHandler):
             # One baseline resolution (embedded > attached > self): the current update first (its
             # embedded baseline, else the one attached for it); the previous update its own, else
             # the CURRENT update's baseline — inside the XML or attached, the same (R4).
+            # The Run bar names each real read in the caller's role order (current first) — RUNUX.
             from p6_evm.baseline import inherit_baseline
+            roles = list(paths)
+            stages.enter(roles.index('current'))
             schedules = {'current': _schedule_for(current_path, body)}
-            for role, p in paths.items():
+            for i, (role, p) in enumerate(paths.items()):
                 if role == 'baseline':                # the picked baseline IS the baseline
+                    stages.enter(i)
                     schedules[role] = parse_file(p)
                 elif role == 'previous':
+                    stages.enter(i)
                     schedules[role] = _schedule_for(p, {})
                     inherit_baseline(schedules[role], schedules['current'])
             schedules = {role: schedules[role] for role in paths}   # keep the caller's role order
+            stages.enter(len(paths))
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
@@ -1780,6 +1860,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     def _handle_critpath_report(self, body):
         """Critical Path Analyzer PDF (or preview HTML). Renders from the report the client
@@ -1846,17 +1928,31 @@ class Handler(BaseHTTPRequestHandler):
         if not rev1_path or not os.path.isfile(rev1_path):
             self._json(200, {'ok': False, 'error': 'Assign the revised baseline (Rev.01) file.'})
             return
+        read = _parse_secs(rev0_path) + _parse_secs(rev1_path)
+        stages = _RunStages(body, [
+            (f'Reading Rev.00 — {os.path.basename(rev0_path)}', _parse_secs(rev0_path)),
+            (f'Reading Rev.01 — {os.path.basename(rev1_path)}', _parse_secs(rev1_path)),
+            ('Matching activities and comparing the revisions', 0.3 + 0.25 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_revcompare import build_report
+            from p6_evm.parser import parse_file
+            from p6_revcompare.compare import build_report_from_data
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
-            report = build_report(rev0_path, rev1_path, config, options=body.get('options'))
+            stages.enter(0)
+            rev0 = parse_file(rev0_path)
+            stages.enter(1)
+            rev1 = parse_file(rev1_path)
+            stages.enter(2)
+            report = build_report_from_data(rev0, rev1, config, body.get('options'))
             report['rev0']['file'] = os.path.basename(rev0_path)
             report['rev1']['file'] = os.path.basename(rev1_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     def _handle_revcompare_report(self, body):
         """Baseline Revision Comparison PDF (or preview HTML) — rendered from the report the
@@ -2679,6 +2775,13 @@ class Handler(BaseHTTPRequestHandler):
         if not curr_path or not os.path.isfile(curr_path):
             self._json(200, {'ok': False, 'error': 'Current update not available. Re-import it first.'})
             return
+        # The Run bar names the real step (reading each update, then comparing) — RUNUX-R2.
+        read = _parse_secs(prev_path) + _parse_secs(curr_path)
+        stages = _RunStages(body, [
+            (f'Reading the current update — {os.path.basename(curr_path)}', _parse_secs(curr_path)),
+            (f'Reading the previous update — {os.path.basename(prev_path)}', _parse_secs(prev_path)),
+            ('Comparing the two periods', 0.2 + 0.1 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
@@ -2702,15 +2805,21 @@ class Handler(BaseHTTPRequestHandler):
                 metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
                 return data, metrics
 
+            # The current update is read FIRST — the previous one may inherit its baseline.
+            stages.enter(0)
             curr_data, curr_m = parse_and_compute(curr_path, body)
+            stages.enter(1)
             prev_data, prev_m = parse_and_compute(prev_path, {'cached_path': body.get('prev_cached_path')},
                                                   curr_data)
+            stages.enter(2)
             report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
             report['prev_file'] = os.path.basename(prev_path)
             report['update_file'] = os.path.basename(curr_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     # ── /api/period/previous ──────────────────────────────────────────────
     def _handle_period_previous(self, body):
@@ -2857,6 +2966,7 @@ class Handler(BaseHTTPRequestHandler):
         result['gap'] = extras.get('gap')
         result['baseline_finish'] = extras.get('baseline_finish')
         result['expected_finish'] = extras.get('expected_finish')
+        result['has_embedded_baseline'] = extras.get('has_embedded_baseline')   # None = older snapshot (unknown)
         # Baseline: a snapshot stored since the one-resolver change carries what its stored
         # numbers used (embedded / attached / self) — nothing to re-parse. An older snapshot
         # whose baseline was attached the old way (numbers stored WITHOUT it) is recomputed

@@ -8,7 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Changed — Help, the version shown and the release check
-- **The version shown in Help and About is read from the newest release in this changelog**, so there is no second number to update and it can never drift from the released version.
+- **Help, About and What's New show the real version.** The version is read from the newest release in this changelog, so it can no longer show an old number (Help used to name a release six versions old). **Help ▸ What's New** now lists that release's changes, read from the same changelog, plus the changes already in this build.
 - Help ▸ Getting started now says "P6 XML or XER export".
 - The release build now stops if the version being released has no matching section at the top of this changelog, so the app can never ship showing an old version number.
 

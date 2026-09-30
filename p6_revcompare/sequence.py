@@ -48,8 +48,9 @@ def detect_sequence_changes(matched):
     A reversal: edge (a,b) exists in rev0 and is gone in rev1, while edge (b,a) exists in
     rev1 and was absent in rev0. Reported once per unordered pair."""
     codes = matched.matched_codes
-    e0 = set((p, s) for (p, s) in matched.baseline_rels if p in set(codes) and s in set(codes))
-    e1 = set((p, s) for (p, s) in matched.update_rels if p in set(codes) and s in set(codes))
+    cs = set(codes)                      # built once (was rebuilt for every relationship)
+    e0 = set((p, s) for (p, s) in matched.baseline_rels if p in cs and s in cs)
+    e1 = set((p, s) for (p, s) in matched.update_rels if p in cs and s in cs)
     adj0 = _adjacency(matched.baseline_rels, codes)
     adj1 = _adjacency(matched.update_rels, codes)
 

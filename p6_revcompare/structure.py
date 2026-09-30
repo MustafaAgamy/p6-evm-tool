@@ -57,12 +57,18 @@ def diff_wbs(rev0, rev1, moved_pairs=()):
     def parent(path):
         return path.rsplit(' > ', 1)[0] if ' > ' in path else ''
 
+    # Added branches grouped by parent once (sorted order kept inside each group), so each
+    # removed branch only looks at its siblings — same candidates, same order, same result.
+    added_by_parent = {}
+    for a in added:
+        added_by_parent.setdefault(parent(a), []).append(a)
+
     renamed, used_add = [], set()
     for r in list(removed):
         rp, rm = parent(r), m0.get(r, set())
         best, best_ov = None, 0.0
-        for a in added:
-            if a in used_add or parent(a) != rp:
+        for a in added_by_parent.get(rp, ()):
+            if a in used_add:
                 continue
             am = m1.get(a, set())
             if not (rm or am):

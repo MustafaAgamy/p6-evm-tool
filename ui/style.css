@@ -1935,6 +1935,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .lag-just { display: block; width: 100%; min-width: 260px; background: var(--row-hover); border: 1px dashed var(--border); border-radius: 6px; padding: 7px 10px; font-size: var(--lag-just-fs, 12px); color: var(--text); font-family: inherit; line-height: 1.45; resize: vertical; min-height: 46px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
 .lag-just::placeholder { color: var(--muted); font-style: italic; }
 .lag-just:focus { border-style: solid; border-color: var(--accent); outline: none; }
+/* Grow each justification box to its text natively (no per-row JS layout on Run). */
+@supports (field-sizing: content) { .lag-just { field-sizing: content; } }
 
 /* ── Lag Report — Excel-style AutoFilter (header buttons + popover) ──────── */
 .lag-count { font-size: 11.5px; color: var(--muted); margin: 2px 0 8px; }
@@ -2659,6 +2661,10 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .g-dd span { position: absolute; top: 3px; left: 4px; font-size: 9px; color: var(--accent); font-family: ui-monospace, monospace; font-weight: 700; }
 .g-dd-line { position: absolute; top: 34px; bottom: 0; width: 0; border-left: 2px dashed var(--accent); opacity: 0.55; z-index: 0; pointer-events: none; }
 .g-rows { position: relative; z-index: 1; }
+/* Blocks of rows off screen are not laid out until scrolled to (gantt.js sets each block's
+   exact height). The extra 48px on .g-inner keeps the last bars' "%" labels inside it. */
+.g-blk { content-visibility: auto; }
+.g-inner.g-lazy { width: calc(248px + var(--trackw) + 48px); }
 .g-row { display: flex; height: 30px; border-bottom: 1px solid var(--hair); }
 .g-row .g-lbl { display: flex; flex-direction: column; justify-content: center; }
 .g-row .g-lbl b { font-size: 11.5px; color: var(--text); font-family: ui-monospace, monospace; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -9,6 +9,7 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { revealStage } from './featurereveal.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
 import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
@@ -147,32 +148,44 @@ export function renderUpdatePanel() {
     return;
   }
   body.innerHTML = `<div class="ua-empty">Reading this update against its baseline…</div>`;
-  _runAnalyze();
+  return _runAnalyze();
 }
 
 async function _runAnalyze() {
   const body = document.getElementById('update-body');
+  // The import already recorded whether this file carries its own baseline (the very test the
+  // server makes, has_embedded_baseline). When it does not, answer at once — no whole-file
+  // re-read under the Run bar just to say so. Unknown (older snapshot) → ask the server.
+  if (state.currentResult && state.currentResult.has_embedded_baseline === false) {
+    _showAnalysis(body, { ok: false, code: 'no_baseline' });
+    return;
+  }
+  revealStage('Reading this update against its baseline');   // the open Run bar names the real step
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', summary_level: _summaryLevel }),
     });
-    const data = await resp.json();
-    if (!data.ok) {
-      if (data.code === 'no_baseline') {
-        _noBaseline(body, data.baseline_missing, '', data.baseline_expected_name);
-        return;
-      }
-      body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
-      return;
-    }
-    _shownReport = data.report;
-    if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
-    if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
-    _render(data.report);
+    _showAnalysis(body, await resp.json());
   } catch {
     if (body) body.innerHTML = `<div class="ua-empty">Could not reach the local server. Try re-importing the schedule.</div>`;
   }
+}
+
+// Paints one /api/update/analyze answer (or the instant no-baseline answer above) into the body.
+function _showAnalysis(body, data) {
+  if (!data.ok) {
+    if (data.code === 'no_baseline') {
+      _noBaseline(body, data.baseline_missing, '', data.baseline_expected_name);
+      return;
+    }
+    body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
+    return;
+  }
+  _shownReport = data.report;
+  if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
+  if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
+  _render(data.report);
 }
 
 // No baseline inside the file and none attached (an XER update, or an XML exported without its
