@@ -120,6 +120,12 @@ def _is_header_row(tr):
     return h is not None and h.get(qn('w:val'), 'true') not in ('0', 'false', 'off')
 
 
+def _is_floating(tbl):
+    """A text-wrapped (floating) table — ``w:tblpPr`` — sits beside the block after it."""
+    tblPr = tbl.find(qn('w:tblPr'))
+    return tblPr is not None and tblPr.find(qn('w:tblpPr')) is not None
+
+
 def _row_paragraphs(tr):
     """The row's own paragraphs (not those of a table nested inside a cell)."""
     out = []
@@ -316,7 +322,9 @@ def paginate_table(tbl, body_h_pt, body_w_pt, header_rows=None):
             _set_tr_flag(tr, 'tblHeader', 'true')
     est = sum(heights)
     if est <= body_h_pt * FIT or (n <= MIN_ROWS + header_rows and est <= body_h_pt * 0.8):
-        for tr in rows[:-1]:                                # small: kept whole
+        # small: kept whole — a FLOATING table (side by side with the block after it, e.g.
+        # the Narrative's short code table beside a long one) also keeps with that block
+        for tr in (rows if _is_floating(tbl) else rows[:-1]):
             _keep_row_with_next(tr)
         return
     # long: header + first MIN_ROWS body rows together, last MIN_ROWS rows together

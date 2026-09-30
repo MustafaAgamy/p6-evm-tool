@@ -1138,12 +1138,137 @@ def _render_codes(document, p, number, note):
             dim = tbl.get('dimension') or 'Codes'
             rows = [(r.get('code'), r.get('description')) for r in (tbl.get('rows') or [])]
             pair.append(('%d · %s' % (i + j + 1, dim), rows))
-        _code_pair_table(document, pair)
+        _code_pair(document, pair)
         para(document, '', after=6)
 
 
 # left table | gap | right table (inches) — the two 3.45 in halves of the old layout
 _CODE_PAIR_W = (1.2, 2.1, 0.3, 1.2, 2.1)
+
+
+def _code_pair(document, pair):
+    """Lay out one pair of code tables side by side (see ``_code_pair_table``).
+
+    NARR-WORD-3: in the ONE 5-column table a SHORT table beside a LONG one that runs onto the
+    next page broke with it — '8 · Procurement SUB WBS' (4 rows) went 3 + 1 across the page
+    break next to the 25-row '7 · Silos Area Name', and '10 · EV - FW Movement' repeated its
+    title + 'Code Value | Description' header over NO rows on the page where '9 · Type of
+    Civil Work' continued (the title and header rows repeat as one row for both halves).
+    So when the pair is unequal and its long half continues across pages, the halves are two
+    tables: the long one breaks like any long table (its own title + header repeated, >= 3
+    rows a page) and the short one — small enough to be kept whole — FLOATS beside the long
+    one's first rows (Word's side-by-side tables), its rows kept with them, so it never
+    splits and never repeats on the next page. Two long halves of unequal length are stacked
+    (each breaks on its own). A pair that is kept whole, or of equal halves, stays one table."""
+    if len(pair) == 2 and len(pair[0][1]) != len(pair[1][1]):
+        try:
+            from p6_export import docx_pagination as _dp
+            fit_h = _dp._body_height_pt(document) * _dp.FIT
+            half_w = sum(_CODE_PAIR_W[:2]) * 72.0
+        except Exception:                   # pragma: no cover - p6_export always ships
+            return _code_pair_table(document, pair)
+
+        def est(t):
+            return _dp._table_height_pt(t._tbl, half_w)
+
+        lk = 0 if len(pair[0][1]) > len(pair[1][1]) else 1          # the long half
+        long_t = _code_side_table(document, *pair[lk])
+        if est(long_t) > fit_h:                                     # it continues across pages
+            short_t = _code_side_table(document, *pair[1 - lk])
+            if est(short_t) <= fit_h:                               # kept whole → float it
+                long_t._tbl.addprevious(short_t._tbl)               # anchored at the pair start
+                _float_side(short_t, right=(lk == 0))
+                for row in short_t.rows:                           # travels with the long one
+                    for c in row.cells:
+                        for p in c.paragraphs:
+                            p.paragraph_format.keep_with_next = True
+                if lk == 1:
+                    long_t.alignment = WD_TABLE_ALIGNMENT.RIGHT
+                return long_t
+            # both halves continue: stacked in reading order, each breaks on its own
+            first, second = (long_t, short_t) if lk == 0 else (short_t, long_t)
+            second._tbl.addprevious(first._tbl)
+            first._tbl.addnext(OxmlElement('w:p'))
+            return second
+        long_t._tbl.getparent().remove(long_t._tbl)                 # a small pair: one table
+    return _code_pair_table(document, pair)
+
+
+def _float_side(table, right=True):
+    """Make ``table`` a floating (text-wrapped) table on the right / left margin, at the
+    position where it stands in the text — the next table then flows BESIDE it (Word's
+    side-by-side tables). It never overlaps other content."""
+    tblPr = table._tbl.tblPr
+    pp = OxmlElement('w:tblpPr')
+    for k, v in (('leftFromText', '0'), ('rightFromText', '0'), ('topFromText', '0'),
+                 ('bottomFromText', '0'), ('vertAnchor', 'text'), ('horzAnchor', 'margin'),
+                 ('tblpXSpec', 'right' if right else 'left'), ('tblpY', '1')):
+        pp.set(qn('w:' + k), v)
+    st = tblPr.find(qn('w:tblStyle'))                # CT_TblPr: tblStyle, tblpPr, tblOverlap, …
+    if st is not None:
+        st.addnext(pp)
+    else:
+        tblPr.insert(0, pp)
+    ov = OxmlElement('w:tblOverlap')
+    ov.set(qn('w:val'), 'never')
+    pp.addnext(ov)
+    return table
+
+
+def _fill_code_half(t, c0, name, rows):
+    """Title, 'Code Value | Description' header and code rows of one code table, written in
+    columns ``c0`` / ``c0 + 1`` of ``t`` (rows 0 / 1 / 2 …)."""
+    title, head = t.rows[0], t.rows[1]
+    tc = title.cells[c0].merge(title.cells[c0 + 1])
+    tc.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+    tc.paragraphs[0].paragraph_format.space_after = Pt(3)
+    run(tc.paragraphs[0], name, size=12, bold=True)
+    for j, h in enumerate(('Code Value', 'Description')):
+        hc = head.cells[c0 + j]
+        _cell_borders(hc, color='auto')
+        _shade(hc, 'DBE5F1')
+        pp = hc.paragraphs[0]
+        pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
+    for ri, (cv, desc) in enumerate(rows):
+        rr = t.rows[2 + ri]
+        a, b = rr.cells[c0], rr.cells[c0 + 1]
+        _cell_borders(a, color='auto'); _cell_borders(b, color='auto')
+        a.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(a.paragraphs[0], cv, size=10.5, bold=True)
+        run(b.paragraphs[0], desc, size=10.5)
+
+
+def _code_grid(document, n, widths):
+    """An empty code-table grid: a title row, a header row and ``n`` code rows."""
+    t = document.add_table(rows=2 + n, cols=len(widths))
+    t.autofit = False
+    for row in t.rows:
+        for ci, cell in enumerate(row.cells):
+            _set_w(cell, widths[ci])
+            _no_space(cell)
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _row_h(t.rows[0], 22, exact=False)
+    _row_h(t.rows[1], 18)
+    return t
+
+
+def _code_head_rows(t):
+    """Code rows 18 pt; every row cantSplit; the title AND 'Code Value' header rows repeat."""
+    for rr in t.rows[2:]:
+        _row_h(rr, 18)
+    _keep_table_together(t, header=True)             # every row cantSplit, title row repeats
+    th = OxmlElement('w:tblHeader')                   # … and the Code Value header row too
+    th.set(qn('w:val'), 'true')
+    t.rows[1]._tr.get_or_add_trPr().append(th)
+    return t
+
+
+def _code_side_table(document, name, rows):
+    """One code table on its own (half the page wide) — a half of an unequal long pair."""
+    t = _code_grid(document, len(rows), _CODE_PAIR_W[:2])
+    _fill_code_half(t, 0, name, rows)
+    return _code_head_rows(t)
 
 
 def _code_pair_table(document, pair):
@@ -1156,45 +1281,12 @@ def _code_pair_table(document, pair):
     a 22-row code table was pushed whole to the next page, leaving most of a page blank
     (finding NARR-WORD-1). Rows of this table break like any table's, and the shared Word
     rules (p6_export.docx_pagination) keep a small pair whole and a long one at >= 3 rows
-    a page."""
+    a page. An unequal pair whose long half continues is laid out by ``_code_pair``."""
     n = max([len(rows) for _, rows in pair] + [0])
-    t = document.add_table(rows=2 + n, cols=5)
-    t.autofit = False
-    for row in t.rows:
-        for ci, cell in enumerate(row.cells):
-            _set_w(cell, _CODE_PAIR_W[ci])
-            _no_space(cell)
-            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    title, head = t.rows[0], t.rows[1]
-    _row_h(title, 22, exact=False)
-    _row_h(head, 18)
+    t = _code_grid(document, n, _CODE_PAIR_W)
     for k, (name, rows) in enumerate(pair):
-        c0 = 3 * k                                    # this table's first column
-        tc = title.cells[c0].merge(title.cells[c0 + 1])
-        tc.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
-        tc.paragraphs[0].paragraph_format.space_after = Pt(3)
-        run(tc.paragraphs[0], name, size=12, bold=True)
-        for j, h in enumerate(('Code Value', 'Description')):
-            hc = head.cells[c0 + j]
-            _cell_borders(hc, color='auto')
-            _shade(hc, 'DBE5F1')
-            pp = hc.paragraphs[0]
-            pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
-        for ri, (cv, desc) in enumerate(rows):
-            rr = t.rows[2 + ri]
-            a, b = rr.cells[c0], rr.cells[c0 + 1]
-            _cell_borders(a, color='auto'); _cell_borders(b, color='auto')
-            a.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run(a.paragraphs[0], cv, size=10.5, bold=True)
-            run(b.paragraphs[0], desc, size=10.5)
-    for rr in t.rows[2:]:
-        _row_h(rr, 18)
-    _keep_table_together(t, header=True)             # every row cantSplit, title row repeats
-    th = OxmlElement('w:tblHeader')                   # … and the Code Value header row too
-    th.set(qn('w:val'), 'true')
-    head._tr.get_or_add_trPr().append(th)
-    return t
+        _fill_code_half(t, 3 * k, name, rows)
+    return _code_head_rows(t)
 
 
 def _render_critpath(document, p, number, note):
