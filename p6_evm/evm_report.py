@@ -195,8 +195,12 @@ def _category_table(result):
     rows.append(
         f'<tr class="tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>'
         f'<td class="num">—</td><td class="num">{tot_pw:.2f}%</td><td class="num">{tot_wa:.2f}%</td></tr>')
+    # a short category table (one row per WBS category + Overall) prints whole with its
+    # heading - the print composer keeps a table marked rpt-keep whole up to
+    # report_theme.PAGINATION_KEEP_TABLE of a page (GBT: 11 rows were continued 6 + 5)
+    keep = ' class="rpt-keep"' if len(cats) <= 12 else ''
     return _part('category.table', 'Category weights table', (
-        '<table><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
+        f'<table{keep}><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
         '<th class="num">Planned %</th><th class="num">Actual %</th>'
         '<th class="num">Planned Weight %</th><th class="num">Weighted Actual %</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table>'))

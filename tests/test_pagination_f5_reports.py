@@ -270,3 +270,11 @@ def test_evm_engineering_table_prints_every_column_without_a_scrollbar():
         x_after, width, last_after = _appr_header_and_last_value(html, chrome, folder, 'after')
     assert x_before is None and not last_before             # without the layer: column cut
     assert x_after is not None and x_after <= width - 30 and last_after, (x_after, width)
+
+
+def test_evm_short_category_table_is_marked_to_print_whole():
+    """GBT EVM PDF (checker: small_table_split): the 11-row Category weights table was
+    continued 6 + 5 rows at the bottom of page 1; a short category table is kept whole."""
+    from p6_evm.evm_report import render_evm_report
+    assert '<table class="rpt-keep"><thead><tr><th>WBS Category' in render_evm_report(_evm_result(11), META)
+    assert 'class="rpt-keep"><thead><tr><th>WBS Category' not in render_evm_report(_evm_result(20), META)
