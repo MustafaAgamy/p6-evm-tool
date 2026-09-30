@@ -811,10 +811,18 @@ def _render_activity_ids(document, p, number, note):
         _shade(bc, 'EEF3F9')
         bp = bc.paragraphs[0]; bp.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run(bp, blk.get('sample'), size=12, bold=True, color=NAVY, font=CAL)
+        # the whole block travels together, as its PDF twin (.actidblk, break-inside:avoid):
+        # the 1-row box keeps with the gap + breakdown table (a table's LAST row has no
+        # keep-with-next of its own — heading + box used to end a page with the table on
+        # the next, GBT Word p32, 12.12 CONS.S1.MECH.1000), the table keeps with its ✓ note
+        bp.paragraph_format.keep_with_next = True
         _keep_table_together(bt, header=False)
         gap = para(document, '', after=2)
         gap.paragraph_format.keep_with_next = True      # box stays with its breakdown table
-        _actid_breakdown_table(document, blk.get('cols'))
+        brk = _actid_breakdown_table(document, blk.get('cols'))
+        for c in brk.rows[-1].cells:
+            for cp in c.paragraphs:
+                cp.paragraph_format.keep_with_next = True
         para(document, '✓  %s  (%s activities)' % (blk.get('note') or '', _count(blk.get('count'))),
              size=10, italic=True, color=GREEN, before=3, after=8)
 
