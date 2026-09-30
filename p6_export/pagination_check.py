@@ -657,9 +657,14 @@ def _figure_cut(A, B, area_top, area_bottom):
         return min(a.x1, b.x1) - max(a.x0, b.x0) > 0.5 * min(a.w, b.w)
     if not any(overlap(a, b) for a in ea for b in eb):
         return None
-    # a table row / text box that breaks has text right at the break — a graphic does not
-    near_a = [b for b in A.bands if b.y1 > clip_a - 4 and any(b.x0 < d.x1 and b.x1 > d.x0 for d in ea)]
-    near_b = [b for b in B.bands if b.y0 < clip_b + 4 and any(b.x0 < d.x1 and b.x1 > d.x0 for d in eb)]
+    # a table row / text box that breaks has text right at the break — a graphic does not.
+    # Measured per LINE, not per band: a column chart (div bars) whose columns were
+    # fragmented one by one has the other columns' value labels at the top of B in the same
+    # row as the continuing bars, but not over them (NARR-PDF-5: GBT narrative p34->p35)
+    def over(b, ds):
+        return any(l.x0 < d.x1 and l.x1 > d.x0 for l in b.lines for d in ds)
+    near_a = [b for b in A.bands if b.y1 > clip_a - 4 and over(b, ea)]
+    near_b = [b for b in B.bands if b.y0 < clip_b + 4 and over(b, eb)]
     if near_a or near_b:
         return None
 
