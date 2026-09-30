@@ -223,10 +223,11 @@ await test('RUNUX-R4: "Run the current feature again" (Ctrl+R) plays the same sh
   assert.equal(direct, 2, 'fetchAndRender call sites: the gate Run + rerunUnderBar');
 });
 await test('async single-input features RETURN their work promise from runFeature', () => {
-  for (const [view, fn] of [['construct', 'renderConstructPanel'], ['narrative', 'renderNarrative'], ['update', 'renderUpdatePanel'], ['special', 'renderSpecialPanel']]) {
+  // Constructability is no longer a page (master #106 replaced it with the Knowledge Base Playbooks)
+  for (const [view, fn] of [['narrative', 'renderNarrative'], ['update', 'renderUpdatePanel'], ['special', 'renderSpecialPanel']]) {
     assert.match(app, new RegExp(`case '${view}':\\s+return ${fn}\\(\\);`), view);
   }
-  assert.match(read('ui', 'modules', 'construct.js'), /return fetchAndRender\(/);
+  assert.doesNotMatch(app, /case 'construct':/, 'the removed Constructability page is not wired back in');
   assert.match(read('ui', 'modules', 'update.js'), /return _runAnalyze\(\);/);
   assert.match(read('ui', 'modules', 'narrative.js'), /return startSetupChat\(\);/);
   assert.match(read('ui', 'modules', 'special.js'), /export async function renderSpecialPanel/);
