@@ -93,6 +93,12 @@ def _watch_startup(window, url):
 
     def run():
         closed = window.events.closed
+        # WebView2 GPU / browser / renderer process failures are watched from the moment
+        # the WebView2 core exists — not only after the page said 'ready' (a page can run
+        # and say ready while a dead GPU process leaves the window black). S4.
+        threading.Thread(target=app_startup.attach_renderer_recovery_early,
+                         args=(window,), kwargs={'closed': closed},
+                         name='renderer-recovery', daemon=True).start()
         res = app_startup.watch_startup(window, url, closed=closed, second_s=20.0,
                                         abort=app_startup.WEBVIEW_INIT_FAILED,
                                         contact=app_startup.PAGE_CONTACT)
@@ -107,7 +113,7 @@ def _watch_startup(window, url):
                 window.destroy()
                 return
         if not closed.is_set() and window.events.loaded.wait(5):
-            app_startup.hook_renderer_recovery(window)
+            app_startup.hook_renderer_recovery(window)      # no-op once attached early
 
     threading.Thread(target=run, name='startup-watchdog', daemon=True).start()
 

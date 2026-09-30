@@ -542,35 +542,138 @@ def relaunch_safe_graphics(reason, popen=None, env=None):
         return False
 
 
-def hook_renderer_recovery(window):
-    """Reload the page when WebView2 reports a crashed/unresponsive renderer (otherwise
-    the window stays blank until restarted). Best-effort; logs when unavailable."""
+def renderer_failure_handler(window=None, closed=None, relaunch=None, destroy=None):
+    """The decision for a WebView2 ProcessFailed report (S4). Returns handle(kind, reload)
+    -> what was done. A page whose GPU or browser process died can still run its
+    JavaScript and report 'ready' while nothing is painted, so these are acted on here:
+
+    * RenderProcessExited / RenderProcessUnresponsive / FrameRenderProcessExited: reload.
+    * GpuProcessExited: record it (launch record gpu_failed), switch safe graphics ON for
+      the next launches and reload; a SECOND GPU failure in this run (not already in safe
+      graphics) relaunches once in safe graphics and closes this window.
+    * BrowserProcessExited: the WebView2 browser is gone and the window stays blank —
+      relaunch once (relaunch_safe_graphics has its own guard against a relaunch loop)
+      and close the dead window.
+    Reports after the window closed are ignored; at most one relaunch per window."""
+    state = {'gpu': 0, 'relaunched': False}
+    relaunch = relaunch or relaunch_safe_graphics
+
+    def _destroy():
+        if destroy is not None:
+            destroy()
+        elif window is not None:
+            # off the UI thread (this runs in the ProcessFailed callback)
+            threading.Thread(target=window.destroy, name='close-dead-window', daemon=True).start()
+
+    def _reload(reload):
+        try:
+            reload()
+            log('reloaded the page after the WebView2 process failure')
+            return 'reloaded'
+        except Exception:
+            log_exception('reload after a WebView2 process failure failed')
+            return 'reload failed'
+
+    def _relaunch(reason):
+        if state['relaunched']:
+            return False
+        if relaunch(reason):
+            state['relaunched'] = True
+            _destroy()
+            return True
+        return False
+
+    def handle(kind, reload):
+        kind = str(kind or '?')
+        if closed is not None and closed.is_set():
+            log('WebView2 process failed after the window closed: %s (ignored)', kind)
+            return 'ignored'
+        log('WebView2 process failed: %s', kind, level=logging.ERROR)
+        if 'Gpu' in kind:
+            state['gpu'] += 1
+            _update_launch_state(gpu_failed=state['gpu'])
+            if state['gpu'] >= 2 and STATE.get('graphics') != 'safe':
+                if _relaunch('the WebView2 GPU process failed %d times' % state['gpu']):
+                    return 'relaunched'
+            if not safe_graphics_enabled():
+                enable_safe_graphics('the WebView2 GPU process failed')
+            return _reload(reload)
+        if 'BrowserProcess' in kind:
+            _update_launch_state(browser_failed=True)
+            if _relaunch('the WebView2 browser process exited'):
+                return 'relaunched'
+            log('the WebView2 browser process exited and no relaunch was possible: '
+                'close and reopen the app', level=logging.ERROR)
+            return 'logged'
+        if 'Render' in kind or 'Frame' in kind:
+            return _reload(reload)
+        return 'logged'
+
+    handle.state = state
+    return handle
+
+
+def attach_renderer_recovery_early(window, closed=None, timeout_s=90.0, poll_s=0.1,
+                                   relaunch=None):
+    """Attach the ProcessFailed recovery as soon as WebView2's CoreWebView2 exists — during
+    start-up, not after the page reported ready (a GPU or browser process that dies while
+    the window opens is otherwise never seen). Polls on the UI thread (Invoke) until the
+    core exists; call on a daemon thread. Returns True once attached (idempotent)."""
+    if STATE.get('process_failed_hooked'):
+        return True
     try:
         from System import Action                      # pythonnet (WinForms backend)
-        wv = window.native.browser.webview
-
-        def on_failed(sender, args):
-            try:
-                kind = str(args.ProcessFailedKind)
-            except Exception:
-                kind = '?'
-            log('WebView2 process failed: %s', kind, level=logging.ERROR)
-            if 'Render' in kind or 'Frame' in kind:
-                try:
-                    sender.Reload()
-                    log('reloaded the page after the renderer failure')
-                except Exception:
-                    log_exception('reload after renderer failure failed')
-
-        def attach():
-            wv.CoreWebView2.ProcessFailed += on_failed
-
-        wv.Invoke(Action(attach))
-        log('renderer-failure recovery attached')
-        return True
     except Exception as exc:
         log('renderer-failure recovery unavailable: %r', exc)
         return False
+    handle = renderer_failure_handler(window, closed=closed, relaunch=relaunch)
+
+    def on_failed(sender, args):
+        try:
+            kind = str(args.ProcessFailedKind)
+        except Exception:
+            kind = '?'
+        try:
+            handle(kind, sender.Reload)
+        except Exception:
+            log_exception('handling the WebView2 process failure failed')
+
+    attached = threading.Event()
+
+    def try_attach():                                   # runs on the UI thread
+        try:
+            if attached.is_set():
+                return
+            core = window.native.browser.webview.CoreWebView2
+            if core is None:
+                return
+            core.ProcessFailed += on_failed
+            attached.set()
+        except Exception:
+            pass
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if closed is not None and closed.is_set():
+            return False
+        try:
+            window.native.browser.webview.Invoke(Action(try_attach))
+        except Exception:
+            pass                                        # the control is not built yet
+        if attached.is_set():
+            STATE['process_failed_hooked'] = True
+            log('renderer-failure recovery attached (GPU / browser / renderer)')
+            return True
+        time.sleep(poll_s)
+    log('renderer-failure recovery not attached: WebView2 did not start within %.0fs',
+        timeout_s, level=logging.WARNING)
+    return False
+
+
+def hook_renderer_recovery(window):
+    """Late attach (kept for callers that only have a ready window): same recovery as
+    attach_renderer_recovery_early, one quick attempt."""
+    return attach_renderer_recovery_early(window, timeout_s=2.0)
 
 
 # ── WebView2 profile folder (BLACK-7) ──────────────────────────────────────
