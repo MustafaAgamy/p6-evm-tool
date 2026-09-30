@@ -87,3 +87,17 @@ score list). A row of KPI cards: at most five a row, the value font sized so the
 stays on one line (the Studio's `_kpi_layout`). In Word, a title / label paragraph right above a
 chart or table sets `keep_with_next` itself (the shared pass also does), and a table that fits in
 about a third of a page keeps every row but the last with the next.
+
+Page size, short tables, side-by-side columns (findings ALL-PDF-SIZE, FLOAT-PDF-1, HEALTH-PDF-1):
+a portrait report declares `@page { size: A4 portrait; ... }` itself (Chrome's default is US
+Letter; the export layer adds A4 only when a report declares no size, and a report's own PDF
+route prints it as-is), so PDF and Word paginate on the same paper. A short summary table under
+its own section heading (one row per WBS / category, well under half a page) may be marked
+`<table class="rpt-keep">`: the composer then keeps it whole with its heading up to
+`report_theme.PAGINATION_KEEP_TABLE` (45 %) of a page instead of continuing it - mark it only
+when the row count bounds it (Float: <= 10 packages, EVM categories: <= 12). Two lists side by
+side (a flex row of columns) fragment independently: protect each column's START (heading + its
+first 3 rows as one `rpt-keep`, a short list of <= 6 items whole with its heading) and its last 3
+rows - Chrome then starts both columns on the same page (a pushed column takes its neighbour
+along), never 1-2 rows under a heading (Schedule Health: problems | fixes). In Word, a short note
+right UNDER a table / cards block closes that block: it is not kept with the next section heading.
