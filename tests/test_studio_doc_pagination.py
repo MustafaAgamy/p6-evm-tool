@@ -80,6 +80,11 @@ def test_section_intro_over_titled_table_blocks_is_not_chained_into_them():
     kept = _kwn_texts(out)
     assert 'The baseline uses the following activity-code structures.' not in kept, kept
     assert '1 &middot; Main WBS' in kept and '2 &middot; Design Cycle' in kept, kept   # title with table
+    # the same when the next block is a heading of its own (Lag & Lead: summary line, "Lag charts")
+    lag = ('<div class="srf-audit"><div class="lagsum"><b>404</b> lags across the schedule</div>'
+           '<h2 class="sec">Lag charts</h2><div class="lcharts"><div class="lcard">'
+           '<div class="lch">Lags by type</div><div class="lbar">FS 254</div></div></div></div>')
+    assert _kwn_texts(DP.paginate_word_html(lag)) == ['Lags by type'], DP.paginate_word_html(lag)
     # control: an intro right over ONE block without a title of its own still keeps with it
     plain = ('<div class="box"><p>Share of the scope by type of work.</p>'
              '<div class="rows"><div>Pile Works</div><div>57.6%</div></div></div>')
