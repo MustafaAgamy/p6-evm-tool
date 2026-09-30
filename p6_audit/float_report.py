@@ -139,7 +139,7 @@ def _notice(name, meta, msg, theme='light'):
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 18mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 18mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:12px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
@@ -201,7 +201,7 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 18mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 18mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:16px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}

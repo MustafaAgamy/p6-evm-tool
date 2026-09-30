@@ -341,7 +341,7 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 20mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 20mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
