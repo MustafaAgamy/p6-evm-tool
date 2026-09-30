@@ -27,11 +27,8 @@ def release_version(changelog_path=None):
     CHANGELOG.md there). Returns '' when there is no changelog or no release heading:
     the UI then simply hides the version line rather than show an invented number.
     """
-    if changelog_path is None:
-        root = getattr(sys, '_MEIPASS', None) or os.path.dirname(os.path.abspath(__file__))
-        changelog_path = os.path.join(root, 'CHANGELOG.md')
     try:
-        with open(changelog_path, encoding='utf-8') as f:
+        with open(changelog_path or _changelog_path(), encoding='utf-8') as f:
             for line in f:
                 m = _RELEASE_HEADING.match(line)
                 if m:
@@ -41,9 +38,112 @@ def release_version(changelog_path=None):
     return ''
 
 
+def _changelog_path():
+    # Project root in development; sys._MEIPASS in the one-file exe (the spec ships it).
+    root = getattr(sys, '_MEIPASS', None) or os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(root, 'CHANGELOG.md')
+
+
+# ── Help ▸ What's New: the headline changes of the newest release ────────────
+_BLOCK_HEADING = re.compile(r'## \[(?:(Unreleased)|v(\d+\.\d+\.\d+))\](?:\s*-\s*(\S+))?', re.I)
+_KIND_HEADING = re.compile(r'### +([A-Za-z]+)\s*(?:[—–-]+\s*(.*?))?\s*$')
+_UNTITLED = {'Added': 'Additions', 'Changed': 'Changes', 'Fixed': 'Fixes'}
+
+
+def _md_plain(text):
+    """Markdown → plain words: [label](url) → label, `code` → code, **bold** → bold."""
+    text = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text)
+    return re.sub(r'\s+', ' ', text.replace('`', '').replace('**', '')).strip()
+
+
+def _first_sentence(text):
+    return re.split(r'(?<=[.!?])\s+', _md_plain(text), 1)[0]
+
+
+def _note_point(bullet):
+    """One line per bullet: its bold lead-in, else its first sentence.
+
+    A short label lead-in ("**Cause:** the start-up screen …") says nothing on its own,
+    so it keeps the first sentence after it: "Cause: the start-up screen …".
+    """
+    m = re.match(r'\*\*(.+?)\*\*\s*(.*)$', bullet)
+    if m:
+        point, rest = _md_plain(m.group(1)), _first_sentence(m.group(2))
+        if point.endswith(':') and len(point.split()) <= 3 and rest:
+            point = f'{point} {rest}'
+    else:
+        point = _first_sentence(bullet)
+    point = point.rstrip('.:;,').strip()
+    if len(point) <= 140:
+        return point
+    cut = point[:139]                               # never end mid-word ("wit…")
+    return (cut.rsplit(' ', 1)[0] if ' ' in cut else cut).rstrip(' .,;:—–-') + '…'
+
+
+def _note_items(lines, max_points):
+    items = []
+    for line in lines:
+        h = _KIND_HEADING.match(line)
+        if h:
+            kind = h.group(1).capitalize()
+            title = _md_plain(h.group(2) or '') or _UNTITLED.get(kind, kind)
+            items.append({'kind': kind, 'title': title, 'points': [], 'more': 0})
+            continue
+        b = re.match(r'- +(\S.*)$', line)          # top-level bullets only (no indent)
+        if not b:
+            continue
+        if not items:
+            items.append({'kind': 'Changed', 'title': 'Changes', 'points': [], 'more': 0})
+        point, item = _note_point(b.group(1)), items[-1]
+        if point and len(item['points']) < max_points:
+            item['points'].append(point)
+        elif point:
+            item['more'] += 1
+    return items
+
+
+def release_notes(changelog_path=None, max_points=4):
+    """What's New, read from CHANGELOG.md — the same source as release_version().
+
+    ``{'version', 'date', 'items', 'upcoming'}``: ``items`` are the newest release's
+    ``### Added/Changed/Fixed — title`` sections, each ``{'kind', 'title', 'points',
+    'more'}`` (``points`` = up to *max_points* bullet lead-ins, ``more`` = how many
+    further bullets). ``upcoming`` is the ``[Unreleased]`` section — work already in this
+    build that the next release will carry. Nothing is typed twice, so Help can never
+    show an old release as "new". Empty when there is no changelog.
+    """
+    blocks, cur = [], None
+    try:
+        with open(changelog_path or _changelog_path(), encoding='utf-8') as f:
+            for line in f.read().splitlines():
+                m = _BLOCK_HEADING.match(line)
+                if m:
+                    cur = {'unreleased': bool(m.group(1)), 'version': m.group(2) or '',
+                           'date': m.group(3) or '', 'lines': []}
+                    blocks.append(cur)
+                elif line.startswith('## '):
+                    cur = None
+                elif cur is not None:
+                    cur['lines'].append(line)
+    except (OSError, UnicodeDecodeError):
+        blocks = []
+    release = next((b for b in blocks if not b['unreleased']), None)
+    unreleased = next((b for b in blocks if b['unreleased']), None)
+    if release and unreleased and blocks.index(unreleased) > blocks.index(release):
+        unreleased = None                           # an [Unreleased] below a release is stale
+    return {
+        'version': release['version'] if release else '',
+        'date': release['date'] if release else '',
+        'items': _note_items(release['lines'], max_points) if release else [],
+        'upcoming': _note_items(unreleased['lines'], max_points) if unreleased else [],
+    }
+
+
 # Release version shown in the UI (Help ▸ About, Help footer), /api/health and the
 # User-Agent. Injected into every page as window.__APP_VERSION__ (server.py).
 APP_VERSION = release_version()
+# Help ▸ What's New, injected into every page as window.__APP_RELEASE_NOTES__ (server.py).
+APP_RELEASE_NOTES = release_notes()
 
 # ── External links ──────────────────────────────────────────────────────────
 # The only web pages the app may hand to the user's default browser. The packaged WebView

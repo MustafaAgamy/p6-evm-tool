@@ -6,6 +6,7 @@ import sys
 import tempfile
 from datetime import datetime, date
 from utils import resource_path, exe_dir, app_data_dir, APP_NAME, APP_EDITION, APP_TITLE, APP_VERSION
+from utils import APP_RELEASE_NOTES
 import db
 import report_theme
 import app_startup          # startup log + readiness handshake (black-screen fixes)
@@ -788,13 +789,16 @@ class Handler(BaseHTTPRequestHandler):
             # single source of truth (utils.APP_*). Any current or future UI
             # feature reads window.__APP_NAME__ / window.__APP_TITLE__ instead
             # of hardcoding the product name.
+            def _js(v):   # '</' escaped: text read from the changelog can never close the <script>
+                return json.dumps(v).replace('</', '<\\/')
             assigns = ''.join(
-                f'window.{k} = {json.dumps(v)};' for k, v in (
+                f'window.{k} = {_js(v)};' for k, v in (
                     ('__SERVER_PORT__', port),
                     ('__APP_NAME__', APP_NAME),
                     ('__APP_EDITION__', APP_EDITION),
                     ('__APP_TITLE__', APP_TITLE),
                     ('__APP_VERSION__', APP_VERSION),
+                    ('__APP_RELEASE_NOTES__', APP_RELEASE_NOTES),   # Help ▸ What's New
                 )
             )
             brand_script = (
