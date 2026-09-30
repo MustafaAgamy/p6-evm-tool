@@ -45,8 +45,10 @@ set well down the page), or the contents list ends on it and the body starts on 
 page (page breaks by design).
 
 How a PDF is read (PyMuPDF): text lines with their font size / bold, vector drawings and
-pictures per page. The running header / footer / page frame (the same thing at the same
-place on most pages) and page numbers are set aside. Headings are found WITHOUT the source:
+pictures per page (only those that intersect the page: Chrome emits thousands of off-page
+paths per sheet, y down to -30 000; a page frame / page background box is not content).
+The running header / footer / page frame (the same thing at the same place on most pages)
+and page numbers are set aside. Headings are found WITHOUT the source:
 a short line alone on its row that is bold (or clearly larger than the body text) — the
 same "heading-like" definition the print-time composer uses; the renderers' heading texts
 can be passed as hints (``--html`` / ``headings=``). Tables are found as runs of rows of
@@ -55,9 +57,11 @@ tables); a table that continues across a break is matched by its column edges.
 
 How a Word file is read: Word's OWN pagination through COM (Word installed + pywin32):
 the document is opened read-only, repaginated, and the page + vertical position of every
-paragraph, table row and picture is read — no PDF export (that hangs when Word runs
-headless). Fallback: Spire.Doc renders the file to PDF (its free edition converts only the
-first 10 pages) and the PDF rules run on that, with the document's heading texts as hints.
+paragraph, table row and picture is read (an inline picture's height, or the height of a
+floating picture anchored to an empty / "/" paragraph - the Narrative WBS trees) — no PDF
+export (that hangs when Word runs headless). Fallback: Spire.Doc renders the file to PDF
+(its free edition converts only the first 10 pages - the result says so) and the PDF rules
+run on that, with the document's heading texts as hints.
 When neither is available the check is skipped with a clear message (status "skipped").
 
 Thresholds are the SAME numbers the pagination rules use (report_theme.PAGINATION_*).
