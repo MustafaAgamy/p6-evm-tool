@@ -317,19 +317,67 @@ test('health: an error is re-probed with backoff; a later answer completes the s
   assert.equal(g.phase, 'loading');
 });
 
-test('health: a server that refuses every probe before the program loads fails the start (Retry path)', () => {
+test('health: errors before the program loaded never fail the start (R2 S7) — re-probed quietly, reported once', () => {
+  // Live repro before the fix: health failing + app.js served after 7 s -> 'trying again
+  // automatically (attempt 3 of 3)' although the program would have loaded. index.html
+  // (with this guard) came from the same server, so it answers.
+  const w = fakeWorld();
+  const calls = [];
+  w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
+  const g = G.create(w.win, w.opts).start();
+  for (let i = 0; i < 5; i++) {                // 11 s of failing probes (under SLOW_MS)
+    calls[i].onErr('Failed to fetch');
+    w.advance(i < G.HEALTH_RETRY_MS.length ? G.HEALTH_RETRY_MS[i] : G.HEALTH_QUIET_MS);
+  }
+  assert.equal(calls.length, 6, 'kept probing past the fast re-probes');
+  assert.equal(g.phase, 'loading', 'no automatic reload, no Retry card');
+  assert.equal(w.reloads, 0);
+  assert.equal(w.overlay(), null);
+  assert.equal(w.posts.filter(p => p.kind === 'health').length, 1, 'reported once, not every probe');
+  assert.ok(w.posts.some(p => p.kind === 'health' && /GET|Failed to fetch/.test(p.detail)));
+  assert.ok(!w.posts.some(p => p.kind === 'retry' || p.message === 'startup failed'));
+  g.booted();                                   // the program files arrived (7 s in)
+  assert.equal(g.steps.server, true);
+  assert.equal(g.steps.program, true);
+  const n = calls.length;
+  calls[n - 1].onErr('Failed to fetch');        // a late failure after booted: ignored
+  w.advance(10000);
+  assert.equal(calls.length, n, 'no more probes once the step is done');
+  g.ready();
+  assert.equal(g.phase, 'ready');
+});
+
+test('health: a later answer after the quiet re-probes completes the server step', () => {
   const w = fakeWorld();
   const calls = [];
   w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
   const g = G.create(w.win, w.opts).start();
   for (let i = 0; i <= G.HEALTH_RETRY_MS.length; i++) {
-    calls[i].onErr('Failed to fetch');
-    if (i < G.HEALTH_RETRY_MS.length) w.advance(G.HEALTH_RETRY_MS[i]);
+    calls[i].onErr('HTTP 500');
+    w.advance(i < G.HEALTH_RETRY_MS.length ? G.HEALTH_RETRY_MS[i] : G.HEALTH_QUIET_MS);
   }
-  assert.equal(calls.length, G.HEALTH_RETRY_MS.length + 1);
+  calls[calls.length - 1].cb({ ok: true });
+  assert.equal(g.steps.server, true);
+  assert.equal(g.phase, 'loading');
+});
+
+test('health: a server that never answers anything still fails — by the stall timer, not the probe', () => {
+  const w = fakeWorld();
+  const calls = [];
+  w.opts.getJson = (url, cb, onErr) => calls.push({ url, cb, onErr });
+  const g = G.create(w.win, w.opts).start();
+  const failAt = [];
+  const realFail = g.fail;
+  g.fail = (k, d) => { failAt.push({ k, at: w.opts.now() }); return realFail(k, d); };
+  let t = 0;
+  while (t < G.STALL_MS && g.phase !== 'retrying') {
+    const c = calls[calls.length - 1];
+    if (c && !c.done) { c.done = true; c.onErr('Failed to fetch'); }
+    w.advance(500); t += 500;
+  }
+  assert.deepEqual(failAt.map(f => f.k), ['timeout']);
+  assert.ok(failAt[0].at >= G.STALL_MS);
   assert.equal(g.phase, 'retrying');
-  assert.ok(w.posts.some(p => p.kind === 'health' && /did not answer/.test(p.message)));
-  assert.ok(w.posts.some(p => p.kind === 'health' && /GET \/api\/health: Failed to fetch/.test(p.detail)));
 });
 
 test('health: probes failing after the program loaded are not fatal (the server clearly answers)', () => {

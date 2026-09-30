@@ -796,9 +796,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_app_health(self):
         """GET /api/health: a light readiness probe (the server answers, the DB state
-        ok / recovered / degraded, and the page handshake state). Never touches XML."""
+        ok / recovered / degraded, and the page handshake state). Never touches XML.
+        Always answers 200 with whatever it has (R2 S7) — never a dropped connection."""
+        try:
+            app = app_startup.health()
+        except Exception as exc:                        # noqa: BLE001 — the probe must answer
+            app = {'health_error': str(exc)}
         self._json(200, {'ok': True, 'app': APP_NAME, 'version': APP_VERSION,
-                         'db': dict(db.DB_STATUS), **app_startup.health()})
+                         'db': dict(db.DB_STATUS), **app})
 
     # ── /api/ui-prefs — screen preferences that survive an app restart ─────
     # (Appearance, Report Contents picks, table columns …; owner comment 31 b.) The page

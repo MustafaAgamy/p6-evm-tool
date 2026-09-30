@@ -196,11 +196,17 @@ def mark_ready(info=None):
 
 
 def health():
-    """The app-side half of GET /api/health."""
+    """The app-side half of GET /api/health. Never raises (R2 S7): the data folder being
+    unavailable (log_path -> app_data_dir's makedirs) gives log_path None, so the probe
+    still answers instead of the connection being dropped."""
+    try:
+        path = log_path()
+    except Exception:                                   # noqa: BLE001 — best-effort
+        path = None
     return {'ready': READY.is_set(), 'ready_after_s': STATE.get('ready_after_s'),
             'graphics': STATE.get('graphics', 'normal'),
             'uptime_s': round(time.monotonic() - T0, 1),
-            'log_path': log_path()}
+            'log_path': path}
 
 
 # ── Start-up timings, splash, log folder (startup DB-2 / BLACK-8) ──────────

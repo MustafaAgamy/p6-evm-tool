@@ -27,8 +27,11 @@
  *   program -> every module loaded (booted)
  *   screen  -> the shell is built (ready)
  *   history -> Recent Projects answered (loaded, or its own Retry shown): app.js step()
- * The cover (#brand-splash) says the current step from the first paint; a local server
- * that refuses every health probe before the program loads fails like a missing file.
+ * The cover (#brand-splash) says the current step from the first paint. A failing health
+ * probe never fails the start by itself (R2 S7): this guard came inlined in index.html from
+ * that same server, so it answers, and program files taking long to load (antivirus on a
+ * first start) is normal. It is re-probed quietly; a server that really stopped answering
+ * fails the program files (load-failed) or the stall timer.
  */
 (function (root, factory) {
   var api = factory();
@@ -43,6 +46,7 @@
   var STALL_MS = 40000;                 // never booted by now: treat as a failure
   var STEPS = ['server', 'program', 'screen', 'history'];
   var HEALTH_RETRY_MS = [500, 1500, 3000];   // /api/health re-probes after an error
+  var HEALTH_QUIET_MS = 3000;          //   ... then every 3 s, quietly, until it answers
   var COVER_TEXT = { server: 'Starting local server', program: 'Loading program files' };
   var DB_CHECK_POLL_MS = 2500;         // after ready: wait for the background DB check (S3)
   var DB_CHECK_POLLS = 24;             //   ... for up to ~60 s
@@ -208,14 +212,12 @@
         g.step('server');
       }, function (err) {
         if (g.steps.server || (g.phase !== 'loading' && g.phase !== 'slow')) return;
-        if (i < HEALTH_RETRY_MS.length) {
-          timers.push(setT(function () { probeHealth(i + 1); }, HEALTH_RETRY_MS[i]));
-          return;
-        }
-        report('health', 'local server did not answer', err);
-        // The program still loading from that same server means it does answer: wait
-        // for it. A server that refused everything before then is a failed start.
-        if (!g.isBooted) g.fail('health', 'The local server did not answer (GET /api/health: ' + err + ').');
+        // Never a failed start by itself: index.html (with this guard) came from that same
+        // server, so it answers; the program files still loading is normal. Keep asking,
+        // quietly; booted() completes the step, the stall timer catches a real failure.
+        if (i === HEALTH_RETRY_MS.length) report('health', 'health probe not answered yet (still waiting for the program files)', err);
+        timers.push(setT(function () { probeHealth(i + 1); },
+                         i < HEALTH_RETRY_MS.length ? HEALTH_RETRY_MS[i] : HEALTH_QUIET_MS));
       });
     }
 
@@ -471,5 +473,6 @@
   }
 
   return { create: create, install: install, KEY: KEY, BACKOFF_MS: BACKOFF_MS,
-           SLOW_MS: SLOW_MS, STALL_MS: STALL_MS, STEPS: STEPS, HEALTH_RETRY_MS: HEALTH_RETRY_MS };
+           SLOW_MS: SLOW_MS, STALL_MS: STALL_MS, STEPS: STEPS, HEALTH_RETRY_MS: HEALTH_RETRY_MS,
+           HEALTH_QUIET_MS: HEALTH_QUIET_MS };
 }));

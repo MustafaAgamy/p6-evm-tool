@@ -73,6 +73,26 @@ def test_health_route_reports_server_db_and_handshake(test_server):
     assert _get(test_server, '/api/health?t=1')[0] == 200
 
 
+def test_health_answers_even_when_the_data_folder_is_unavailable(test_server, monkeypatch):
+    """[startup:R2] S7: log_path() -> app_data_dir()'s makedirs raised inside the handler,
+    so the probe's connection was dropped (ERR_EMPTY_RESPONSE) instead of answered."""
+    def no_folder():
+        raise PermissionError(13, 'Access is denied', 'C:/Users/x/AppData/Roaming/.controlyx')
+    monkeypatch.setattr(app_startup, 'data_dir', no_folder)
+    assert app_startup.health()['log_path'] is None
+    status, _, body = _get(test_server, '/api/health')
+    data = json.loads(body)
+    assert status == 200 and data['ok'] is True and data['log_path'] is None
+    assert 'ready' in data and 'db' in data
+
+    def broken():
+        raise RuntimeError('boom')
+    monkeypatch.setattr(app_startup, 'health', broken)
+    status, _, body = _get(test_server, '/api/health')
+    data = json.loads(body)
+    assert status == 200 and data['ok'] is True and data['health_error'] == 'boom'
+
+
 def test_client_log_ready_completes_the_handshake(test_server, tmp_path):
     assert not app_startup.READY.is_set()
     status, data = _post(test_server, '/api/client-log',
