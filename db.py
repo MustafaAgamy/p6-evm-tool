@@ -264,7 +264,11 @@ def _quarantine_db(path):
 
 def open_db_resilient():
     """Create/upgrade the schema without ever raising. Returns a copy of DB_STATUS:
-    status 'ok' | 'recovered' (damaged file set aside, fresh DB) | 'degraded'."""
+    status 'ok' | 'recovered' (damaged file set aside, fresh DB) | 'degraded'.
+    (A file whose data pages are damaged opens 'ok'; start_background_check finds it.)"""
+    _OPEN_GEN[0] += 1
+    DB_STATUS.pop('check', None)
+    DB_STATUS.pop('salvaged', None)
     try:
         init_db()
         DB_STATUS.update(status='ok', detail=None, backup=None)
@@ -313,6 +317,9 @@ def open_db_resilient():
 # that can still be read into a new file and keeps the damaged one as .corrupt-bak-<time>.
 
 _DAMAGE_LOCK = threading.Lock()
+BACKGROUND_CHECK_DELAY_S = 2.0      # after the server listens: the window paints first
+_OPEN_GEN = [0]                     # bumped by open_db_resilient: a check started for an
+                                    # earlier open never reports on a newer one
 
 
 def mark_damaged(detail):
@@ -340,9 +347,12 @@ def note_error(err):
     return bad
 
 
-def integrity_check(path=None):
+def integrity_check(path=None, gen=None):
     """PRAGMA quick_check on its own connection. Returns (ok, detail): ok True, False
-    (damaged — recorded in DB_STATUS) or None (could not run: locked, missing ...)."""
+    (damaged — recorded in DB_STATUS) or None (could not run: locked, missing ...).
+    ``gen``: the open this check was started for (a stale check reports nothing)."""
+    if gen is not None and gen != _OPEN_GEN[0]:
+        return None, 'stale check'
     DB_STATUS['check'] = 'running'
     try:
         path = path or _db_path()
@@ -370,14 +380,19 @@ def integrity_check(path=None):
         DB_STATUS['check'] = 'done'
 
 
-def start_background_check(delay_s=2.0):
-    """Run integrity_check() on a daemon thread after ``delay_s`` (the window paints first).
+def start_background_check(delay_s=None):
+    """Run integrity_check() on a daemon thread after ``delay_s`` (default
+    BACKGROUND_CHECK_DELAY_S; the window paints first) on the DB file open NOW.
     GET /api/health shows db.check: 'pending' -> 'running' -> 'done'."""
     DB_STATUS['check'] = 'pending'
+    path, gen = _db_path(), _OPEN_GEN[0]
+    delay_s = BACKGROUND_CHECK_DELAY_S if delay_s is None else delay_s
 
     def run():
         time.sleep(max(0.0, delay_s))
-        integrity_check()
+        if gen != _OPEN_GEN[0]:
+            return
+        integrity_check(path, gen)
     t = threading.Thread(target=run, name='db-quick-check', daemon=True)
     t.start()
     return t

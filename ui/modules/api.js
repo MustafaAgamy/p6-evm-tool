@@ -5,7 +5,7 @@ import { showReportPreview }                                     from './preview
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
-import { fmtDate }                                               from './format.js';
+import { fmtDate, escapeHtml }                                   from './format.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -45,31 +45,102 @@ export async function importFile(filePath, { showSpinner = true, onLoaded = null
 }
 
 // Recent Projects: retried with backoff (the first call runs while the app is still
-// starting); if it still fails, the table says so with a Retry button instead of staying
-// silently empty (startup audit DB-1).
+// starting); if it still fails, the table says WHY with a Retry button instead of staying
+// silently empty (startup audit DB-1). A DAMAGED history database (S3) is not retried —
+// it will not heal — the row offers to set it aside and start fresh (a backup is kept).
 const HISTORY_RETRY_MS = [500, 1500, 4000];
+export const DB_FIX_LABEL = 'Set the damaged database aside and start fresh (a backup is kept)';
+
+async function fetchHistory() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/history`);
+  if (resp.ok) return resp.json();
+  let info = null;
+  try { info = await resp.json(); } catch { /* not JSON */ }
+  const err = new Error((info && info.error) || `Server error ${resp.status}`);
+  err.info = info;
+  throw err;
+}
+
+export function historyIsDamaged(info) {
+  return !!(info && (info.damaged || (info.db && info.db.status === 'damaged')));
+}
+
 export async function loadHistory({ retries = HISTORY_RETRY_MS.length } = {}) {
   for (let i = 0; ; i++) {
     try {
-      const history = await apiFetch('api/history');
+      const history = await fetchHistory();
       renderHistory(history);
       return history;
-    } catch {
-      if (i >= retries) { renderHistoryUnavailable(); return null; }
+    } catch (err) {
+      const damaged = historyIsDamaged(err && err.info);
+      if (i >= retries || damaged) { renderHistoryUnavailable(err); return null; }
       await new Promise(r => setTimeout(r, HISTORY_RETRY_MS[Math.min(i, HISTORY_RETRY_MS.length - 1)]));
     }
   }
 }
 
-function renderHistoryUnavailable() {
+// the page-wide notice (startup guard) set the damaged file aside -> show the fresh list
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('cx-db-recovered', () => { loadHistory({ retries: 1 }); });
+}
+
+function renderHistoryUnavailable(err) {
   const tbody = document.getElementById('recent-tbody');
   if (!tbody) return;
   const totalEl = document.getElementById('recent-total');
   if (totalEl) totalEl.textContent = 'unavailable';
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Couldn’t load recent projects. '
+  const info = err && err.info;
+  const damaged = historyIsDamaged(info);
+  const reason = (info && info.error) ? info.error
+    : 'the app’s local server did not answer';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Couldn’t load recent projects — '
+    + `<span class="recent-error">${escapeHtml(reason)}</span>. `
+    + (damaged
+      ? 'The project history database is damaged. '
+        + `<button type="button" class="btn-primary" id="recent-recover">${escapeHtml(DB_FIX_LABEL)}</button> `
+      : '')
     + '<button type="button" class="btn-secondary" id="recent-retry">Retry</button></td></tr>';
   const b = document.getElementById('recent-retry');
   if (b) b.addEventListener('click', () => { b.disabled = true; loadHistory({ retries: 1 }); });
+  const fix = document.getElementById('recent-recover');
+  if (fix) fix.addEventListener('click', () => recoverDamagedHistory(fix));
+  // the page-wide notice explains it too (once), with the same button
+  if (damaged && window.__cxStartup && typeof window.__cxStartup.notice === 'function'
+      && !document.getElementById('cx-db-notice')) {
+    try { window.__cxStartup.notice({ db: info.db || { status: 'damaged', detail: info.error } }); } catch { /* optional */ }
+  }
+}
+
+async function recoverDamagedHistory(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Setting the damaged database aside…';
+  let res = null;
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/db/recover`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    res = await resp.json();
+  } catch (e) { res = { ok: false, error: String(e && e.message || e) }; }
+  if (res && res.ok) {
+    const n = document.getElementById('cx-db-notice');
+    if (n && n.parentNode) n.parentNode.removeChild(n);
+    if (window.__cxStartup && typeof window.__cxStartup.notice === 'function') {
+      try { window.__cxStartup.notice({ db: { status: 'recovered', backup: res.backup, salvaged: res.salvaged } }); } catch { /* optional */ }
+    }
+    await loadHistory({ retries: 1 });
+    return res;
+  }
+  btn.disabled = false;
+  btn.textContent = DB_FIX_LABEL;
+  const row = btn.closest ? btn.closest('td') : null;
+  if (row) {
+    const p = document.createElement('div');
+    p.className = 'recent-error';
+    p.textContent = 'It could not be set aside: ' + ((res && (res.error || res.message)) || 'no answer')
+      + '. Close every other copy of the app and try again.';
+    row.appendChild(p);
+  }
+  return res;
 }
 
 class ButtonState {
