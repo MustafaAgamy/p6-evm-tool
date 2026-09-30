@@ -69,6 +69,10 @@ def _doc(fill_pt, old=False):
         for q in d.element.body.iter(_P):
             if ''.join(t.text or '' for t in q.iter(qn('w:t'))).startswith('Peak '):
                 q.find(qn('w:pPr')).remove(_kn(q))
+        for tbl in d.element.body.iter(_TBL):         # … and the pre-fix table had no title row
+            tr = tbl.find(qn('w:tr'))
+            if ''.join(t.text or '' for t in tr.iter(qn('w:t'))).endswith('totals by resource'):
+                tbl.remove(tr)
     DP.paginate_docx(d)
     return d
 
