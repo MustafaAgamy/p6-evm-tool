@@ -25,6 +25,9 @@ Defects (``flags``):
   small_table_split             a table small enough to be kept whole (<= FIT of a page) is
                                 split across two pages
   table_header_not_repeated     a table continues on the next page without its header row
+  empty_repeated_header         (Word) a side-by-side part of a table (two tables built as
+                                one, a blank column between) repeats its header on a page
+                                where it has no rows left
   graphic_cut                   a chart / diagram / picture is cut by the page break (part
                                 on each page, or clipped by the sheet edge)
   text_cut                      text runs off the sheet (content overflowed the page)
@@ -97,8 +100,8 @@ CONTENTS_ROWS = 3         # a page ending with >= 3 "title ... page-number" rows
 DEFECT_TYPES = (
     'orphaned_heading', 'kpi_separated_from_heading', 'heading_separated_from_block',
     'picture_separated_from_caption', 'table_split_few_rows', 'small_table_split',
-    'table_header_not_repeated', 'graphic_cut', 'text_cut', 'content_in_margin',
-    'large_blank_then_continuation',
+    'table_header_not_repeated', 'empty_repeated_header', 'graphic_cut', 'text_cut',
+    'content_in_margin', 'large_blank_then_continuation',
     'stranded_fragment', 'empty_page', 'picture_truncated', 'picture_mostly_blank',
 )
 INFO_TYPES = ('section_break_blank',)
@@ -1017,6 +1020,9 @@ def word_layout(path):
                                      'hdr': bool(row.HeadingFormat), 'n': row.Cells.Count,
                                      'bold': rr.Font.Bold == -1,
                                      't': rr.Text.replace('\r\x07', ' | ').replace('\x07', '').strip()[:60]})
+                        if rows[-1]['n'] >= 4:        # a wide row: which cells hold text (side-by-side parts)
+                            rows[-1]['cells'] = [bool(c.Range.Text.replace('\r', '').replace('\x07', '').strip())
+                                                 for c in row.Cells]
                     # the row that ENDS a page fragment: where its tallest cell's last line sits
                     # (a wrapped last row is taller than the table's usual row step, so the
                     # fragment height is not under-counted - a table of 40 % of a page read as
@@ -1165,6 +1171,48 @@ def _w_page_ends(it, page_bottom):
     return out
 
 
+def _w_side_parts(rows):
+    """Column ranges of the side-by-side parts of a Word table: two (or more) tables built as
+    ONE table with a blank column between them (the Narrative's code-table pairs). Read from
+    its last wide header row - runs of cells that hold text, split by empty cells."""
+    hdr = [r for r in rows if r.get('hdr') and len(r.get('cells') or []) >= 4]
+    if not hdr:
+        return []
+    parts, lo = [], None
+    for i, full in enumerate(list(hdr[-1]['cells']) + [False]):
+        if full and lo is None:
+            lo = i
+        elif not full and lo is not None:
+            parts.append((lo, i))
+            lo = None
+    return parts if len(parts) >= 2 else []
+
+
+def _w_side_part_flags(it, by, what, hdr_rep):
+    """A side-by-side part of a table that runs over pages: its header repeated over no rows
+    of it (the part ended on an earlier page), or the part split leaving 1-2 of its rows."""
+    out = []
+    for lo, hi in _w_side_parts(it['rows']):
+        per = collections.OrderedDict(
+            (p, sum(1 for r in rows if not r['hdr'] and any((r.get('cells') or [])[lo:hi])))
+            for p, rows in by.items())
+        on = [p for p, c in per.items() if c]
+        if not on:
+            continue
+        name = f'columns {lo + 1}-{hi}'
+        empty = [p for p, c in per.items() if not c and p > on[0]]
+        if empty and hdr_rep:
+            out.append(_flag('empty_repeated_header', empty[0],
+                             f'{what}: its side-by-side part ({name}) repeats its header on page '
+                             f'{empty[0]} over no rows (the part ends on page {on[-1]})'))
+        if len(on) > 1 and min(per[p] for p in on) < MIN_ROWS:
+            split = ', '.join(f'p{p}: {per[p]} row(s)' for p in on)
+            out.append(_flag('table_split_few_rows', on[0],
+                             f'{what}: its side-by-side part ({name}) is split {split} '
+                             f'(the rules keep >= {MIN_ROWS})'))
+    return out
+
+
 def analyze_word_layout(layout):
     """Pagination defects from Word's own layout (``word_layout()`` output)."""
     pg = layout['page']
@@ -1244,6 +1292,7 @@ def analyze_word_layout(layout):
             height = sum((ys[-1] - ys[0]) + tail.get(p, 0.0) + step for p, _, ys in frags)
             desc = ', '.join(f'p{p}: {b} body row(s)' for p, b, _ in frags)
             what = f"table {it['t'][:40]!r} ({len(it['rows'])} rows)"
+            flags.extend(_w_side_part_flags(it, by, what, hdr_rep))
             small = [f for f in frags if f[1] < MIN_ROWS]
             if small:
                 flags.append(_flag('table_split_few_rows', small[0][0], f'{what} split {desc} '
