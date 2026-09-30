@@ -244,3 +244,41 @@ def test_chrome_wbs_tree_taller_than_a_third_continues_between_branches():
     for k in range(1, 4):                      # every sub-branch label sits with its first leaf
         label = next(i for i, p in enumerate(pages) if 'Sub-branch B%d' % k in p['text'])
         assert 'Leaf B%d-01' % k in pages[label]['text'], (k, label)
+
+
+def _materials_doc(n_charts, intro_words):
+    months = ['%s-26' % m for m in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
+                                    'Sep', 'Oct', 'Nov', 'Dec')]
+    charts = [{'name': 'Material %02d - QTY' % k, 'unit': 'm3', 'total': 1000 + k,
+               'span': months, 'values': [((k * 7 + i * 13) % 90) + 5 for i in range(12)],
+               'color': 'E8A33D', 'peak_val': 95, 'peak_label': 'June 2026'}
+              for k in range(1, n_charts + 1)]
+    return {'meta': dict(_META), 'sections': [
+        {'number': 14, 'title': 'Material Resources', 'kind': 'materials',
+         'payload': {'available': True, 'intro': ' '.join(['quantity'] * intro_words),
+                     'total_n': n_charts, 'charted_n': n_charts, 'charts': charts,
+                     'table_rows': [['Material %02d - QTY' % k, 'm3', '1,000']
+                                    for k in range(1, n_charts + 1)]}}]}
+
+
+def test_chrome_a_run_of_material_charts_never_cuts_a_chart_across_pages():
+    """NARR-PDF-5 — the 'Peak ...' caption UNDER each §14 chart (<div class="rescap">, the
+    last child of the .calfig) was treated as a heading: its break-after:avoid propagated
+    to the figure, so every break between a run of charts was forbidden and Chrome cut the
+    next chart itself across the page (GBT p34->p35: title + 2 bars on one page, the rest
+    of the columns scattered at the top of the next). Only the lead-in <p class="rescap">
+    keeps with its chart group now; every chart moves whole."""
+    chrome = _chrome()
+    from p6_export import pagination_check as pc
+    before, after = [], []
+    with tempfile.TemporaryDirectory() as folder:
+        for k, words in enumerate((10, 60, 120)):
+            html = page_html(_materials_doc(14, words))
+            assert 'p.rescap,' in html
+            old = html.replace('p.rescap,', '.rescap,')
+            for pdf, into in ((_print(html, chrome, folder, 'after%d' % k), after),
+                              (_print(old, chrome, folder, 'before%d' % k), before)):
+                into.extend(f for f in pc.check_pdf(pdf)['flags']
+                            if f['type'] in ('graphic_cut', 'orphaned_heading'))
+    assert before, 'the pre-fix heading list should cut a material chart across a page'
+    assert after == [], after

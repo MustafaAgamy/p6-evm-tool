@@ -231,7 +231,7 @@ def theme_meta():
 # but its <div class="rescap"> ("Peak 7,653 m3 in June 2026.") is the caption UNDER a
 # chart, the last child of the .calfig — a break-after:avoid there propagates to the
 # figure, forbids every break between a run of figures, and Chrome then cuts the next
-# figure itself across the page (finding NARR-PDF-4, §14 material charts).
+# figure itself across the page (finding NARR-PDF-5, §14 material charts).
 HEADING_SELECTORS = (
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'caption', '[role="heading"]', '[data-rpt-heading]',
     'div.sec', 'div.sub', '.sub2', '.subhd', '.subblue', '.subctr', '.ct', '.calname',
