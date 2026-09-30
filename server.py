@@ -3917,7 +3917,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             rows = db.get_recent_projects(limit=10)
         except Exception as exc:          # a damaged/locked DB: answer, don't drop the socket
-            app_startup.log('history unavailable: %r', exc)
+            app_startup.log('history unavailable: %s', repr(exc))   # text only: a kept record
+            # holding the exception would pin the failed connection (and the damaged file)
             damaged = db.note_error(exc)
             self._json(503, {'ok': False, 'error': f'Recent projects could not be read: {exc}',
                              'damaged': damaged, 'db': dict(db.DB_STATUS)})

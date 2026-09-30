@@ -116,3 +116,61 @@ def test_a_failing_history_call_shows_retry_then_loads(test_server, browser, mon
             "document.getElementById('recent-tbody').innerText")
     finally:
         ctx.close()
+
+
+def test_a_damaged_history_db_says_why_and_can_be_set_aside(tmp_path, browser, monkeypatch):
+    """S3: a DB whose data pages are damaged opens 'ok'; the page must say the real error
+    (not just 'Couldn't load') and offer to set the damaged file aside; after the click
+    Recent Projects loads from the fresh file (every readable row copied across)."""
+    import gc
+    import sqlite3
+    import threading
+    import db
+    import server
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    monkeypatch.setattr(db, 'schedules_dir', lambda: str(tmp_path / 'schedules'))
+    monkeypatch.setattr(db, 'BACKGROUND_CHECK_DELAY_S', 0.0)
+    (tmp_path / 'schedules').mkdir()
+    db.init_db()
+    path = str(tmp_path / 'controlyx.db')
+    conn = sqlite3.connect(path)
+    conn.executemany('INSERT INTO projects (id, p6_project_id, name, created_at) VALUES (?,?,?,?)',
+                     [(i, 'P%d' % i, 'Project %d %s' % (i, 'x' * 60), '2026-01-01') for i in range(1, 201)])
+    conn.executemany('INSERT INTO snapshots (id, project_id, imported_at, original_path) VALUES (?,?,?,?)',
+                     [(i, i, '2026-01-01T00:%02d:%02d' % (i // 60, i % 60), 'C:/x/p%d.xml' % i)
+                      for i in range(1, 201)])
+    conn.commit()
+    conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    psz = conn.execute('PRAGMA page_size').fetchone()[0]
+    conn.close()
+    gc.collect()
+    raw = bytearray(open(path, 'rb').read())
+    page = raw.find(b'Project 100 ') // psz
+    raw[page * psz:(page + 1) * psz] = b'\xde\xad\xbe\xef' * (psz // 4)
+    open(path, 'wb').write(bytes(raw))
+
+    httpd = server.make_server()
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    port = httpd.server_address[1]
+    ctx, page_ = _page(browser)
+    try:
+        page_.goto(f'http://localhost:{port}/', wait_until='domcontentloaded')
+        assert _ready(page_)['nav'] > 0
+        page_.wait_for_selector('#recent-recover', state='attached', timeout=15000)
+        row = page_.evaluate("document.getElementById('recent-tbody').innerText")
+        assert 'Couldn’t load recent projects' in row and 'malformed' in row   # the real error
+        page_.wait_for_selector('#cx-db-notice', timeout=15000)                   # page-wide too
+        assert 'damaged' in page_.inner_text('#cx-db-notice')
+        page_.evaluate("document.getElementById('recent-recover').click()")
+        page_.wait_for_function("!document.getElementById('recent-recover') && "
+                                "document.querySelectorAll('#recent-tbody tr').length > 1",
+                                timeout=15000)
+        assert 'Couldn’t load' not in page_.evaluate(
+            "document.getElementById('recent-tbody').innerText")
+        notice = page_.inner_text('#cx-db-notice')
+        assert 'corrupt-bak' in notice and 'every record that could still be read' in notice
+        assert db.DB_STATUS['status'] == 'recovered'
+    finally:
+        ctx.close()
+        httpd.shutdown()
+        httpd.server_close()
