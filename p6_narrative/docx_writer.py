@@ -1674,7 +1674,11 @@ def write_docx(doc, output_path, chrome=None):
     # A real, native Word TOC field on its own page: Word fills in the TRUE page number of
     # every one of the ten Heading-1 sections when it updates fields on open (the PAGEREF
     # approach cached ordinals that resolved to "page 1" on the planner's Word — this does not).
-    docx_template.add_toc(document)
+    # Every section opens a new page through its heading's 'page break before' — not a
+    # separate page-break paragraph after the section before: when a section filled its last
+    # page to the bottom margin that paragraph spilled onto the next page and broke there,
+    # leaving a page with nothing but its page number (SG Word p12 after §7, NARRFIX).
+    docx_template.add_toc(document, page_break=False)
 
     for idx, section in enumerate(sections, 1):
         try:
@@ -1687,12 +1691,11 @@ def write_docx(doc, output_path, chrome=None):
         else:
             hp = docx_template.heading(document, docx_template.format_number((number,)),
                                        section.get('title', ''))
+        hp.paragraph_format.page_break_before = True           # each section on a new page
         if section.get('cover'):                               # cover/divider: also pushed down the page
             hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
-        if idx < len(sections):
-            document.add_page_break()
 
     # Real TOC page numbers: refresh all fields (the TOC PAGEREFs) with the true page on open.
     docx_template.enable_update_fields(document)

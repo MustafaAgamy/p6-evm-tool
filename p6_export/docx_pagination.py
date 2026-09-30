@@ -67,6 +67,17 @@ def _has_break(p):
     return False
 
 
+def _ends_page(p):
+    """A paragraph whose own content ends the page (a page-break run, a section end) — unlike
+    'page break before', which only starts ITS paragraph on a new page (a section heading
+    that opens a new page still keeps with its content)."""
+    for br in p.iter(qn('w:br')):
+        if br.get(qn('w:type')) == 'page':
+            return True
+    ppr = p.find(qn('w:pPr'))
+    return ppr is not None and ppr.find(qn('w:sectPr')) is not None
+
+
 def _style_id(p):
     ppr = p.find(qn('w:pPr'))
     st = ppr.find(qn('w:pStyle')) if ppr is not None else None
@@ -81,7 +92,7 @@ def _keep_next_on(p):
 
 def keep_with_next(p):
     """Set Word 'Keep with next' on a ``w:p`` element (schema order handled by python-docx)."""
-    if p is None or p.tag != _W_P or _has_break(p):
+    if p is None or p.tag != _W_P or _ends_page(p):
         return
     p.get_or_add_pPr().keepNext_val = True
 
@@ -376,7 +387,7 @@ def paginate_docx(document):
         return chain
 
     for i, el in enumerate(items):
-        if el.tag == _W_P and _is_heading(el) and not _has_break(el):
+        if el.tag == _W_P and _is_heading(el) and not _ends_page(el):
             keep_with_next(el)                              # heading → first line of next
             j = i + 1
             while j < n and items[j].tag == _W_P and _blank(items[j]):

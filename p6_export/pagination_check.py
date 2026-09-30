@@ -1307,7 +1307,12 @@ def analyze_word_layout(layout):
     # large blank at a page end followed by a pushed block; empty pages
     last_on, first_on, covered = {}, {}, set()
     for j, it in enumerate(items):
-        covered.update(range(it['page'], it['page_end'] + 1))
+        # a text-less paragraph holding only a page break is not content: when it spills onto
+        # a page of its own (the section before filled its page) that page is EMPTY - it was
+        # counted as covered and read only as a 'section_break_blank' (SG Word p12, NARRFIX)
+        if not (it['k'] == 'p' and it.get('brk') and not (it.get('t') or '').strip()
+                and not it.get('shape_h')):
+            covered.update(range(it['page'], it['page_end'] + 1))
         # an item that runs over several pages ends on EACH of them (a table: its last row
         # there; text: the page bottom) and is the first thing on each page it continues onto
         # — counting only its last page read a full page it filled as "ends early"
