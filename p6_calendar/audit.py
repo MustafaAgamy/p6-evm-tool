@@ -89,6 +89,18 @@ def _project_window(data):
     return start, finish
 
 
+def _baseline_flags(data):
+    try:
+        from p6_evm.baseline import schedule_baseline
+        f = schedule_baseline(data)
+        # the line is only printed when approximate — keep it None otherwise, so the audit of an
+        # XML with its baseline == the same update + that baseline attached (R4)
+        return {'baseline_approx': f['baseline_approx'],
+                'baseline_label': f['baseline_label'] if f['baseline_approx'] else None}
+    except Exception:
+        return {'baseline_approx': False, 'baseline_label': None}
+
+
 def _baseline_window(data):
     bs = [_to_date(b.get('planned_start')) for b in data.baseline_by_id.values()]
     bf = [_to_date(b.get('planned_finish')) for b in data.baseline_by_id.values()]
@@ -440,6 +452,9 @@ def calendar_audit(data, config=None, settings=None):
         'data_date': _iso(_to_date(data.project.get('data_date'))),
         'baseline_start': _iso(bstart),
         'baseline_finish': _iso(bfinish),
+        # the update's own Planned dates standing in for a baseline P6 names but the file does not
+        # carry (none attached) → the Baseline tiles read '(approx)', not 'plan of record' (R4 F2)
+        **_baseline_flags(data),
         'window_start': _iso(display_start),
         'window_finish': _iso(finish),
         'total_calendar_days': total_calendar_days,

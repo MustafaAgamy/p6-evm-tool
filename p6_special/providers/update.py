@@ -19,13 +19,24 @@ FEATURE = 'update'
 FEATURE_TITLE = 'Update Analysis'
 
 
+def _no_baseline(ctx):
+    """The Update Analysis screen's no-baseline notice when the open update has no REAL
+    baseline (none inside the file, none attached for it — p6_update.analysis.update_has_baseline,
+    the rule the screen uses), else None. Then no Update item is offered or rendered: the screen
+    refuses to measure an update against its own Planned dates, and so does the Studio."""
+    return FR.update_no_baseline(ctx)
+
+
 def _ready(ctx):
-    return 'ready' if ctx.has_xml() else 'no_data'
+    if not ctx.has_xml():
+        return 'no_data'
+    return 'needs_input' if _no_baseline(ctx) else 'ready'
 
 
 def _mk(key, title):
     return Item(f'update:{key}', FEATURE, FEATURE_TITLE, title, 'section',
-                lambda ctx, k=key: FR.update_section(ctx, k) or P.NO_DATA, _ready)
+                lambda ctx, k=key: FR.update_section(ctx, k) or P.NO_DATA, _ready,
+                note=_no_baseline)
 
 
 # ── self-contained reuse adapter (mirrors feature_reports._payload /
@@ -57,7 +68,7 @@ def _report(ctx):
     None when the file isn't available (evicted cache / no import)."""
     def build():
         data = ctx.parsed()
-        if data is None:
+        if data is None or _no_baseline(ctx):     # never against the update's own Planned dates
             return None
         from p6_update.analysis import build_report_from_data
         return build_report_from_data(data, ctx.computed())

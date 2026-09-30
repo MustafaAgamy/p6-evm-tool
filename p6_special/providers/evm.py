@@ -123,7 +123,7 @@ def _trend_ready(key):
 # ── atomic KPI producers ─────────────────────────────────────────────────────
 def _kpi_planned(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('Planned %', fmt.pct01(e.get('overall_planned_pct'), dp=2),
+    return P.kpi_group([P.kpi('Planned %' + ctx.baseline_ax(), fmt.pct01(e.get('overall_planned_pct'), dp=2),
                               sub='where the plan says we should be', tone='accent',
                               spark=_spark(ctx, 'overall_planned_pct', scale=100.0),
                               delta=_delta(ctx, 'overall_planned_pct',
@@ -152,7 +152,7 @@ def _kpi_variance(ctx):
 
 def _kpi_spi(ctx):
     e = ctx.evm or {}
-    return P.kpi_group([P.kpi('SPI', fmt.pct01(e.get('spi'), dp=0),
+    return P.kpi_group([P.kpi('SPI' + ctx.baseline_ax(), fmt.pct01(e.get('spi'), dp=0),
                               sub='schedule performance index', tone=_ratio_tone(e.get('spi')),
                               spark=_spark(ctx, 'spi'),
                               delta=_delta(ctx, 'spi', lambda d: f'{d:+.2f}'),
@@ -172,7 +172,7 @@ def _kpi_pv(ctx):
     e = ctx.evm or {}
     # Exact, comma-grouped (matches the EVM screen's egpExact tile — must equal P6 to
     # the unit, not the abbreviated 'M'/'B' form).
-    return P.kpi_group([P.kpi('Planned Value (PV)', fmt.num(e.get('pv')), tone='neutral')])
+    return P.kpi_group([P.kpi('Planned Value (PV)' + ctx.baseline_ax(), fmt.num(e.get('pv')), tone='neutral')])
 
 
 def _kpi_ev(ctx):
@@ -192,7 +192,7 @@ def _kpi_delay(ctx):
     # Match the EVM screen's Delay tile exactly: label 'Delay', value 'N days' (no
     # singularising), no working-days sub-label.
     val = fmt.DASH if d is None else f'{int(round(d))} days'
-    return P.kpi_group([P.kpi('Delay', val, tone=tone,
+    return P.kpi_group([P.kpi('Delay' + ctx.baseline_ax(), val, tone=tone,
                               spark=_spark(ctx, 'delay_days'),
                               delta=_delta(ctx, 'delay_days', lambda x: f'{x:+.0f} d'),
                               delta_tone='neutral')])
@@ -216,7 +216,7 @@ def _kpi_baseline_finish(ctx):
     v = (ctx.extras or {}).get('baseline_finish')
     if not v:
         return P.NO_DATA
-    return P.kpi_group([P.kpi('Baseline Finish', _fmt_date(v), tone='neutral')])
+    return P.kpi_group([P.kpi('Baseline Finish' + ctx.baseline_ax(), _fmt_date(v), tone='neutral')])
 
 
 def _kpi_expected_finish(ctx):

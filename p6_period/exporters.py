@@ -121,7 +121,8 @@ def _recovery_html(report):
     left = f'Work remaining <b>{_num(r.get("work_remaining"), "%")}</b> · this period earned <b>{_num(r.get("current_rate"), "%")}</b>.'
     if r.get('required_rate') is not None:
         ra = r.get('required_achievement')
-        left += (f'<br>To still hit the <b>baseline finish ({_e(r.get("baseline_finish"))})</b> you\'d need about '
+        left += (f'<br>To still hit the <b>baseline finish ({_e(r.get("baseline_finish"))}'
+                 f'{" · approx" if report.get("baseline_approx") else ""})</b> you\'d need about '
                  f'<b>{_num(r.get("required_rate"), "%")}/period</b>' + (f' (≈{round(ra * 100)}% achievement)' if ra is not None else '') + '.')
     elif r.get('note'):
         left += f'<br>{_e(r.get("note"))}'
@@ -633,7 +634,9 @@ def _milestone_table_html(report):
     r = (report.get('milestones', {}) or {}).get('overall')
     if not r:
         return '<p class="note">No project-completion milestone found in the update.</p>'
-    return ('<table class="data"><thead><tr><th>Project completion milestone</th><th class="num">Baseline</th>'
+    ax = ' · approx' if report.get('baseline_approx') else ''   # own Planned dates stand in
+    return ('<table class="data"><thead><tr><th>Project completion milestone</th>'
+            f'<th class="num">Baseline{ax}</th>'
             '<th class="num">Previous forecast</th><th class="num">Current forecast</th>'
             '<th>Slippage this period</th></tr></thead><tbody>'
             f'<tr><td>{_e(r.get("name"))}</td><td class="num mono">{_e(r.get("baseline_finish"))}</td>'
@@ -681,7 +684,8 @@ def _milestone_drift_svg(report):
             parts.append(f'<circle cx="{xat(od(r["prev_iso"])):.0f}" cy="{y}" r="3.6" fill="var(--rpt-warn)"/>')
         if r.get('curr_iso'):
             parts.append(f'<circle cx="{xat(od(r["curr_iso"])):.0f}" cy="{y}" r="4" fill="var(--rpt-bad)"/>')
-    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:var(--rpt-bg);border:2px solid var(--rpt-muted);border-radius:50%;width:9px;height:9px"></i>Baseline</span>'
+    legend = ('<div class="legend" style="font-size:9.5px"><span><i style="background:var(--rpt-bg);border:2px solid var(--rpt-muted);border-radius:50%;width:9px;height:9px"></i>Baseline'
+              + (' · approx' if report.get('baseline_approx') else '') + '</span>'
               '<span><i style="background:var(--rpt-warn);border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
               '<span><i style="background:var(--rpt-bad);border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
     return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
@@ -722,7 +726,10 @@ def render_html(report, trend=None, sections=None, code_filter=None,
     report = _apply_code_filter(report, code_filter)
     level, head, detail = _verdict(report)
     header = (f'<div class="rh"><div><h1>Update vs Update — Period Report</h1>'
-              f'<div class="meta">{_e(report.get("project_name"))} · period comparison (Windows Analysis)</div></div>'
+              f'<div class="meta">{_e(report.get("project_name"))} · period comparison (Windows Analysis)</div>'
+              + (f'<div class="meta">Baseline: {_e(report.get("baseline_label"))}</div>'
+                 if report.get('baseline_approx') and report.get('baseline_label') else '')
+              + '</div>'
               f'<div class="win">Reporting window<br><b>{_e(report.get("data_date_prev"))} → {_e(report.get("data_date_now"))}</b>'
               f'<br>previous cutoff → current cutoff</div></div>')
     banner = (f'<div class="banner {level}"><span class="dot {level}"></span>'
@@ -960,7 +967,7 @@ def report_excel(report, trend=None):
     rows += [['Recovery outlook'],
              ['Work remaining', _pctcell(rec.get('work_remaining'))],
              ['Earned this period', _pctcell(rec.get('current_rate'))],
-             ['Baseline finish', rec.get('baseline_finish') or ''],
+             ['Baseline finish' + (' · approx' if report.get('baseline_approx') else ''), rec.get('baseline_finish') or ''],
              ['Required rate to hit baseline', _pctcell(rec.get('required_rate')) + ('/period' if rec.get('required_rate') is not None else '')],
              ['Projected finish at current rate', rec.get('projected_finish') or ''],
              ['Recovery feasible', {True: 'Yes', False: 'No'}.get(rec.get('feasible'), '—')],
@@ -983,8 +990,9 @@ def report_excel(report, trend=None):
     mrows = (report.get('milestones', {}) or {}).get('rows', [])
     if mrows:
         rows += [[''], ['Milestones — baseline vs previous vs current forecast'],
-                 ['Key milestone', 'Baseline', 'Previous forecast', 'Current forecast',
-                  'Slip this period (wd)', 'Slip vs baseline (wd)']]
+                 ['Key milestone', 'Baseline' + (' · approx' if report.get('baseline_approx') else ''),
+                  'Previous forecast', 'Current forecast',
+                  'Slip this period (wd)', 'Slip vs baseline (wd)' + (' · approx' if report.get('baseline_approx') else '')]]
         for m in mrows:
             rows.append([m.get('name', ''), m.get('baseline_finish', ''), m.get('prev_forecast', ''),
                          m.get('curr_forecast', ''), m.get('slip_period_days', ''), m.get('slip_baseline_days', '')])

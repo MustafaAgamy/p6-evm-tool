@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { escapeHtml, fmtDate } from './format.js';
 import { openElogConfirm } from './elog.js';
+import { ATTACH_BASELINE_LABEL, baselineSource, baselineExpected, attachBaselineFile, removeBaselineFile, attachProblem, expectedBaselineAdvice, baselineEmbeddedLine } from './baseline.js';
 
 // ── pure helpers (unit-tested in tests/js/test_evm.js) ────────────────────
 export function egp(n) {
@@ -107,7 +108,8 @@ export function renderEvm(result) {
   state.baselineName = null;
   state.baselineMatched = null;
   state.baselineTotal = null;
-  _blPromptDone = false;                     // re-arm the "import baseline first" prompt per import
+  _blPromptDone = false;                     // re-arm the "attach baseline first" prompt per import
+  _bnrProblem = '';                          // a new render starts without an old attach problem
   _e1Extras = result.e1_extras || null;
   _applyE1ToCategories(result);
   body.innerHTML = `
@@ -194,7 +196,7 @@ function renderSlicer(result) {
   box.innerHTML = `
     <div class="evm-slice-scope">Showing: <b>${escapeHtml(scope)}</b></div>
     <div class="evm-slice-ro">
-      <div class="evm-ro plan"><div class="k">Planned %</div><div class="v">${pct(planned)}</div><div class="n">${escapeHtml(subP)}</div></div>
+      <div class="evm-ro plan"><div class="k">Planned %${_evmApprox(result) ? ' · approx' : ''}</div><div class="v">${pct(planned)}</div><div class="n">${escapeHtml(subP)}</div></div>
       <div class="evm-ro act"><div class="k">Actual %</div><div class="v">${pct(actual)}</div><div class="n">${escapeHtml(subA)}</div></div>
       <div class="evm-ro var"><div class="k">Variance</div><div class="v ${behind ? 'behind' : 'ahead'}">${vTxt}</div><div class="n">${behind ? 'behind plan' : 'ahead of plan'}</div></div>
     </div>
@@ -221,19 +223,23 @@ function renderDashboard(result) {
       ? `<span class="ff-name" title="${escapeHtml(nm)}">${escapeHtml(nm)}</span><span class="ff-type">${escapeHtml(tp)}</span>`
       : '';
   }
-  // Honesty flag: a XER update with no baseline attached measures Planned% / PV / Delay against
-  // its own dates+cost, so they're approximate until the baseline is attached.
-  const noBaseline = sourceType(state.currentXmlPath) === 'XER' && !(state.baselineName || result.baseline_name);
+  // Honesty flag: an update with no baseline inside it and none attached (an XER, or an XML
+  // exported without its baseline project) measures Planned% / PV / Delay against its own
+  // dates + cost, so they're approximate until the baseline is attached.
+  // A schedule with no baseline assigned in P6 is measured against its own dates exactly as P6
+  // does — not approximate.
+  const noBaseline = !(state.baselineName || result.baseline_name)
+    && baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   // Overall %: 2 decimals so the tile matches the Category Weights table's Overall row exactly.
   document.getElementById('evm-dash').innerHTML = `<div class="evm-tiles">
-    ${tile('SPI · Schedule', asPct(spi), st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
-    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, 'weighted table')}
+    ${tile('SPI · Schedule', asPct(spi), noBaseline ? `${st.label} · approx` : st.label, st.cls, st.cls === 'color-red' ? 'danger' : (st.cls === 'color-amber' ? 'warning' : 'success'))}
+    ${tile('Overall Planned %', `${(prog.planned * 100).toFixed(2)}%`, noBaseline ? 'weighted table · approx' : 'weighted table')}
     ${tile('Overall Actual %', `${(prog.actual * 100).toFixed(2)}%`, 'weighted table', prog.actual >= prog.planned ? 'color-green' : 'color-amber')}
     ${tile('Planned Value', egpExact(result.pv), noBaseline ? 'EGP · approx' : 'EGP')}
     ${tile('Earned Value', egpExact(result.ev), 'EGP')}
     ${tile('Actual Cost', egpExact(ac), acNote, _actualCost != null ? 'color-blue' : '')}
     ${tile('CPI · Cost', asPct(cpi), 'auto from Actual Cost')}
-    ${tile('Baseline Finish', fmtDate(result.baseline_finish))}
+    ${tile('Baseline Finish', fmtDate(result.baseline_finish), noBaseline ? 'approx' : '')}
     ${tile('Expected Finish', fmtDate(result.expected_finish))}
     ${tile('Delay', result.delay_days != null ? `${result.delay_days} days` : '—',
            noBaseline ? 'approx' : '', result.delay_days > 0 ? 'color-red' : 'color-green')}
@@ -266,8 +272,8 @@ function renderCats(result) {
       <td class="num">${pw.toFixed(2)}%</td><td class="num">${wa.toFixed(2)}%</td></tr>`;
   }
   document.getElementById('evm-cats').innerHTML = `<div class="tblwrap"><table class="evm-table">
-    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %</th>
-    <th class="num">Actual %</th><th class="num">Planned Wt %</th><th class="num">Weighted Act %</th></tr></thead>
+    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %${_evmApprox(result) ? ' · approx' : ''}</th>
+    <th class="num">Actual %</th><th class="num">Planned Wt %${_evmApprox(result) ? ' · approx' : ''}</th><th class="num">Weighted Act %</th></tr></thead>
     <tbody>${rows}<tr class="evm-tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>
     <td class="num">—</td><td class="num">${totPW.toFixed(2)}%</td><td class="num">${totWA.toFixed(2)}%</td></tr></tbody></table></div>`;
 }
@@ -413,53 +419,109 @@ function openInputsEditor(result) {
   });
 }
 
+// The update's own Planned dates stand in for its baseline (none in the file, none attached):
+// Planned % / PV / SPI / Delay / Baseline Finish are approximate — the same rule as the tiles.
+function _evmApprox(result) {
+  return !(state.baselineName || (result && result.baseline_name))
+    && baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
+}
+
 // ── Baseline banner (attach / replace / remove) ─────────────────────────────
-// Pure decision helper (unit-tested): what the banner should say, given the source
-// format and whether a baseline is attached. Returns null for XML (baseline embedded).
-export function baselineBannerState({ isXer, attachedName, matched, total }) {
-  if (attachedName) {
+// Pure decision helper (unit-tested): what the banner should say, given where the baseline
+// comes from (`source`: embedded | attached | self — p6_evm/baseline.py, the same resolution
+// every feature uses) and the file format. Returns null when the baseline is embedded in the
+// file (an XML exported WITH its baseline project) — nothing to attach. `isXer` alone (no
+// `source`) keeps the old rule for results stored before the server reported it: an XER is 'self'.
+export function baselineBannerState({ source, fmt, isXer, attachedName, matched, total, missing, problem, expected,
+  expectedName, mismatch, attachedProject }) {
+  const xer = fmt ? fmt === 'XER' : !!isXer;
+  const src = attachedName ? 'attached' : (source || (xer ? 'self' : 'embedded'));
+  if (src === 'attached' && attachedName) {
     if (matched === 0) {                            // wrong file — nothing lines up by Activity Id
       return {
         cls: 'warn', icon: '⚠',
         title: `Baseline “${attachedName}” — no activities matched.`,
-        msg: 'None of this update’s activities line up with that baseline by Activity Id — it’s likely the wrong file. Planned Value is not reliable.',
+        msg: `None of this update’s activities line up with that baseline by Activity Id — it’s likely the wrong file. Planned Value is not reliable.${problem ? ' ' + problem : ''}`,
         actions: ['replace', 'remove'],
       };
     }
     const cnt = (matched != null && total != null) ? ` · ${matched}/${total} matched` : '';
+    // Not the baseline P6 names (an earlier / later revision shares most Activity IDs) — or part
+    // of the update is not in it: say so, never a silent green 'attached'.
+    if (mismatch && expectedName) {
+      return {
+        cls: 'warn', icon: '⚠',
+        title: `Baseline attached: ${attachedName}${cnt} — not the baseline P6 names.`,
+        msg: `P6 names “${expectedName}” as this update’s baseline; you attached “${attachedProject || 'another project'}”. If it is an earlier or later revision, Planned Value, SPI and Delay will not match P6 — export “${expectedName}” (XER or XML) and replace it.${problem ? ' ' + problem : ''}`,
+        actions: ['replace', 'remove'],
+      };
+    }
+    if (matched != null && total != null && matched < total) {
+      return {
+        cls: 'warn', icon: '⚠',
+        title: `Baseline attached: ${attachedName}${cnt}`,
+        msg: `${total - matched} of this update’s activities are not in that baseline — they have no baseline and are left out of Planned % and Planned Value. If P6’s baseline has them, this is another revision: ${expectedName ? `attach “${expectedName}”.` : 'attach the baseline P6 names for this update.'}${problem ? ' ' + problem : ''}`,
+        actions: ['replace', 'remove'],
+      };
+    }
     return {
       cls: 'ok', icon: '✓',
       title: `Baseline attached: ${attachedName}${cnt}`,
-      msg: 'Planned Value is now anchored to the baseline dates and budget — matching P6 and the XML.',
+      msg: 'Planned Value is now anchored to the baseline dates and budget — the same numbers as an XML exported with its baseline. Every feature (Update Analysis, reports, AI Chat…) uses it.',
       actions: ['replace', 'remove'],
     };
   }
-  if (isXer) {
+  if (src === 'self' && expected === false) {    // no baseline assigned in P6 — nothing is missing
     return {
-      cls: 'warn', icon: '⚠',
-      title: 'No baseline attached.',
-      msg: 'This XER update doesn’t include its baseline, so Planned Value, SPI and Delay are approximate.',
+      cls: 'info', icon: 'ℹ',
+      title: 'No baseline is assigned to this project in P6',
+      // a failed attach (wrong project / unreadable file / server error) is said HERE — alert()
+      // is a no-op in WebView2, so a silent banner would leave the planner guessing
+      msg: `— its own Planned dates are the baseline, so Planned Value, SPI and Delay are measured against them, as P6 does.${problem ? ' ' + problem : ''}`,
       actions: ['attach'],
     };
   }
-  return null;   // XML — baseline is embedded, nothing to attach
+  if (src === 'self') {
+    const why = xer
+      ? 'This XER update doesn’t include its baseline project (a P6 XER update export carries only a pointer to it)'
+      : 'This XML was exported without its baseline project';
+    const lost = missing ? ` The baseline attached earlier (${missing}) is no longer available — attach it again.` : '';
+    const which = expectedName ? ' ' + expectedBaselineAdvice(expectedName) : '';
+    return {
+      cls: 'warn', icon: '⚠',
+      title: 'No baseline attached.',
+      msg: `${why}, so Planned Value, SPI and Delay are measured against its own Planned dates — approximate. Attach the baseline (XER or XML) to match P6.${which}${lost}${problem ? ' ' + problem : ''}`,
+      actions: ['attach'],
+    };
+  }
+  return null;   // embedded — the file carries its baseline, nothing to attach
 }
 
-const _BNR_LABEL = { attach: '📎 Attach baseline XER', replace: 'Replace', remove: 'Remove' };
+const _BNR_LABEL = { attach: ATTACH_BASELINE_LABEL, replace: 'Replace', remove: 'Remove' };
+let _bnrProblem = '';   // last attach / remove problem, shown in the banner (alert() is a no-op in WebView2)
 
 function renderBaselineBanner(result) {
   const box = document.getElementById('evm-baseline-banner');
   if (!box) return;
-  const isXer = sourceType(state.currentXmlPath) === 'XER';
+  const fmt = sourceType(state.currentXmlPath);
   const attachedName = state.baselineName || result.baseline_name || null;
-  const st = baselineBannerState({ isXer, attachedName,
-    matched: state.baselineMatched, total: state.baselineTotal });
-  if (!st) { box.className = ''; box.innerHTML = ''; return; }
+  const st = baselineBannerState({ source: baselineSource(result, state.currentXmlPath), fmt,
+    attachedName, matched: state.baselineMatched, total: state.baselineTotal,
+    missing: result.baseline_missing || null, problem: _bnrProblem, expected: baselineExpected(result),
+    expectedName: result.baseline_expected_name || null, mismatch: !!result.baseline_mismatch,
+    attachedProject: result.baseline_attached_project || null });
+  if (!st) {                                   // embedded: name it, as the PDF / Excel head does (R2 F8)
+    const line = baselineEmbeddedLine(result);
+    box.className = line ? 'evm-baseline-banner info' : '';
+    box.innerHTML = line ? `<span class="bnr-ic">ℹ</span><span class="bnr-txt">${escapeHtml(line)}</span>` : '';
+    return;
+  }
   const btns = st.actions.map(a =>
-    `<button class="evm-bnr-btn${a === 'attach' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
+    `<button class="evm-bnr-btn${a === 'attach' && st.cls === 'warn' ? ' primary' : ''}" data-act="${a}">${_BNR_LABEL[a]}</button>`).join('');
+  const prob = (_bnrProblem && st.cls === 'ok') ? ` <b>${escapeHtml(_bnrProblem)}</b>` : '';
   box.className = `evm-baseline-banner ${st.cls}`;
   box.innerHTML = `<span class="bnr-ic">${st.icon}</span>
-    <span class="bnr-txt"><b>${escapeHtml(st.title)}</b> ${escapeHtml(st.msg)}</span>
+    <span class="bnr-txt"><b>${escapeHtml(st.title)}</b> ${escapeHtml(st.msg)}${prob}</span>
     <span class="bnr-actions">${btns}</span>`;
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.act === 'remove') removeBaseline(result);
@@ -467,28 +529,35 @@ function renderBaselineBanner(result) {
   }));
 }
 
-// When the EVM view is opened for a XER update with no baseline yet, prompt to import the
-// baseline FIRST — so the numbers match the XML/P6 exactly rather than showing approximate
-// figures. Skippable (nothing is blocked); shown once per import.
+// When the EVM view is opened for an update with no baseline inside it and none attached (an
+// XER, or an XML exported without its baseline project), prompt to attach the baseline FIRST —
+// so the numbers match P6 exactly rather than showing approximate figures. Skippable (nothing
+// is blocked); shown once per import.
 export function maybePromptBaseline(result) {
   if (!result) return;
+  const needsBaseline = baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   const isXer = sourceType(state.currentXmlPath) === 'XER';
   const hasBaseline = state.baselineName || result.baseline_name;
-  if (!isXer || hasBaseline || _blPromptDone) return;
+  if (!needsBaseline || hasBaseline || _blPromptDone) return;
   if (document.getElementById('evm-bl-prompt')) return;
   _blPromptDone = true;
+  const what = isXer
+    ? 'a P6 <b>XER update</b> without its baseline project (a P6 XER update export carries only a pointer to it)'
+    : 'a P6 <b>XML</b> exported <b>without its baseline project</b>';
   const html = `<div class="modal-back" id="evm-bl-prompt">
     <div class="modal">
-      <div class="modal-title">Import the baseline first</div>
+      <div class="modal-title">Attach the baseline first</div>
       <div class="modal-body">
-        <p style="font-size:13px;line-height:1.55;color:var(--text)">You imported a P6 <b>XER update</b>. A XER update doesn’t carry its baseline, so
-          <b>Planned Value, SPI and Delay would be approximate</b>.</p>
-        <p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px">Import the <b>baseline</b> (the XER exported from the baseline project) now, so the
-          EVM results match the <b>XML export and P6 exactly</b>. You can still continue without it.</p>
+        <p style="font-size:13px;line-height:1.55;color:var(--text)">You imported ${what}, so
+          <b>Planned Value, SPI and Delay would be approximate</b> (measured against the update’s own Planned dates).</p>
+        <p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px">Attach the <b>baseline</b> — the baseline project exported from P6 as
+          <b>XER or XML</b> — now, so the results match an XML exported with its baseline, and <b>P6, exactly</b>. It is remembered
+          for this update and used by every feature (Update Analysis, reports, AI Chat…). You can still continue without it.</p>
+        ${result.baseline_expected_name ? `<p style="font-size:13px;line-height:1.55;color:var(--text);margin-top:10px"><b>${escapeHtml(expectedBaselineAdvice(result.baseline_expected_name))}</b></p>` : ''}
       </div>
       <div class="modal-foot">
         <button class="btn-secondary" id="evm-bl-skip">Continue without</button>
-        <button class="btn-primary" id="evm-bl-import">📎 Import baseline XER</button>
+        <button class="btn-primary" id="evm-bl-import">${ATTACH_BASELINE_LABEL}</button>
       </div>
     </div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -513,65 +582,70 @@ function _mergeEvmNumbers(result, data) {
   renderSlicer(result); renderDashboard(result); renderCats(result); renderBar(result);
 }
 
+// The server recomputed the snapshot with / without the baseline (the whole import result —
+// EVM, WBS, gap, calendar …) and it already replaced state.currentResult: redraw from it.
+function _showRefreshed(fresh) {
+  renderEvm(fresh);
+  _blPromptDone = true;                          // answered — don't re-prompt on this import
+}
+
 async function attachBaseline(result) {
-  try {
-    const path = await window.pywebview.api.choose_file();
-    if (!path) return;
-    _bannerBusy('Reading baseline…');
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/baseline/upload`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
-                             snapshot_id: state.currentSnapshotId }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { renderBaselineBanner(result); alert('Baseline attach failed: ' + (data.error || 'unknown')); return; }
-    if (data.matched === 0) {                        // wrong baseline file — don't apply broken numbers
-      renderBaselineBanner(result);                  // stays amber (no baseline applied)
-      alert('No activities matched between this update and that baseline.\nMake sure you picked the baseline for THIS project.');
-      return;
-    }
-    // Set baseline state BEFORE re-rendering so the dashboard's "approx" flag clears.
-    state.baselinePath = data.baseline_cached;     // used when generating the PDF
-    state.baselineName = data.baseline_name;
-    state.baselineMatched = data.matched;
-    state.baselineTotal = data.total;
-    // …and on the result itself (as a re-opened project carries it), so a re-render — Ctrl+R /
-    // Analysis ▸ Run again → renderEvm(result) — restores the attachment instead of showing
-    // "No baseline attached", re-prompting and dropping the baseline from the PDF.
-    // (removeBaseline clears the same fields.)
-    result.baseline_name = data.baseline_name;
-    result.baseline_path = data.baseline_cached;
-    result.baseline_matched = data.matched;
-    result.baseline_total = data.total;
-    _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
+  _bnrProblem = '';
+  _bannerBusy('Reading baseline…');
+  const data = await attachBaselineFile();
+  if (data.cancelled) { renderBaselineBanner(result); return; }
+  const problem = attachProblem(data);
+  if (problem) {                                 // failed, or the wrong project's baseline
+    _bnrProblem = problem;                       // shown in the banner (alert() is a no-op here)
     renderBaselineBanner(result);
-  } catch {
-    renderBaselineBanner(result);
-    alert('Baseline attach failed. Check the file and try again.');
+    return;
   }
+  if (data.result) { _showRefreshed(state.currentResult); return; }
+  // No snapshot to recompute: merge the EVM numbers into this result.
+  state.baselinePath = data.baseline_cached;     // used when generating the PDF
+  state.baselineName = data.baseline_name;
+  state.baselineMatched = data.matched;
+  state.baselineTotal = data.total;
+  // …and on the result itself (as a re-opened project carries it), so a re-render — Ctrl+R /
+  // Analysis ▸ Run again → renderEvm(result) — restores the attachment instead of showing
+  // "No baseline attached", re-prompting and dropping the baseline from the PDF.
+  // (removeBaseline clears the same fields.)
+  result.baseline_name = data.baseline_name;
+  result.baseline_path = data.baseline_cached;
+  result.baseline_matched = data.matched;
+  result.baseline_total = data.total;
+  result.baseline_source = 'attached';
+  result.baseline_mismatch = !!data.baseline_mismatch;          // not the baseline P6 names → warned
+  result.baseline_attached_project = data.baseline_attached_project || null;
+  if (data.baseline_expected_name) result.baseline_expected_name = data.baseline_expected_name;
+  Object.assign(result, data.baseline_fields || {});   // the server's baseline keys (label, approx …)
+  _mergeEvmNumbers(result, data);                // baseline drives PV / Planned% / SPI / Delay
+  renderBaselineBanner(result);
 }
 
 async function removeBaseline(result) {
-  try {
-    _bannerBusy('Removing baseline…');
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/baseline/clear`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
-                             snapshot_id: state.currentSnapshotId }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { renderBaselineBanner(result); alert('Remove failed: ' + (data.error || 'unknown')); return; }
-    // Clear baseline state BEFORE re-rendering so the dashboard's "approx" flag returns.
-    state.baselinePath = null; state.baselineName = null;
-    state.baselineMatched = null; state.baselineTotal = null;
-    result.baseline_name = null; result.baseline_path = null;
-    result.baseline_matched = null; result.baseline_total = null;
-    _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
+  _bnrProblem = '';
+  _bannerBusy('Removing baseline…');
+  const data = await removeBaselineFile();
+  if (!data.ok) {
+    _bnrProblem = `Remove failed: ${data.error || 'unknown error'}`;
     renderBaselineBanner(result);
-  } catch {
-    renderBaselineBanner(result);
-    alert('Remove failed. Try again.');
+    return;
   }
+  if (data.result) { _showRefreshed(state.currentResult); return; }
+  // Clear baseline state BEFORE re-rendering so the dashboard's "approx" flag returns.
+  state.baselinePath = null; state.baselineName = null;
+  state.baselineMatched = null; state.baselineTotal = null;
+  result.baseline_name = null; result.baseline_path = null;
+  result.baseline_matched = null; result.baseline_total = null;
+  // Back to the file's OWN Planned dates — 'self', never null: null reads as 'embedded' for an
+  // XML (baselineSource) and would hide the banner and the '· approx' marks (R3 F11). The
+  // server's baseline keys (source, label, approx) win when it sends them.
+  result.baseline_source = 'self'; result.baseline_label = null;
+  result.baseline_mismatch = null; result.baseline_attached_project = null;
+  Object.assign(result, data.baseline_fields || {});
+  _mergeEvmNumbers(result, data);                // back to the plain (approximate) numbers
+  renderBaselineBanner(result);
 }
 
 // Engineering log upload: pick the file(s) → the reader PROPOSES how to read them

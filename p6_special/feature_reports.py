@@ -104,10 +104,30 @@ def _rendered(ctx, key, fn):
     return ctx.memo(f'fr:{key}:{ctx.mode}', fn)
 
 
-def _update_full(ctx):
+def update_no_baseline(ctx):
+    """The Update Analysis screen's no-baseline notice for the open update (memoized), or None
+    when it has a real baseline — inside the file, attached for it, or none assigned in P6
+    (p6_update.analysis.update_has_baseline: the ONE rule the screen uses)."""
     def b():
         data = ctx.parsed()
         if data is None:
+            return None
+        from p6_update.analysis import update_has_baseline, no_baseline_notice
+        return None if update_has_baseline(data) else no_baseline_notice(data)
+    return ctx.memo('update:no_baseline', b)
+
+
+def _update_notice(ctx):
+    """The payload an Update item gives instead of a report measured against the update's own
+    Planned dates (a saved report that still lists it): the screen's words, not numbers."""
+    why = update_no_baseline(ctx)
+    return {'kind': 'note', 'message': why, 'tone': 'warn'} if why else None
+
+
+def _update_full(ctx):
+    def b():
+        data = ctx.parsed()
+        if data is None or update_no_baseline(ctx):
             return None
         from p6_update.analysis import build_report_from_data
         from p6_update.exporters import render_html
@@ -180,7 +200,7 @@ def _update_bycode(ctx):
     to be first — so the picked result charts the same dimension the Update screen shows."""
     def b():
         data = ctx.parsed()
-        if data is None:
+        if data is None or update_no_baseline(ctx):
             return None
         from p6_update.analysis import build_report_from_data
         from p6_update.exporters import render_html
@@ -196,6 +216,9 @@ def _update_bycode(ctx):
 
 
 def update_section(ctx, key):
+    notice = _update_notice(ctx)
+    if notice:                        # no real baseline: the screen's notice, never own-dates numbers
+        return notice
     if key == 'bycode':
         return _update_bycode(ctx)
     return _datasec_section(_update_full(ctx), 'update', key)
@@ -269,6 +292,12 @@ def evm_full_report(ctx):
         for k in ('baseline_finish', 'expected_finish', 'actual_cost'):
             if extras.get(k) is not None:
                 meta[k] = extras.get(k)
+        # the baseline the numbers were measured against + '· approx' — as the feature PDF
+        try:
+            from p6_evm.baseline import schedule_baseline
+            meta.update(schedule_baseline(ctx.parsed()))
+        except Exception:
+            pass
         # Render the Engineering Progress section like the feature: prefer the stored
         # E1 rows (with their aggregates) else the P6 drawings-by-trade rows. Absent
         # engineering just leaves the section empty (as the feature does with no data).

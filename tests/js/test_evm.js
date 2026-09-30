@@ -71,11 +71,37 @@ test('XER without baseline → amber attach', () => {
   assert.equal(s.cls, 'warn');
   assert.deepEqual(s.actions, ['attach']);
 });
-test('attached → green with matched count', () => {
-  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 1236, total: 1240 });
+test('attached, every activity matched → green with matched count', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 1240, total: 1240 });
   assert.equal(s.cls, 'ok');
-  assert.ok(s.title.includes('1236/1240 matched'));
+  assert.ok(s.title.includes('1240/1240 matched'));
   assert.deepEqual(s.actions, ['replace', 'remove']);
+});
+test('attached but part of the update is not in it → amber, says how many and which baseline P6 names (F4)', () => {
+  const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer', matched: 876, total: 1503,
+    expectedName: 'GBT REV.03 - B1' });
+  assert.equal(s.cls, 'warn');
+  assert.ok(s.title.includes('876/1503 matched'));
+  assert.match(s.msg, /627 of this update’s activities are not in that baseline/);
+  assert.match(s.msg, /attach “GBT REV\.03 - B1”/);
+  assert.deepEqual(s.actions, ['replace', 'remove']);
+});
+test('attached a different revision than the baseline P6 names → amber "P6 names X; you attached Y" (F4)', () => {
+  const s = baselineBannerState({ isXer: false, fmt: 'XML', source: 'attached', attachedName: 'GBT_REV01.xer',
+    matched: 1503, total: 1503, expectedName: 'Grain Bulk Terminal Detailed Schedule - Phase I REV.03 - B1',
+    mismatch: true, attachedProject: 'Grain Bulk Terminal Phase I - Schedule Last REV' });
+  assert.equal(s.cls, 'warn');
+  assert.match(s.title, /not the baseline P6 names/);
+  assert.match(s.msg, /P6 names “Grain Bulk Terminal Detailed Schedule - Phase I REV\.03 - B1” as this update’s baseline; you attached “Grain Bulk Terminal Phase I - Schedule Last REV”/);
+  // no expected name known (an XML exported without its <BaselineProject>) → no mismatch claim
+  assert.equal(baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'B.xer', matched: 5, total: 5,
+    mismatch: true }).cls, 'ok');
+});
+test('no baseline attached → the amber banner names the baseline P6 expects (F4)', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null,
+    expectedName: 'SAINT GOBAIN, AS2 -  Civil Package 03 - Rev.01 Clean' });
+  assert.match(s.msg, /P6 names “SAINT GOBAIN, AS2 -  Civil Package 03 - Rev\.01 Clean” as this update’s baseline — export that project \(XER or XML\) and attach it\./);
+  assert.ok(!/P6 names/.test(baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null }).msg));
 });
 test('attached without count → green, no count text', () => {
   const s = baselineBannerState({ isXer: true, attachedName: 'BL.xer' });
@@ -91,6 +117,75 @@ test('attached but 0 matched → amber mismatch warning, not green', () => {
   assert.ok(s.title.toLowerCase().includes('no activities matched'));
   assert.deepEqual(s.actions, ['replace', 'remove']);
 });
+// baseline_source (server: embedded | attached | self) drives it — XER and XML alike (R4)
+test('XML exported WITHOUT its baseline (source self) → amber attach, says XML', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null });
+  assert.equal(s.cls, 'warn');
+  assert.deepEqual(s.actions, ['attach']);
+  assert.match(s.msg, /XML was exported without its baseline project/);
+  assert.match(s.msg, /XER or XML/);
+});
+test('XER update (source self) → amber attach, says the XER carries only a pointer to its baseline', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null });
+  assert.deepEqual(s.actions, ['attach']);
+  assert.match(s.msg, /XER update doesn’t include its baseline project/);
+  assert.match(s.msg, /only a pointer/);
+});
+test('baseline embedded in the file → no banner, whatever the format', () => {
+  assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XML', attachedName: null }), null);
+  assert.equal(baselineBannerState({ source: 'embedded', fmt: 'XER', attachedName: null }), null);
+});
+test('XML + attached baseline → green, same as XER + attached', () => {
+  const s = baselineBannerState({ source: 'attached', fmt: 'XML', attachedName: 'BL.xer', matched: 12, total: 12 });
+  assert.equal(s.cls, 'ok');
+  assert.ok(s.title.includes('12/12 matched'));
+});
+test('no baseline assigned in P6 (baseline programme) → neutral info line, never the amber warning', () => {
+  for (const fmt of ['XML', 'XER']) {
+    const s = baselineBannerState({ source: 'self', fmt, attachedName: null, expected: false });
+    assert.equal(s.cls, 'info');
+    assert.match(s.title + ' ' + s.msg, /No baseline is assigned to this project in P6 — its own Planned dates are the baseline/);
+    assert.ok(!/approximate|exported without/.test(s.msg));
+  }
+  // expected / unknown (older results) keep the amber "attach" warning
+  assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, expected: true }).cls, 'warn');
+  assert.equal(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null }).cls, 'warn');
+});
+test('a failed attach is said on EVERY banner — info (no baseline assigned in P6) and wrong-file too (alert() is a no-op in WebView2)', () => {
+  const problem = 'No activities in “SG_bl_standalone.xml” match this update by Activity ID — it is probably another project’s baseline, so it was not attached.';
+  const info = baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, problem, expected: false });
+  assert.equal(info.cls, 'info');
+  assert.ok((info.title + ' ' + info.msg).includes(problem), 'problem shown in the info banner');
+  const none = baselineBannerState({ source: 'attached', fmt: 'XER', attachedName: 'WRONG.xer', matched: 0, total: 9, problem: 'Baseline not attached: disk error.' });
+  assert.ok(none.msg.includes('Baseline not attached: disk error.'));
+  const warn = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null, problem: 'Baseline not attached: x.' });
+  assert.ok(warn.msg.includes('Baseline not attached: x.'));
+  // and no stray text when nothing failed
+  assert.ok(!/undefined|null/.test(baselineBannerState({ source: 'self', fmt: 'XML', attachedName: null, expected: false }).msg));
+});
+{
+  const { baselineExpected } = await import('../../ui/modules/baseline.js');
+  test('baselineExpected: only an explicit false means "none assigned in P6"', () => {
+    assert.equal(baselineExpected({ baseline_expected: false }), false);
+    assert.equal(baselineExpected({ baseline_expected: true }), true);
+    assert.equal(baselineExpected({}), true);
+    assert.equal(baselineExpected(null), true);
+  });
+}
+test('an attached baseline that is no longer on disk is named in the banner', () => {
+  const s = baselineBannerState({ source: 'self', fmt: 'XER', attachedName: null, missing: 'BL-Rev01.xer' });
+  assert.match(s.msg, /BL-Rev01\.xer\) is no longer available/);
+});
+{
+  const { baselineSource } = await import('../../ui/modules/baseline.js');
+  test('baselineSource: server value wins; attached name = attached; old results fall back by extension', () => {
+    assert.equal(baselineSource({ baseline_source: 'self' }, 'a.xml'), 'self');
+    assert.equal(baselineSource({ baseline_source: 'embedded' }, 'a.xer'), 'embedded');
+    assert.equal(baselineSource({ baseline_name: 'BL.xer' }, 'a.xml'), 'attached');
+    assert.equal(baselineSource({}, 'C:/x/update.XER'), 'self');
+    assert.equal(baselineSource({}, 'C:/x/update.xml'), 'embedded');
+  });
+}
 
 console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run again)');
 {
@@ -106,6 +201,78 @@ console.log('\nattached baseline survives a re-render (Ctrl+R / Analysis ▸ Run
   });
   test('renderEvm restores state.baseline* from result.baseline_* (the re-render path)', () => {
     assert.match(src, /if \(result\.baseline_name\) \{[^}]*state\.baselinePath = result\.baseline_path;/);
+  });
+  const rm = src.slice(src.indexOf('async function removeBaseline'), src.indexOf('async function uploadE1'));
+  test("removeBaseline with no snapshot goes back to 'self', never null (null reads as 'embedded' for an XML — R3 F11)", () => {
+    assert.ok(!/result\.baseline_source\s*=\s*null/.test(rm), 'removeBaseline still sets baseline_source = null');
+    assert.match(rm, /result\.baseline_source = 'self'/);
+    assert.match(rm, /result\.baseline_label = null/);
+    assert.ok(rm.indexOf('Object.assign(result, data.baseline_fields') > rm.indexOf("result.baseline_source = 'self'"),
+      "the server's baseline keys are applied after the local reset");
+    assert.ok(rm.indexOf('Object.assign(result, data.baseline_fields') < rm.indexOf('_mergeEvmNumbers(result, data)'));
+  });
+  test('attachBaseline with no snapshot adopts the server baseline keys (label, approx) before re-rendering', () => {
+    assert.ok(fn.indexOf('Object.assign(result, data.baseline_fields') > -1);
+    assert.ok(fn.indexOf('Object.assign(result, data.baseline_fields') < fn.indexOf('_mergeEvmNumbers(result, data)'));
+  });
+  {
+    const { baselineSource } = await import('../../ui/modules/baseline.js');
+    test("a 'self' result from an XML is 'self' (the banner and approx flags stay)", () => {
+      assert.equal(baselineSource({ baseline_source: 'self' }, 'C:/x/update.xml'), 'self');
+      assert.equal(baselineSource({ baseline_source: null }, 'C:/x/update.xml'), 'embedded');   // why null was wrong
+    });
+  }
+}
+
+{
+  const { baselineApprox, baselineApproxLine, BASELINE_APPROX_LINE } = await import('../../ui/modules/baseline.js');
+  test('baselineApprox: own Planned dates standing in for a baseline P6 names (R1 F2)', () => {
+    assert.equal(baselineApprox({ baseline_source: 'self' }), true);
+    assert.equal(baselineApprox({ baseline_source: 'self', baseline_expected: false }), false);   // none assigned in P6
+    assert.equal(baselineApprox({ baseline_source: 'embedded' }), false);
+    assert.equal(baselineApprox({ baseline_source: 'self', baseline_name: 'BL.xer' }), false);    // attached
+    assert.equal(baselineApprox({}, 'u.xer'), true);                                              // older XER result
+    assert.equal(baselineApprox({}, 'u.xml'), false);
+    assert.equal(baselineApproxLine({ baseline_source: 'embedded' }), '');
+    assert.equal(baselineApproxLine({ baseline_source: 'self' }), BASELINE_APPROX_LINE);
+    assert.match(BASELINE_APPROX_LINE, /^Baseline: not in the file and none attached — the update’s own Planned dates stand in \(approximate\)$/);
+    assert.equal(baselineApproxLine({ baseline_source: 'self', baseline_label: 'X (approximate)' }), 'Baseline: X (approximate)');
+  });
+}
+
+{
+  const fs = await import('node:fs');
+  const { baselineEmbeddedLine } = await import('../../ui/modules/baseline.js');
+  test('embedded baseline named on the EVM screen like the PDF / Excel head (R2 F8)', () => {
+    const lbl = 'inside the schedule file (SAINT GOBAIN, AS2 -  Civil Package 03 - Rev.01 Clean)';
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded', baseline_label: lbl }), `Baseline: ${lbl}`);
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded', baseline_embedded_name: 'P - B1' }),
+      'Baseline: inside the schedule file (P - B1)');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'embedded' }), 'Baseline: inside the schedule file');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'self', baseline_label: 'x' }), '');
+    assert.equal(baselineEmbeddedLine({ baseline_source: 'attached', baseline_label: 'x' }), '');
+    assert.equal(baselineEmbeddedLine({}), '');   // older result: the server never said — nothing claimed
+    assert.equal(baselineEmbeddedLine(null), '');
+  });
+  test('renderBaselineBanner shows that line when there is nothing to attach', () => {
+    const src = fs.readFileSync(new URL('../../ui/modules/evm.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    const fn = src.slice(src.indexOf('function renderBaselineBanner'), src.indexOf('export function maybePromptBaseline'));
+    assert.match(fn, /if \(!st\) \{[^}]*baselineEmbeddedLine\(result\)/);
+  });
+}
+
+{
+  const { attachedBaselineSlot } = await import('../../ui/modules/baseline.js');
+  test('attachedBaselineSlot: the attached baseline (cached copy) fills the two-file Baseline slots (R3 F9)', () => {
+    const r = { baseline_source: 'attached', baseline_name: 'SG_BASELINE.xer',
+                baseline_path: 'C:/u/.controlyx/schedules/0123456789ab_SG_BASELINE.xer' };
+    assert.deepEqual(attachedBaselineSlot(r), { path: r.baseline_path, name: 'SG_BASELINE.xer' });
+    assert.deepEqual(attachedBaselineSlot({ baseline_source: 'attached', baseline_path: 'C:\\s\\0123456789ab_BL.xml' }),
+      { path: 'C:\\s\\0123456789ab_BL.xml', name: 'BL.xml' });                     // name from the cached file
+    assert.equal(attachedBaselineSlot({ baseline_source: 'embedded' }), null);        // inside the file: nothing attached
+    assert.equal(attachedBaselineSlot({ baseline_source: 'self' }), null);
+    assert.equal(attachedBaselineSlot({ baseline_source: 'attached' }), null);        // no file to send
+    assert.equal(attachedBaselineSlot(null), null);
   });
 }
 

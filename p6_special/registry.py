@@ -19,16 +19,18 @@ class Item:
 
     ``requires`` declares extra inputs the result needs beyond the open file —
     each ``{'role': str, 'label': str, 'accept': str, 'hint': str}`` (e.g. a
-    Critical Path item requires a baseline XER). The UI reads this to highlight
+    Critical Path item requires a baseline XER or XML). The UI reads this to highlight
     the requirement and offer an attach control; the attached paths arrive back
     on ``ctx.inputs`` keyed by ``role``. ``availability(ctx)`` returns
-    ``'ready' | 'needs_input' | 'no_data'``.
+    ``'ready' | 'needs_input' | 'no_data'``. ``note(ctx)`` (optional) says WHY an item is not
+    ready in plain words (e.g. Update Analysis: no baseline inside the file and none attached);
+    the catalog shows it, since a disabled tick alone tells the planner nothing.
     """
     __slots__ = ('id', 'feature', 'feature_title', 'title', 'ctype',
-                 'produce', 'availability', 'requires')
+                 'produce', 'availability', 'requires', 'note')
 
     def __init__(self, id, feature, feature_title, title, ctype, produce,
-                 availability=None, requires=None):
+                 availability=None, requires=None, note=None):
         self.id = id
         self.feature = feature
         self.feature_title = feature_title
@@ -37,13 +39,14 @@ class Item:
         self.produce = produce             # produce(ctx) -> payload dict
         self.requires = list(requires or [])
         self.availability = availability or (lambda ctx: 'ready')
+        self.note = note
 
     def descriptor(self, ctx):
         try:
             avail = self.availability(ctx)
         except Exception:
             avail = 'ready'
-        return {
+        d = {
             'id': self.id,
             'feature': self.feature,
             'feature_title': self.feature_title,
@@ -52,6 +55,14 @@ class Item:
             'availability': avail,
             'requires': [dict(r) for r in self.requires],
         }
+        if avail != 'ready' and self.note:
+            try:
+                why = self.note(ctx)
+            except Exception:
+                why = None
+            if why:
+                d['note'] = why
+        return d
 
 
 def register_provider(fn):

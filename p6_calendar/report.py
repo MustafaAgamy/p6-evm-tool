@@ -54,12 +54,23 @@ def _tile(lab, val, sub=''):
     return f'<div class="kpi"><div class="k">{_esc(lab)}</div><div class="v">{_esc(val)}</div>{sub_html}</div>'
 
 
+def _baseline_line(d):
+    """The one 'Baseline: …' line under the Key Dates when the update's own Planned dates stand
+    in for its baseline (the screen shows the same line) — '' otherwise."""
+    if not (d or {}).get('baseline_approx'):
+        return ''
+    lbl = d.get('baseline_label') or ("not in the file and none attached — the update's own "
+                                      "Planned dates stand in (approximate)")
+    return f'<p class="lg">Baseline: {_esc(lbl)}</p>'
+
+
 def _dashboard(d, weather=None):
     # Feature 1 (Calendar Audit) carries NO weather. Key Dates are the Baseline Start + Finish
     # only (Data Date lives in the header; Forecast Finish is a Feature-2 concern).
     date_tiles = [
-        _tile('Baseline Start', _fmt(d.get('baseline_start'))),
-        _tile('Baseline Finish / Completion', _fmt(d.get('baseline_finish')), 'plan of record'),
+        _tile('Baseline Start', _fmt(d.get('baseline_start')), 'approx' if d.get('baseline_approx') else ''),
+        _tile('Baseline Finish / Completion', _fmt(d.get('baseline_finish')),
+              'Baseline (approx)' if d.get('baseline_approx') else 'plan of record'),
     ]
     if weather:
         date_tiles.append(_tile('Weather-Adjusted Finish',
@@ -78,7 +89,8 @@ def _dashboard(d, weather=None):
     ])
     return (f'<h2 class="sec">1 · Execution Dashboard</h2>'
             + _part('dashboard.dates', 'Key dates',
-                    f'<div class="sub2">Key Dates</div><div class="kpis {dates_grid}">{dates}</div>')
+                    f'<div class="sub2">Key Dates</div><div class="kpis {dates_grid}">{dates}</div>'
+                    + _baseline_line(d))
             + _part('dashboard.stats', 'Calendar statistics',
                     f'<div class="sub2">Calendar Statistics</div><div class="kpis k4">{stats}</div>'))
 
@@ -281,7 +293,7 @@ def _weather_waterfall(d, w):
         f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-warn")};text-transform:none;letter-spacing:0">'
         '— estimate, not a P6 figure</span></h2>'
         '<div class="wf">'
-        f'<div class="wf-step bl"><div class="k">Baseline Finish</div><div class="v">{_fmt(d.get("baseline_finish"))}</div></div>'
+        f'<div class="wf-step bl"><div class="k">Baseline Finish{" · approx" if d.get("baseline_approx") else ""}</div><div class="v">{_fmt(d.get("baseline_finish"))}</div></div>'
         f'<div class="wf-arr"><div class="l">Schedule slip</div><div class="var {slip_cls}">{"+" if slip > 0 else ""}{slip} d</div><div class="a">→</div></div>'
         f'<div class="wf-step fc"><div class="k">Forecast Completion</div><div class="v">{_fmt(d.get("project_finish"))}</div></div>'
         f'<div class="wf-arr"><div class="l">Weather adds</div><div class="var {wx_cls}">+{wx_add} wd</div><div class="a">→</div></div>'
@@ -289,7 +301,8 @@ def _weather_waterfall(d, w):
         '</div>'
         '<p class="lg">Reads left → right: the <b>baseline</b> finish, the schedule&rsquo;s own <b>forecast</b> '
         'finish, then the <b>weather-adjusted</b> finish. Each arrow shows that step&rsquo;s variance — the '
-        'schedule&rsquo;s own slip, then, separately, what bad weather adds.</p>')
+        'schedule&rsquo;s own slip, then, separately, what bad weather adds.</p>'
+        + _baseline_line(d))
 
 
 def _wx_hist3(histogram, scope=''):

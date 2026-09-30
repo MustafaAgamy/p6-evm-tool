@@ -458,7 +458,8 @@ def build_from_snapshot(snapshot_id=None, xml_path=None):
 
         with open(resource_path('config.json')) as f:
             base_config = json.load(f)
-        data = parse_file(path)
+        from p6_evm.baseline import load_for_project
+        data = load_for_project(path, snapshot_id=snapshot_id)   # embedded > attached > self baseline
         cfg = dict(base_config)
         cfg['categories'] = auto_categories(data)
         metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
