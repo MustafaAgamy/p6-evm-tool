@@ -348,7 +348,8 @@ await test('followRunStages polls with its id, shows the step + its band, and st
 });
 
 await test('Baseline Revision, Critical Path and Consultant Review send a run_id and follow the server steps', () => {
-  for (const [mod, api] of [['revcompare.js', '/api/revcompare'], ['critpath.js', '/api/critpath/analyze'], ['compare.js', '/api/compare']]) {
+  for (const [mod, api] of [['revcompare.js', '/api/revcompare'], ['critpath.js', '/api/critpath/analyze'], ['compare.js', '/api/compare'],
+    ['period.js', '/api/period/compare']]) {
     const src = read('ui', 'modules', mod);
     assert.match(src, /import \{[^}]*\bfollowRunStages\b[^}]*\}\s+from '\.\/featurereveal\.js'/, mod);
     const at = src.indexOf(api + '`');
@@ -360,9 +361,16 @@ await test('Baseline Revision, Critical Path and Consultant Review send a run_id
   const srv = read('server.py');
   assert.match(srv, /elif self\.path\.startswith\('\/api\/run\/stage'\):/);
   for (const lbl of ["f'Reading Rev.00 — ", "f'Reading Rev.01 — ", "'Matching activities and comparing the revisions'",
-    "'Tracing the driving path to every finish milestone'", "f'Reading the baseline — ", "'Comparing logic, durations and milestones'"]) {
+    "'Tracing the driving path to every finish milestone'", "f'Reading the baseline — ", "'Comparing logic, durations and milestones'",
+    "f'Reading the previous update — ", "f'Reading the current update — ", "'Comparing the two periods'"]) {
     assert.ok(srv.includes(lbl), 'server step: ' + lbl);
   }
+});
+await test('RUNUX-R2: the Narrative setup read names its whole-file read on the bar (not just the generic stages)', () => {
+  const nar = read('ui', 'modules', 'narrative.js');
+  const fn = nar.slice(nar.indexOf('async function startSetupChat('), nar.indexOf('await fetchDetected()'));
+  assert.match(fn, /if \(!reuse\) revealStage\('Reading your schedule'\);\s*const meta = reuse \? _chatMeta : $/);
+  assert.doesNotMatch(fn, /await /, 'named synchronously, before the first await (bound to its own Run bar)');
 });
 
 await test('RUNUX-14: the results show in the SAME frame the bar reads 100% — the backdrop drops at once, only the card fades', () => {

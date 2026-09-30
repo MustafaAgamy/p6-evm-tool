@@ -2307,6 +2307,13 @@ class Handler(BaseHTTPRequestHandler):
         if not curr_path or not os.path.isfile(curr_path):
             self._json(200, {'ok': False, 'error': 'Current update not available. Re-import it first.'})
             return
+        # The Run bar names the real step (reading each update, then comparing) — RUNUX-R2.
+        read = _parse_secs(prev_path) + _parse_secs(curr_path)
+        stages = _RunStages(body, [
+            (f'Reading the previous update — {os.path.basename(prev_path)}', _parse_secs(prev_path)),
+            (f'Reading the current update — {os.path.basename(curr_path)}', _parse_secs(curr_path)),
+            ('Comparing the two periods', 0.2 + 0.1 * read),
+        ])
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_evm.parser import parse_file
@@ -2323,14 +2330,19 @@ class Handler(BaseHTTPRequestHandler):
                 metrics = compute(data, cfg, classifier=build_wbs_classifier(data))
                 return data, metrics
 
+            stages.enter(0)
             prev_data, prev_m = parse_and_compute(prev_path)
+            stages.enter(1)
             curr_data, curr_m = parse_and_compute(curr_path)
+            stages.enter(2)
             report = build_report_from_data(prev_data, curr_data, prev_m, curr_m, base_config)
             report['prev_file'] = os.path.basename(prev_path)
             report['update_file'] = os.path.basename(curr_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+        finally:
+            stages.close()
 
     # ── /api/period/previous ──────────────────────────────────────────────
     def _handle_period_previous(self, body):

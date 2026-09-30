@@ -1160,6 +1160,8 @@ async function startSetupChat(opts) {
      </div>`;
   document.getElementById('bn-continue').addEventListener('click', () => { if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
   document.getElementById('bn-back').addEventListener('click', () => { if (_chatCur > 0) { _chatCur--; renderChat(); } });
+  // A fresh read is a whole-file read: the open Run bar names that step (RUNUX-R2).
+  if (!reuse) revealStage('Reading your schedule');
   const meta = reuse ? _chatMeta : await fetchDetected();
   const note = document.getElementById('bn-readnote');
   if (!meta) { document.getElementById('bn-thread').innerHTML = '<p class="ai-empty" style="padding:16px">Open a baseline schedule first — the setup then reads it.</p>'; if (note) note.textContent = ''; return; }

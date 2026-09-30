@@ -98,3 +98,21 @@ def test_failed_run_clears_its_stage(test_server, tmp_path):
     r = _post(test_server, '/api/revcompare', {'rev0_path': str(bad), 'rev1_path': str(bad), 'run_id': 'rc-bad'})
     assert r['ok'] is False
     assert 'rc-bad' not in srv._RUN_STAGES
+
+
+def test_period_compare_reports_each_real_step(test_server, xml_path, monkeypatch):
+    """Update vs Update reads two whole updates and computes EVM on both (RUNUX-R2)."""
+    seen = _spy_parse(monkeypatch, 'pc-1')
+    import p6_period.report as prep
+    real_build = prep.build_report_from_data
+
+    def spy_build(*a, **k):
+        seen.append(dict(srv._RUN_STAGES.get('pc-1') or {}).get('label'))
+        return real_build(*a, **k)
+    monkeypatch.setattr(prep, 'build_report_from_data', spy_build)
+    r = _post(test_server, '/api/period/compare', {'prev_path': str(xml_path), 'update_path': str(xml_path),
+                                                   'run_id': 'pc-1'})
+    assert r['ok'] is True and r['report']['prev_file'] == 'minimal.xml'
+    assert seen == ['Reading the previous update — minimal.xml', 'Reading the current update — minimal.xml',
+                    'Comparing the two periods']
+    assert 'pc-1' not in srv._RUN_STAGES                      # cleared once the answer is sent
