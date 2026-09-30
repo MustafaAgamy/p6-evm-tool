@@ -40,9 +40,13 @@ def _db_path():
 
 def get_conn(path=None):
     conn = sqlite3.connect(path or _db_path())
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA foreign_keys=ON')
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA journal_mode=WAL')     # raises on a malformed DB file
+        conn.execute('PRAGMA foreign_keys=ON')
+    except Exception:
+        conn.close()                                # release the file so it can be set aside
+        raise
     return conn
 
 

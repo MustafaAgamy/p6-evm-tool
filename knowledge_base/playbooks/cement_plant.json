@@ -1,0 +1,127 @@
+{
+  "archetype": "cement_plant",
+  "schema": 2,
+  "context": "process-led · kiln, mills & conveying dominate; refractory dry-out and staged loaded commissioning drive the back end",
+  "brief": {
+    "intro": "A cement plant is a heavy industrial process facility built around three huge rotating mechanical cores — the raw mill, the kiln (with its preheater tower and cooler), and the finish mill — tied together by kilometres of belt conveyors moving raw material, clinker and finished cement between them. Unlike a discrete-manufacturing plant, almost everything is oversized mechanical equipment and structural steel on massive concrete foundations: the kiln itself is a rotating steel tube tens of metres long, supported on piers, riding on tyres, and lined inside with refractory brick that must be dried out on a slow, controlled heat-up curve before it can ever see production temperature. Because the kiln, mills and conveyors are so large and long-lead, procurement of the major process equipment — kiln shell, preheater cyclones, mill bodies, conveyor drives — is what actually sets the schedule, even though the foundations for this equipment are themselves massive and early-critical. Commissioning is staged and cautious: individual machines run no-load first, then the whole material flow — quarry to crusher to raw mill to kiln to finish mill to dispatch — is proved loaded and slow, then ramped up to full rate, because taking a kiln from cold to full load in one step would damage the refractory lining.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, haul roads to the quarry/crusher, site utilities." },
+      { "name": "Civil & heavy equipment foundations", "desc": "Kiln piers, mill bases, preheater tower base and other mass-concrete foundations, cast to tight tolerance." },
+      { "name": "Structural steel & silos", "desc": "Preheater tower, conveyor galleries, transfer towers, and clinker/cement silo shells." },
+      { "name": "Process equipment — crushing & grinding", "desc": "Crusher, raw mill and finish mill bodies, set and aligned on their foundations." },
+      { "name": "Kiln & pyroprocessing", "desc": "Kiln shell assembly, preheater cyclones, cooler, refractory lining and controlled dry-out." },
+      { "name": "Material handling / conveying", "desc": "Belt conveyors, bucket elevators, stackers and reclaimers linking every process step." },
+      { "name": "Electrical & drives", "desc": "MV/LV switchgear, motor control centres and variable-speed drives for the large rotating equipment." },
+      { "name": "Instrumentation & control", "desc": "Weigh feeders, level/flow/temperature instrumentation and the Distributed Control System (DCS)." },
+      { "name": "Dust collection & environmental", "desc": "Baghouses and dust collectors protecting the stack emissions at every transfer point." },
+      { "name": "Testing & commissioning", "desc": "No-load runs, refractory dry-out, loaded material-flow proving and ramp-up to full rate." }
+    ],
+    "glossary": [
+      { "term": "Clinker", "plain": "the intermediate product made by burning raw meal in the kiln — ground with gypsum afterward to make finished cement." },
+      { "term": "Kiln", "plain": "the long rotating steel tube, lined with refractory, where raw meal is heated to around 1450°C to form clinker." },
+      { "term": "Preheater tower", "plain": "a tall stack of cyclones that pre-heats raw meal with hot kiln exhaust gas before it enters the kiln, saving fuel." },
+      { "term": "Refractory", "plain": "the heat-resistant brick or castable lining inside the kiln and preheater, which must be slowly dried out before production temperature." },
+      { "term": "Raw mill / finish mill", "plain": "the large rotating mills that grind raw materials into \"raw meal\" before the kiln, and clinker plus gypsum into finished cement after it." },
+      { "term": "Weigh feeder", "plain": "an instrumented conveyor that doses material by weight rather than volume — critical to getting the raw-mix recipe right." },
+      { "term": "Baghouse", "plain": "a large fabric-filter dust collector that captures kiln and mill exhaust dust before it reaches the stack." },
+      { "term": "No-load / loaded run", "plain": "staged commissioning steps — first running equipment empty to prove mechanical function, then progressively loaded with material." }
+    ],
+    "must_get_right": [
+      "Order the kiln shell, preheater cyclones and mill bodies first — their fabrication and delivery lead time, not the civil works, is what actually sets the completion date.",
+      "Get the heavy equipment foundations (kiln piers, mill bases) right and early — they are cast to tight tolerance and cannot be revisited once the kiln or mill is set.",
+      "Protect the refractory dry-out and controlled heat-up curve at the end of the programme — rushing it damages the lining and can cost weeks of kiln downtime to repair.",
+      "Sequence commissioning as a staged material-flow proving (no-load → loaded → full rate) from quarry to dispatch, not as a single plant-wide switch-on."
+    ]
+  },
+  "components": [
+    { "name": "Kiln & Pyroprocessing", "desc": "Kiln shell · preheater tower · cooler · refractory", "disc": "Mechanical", "primary": true },
+    { "name": "Grinding & Crushing", "desc": "Crusher · raw mill · finish mills", "disc": "Mechanical", "primary": true },
+    { "name": "Material Handling / Conveying", "desc": "Belt conveyors · bucket elevators · stackers", "disc": "Mechanical", "primary": true },
+    { "name": "Bulk Storage", "desc": "Stockpiles · clinker & cement silos", "disc": "Civil / Structural", "primary": true },
+    { "name": "Electrical Power & Drives", "desc": "MV/LV switchgear · MCCs · large motor drives", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation & Control", "desc": "Weigh feeders · level/flow instrumentation · DCS", "disc": "Instrumentation", "primary": false },
+    { "name": "Dust Collection & Environmental", "desc": "Baghouses · fans · emissions monitoring", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process Equipment", "items": ["Crushers, raw mill & finish mills", "Kiln shell, preheater cyclones & clinker cooler", "Belt conveyors, bucket elevators & transfer chutes", "Dust collection — baghouses & fans"] },
+    { "discipline": "Electrical / Power", "items": ["MV/LV switchgear & transformers", "Motor control centres — large kiln, mill & fan drives", "Variable-speed drives for major rotating equipment"] },
+    { "discipline": "Instrumentation & Control", "items": ["Weigh feeders & raw-mix dosing instrumentation", "Level, flow & temperature instrumentation", "Distributed Control System (DCS) & PLCs"] },
+    { "discipline": "Fire & Safety", "items": ["Dust-explosion venting & suppression", "Fire detection at conveyor transfer points & electrical rooms", "Gas / CO monitoring — kiln & mill areas"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Heavy Equipment Foundations", "Structural Steel & Silos", "Process Equipment Installation", "Conveying & Bulk Materials", "Electrical & Instrumentation", "Refractory & Dry-out", "Commissioning & Ramp-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Steel/Silos", "Equip. Install", "Conveying", "Elec/I&C", "Comm./Ramp"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → heavy equipment foundations → silo civils", "holds": [12, 30] },
+      { "trade": "Structural Steel & Silos", "disc": "Structural", "kind": ["civil"], "start": 20, "width": 34, "label": "Preheater tower & galleries → silo erection", "holds": [40] },
+      { "trade": "Process Equipment", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 46, "label": "Crusher/mill/kiln delivery → set & align → refractory install", "holds": [56, 68] },
+      { "trade": "Conveying", "disc": "Mechanical", "kind": ["mechanical"], "start": 44, "width": 34, "label": "Gallery steel → conveyor install → belt tracking", "holds": [64] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical", "bms"], "start": 48, "width": 36, "label": "Switchgear → drives → DCS integration", "holds": [72] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Refractory dry-out → no-load → loaded → full rate", "holds": [86] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance, earthworks & haul roads", "Heavy equipment foundations — kiln piers & mill bases", "Silo & stockpile foundations", "Structural concrete — preheater tower base & transfer towers", "Backfill & site paving"] },
+    { "name": "Structural Steel & Silos", "disc": "Structural", "kind": ["civil"], "holds": [1, 3], "steps": ["Preheater tower & conveyor gallery steel fabrication (long-lead)", "Preheater tower & transfer-tower erection", "Conveyor gallery steel erection", "Silo shell erection — clinker & cement silos", "Silo roof & internal fittings"] },
+    { "name": "Process Equipment — Crushing & Grinding", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 4], "steps": ["Crusher, raw mill & finish mill procurement (long-lead)", "Crusher set & align", "Raw mill set, align & grout", "Finish mill set, align & grout", "Mechanical run-in — no-load"] },
+    { "name": "Kiln & Pyroprocessing", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5, 6], "steps": ["Kiln shell & preheater cyclone procurement (long-lead)", "Kiln shell sectional assembly & alignment on piers/tyres", "Preheater cyclone & riser duct installation", "Cooler installation", "Refractory lining installation", "Controlled refractory dry-out / heat-up curve", "Kiln first-fire"] },
+    { "name": "Material Handling / Conveying", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Conveyor, elevator & stacker procurement", "Belt conveyor installation & drive sets", "Bucket elevator & transfer chute installation", "Belt tracking & alignment", "No-load run & idler check"] },
+    { "name": "Electrical & Drives", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["MV/LV switchgear & transformer installation", "Motor control centre installation", "Cabling & termination to major drives", "Variable-speed drive commissioning", "Energisation & load-bank test"] },
+    { "name": "Instrumentation & Control (DCS)", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [3], "steps": ["Weigh feeder & dosing instrumentation installation", "Level, flow & temperature instrumentation installation", "Field wiring & loop checks", "DCS / PLC configuration & point-to-point verification", "Process interlock & control-loop staging test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 3], "steps": ["Dust collection & baghouse functional test", "No-load run — crusher, mills, conveyors, kiln", "Refractory dry-out monitoring", "Loaded run — quarry-to-kiln material flow, low rate", "Ramp-up to full production rate", "Performance test & handover"] }
+  ],
+  "wbs": [
+    { "code": "CEM", "name": "Cement Plant — Project", "level": 1 },
+    { "code": "CEM.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CEM.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "CEM.02.10", "name": "Enabling, Earthworks & Haul Roads", "level": 3 },
+    { "code": "CEM.02.20", "name": "Heavy Equipment Foundations", "level": 3 },
+    { "code": "CEM.02.20.10", "name": "Kiln piers & mill bases", "level": 4 },
+    { "code": "CEM.02.30", "name": "Silo & Stockpile Foundations", "level": 3 },
+    { "code": "CEM.03", "name": "Structural Steel & Silos", "level": 2 },
+    { "code": "CEM.03.10", "name": "Preheater Tower & Transfer Towers", "level": 3 },
+    { "code": "CEM.03.20", "name": "Conveyor Gallery Steel", "level": 3 },
+    { "code": "CEM.03.30", "name": "Silo Shells — Clinker & Cement", "level": 3 },
+    { "code": "CEM.04", "name": "Process Equipment — Crushing & Grinding", "level": 2 },
+    { "code": "CEM.04.10", "name": "Crusher Installation", "level": 3 },
+    { "code": "CEM.04.20", "name": "Raw Mill Installation", "level": 3 },
+    { "code": "CEM.04.30", "name": "Finish Mill Installation", "level": 3 },
+    { "code": "CEM.05", "name": "Kiln & Pyroprocessing", "level": 2 },
+    { "code": "CEM.05.10", "name": "Kiln Shell Assembly & Alignment", "level": 3 },
+    { "code": "CEM.05.20", "name": "Preheater & Cooler Installation", "level": 3 },
+    { "code": "CEM.05.30", "name": "Refractory Installation", "level": 3 },
+    { "code": "CEM.05.30.10", "name": "Controlled dry-out / heat-up", "level": 4 },
+    { "code": "CEM.05.30.10.10", "name": "Kiln first-fire", "level": 5 },
+    { "code": "CEM.06", "name": "Material Handling / Conveying", "level": 2 },
+    { "code": "CEM.06.10", "name": "Belt Conveyors & Drives", "level": 3 },
+    { "code": "CEM.06.20", "name": "Elevators & Transfer Chutes", "level": 3 },
+    { "code": "CEM.07", "name": "Electrical & Drives", "level": 2 },
+    { "code": "CEM.07.10", "name": "Switchgear & MCC", "level": 3 },
+    { "code": "CEM.08", "name": "Instrumentation & Control (DCS)", "level": 2 },
+    { "code": "CEM.09", "name": "Dust Collection & Environmental", "level": 2 },
+    { "code": "CEM.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "CEM.10.10", "name": "No-load Runs", "level": 3 },
+    { "code": "CEM.10.20", "name": "Loaded Run & Ramp-up", "level": 3 },
+    { "code": "CEM.10.30", "name": "Performance Test & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil works and structural steel run a 6-day week; heavy equipment set (kiln, mills, crushers) moves to two shifts to protect the erection window; refractory dry-out runs a continuous 24/7 calendar once started, since the heat-up curve cannot be paused without damaging the lining; commissioning and ramp-up also run 24/7." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs kiln shell / preheater / mill procurement → heavy equipment foundations → structural steel & silo erection → equipment set & align → refractory installation → controlled dry-out / heat-up → no-load then loaded material-flow proving → full-rate performance test. Civil works away from the kiln and mill foundations are rarely critical once those foundations are cast; the equipment procurement chain and the refractory dry-out own the back end of the schedule." },
+      { "heading": "Key assumptions", "body": "Process design and equipment guarantees are frozen before the kiln, mill and crusher packages are ordered; a single mobilisation; quarry and raw-material supply are established ahead of commissioning; grid power connection is available before drive commissioning starts." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the kiln and mill packages. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Kiln shell & drive (sectional)", "40–60 weeks", "Before kiln assembly"], ["Preheater cyclones & riser ducts", "30–44 weeks", "Before preheater erection"], ["Raw mill / finish mill bodies", "36–52 weeks", "Before mill set"], ["Crusher package", "24–36 weeks", "Before crushing installation"], ["MV switchgear & large motor drives", "24–36 weeks", "Before electrical energisation"], ["Baghouse / dust-collection package", "20–30 weeks", "Before dust-collection tie-in"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy-lift crane windows are needed for kiln sections, mill shells and preheater cyclones; specialist refractory installation and dry-out engineers are a constrained resource late in the programme; commissioning needs the raw-material feed chain (quarry, crusher, raw mill) proven before kiln first-fire." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: kiln or mill package delivery slippage, refractory dry-out extension from weather or lining defects, and interruptions during the loaded ramp-up. Schedule contingency is held before the refractory dry-out and before the loaded ramp-up rather than spread across civil and structural steel." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

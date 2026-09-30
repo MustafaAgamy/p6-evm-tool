@@ -1,0 +1,123 @@
+{
+  "archetype": "residential_building",
+  "schema": 2,
+  "context": "finishing-led · MEP first/second-fix driven",
+  "brief": {
+    "intro": "A residential building — this generic template applies whenever the schedule does not need to distinguish rise or unit type — is, once the structure is up, essentially won and lost in the finishing trades. The programme is a long, repeating chain of blockwork, waterproofing, tiling, MEP first and second fix, paint and joinery that moves unit after unit and floor after floor. Unlike an industrial or critical facility, there is no heavy plant or complex commissioning; the risk instead is coordination and sequence discipline — wet areas (bathrooms, kitchens) must be waterproofed and tested before tiling closes them in, and MEP first fix must be complete and inspected before walls are plastered or floors are screeded over it. Productivity in the finishing package is highly repetitive, so the programme is usually paced by how fast a fixed crew can move from unit to unit, not by any single long-lead item. The last phase — snagging, de-snagging and the unit handover pack — is often underestimated and deserves real time in the plan.",
+    "scope": [
+      { "name": "Structure & shell", "desc": "Frame/slab and blockwork & partitions built to receive the finishing trades." },
+      { "name": "Waterproofing", "desc": "Roof, wet areas (bathrooms, kitchens) and balconies waterproofed and tested before they are closed in." },
+      { "name": "MEP first fix", "desc": "Power, plumbing, drainage and data/ELV containment routed within walls and slab before plaster." },
+      { "name": "Plaster / drywall & substrate", "desc": "Wall and ceiling substrate preparation, and screed to receive flooring." },
+      { "name": "Floor & wall tiling / stone", "desc": "Wet areas and common finishes laid on the prepared screed." },
+      { "name": "MEP second fix", "desc": "Devices, fixtures and fittings connected and tested after the finishes are in." },
+      { "name": "Painting & decoration", "desc": "Internal and external finishes." },
+      { "name": "Joinery & fit-out", "desc": "Kitchens, wardrobes, doors and ironmongery." },
+      { "name": "Sanitary fixtures & fittings", "desc": "Baths, basins, WCs and kitchen fittings installed and tested." },
+      { "name": "Testing, snagging & handover", "desc": "Circuit and flush testing, snagging/de-snagging, and the unit handover pack." }
+    ],
+    "glossary": [
+      { "term": "First fix", "plain": "MEP work done inside walls, floors and ceilings before they are closed up — pipes, conduits, cable routes." },
+      { "term": "Second fix", "plain": "the MEP work done after finishes are in — switches, sockets, taps, light fittings, sanitaryware." },
+      { "term": "Screed", "plain": "the level layer laid over a structural slab that tiling or flooring sits on." },
+      { "term": "Wet area", "plain": "a bathroom, kitchen or balcony where waterproofing is required before tiling." },
+      { "term": "Snagging", "plain": "the final inspection listing defects to be fixed before handover; de-snagging is closing that list out." },
+      { "term": "Unit handover pack", "plain": "the documentation (test certificates, warranties, as-builts, keys) given to the owner/occupier when a unit is handed over." },
+      { "term": "Typical floor / unit cycle", "plain": "the repeating sequence of trades that moves from one floor or unit to the next at a steady pace." }
+    ],
+    "must_get_right": [
+      "Wet-area waterproofing must be complete and tested before tiling closes it in — it's the most common and expensive rework if skipped or rushed.",
+      "MEP first fix must be inspected and signed off before plaster/screed covers it — buried defects are costly to trace and fix later.",
+      "The finishing trades move unit-by-unit or floor-by-floor at a steady, repeatable pace — plan and track it that way, not as one lump percentage.",
+      "Protect real time for snagging, de-snagging and the handover pack at the end — it is routinely compressed and becomes the actual bottleneck to handover."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Blockwork", "desc": "Frame/slab · partitions", "disc": "Structural", "primary": false },
+    { "name": "Waterproofing", "desc": "Roof · wet areas · balconies", "disc": "Waterproofing", "primary": true },
+    { "name": "MEP First & Second Fix", "desc": "Power · plumbing · drainage · ELV", "disc": "Multi-MEP", "primary": true },
+    { "name": "Floor & Wall Finishes", "desc": "Tiling/stone · plaster · paint", "disc": "Architectural", "primary": true },
+    { "name": "Joinery & Fit-out", "desc": "Kitchens · wardrobes · doors", "disc": "Joinery", "primary": false },
+    { "name": "Sanitary Fixtures", "desc": "Baths · basins · WCs · kitchen fittings", "disc": "Plumbing", "primary": true },
+    { "name": "Snagging & Handover", "desc": "Inspection · de-snag · handover pack", "disc": "Commissioning", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical", "items": ["Power & lighting first fix (conduits, containment)", "Distribution board & circuits", "Second-fix sockets, switches & light fittings", "Earthing & bonding"] },
+    { "discipline": "Plumbing & Drainage", "items": ["Domestic water supply first fix", "Sanitary drainage & vent first fix", "Second-fix taps, WCs, basins & kitchen fittings", "Waterproofing membrane to wet areas"] },
+    { "discipline": "ELV / Data / Fire (light)", "items": ["Data/telecom containment & outlets", "Smoke/fire alarm detectors (per code)", "Video/access security (where specified)", "HVAC split units or light ducting (where specified)"] }
+  ],
+  "overview_phases": ["Structure & Blockwork", "Waterproofing", "MEP First Fix", "Plaster & Screed", "Tiling & Wall Finishes", "MEP Second Fix", "Joinery & Sanitary Fixtures", "Snagging & Handover"],
+  "sequence_chart": {
+    "phases": ["Structure", "W'proof", "1st Fix", "Screed/Tile", "2nd Fix", "Joinery", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 30, "label": "Frame/slab → blockwork & partitions", "holds": [12] },
+      { "trade": "Waterproofing", "disc": "Waterproofing", "kind": ["civil"], "start": 18, "width": 15, "label": "Roof & wet-area waterproofing → test", "holds": [22] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "First fix → containment → second fix → circuit test", "holds": [50, 80] },
+      { "trade": "Plumbing / Drainage", "disc": "Mechanical", "kind": ["mechanical"], "start": 20, "width": 55, "label": "First fix → wet-area rough-in → second fix → flush/leak test", "holds": [50, 80] },
+      { "trade": "Finishes / Joinery", "disc": "Architectural", "kind": ["civil"], "start": 38, "width": 45, "label": "Plaster/screed → tiling → paint → joinery", "holds": [70] },
+      { "trade": "Snagging & Handover", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Snag → de-snag → handover pack", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural & Blockwork", "disc": "Civil", "kind": ["civil"], "holds": [4], "steps": ["Site clearance & setting out", "Frame / slab construction", "Blockwork & internal partitions", "Shaft & riser openings left for MEP", "Structural slab readiness sign-off"] },
+    { "name": "Waterproofing", "disc": "Waterproofing", "kind": ["civil"], "holds": [3], "steps": ["Wet-area substrate preparation", "Membrane application (bathrooms, kitchens, balconies, roof)", "Upturns, drains & penetration detailing", "Flood / ponding test", "Protection board before screed/tiling"] },
+    { "name": "Electrical", "disc": "Electrical", "kind": ["electrical"], "holds": [5], "steps": ["First-fix containment & conduits in walls/slab", "Distribution board & cable pull", "Inspection & sign-off before plaster/screed cover", "Second-fix sockets, switches & light fittings", "Earthing & bonding continuity", "Circuit & insulation testing"] },
+    { "name": "Plumbing & Drainage", "disc": "Plumbing", "kind": ["mechanical"], "holds": [4], "steps": ["First-fix water supply & drainage pipework", "Riser and stack rough-in", "Pressure test & inspection before cover-up", "Second-fix taps, WCs, basins & kitchen fittings", "Sanitary fixture flush & leak test"] },
+    { "name": "Floor & Wall Finishes", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["Plaster / drywall to walls & ceilings", "Screed to receive flooring", "Floor & wall tiling / stone to wet areas & common finishes", "External render / cladding", "Painting & decoration"] },
+    { "name": "Joinery & Fit-out", "disc": "Joinery", "kind": ["civil"], "holds": [], "steps": ["Kitchen & wardrobe carcass installation", "Worktops & panelling", "Doors, frames & ironmongery", "Skirting, trims & finishing carpentry", "Final adjustment & touch-up"] },
+    { "name": "ELV / Data / Fire (light)", "disc": "Extra-Low Voltage", "kind": ["elv", "fire"], "holds": [4], "steps": ["Data/telecom containment first fix", "Smoke/fire alarm cabling & detector rough-in", "Second-fix data outlets & smoke/fire detectors", "Video/access security devices (where specified)", "Device testing & loop verification"] },
+    { "name": "Testing, Snagging & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [3, 4, 5], "steps": ["MEP first/second-fix testing", "Socket and lighting circuit testing", "Sanitary fixture flush and leak test", "Snagging inspection", "De-snagging / defect close-out", "Unit handover pack issued"] }
+  ],
+  "wbs": [
+    { "code": "RB", "name": "Residential Building — Project", "level": 1 },
+    { "code": "RB.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "RB.02", "name": "Structure & Shell", "level": 2 },
+    { "code": "RB.02.10", "name": "Frame / slab construction", "level": 3 },
+    { "code": "RB.02.20", "name": "Blockwork & Partitions", "level": 3 },
+    { "code": "RB.03", "name": "Waterproofing", "level": 2 },
+    { "code": "RB.03.10", "name": "Wet-area waterproofing", "level": 3 },
+    { "code": "RB.03.10.10", "name": "Membrane application & flood test", "level": 4 },
+    { "code": "RB.04", "name": "MEP First Fix", "level": 2 },
+    { "code": "RB.04.10", "name": "Electrical first fix", "level": 3 },
+    { "code": "RB.04.20", "name": "Plumbing & drainage first fix", "level": 3 },
+    { "code": "RB.04.30", "name": "ELV / Data / Fire first fix", "level": 3 },
+    { "code": "RB.05", "name": "Plaster, Screed & Substrate", "level": 2 },
+    { "code": "RB.06", "name": "Floor & Wall Finishes", "level": 2 },
+    { "code": "RB.06.10", "name": "Tiling / stone to wet areas & common finishes", "level": 3 },
+    { "code": "RB.06.20", "name": "Painting & decoration", "level": 3 },
+    { "code": "RB.07", "name": "MEP Second Fix", "level": 2 },
+    { "code": "RB.07.10", "name": "Electrical second fix", "level": 3 },
+    { "code": "RB.07.10.10", "name": "Circuit & insulation testing", "level": 4 },
+    { "code": "RB.07.20", "name": "Plumbing second fix (fixtures)", "level": 3 },
+    { "code": "RB.07.20.10", "name": "Sanitary fixture flush & leak test", "level": 4 },
+    { "code": "RB.07.30", "name": "ELV / Fire device testing", "level": 3 },
+    { "code": "RB.08", "name": "Joinery & Fit-out", "level": 2 },
+    { "code": "RB.08.10", "name": "Kitchen & wardrobe installation", "level": 3 },
+    { "code": "RB.08.20", "name": "Doors, frames & ironmongery", "level": 3 },
+    { "code": "RB.09", "name": "Sanitary Fixtures & Fittings", "level": 2 },
+    { "code": "RB.10", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "RB.10.10", "name": "Snagging inspection", "level": 3 },
+    { "code": "RB.10.20", "name": "De-snagging / defect close-out", "level": 3 },
+    { "code": "RB.10.30", "name": "Unit handover pack", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Finishing trades are typically modelled as a repeating unit/floor cycle — a 'typical unit' duration replicated across identical units — rather than as fully discrete activities per unit. The network is calculated (F9) with no artificial constraints beyond contractual milestones; total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Structure runs a 6-day week; finishing trades run 6-day, moving to two shifts near handover where needed to compress the unit cycle; testing and snagging are scheduled around inspection availability rather than a fixed calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structural slab readiness → blockwork/partitions → wet-area waterproofing (tested before tiling) → MEP first fix → plaster/screed → tiling → MEP second fix → paint → joinery & sanitary fixtures → snagging → handover. On multi-unit buildings, the critical path is usually the finishing-crew cycle time repeating unit to unit or floor to floor, not any single long-lead item." },
+      { "heading": "Key assumptions", "body": "Design and finishes specification are frozen; structure is handed over floor-by-floor or unit-by-unit on a fixed cadence; wet-area waterproofing is tested before it is covered; a single finishing-crew mobilisation is sized to the target unit-cycle time." },
+      { "heading": "Procurement & long-lead items", "body": "Residential has few true long-lead items compared to industrial or critical-facility types; the schedule-relevant materials and their typical lead times are:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Tiling / stone (imported)", "12–16 weeks", "Before tiling front reaches each unit"], ["Sanitary fixtures & fittings", "8–12 weeks", "Before MEP second fix"], ["Kitchen & wardrobe joinery", "10–14 weeks", "Before joinery installation"], ["Doors, ironmongery & light fittings", "6–10 weeks", "Before second fix / joinery"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Finishing-crew availability and unit-to-unit handover discipline pace the programme; material laydown and vertical hoisting are constrained in a live construction building; wet trades must be sequenced so tiling never starts over uncured waterproofing; vertical access (hoists, stairs) is shared across trades and units." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: waterproofing failures and re-tests, finishing-crew productivity below plan slowing the unit cycle, and late joinery or fixture deliveries. Schedule contingency is held before snagging and handover rather than spread thinly across finishing activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

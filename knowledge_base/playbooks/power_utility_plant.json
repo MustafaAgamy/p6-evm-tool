@@ -1,0 +1,122 @@
+{
+  "archetype": "power_utility_plant",
+  "schema": 2,
+  "context": "rotating machinery & HV energisation · long back-end commissioning chain",
+  "brief": {
+    "intro": "New to this project type? A power generation or utility plant (gas, steam, combined-cycle, or a large renewable/BESS interconnection) exists to deliver electricity to the grid — everything else is in service of that. The turbine-generator (rotating machinery) and the high-voltage electrical system dominate the schedule; the boiler or HRSG civil-mechanical scope is large but is not where the real risk sits. The risk sits in a long, tightly sequenced commissioning chain at the back end: steam blow, then first fire, then first synchronisation to the grid, then a reliability run — each step gates the next, and re-tests are common. The earthing grid and HV protection/energisation are first-class systems in their own right, not secondary electrical items.",
+    "scope": [
+      { "name": "Enabling & site civil works", "desc": "Grading, drainage, access roads and site preparation." },
+      { "name": "Heavy foundations", "desc": "Turbine/generator pedestal and heavy-machine foundations; boiler/HRSG and stack foundations." },
+      { "name": "Cooling-water civils", "desc": "Intake/outfall structures and pump-house civils." },
+      { "name": "Structural steel", "desc": "Boiler house / turbine hall steel and stack support." },
+      { "name": "Mechanical erection", "desc": "Turbine-generator set, boiler/HRSG, and balance-of-plant (BOP) piping." },
+      { "name": "Electrical & HV switchyard", "desc": "Generator, transformers, switchyard, protection and earthing." },
+      { "name": "Instrumentation & control", "desc": "DCS, excitation and governor control, and protection relaying." },
+      { "name": "Cooling water & BOP systems", "desc": "Supporting systems around the main power train — cooling water, water treatment, fuel handling." },
+      { "name": "Testing & commissioning", "desc": "The long back-end chain — steam blow, first fire, first sync, reliability run." }
+    ],
+    "glossary": [
+      { "term": "HRSG", "plain": "Heat Recovery Steam Generator — captures gas-turbine exhaust heat to raise steam in a combined-cycle plant." },
+      { "term": "Steam blow", "plain": "a high-velocity steam flush of the piping to clean out debris before the turbine is allowed to see steam." },
+      { "term": "First fire", "plain": "the first time the boiler or gas turbine is actually fired up." },
+      { "term": "First sync", "plain": "the moment the generator is connected (synchronised) to the grid for the first time." },
+      { "term": "BOP", "plain": "Balance of Plant — the supporting systems (cooling water, water treatment, fuel handling) around the main turbine/boiler train." },
+      { "term": "Excitation & governor", "plain": "the control systems that regulate the generator's voltage and the turbine's speed." },
+      { "term": "Switchyard", "plain": "the outdoor high-voltage equipment — breakers, transformers, busbars — that connects the plant to the grid." },
+      { "term": "Reliability run", "plain": "a sustained trial-operation period proving the plant holds its output before commercial handover." }
+    ],
+    "must_get_right": [
+      "The driving path is procurement of the turbine-generator, boiler/HRSG and main transformer — not the structure; order them first and track them as milestones.",
+      "Protect the commissioning chain end to end — steam blow → first fire → first sync → reliability run; each step gates the next and re-tests are common.",
+      "Earthing grid and HV protection/energisation are safety-critical and must be proven before any energisation step, not treated as routine electrical fit-out.",
+      "Cooling water and BOP systems must be ready ahead of first fire — they are enabling systems, not finishing items."
+    ]
+  },
+  "components": [
+    { "name": "Turbine-Generator Set", "desc": "Set · align · couple · run-up", "disc": "Mechanical", "primary": true },
+    { "name": "Boiler / HRSG", "desc": "Erect · hydrotest · chemical clean · steam blow", "disc": "Mechanical", "primary": true },
+    { "name": "HV Electrical & Switchyard", "desc": "Generator · transformers · protection · earthing", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation & Control", "desc": "DCS · excitation · governor", "disc": "Instrumentation", "primary": true },
+    { "name": "Cooling Water & BOP", "desc": "Intake/outfall · pumps · water treatment", "disc": "Mechanical", "primary": false },
+    { "name": "Structural Steel", "desc": "Boiler house · turbine hall", "disc": "Structural", "primary": false },
+    { "name": "Commissioning", "desc": "Steam blow → first fire → first sync → reliability run", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Turbine-generator set — set, align, couple", "Boiler / HRSG — erect, hydrotest, chemical clean", "Cooling-water & BOP piping", "Fuel/water storage & handling"] },
+    { "discipline": "Electrical", "items": ["Generator, main & unit transformers", "HV switchyard — breakers, busbars, protection", "Earthing grid & lightning protection", "Cable containment & cabling"] },
+    { "discipline": "Instrumentation & Control", "items": ["DCS — distributed control system", "Excitation & governor control", "Field instruments & loop checks", "Protection relay testing"] },
+    { "discipline": "Fire & Utilities", "items": ["Firewater & fire detection", "Plant/instrument air", "Chemical dosing & water treatment"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Heavy Foundations", "Structural Steel", "Mechanical Erection", "Electrical & HV Switchyard", "Instrumentation & Control", "Pre-commissioning", "Commissioning & Sync"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Steel", "Mech. Erect", "Elec/HV", "I&C", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Grading → heavy foundations → structural steel", "holds": [22] },
+      { "trade": "Mechanical — Turbine-Generator / Boiler-HRSG", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 20, "width": 46, "label": "Set turbine/generator & boiler → align → hydrotest / chemical clean", "holds": [42, 58] },
+      { "trade": "Electrical & HV Switchyard", "disc": "Electrical", "kind": ["mep", "electrical"], "start": 30, "width": 48, "label": "Earth grid → switchyard → transformers → energise", "holds": [62, 78] },
+      { "trade": "Instrumentation & Control", "disc": "Instrumentation", "kind": ["mep", "bms"], "start": 42, "width": 36, "label": "DCS/excitation/governor → loop check → integrate", "holds": [70] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Steam blow → first fire → first sync → reliability run", "holds": [86, 96] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & grading", "Turbine/generator pedestal & heavy-machine foundations", "Boiler/HRSG & stack foundations", "Cooling-water intake/outfall & pump-house civils", "Switchyard & transformer-bund foundations", "Underground cable trenches & earthing grid"] },
+    { "name": "Turbine-Generator Set", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 4], "steps": ["Long-lead procurement — turbine, generator, main transformer", "Receive & set on pedestal", "Align & couple", "Barring-gear & lube-oil flush", "Run-up, overspeed & vibration proving"] },
+    { "name": "Boiler / HRSG", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2, 4], "steps": ["Boiler/HRSG erection", "Pressure-part welding & NDT", "Hydrotest", "Chemical clean", "Steam blow"] },
+    { "name": "Electrical & HV Switchyard", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [0, 5], "steps": ["Earthing grid & duct banks", "Switchyard structural & busbar erection", "Transformer set & oil fill", "Protection relay installation", "Cable pull & termination", "HV energisation & synchronisation to grid"] },
+    { "name": "Instrumentation & Control", "disc": "Instrumentation", "kind": ["mep", "bms"], "holds": [4], "steps": ["Field instruments & control loops", "DCS installation & configuration", "Excitation & governor control set-up", "Loop check & point-to-point", "Protection & interlock proving"] },
+    { "name": "Cooling Water & BOP", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2], "steps": ["Intake/outfall & pump-house works", "BOP piping & pumps", "Flush & chemical treatment", "System proving"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3, 4], "steps": ["Boiler/HRSG hydrotest & chemical clean", "Steam blow", "Turbine run-up & overspeed test", "First fire", "First synchronisation to grid", "DCS/excitation/governor integration", "Reliability & performance run → handover"] }
+  ],
+  "wbs": [
+    { "code": "PWR", "name": "Power Plant — Project", "level": 1 },
+    { "code": "PWR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PWR.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "PWR.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "PWR.02.20", "name": "Turbine/Generator Pedestal & Heavy Foundations", "level": 3 },
+    { "code": "PWR.02.30", "name": "Boiler/HRSG & Stack Foundations", "level": 3 },
+    { "code": "PWR.02.40", "name": "Cooling-Water Intake/Outfall & Pump House", "level": 3 },
+    { "code": "PWR.03", "name": "Structural Steel — Boiler House / Turbine Hall", "level": 2 },
+    { "code": "PWR.04", "name": "Mechanical — Turbine-Generator Set", "level": 2 },
+    { "code": "PWR.04.10", "name": "Set & align turbine-generator", "level": 3 },
+    { "code": "PWR.04.20", "name": "Run-up, overspeed & vibration proving", "level": 3 },
+    { "code": "PWR.05", "name": "Mechanical — Boiler / HRSG", "level": 2 },
+    { "code": "PWR.05.10", "name": "Erection & pressure-part welding", "level": 3 },
+    { "code": "PWR.05.20", "name": "Hydrotest & chemical clean", "level": 3 },
+    { "code": "PWR.05.20.10", "name": "Steam blow", "level": 4 },
+    { "code": "PWR.05.20.10.10", "name": "Steam-blow cleanliness sign-off", "level": 5 },
+    { "code": "PWR.06", "name": "Electrical — HV Switchyard & Transformers", "level": 2 },
+    { "code": "PWR.06.10", "name": "Earthing grid & duct banks", "level": 3 },
+    { "code": "PWR.06.20", "name": "Switchyard erection & protection", "level": 3 },
+    { "code": "PWR.06.30", "name": "Transformers — set & energise", "level": 3 },
+    { "code": "PWR.06.30.10", "name": "HV energisation & synchronisation", "level": 4 },
+    { "code": "PWR.07", "name": "Instrumentation & Control", "level": 2 },
+    { "code": "PWR.07.10", "name": "DCS installation & configuration", "level": 3 },
+    { "code": "PWR.07.20", "name": "Excitation & governor control", "level": 3 },
+    { "code": "PWR.08", "name": "Cooling Water & BOP", "level": 2 },
+    { "code": "PWR.09", "name": "Fire & Utilities", "level": 2 },
+    { "code": "PWR.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "PWR.10.10", "name": "First fire", "level": 3 },
+    { "code": "PWR.10.20", "name": "First synchronisation to grid", "level": 3 },
+    { "code": "PWR.10.30", "name": "Reliability & performance run", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; mechanical erection of the turbine-generator and boiler/HRSG moves to two shifts at peak; commissioning runs a continuous (24-hour) calendar once steam blow begins through to first synchronisation and the reliability run." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead procurement (turbine-generator, boiler/HRSG, main transformer) → heavy foundations → mechanical erection → HV switchyard & earthing → steam blow → first fire → first synchronisation to the grid → reliability run. This back-end commissioning chain, not the civil structure, is the true critical path." },
+      { "heading": "Key assumptions", "body": "Design is frozen; grid-interconnection and environmental approvals are obtained per phase gate; a single mobilisation; and the grid operator has confirmed the synchronisation window in advance. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Gas/steam turbine-generator", "50–80 weeks", "Before mechanical erection"], ["HRSG / boiler", "40–60 weeks", "Before pressure-part erection"], ["Main power transformer", "40–60 weeks", "Before HV energisation"], ["Switchgear (HV/MV)", "30–45 weeks", "Before switchyard erection"], ["DCS / control system", "28–36 weeks", "Before loop check"], ["Condenser / cooling-water pumps", "24–32 weeks", "Before BOP commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (turbine-generator modules, boiler drums, transformers) require large crane windows and clear haul routes; first synchronisation depends on a grid-outage or interconnection window controlled by the utility/grid operator; skilled commissioning engineers are shared across the turbine, boiler and electrical disciplines and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead slippage on the turbine-generator, boiler/HRSG or main transformer; steam-blow re-runs; and grid-synchronisation scheduling delays outside the contractor's control. Schedule contingency is held immediately before steam blow and before first synchronisation rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -1,0 +1,124 @@
+{
+  "archetype": "cold_storage",
+  "schema": 2,
+  "context": "envelope & refrigeration-led · panel/vapor-barrier integrity and staged pull-down drive the programme",
+  "brief": {
+    "intro": "A cold storage or refrigerated warehouse is a building whose entire purpose is holding a stable low temperature — from chilled (+2 to +8°C) to deep-frozen (-25°C or below) — so the insulated envelope and the refrigeration plant, not the structure, define the building. Unlike a normal warehouse, the walls, roof and floor are themselves a system: insulated metal panels with a continuous, sealed vapor barrier, because any gap lets warm moist air reach the cold surface, condense, freeze and slowly destroy the insulation from the inside. Under a frozen room the slab itself must be actively heated or ventilated, otherwise ground moisture freezes and heaves the floor — a defect that cannot be fixed once the building is enclosed and running cold. The refrigeration plant — compressors, condensers, evaporators and the ammonia or CO2 pipework linking them — is proved with a slow, monitored \"pull-down\" that can take days rather than hours, because the building's huge thermal mass cannot be forced to temperature quickly. Because ammonia and CO2 are hazardous refrigerants, gas detection, ventilation and emergency shutdown are safety-critical process systems here, not a routine MEP afterthought.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, yard pavement sub-base, utilities, stormwater." },
+      { "name": "Foundations & heated/vented slab", "desc": "Foundations plus an insulated slab-on-grade with under-slab heating or ventilation to stop frost heave." },
+      { "name": "Structural steel frame", "desc": "Portal frame and panel-support steel sized for the insulated envelope loads." },
+      { "name": "Insulated envelope", "desc": "Insulated metal wall & roof panels, continuous vapor barrier, high-speed/insulated doors and dock seals." },
+      { "name": "Refrigeration plant", "desc": "Compressors, condensers, evaporators and ammonia/CO2 pipework serving each temperature zone." },
+      { "name": "Fire protection", "desc": "Dry-pipe / ESFR sprinklers designed to work at freezer temperature, fire pumps and water storage." },
+      { "name": "Electrical & lighting", "desc": "Low-temperature-rated power distribution and lighting to the plant and cold rooms." },
+      { "name": "BMS / refrigeration controls", "desc": "Temperature and humidity monitoring, defrost scheduling, alarm and refrigerant gas detection." },
+      { "name": "Racking & material handling", "desc": "Cold-rated pallet racking and conveyors laid out to suit the refrigeration airflow." },
+      { "name": "Testing & commissioning", "desc": "Refrigerant safety test, pull-down and temperature mapping — the biggest schedule risk at the back end." }
+    ],
+    "glossary": [
+      { "term": "Pull-down (test)", "plain": "the slow, monitored process of bringing a newly built cold room down to its design temperature for the first time." },
+      { "term": "Vapor barrier", "plain": "a continuous sealed layer at every panel joint and penetration that stops warm moist air reaching the cold surface and freezing inside the insulation." },
+      { "term": "Frost heave", "plain": "ground freezing under an unheated freezer slab, which expands and can crack or lift the floor — prevented by under-slab heating or ventilation." },
+      { "term": "Ammonia (NH3) / CO2 refrigerant", "plain": "the working fluids used in large industrial refrigeration systems; both are hazardous in a leak, so they need dedicated detection and ventilation systems." },
+      { "term": "Temperature mapping", "plain": "an instrumented survey of a finished room proving every point holds the design temperature, not just the sensor by the thermostat." },
+      { "term": "Dry-pipe sprinklers", "plain": "a fire sprinkler system that keeps the pipes free of water (using pressurised air instead) so they don't freeze and burst at freezer temperature." },
+      { "term": "Defrost cycle", "plain": "the automatic, scheduled process that melts frost off the evaporator coils so airflow and cooling capacity don't degrade over time." },
+      { "term": "Thermal bridge", "plain": "any gap, fixing or metal-to-metal connection in the insulated envelope that lets heat — and with it condensation — through if not properly detailed." }
+    ],
+    "must_get_right": [
+      "Get the vapor barrier and panel-joint detailing right the first time — a leak found after racking and product are in place is expensive and disruptive to repair.",
+      "Sequence the heated or vented slab correctly beneath the insulation package — it cannot be retrofitted once the building is enclosed and running cold.",
+      "Treat ammonia/CO2 refrigerant safety (detection, ventilation, emergency shutdown) as safety-critical process scope sized and commissioned to code, not generic MEP.",
+      "Allow real time for pull-down and temperature mapping — the building's thermal mass means this test cannot be compressed like a normal commissioning step."
+    ]
+  },
+  "components": [
+    { "name": "Insulated Envelope", "desc": "Insulated wall & roof panels · continuous vapor barrier", "disc": "Architectural", "primary": true },
+    { "name": "Refrigeration Plant", "desc": "Compressors · condensers · evaporators · NH3/CO2 pipework", "disc": "Mechanical", "primary": true },
+    { "name": "Heated / Vented Slab", "desc": "Under-slab heating or ventilation · insulated slab-on-grade", "disc": "Civil", "primary": true },
+    { "name": "Fire Protection", "desc": "Dry-pipe / ESFR sprinklers rated for freezer temperature", "disc": "Fire Protection", "primary": true },
+    { "name": "BMS / Refrigeration Controls", "desc": "Temperature monitoring · defrost · gas detection · alarm", "disc": "Instrumentation", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Low-temperature rated power & lighting", "disc": "Electrical", "primary": false },
+    { "name": "Racking & Material Handling", "desc": "Cold-rated racking & conveyors", "disc": "MHE", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Refrigeration", "items": ["Ammonia or CO2 compressor packages & condensers", "Evaporator coils & air units per temperature zone", "Refrigerant pipework, valves & pipe insulation", "Defrost system — hot gas or electric"] },
+    { "discipline": "Electrical", "items": ["Low-temperature rated power distribution & lighting", "Standby generator for refrigeration & life-safety loads", "Refrigeration plant motor control centre"] },
+    { "discipline": "Fire Protection", "items": ["Dry-pipe / ESFR sprinklers rated for freezer temperature", "Fire pumps & on-site water storage", "Fire & smoke detection"] },
+    { "discipline": "ELV / BMS / Safety", "items": ["Ammonia/CO2 gas detection & emergency ventilation", "BMS — temperature monitoring, defrost & alarm", "CCTV & access control"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Heated Slab", "Structural Steel", "Insulated Envelope", "Refrigeration Plant Install", "MEP & Fire Rough-in", "Racking & Fit-out", "Pull-down & Commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Slab/Found.", "Steel/Envelope", "Plant", "Rough-in", "Fit-out", "Pull-down"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 44, "label": "Foundations → heated slab → steel & envelope", "holds": [14, 34] },
+      { "trade": "Insulated Envelope", "disc": "Architectural", "kind": ["civil"], "start": 24, "width": 34, "label": "Panel walls & roof → vapor-barrier seal → weathertight", "holds": [48] },
+      { "trade": "Refrigeration Plant", "disc": "Mechanical", "kind": ["mechanical"], "start": 34, "width": 42, "label": "Plant procurement → set compressors/evaporators → pipe & charge", "holds": [60] },
+      { "trade": "Electrical & Fire", "disc": "Electrical", "kind": ["electrical", "fire"], "start": 46, "width": 36, "label": "Distribution → dry-pipe sprinklers → BMS controls", "holds": [72] },
+      { "trade": "Racking & MHE", "disc": "MHE", "kind": ["mechanical"], "start": 62, "width": 24, "label": "Racking → conveyors → cold-rated fit-out", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 82, "width": 18, "label": "Pull-down → temperature mapping → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2, 3], "steps": ["Site clearance & earthworks", "Foundations & pad footings", "Under-slab heating / ventilation system install", "Insulated slab-on-grade pour", "Structural steel frame erection", "Yard pavement, dock aprons & landscaping"] },
+    { "name": "Insulated Envelope", "disc": "Architectural", "kind": ["civil"], "holds": [2, 4], "steps": ["Panel procurement (long-lead)", "Insulated wall & roof panel erection", "Continuous vapor-barrier sealing at joints & penetrations", "Dock doors, seals & high-speed doors", "Weathertight / envelope integrity sign-off"] },
+    { "name": "Refrigeration Plant", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Refrigeration design freeze — load calc & room temperature class", "Compressor, condenser & evaporator procurement (long-lead)", "Plantroom pipework & structural supports", "Set compressors, condensers & evaporators", "Refrigerant pipework installation & insulation", "Pressure test, evacuate & refrigerant charge", "Defrost system commissioning"] },
+    { "name": "Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Fire engineering — commodity class & dry-pipe sprinkler design", "Fire main, pumps & water storage", "Dry-pipe sprinkler containment & pipe installation", "ESFR / dry-pipe head installation", "Trip test & flow/pressure test at operating temperature"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Containment & cable routes", "Main & sub-distribution boards", "Low-temperature rated lighting & controls", "Power to refrigeration plant & racking equipment", "Testing & energisation"] },
+    { "name": "BMS / Refrigeration Controls", "disc": "Instrumentation", "kind": ["bms"], "holds": [2], "steps": ["Temperature & humidity sensors per room", "I/O wiring to refrigeration plant", "Defrost scheduling & alarm configuration", "Point-to-point verification", "Integration with plant control panel"] },
+    { "name": "Racking & Material Handling", "disc": "MHE", "kind": ["mechanical"], "holds": [0], "steps": ["Racking layout freeze (drives fire design & aisle clearance)", "Cold-rated racking supply & installation", "Conveyor / MHE installation (where applicable)", "No-load run-in"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 2], "steps": ["Refrigerant leak & safety system test", "Pull-down — staged temperature reduction", "Temperature mapping survey per room", "Fire system integrated test", "Punch-list, snagging & handover"] }
+  ],
+  "wbs": [
+    { "code": "CS", "name": "Cold Storage / Refrigerated Warehouse — Project", "level": 1 },
+    { "code": "CS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CS.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "CS.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "CS.02.20", "name": "Foundations", "level": 3 },
+    { "code": "CS.02.30", "name": "Heated / Vented Slab System", "level": 3 },
+    { "code": "CS.02.30.10", "name": "Under-slab heating installation", "level": 4 },
+    { "code": "CS.02.30.20", "name": "Insulated slab-on-grade pour", "level": 4 },
+    { "code": "CS.03", "name": "Structural Steel Frame", "level": 2 },
+    { "code": "CS.04", "name": "Insulated Envelope", "level": 2 },
+    { "code": "CS.04.10", "name": "Wall & roof panel erection", "level": 3 },
+    { "code": "CS.04.20", "name": "Vapor-barrier sealing", "level": 3 },
+    { "code": "CS.04.20.10", "name": "Joint & penetration sealing QA", "level": 4 },
+    { "code": "CS.05", "name": "Refrigeration Plant", "level": 2 },
+    { "code": "CS.05.10", "name": "Compressors & condensers", "level": 3 },
+    { "code": "CS.05.10.10", "name": "Set & align compressors", "level": 4 },
+    { "code": "CS.05.20", "name": "Evaporators & refrigerant pipework", "level": 3 },
+    { "code": "CS.05.20.10", "name": "Pressure test, evacuate & charge", "level": 4 },
+    { "code": "CS.06", "name": "Fire Protection", "level": 2 },
+    { "code": "CS.06.10", "name": "Dry-pipe sprinkler installation", "level": 3 },
+    { "code": "CS.07", "name": "Electrical & Lighting", "level": 2 },
+    { "code": "CS.08", "name": "BMS / Refrigeration Controls", "level": 2 },
+    { "code": "CS.08.10", "name": "Temperature monitoring & defrost control", "level": 3 },
+    { "code": "CS.09", "name": "Racking & Material Handling", "level": 2 },
+    { "code": "CS.09.10", "name": "Racking installation", "level": 3 },
+    { "code": "CS.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "CS.10.10", "name": "Refrigerant safety test", "level": 3 },
+    { "code": "CS.10.20", "name": "Pull-down & temperature mapping", "level": 3 },
+    { "code": "CS.10.30", "name": "Fire system integrated test", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; envelope panel installation needs a dry, sealed-condition calendar so vapor-barrier work is not interrupted by weather; refrigeration plant installation follows two shifts near completion; pull-down and commissioning run a continuous 7-day calendar once started, because the temperature ramp cannot be stopped and restarted without redoing part of the test." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs envelope weathertight & vapor-barrier sign-off → refrigeration plant set, pipe & charge → refrigerant safety test → pull-down → temperature mapping → fire system integrated test → handover. Racking and electrical fit-out proceed in parallel behind the envelope but must be complete before pull-down can start, since racking changes airflow inside the room." },
+      { "heading": "Key assumptions", "body": "Design is frozen, including room temperature classes and the vapor-barrier detailing, before envelope panel order; a single mobilisation; the refrigeration contractor commissions against an agreed interface with electrical and BMS; no free-issue equipment assumed unless stated." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is envelope- and plant-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Insulated wall & roof panel system", "8–14 weeks", "Before envelope erection"], ["Ammonia / CO2 compressor & condenser packages", "16–24 weeks", "Before plant set"], ["Evaporator coils & air units", "12–18 weeks", "Before refrigeration rough-in"], ["Dry-pipe / ESFR sprinkler & fire pump package", "8–12 weeks", "Before sprinkler final fix"], ["Cold-rated racking system", "10–16 weeks", "Before racking installation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Envelope panel erection needs dry weather windows and a sealed-condition sequence at every joint; refrigeration plant set needs crane access and a clean plantroom; commissioning needs the room fully enclosed, racked and powered before the pull-down clock starts, and specialist refrigeration commissioning engineers are a constrained resource." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: a vapor-barrier or panel-joint defect found only after pull-down begins, refrigerant charging delays, and a slower-than-planned pull-down due to the building's thermal mass. Schedule contingency is held before the pull-down/temperature-mapping test and before handover rather than spread across the fit-out." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

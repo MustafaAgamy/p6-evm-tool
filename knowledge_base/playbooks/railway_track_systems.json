@@ -1,0 +1,120 @@
+{
+  "archetype": "railway_track_systems",
+  "schema": 2,
+  "context": "linear systems-led · trackform is the enabler, traction power & signalling drive the programme",
+  "brief": {
+    "intro": "New to this project type? Railway Track & Systems covers the length of a rail corridor — laying the track itself and installing everything that makes it operate: the overhead line that powers electric trains, the signalling that keeps trains apart, and the telecoms that tie it all together. Unlike a station or a building, there is no single site; progress is measured in track-kilometres, and work advances along the corridor as a moving front rather than through areas of one building. Civil trackbed and structure are largely an enabler, done early to a tight tolerance; the real programme risk sits in overhead-line (OCS/OHLE) energisation and signalling integration and testing, which typically run in a chain of scheduled possessions (track-access windows) late in the programme. Because trains only run once the whole line proves out together, sections finishing early still wait on the slowest system before line-wide dynamic testing can start.",
+    "scope": [
+      { "name": "Formation & trackbed", "desc": "Earthworks, subgrade preparation and drainage along the corridor." },
+      { "name": "Trackform", "desc": "Laying and aligning ballasted track or slab track to design geometry." },
+      { "name": "OCS/OHLE structures", "desc": "Mast foundations and erection of the overhead-line mast structure." },
+      { "name": "Traction power (electrification)", "desc": "Stringing OCS/OHLE contact and catenary wire, and installing feeder and sectioning stations." },
+      { "name": "Signalling & train control", "desc": "Trackside equipment, interlocking and train-detection that keep trains safely apart." },
+      { "name": "Cabling & containment", "desc": "Troughing routes and cable laying for power, signal and telecom systems." },
+      { "name": "Earthing & traction return", "desc": "Rail bonding and stray-current mitigation protecting buried structures from corrosion." },
+      { "name": "Telecoms", "desc": "GSM-R/radio coverage and the fibre-optic backbone connecting the line to the control centre." },
+      { "name": "Lineside structures", "desc": "Level crossings, signal bases and other lineside civil structures." },
+      { "name": "Testing, integration & dynamic testing", "desc": "Track geometry checks, systems integration and running trains at increasing speed to prove the line works together." }
+    ],
+    "glossary": [
+      { "term": "OCS / OHLE", "plain": "Overhead Contact System / Overhead Line Equipment — the wires above the track that power electric trains." },
+      { "term": "Pantograph", "plain": "the roof-mounted arm on a train that touches the overhead wire to draw power." },
+      { "term": "Possession / track-access window", "plain": "a scheduled period when a section of live or nearly-live track is closed so work can happen safely." },
+      { "term": "Ballasted vs slab track", "plain": "track laid on stone ballast (traditional, adjustable) versus track fixed to a continuous concrete slab (low-maintenance, less tolerant of error)." },
+      { "term": "Interlocking", "plain": "the signalling logic that physically prevents conflicting train movements." },
+      { "term": "Traction return / stray current", "plain": "the current that returns through the rails to the substation, and the corrosion risk if it strays into buried metal — controlled by bonding and earthing." },
+      { "term": "GSM-R", "plain": "the dedicated radio system trains and control centres use to communicate." },
+      { "term": "Track geometry", "plain": "the measured alignment, gauge and level of the finished track, checked against design tolerance." },
+      { "term": "Dynamic testing", "plain": "running trains over the finished track and systems at increasing speed to prove everything works together." }
+    ],
+    "must_get_right": [
+      "This is a linear programme measured in track-kilometres, not areas — plan progress and resourcing as a moving front along the corridor, with a clear handback of each completed section.",
+      "Possessions/track-access windows are the scarce resource — electrification and signalling installation, testing and any rework can usually only happen in scheduled windows, so window allocation sets the real pace late in the programme, not generic trade productivity.",
+      "Signalling integration and dynamic testing are chain-linked — the whole line, or a defined section, must prove out together before any part carries trains, so the finish date is set by the slowest system, not the average.",
+      "Earthing and traction-return bonding are safety-critical and easy to under-scope — treat them as a first-class system, not an afterthought to the civil trackbed."
+    ]
+  },
+  "components": [
+    { "name": "Formation & Trackform", "desc": "Earthworks · ballast/slab track · rail laying", "disc": "Civil", "primary": true },
+    { "name": "OCS / OHLE", "desc": "Masts · contact wire · feeder & sectioning stations", "disc": "Electrical", "primary": true },
+    { "name": "Signalling & Train Control", "desc": "Trackside equipment · interlocking · train detection", "disc": "Instrumentation", "primary": true },
+    { "name": "Cabling & Containment", "desc": "Troughing · power/signal/telecom cable pull", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Earthing & Traction Return", "desc": "Rail bonding · stray-current mitigation", "disc": "Electrical", "primary": false },
+    { "name": "Telecoms", "desc": "GSM-R / radio · fibre-optic backbone", "disc": "Data / Telecom", "primary": false },
+    { "name": "Testing & Dynamic Commissioning", "desc": "Static tests · energisation · dynamic test runs", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical (Traction Power)", "items": ["OCS/OHLE masts, wiring & feeder stations", "Sectioning & switching stations", "Traction return & rail bonding", "Lineside power supply & lighting"] },
+    { "discipline": "Instrumentation & Signalling", "items": ["Trackside signals & train-detection", "Interlocking & signalling control system", "Level-crossing control equipment"] },
+    { "discipline": "ELV / Telecom", "items": ["Cable troughing & containment along the corridor", "GSM-R / radio coverage", "Fibre-optic telecom backbone", "SCADA tie-in to control centre"] }
+  ],
+  "overview_phases": ["Formation & Trackbed", "Trackform (Ballast/Slab)", "OCS/OHLE Structures", "Electrification & Cabling", "Signalling Installation", "Earthing & Telecoms", "Integration & Testing", "Dynamic Testing & Handover"],
+  "sequence_chart": {
+    "phases": ["Formation", "Trackform", "OHLE Struct.", "Electrify", "Signal", "Integrate", "Dynamic Test"],
+    "lanes": [
+      { "trade": "Civil / Trackform", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Formation & drainage → ballast/slab → rail lay & align", "holds": [18] },
+      { "trade": "OCS/OHLE (Traction Power)", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 52, "label": "Mast foundations → erect masts → string wire → energise", "holds": [55, 80] },
+      { "trade": "Signalling & Train Control", "disc": "Instrumentation", "kind": ["elv", "comm"], "start": 30, "width": 50, "label": "Trackside equipment → interlocking → integrate", "holds": [65] },
+      { "trade": "Cabling, Earthing & Telecom", "disc": "Extra-Low Voltage", "kind": ["electrical", "elv"], "start": 34, "width": 44, "label": "Troughing & cable pull → bonding → GSM-R", "holds": [] },
+      { "trade": "Testing & Dynamic Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Static tests → dynamic test runs → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Trackform", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Formation & subgrade preparation", "Drainage & earthworks", "Ballast laying / slab-track casting", "Rail laying & fastening", "Track alignment & geometry check", "Level-crossing & lineside structures"] },
+    { "name": "OCS/OHLE (Traction Power)", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 5], "steps": ["Procurement — masts, wire & feeder equipment", "Mast foundation construction", "Erect OCS/OHLE masts", "String & tension contact/catenary wire", "Install feeder & sectioning stations", "Energise & pantograph proving test"] },
+    { "name": "Signalling & Train Control", "disc": "Instrumentation", "kind": ["elv", "comm"], "holds": [2, 4], "steps": ["Trackside signal & train-detection installation", "Signal bases & lineside cabinets", "Interlocking & control-system configuration", "Point-to-point wiring verification", "Integration with train-control centre"] },
+    { "name": "Cabling & Containment", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Cable troughing route installation", "Power, signal & telecom cable pull", "Continuity & insulation testing", "Labelling & as-built records"] },
+    { "name": "Earthing & Traction Return", "disc": "Electrical", "kind": ["electrical"], "holds": [0], "steps": ["Rail bonding & traction-return continuity", "Earthing grid at substations & structures", "Stray-current mitigation measures", "Earthing & bonding resistance test"] },
+    { "name": "Telecoms", "disc": "Data / Telecom", "kind": ["elv"], "holds": [], "steps": ["Fibre-optic backbone installation", "GSM-R / radio equipment installation", "Coverage survey & testing", "Integration with control centre"] },
+    { "name": "Testing & Dynamic Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 4], "steps": ["Static system tests per discipline", "Integrated systems test", "Traction-power energisation & pantograph test", "Signalling interlocking proving", "Track geometry & dynamic test runs (staged speed)", "Trial running & handover"] }
+  ],
+  "wbs": [
+    { "code": "RTS", "name": "Railway Track & Systems — Project", "level": 1 },
+    { "code": "RTS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "RTS.02", "name": "Formation & Trackbed", "level": 2 },
+    { "code": "RTS.02.10", "name": "Earthworks & subgrade preparation", "level": 3 },
+    { "code": "RTS.02.20", "name": "Drainage", "level": 3 },
+    { "code": "RTS.03", "name": "Trackform", "level": 2 },
+    { "code": "RTS.03.10", "name": "Ballasted track", "level": 3 },
+    { "code": "RTS.03.20", "name": "Slab track", "level": 3 },
+    { "code": "RTS.03.30", "name": "Rail laying & alignment", "level": 3 },
+    { "code": "RTS.03.30.10", "name": "Track geometry & tamping", "level": 4 },
+    { "code": "RTS.04", "name": "OCS / OHLE — Traction Power", "level": 2 },
+    { "code": "RTS.04.10", "name": "Mast foundations", "level": 3 },
+    { "code": "RTS.04.20", "name": "Mast erection & wire stringing", "level": 3 },
+    { "code": "RTS.04.30", "name": "Feeder & sectioning stations", "level": 3 },
+    { "code": "RTS.04.30.10", "name": "Energisation & pantograph test", "level": 4 },
+    { "code": "RTS.05", "name": "Signalling & Train Control", "level": 2 },
+    { "code": "RTS.05.10", "name": "Trackside equipment & signal bases", "level": 3 },
+    { "code": "RTS.05.20", "name": "Interlocking & control system", "level": 3 },
+    { "code": "RTS.06", "name": "Cabling & Containment", "level": 2 },
+    { "code": "RTS.07", "name": "Earthing & Traction Return", "level": 2 },
+    { "code": "RTS.07.10", "name": "Rail bonding", "level": 3 },
+    { "code": "RTS.07.20", "name": "Stray-current mitigation", "level": 3 },
+    { "code": "RTS.08", "name": "Telecoms", "level": 2 },
+    { "code": "RTS.09", "name": "Level Crossings & Lineside Structures", "level": 2 },
+    { "code": "RTS.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "RTS.10.10", "name": "Static & integration testing", "level": 3 },
+    { "code": "RTS.10.20", "name": "Dynamic testing & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The network is structured by chainage/track-km section rather than by building area, and progress is measured per section." },
+      { "heading": "Calendars & working time", "body": "Trackbed and civil works run a standard calendar; electrification and signalling installation and testing run inside allocated possessions/track-access windows (often night or weekend), which the calendar models explicitly rather than as generic working time." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs formation & trackform (by section) → OCS/OHLE mast erection & wire stringing → signalling trackside install → energisation → signalling integration → dynamic testing → handover. Possession-window availability, not trade productivity alone, usually paces the electrification and signalling fronts." },
+      { "heading": "Key assumptions", "body": "Trackbed is handed over to tolerance per section on a rolling basis; possession windows are allocated per the agreed access plan; interfacing systems (substations, control centre) are available for integration testing on schedule; a single electrification/signalling mobilisation." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on electrification and signalling hardware. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["OCS/OHLE masts & contact wire", "20–32 weeks", "Before mast erection"], ["Feeder & sectioning switchgear", "24–36 weeks", "Before energisation"], ["Interlocking / signalling system", "30–44 weeks", "Before signalling installation"], ["GSM-R radio equipment", "16–24 weeks", "Before telecom integration"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Possession/track-access windows are the primary constraint on work; corridor access for plant (tamping machines, wiring trains) is linear and sequential; specialist signalling and OHLE commissioning engineers are a shared, scarce resource across the line." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: possession-window loss or curtailment, signalling software integration slippage, and OHLE wire-stringing rework from geometry non-conformance. Schedule contingency is held around energisation and the final dynamic-testing chain rather than spread across trackform activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by section/chainage; expanded to Level 4–5 lookahead per possession — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

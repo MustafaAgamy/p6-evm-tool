@@ -1,0 +1,123 @@
+{
+  "archetype": "food_beverage_plant",
+  "schema": 2,
+  "context": "hygienic process & CIP-led · HACCP / food-safety sign-off",
+  "brief": {
+    "intro": "New to this project type? A food & beverage processing plant turns raw ingredients into packaged food, dairy or beverage product through hygienic process lines — mixing, cooking or pasteurising, filling and packaging — built to washdown and food-safety standards. Unlike a normal industrial building, the building fabric itself is a food-safety system: hygienic walls, floors and drainage falls must be right before equipment moves in. Clean-in-Place (CIP) systems that automatically wash the process line without disassembly, and hygiene-zone HVAC that keeps contamination out of open-product areas, are the schedule drivers. The facility is only handed over once it passes a HACCP / food-safety audit, not just mechanical completion.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks and underground drainage." },
+      { "name": "Structure & shell", "desc": "Foundations, frame, envelope and hygienic roof/wall detailing." },
+      { "name": "Hygienic building fabric", "desc": "Washdown-rated walls/floors/ceilings, drainage falls and coving — a food-safety system, not a finish." },
+      { "name": "Process equipment", "desc": "Mixing, cooking/pasteurising/retort, filling and packaging lines." },
+      { "name": "Hygienic (sanitary) process piping", "desc": "Stainless-steel product piping, installed to a slope and finish standard that prevents bacteria traps." },
+      { "name": "Utilities", "desc": "Steam, refrigeration, CO2 & compressed air, process water and treatment." },
+      { "name": "CIP / sanitation systems", "desc": "Clean-in-place skids and washdown stations that clean the line without disassembly." },
+      { "name": "Electrical & controls", "desc": "Power distribution, PLC/SCADA line control, hygiene-zone HVAC controls." },
+      { "name": "Testing & commissioning", "desc": "Line commissioning, CIP validation, and HACCP / food-safety sign-off — the real handover gate." }
+    ],
+    "glossary": [
+      { "term": "CIP (Clean-in-Place)", "plain": "an automated system that cleans and sanitises process pipework and vessels without taking them apart." },
+      { "term": "Sanitary / hygienic piping", "plain": "stainless-steel product piping installed to a slope and finish standard that prevents bacteria traps." },
+      { "term": "HACCP", "plain": "Hazard Analysis Critical Control Points — the food-safety system the plant must be built and run to." },
+      { "term": "Passivation", "plain": "a chemical treatment of stainless steel that restores its corrosion- and hygiene-resistant surface after welding." },
+      { "term": "Hygiene zone", "plain": "an area classified by contamination risk (e.g. open-product vs packaged) with its own air-pressure and access rules." },
+      { "term": "Washdown-rated", "plain": "finishes and equipment built to survive regular high-pressure hot-water and chemical cleaning." },
+      { "term": "Cold chain / refrigeration", "plain": "the chilled or frozen environment that must be proven before any perishable product run." },
+      { "term": "Retort / pasteuriser", "plain": "the heat-treatment equipment that makes the product safe and shelf-stable." }
+    ],
+    "must_get_right": [
+      "It's hygiene-led — building fabric, piping slope/finish and drainage are food-safety systems, not cosmetic; get the falls and coving right before equipment moves in.",
+      "CIP systems must be commissioned and validated before any product-contact run — treat CIP proving as a hard predecessor to process trials, not parallel scope.",
+      "Sequence utilities (steam, refrigeration, process water) ahead of process-line commissioning — a cold-chain or steam gap stops the wet trial.",
+      "Protect the HACCP / food-safety sign-off — it is the real handover gate, not mechanical completion; leave real time for the audit and any corrective actions."
+    ]
+  },
+  "components": [
+    { "name": "Process Lines (Mix / Cook / Fill / Pack)", "desc": "Mixing · pasteurising/retort · filling · packaging", "disc": "Process", "primary": true },
+    { "name": "Hygienic Process Piping", "desc": "Sanitary stainless steel · sloped & passivated", "disc": "Mechanical", "primary": true },
+    { "name": "CIP / Sanitation Systems", "desc": "Clean-in-place skids · washdown stations", "disc": "Mechanical", "primary": true },
+    { "name": "Utilities", "desc": "Steam · refrigeration · CO2/compressed air · process water", "disc": "Mechanical", "primary": false },
+    { "name": "Hygienic Building Fabric", "desc": "Washdown walls/floors · drainage falls · coving", "disc": "Architectural", "primary": true },
+    { "name": "Electrical & Controls", "desc": "Power distribution · PLC/SCADA · hygiene-zone HVAC", "disc": "Electrical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process Utilities", "items": ["Culinary / process steam generation & distribution (insulated)", "Refrigeration plant — chillers / ammonia or glycol systems", "CO2 & compressed (plant/instrument) air", "Process & wash-water treatment"] },
+    { "discipline": "Plumbing / Hygienic Drainage", "items": ["Sloped hygienic floor drainage & trench drains", "Sanitary product piping — slope & passivation", "Backflow prevention on potable / process water"] },
+    { "discipline": "Electrical", "items": ["Power distribution to process lines & motor control centres", "Hygiene-zone (washdown-rated) lighting", "Earthing"] },
+    { "discipline": "ELV / BMS / Controls", "items": ["PLC / SCADA line control", "CIP sequencing & recipe control", "Hygiene-zone HVAC & pressure monitoring", "Environmental (allergen / temperature) monitoring"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structure & Hygienic Envelope", "Hygienic Fabric Fit-out", "Process Equipment Installation", "Utilities & CIP Systems", "Electrical & Controls", "Line Commissioning & CIP Validation", "HACCP / Food-Safety Sign-off"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Fabric", "Equip. Set", "Utilities/CIP", "Elec/Ctrl.", "Comm./HACCP"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 36, "label": "Foundations → frame → hygienic envelope weather-tight", "holds": [12] },
+      { "trade": "Hygienic Building Fabric", "disc": "Architectural", "kind": ["civil"], "start": 20, "width": 30, "label": "Washdown walls/floors → drainage falls → coving", "holds": [30] },
+      { "trade": "Process Equipment & Piping", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 34, "width": 46, "label": "Set lines → sanitary piping → slope/passivate", "holds": [50] },
+      { "trade": "Utilities & CIP", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 40, "width": 40, "label": "Steam/refrigeration → CIP skids → flush/passivate", "holds": [60] },
+      { "trade": "Electrical & Controls", "disc": "Electrical", "kind": ["mep", "electrical", "elv", "bms"], "start": 46, "width": 34, "label": "Power → PLC/SCADA → hygiene-zone HVAC controls", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "CIP validation → line trial → HACCP sign-off", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Foundations & underground drainage", "Structural frame erection", "Roof & envelope — weather-tight", "Hygienic wall/floor substrate preparation"] },
+    { "name": "Hygienic Building Fabric", "disc": "Architectural", "kind": ["civil"], "holds": [4], "steps": ["Washdown-rated wall & ceiling panel installation", "Hygienic flooring with drainage falls", "Coving & hygienic detailing at wall/floor junctions", "Hygienic doors & fast-fit curtains", "Final clean & pre-audit inspection"] },
+    { "name": "Process Equipment (Mix / Cook / Fill / Pack)", "disc": "Process", "kind": ["mep", "mechanical"], "holds": [1, 5], "steps": ["Long-lead procurement — process lines, fillers, packaging", "Rigging & set on foundations / plinths", "Line-to-line mechanical alignment", "Guarding & interlock installation", "No-load mechanical run", "Product-representative (wet) trial run"] },
+    { "name": "Hygienic (Sanitary) Process Piping", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 2], "steps": ["Pipe routing & hanger installation to slope", "Orbital welding of sanitary stainless steel", "Passivation & bright-dip", "Pressure & slope verification", "Tie-in to process equipment"] },
+    { "name": "Utilities (Steam / Refrigeration / Gases)", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["Steam generation & distribution installation", "Refrigeration plant (chillers/compressors) installation", "CO2 & compressed-air system installation", "Process / wash-water treatment installation", "Utility proving & flush"] },
+    { "name": "CIP / Sanitation Systems", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["CIP skid procurement & set", "CIP supply / return piping tie-ins", "Chemical dosing system installation", "CIP cycle programming & sequencing", "CIP validation run — concentration / coverage / time / temperature"] },
+    { "name": "Electrical & Controls", "disc": "Electrical", "kind": ["mep", "electrical", "elv", "bms"], "holds": [2], "steps": ["Power distribution & MCC installation", "Hygiene-zone (washdown-rated) lighting & devices", "PLC / SCADA line-control panel installation", "Field-device wiring & point-to-point testing", "Hygiene-zone HVAC & pressure-monitoring integration"] },
+    { "name": "Commissioning & Food-Safety Sign-off", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 4], "steps": ["Mechanical (dry) commissioning per line", "CIP validation & sanitation verification", "Utility commissioning (steam / refrigeration / water)", "Product-representative wet trial", "HACCP / food-safety audit", "Regulatory & customer sign-off → handover"] }
+  ],
+  "wbs": [
+    { "code": "FBP", "name": "Food & Beverage Plant — Project", "level": 1 },
+    { "code": "FBP.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "FBP.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "FBP.02.10", "name": "Enabling, Earthworks & Drainage", "level": 3 },
+    { "code": "FBP.02.20", "name": "Foundations & Substructure", "level": 3 },
+    { "code": "FBP.03", "name": "Superstructure & Hygienic Envelope", "level": 2 },
+    { "code": "FBP.04", "name": "Hygienic Building Fabric", "level": 2 },
+    { "code": "FBP.04.10", "name": "Washdown Walls, Ceilings & Flooring", "level": 3 },
+    { "code": "FBP.04.20", "name": "Drainage Falls & Coving", "level": 3 },
+    { "code": "FBP.05", "name": "Process Equipment", "level": 2 },
+    { "code": "FBP.05.10", "name": "Mixing / Cooking / Pasteurising", "level": 3 },
+    { "code": "FBP.05.20", "name": "Filling & Packaging Lines", "level": 3 },
+    { "code": "FBP.06", "name": "Hygienic (Sanitary) Process Piping", "level": 2 },
+    { "code": "FBP.06.10", "name": "Sanitary Pipe Installation & Welding", "level": 3 },
+    { "code": "FBP.06.10.10", "name": "Passivation & Slope Verification", "level": 4 },
+    { "code": "FBP.07", "name": "Utilities", "level": 2 },
+    { "code": "FBP.07.10", "name": "Steam & Refrigeration", "level": 3 },
+    { "code": "FBP.07.20", "name": "CO2, Compressed Air & Process Water", "level": 3 },
+    { "code": "FBP.08", "name": "CIP / Sanitation Systems", "level": 2 },
+    { "code": "FBP.08.10", "name": "CIP Skids & Distribution", "level": 3 },
+    { "code": "FBP.08.10.10", "name": "CIP Validation (Concentration / Coverage / Time / Temp.)", "level": 4 },
+    { "code": "FBP.08.10.10.10", "name": "Post-CIP Rinse Verification (ATP Swab)", "level": 5 },
+    { "code": "FBP.09", "name": "Electrical & Controls", "level": 2 },
+    { "code": "FBP.09.10", "name": "Power Distribution & Hygiene-zone Lighting", "level": 3 },
+    { "code": "FBP.09.20", "name": "PLC / SCADA Line Control", "level": 3 },
+    { "code": "FBP.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "FBP.10.10", "name": "Line (Mechanical) Commissioning", "level": 3 },
+    { "code": "FBP.10.20", "name": "Product-Representative Wet Trial", "level": 3 },
+    { "code": "FBP.10.30", "name": "HACCP / Food-Safety Sign-off", "level": 3 },
+    { "code": "FBP.10.30.10", "name": "Regulatory & Customer Sign-off", "level": 4 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. CIP validation and HACCP sign-off are scheduled as real-duration, deliverable-based activities rather than zero-duration milestones." },
+      { "heading": "Calendars & working time", "body": "Civil and structure run a 6-day week; hygienic fabric and process-equipment installation run controlled single/double shift to protect finish quality; CIP validation and wet trials often run to a fixed, continuous calendar once started so cycle testing is not interrupted mid-run." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs hygienic envelope & fabric → process equipment & sanitary piping → utilities (steam/refrigeration) & CIP systems → line (mechanical) commissioning → CIP validation → product-representative wet trial → HACCP / food-safety sign-off. Hygienic fabric — drainage falls, coving, washdown finishes — must be complete and clean before equipment installation to avoid re-cleaning or rework." },
+      { "heading": "Key assumptions", "body": "Design is frozen and equipment vendor drawings issued before foundation/piping design; utilities (steam, refrigeration, process water) are available by the CIP-proving milestone; a single validation campaign; the food-safety authority inspection is scheduled after the wet trial." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the process, packaging and CIP equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Process lines (mixing / cooking / pasteurising)", "24–36 weeks", "Before process-area close-in"], ["Filling & packaging equipment", "20–32 weeks", "Before line integration"], ["Refrigeration plant (chillers / compressors)", "18–28 weeks", "Before cold-chain proving"], ["CIP skids", "16–24 weeks", "Before CIP validation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Hygienic areas require controlled, gowned access from fabric completion onward; sanitary-welding (orbital weld / passivation) crews are a specialist, constrained resource; the wet trial and HACCP audit need production, QA/food-safety and maintenance teams on site together." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: sanitary-piping weld/passivation rework, CIP validation failures (coverage or temperature) requiring re-test, and HACCP audit findings extending sign-off. Schedule contingency is held before CIP validation and before the food-safety audit, not spread across construction." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for fabric/piping works and CIP/wet-trial execution — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -6,7 +6,7 @@ import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
 import { showReportContentsPreview }                from './preview.js';
-import { showDatabase }                             from './database.js';
+import { showPlaybooks }                            from './knowledge.js';
 
 function _typeSelect(report) {
   const cur = report.detected ? report.detected.type : '';
@@ -201,7 +201,7 @@ function renderReport(report) {
     addToDatabase((s && s.value) || null, save);
   });
   const kbm = document.getElementById('cx-kb-manage');
-  if (kbm) kbm.addEventListener('click', () => showDatabase());
+  if (kbm) kbm.addEventListener('click', () => showPlaybooks());
   kbKnowledgeRefresh();
 }
 

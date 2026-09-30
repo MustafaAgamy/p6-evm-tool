@@ -1,0 +1,127 @@
+{
+  "archetype": "mixed_use_residential",
+  "schema": 2,
+  "context": "podium & tower · residential/retail MEP segregation drives the fit-out and handover",
+  "brief": {
+    "intro": "A mixed-use residential project stacks a retail or commercial podium under one or more residential towers, so two very different buildings share one structure and one set of vertical services. The programme runs on two rhythms at once: a slow, complex podium and transfer structure at the base, and a fast, repetitive typical-floor cycle up the tower. Vertical services — power, water, fire fighting, data — must stay continuous through the transfer level even though retail and residential are metered, tested and handed over separately. Your schedule stands or falls on three things: getting the transfer structure right (it gates everything above it), keeping the typical-floor cycle running at a steady rhythm, and coordinating two independent fit-out and commissioning tracks that still share one life-safety system.",
+    "scope": [
+      { "name": "Enabling & piling", "desc": "Site clearance, piling and pile caps for the combined podium/tower foundation." },
+      { "name": "Substructure & podium", "desc": "Basement, podium slab and retail/parking levels below the tower." },
+      { "name": "Transfer structure", "desc": "Heavy transfer beams/slab carrying the tower's columns onto the wider podium grid — the geometric hinge between the two buildings." },
+      { "name": "Retail podium shell & core", "desc": "Retail floors, back-of-house and loading dock, typically handed over as landlord shell with shopfronts left to tenants." },
+      { "name": "Residential tower superstructure", "desc": "Core and typical-floor slab cycle repeated up the tower using jump/climbing form." },
+      { "name": "Building envelope & façade", "desc": "Curtain wall to the tower, cladding to the podium, roof and terrace waterproofing." },
+      { "name": "Vertical MEP risers", "desc": "Power, water, fire-fighting and data risers that must stay continuous through the transfer level." },
+      { "name": "Vertical transportation", "desc": "Passenger and service lifts, and escalators where present at the podium." },
+      { "name": "Residential unit fit-out", "desc": "First fix, wet-area waterproofing, tiling, second fix, joinery and snagging, repeated unit by unit." },
+      { "name": "Testing, commissioning & phased handover", "desc": "Life-safety systems tested as one integrated building, then residential and retail handed over on separate but coordinated dates." }
+    ],
+    "glossary": [
+      { "term": "Podium", "plain": "the low-rise retail or parking base that the residential tower sits on." },
+      { "term": "Transfer structure", "plain": "heavy beams/slab that carry the tower's columns down onto the wider podium grid below." },
+      { "term": "Shell & core", "plain": "the base-build condition handed to a retail tenant — structure and services stubbed in, no fit-out." },
+      { "term": "Jump form / climbing form", "plain": "formwork that climbs the building with the concrete core, driving the typical-floor cycle." },
+      { "term": "Riser", "plain": "the vertical shaft carrying power, water, fire-fighting and data cabling up the building." },
+      { "term": "Typical floor cycle", "plain": "the repeating structural and finishing sequence for one residential floor — the tower's real productivity measure." },
+      { "term": "BOH (back of house)", "plain": "retail service areas — loading dock, bin store, plant rooms — hidden from the public." },
+      { "term": "Snagging", "plain": "the defects list walked before a unit or floor is handed over." }
+    ],
+    "must_get_right": [
+      "The transfer structure is a hard gate — nothing above it, tower or podium, starts until it is cast, stressed and cured.",
+      "Keep vertical services continuous through the transfer/podium level — retail and residential risers cannot be designed or sequenced as if they were two separate buildings.",
+      "Protect the typical-floor cycle's rhythm — it is the tower's real productivity engine; any interruption echoes up every floor above it.",
+      "Plan two handovers, not one — retail shell-and-core and residential units follow different fit-out tracks but share one life-safety system that must be proven as a whole building first."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Transfer", "desc": "Podium · transfer beams/slab · tower jump-form", "disc": "Structural", "primary": true },
+    { "name": "Building Envelope", "desc": "Curtain wall · podium cladding · roof waterproofing", "disc": "Architectural", "primary": false },
+    { "name": "Vertical Transportation", "desc": "Passenger/service lifts · escalators", "disc": "Mechanical", "primary": true },
+    { "name": "Fire Fighting & Life Safety", "desc": "Wet/dry riser · sprinklers · alarm · voice evacuation", "disc": "Fire Protection", "primary": true },
+    { "name": "Vertical MEP Risers", "desc": "Power · water · data continuity through the podium", "disc": "Electrical / Mechanical", "primary": true },
+    { "name": "Residential Fit-out", "desc": "Unit first/second fix · wet areas · joinery", "disc": "Architectural", "primary": false },
+    { "name": "BMS / EPMS", "desc": "Controls · segregated retail/residential monitoring", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Chilled-water plant & cooling towers", "AHU/FCU risers & plantroom equipment", "Domestic hot-water plant", "Car-park & BOH ventilation"] },
+    { "discipline": "Electrical", "items": ["Incoming HV substation & standby generator", "Riser busway / rising mains", "Landlord vs tenant metering & distribution boards", "Lighting & small power — common areas and units"] },
+    { "discipline": "Plumbing", "items": ["Domestic cold/hot water risers", "Drainage & vent stacks", "Storm-water & podium-deck drainage", "Sump pumps & attenuation — car park/basement"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Wet/dry fire riser, sprinklers & pump room", "Fire alarm & voice-evacuation", "BMS/EPMS — segregated retail/residential monitoring", "Structured cabling, access control & CCTV"] }
+  ],
+  "overview_phases": ["Enabling & Piling", "Substructure & Podium", "Transfer Structure", "Tower Superstructure", "Envelope & MEP Risers", "Residential & Retail Fit-out", "Testing & Commissioning", "Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Podium", "Transfer", "Tower", "Risers", "Fit-out", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 46, "label": "Piling → podium → transfer → tower jump-form", "holds": [30] },
+      { "trade": "Envelope / Façade", "disc": "Architectural", "kind": ["civil"], "start": 32, "width": 40, "label": "Mock-up → curtain wall → podium cladding", "holds": [] },
+      { "trade": "Electrical & Risers", "disc": "Electrical", "kind": ["electrical"], "start": 30, "width": 58, "label": "Riser containment → substation/gen → distribution → energise", "holds": [55, 85] },
+      { "trade": "Mechanical / Vertical Transport", "disc": "Mechanical", "kind": ["mechanical"], "start": 32, "width": 54, "label": "Riser pipework → plant set → lifts → balance", "holds": [50] },
+      { "trade": "Fire / ELV / BMS", "disc": "Fire Protection", "kind": ["fire", "elv", "bms"], "start": 46, "width": 42, "label": "Riser & sprinklers → alarm → BMS integrate", "holds": [80] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Life-safety test → phased handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & piling", "Pile caps & substructure", "Podium slab & transfer structure", "Retail shell & core structure", "Tower superstructure — typical floor jump/climb cycle", "Roof & plant-deck structure"] },
+    { "name": "Building Envelope / Façade", "disc": "Architectural", "kind": ["civil"], "holds": [1], "steps": ["Façade system procurement & mock-up", "Curtain wall install — tower", "Podium cladding & shopfronts", "Roof & terrace waterproofing", "Glazing & sealant testing"] },
+    { "name": "Electrical Power & Vertical Risers", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 5], "steps": ["Substation & standby generator procurement", "Riser containment & busway/rising-mains install", "Landlord & tenant distribution boards", "Residential unit second-fix wiring", "Retail tenant meter rooms & distribution", "Testing, energisation & load proving"] },
+    { "name": "Mechanical — HVAC & Plumbing", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2, 5], "steps": ["Chiller/cooling-tower & plantroom equipment procurement", "Riser pipework — chilled & domestic water", "Set AHUs, FCUs & pumps", "Residential unit plumbing first & second fix", "Retail tenant HVAC interface points", "Flush, balance & commission plant"] },
+    { "name": "Vertical Transportation", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Lift shaft & guide-rail install", "Lift equipment delivery", "Installation & adjustment", "Load test & safety certification", "Escalator install & test — podium"] },
+    { "name": "Fire Fighting & Fire Alarm", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Wet/dry riser & sprinkler mains install", "Fire pump room & tanks", "Fire alarm & voice-evacuation wiring", "Cause-and-effect programming", "Zone & flow testing"] },
+    { "name": "ELV / BMS", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [4], "steps": ["Field devices & sensors", "Structured cabling, access control & CCTV", "Controls wiring & panel integration", "Point-to-point verification", "Integration with fire & lift systems"] },
+    { "name": "Commissioning & Phased Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 4], "steps": ["System-by-system pre-functional testing", "Integrated fire & life-safety cause-and-effect test", "Residential unit snagging & de-snagging", "Retail shell & core base-build handover", "BMS integration & staged unit handover", "Reliability run & final handover"] }
+  ],
+  "wbs": [
+    { "code": "MU", "name": "Mixed-Use Residential — Project", "level": 1 },
+    { "code": "MU.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MU.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "MU.02.10", "name": "Enabling & Piling", "level": 3 },
+    { "code": "MU.02.20", "name": "Substructure & Podium", "level": 3 },
+    { "code": "MU.02.20.10", "name": "Podium slab & transfer structure", "level": 4 },
+    { "code": "MU.02.20.10.10", "name": "Transfer beams — cast & post-tension", "level": 5 },
+    { "code": "MU.02.20.10.10.10", "name": "Transfer structure load verification & sign-off", "level": 6 },
+    { "code": "MU.03", "name": "Retail Podium Shell & Core", "level": 2 },
+    { "code": "MU.03.10", "name": "Podium structure & shopfront/cladding", "level": 3 },
+    { "code": "MU.04", "name": "Residential Tower Superstructure", "level": 2 },
+    { "code": "MU.04.10", "name": "Core & typical floor cycle", "level": 3 },
+    { "code": "MU.04.10.10", "name": "Core jump-form", "level": 4 },
+    { "code": "MU.04.10.20", "name": "Typical floor slab cycle", "level": 4 },
+    { "code": "MU.05", "name": "Building Envelope / Façade", "level": 2 },
+    { "code": "MU.05.10", "name": "Curtain wall — tower", "level": 3 },
+    { "code": "MU.05.20", "name": "Podium cladding & waterproofing", "level": 3 },
+    { "code": "MU.06", "name": "Mechanical — HVAC & Plumbing", "level": 2 },
+    { "code": "MU.06.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "MU.06.20", "name": "Domestic water & drainage risers", "level": 3 },
+    { "code": "MU.07", "name": "Electrical Power", "level": 2 },
+    { "code": "MU.07.10", "name": "Substation & standby generation", "level": 3 },
+    { "code": "MU.07.20", "name": "Riser busway & distribution", "level": 3 },
+    { "code": "MU.08", "name": "Fire Fighting & Fire Alarm", "level": 2 },
+    { "code": "MU.08.10", "name": "Wet/dry riser, sprinklers & alarm", "level": 3 },
+    { "code": "MU.09", "name": "Vertical Transportation", "level": 2 },
+    { "code": "MU.10", "name": "ELV / BMS Integration", "level": 2 },
+    { "code": "MU.11", "name": "Residential Unit Fit-out", "level": 2 },
+    { "code": "MU.11.10", "name": "First fix & waterproofing", "level": 3 },
+    { "code": "MU.11.20", "name": "Second fix, joinery & snagging", "level": 3 },
+    { "code": "MU.12", "name": "Retail Fit-out Interface", "level": 2 },
+    { "code": "MU.13", "name": "Testing, Commissioning & Phased Handover", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The tower's typical-floor cycle is modelled as a repeating fragnet so productivity trends are visible floor-by-floor; the podium and transfer structure are modelled as discrete activities given their non-repetitive nature. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Substructure, podium and transfer-structure works run a 6-day week; the tower's typical-floor cycle runs on a fixed cycle-time calendar so trade gangs are resourced consistently; residential and retail fit-out move to two shifts where local regulations allow, to protect the handover date. A weather allowance is embedded in the façade-install calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs piling → podium/transfer structure → tower core & typical-floor cycle → envelope close-out → vertical riser continuity through the podium → residential fit-out → integrated life-safety commissioning → phased handover. The transfer structure is a hard logic gate: no tower or podium activity above it can start until it is cast, stressed and cured. Retail fit-out is typically not critical once shell-and-core is handed over, but the integrated fire and life-safety test is, because it covers the whole building including retail." },
+      { "heading": "Key assumptions", "body": "Design is frozen and authority approvals obtained per phase gate; the transfer structure design and loading are finalised before tower design is frozen; a single mobilisation; retail tenants take shell-and-core handover on the published date without design changes flowing back into base-build. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Passenger/service lifts", "20–32 weeks", "Before shaft close-out on affected floors"], ["Curtain wall / unitised façade panels", "16–26 weeks", "Before tower envelope close-out"], ["Standby generator & HV switchgear", "24–36 weeks", "Before power-path energisation"], ["Chillers / cooling towers", "20–30 weeks", "Before mechanical commissioning"], ["Fire pumps & sprinkler package", "12–20 weeks", "Before fire-fighting riser test"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Tower crane and hoist capacity is the binding constraint on the typical-floor cycle — jump-form, façade panels, MEP risers and finishing materials all compete for the same lift; a materials-hoist and logistics plan is part of the baseline, not an afterthought. Podium and tower fronts often share one site access and laydown area, so retail and residential trades must be sequenced to avoid congestion at the base." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: transfer-structure design or construction delay (it gates everything above), façade lead-time slippage stalling weather-tightness, and a failed integrated life-safety test forcing a re-test across the whole building. Schedule contingency is held after transfer-structure completion and before the integrated commissioning test, rather than spread thinly across the typical-floor cycle." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3, with the tower typical-floor cycle tracked as a repeating fragnet; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

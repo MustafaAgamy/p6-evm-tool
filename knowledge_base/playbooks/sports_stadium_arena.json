@@ -1,0 +1,122 @@
+{
+  "archetype": "sports_stadium_arena",
+  "schema": 2,
+  "context": "long-span roof gates MEP · crowd safety & broadcast drive commissioning",
+  "brief": {
+    "intro": "New to this project type? A stadium or arena is a long-span structural-steel roof with a seating bowl and a dense ring of concourse/back-of-house MEP hanging off it — so unlike a normal building, most of the MEP simply cannot start until the roof structure is up and safe to work under. The programme is really driven by two things that aren't structural at all: mass-egress crowd life-safety (voice evacuation, CCTV, access control) and the broadcast/AV/scoreboard infrastructure a modern venue is built around. Because the venue must move tens of thousands of people in and out safely within minutes, life-safety systems are commissioned to a much higher standard of proof than a typical commercial building — and that final proving, not the last piece of finish, is what usually determines the real handover date.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, access roads, bulk drainage, site-wide services." },
+      { "name": "Substructure & seating bowl", "desc": "Foundations, raker beams, the tiered seating structure." },
+      { "name": "Long-span roof structure", "desc": "Structural steel roof — often the longest single procurement/erection package on the project." },
+      { "name": "Envelope & facade", "desc": "Cladding and glazing, weather-tightness of the bowl and concourse." },
+      { "name": "Mechanical (HVAC)", "desc": "Spectator-bowl comfort ventilation and concourse/back-of-house cooling." },
+      { "name": "Electrical power & lighting", "desc": "Power distribution, sports/broadcast pitch lighting, concourse and emergency lighting." },
+      { "name": "Fire & life safety", "desc": "Mass-egress detection, alarm and voice evacuation across bowl and concourse." },
+      { "name": "ELV / security / broadcast IT", "desc": "CCTV, access control, turnstiles, broadcast cabling, scoreboard and IT infrastructure." },
+      { "name": "Vertical transportation", "desc": "Escalators, lifts and ramps serving seating tiers and hospitality levels." },
+      { "name": "Testing, commissioning & handover", "desc": "Mass-egress proving, broadcast/AV testing, an event-day systems rehearsal, handover." }
+    ],
+    "glossary": [
+      { "term": "Raker beam", "plain": "the sloped structural beam that carries a tier of seating." },
+      { "term": "Long-span roof", "plain": "the large steel roof spanning the bowl without internal supports — usually the longest single procurement/erection item." },
+      { "term": "Voice evacuation", "plain": "a public-address system specifically built to direct a crowd out safely in an emergency." },
+      { "term": "Concourse", "plain": "the circulation ring behind the seating where food, retail and toilets sit." },
+      { "term": "Broadcast infrastructure", "plain": "the cabling, camera positions and IT backbone that TV/streaming coverage plugs into." },
+      { "term": "Sports/broadcast lighting", "plain": "pitch/field lighting engineered to meet both player comfort and TV camera requirements." },
+      { "term": "Mass-egress proving", "plain": "testing that the whole crowd can safely exit within the required time." }
+    ],
+    "must_get_right": [
+      "The long-span roof structure gates almost everything else — sequence its procurement and erection first and protect it as the critical-path driver.",
+      "Mass-egress life-safety (voice evacuation, exits, CCTV, access control) is commissioned and proven, not just installed — build in real time for it.",
+      "Broadcast/AV/scoreboard infrastructure is core scope now, not an add-on — coordinate its cabling and IT backbone with the main MEP rough-in, not after.",
+      "Plan an event-day systems rehearsal (all systems live, simulated crowd flow) before the first real event — it is the true final gate, separate from construction completion."
+    ]
+  },
+  "components": [
+    { "name": "Long-Span Roof Structure", "desc": "Structural steel — the dominant procurement item", "disc": "Structural", "primary": true },
+    { "name": "HVAC — Bowl & Concourse", "desc": "Spectator comfort & back-of-house cooling", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Sports Lighting", "desc": "Distribution · pitch/broadcast lighting", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety / Mass Egress", "desc": "Detection · alarm · voice evacuation", "disc": "Fire Protection", "primary": true },
+    { "name": "ELV / Security / Broadcast IT", "desc": "CCTV · access · turnstiles · broadcast cabling", "disc": "Extra-Low Voltage", "primary": true },
+    { "name": "Vertical Transportation", "desc": "Escalators, lifts serving seating tiers", "disc": "Mechanical", "primary": false },
+    { "name": "BMS", "desc": "Bowl & concourse controls integration", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Bowl & concourse AHU / ventilation", "Back-of-house (hospitality/media) cooling", "Vertical transportation — escalators / lifts"] },
+    { "discipline": "Electrical", "items": ["LV/MV distribution & panels", "Sports / broadcast pitch lighting", "Concourse & emergency lighting"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Concourse toilet blocks", "Hospitality / kitchen wet services", "Drainage"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm, detection & voice evacuation", "CCTV / access control / turnstiles", "Broadcast cabling & scoreboard IT", "BMS"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Substructure & Seating Bowl", "Long-Span Roof Structure", "Envelope & Facade", "MEP Rough-in", "Fit-out & Broadcast IT", "Commissioning & Event-Day Rehearsal"],
+  "sequence_chart": {
+    "phases": ["Enable", "Bowl", "Roof", "Envelope", "Rough-in", "Fit-out", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 30, "label": "Earthworks → bowl substructure → raker beams", "holds": [12] },
+      { "trade": "Long-Span Roof", "disc": "Structural", "kind": ["civil"], "start": 20, "width": 30, "label": "Steel procurement → erect → weather-tight", "holds": [35] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 35, "width": 50, "label": "Containment → 1st fix → sports lighting → test", "holds": [65] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 38, "width": 45, "label": "Ductwork → set units → balance bowl/concourse", "holds": [65] },
+      { "trade": "ELV / Fire / Broadcast IT", "disc": "Extra-Low Voltage", "kind": ["elv", "fire", "bms"], "start": 45, "width": 45, "label": "Containment → devices → broadcast cabling → integrate", "holds": [75] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Life-safety proving → broadcast test → event rehearsal", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 2], "steps": ["Site clearance & earthworks", "Foundations & bowl substructure", "Raker beams & seating structure", "Concourse slabs", "External hard/soft landscaping"] },
+    { "name": "Long-Span Roof", "disc": "Structural", "kind": ["civil"], "holds": [0], "steps": ["Roof-steel procurement (long-lead)", "Fabrication & delivery logistics", "Erection sequence & temporary works", "Structural connections & bolt-up", "Roof cladding & weather-tightness"] },
+    { "name": "Electrical Power & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Containment & 1st fix", "Panels & distribution", "Sports / broadcast pitch lighting installation", "Concourse & emergency lighting", "Testing & certification"] },
+    { "name": "HVAC / Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [1], "steps": ["Ductwork & containment for bowl/concourse", "Set AHU units", "Controls & BMS tie-in", "Back-of-house / hospitality cooling", "Balance & commission"] },
+    { "name": "Fire & Life Safety / Mass Egress", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Detection & alarm rough-in across bowl and concourse", "Voice-evacuation system installation", "Suppression pipework", "Cause-and-effect programming", "Mass-egress proving test"] },
+    { "name": "ELV / Security / Broadcast IT", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [2], "steps": ["Containment & cable pull", "CCTV / access control / turnstile installation", "Broadcast cabling & camera positions", "Scoreboard & IT backbone", "Testing & certification"] },
+    { "name": "Vertical Transportation", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0], "steps": ["Escalator / lift procurement (long-lead)", "Shaft / pit civil coordination", "Installation & alignment", "Load & safety testing", "Commissioning & handover"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Individual systems functional test", "Mass-egress / voice-evacuation proving", "Broadcast / AV / scoreboard integration test", "Event-day systems rehearsal with simulated crowd flow", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "STD", "name": "Stadium / Arena — Project", "level": 1 },
+    { "code": "STD.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "STD.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "STD.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "STD.03", "name": "Substructure & Seating Bowl", "level": 2 },
+    { "code": "STD.03.10", "name": "Foundations", "level": 3 },
+    { "code": "STD.03.20", "name": "Raker Beams & Tiered Seating", "level": 3 },
+    { "code": "STD.04", "name": "Long-Span Roof Structure", "level": 2 },
+    { "code": "STD.04.10", "name": "Roof Steel — Procure & Erect", "level": 3 },
+    { "code": "STD.04.10.10", "name": "Roof steel erection sequence", "level": 4 },
+    { "code": "STD.04.20", "name": "Roof Cladding & Weather-tightness", "level": 3 },
+    { "code": "STD.05", "name": "Envelope & Facade", "level": 2 },
+    { "code": "STD.06", "name": "Mechanical — HVAC", "level": 2 },
+    { "code": "STD.06.10", "name": "Bowl & Concourse Ventilation", "level": 3 },
+    { "code": "STD.06.20", "name": "Vertical Transportation", "level": 3 },
+    { "code": "STD.07", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "STD.07.10", "name": "Sports / Broadcast Pitch Lighting", "level": 3 },
+    { "code": "STD.08", "name": "Fire & Life Safety — Mass Egress", "level": 2 },
+    { "code": "STD.08.10", "name": "Voice Evacuation System", "level": 3 },
+    { "code": "STD.08.10.10", "name": "Mass-egress proving test", "level": 4 },
+    { "code": "STD.09", "name": "ELV / Security / Broadcast IT", "level": 2 },
+    { "code": "STD.09.10", "name": "CCTV, Access Control & Turnstiles", "level": 3 },
+    { "code": "STD.09.20", "name": "Broadcast Cabling & Scoreboard IT", "level": 3 },
+    { "code": "STD.10", "name": "BMS Integration", "level": 2 },
+    { "code": "STD.11", "name": "External Works & Site Infrastructure", "level": 2 },
+    { "code": "STD.12", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "STD.12.10", "name": "Systems Functional Testing", "level": 3 },
+    { "code": "STD.12.20", "name": "Event-Day Systems Rehearsal", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The roof-steel package is modelled as its own sub-network given its scale and erection-sequencing risk." },
+      { "heading": "Calendars & working time", "body": "Civil and bowl structure run a 6-day week; roof-steel erection follows a crane-availability calendar with defined lift windows; MEP fit-out and commissioning move to extended hours ahead of the first event date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs roof-steel procurement → erection → weather-tight envelope → MEP rough-in across bowl and concourse → life-safety and broadcast systems commissioning → event-day rehearsal. Most concourse and bowl MEP cannot meaningfully start overhead work until the roof structure is safe to work under." },
+      { "heading": "Key assumptions", "body": "Design freeze on seating capacity and life-safety egress strategy before structure proceeds; a fixed first-event date agreed with the client/operator; broadcast rights-holder requirements finalised before IT/AV rough-in; a single mobilisation." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is roof-steel-led. The following are tracked as milestones because they drive erection and fit-out sequencing:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Long-span roof steel", "30–44 weeks", "Before erection start"], ["Sports / broadcast pitch lighting", "20–28 weeks", "Before lighting installation"], ["Escalators & lifts", "24–32 weeks", "Before vertical-transport install"], ["Voice-evacuation & fire-alarm system", "16–24 weeks", "Before mass-egress proving"], ["Tiered stadia seating", "14–20 weeks", "Before bowl fit-out complete"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Roof-steel erection needs dedicated large-crane windows and exclusion zones that limit other trades working below. Concourse and bowl MEP crews compete for access around the seating structure; broadcast/AV installation is coordinated with the rights-holder's own specialist contractors." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks are roof-steel fabrication/erection slippage — which cascades into everything below it — and mass-egress re-test loops. Schedule contingency is held immediately before life-safety proving and before the event-day rehearsal rather than spread across finishing activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client/operator; controlled at Level 3; expanded to Level 4–5 lookahead for roof-steel erection and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

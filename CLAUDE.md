@@ -168,28 +168,32 @@ JOIN metrics m ON m.snapshot_id = s.id
 
 ## Release process
 
-1. Update `CHANGELOG.md` — add a new section at the top (this also sets the version the app shows —
-   `utils.APP_VERSION` is read from the newest `## [vX.Y.Z]` heading; nothing else to bump):
+Releases are **automatic** — no manual tag needed:
+
+1. Update `CHANGELOG.md` — add a new section at the top (or rename `## [Unreleased]`). This also
+   sets the version the app shows — `utils.APP_VERSION` is read from the newest `## [vX.Y.Z]`
+   heading (`utils.release_version()`); nothing else to bump:
    ```markdown
    ## [vX.Y.Z] - YYYY-MM-DD
    ### Added / Fixed / Changed
    - ...
    ```
-2. Commit and push the changelog (and any other changes for the release)
-3. Tag and push — this triggers the build workflow:
-   ```bash
-   git tag vX.Y.Z
-   git push origin master vX.Y.Z
-   ```
+2. Merge to `master`. The build workflow sees that the newest `## [vX.Y.Z]` heading has no tag
+   yet, creates the `vX.Y.Z` tag on that commit, builds `dist/Controlyx.exe` and publishes the
+   GitHub Release. If that version is already tagged, the run does nothing.
+
+Pushing a `vX.Y.Z` tag by hand still works (build + Release for that tag), and **Actions ▸
+Build & Release ▸ Run workflow** builds the exe as a run artifact without releasing.
 
 The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/Controlyx.exe`
 via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section from
 `CHANGELOG.md` automatically as the release notes — **never use `generate_release_notes: true`
 or manual release note inputs**; the changelog is the single source of truth.
 
-**Never tag without updating `CHANGELOG.md` first.**
+**Never release without updating `CHANGELOG.md` first** — a `## [vX.Y.Z]` heading on master
+*is* the release trigger, so keep work-in-progress entries under `## [Unreleased]`.
 The workflow enforces it: before building it runs `tests/test_app_version.py` and fails when the
-tag differs from the newest `## [vX.Y.Z]` heading (the version the exe shows).
+version being released differs from the newest `## [vX.Y.Z]` heading (the version the exe shows).
 
 **Online calls** (Nominatim, Open-Meteo) go through `utils.open_url(req, timeout)` — a short
 connect timeout (`utils.CONNECT_TIMEOUT`, 6 s) with the caller's longer read timeout, so a blocked
