@@ -278,11 +278,15 @@ await test('Update Analysis: a file with no baseline inside it is answered at on
   assert.match(fn.slice(flag, fetchAt), /_showAnalysis\(body, \{ ok: false, code: 'no_baseline' \}\);\s*return;/,
     'the instant answer goes through the same no_baseline branch the server answer uses');
   const srv = read('server.py');
-  assert.match(srv, /safe_result\['has_embedded_baseline'\] = bool\(getattr\(data, 'baseline_by_id', None\)\)/);
+  // [merge:runux] the import flag is the ONE rule /api/update/analyze applies (update_has_baseline:
+  // inside the file, attached, or a baseline programme measured against its own plan).
+  assert.match(srv, /safe_result\['has_embedded_baseline'\] = bool\(update_has_baseline\(data\)\)/);
   assert.match(srv, /'has_embedded_baseline': safe_result\.get\('has_embedded_baseline'\)/, 'kept for Recent Projects re-opens');
   assert.match(srv, /result\['has_embedded_baseline'\] = extras\.get\('has_embedded_baseline'\)/);
   // the analysis decides "no baseline" by the very same test the import flag records
-  assert.match(read('p6_update', 'analysis.py'), /has_baseline = bool\(getattr\(data, 'baseline_by_id', None\)\)/);
+  const ana = read('p6_update', 'analysis.py');
+  assert.match(ana, /def update_has_baseline\(data\)/);
+  assert.match(ana, /has_baseline = update_has_baseline\(data\)/);
 });
 
 // ── RUNUX-07/08/09: long server Runs name their REAL steps and move through their bands ──
