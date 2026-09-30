@@ -219,7 +219,10 @@ def _bars(pl, C):
                 f'</tr>'
             )
         head = f'<div style="font-size:12.5px;font-weight:600;color:{C("rpt-ink")};margin:8px 0 4px">{_esc(label)}</div>' if label else ''
-        blocks.append(head + f'<table cellpadding="0" cellspacing="0" width="100%">{"".join(lines)}</table>')
+        # one keep-together block per row (owner point 14): the label never ends a page
+        # with its bars on the next one — an item of many rows flows between rows
+        blocks.append(f'<div style="break-inside:avoid;page-break-inside:avoid">{head}'
+                      f'<table cellpadding="0" cellspacing="0" width="100%">{"".join(lines)}</table></div>')
     note = pl.get('note')
     if note:
         blocks.append(f'<div style="font-size:11px;color:{C("rpt-muted")};margin-top:6px">{_esc(note)}</div>')
@@ -466,7 +469,9 @@ def render_section(index, item, C):
     # here for the real page number. Harmless in the screen/PDF path (an empty anchor).
     anchor = f'<a name="_sec{index}"></a>'
     return (
-        f'<div class="sr-sec" style="margin:0 0 22px;page-break-inside:avoid">'
+        # rpt-measure: in print the composer keeps a small item whole and lets a bigger one
+        # flow (see _SECTION_FLOW_CSS); page-break-inside stays for the Word (.doc) wrapper
+        f'<div class="sr-sec rpt-measure" style="margin:0 0 22px;page-break-inside:avoid">'
         f'{marker}{anchor}'
         # keep the heading with its content — no orphaned section title (BINDING
         # page-coordination standard): break-after:avoid + Word keep-with-next.
@@ -747,6 +752,19 @@ tr{break-inside:avoid;}
 """
 
 
+# Print page flow of the numbered items (owner point 14, finding STUDIO-PDF-4). Each item
+# carries ``page-break-inside:avoid`` (the Word wrapper keeps a result together with it),
+# but in the Chrome PDF that pushed every item of more than a third of a page that did not
+# fit under the previous one WHOLE to the next page, leaving the page above it half blank
+# (GBT: "Progress by category" left page 4 57 % blank). In print an item flows like any
+# other long block: the print-time composer measures it (``rpt-measure``) and keeps it whole
+# only when small (``rpt-fit``, <= a third of a page); its heading still travels with its
+# first block (``.sr-sec-h`` is a heading to the composer) and the blocks inside keep
+# their own rules (charts / cards whole, table rows unsplit, no 1-2 row tails).
+_SECTION_FLOW_CSS = ('@media print{.sr-sec{break-inside:auto!important;page-break-inside:auto!important;}'
+                     '.sr-sec.rpt-fit{break-inside:avoid!important;page-break-inside:avoid!important;}}')
+
+
 def _shell_css(C):
     """The ``.sr-*`` narrative shell stylesheet, with the appearance-mode colours
     (and the fixed navy) resolved to concrete hex."""
@@ -754,7 +772,7 @@ def _shell_css(C):
     for tok, val in (('@NAVY', C.navy), ('@PAPER', C('rpt-bg')), ('@SURROUND', C('rpt-surface-2')),
                      ('@HAIR', C('rpt-hair')), ('@MUTED', C('rpt-muted')), ('@ZEBRA', C('rpt-surface'))):
         out = out.replace(tok, val)
-    return out
+    return out + _SECTION_FLOW_CSS
 
 
 def build_document(report_name, meta, rendered, mode='light', letterhead=None, page_numbers=None):

@@ -136,16 +136,27 @@ def _bars(n):
     return P.bars(rows, series)
 
 
-_FILL = ('The period saw steady progress on the civil works of the silos area, with the pile '
-         'caps and the ground beams released to the site as planned in the baseline programme.')
+_WORDS = ('pile caps ground beams released site planned baseline programme civil works silos '
+          'area steady progress period conveyor towers quay pedestals steel structure mechanical '
+          'erection insulation soil replacement elevated raft columns slab finishing handover').split()
+
+
+def _para(i):
+    # every line of text different (the checker sets repeated rows aside as page furniture)
+    return ' '.join(_WORDS[(i * 5 + k * 3) % len(_WORDS)] for k in range(38)).capitalize() + '.'
+
+
+def _paras(n, start=0):
+    return [_para(start + i) for i in range(n)]
 
 
 def _flow_doc():
+    # long enough that the running footer sits at the page bottom on most pages (the
+    # checker sets page furniture aside by its repeated place)
     return _doc([
-        _item('overview:snapshot', 'Project snapshot', P.text([_FILL] * 7)),
+        _item('overview:snapshot', 'Project snapshot', P.text(_paras(7))),
         _item('overview:categories', 'Progress by category', _bars(12)),
-        _item('overview:notes', 'Notes', P.text([_FILL] * 2)),
-    ])
+    ] + [_item(f'overview:notes{i}', f'Notes part {i}', P.text(_paras(22, 30 * i))) for i in range(1, 5)])
 
 
 def _pre_fix_flow(html):
@@ -183,7 +194,10 @@ def test_chrome_cover_and_end_of_contents_are_by_design_breaks_not_defects():
     information; a pushed block on a body page is still a defect (previous test)."""
     chrome = _chrome()
     from p6_export import pagination_check as pc
-    items = [_item(f'x:{i}', f'Result number {i} of the composed report', P.text([_FILL]))
+    # distinct titles (a title repeated at the same place on many pages reads as a running
+    # header to the checker)
+    items = [_item(f'x:{i}', f'{_WORDS[i % len(_WORDS)].title()} {_WORDS[(i * 7) % len(_WORDS)]} '
+                   f'{"review" if i % 2 else "summary"}', P.text(_paras(1, i)))
              for i in range(1, 41)]
     with tempfile.TemporaryDirectory() as folder:
         res = pc.check_pdf(_print(_doc(items), chrome, folder, 'toc'))

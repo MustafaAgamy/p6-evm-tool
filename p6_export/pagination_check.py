@@ -40,7 +40,9 @@ Defects (``flags``):
                                 of white on the page)
 
 Informational (``info``, never counted): ``section_break_blank`` — a page ends early because
-the next page starts a new top-level section (a page break by design).
+the next page starts a new top-level section, or it is the cover page (page 1, its content
+set well down the page), or the contents list ends on it and the body starts on the next
+page (page breaks by design).
 
 How a PDF is read (PyMuPDF): text lines with their font size / bold, vector drawings and
 pictures per page. The running header / footer / page frame (the same thing at the same
@@ -83,6 +85,8 @@ BLANK = 0.35              # a page ending more than 35 % blank before a pushed b
 FRAGMENT = 0.12           # a page holding < 12 % of content (a figure / cards tail) is stranded
 INTRO_MAX_PT = 60.0       # a heading's short intro (about 3-4 lines)
 TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the first item
+COVER_DROP = 0.2          # page 1 whose content starts > 20 % of the page down is a cover
+CONTENTS_ROWS = 3         # a page ending with >= 3 "title ... page-number" rows ends the contents
 DEFECT_TYPES = (
     'orphaned_heading', 'kpi_separated_from_heading', 'heading_separated_from_block',
     'picture_separated_from_caption', 'table_split_few_rows', 'small_table_split',
@@ -294,11 +298,21 @@ def _strip_running(pages):
     for P in pages:
         dcnt.update({dkey(d) for d in P.draws if not d.img})
     drun = {k for k, c in dcnt.items() if n >= 3 and c >= need}
+    # the text of every running header / footer row (in the sheet's header / footer band) —
+    # a report shell's repeated table footer is drawn right under the content on the LAST
+    # page of its sheet (under the contents list, at the end of the report), away from its
+    # usual place: as the last row of a page it is furniture too
+    run_sigs = {k[1] for k, lst in occ.items()
+                if k[1] and (lst[0][0].y1 < 0.1 * H or lst[0][0].y0 > 0.9 * H) and running(lst[0][0])}
     for P, bands in zip(pages, per_page):
         edge = 0.07 * P.H
+        folio = lambda b: (len(b.lines) == 1 and pnum.match(b.lines[0].n or '#')
+                           and (b.y1 < edge or b.y0 > P.H - edge))
+        content = [b for b in bands if not running(b) and not folio(b)]
+        last = max(content, key=lambda b: b.y1) if content else None
         keep = []
         for b in bands:
-            if running(b):
+            if running(b) or (b is last and len(b.lines) <= 2 and sig(b) in run_sigs):
                 continue
             keep.extend(l for l in b.lines
                         if not (pnum.match(l.n or '#') and (l.y1 < edge or l.y0 > P.H - edge)))
@@ -742,6 +756,10 @@ def _analyze_pages(pages, hints=()):
                    f'page {nxt.no} starts with {kind_n}' + (f' {text_n[:40]!r}' if text_n else '')
             if kind_n == 'heading' and size_n >= section_size - 0.3:
                 info.append(_flag('section_break_blank', P.no, what + ' (a new section)'))
+            elif P.no == 1 and P.top - T > COVER_DROP * area:
+                info.append(_flag('section_break_blank', P.no, what + ' (the cover page)'))
+            elif kind_n == 'heading' and _contents_end(P, pages[max(0, i - 2):i + 1]):
+                info.append(_flag('section_break_blank', P.no, what + ' (the end of the contents)'))
             else:
                 flags.append(_flag('large_blank_then_continuation', P.no, what))
         # a small tail of cards / a figure alone on a (middle) page
@@ -752,6 +770,32 @@ def _analyze_pages(pages, hints=()):
                                    f'only {min(P.bottom, P.H) - P.top:.0f}pt of a {k0} block '
                                    f'({(min(P.bottom, P.H) - P.top) / area:.0%} of the page) sits on page {P.no}'))
     return flags, info, (T, B)
+
+
+_CONTENTS_TITLE = re.compile(r'^(table of )?contents$')
+
+
+def _contents_end(P, recent):
+    """The contents list ends page P: a "(Table of) contents" title on P or on one of the
+    pages just before it, and P's last rows are contents entries — a title with the page
+    number as its last cell, flush with the right edge of the page's text, the numbers never
+    going down. The report body then starts on a fresh page by design (STUDIO-PDF-4: the
+    Reporting Studio's contents page)."""
+    if not any(_CONTENTS_TITLE.match(b.lines[0].n) for Q in recent for b in Q.bands
+               if len(b.lines) == 1):
+        return False
+    rows = sorted(P.bands, key=lambda b: b.y0)[-CONTENTS_ROWS:]
+    if len(rows) < CONTENTS_ROWS:
+        return False
+    right = max(b.x1 for b in P.bands)
+    nums = []
+    for b in rows:
+        last = b.lines[-1]
+        if not (b.grid and re.fullmatch(r'\d{1,4}', last.t.strip()) and right - last.x1 <= 12
+                and re.search(r'[a-z]', b.text.lower())):
+            return False
+        nums.append(int(last.t))
+    return nums == sorted(nums)
 
 
 def check_pdf(path, headings=None):
