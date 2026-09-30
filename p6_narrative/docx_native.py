@@ -926,6 +926,9 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
     return _inject(document, build, cats, [(name, vals)])
 
 
+LAST_LABEL_SHIFT_X = -0.04   # the S-curve end label moves left by 4 % of the chart width
+
+
 def add_cashflow_combo(document, categories, bar_vals, line_vals, title,
                        bar_color='1F4E79', line_color='E8A33D',
                        bar_name='Monthly value of work', line_name='Cumulative',
@@ -953,12 +956,26 @@ def add_cashflow_combo(document, categories, bar_vals, line_vals, title,
     bar_txpr = ('<c:txPr><a:bodyPr rot="-5400000" vert="horz"/><a:lstStyle/>'
                 '<a:p><a:pPr><a:defRPr sz="700" b="1"/></a:pPr>'
                 '<a:endParaRPr lang="en-US"/></a:p></c:txPr>')
-    bar_dlbls = (f'<c:dLbls>{fmt}{bar_txpr}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/>'
+    # a sliver column (under 2 % of the tallest) carries no label: its '0M' / '1M' sat on the
+    # axis where the S-curve runs and was struck through (GBT Word p46, NARRFIX) - the same
+    # columns as the PDF twin (util.bar_label_shown)
+    from p6_narrative.util import bar_label_shown
+    bar_off = ''.join(f'<c:dLbl><c:idx val="{i}"/><c:delete val="1"/></c:dLbl>'
+                      for i, v in enumerate(bvals) if not bar_label_shown(v, bvals))
+    bar_dlbls = (f'<c:dLbls>{bar_off}{fmt}{bar_txpr}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/>'
                  '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
                  '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
     if label_last_only:
         per = ''.join(f'<c:dLbl><c:idx val="{i}"/><c:delete val="1"/></c:dLbl>'
                       for i in range(len(lvals) - 1))
+        # the end-point label (the total, e.g. '916M') sits above its point and LEFT of it: the
+        # last point is next to the right-hand axis, and centred on it the label was drawn over
+        # that axis line and its ticks (GBT Word p46, NARRFIX) - the PDF twin anchors it 'end'
+        per += (f'<c:dLbl><c:idx val="{len(lvals) - 1}"/><c:layout><c:manualLayout>'
+                f'<c:x val="{LAST_LABEL_SHIFT_X:g}"/><c:y val="0"/></c:manualLayout></c:layout>'
+                f'{fmt}<c:dLblPos val="t"/><c:showLegendKey val="0"/><c:showVal val="1"/>'
+                '<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/>'
+                '<c:showBubbleSize val="0"/></c:dLbl>')
         line_dlbls = (f'<c:dLbls>{per}{fmt}<c:dLblPos val="t"/><c:showLegendKey val="0"/>'
                       '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
                       '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')

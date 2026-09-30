@@ -85,8 +85,9 @@ HEADERS = ['Quantities resource', 'Unit', 'Total quantity', 'Working days',
 # Column widths (inches) — Σ = 6.9" (A4 usable width). 'Working days' wraps at its space (a
 # 0.58" column broke the word as 'Workin / g-days', NARRFIX); 'Total quantity' holds an
 # 11-character figure such as 243,805,397 on ONE line (0.72" broke it as '243,805,3 / 97'); the
-# crew column keeps "Carpenter Helper ~0.5/day;" on one line; the name column gives the room.
-WIDTHS = [1.40, 0.50, 0.92, 0.72, 0.75, 0.85, 1.76]   # unit col wide enough that "Ton" never wraps
+# crew column keeps "Carpenter Helper ~0.5/day;" on one line, the range keeps '11.9 – 168.4'
+# on one line; the name column gives the room.
+WIDTHS = [1.30, 0.50, 0.92, 0.72, 0.75, 0.95, 1.76]   # unit col wide enough that "Ton" never wraps
 
 # Crew-cell character budget: the crew of one quantity can, in the unit-less cost-model fallback,
 # aggregate every labour/plant resource in the project (a cost resource spans all activities). The

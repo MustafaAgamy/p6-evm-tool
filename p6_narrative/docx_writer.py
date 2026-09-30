@@ -38,6 +38,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 from p6_narrative import docx_calendar, docx_native, docx_template
+from p6_narrative.util import restable_title
 
 # ── palette / fonts (mirror the approved builder) ─────────────────────────────
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
@@ -939,8 +940,56 @@ def _render_resload(document, p, number, note):
             pk.paragraph_format.keep_with_next = False
         rows = g.get('rows') or []
         if rows:
-            data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
-                       rows, aligns=['l', 'r', 'r'])
+            t = data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
+                           rows, aligns=['l', 'r', 'r'])
+            # the totals table carries its title as a first header row, repeated with the
+            # navy header on every page: when it moves on alone (the chart group filled the
+            # page) it no longer opens a page untitled - SG Word p22/p23 (NARRFIX). Same
+            # text as the PDF's <thead> title row (util.restable_title).
+            _table_title_row(t, restable_title(number, i, g))
+
+
+def _table_title_row(t, text):
+    """Insert a title row ABOVE a data table's header row: one merged cell, bold navy Calibri
+    11 on white, only a bottom border; cantSplit and repeated (``w:tblHeader``) with the
+    header row, so a table that opens or continues on a page still carries its title."""
+    if t is None or not len(t.rows):
+        return t
+    try:
+        tr = t.add_row()._tr
+        t._tbl.remove(tr)
+        t.rows[0]._tr.addprevious(tr)
+        row = t.rows[0]
+        c = row.cells[0].merge(row.cells[-1]) if len(row.cells) > 1 else row.cells[0]
+        _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+        tcPr = c._tc.get_or_add_tcPr()
+        tb = OxmlElement('w:tcBorders')
+        for edge in ('top', 'left', 'bottom', 'right'):
+            e = OxmlElement('w:' + edge)
+            e.set(qn('w:val'), 'single' if edge == 'bottom' else 'nil')
+            if edge == 'bottom':
+                e.set(qn('w:sz'), '4'); e.set(qn('w:space'), '0'); e.set(qn('w:color'), '26517D')
+            tb.append(e)
+        anchor = next((x for x in tcPr if x.tag in {qn('w:' + n) for n in (
+            'shd', 'noWrap', 'tcMar', 'textDirection', 'tcFitText', 'vAlign', 'hideMark')}), None)
+        if anchor is not None:                # CT_TcPr order: tcBorders precedes shd / vAlign
+            anchor.addprevious(tb)
+        else:
+            tcPr.append(tb)
+        pp = c.paragraphs[0]
+        pp.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        pp.paragraph_format.space_after = Pt(3)
+        run(pp, text, font=CAL, size=11, bold=True, color=SUBNAVY)
+        _row_h(row, 20, exact=False)
+        trPr = row._tr.get_or_add_trPr()
+        cant = OxmlElement('w:cantSplit'); cant.set(qn('w:val'), 'true')
+        trPr.insert(0, cant)
+        th = OxmlElement('w:tblHeader'); th.set(qn('w:val'), 'true')
+        trPr.append(th)
+    except Exception:                       # pragma: no cover - defensive
+        pass
+    return t
 
 
 def _render_materials(document, p, number, note):

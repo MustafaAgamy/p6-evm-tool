@@ -270,11 +270,14 @@ MEASURED_SELECTORS = (
     'table', 'tr', '[data-part]', '[data-export]', '.rpt-measure', '.tiles', '.kpis',
     '.kpi-row', '.cards', '.vcards', '.card', '.card3', '.charts', '.lcharts', '.chart',
     '.grid2', '.dt', '.codetbl', '.seqflow', '.mgrids', 'ul', 'ol', 'li', 'dl', 'pre', 'blockquote',
+    '.rpt-group',
 ) + KEEP_WHOLE_SELECTORS
 
 PAGINATION_FIT = 0.35        # a block up to 35 % of the page height is always kept whole
 PAGINATION_KEEP_TABLE = 0.45 # a table its renderer marked ``rpt-keep`` (a short summary table
-                             # under its own section heading) is kept whole up to 45 %
+                             # under its own section heading) is kept whole up to 45 % - and so
+                             # is a renderer's ``rpt-group`` (a sub-section: its heading, chart,
+                             # caption and short totals table), else it breaks as usual
 PAGINATION_FLOW = 0.92       # a block taller than 92 % of the page height is let to flow
 PAGINATION_MIN_ROWS = 3      # a table fragment never holds fewer than 3 body rows
 PAGINATION_HEAD_MAX_PX = 80  # a heading-LIKE line (styled by a renderer) is at most ~2 lines …
@@ -435,6 +438,9 @@ def pagination_script():
         "for(i=0;i<els.length;i++){var el=els[i],r=el.getBoundingClientRect(),hg=r.height;if(!hg)continue;"
         "if(hg>flow)todo.push([el,'rpt-flow']);"
         "else if(hg<=fit&&el.tagName!=='TR')todo.push([el,'rpt-fit']);"
+        # a renderer's sub-section group (heading + chart + caption + short totals table) is
+        # kept whole up to KT of a page, so its table never opens a page alone (NARRFIX §13.2)
+        "else if(hg<=H*KT&&el.classList.contains('rpt-group'))todo.push([el,'rpt-fit']);"
         "if((el.tagName==='UL'||el.tagName==='OL')&&hg>fit&&hg<=flow&&!inCell(el)){"
         "todo.push([el,'rpt-flow']);for(var a2=el.parentElement,d2=0;a2&&a2!==document.body&&d2<3;"
         "d2++,a2=a2.parentElement){if(hOf(a2)>flow)break;todo.push([a2,'rpt-flow']);}}"

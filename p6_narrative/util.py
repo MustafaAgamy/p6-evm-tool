@@ -200,3 +200,26 @@ def ring_label_spot(name, pct_txt, cx, cy, R, ri, a0, a1, name_px=15, pct_px=17)
             if ring_label_fits(name, pct_txt, cx, cy, R, ri, a0, a1, npx, ppx, at=ang):
                 return ang, npx, ppx, scale
     return None
+
+
+def restable_title(number, i, group):
+    """'13.2 · Equipment — totals by resource': the title row of a §13 totals table - the first
+    row of its header, repeated on every page it runs onto (PDF ``html._resload`` and Word
+    ``docx_writer._render_resload`` print this same text)."""
+    return '%s.%d · %s — totals by resource' % (number, i, (group or {}).get('title') or 'Resources')
+
+
+BAR_LABEL_MIN_SHARE = 0.02   # a column under 2 % of the tallest one is a sliver: no value label
+
+
+def bar_label_shown(value, values):
+    """Whether a column of the §16 value-of-work chart carries its value label. A sliver
+    ('0M', '1M', '2M' next to a 138M peak) has none: its label sat on the axis where the
+    cumulative S-curve runs and was struck through by the line (GBT PDF p41 / Word p46,
+    NARRFIX). Shared by the PDF SVG (``html._volwork_svg``) and the Word combo chart
+    (``docx_native.add_cashflow_combo``) so both label the same columns."""
+    try:
+        top = max(float(v or 0) for v in values)
+        return top > 0 and float(value or 0) >= top * BAR_LABEL_MIN_SHARE
+    except (TypeError, ValueError):
+        return True

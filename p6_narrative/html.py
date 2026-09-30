@@ -965,6 +965,11 @@ def _resload(p, number, title, meta, cur):
                 'its baseline resource assignments.</p>')
     out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
     for i, g in enumerate(p.get('groups') or [], 1):
+        # each sub-section (heading, basis note, chart, Peak caption, totals table) is ONE
+        # print group, kept whole when it is up to 45 % of a page (report_theme 'rpt-group'):
+        # SG §13.2's 5-row equipment table opened page 22 alone, untitled, 79 % blank (NARRFIX)
+        from p6_narrative.util import restable_title
+        grp_at = len(out)
         out.append('<div class="sub">%s.%d &middot; %s</div>'
                    % (_esc(number), i, _esc(g.get('title'))))
         out.append('<p class="rescap">%s Total budgeted %s %s across %s.</p>'
@@ -979,16 +984,22 @@ def _resload(p, number, title, meta, cur):
                        % (_esc(ch.get('chart_title')),
                           _res_hist(ch.get('span'), ch.get('values'), ch.get('color')), peak))
         heads = g.get('row_headers') or ['Resource', 'Total']
-        thead = '<tr>%s</tr>' % ''.join(
-            '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
-            for j, h in enumerate(heads))
+        # the table's title is the first row of its <thead> (twin of the Word title row): a
+        # totals table that opens a page - or continues onto one - still says what it is
+        thead = ('<tr><th class="tcap" colspan="%d">%s</th></tr><tr>%s</tr>'
+                 % (len(heads), _esc(restable_title(number, i, g)), ''.join(
+                     '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
+                     for j, h in enumerate(heads))))
         body = ''.join(
             '<tr>%s</tr>' % ''.join(
                 '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c))
                 for j, c in enumerate(r))
             for r in (g.get('rows') or []))
-        out.append('<table class="dt">%s%s</table>' % (thead, body))
+        out.append('<table class="dt"><thead>%s</thead><tbody>%s</tbody></table>'
+                   % (thead, body))
+        out[grp_at:] = ['<div class="resgrp rpt-group">%s</div>' % ''.join(out[grp_at:])]
     return ''.join(out)
+
 
 
 def _materials(p, number, title, meta, cur):
@@ -1043,6 +1054,7 @@ def _mln(v, sym):
 def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
     """Combo chart as vector SVG — monthly value-of-work columns (left axis) + the cumulative
     S-curve line (right axis). The vector twin of ``docx_native.add_cashflow_combo``."""
+    from p6_narrative.util import bar_label_shown
     n = len(labels)
     if not n or not values:
         return ''
@@ -1072,10 +1084,11 @@ def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
         cx = x + barw / 2
         p.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#%s"/>'
                  % (x, y, barw, bh, _esc(bar_hex)))
-        p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
-                 'text-anchor="start" font-family="Calibri,sans-serif" '
-                 'transform="rotate(-90 %.1f %.1f)">%s</text>'
-                 % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
+        if bar_label_shown(v, values):      # a sliver column has no label (the S-curve
+            p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
+                     'text-anchor="start" font-family="Calibri,sans-serif" '
+                     'transform="rotate(-90 %.1f %.1f)">%s</text>'   # struck '0M' / '1M')
+                     % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
         mx = pL + i * band + band / 2
         p.append('<text x="%.1f" y="%.1f" font-size="8" fill="#8a95a1" text-anchor="end" '
                  'font-family="Calibri,sans-serif" transform="rotate(-45 %.1f %.1f)">%s</text>'
@@ -1581,6 +1594,7 @@ table { border-collapse: collapse; }
 .callegend { display:flex; gap:14px; flex-wrap:wrap; margin:4px 0 10px; font-size:9.5px; color:#5b6472; font-family:Calibri,sans-serif; }
 .callegend span { display:inline-flex; align-items:center; gap:4px; }
 .callegend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.dt th.tcap { background:none; color:#17457a; text-align:left; font-size:11px; font-weight:700; padding:2px 0 5px; border:none; font-family:Calibri,sans-serif; overflow-wrap:normal; }
 .calname { font-size:11px; font-weight:700; color:#17457a; margin:6px 0 3px; font-family:Calibri,sans-serif; }
 .hist { display:flex; align-items:flex-end; gap:7px; margin:2px 0 5px; padding:0 2px 3px; border-bottom:1px solid #e2e8ef; }
 .hist .col { flex:1; text-align:center; }
