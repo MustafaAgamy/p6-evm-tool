@@ -30,7 +30,7 @@ Defects (``flags``):
   text_cut                      text runs off the sheet (content overflowed the page)
   content_in_margin             a page's content starts inside the top margin (the page lost
                                 its margin / running header — an overflow page)
-  large_blank_then_continuation a page ends more than 35 % blank and the next page goes on
+  large_blank_then_continuation a page ends more than 40 % blank and the next page goes on
                                 with a pushed block (not a new section)
   stranded_fragment             a page holds only a small tail of a chart / cards block
   empty_page                    a page with nothing on it besides the running header/footer
@@ -81,7 +81,10 @@ except Exception:                      # pragma: no cover — report_theme alway
     _rt = None
     FIT, MIN_ROWS, HEAD_MAX_CHARS = 0.35, 3, 160
 
-BLANK = 0.35              # a page ending more than 35 % blank before a pushed block is a defect
+# a page ending more than 40 % blank before a pushed block is a defect: the rules keep a
+# block of up to FIT (35 %) of a page whole WITH its heading (~5 %), so pushing one leaves up
+# to ~40 % blank by design (GBT Studio: a 33 % row of lag charts under its section title)
+BLANK = FIT + 0.05
 FRAGMENT = 0.12           # a page holding < 12 % of content (a figure / cards tail) is stranded
 INTRO_MAX_PT = 60.0       # a heading's short intro (about 3-4 lines)
 TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the first item
