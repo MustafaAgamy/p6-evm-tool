@@ -58,10 +58,63 @@ class _Colors:
 
 
 # ── payload renderers ────────────────────────────────────────────────────────
+# KPI cards (owner point 14, finding STUDIO-PDF-5): a group of many cards is laid out in
+# rows of at most five, with a value font that fits the longest value on ONE line — ten
+# cards squeezed into one row wrapped their values ("09 / Feb / 2027") and cut the last
+# card at the page frame. The widths are those of a printed Studio section (A4 portrait,
+# 14 mm margins, frame padding); the wider screen sheet only gives each card more room.
+_KPI_MAX_PER_ROW = 5
+_KPI_ROW_PX = 640            # printable width of a Studio section
+_KPI_GAP_PX = 12             # the spacer between two cards
+_KPI_PAD_PX = 30             # a card's padding (2 x 14 px) + borders
+_KPI_FONT_PX = (26, 17)      # the value font: preferred, smallest before a row takes fewer cards
+
+
+def _text_em(s):
+    """Rough width of ``s`` in ems in a heavy sans-serif face (Segoe UI / Calibri, bold)."""
+    em = 0.0
+    for ch in str(s or ''):
+        if ch.isdigit():
+            em += 0.58
+        elif ch.isupper():
+            em += 0.68
+        elif ch.islower():
+            em += 0.56
+        elif ch.isspace():
+            em += 0.28
+        elif ch in '%@&':
+            em += 0.86
+        elif ch in '—–':
+            em += 0.9
+        else:
+            em += 0.36
+    return em
+
+
+def _kpi_layout(values):
+    """``(row sizes, value font px)`` for a group of KPI values: the most cards per row
+    (<= 5) whose cards still show the longest value on one line at >= 17 px, the rows
+    balanced (10 cards -> 4 + 3 + 3, never a lone card under a full row)."""
+    n = len(values)
+    em = max((_text_em(v) for v in values), default=1.0) or 1.0
+    hi, lo = _KPI_FONT_PX
+    fs = lo
+    for per in range(min(_KPI_MAX_PER_ROW, n), 0, -1):
+        rows = -(-n // per)
+        cols = -(-n // rows)
+        inner = (_KPI_ROW_PX - _KPI_GAP_PX * (cols - 1)) / cols - _KPI_PAD_PX
+        fs = min(hi, int(inner / em))
+        if fs >= lo or per == 1:
+            return [n // rows + (1 if i < n % rows else 0) for i in range(rows)], max(12, fs)
+    return [n], max(12, fs)
+
+
 def _kpi_group(pl, C):
     items = pl.get('items') or []
     if not items:
         return _no_data({}, C)
+    sizes, fs = _kpi_layout([it.get('value') for it in items])
+    cols = max(sizes)
     cells = []
     for it in items:
         tone = it.get('tone', 'neutral')
@@ -70,13 +123,20 @@ def _kpi_group(pl, C):
             f'<td valign="top" style="border:1px solid {C("rpt-edge")};'
             f'background:{C("rpt-surface")};padding:12px 14px;border-radius:8px">'
             f'<div style="font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:{C("rpt-muted")}">{_esc(it.get("label"))}</div>'
-            f'<div style="font-size:26px;font-weight:800;margin-top:4px;color:{C.ink(tone)}">{_esc(it.get("value"))}</div>'
+            f'<div style="font-size:{fs}px;font-weight:800;margin-top:4px;color:{C.ink(tone)}">{_esc(it.get("value"))}</div>'
             f'{sub}</td>'
         )
-    spacer = f'<td style="width:12px"></td>'
-    inner = spacer.join(cells)
-    return (f'<table cellpadding="0" cellspacing="0" style="border-collapse:separate;width:100%;margin:4px 0 2px">'
-            f'<tr>{inner}</tr></table>')
+    spacer = f'<td style="width:{_KPI_GAP_PX}px"></td>'
+    rows, k = [], 0
+    for size in sizes:
+        row = cells[k:k + size] + ['<td></td>'] * (cols - size)   # equal card widths in every row
+        k += size
+        rows.append(f'<tr>{spacer.join(row)}</tr>')
+    gap = (f'<tr><td colspan="{2 * cols - 1}" style="height:10px;font-size:1px;line-height:1px">'
+           f'&nbsp;</td></tr>')
+    fixed = 'table-layout:fixed;' if len(sizes) > 1 else ''
+    return (f'<table cellpadding="0" cellspacing="0" style="border-collapse:separate;width:100%;'
+            f'{fixed}margin:4px 0 2px">{gap.join(rows)}</table>')
 
 
 def _table(pl, C):
