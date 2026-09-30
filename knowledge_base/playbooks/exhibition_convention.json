@@ -1,0 +1,122 @@
+{
+  "archetype": "exhibition_convention",
+  "schema": 2,
+  "context": "long-span-roof-led · floor-trench power/AV rigging + smoke-control test drive the back end",
+  "brief": {
+    "intro": "New to this project type? An exhibition or convention centre is really one very large, column-free room (or several) built so exhibitors can build and rebuild their own stands inside it, show after show. Getting that open volume needs a long-span steel or space-frame roof, and getting power, water, compressed air and data to every exhibitor stand needs a grid of trenches or floor boxes built into the hall floor itself — both of which have to be right before the slab is poured or the roof erected, because retrofitting either is very costly. A rigging grid hung from the roof structure carries signage, lighting and AV for each show, and large-volume HVAC has to move and clear smoke across a very tall, open space. The programme is therefore driven first by the long-span roof and floor-service design, and at the back end by large-volume smoke-control proving, AV/rigging integration and a simulated load-in of a full show — not by the last coat of paint.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, piling, access roads and bulk drainage." },
+      { "name": "Substructure & heavy-duty hall floor", "desc": "Foundations and a floor slab built for exhibit and forklift loading, with service trenches/floor boxes cast in." },
+      { "name": "Long-span roof structure", "desc": "Steel trusses or space-frame giving the column-free exhibition volume." },
+      { "name": "Building envelope", "desc": "Cladding, roofing and glazing to get the halls weather-tight." },
+      { "name": "Mechanical — large-volume HVAC", "desc": "Central plant and air distribution sized for tall, open exhibition halls, plus back-of-house zones." },
+      { "name": "Electrical power & floor distribution", "desc": "MV/LV switchgear and standby power, plus the floor-trench/floor-box network feeding exhibitor stands." },
+      { "name": "Fire & life safety / smoke control", "desc": "Sprinklers sized for exhibit-hazard occupancy and engineered large-volume smoke control." },
+      { "name": "ELV / AV & rigging infrastructure", "desc": "Structured cabling, Wi-Fi backbone and the load-rated rigging grid carrying signage, lighting and AV." },
+      { "name": "Architectural fit-out & hall subdivision", "desc": "Movable/operable partition walls that divide the big hall into smaller saleable halls." },
+      { "name": "Testing, commissioning & load-in trial", "desc": "Life-safety, smoke-control and AV proving finished with a simulated exhibitor load-in/load-out." }
+    ],
+    "glossary": [
+      { "term": "Column-free span", "plain": "a large open floor with no internal columns, made possible by long roof trusses or a space-frame." },
+      { "term": "Floor trenching / floor boxes", "plain": "service channels or recessed boxes cast into the hall floor that deliver power, water, compressed air and data up to each exhibitor stand." },
+      { "term": "Rigging grid / trussing", "plain": "a load-rated steel grid hung from the roof structure that signage, lighting and AV are hoisted from for each show." },
+      { "term": "Hall subdivision", "plain": "large movable or operable partition walls that split one big hall into several smaller halls for concurrent, smaller events." },
+      { "term": "Floor loading", "plain": "the heavy live-load capacity — often 30–50 kN/m² — the slab needs for exhibits, vehicles and forklifts." },
+      { "term": "Large-volume smoke control", "plain": "engineered smoke-clearance (fans, vents, dampers) sized for a very tall, open hall rather than a normal room." },
+      { "term": "Back-of-house (BOH) logistics", "plain": "loading docks, marshalling yards and goods routes that move exhibit freight in and out of the halls." }
+    ],
+    "must_get_right": [
+      "The long-span roof (and the rigging grid it carries) gates almost everything else — sequence its design, procurement and erection first and protect it as the critical-path driver.",
+      "Floor-trench/floor-box service distribution and rigging-grid load points must be coordinated with the slab and roof design before pour and erection — retrofitting either is very costly.",
+      "Large-volume HVAC and smoke control need real, protected time for balancing and life-safety proving; this is not a normal fit-out item.",
+      "Prove hall subdivision, rigging/AV and back-of-house logistics together with a simulated exhibitor load-in/load-out before opening — that trial, not the last snag, is the true finish line."
+    ]
+  },
+  "components": [
+    { "name": "Long-Span Roof Structure", "desc": "Steel trusses / space-frame — the dominant procurement item", "disc": "Structural", "primary": true },
+    { "name": "Mechanical — Large-Volume HVAC", "desc": "Central plant · large-volume air distribution", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Floor Distribution", "desc": "MV/LV · standby power · floor-trench/box network", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety / Smoke Control", "desc": "Sprinklers · large-volume smoke control", "disc": "Fire Protection", "primary": true },
+    { "name": "ELV / AV & Rigging Infrastructure", "desc": "Structured cabling · rigging grid · AV backbone", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Architectural Fit-out & Hall Subdivision", "desc": "Movable partitions · back-of-house logistics", "disc": "Architectural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Large-volume AHUs & air handling for the exhibition halls", "Chilled-water plant & central plant room", "Smoke-control / large-volume ventilation fans and dampers", "Meeting-room and back-of-house zoned HVAC"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear & standby generation", "Floor-trench / floor-box power distribution to exhibitor stands", "Hall, concourse & car-park lighting", "Rigging-grid power tap-offs for signage & AV"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & drainage to halls and back-of-house catering", "Floor-trench water & compressed-air services to stands", "Storm drainage & roof outlets"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & voice evacuation, sprinklers sized for exhibit occupancy", "Structured cabling & Wi-Fi backbone for exhibitors", "CCTV, access control & rigging-grid safety interlocks", "BMS integrating large-volume HVAC, fire and lighting"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Long-Span Roof Structure", "Envelope & Hall Floor", "MEP Rough-in & Floor Trenching", "Rigging Grid & AV Infrastructure", "Fire & Life-Safety Integration", "Fit-out & Hall Subdivision", "Commissioning & Load-in Trial"],
+  "sequence_chart": {
+    "phases": ["Enable", "Roof", "Envelope", "Rough-in", "Rigging", "Life-Safety", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 32, "label": "Earthworks → heavy-duty hall floor → long-span roof erect", "holds": [14] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 22, "width": 50, "label": "Ductwork → set AHUs → balance large-volume spaces", "holds": [55] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 55, "label": "Containment → floor trenching → switchgear → energise", "holds": [58, 80] },
+      { "trade": "ELV / Fire / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "fire", "bms"], "start": 40, "width": 42, "label": "Rigging grid → AV backbone → devices → integrate", "holds": [78] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Life-safety proving → AV test → load-in trial", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Piling & foundations", "Heavy-duty hall floor slab (exhibit loading)", "Long-span roof steel procurement & erection", "Envelope cladding & weather-tightness", "Floor-trench / trunking installation for stand services"] },
+    { "name": "Mechanical — Large-Volume HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Long-lead procurement — AHUs, chillers, smoke-control fans", "Plantroom pipework & large-diameter ductwork", "Set AHUs & chillers", "Distribute ductwork across the column-free hall volume", "Smoke-control fans & dampers installation", "Flush, balance & commission large-volume air systems"] },
+    { "name": "Electrical Power & Floor Distribution", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment routes & floor-trench power distribution", "Set switchgear, transformers & standby generation", "Floor-box terminations for exhibitor stand power", "Hall, concourse & back-of-house lighting", "Energise & test"] },
+    { "name": "Fire & Life Safety / Smoke Control", "disc": "Fire Protection", "kind": ["fire"], "holds": [4], "steps": ["Fire-water network & hydrant installation", "Sprinkler system sized for exhibit-hazard occupancy", "Fire/smoke detection & voice-evacuation devices", "Cause-and-effect wiring & smoke-control programming", "Integrated life-safety & large-volume smoke-control test"] },
+    { "name": "ELV / AV & Rigging Infrastructure", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [1, 3], "steps": ["Rigging grid & trussing installation with load rating", "Structured cabling & Wi-Fi backbone for exhibitors", "AV backbone & signage power tap-offs", "CCTV & access control devices", "Rigging-grid safety interlock testing"] },
+    { "name": "Commissioning & Hall Fit-out", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 3], "steps": ["Movable hall-partition installation & operation test", "Integrated fire/smoke-control life-safety test", "AV / rigging systems integration test", "Simulated load-in / load-out logistics trial", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "ECC", "name": "Exhibition / Convention Centre — Project", "level": 1 },
+    { "code": "ECC.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "ECC.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "ECC.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "ECC.02.20", "name": "Substructure & Hall Floor Slab", "level": 3 },
+    { "code": "ECC.02.20.10", "name": "Heavy-duty exhibit floor slab", "level": 4 },
+    { "code": "ECC.02.20.20", "name": "Floor trenching & trunking for stand services", "level": 4 },
+    { "code": "ECC.03", "name": "Long-Span Roof Structure", "level": 2 },
+    { "code": "ECC.03.10", "name": "Roof steel procurement & erection", "level": 3 },
+    { "code": "ECC.03.10.10", "name": "Erection sequence & temporary works", "level": 4 },
+    { "code": "ECC.04", "name": "Building Envelope", "level": 2 },
+    { "code": "ECC.05", "name": "Mechanical — Large-Volume HVAC", "level": 2 },
+    { "code": "ECC.05.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "ECC.05.20", "name": "Air distribution to halls", "level": 3 },
+    { "code": "ECC.05.20.10", "name": "Balance & commission large-volume spaces", "level": 4 },
+    { "code": "ECC.05.30", "name": "Smoke-control & large-volume ventilation", "level": 3 },
+    { "code": "ECC.06", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "ECC.06.10", "name": "MV/LV distribution & standby generation", "level": 3 },
+    { "code": "ECC.06.20", "name": "Floor-box / trench power distribution", "level": 3 },
+    { "code": "ECC.06.30", "name": "Hall, concourse & back-of-house lighting", "level": 3 },
+    { "code": "ECC.07", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "ECC.07.10", "name": "Sprinklers (exhibit-hazard occupancy)", "level": 3 },
+    { "code": "ECC.07.20", "name": "Fire alarm & voice evacuation", "level": 3 },
+    { "code": "ECC.07.20.10", "name": "Cause-and-effect programming", "level": 4 },
+    { "code": "ECC.08", "name": "ELV / AV / Rigging Infrastructure", "level": 2 },
+    { "code": "ECC.08.10", "name": "Rigging grid & trussing", "level": 3 },
+    { "code": "ECC.08.20", "name": "AV backbone, structured cabling & BMS", "level": 3 },
+    { "code": "ECC.09", "name": "Architectural Fit-out & Hall Subdivision", "level": 2 },
+    { "code": "ECC.10", "name": "Back-of-House Logistics", "level": 2 },
+    { "code": "ECC.10.10", "name": "Loading docks & marshalling yard", "level": 3 },
+    { "code": "ECC.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "ECC.11.10", "name": "Integrated life-safety, smoke-control & load-in trial", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The long-span roof package is modelled as its own sub-network given its procurement lead time and erection-sequencing risk." },
+      { "heading": "Calendars & working time", "body": "Civil, floor slab and roof erection run a 6-day week with roof-steel lift windows tied to crane availability; MEP rough-in and floor-trench works move to extended hours ahead of the life-safety test; commissioning runs against the availability of the first booked show and its load-in date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-span roof procurement & erection → hall floor slab and floor-trench closure → MEP rough-in across the column-free volume → rigging grid and AV infrastructure → integrated life-safety and large-volume smoke-control test → simulated exhibitor load-in/load-out trial → handover. The roof and floor-service network, not the finishes, own the front and back of the programme." },
+      { "heading": "Key assumptions", "body": "Design is frozen on hall floor-service layout and rigging-grid load points before the slab pours and the roof erects; authority approvals are obtained per phase gate; hall subdivision partition design is finalised before MEP rough-in; a single mobilisation." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is roof-structure-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Long-span roof steel / space-frame", "26–40 weeks", "Before roof erection start"], ["Large-volume AHUs / chillers", "20–30 weeks", "Before HVAC rough-in"], ["Rigging grid / trussing system", "14–22 weeks", "Before roof close-in"], ["Movable / operable hall partitions", "16–24 weeks", "Before fit-out completion"], ["Voice-evacuation & fire-alarm system", "14–20 weeks", "Before life-safety integration test"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Roof-steel erection needs dedicated large-crane windows and exclusion zones limiting other trades below. Floor-trench closure competes with slab-finishing crews for the same floor area, and back-of-house loading-dock access is shared across multiple concurrent trade deliveries late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-span roof-steel fabrication/erection slippage, rigging-grid load-point rework where design and structure disagree, and smoke-control re-test loops. Schedule contingency is held immediately before the integrated life-safety test and before the load-in trial rather than spread thinly across finishing activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for roof erection, floor-trench closure and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

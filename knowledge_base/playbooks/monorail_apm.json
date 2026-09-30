@@ -1,0 +1,123 @@
+{
+  "archetype": "monorail_apm",
+  "schema": 2,
+  "context": "systems-integration- & safety-certification-led · elevated guideway fronts the programme",
+  "brief": {
+    "intro": "A monorail or automated people mover (APM) is a driverless transit system running on an elevated (or sometimes at-grade) guideway between stations, controlled entirely by signalling and automatic train control rather than a driver. The programme has two very different halves: first, a civil job — piers, guideway beams and stations — that behaves like a linear infrastructure project; second, a systems-integration job — traction power, signalling/ATC, vehicles and platform screen doors — that behaves like commissioning one complex machine spread across the whole line. Guideway civils have to be substantially complete early because the systems contractor needs a finished, surveyed structure to install rail, power and signalling equipment on. From that point, the schedule is owned by dynamic testing and the safety-certification process, which a regulator paces, not the contractor.",
+    "scope": [
+      { "name": "Enabling & access works", "desc": "Access roads, temporary works, laydown areas." },
+      { "name": "Guideway piers & foundations", "desc": "Elevated guideway piers and pile caps along the alignment." },
+      { "name": "Guideway superstructure", "desc": "Beams/deck erection and expansion joints." },
+      { "name": "Stations", "desc": "Station structure, platforms and platform screen doors." },
+      { "name": "Traction power", "desc": "Substations, power supply and third-rail/overhead current collection (OCS)." },
+      { "name": "Signalling / ATC", "desc": "Automatic train control, interlocking and train detection." },
+      { "name": "Vehicles (rolling stock)", "desc": "Manufacture, delivery, and static and dynamic testing." },
+      { "name": "ELV / containment & cabling", "desc": "Cable routes and communications backbone along the guideway." },
+      { "name": "Fire & life safety (stations)", "desc": "Detection, alarm and egress at station buildings." },
+      { "name": "Testing & commissioning", "desc": "Dynamic testing, trial running and safety-case certification before revenue service." }
+    ],
+    "glossary": [
+      { "term": "APM / ATC", "plain": "an automated people mover controlled by automatic train control instead of a driver." },
+      { "term": "Guideway", "plain": "the elevated (or at-grade) structure the vehicles run on." },
+      { "term": "Third rail / OCS", "plain": "the power-supply rail or overhead line the vehicle draws current from." },
+      { "term": "Signalling / interlocking", "plain": "the system that keeps trains a safe distance apart and controls junctions." },
+      { "term": "Dynamic testing", "plain": "running real vehicles on the finished guideway to prove the whole system works together." },
+      { "term": "Safety case / certification", "plain": "the formal regulatory sign-off needed before passengers can ride." },
+      { "term": "Trial running", "plain": "an extended period of running the system as if in service, before revenue operation, to prove reliability." }
+    ],
+    "must_get_right": [
+      "Guideway civils are the enabler, not the driver — hand over a surveyed, dimensionally accurate structure early so the systems contractor can install rail, power and signalling without waiting on construction.",
+      "Signalling/ATC integration is the true critical path — it takes longer and carries more risk than the civil works, and it cannot start meaningfully until traction power and a continuous stretch of guideway are ready.",
+      "Protect the dynamic-testing and safety-certification window — the regulator sets the pace here, not the contractor, and re-test loops are common; build in real float, not optimistic overlap.",
+      "Vehicles are long-lead and system-specific — order early and align their delivery and static testing with when the guideway and power are actually ready to receive them."
+    ]
+  },
+  "components": [
+    { "name": "Guideway Civils (Piers & Superstructure)", "desc": "Piers · pile caps · beams/deck", "disc": "Civil", "primary": true },
+    { "name": "Stations", "desc": "Structure · platforms · screen doors", "disc": "Structural", "primary": false },
+    { "name": "Traction Power", "desc": "Substations · third rail/OCS · sectioning", "disc": "Electrical", "primary": true },
+    { "name": "Signalling / ATC", "desc": "Automatic train control · interlocking", "disc": "Instrumentation", "primary": true },
+    { "name": "Vehicles (Rolling Stock)", "desc": "Delivery · static & dynamic testing", "disc": "Systems", "primary": true },
+    { "name": "ELV / Containment & Cabling", "desc": "Cable routes along guideway", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Testing & Commissioning", "desc": "Dynamic testing · safety certification", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Electrical / Traction Power", "items": ["Substations & power supply", "Third rail / overhead current collection (OCS)", "Sectioning & isolation", "Earthing & bonding / stray-current control"] },
+    { "discipline": "Signalling & Controls", "items": ["Automatic train control (ATC) / CBTC", "Interlocking & train detection", "Platform screen door interface", "SCADA / control-centre integration"] },
+    { "discipline": "ELV / Cabling", "items": ["Containment & cable routes along guideway", "Communications backbone (radio/telecom)", "CCTV & PA at stations"] },
+    { "discipline": "Fire & Life Safety (Stations)", "items": ["Fire detection & alarm", "Emergency egress & evacuation lighting", "Public address & evacuation announcement system"] }
+  ],
+  "overview_phases": ["Enabling & Access", "Guideway Piers", "Guideway Superstructure", "Stations", "Traction Power & Signalling Install", "Vehicle Delivery & Static Test", "Dynamic Testing", "Safety Certification"],
+  "sequence_chart": {
+    "phases": ["Enable", "Piers", "Guideway", "Stations", "Power/Sig.", "Vehicles", "Dyn. Test"],
+    "lanes": [
+      { "trade": "Civil / Guideway & Stations", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 46, "label": "Piers → guideway beams → stations", "holds": [20] },
+      { "trade": "Traction Power", "disc": "Electrical", "kind": ["electrical"], "start": 30, "width": 40, "label": "Substations → third rail/OCS → energise", "holds": [56] },
+      { "trade": "Signalling / ATC", "disc": "Instrumentation", "kind": ["elv"], "start": 40, "width": 44, "label": "Trackside equipment → interlocking → ATC integration", "holds": [66] },
+      { "trade": "Vehicles", "disc": "Systems", "kind": ["mechanical"], "start": 50, "width": 30, "label": "Delivery → static test → dynamic test", "holds": [70] },
+      { "trade": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Dynamic test → trial running → safety certification", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Guideway & Stations", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Enabling works & access", "Guideway pier foundations & piling", "Pier construction", "Guideway beam erection / deck", "Station structure & platforms", "Platform screen door civil interface"] },
+    { "name": "Traction Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Substation civil & equipment procurement", "Substation electrical install", "Third rail / OCS installation along guideway", "Sectioning & isolation switchgear", "Energisation & power-path proving"] },
+    { "name": "Signalling / ATC", "disc": "Instrumentation", "kind": ["elv"], "holds": [2, 4], "steps": ["Trackside equipment & cable install", "Interlocking & train-detection install", "ATC / CBTC software configuration", "Point-to-point verification", "Integration with control centre"] },
+    { "name": "ELV / Containment & Cabling", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Containment routes along guideway", "Cable pull & dress", "Communications backbone install", "Termination & labelling", "Continuity / loop test"] },
+    { "name": "Vehicles (Rolling Stock)", "disc": "Systems", "kind": ["mechanical"], "holds": [2], "steps": ["Vehicle manufacture & delivery", "Receipt inspection", "Static (stationary) testing", "Low-speed dynamic testing", "Full-speed dynamic testing"] },
+    { "name": "Fire & Life Safety (Stations)", "disc": "Fire Protection", "kind": ["fire"], "holds": [], "steps": ["Detection & alarm rough-in at stations", "Fire alarm panel & zone wiring", "Egress & evacuation lighting", "Cause-and-effect test", "Station fire-system integration with control centre"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["System-by-system pre-commissioning", "Integrated systems test", "Dynamic testing (progressive speed increase)", "Trial running", "Safety-case submission & regulator review", "Certification → revenue-service handover"] }
+  ],
+  "wbs": [
+    { "code": "MA", "name": "Monorail / APM — Project", "level": 1 },
+    { "code": "MA.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MA.02", "name": "Enabling & Access Works", "level": 2 },
+    { "code": "MA.03", "name": "Guideway Civils", "level": 2 },
+    { "code": "MA.03.10", "name": "Pier foundations & piling", "level": 3 },
+    { "code": "MA.03.20", "name": "Pier construction", "level": 3 },
+    { "code": "MA.03.30", "name": "Guideway beam / deck erection", "level": 3 },
+    { "code": "MA.03.30.10", "name": "Beam segment survey & alignment", "level": 4 },
+    { "code": "MA.04", "name": "Stations", "level": 2 },
+    { "code": "MA.04.10", "name": "Station structure", "level": 3 },
+    { "code": "MA.04.20", "name": "Platforms & screen doors", "level": 3 },
+    { "code": "MA.05", "name": "Traction Power", "level": 2 },
+    { "code": "MA.05.10", "name": "Substations", "level": 3 },
+    { "code": "MA.05.20", "name": "Third rail / OCS installation", "level": 3 },
+    { "code": "MA.05.20.10", "name": "Sectioning & isolation", "level": 4 },
+    { "code": "MA.06", "name": "Signalling / ATC", "level": 2 },
+    { "code": "MA.06.10", "name": "Trackside equipment & cabling", "level": 3 },
+    { "code": "MA.06.20", "name": "Interlocking & train detection", "level": 3 },
+    { "code": "MA.06.20.10", "name": "ATC / CBTC configuration", "level": 4 },
+    { "code": "MA.06.20.10.10", "name": "Point-to-point verification", "level": 5 },
+    { "code": "MA.06.20.10.10.10", "name": "Control-centre integration", "level": 6 },
+    { "code": "MA.07", "name": "ELV / Containment & Cabling", "level": 2 },
+    { "code": "MA.08", "name": "Vehicles (Rolling Stock)", "level": 2 },
+    { "code": "MA.08.10", "name": "Delivery & receipt inspection", "level": 3 },
+    { "code": "MA.08.20", "name": "Static testing", "level": 3 },
+    { "code": "MA.09", "name": "Fire & Life Safety (Stations)", "level": 2 },
+    { "code": "MA.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MA.10.10", "name": "Integrated systems test", "level": 3 },
+    { "code": "MA.10.20", "name": "Dynamic testing", "level": 3 },
+    { "code": "MA.10.30", "name": "Trial running", "level": 3 },
+    { "code": "MA.10.40", "name": "Safety certification & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Guideway civils run a 6-day week with night-time possessions where the alignment crosses live roads or rail; signalling and systems integration move to a 7-day calendar at peak to compress the testing window; dynamic testing follows the regulator's approved test calendar, often night-only in early stages." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs guideway civils (piers → beams) → traction power & third-rail install → signalling/ATC trackside install & configuration → vehicle delivery & static test → dynamic testing → trial running → safety certification. Stations are not on the critical path once the guideway they connect to is structurally complete." },
+      { "heading": "Key assumptions", "body": "Alignment and station locations are fixed before pier foundations start; the systems design (traction power, signalling) is frozen before trackside install; a single vehicle-delivery campaign; regulatory review runs in parallel with, not after, dynamic testing where the authority permits it." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement- and systems-led — the following are tracked as milestones:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Vehicles (rolling stock)", "30–48 weeks", "Before static testing"], ["Signalling / ATC system", "24–36 weeks", "Before trackside install"], ["Traction power substations/switchgear", "20–30 weeks", "Before third rail/OCS energisation"], ["Guideway beam segments (precast)", "16–24 weeks", "Before erection sequence"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Guideway erection needs crane/launching-gantry windows and, over live roads or rail, possession windows; systems integration needs exclusive, protected access to the guideway; dynamic-testing and safety-certification specialists are a scarce, shared resource that gates the back end of the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: beam-erection possession slippage, signalling/ATC integration rework, and safety-certification re-submission cycles. Contingency is held before dynamic testing and before certification submission rather than spread across civil activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

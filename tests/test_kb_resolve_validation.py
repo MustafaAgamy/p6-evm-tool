@@ -128,7 +128,7 @@ CASES = [
         'Terminal High Mast Lighting', 'Gate Complex Construction',
         'Crane Power Supply and Cable Reel', 'Terminal Operating System Integration']),
 
-    ('metro station', {'metro_station', 'rail_metro', 'railway_track_systems'}, [
+    ('metro station', {'metro_station', 'rail_metro', 'railway_track_systems', 'monorail_apm'}, [
         'Station Box Diaphragm Wall', 'Station Excavation and Strutting', 'Concourse Slab Construction',
         'Platform Slab and Platform Screen Doors', 'Station Architectural Finishes',
         'Escalator Installation', 'Tunnel Ventilation System', 'Environmental Control System Installation',

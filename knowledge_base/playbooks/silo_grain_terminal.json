@@ -1,0 +1,127 @@
+{
+  "archetype": "silo_grain_terminal",
+  "schema": 2,
+  "context": "conveying & storage-vessel led · deep silo foundations are the long-lead civil driver; dust-explosion safety gates the bulk-flow trial",
+  "brief": {
+    "intro": "A silo, grain or bulk-materials terminal stores and moves bulk solids — grain, cement, ore, fertiliser, aggregates — between receiving points (ship, rail, truck) and storage silos or bins through a chain of conveyors, elevators and transfer towers. Unlike a process plant there is no chemical reaction and almost no process piping: the 'process' is purely mechanical material handling — intake, elevate, convey, store, reclaim, load out. The programme is civil-led at the front because a full silo can weigh many times its own empty weight, so deep piled or raft foundations are the longest single civil item and everything else sits on them; it then becomes structural-steel and mechanical led through the middle as conveyor galleries, transfer towers and bucket elevators go up. Because grain and many bulk powders are combustible, dust extraction and explosion protection (venting, suppression, isolation) are safety-critical systems that gate handover rather than afterthoughts. Commissioning is a bulk-flow throughput trial — running material through the whole intake-to-load-out chain at rate — not a chemical or utility start-up.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, access roads, rail/road spurs, stormwater and site drainage." },
+      { "name": "Deep foundations & silo civils", "desc": "Piled or raft silo foundations, slip-formed or bolted-panel silo walls, receiving-pit and hopper structures." },
+      { "name": "Structural steel", "desc": "Conveyor galleries, transfer towers, headhouse and general support steel." },
+      { "name": "Receiving & intake", "desc": "Truck/rail tippers or ship-unloaders, intake hoppers and screening." },
+      { "name": "Conveying & elevating", "desc": "Belt conveyors, bucket elevators, chain conveyors, diverters and chutes." },
+      { "name": "Storage silos / bins", "desc": "Steel or concrete silos with level instrumentation and aeration." },
+      { "name": "Reclaim & load-out", "desc": "Reclaim conveyors/tunnels, ship-loader or rail-loadout, weighbridges." },
+      { "name": "Electrical power & instrumentation", "desc": "MV/LV distribution, drives/VSDs, level/weight/flow instrumentation, SCADA." },
+      { "name": "Dust control & explosion protection", "desc": "Dust extraction, explosion venting/suppression, isolation valves." },
+      { "name": "Testing & commissioning", "desc": "No-load belt run, interlock/sequence testing, load-cell calibration, bulk-flow throughput trial." }
+    ],
+    "glossary": [
+      { "term": "Bucket elevator", "plain": "a vertical conveyor that lifts bulk material using buckets fixed to a belt or chain." },
+      { "term": "Transfer tower / headhouse", "plain": "the structure where conveyors change direction or feed material into the silos." },
+      { "term": "Aeration", "plain": "blowing air through stored grain to keep it cool and stop it spoiling." },
+      { "term": "Weighbridge / load cell", "plain": "the scales that weigh trucks, rail cars, or the contents of a silo." },
+      { "term": "Explosion venting / suppression", "plain": "panels or systems that relieve or extinguish a dust explosion before it destroys the structure." },
+      { "term": "Reclaim tunnel", "plain": "an underground conveyor that draws material back out from under a silo or stockpile." },
+      { "term": "Ship-loader / rail-loadout", "plain": "the equipment that loads bulk material into a waiting ship or rail wagon." },
+      { "term": "Dust extraction", "plain": "local exhaust systems that capture airborne dust at every transfer point." }
+    ],
+    "must_get_right": [
+      "Sequence deep silo foundations first — they are the longest civil item and the whole steel and mechanical chain sits on them.",
+      "Treat dust-explosion protection as safety-critical and schedule it as its own testing gate, not a punch-list item.",
+      "Commission the material flow end-to-end — intake → convey → store → reclaim → load-out — as one bulk-flow trial, not system by system in isolation.",
+      "Coordinate structural-steel erection (galleries/towers) tightly with conveyor and elevator installation — steel is the enabler and mechanical cannot start until it is ready."
+    ]
+  },
+  "components": [
+    { "name": "Storage Silos / Bins", "desc": "Steel or concrete silos · level & aeration", "disc": "Structural", "primary": true },
+    { "name": "Conveying & Elevating", "desc": "Belt conveyors · bucket elevators · diverters", "disc": "Mechanical", "primary": true },
+    { "name": "Structural Steel", "desc": "Conveyor galleries · transfer towers · headhouse", "disc": "Structural", "primary": true },
+    { "name": "Receiving, Reclaim & Load-out", "desc": "Truck/rail/ship intake · reclaim · ship-loader/rail-loadout", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & Instrumentation", "desc": "MV/LV distribution · drives/VSDs · level/weight/flow", "disc": "Electrical", "primary": true },
+    { "name": "Dust Control & Explosion Protection", "desc": "Extraction · venting/suppression · isolation", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "No-load run · interlock test · bulk-flow trial", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Belt conveyors & bucket elevators", "Diverters, chutes & gates", "Aeration fans & ducting", "Dust-extraction fans & ductwork"] },
+    { "discipline": "Electrical", "items": ["MV/LV distribution & motor control centres", "Drives / VSDs for conveyors & elevators", "Lighting & earthing", "Standby power where required"] },
+    { "discipline": "Instrumentation & Controls", "items": ["Silo level instrumentation", "Weighbridge / load-cell systems", "Flow & speed instrumentation", "SCADA / belt-weighing integration"] },
+    { "discipline": "Fire / Dust-Explosion Protection", "items": ["Explosion venting panels / suppression system", "Isolation valves at transfer points", "Fire & gas detection", "Cause-and-effect / discharge system"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Deep Foundations & Silo Civils", "Structural Steel (Galleries & Towers)", "Silo Erection", "Conveying & Elevating Install", "Electrical & Instrumentation", "Dust Control & Fire Protection", "Commissioning & Bulk-flow Trial"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Steel/Silos", "Conveying", "Electrical", "Dust/Fire", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Foundations", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 30, "label": "Earthworks → piled/raft silo foundations", "holds": [8] },
+      { "trade": "Structural Steel & Silos", "disc": "Structural", "kind": ["civil"], "start": 14, "width": 45, "label": "Galleries/towers → silo erection → weather-tight", "holds": [40] },
+      { "trade": "Conveying & Elevating", "disc": "Mechanical", "kind": ["mechanical"], "start": 32, "width": 50, "label": "Install conveyors/elevators/diverters → no-load run", "holds": [60, 78] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["electrical"], "start": 40, "width": 46, "label": "Distribution → drives/VSD → level/weight instrumentation", "holds": [70] },
+      { "trade": "Dust Control & Fire Protection", "disc": "Fire Protection", "kind": ["fire"], "start": 52, "width": 34, "label": "Extraction ductwork → venting/suppression → test", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "No-load → loaded bulk-flow trial", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Foundations", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance & earthworks", "Access roads & rail/road spurs", "Piled/raft silo foundations", "Receiving-pit & hopper structures", "Ground slab & duct routes", "Weighbridge civils"] },
+    { "name": "Structural Steel & Silos", "disc": "Structural", "kind": ["civil"], "holds": [0, 3], "steps": ["Long-lead procurement — silo panels / steel package", "Erect headhouse & transfer-tower steel", "Erect conveyor gallery steel", "Slip-form or bolt silo shells", "Roof, cladding & weather-tight", "Aeration ducting in silo floor"] },
+    { "name": "Conveying & Elevating", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Long-lead procurement — conveyors, elevators, diverters", "Install belt conveyors in galleries", "Install bucket elevators", "Install diverters, chutes & gates", "Drives, guarding & belt tracking", "No-load run & tracking test"] },
+    { "name": "Receiving, Reclaim & Load-out", "disc": "Mechanical", "kind": ["mechanical"], "holds": [4], "steps": ["Truck/rail tipper or ship-unloader install", "Intake hopper & screening", "Reclaim conveyors / tunnel install", "Ship-loader / rail-loadout install", "Weighbridge & load-cell calibration", "No-load run of reclaim & load-out"] },
+    { "name": "Electrical Power & Instrumentation", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 5], "steps": ["Long-lead procurement — switchgear, MCC, VSDs", "Containment routes & cable pull", "Set switchgear / MCC / drives", "Level, weight & flow instrumentation install", "Point-to-point & insulation testing", "Energise & prove power before belt run"] },
+    { "name": "Dust Control & Explosion Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [1], "steps": ["Dust-extraction ductwork & fans", "Explosion venting panels / suppression system", "Isolation valves at transfer points", "Fire & gas detection rough-in", "Cause-and-effect / discharge test"] },
+    { "name": "Instrumentation & Controls (SCADA)", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [1], "steps": ["Field devices & sensors — level, weight, flow", "I/O wiring & panel termination", "SCADA configuration", "Point-to-point verification", "Interlock & diverter-sequence testing"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [4], "steps": ["No-load belt & elevator run", "Interlock & diverter-sequence test", "Dust-extraction & explosion-protection functional test", "Weighbridge & load-cell calibration verification", "No-load → loaded bulk-flow trial", "Throughput verification → handover"] }
+  ],
+  "wbs": [
+    { "code": "SGT", "name": "Silo / Grain / Bulk Terminal — Project", "level": 1 },
+    { "code": "SGT.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SGT.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "SGT.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "SGT.02.20", "name": "Deep Foundations", "level": 3 },
+    { "code": "SGT.02.20.10", "name": "Silo raft / pile foundations", "level": 4 },
+    { "code": "SGT.02.20.20", "name": "Receiving-pit & hopper structures", "level": 4 },
+    { "code": "SGT.02.30", "name": "Access roads & rail/road spurs", "level": 3 },
+    { "code": "SGT.03", "name": "Structural Steel & Silos", "level": 2 },
+    { "code": "SGT.03.10", "name": "Headhouse & transfer-tower steel", "level": 3 },
+    { "code": "SGT.03.20", "name": "Conveyor gallery steel", "level": 3 },
+    { "code": "SGT.03.30", "name": "Silo shells (slip-form / bolted panel)", "level": 3 },
+    { "code": "SGT.03.30.10", "name": "Roof, cladding & weather-tight", "level": 4 },
+    { "code": "SGT.04", "name": "Receiving & Intake", "level": 2 },
+    { "code": "SGT.04.10", "name": "Truck/rail tipper or ship-unloader", "level": 3 },
+    { "code": "SGT.04.20", "name": "Intake hopper & screening", "level": 3 },
+    { "code": "SGT.05", "name": "Conveying & Elevating", "level": 2 },
+    { "code": "SGT.05.10", "name": "Belt conveyors (galleries)", "level": 3 },
+    { "code": "SGT.05.20", "name": "Bucket elevators", "level": 3 },
+    { "code": "SGT.05.30", "name": "Diverters, chutes & gates", "level": 3 },
+    { "code": "SGT.06", "name": "Reclaim & Load-out", "level": 2 },
+    { "code": "SGT.06.10", "name": "Reclaim conveyors / tunnel", "level": 3 },
+    { "code": "SGT.06.20", "name": "Ship-loader / rail-loadout", "level": 3 },
+    { "code": "SGT.06.30", "name": "Weighbridge & load-cell system", "level": 3 },
+    { "code": "SGT.07", "name": "Electrical Power & Instrumentation", "level": 2 },
+    { "code": "SGT.07.10", "name": "MV/LV distribution & drives/VSD", "level": 3 },
+    { "code": "SGT.07.20", "name": "Level, weight & flow instrumentation", "level": 3 },
+    { "code": "SGT.08", "name": "Dust Control & Explosion Protection", "level": 2 },
+    { "code": "SGT.09", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "SGT.09.10", "name": "No-load run (belt / elevator)", "level": 3 },
+    { "code": "SGT.09.20", "name": "Interlock & diverter-sequence test", "level": 3 },
+    { "code": "SGT.09.30", "name": "Bulk-flow throughput trial & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural-steel/silo erection run a 6-day week; conveying and electrical installation move to two shifts at peak to protect the critical path; commissioning runs an extended calendar once belt runs and the bulk-flow trial begin. A weather allowance is embedded in the civil calendar, especially for exposed steel erection." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs deep silo foundation & piling → silo shell erection (slip-form or bolted panel) → conveyor gallery & headhouse steel → conveyor/elevator installation → power & instrumentation termination → no-load belt run → bulk-flow throughput trial → handover. Dust control and explosion protection must complete ahead of the throughput trial since material cannot flow through an unproven system." },
+      { "heading": "Key assumptions", "body": "Design and vendor drawings (silo, conveyor, elevator) are frozen ahead of foundation design; ground conditions match the geotechnical report used to size deep foundations; the client free-issues no equipment; a single mobilisation; grid power is available to the site boundary by the date assumed. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led at the front. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Silo steel package (bolted panel) or slip-form formwork system", "20–32 weeks", "Before silo erection start"], ["Bucket elevators", "16–24 weeks", "Before conveying install"], ["Belt conveyor package (idlers, pulleys, belting)", "14–22 weeks", "Before gallery fit-out"], ["Ship-unloader / rail tipper", "24–36 weeks", "Before receiving install"], ["MV switchgear & drives/VSDs", "18–26 weeks", "Before power distribution"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (silo panels, elevator legs, tipper structures) require crane windows and clear laydown; rail-side or ship-side works may need possession windows coordinated with an operating terminal or rail operator. Skilled commissioning resources — belt-tracking and explosion-protection specialists — are shared across the chain and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: deep-foundation ground conditions differing from the geotechnical report, silo-package or ship-unloader delivery slippage, and belt-tracking/interlock re-test loops during the bulk-flow trial. Schedule contingency is held before the throughput trial and before handover rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

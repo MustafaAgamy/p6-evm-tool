@@ -1,0 +1,112 @@
+{
+  "archetype": "pumping_station",
+  "schema": 2,
+  "context": "mechanical-led · deep wet/dry wells · pump & wet commissioning",
+  "brief": {
+    "intro": "A pumping station lifts water, wastewater or stormwater from a low level up to a higher one or into a pressurised main. It is a compact but mechanical- and electrical-intensive civil structure — a wet well where flow collects, a dry well or valve chamber housing the pumps, and a switchroom of controls. New to this type? The hard part is not the building: it is the deep, watertight substructure (often below the water table) and getting the pumps, pipework and controls proven under real flow. The programme is driven by the excavation and structure first, then pump procurement and wet commissioning.",
+    "scope": [
+      { "name": "Site enabling & dewatering", "desc": "Access, diversions, excavation support (shoring/sheet piles) and dewatering of a deep, often below-water-table dig." },
+      { "name": "Wet well / sump structure", "desc": "Watertight reinforced-concrete sump where incoming flow collects; benching and inlet works." },
+      { "name": "Dry well / pump chamber", "desc": "Chamber or valve house holding the pumps, pipework and access." },
+      { "name": "Pumps & pipework", "desc": "Duty/standby pumps, suction and delivery pipework, penstocks and non-return valves." },
+      { "name": "Valves & surge protection", "desc": "Isolation and control valves, air valves, and surge/water-hammer protection on the rising main." },
+      { "name": "Electrical & MCC", "desc": "Motor control centre, variable-frequency drives, standby generator and cabling." },
+      { "name": "Controls, SCADA & telemetry", "desc": "Level sensors, instrumentation, PLC/SCADA and remote telemetry to the operations centre." },
+      { "name": "Odour control & ventilation", "desc": "For wastewater stations — odour-control units and forced ventilation of the wet well." },
+      { "name": "Testing & commissioning", "desc": "Dry checks, then wet commissioning and a performance / duty-standby changeover test under real flow." }
+    ],
+    "glossary": [
+      { "term": "Wet well", "plain": "the underground sump where incoming flow collects before it is pumped." },
+      { "term": "Dry well", "plain": "the chamber that houses the pumps and pipework, kept dry." },
+      { "term": "Duty / standby", "plain": "one pump runs (duty) while another waits as backup (standby) so flow never stops." },
+      { "term": "VFD", "plain": "variable-frequency drive — electronics that vary a pump's speed to match the flow." },
+      { "term": "Rising main", "plain": "the pressurised pipe the station pumps into." },
+      { "term": "Surge / water hammer", "plain": "a pressure shock when a pump trips; surge vessels protect the main." },
+      { "term": "NPSH", "plain": "net positive suction head — enough suction pressure so the pump doesn't cavitate." },
+      { "term": "SCADA / telemetry", "plain": "remote monitoring and control of the station from an operations centre." }
+    ],
+    "must_get_right": [
+      "Deep excavation and dewatering drive the early programme — get the structure watertight before any M&E goes in.",
+      "Pumps, VFDs and switchgear are long-lead — order them before the structure is finished.",
+      "Leave real time for wet commissioning and the duty/standby performance test — it needs live flow to prove.",
+      "A live-flow tie-in (into an operating network) needs a planned outage and over-pumping — coordinate it early."
+    ]
+  },
+  "components": [
+    { "name": "Civil structure (wet/dry well)", "desc": "Deep watertight RC sump & pump chamber", "disc": "Structural", "primary": true },
+    { "name": "Pumps & pipework", "desc": "Duty/standby pumps · valves · rising main", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & MCC", "desc": "MCC · VFDs · standby generator", "disc": "Electrical", "primary": true },
+    { "name": "Controls & SCADA", "desc": "Level sensors · PLC · telemetry", "disc": "Instrumentation", "primary": true },
+    { "name": "Surge protection", "desc": "Surge vessels · air valves", "disc": "Mechanical", "primary": false },
+    { "name": "Odour control & vent", "desc": "Wastewater odour units · ventilation", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Duty/standby pumps & motors", "Suction & delivery pipework, penstocks, valves", "Surge / water-hammer protection", "Odour control & wet-well ventilation"] },
+    { "discipline": "Electrical", "items": ["Motor control centre (MCC) & VFDs", "Standby generator & changeover", "Power & control cabling", "Earthing & small power/lighting"] },
+    { "discipline": "Controls / SCADA", "items": ["Level & flow instrumentation", "PLC / control panel", "Telemetry to operations centre"] }
+  ],
+  "overview_phases": ["Enabling & dewatering", "Substructure (wet/dry well)", "Valve chamber / superstructure", "Mechanical install", "Electrical & controls", "Testing & wet commissioning"],
+  "sequence_chart": {
+    "phases": ["Enable", "Excavate", "Structure", "M&E install", "Terminate", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 48, "label": "Dewater → shore → wet/dry well → watertight", "holds": [30] },
+      { "trade": "Pumps & Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 34, "width": 46, "label": "Set pumps → pipework → valves → surge", "holds": [66] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 46, "width": 42, "label": "MCC → VFDs → cabling → terminate", "holds": [] },
+      { "trade": "Controls / SCADA", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 56, "width": 34, "label": "Instruments → PLC → telemetry", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Dry → wet comm → performance", "holds": [15] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Site enabling & diversions", "Excavation support & dewatering", "Base slab & wet-well walls", "Dry well / valve chamber", "Watertightness test", "Backfill & cover slab"] },
+    { "name": "Pumps & Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Long-lead pump / VFD procurement", "Guide rails & pedestals", "Set duty/standby pumps", "Suction & delivery pipework", "Valves & penstocks", "Surge vessel & air valves", "Pressure test rising main"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["MCC & VFD install", "Standby generator set", "Power & control cabling", "Terminate & meg test", "Energise & function test"] },
+    { "name": "Controls / SCADA", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [], "steps": ["Level & flow instruments", "Control panel / PLC", "Point-to-point & loop check", "SCADA & telemetry integration"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["Pre-commissioning dry checks", "Fill & vent", "Wet commissioning under flow", "Duty/standby changeover test", "Performance & handover"] }
+  ],
+  "wbs": [
+    { "code": "PS", "name": "Pumping Station — Project", "level": 1 },
+    { "code": "PS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PS.02", "name": "Site Enabling & Dewatering", "level": 2 },
+    { "code": "PS.02.10", "name": "Diversions & access", "level": 3 },
+    { "code": "PS.02.20", "name": "Excavation support & dewatering", "level": 3 },
+    { "code": "PS.03", "name": "Substructure", "level": 2 },
+    { "code": "PS.03.10", "name": "Wet well / sump", "level": 3 },
+    { "code": "PS.03.10.10", "name": "Base slab & walls", "level": 4 },
+    { "code": "PS.03.10.20", "name": "Benching & inlet works", "level": 4 },
+    { "code": "PS.03.20", "name": "Dry well / valve chamber", "level": 3 },
+    { "code": "PS.03.30", "name": "Watertightness test", "level": 3 },
+    { "code": "PS.04", "name": "Mechanical — Pumps & Pipework", "level": 2 },
+    { "code": "PS.04.10", "name": "Pumps & motors", "level": 3 },
+    { "code": "PS.04.10.10", "name": "Set & align pumps", "level": 4 },
+    { "code": "PS.04.20", "name": "Pipework & valves", "level": 3 },
+    { "code": "PS.04.30", "name": "Surge protection", "level": 3 },
+    { "code": "PS.05", "name": "Electrical — MCC & Power", "level": 2 },
+    { "code": "PS.05.10", "name": "MCC & VFDs", "level": 3 },
+    { "code": "PS.05.20", "name": "Standby generation & cabling", "level": 3 },
+    { "code": "PS.06", "name": "Controls, SCADA & Instrumentation", "level": 2 },
+    { "code": "PS.07", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "PS.07.10", "name": "Dry pre-commissioning", "level": 3 },
+    { "code": "PS.07.20", "name": "Wet commissioning", "level": 3 },
+    { "code": "PS.07.30", "name": "Performance & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network in Primavera P6 developed to a Level 3 control schedule with retained-logic progress; calculated by F9 with total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil works on a 6-day week; dewatering runs continuously (24/7) once started; wet commissioning uses a 7-day calendar to work around live-flow windows. Weather / groundwater allowance held in the excavation phase." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs dewatering → excavation support → wet-well structure → watertightness → pump & pipework install → electrical energisation → wet commissioning → performance test. The structure, not the M&E, governs the front; commissioning under live flow governs the tail." },
+      { "heading": "Key assumptions", "body": "Dewatering discharge consents and a stable draw-down are in place; the water table and ground are as per the GI; a single mobilisation; and any tie-in outage into the live network is granted when required." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the mechanical and electrical plant — tracked as milestones:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Pumps & motors", "20–34 weeks", "Before mechanical install"], ["VFDs & MCC", "18–28 weeks", "Before electrical terminate"], ["Standby generator", "24–36 weeks", "Before energisation"], ["Penstocks & large valves", "16–26 weeks", "Before pipework"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Deep confined-space working, restricted crane access over a small footprint, and a live-flow tie-in that needs over-pumping and a planned outage are the main constraints." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: groundwater / dewatering under-performance, long-lead pump slippage, and the live tie-in window. Contingency is held before the watertightness test and before wet commissioning." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client, controlled at Level 3, expanded to a Level 4–5 field lookahead — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

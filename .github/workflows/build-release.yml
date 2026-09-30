@@ -1,13 +1,85 @@
 name: Build & Release
 
+# Three ways in:
+#   • push to master that touches the changelog / version → if the newest `## [vX.Y.Z]`
+#     heading in CHANGELOG.md has no tag yet, tag it, build the exe and publish the Release
+#     (automatic releases: add the changelog section — utils.APP_VERSION is read from it —
+#     merge to master, done)
+#   • push of a v* tag → build + Release for that tag (manual tagging still works)
+#   • workflow_dispatch → build only; the exe is uploaded as a run artifact, no Release
 on:
   push:
+    branches:
+      - master
+    paths:
+      - 'CHANGELOG.md'
+      - 'utils.py'
+      - '.github/workflows/build-release.yml'
     tags:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide what to build / release
+        id: decide
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "Tag push ${GITHUB_REF_NAME} → build + release"
+            { echo "build=true"; echo "release=true"; echo "tag=${GITHUB_REF_NAME}"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            echo "Manual run → build only (artifact, no Release)"
+            { echo "build=true"; echo "release=false"; echo "tag="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Push to master: release the newest changelog version if it isn't tagged yet.
+          VERSION=$(grep -m1 -oP '^## \[v\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md || true)
+          if [ -z "$VERSION" ]; then
+            echo "No ## [vX.Y.Z] heading in CHANGELOG.md → nothing to release"
+            { echo "build=false"; echo "release=false"; echo "tag="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG="v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "${TAG} is already tagged → nothing to release"
+            { echo "build=false"; echo "release=false"; echo "tag=${TAG}"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Guard: the version shown in the app must match the release being published.
+          # utils.APP_VERSION is read from the newest CHANGELOG heading (utils.release_version),
+          # so ask Python for the value the app will show rather than grep a literal.
+          APP_VERSION=$(python3 -c "import utils; print(utils.APP_VERSION)" | tr -d '\r' || true)
+          if [ "$APP_VERSION" != "$VERSION" ]; then
+            echo "::error::CHANGELOG.md's newest release is ${TAG} but utils.APP_VERSION is '${APP_VERSION}' — the app must show the changelog's version"
+            exit 1
+          fi
+
+          echo "New changelog version ${TAG} on master → tag, build + release"
+          { echo "build=true"; echo "release=true"; echo "tag=${TAG}"; } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: decide
+    if: needs.decide.outputs.build == 'true'
     runs-on: windows-latest
     permissions:
       contents: write
@@ -20,10 +92,11 @@ jobs:
 
       - name: Extract changelog for this version
         id: changelog
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: needs.decide.outputs.release == 'true'
         shell: bash
+        env:
+          TAG: ${{ needs.decide.outputs.tag }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
           REPO="${{ github.repository }}"
 
           # 1. Extract the human-written block from CHANGELOG.md
@@ -32,16 +105,17 @@ jobs:
             NOTES="See CHANGELOG.md for details."
           fi
 
-          # 2. Build commit list since the previous tag, excluding changelog bumps
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1)
+          # 2. Build commit list since the previous tag, excluding changelog bumps.
+          #    HEAD is the commit being released (the tag itself may not exist yet).
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
           if [ -n "$PREV_TAG" ]; then
-            RANGE="${PREV_TAG}..${TAG}"
+            RANGE="${PREV_TAG}..HEAD"
           else
-            RANGE="${TAG}"
+            RANGE="HEAD"
           fi
           COMMITS=$(git log "$RANGE" --no-merges \
             --pretty="format:* %s ([%h](https://github.com/${REPO}/commit/%H))" \
-            | grep -v "^\* chore: bump changelog")
+            | grep -v "^\* chore: bump changelog" || true)
 
           # 3. Combine
           if [ -n "$COMMITS" ]; then
@@ -71,13 +145,15 @@ jobs:
       # match the tag being released — the exe would otherwise say the wrong version.
       - name: Check the version (CHANGELOG = tag = app)
         shell: bash
+        env:
+          TAG: ${{ needs.decide.outputs.tag }}
         run: |
           pip install pytest
           python -m pytest tests/test_app_version.py -q -p no:cacheprovider
           APPV=$(python -c "import utils; print(utils.APP_VERSION)" | tr -d '\r')
           echo "Version from CHANGELOG.md: v${APPV}"
-          if [[ "${GITHUB_REF}" == refs/tags/v* && "v${APPV}" != "${GITHUB_REF_NAME}" ]]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} but the newest CHANGELOG.md release is v${APPV} - add the '## [${GITHUB_REF_NAME}] - date' section to CHANGELOG.md first."
+          if [[ -n "${TAG}" && "v${APPV}" != "${TAG}" ]]; then
+            echo "::error::Releasing ${TAG} but the newest CHANGELOG.md release is v${APPV} - add the '## [${TAG}] - date' section to CHANGELOG.md first."
             exit 1
           fi
 
@@ -93,9 +169,11 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: needs.decide.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.decide.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           body: ${{ steps.changelog.outputs.notes }}
           files: dist/Controlyx.exe
         env:

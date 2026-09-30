@@ -1,0 +1,126 @@
+{
+  "archetype": "school_education",
+  "schema": 2,
+  "context": "term-date driven · life-safety & IT/AV pace occupancy",
+  "brief": {
+    "intro": "New to this project type? A school is a moderate-MEP teaching building whose defining constraint isn't technical complexity — it's a fixed calendar date. There is no big commissioning test like a power plant or data centre; the real schedule risk is that many parallel finishing and fit-out fronts (classrooms, labs, halls, canteen, sports areas) all have to close out life-safety and IT/AV sign-off by one immovable date: the start of the academic term. Because classrooms and labs repeat many times over, treat the internal fit-out like a repetitive typical-floor cycle, not a series of one-off rooms. Order long-lead classroom furniture, AV equipment and specialist lab fixtures early — they are easy to forget until finishes are already closing in on them.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Clearance, utility diversions, access roads, the external works platform." },
+      { "name": "Structure & envelope", "desc": "Foundations, frame (steel or RC), roof and envelope — getting the building weather-tight." },
+      { "name": "Internal partitions & finishes", "desc": "Classroom/lab partitioning, ceilings, flooring and paint across many repeated room types." },
+      { "name": "Mechanical (HVAC)", "desc": "Ventilation and cooling serving classrooms, labs, halls and the kitchen/canteen." },
+      { "name": "Electrical power & lighting", "desc": "Power distribution and general + classroom lighting to the compliant lux level for teaching spaces." },
+      { "name": "Fire & life safety", "desc": "Detection, alarm, evacuation, sprinklers/hydrants and lockdown provisions for occupied classrooms." },
+      { "name": "ELV / security / data", "desc": "Access control, CCTV, structured cabling for classroom IT/AV, and the PA/bell system." },
+      { "name": "Plumbing & sanitary", "desc": "Toilets, ablution blocks and kitchen/canteen wet services." },
+      { "name": "External works & sports facilities", "desc": "Playgrounds, sports courts/fields and landscaping." },
+      { "name": "Testing, commissioning & handover", "desc": "System testing, life-safety sign-off, IT/AV commissioning and handover in time for term start." }
+    ],
+    "glossary": [
+      { "term": "BMS", "plain": "the controls system that runs HVAC and lighting schedules automatically." },
+      { "term": "Lockdown system", "plain": "electronic door control letting the school seal itself in an emergency." },
+      { "term": "IT/AV fit-out", "plain": "the classroom data points, projectors/smartboards, and the cabling behind them." },
+      { "term": "PA / bell system", "plain": "the campus-wide announcement and class-change bell system." },
+      { "term": "Compliant classroom lux / ACH", "plain": "the minimum light level and fresh-air change rate a teaching space must meet." },
+      { "term": "Term-date handover", "plain": "the academic-year start date the whole schedule is built backward from." },
+      { "term": "Typical-room cycle", "plain": "finishing one classroom type as a repeatable sequence, then repeating it across every similar room." }
+    ],
+    "must_get_right": [
+      "The handover date is fixed by the academic calendar, not negotiable — build the schedule backward from day one of term.",
+      "Life-safety (alarm, evacuation, lockdown) and IT/AV sign-off are what actually gate occupancy — protect them, not the structure.",
+      "Repeated room types (classrooms, labs) benefit from a typical-room finishing cycle — plan it like a repetitive floor, not one-off rooms.",
+      "Long-lead classroom furniture, AV equipment and specialist lab fixtures must be ordered early enough to land before finishes complete."
+    ]
+  },
+  "components": [
+    { "name": "HVAC / Ventilation", "desc": "Classroom, hall & lab comfort cooling", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Lighting", "desc": "Distribution · classroom & general lighting", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Detection · alarm · evacuation · lockdown", "disc": "Fire Protection", "primary": true },
+    { "name": "ELV / Security / Data", "desc": "CCTV · access control · classroom IT/AV", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "Plumbing & Sanitary", "desc": "Toilets · ablution · kitchen wet services", "disc": "Public Health", "primary": false },
+    { "name": "Architectural Finishes", "desc": "Partitions · ceilings · flooring across repeated rooms", "disc": "Architectural", "primary": true },
+    { "name": "BMS", "desc": "HVAC & lighting scheduling controls", "disc": "Instrumentation", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["AHU / split systems — classrooms & halls", "Kitchen & canteen extract", "Laboratory fume/extract where applicable", "Ventilation-rate balancing"] },
+    { "discipline": "Electrical", "items": ["LV distribution & panels", "General & classroom lighting", "Standby / emergency lighting"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Domestic water & sanitary drainage", "Ablution block fixtures", "Kitchen/canteen wet services"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm & detection", "CCTV / access control / lockdown", "Structured cabling & classroom IT/AV", "PA / bell system", "BMS"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Substructure", "Superstructure & Envelope", "MEP Rough-in", "Internal Finishes", "External & Sports Works", "Commissioning & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Substr.", "Structure", "Rough-in", "Finishes", "Externals", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → slab → frame", "holds": [14] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "Containment → 1st fix → fit devices → test", "holds": [50, 80] },
+      { "trade": "Mechanical (HVAC)", "disc": "Mechanical", "kind": ["mechanical"], "start": 24, "width": 50, "label": "Ductwork → set units → balance", "holds": [55] },
+      { "trade": "ELV / Fire / BMS", "disc": "Extra-Low Voltage", "kind": ["elv", "fire", "bms"], "start": 35, "width": 48, "label": "Containment → devices → IT/AV → integrate", "holds": [70] },
+      { "trade": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "start": 40, "width": 45, "label": "Partitions → ceilings → floors → paint", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Life-safety → IT/AV → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Foundations", "Frame erection", "Roof & envelope weather-tight", "External hard/soft landscaping"] },
+    { "name": "Electrical Power & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & 1st fix", "Panels / distribution boards set", "Classroom & general lighting 1st + 2nd fix", "Standby / emergency lighting", "Testing & certification", "Load test & handover"] },
+    { "name": "HVAC / Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Ductwork & containment", "Set AHU / split units", "Kitchen & lab extract", "Commissioning & balance", "Ventilation-rate proving"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Detection & alarm rough-in", "Sprinkler / hydrant pipework", "Cause-and-effect programming", "Evacuation / lockdown test", "Fire authority sign-off"] },
+    { "name": "ELV / Security / IT-AV", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Containment & cable pull", "CCTV / access control / lockdown devices", "Classroom IT/AV points & smartboards", "PA / bell system", "Testing & certification"] },
+    { "name": "BMS", "disc": "Instrumentation", "kind": ["bms"], "holds": [], "steps": ["Field devices & sensors", "Controls wiring", "HVAC & lighting scheduling setup", "Point-to-point verification", "Integration test"] },
+    { "name": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "holds": [2], "steps": ["Partitions & blockwork", "Ceilings", "Floor finishes & tiling", "Paint & decoration", "Doors, ironmongery & signage"] },
+    { "name": "Testing & Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1], "steps": ["Life-safety commissioning", "IT/AV commissioning & handover to IT dept", "Ventilation & lighting compliance testing", "Snagging & de-snagging", "Term-date handover"] }
+  ],
+  "wbs": [
+    { "code": "SCH", "name": "School — Project", "level": 1 },
+    { "code": "SCH.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SCH.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "SCH.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "SCH.02.20", "name": "Substructure", "level": 3 },
+    { "code": "SCH.02.20.10", "name": "Foundations", "level": 4 },
+    { "code": "SCH.02.20.20", "name": "Ground slab", "level": 4 },
+    { "code": "SCH.03", "name": "Superstructure & Envelope", "level": 2 },
+    { "code": "SCH.03.10", "name": "Frame & Roof", "level": 3 },
+    { "code": "SCH.03.20", "name": "External Envelope & Glazing", "level": 3 },
+    { "code": "SCH.04", "name": "Internal Finishes", "level": 2 },
+    { "code": "SCH.04.10", "name": "Partitions & Blockwork", "level": 3 },
+    { "code": "SCH.04.20", "name": "Ceilings, Flooring & Paint", "level": 3 },
+    { "code": "SCH.04.20.10", "name": "Classroom wing — typical room cycle", "level": 4 },
+    { "code": "SCH.04.20.10.10", "name": "Typical classroom finish set", "level": 5 },
+    { "code": "SCH.05", "name": "Mechanical — HVAC", "level": 2 },
+    { "code": "SCH.05.10", "name": "Ductwork & Containment", "level": 3 },
+    { "code": "SCH.05.20", "name": "AHU / Split Units — set & commission", "level": 3 },
+    { "code": "SCH.06", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "SCH.06.10", "name": "LV Distribution & Panels", "level": 3 },
+    { "code": "SCH.06.20", "name": "Classroom & General Lighting", "level": 3 },
+    { "code": "SCH.07", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "SCH.07.10", "name": "Detection & Alarm", "level": 3 },
+    { "code": "SCH.07.20", "name": "Suppression (sprinkler / hydrant)", "level": 3 },
+    { "code": "SCH.08", "name": "ELV / Security / IT-AV", "level": 2 },
+    { "code": "SCH.08.10", "name": "CCTV, Access Control & Lockdown", "level": 3 },
+    { "code": "SCH.08.20", "name": "Structured Cabling & Classroom IT/AV", "level": 3 },
+    { "code": "SCH.09", "name": "BMS Integration", "level": 2 },
+    { "code": "SCH.10", "name": "External Works & Sports Facilities", "level": 2 },
+    { "code": "SCH.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "SCH.11.10", "name": "Life-Safety Commissioning", "level": 3 },
+    { "code": "SCH.11.20", "name": "IT/AV Commissioning & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Repeated classroom/lab room types are modelled as a typical-room finishing cycle so productivity assumptions are visible and auditable, not buried in one lump activity." },
+      { "heading": "Calendars & working time", "body": "Structure and MEP rough-in run a standard single- or two-shift working week; internal finishes and IT/AV fit-out move to extended hours in the final weeks to protect the fixed term-date handover. A weather allowance sits in the civil calendar where relevant." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure weather-tight → internal finishes & MEP rough-in across classroom wings as parallel repetitive fronts → life-safety commissioning → IT/AV fit-out and sign-off, all paced by the fixed academic-term start date rather than by any single technical bottleneck." },
+      { "heading": "Key assumptions", "body": "Design freeze on classroom/lab layouts, authority (civil defence/education) approvals obtained per phase, a single mobilisation, and classroom furniture/AV free-issue coordinated with the client. Any change to the term-date handover invalidates the baseline." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones because they must land before finishes close in around them:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Classroom furniture & fixed joinery", "8–14 weeks", "Before finishes close-out"], ["AV / smartboard systems", "10–16 weeks", "Before IT/AV fit-out"], ["Kitchen / canteen equipment", "12–18 weeks", "Before canteen commissioning"], ["Specialist lab equipment (science/tech)", "14–20 weeks", "Before lab handover"], ["Playground / sports equipment", "8–12 weeks", "Before external works close-out"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Repeated classroom and lab work benefits from a typical-room cycle so finishing trades move room-to-room at a set productivity rate. Skilled finishing trades are shared across many identical rooms and are a resource constraint late in the programme; site access may be constrained on urban plots with limited laydown." },
+      { "heading": "Risks, float & contingency", "body": "The fixed term-date handover is the primary risk driver, not a technical single-point-of-failure — schedule contingency is held immediately before life-safety and IT/AV sign-off rather than spread thinly across finishing activities. Late design changes to classroom layouts and authority inspection cycles are tracked risks." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the typical-room finishing cycle and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

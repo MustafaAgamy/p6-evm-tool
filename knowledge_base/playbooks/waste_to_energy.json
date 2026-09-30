@@ -1,0 +1,116 @@
+{
+  "archetype": "waste_to_energy",
+  "schema": 2,
+  "context": "process-led · combustion & boiler islands · emissions commissioning",
+  "brief": {
+    "intro": "A waste-to-energy (WtE) plant burns municipal or industrial waste to raise steam and generate electricity. New to this type? Think of it as a small power station wrapped around a furnace: a combustion / boiler island (moving grate, furnace and boiler), a turbine-generator island, and a flue-gas treatment train that keeps emissions within permit. A waste bunker and heavy foundations are the big civil interfaces. The programme is procurement-led (long-lead boiler, turbine and grate) and its finish is gated by emissions commissioning — the plant cannot hand over until the stack meets its permit.",
+    "scope": [
+      { "name": "Enabling & heavy civil", "desc": "Earthworks, piling and heavy foundations for the boiler house, turbine and stack." },
+      { "name": "Waste bunker & tipping hall", "desc": "Deep waste-storage bunker, tipping hall and crane rails." },
+      { "name": "Boiler house structure", "desc": "Tall steel/concrete structure enclosing the combustion and boiler island." },
+      { "name": "Combustion grate & furnace", "desc": "Moving grate, furnace and refractory that burn the waste." },
+      { "name": "Boiler & steam system", "desc": "Boiler / heat-recovery, steam drum, feedwater and steam pipework." },
+      { "name": "Turbine-generator island", "desc": "Steam turbine, generator, condenser and cooling." },
+      { "name": "Flue-gas treatment", "desc": "Scrubbers, bag filters and NOx reduction (SCR/SNCR) to meet emission limits." },
+      { "name": "Ash & residue handling", "desc": "Bottom-ash and fly-ash extraction, treatment and storage." },
+      { "name": "Electrical & balance of plant", "desc": "Generator connection, HV/MV distribution, transformers and BOP power." },
+      { "name": "Controls (DCS) & CEMS", "desc": "Distributed control system and continuous emissions monitoring." },
+      { "name": "Testing & commissioning", "desc": "Hydrotest, first fire, steam blows, trial burn and emissions / performance test." }
+    ],
+    "glossary": [
+      { "term": "Grate", "plain": "the moving furnace floor that carries and burns the waste." },
+      { "term": "Bunker", "plain": "the deep pit where delivered waste is stored and mixed by crane." },
+      { "term": "Boiler / HRSG", "plain": "recovers heat from combustion to raise steam." },
+      { "term": "Flue-gas treatment", "plain": "the cleaning train (scrubbers, filters, NOx removal) before the stack." },
+      { "term": "SCR / SNCR", "plain": "two ways of reducing nitrogen-oxide (NOx) emissions." },
+      { "term": "DCS", "plain": "distributed control system — the plant's central automation." },
+      { "term": "CEMS", "plain": "continuous emissions monitoring at the stack (permit compliance)." },
+      { "term": "Trial burn", "plain": "the gated test firing on real waste that proves emissions and performance." }
+    ],
+    "must_get_right": [
+      "Boiler, turbine and grate are the long-lead drivers — order them before civil design is complete.",
+      "Heavy civil and the waste bunker are critical early works; the boiler house structure gates equipment erection.",
+      "Flue-gas treatment and CEMS must be proven before the trial burn — emissions commissioning is permit-gated.",
+      "Sequence hydrotest → first fire → steam blows → trial burn with real contingency; hot commissioning re-tests are common."
+    ]
+  },
+  "components": [
+    { "name": "Combustion & boiler island", "desc": "Grate · furnace · boiler · steam", "disc": "Mechanical", "primary": true },
+    { "name": "Turbine-generator", "desc": "Steam turbine · generator · condenser", "disc": "Mechanical", "primary": true },
+    { "name": "Flue-gas treatment", "desc": "Scrubber · bag filter · SCR/SNCR", "disc": "Process", "primary": true },
+    { "name": "Waste handling & bunker", "desc": "Tipping hall · bunker · cranes", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical & BOP", "desc": "Generator connection · HV/MV · transformers", "disc": "Electrical", "primary": true },
+    { "name": "DCS & CEMS", "desc": "Controls · emissions monitoring", "disc": "Instrumentation", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process", "items": ["Grate, furnace & refractory", "Boiler, steam drum & feedwater", "Steam turbine, generator & condenser", "Flue-gas treatment train (scrubber, bag filter, SCR/SNCR)", "Ash extraction & handling; overhead cranes"] },
+    { "discipline": "Electrical", "items": ["Generator connection & synchronising", "HV/MV switchgear & transformers", "Balance-of-plant power & MCCs", "Earthing, lightning & standby power"] },
+    { "discipline": "Controls & Instrumentation", "items": ["Distributed control system (DCS)", "Field instrumentation & combustion control", "Continuous emissions monitoring (CEMS)"] }
+  ],
+  "overview_phases": ["Eng & Procurement", "Heavy civil & bunker", "Boiler/turbine structure", "Equipment erection", "Piping & electrical", "Pre-commissioning", "Commissioning & trial burn"],
+  "sequence_chart": {
+    "phases": ["Procure", "Civil", "Structure", "Erect", "Pipe/Elec", "Pre-comm", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 44, "label": "Piling → foundations → bunker → boiler house", "holds": [20] },
+      { "trade": "Mechanical / Process", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 60, "label": "Erect grate/boiler/turbine → flue-gas → pipe", "holds": [50, 74] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 46, "width": 42, "label": "HV/MV → generator → BOP → terminate", "holds": [] },
+      { "trade": "Controls & Instr.", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 56, "width": 38, "label": "DCS → instruments → CEMS → integrate", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Hydro → first fire → trial burn", "holds": [82] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Structural", "kind": ["civil"], "holds": [1], "steps": ["Enabling & piling", "Heavy foundations", "Waste bunker & tipping hall", "Boiler house & turbine hall structure", "Stack foundation & shell", "Buildings weather-tight"] },
+    { "name": "Mechanical / Process", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 6], "steps": ["Long-lead procurement (boiler, turbine, grate)", "Erect grate & furnace", "Boiler & pressure parts", "Steam turbine & generator set", "Flue-gas treatment train", "Steam / feedwater pipework", "Hydrotest & steam blows"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["HV/MV switchgear & transformers", "Generator connection", "Balance-of-plant power & MCCs", "Cabling & terminate", "Energise & synchronise"] },
+    { "name": "Controls & Instrumentation", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [3], "steps": ["DCS cabinets & network", "Field instrumentation", "Combustion & steam control loops", "CEMS install", "Integrated staging test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["Cold pre-commissioning", "Hydrotest & steam blows", "First fire (support fuel)", "Trial burn on waste", "Emissions & performance test", "Reliability run & handover"] }
+  ],
+  "wbs": [
+    { "code": "WTE", "name": "Waste-to-Energy Plant — Project", "level": 1 },
+    { "code": "WTE.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "WTE.02", "name": "Enabling & Heavy Civil", "level": 2 },
+    { "code": "WTE.02.10", "name": "Piling & foundations", "level": 3 },
+    { "code": "WTE.02.20", "name": "Waste bunker & tipping hall", "level": 3 },
+    { "code": "WTE.03", "name": "Boiler House & Structures", "level": 2 },
+    { "code": "WTE.04", "name": "Combustion & Boiler Island", "level": 2 },
+    { "code": "WTE.04.10", "name": "Grate & furnace", "level": 3 },
+    { "code": "WTE.04.10.10", "name": "Erect & align grate", "level": 4 },
+    { "code": "WTE.04.20", "name": "Boiler & pressure parts", "level": 3 },
+    { "code": "WTE.04.20.10", "name": "Boiler erection", "level": 4 },
+    { "code": "WTE.04.20.20", "name": "Hydrotest", "level": 4 },
+    { "code": "WTE.05", "name": "Turbine-Generator Island", "level": 2 },
+    { "code": "WTE.05.10", "name": "Turbine & generator set", "level": 3 },
+    { "code": "WTE.05.20", "name": "Condenser & cooling", "level": 3 },
+    { "code": "WTE.06", "name": "Flue-Gas Treatment", "level": 2 },
+    { "code": "WTE.07", "name": "Ash & Residue Handling", "level": 2 },
+    { "code": "WTE.08", "name": "Electrical & Balance of Plant", "level": 2 },
+    { "code": "WTE.08.10", "name": "HV/MV & transformers", "level": 3 },
+    { "code": "WTE.08.20", "name": "Generator connection", "level": 3 },
+    { "code": "WTE.09", "name": "DCS, Controls & CEMS", "level": 2 },
+    { "code": "WTE.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "WTE.10.10", "name": "Cold pre-commissioning", "level": 3 },
+    { "code": "WTE.10.20", "name": "First fire & steam blows", "level": 3 },
+    { "code": "WTE.10.30", "name": "Trial burn & emissions test", "level": 3 },
+    { "code": "WTE.10.40", "name": "Reliability run & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network in Primavera P6, developed to a Level 3 control schedule with retained-logic progress and calculated by F9; total float kept ≥ 0 in the baseline. Discipline sub-networks (civil, mechanical, electrical, C&I) integrate at the equipment-erection and commissioning interfaces." },
+      { "heading": "Calendars & working time", "body": "Construction on a 6-day week; heavy-lift and outage windows planned discretely; commissioning on a 7-day calendar. Weather allowance in the piling / foundation phase." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead procurement → heavy civil & boiler house → boiler / turbine erection → hydrotest → electrical energisation → first fire → trial burn → handover. Procurement and hot commissioning, not the building, own the critical path." },
+      { "heading": "Key assumptions", "body": "Environmental permit and a secured waste-supply contract are in place; a single mobilisation; free-issue of no major equipment; and refractory dry-out and steam-blow windows are available when required." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led — the following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Boiler / pressure parts", "50–72 weeks", "Before boiler erection"], ["Steam turbine & generator", "45–65 weeks", "Before turbine hall close-out"], ["Combustion grate", "40–56 weeks", "Before furnace erection"], ["Flue-gas treatment package", "36–52 weeks", "Before pre-commissioning"], ["Overhead cranes", "30–44 weeks", "Before bunker fit-out"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Very heavy lifts (boiler modules, turbine, transformers) need crane windows and clear laydown; tall-structure and confined boiler working; specialist hot-commissioning resources shared across systems late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead equipment slippage, emissions non-compliance at trial burn, and hot-commissioning re-test loops. Contingency is held before first fire and before the emissions / performance test." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client, controlled at Level 3, expanded to a Level 4–5 field lookahead — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

@@ -253,6 +253,9 @@
         </div><!-- /analysis-views -->
       </section>
 
+      <!-- Productivity & Resource Intelligence — its own sidebar page (standalone KB), rendered by prodintel.js -->
+      <section class="prodintel-section hidden" id="prodintel-section"></section>
+
       <!-- Recent projects — its own sidebar page, hidden until opened (Decision 010) -->
       <section class="recent-section hidden" id="recent-section">
         <div class="kb-head">
@@ -277,34 +280,8 @@
         </div>
       </section>
 
-      <!-- Knowledge Base — one place for knowledge projects + reference standards + baselines -->
-      <section class="kb-section hidden" id="kb-database-section">
-        <div class="kb-head">
-          <div class="section-label">Knowledge Base</div>
-          <div class="kb-subtitle">Your knowledge projects — real schedules that grow the tool's supporting intelligence
-            (sequencing patterns, provenance). Add a project explicitly; analysis imports are never added automatically.
-            <span class="kb-eps-badge">Local &amp; private · <span id="db-total">…</span></span></div>
-        </div>
-
-        <div class="kbp-toolbar">
-          <span class="kbp-count" id="kbp-count">Knowledge Base…</span>
-          <button class="btn-primary" id="kbp-addxer">＋ Add Project XER</button>
-          <button class="btn-secondary" id="kbp-export">⬇ Export Knowledge</button>
-          <button class="btn-secondary" id="kbp-import">⬆ Import Knowledge</button>
-          <span class="kbp-note">Supporting knowledge only · generalized &amp; project-agnostic · never creates a finding</span>
-        </div>
-        <div class="kbp-tablewrap"><table class="kbp-table" id="kbp-table"></table></div>
-
-        <div class="kb-subhead">Project types <span class="n">reference standard · example baselines · your schedules</span></div>
-        <div class="kb-grid">
-          <aside class="kb-eps">
-            <input class="kb-search" id="db-search" placeholder="🔍  Filter project types…" aria-label="Filter project types">
-            <p class="kb-hint">Each type opens to its <b>reference standard</b>, <b>generated examples</b>, and any <b>schedules you've added</b>. Nothing leaves your PC.</p>
-            <div id="db-tree"></div>
-          </aside>
-          <main class="kb-detailwrap"><div id="db-detail"></div></main>
-        </div>
-      </section>
+      <!-- Knowledge Base — Project Type Playbooks (browsable, reference-first) -->
+      <section class="kb-section hidden" id="kb-playbooks-section"></section>
 
     </main>
   </div>

@@ -7,22 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Added — Tool-wide enhancement, part 1: one report picker and one-document exports
-- **Two-level Report Contents picker.** The print preview now lists each report's sections and, inside them, each table, chart and KPI group. Untick any part and it is left out of the report entirely. Sections can be reordered by dragging, and the choice is remembered per feature.
-- **PDF, Word, HTML and Excel from the same preview.** All four are made from the one report you see, so they carry the same sections, tables and numbers. Earned Value and P6 Calendar Audit have all four now; the other features follow in the next parts.
-- **Word and Excel always use the standard light style**, whatever Appearance mode is chosen. The screen and the PDF still follow the mode.
-- **File ▸ Export to Word / Export to HTML** (Ctrl+Shift+W / Ctrl+Shift+H) open the report preview and save from its export bar.
-
-### Added — Earned Value: engineering log in any format
-- **The E1 / E2 engineering log is read by its content, not its exact layout.** Column names, heading rows, two-row headings, discipline sheets, text dates, duplicate "Type" columns and code legends (A/B/C/D/W, Code 1–4, or words) are recognised automatically.
-- **"Check how the log was read" panel.** Before counting, the tool shows which column it read as what and how sure it is, plus the review codes it found. You can change any of them, then press **Confirm and count**. A confirmed layout is remembered for the next log of the same kind.
-- **Counting rules:** each drawing counts once. Approved at any revision stays approved. Otherwise the latest revision decides, so a drawing rejected and then resubmitted counts as under review and submitted. Approved = A, B, Code 1, Code 2, "approved as noted", "no objection"; Not approved = C, D, Code 3, Code 4, "revise and resubmit", "rejected"; Under review = W, P, pending, or submitted with no reply yet. Statuses such as "Under preparation" or "Not submitted" are not counted as sent.
-
-### Added — Shortcuts, Help and contacts
-- **31 keyboard shortcuts** (was 10), including Alt+1…9 to jump to features, **Ctrl+K** to search any feature or command, Ctrl+Shift+W / H / E for Word / HTML / Excel, F1 for Help, and next / previous feature. Shortcuts are shown beside the menu items and in Help.
-- **Help ▸ Feature guide: what each feature needs** — the files (how many, XER or XML, baseline or update) and other inputs for every feature, also shown as a "Needs:" hint in the Analysis menu and the navigator.
-- **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
-- The version shown in Help and About now comes from one place: it is read from the newest release in this changelog, so it can no longer show an old number (it said 2.2.0 while the release was 2.8.0).
+### Changed — Help, the version shown and the release check
+- **The version shown in Help and About is read from the newest release in this changelog**, so there is no second number to update and it can never drift from the released version.
 - Help ▸ Getting started now says "P6 XML or XER export".
 - The release build now stops if the version being released has no matching section at the top of this changelog, so the app can never ship showing an old version number.
 
@@ -116,6 +102,40 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Fixed
 - **PDF exports could fail on some computers.** The tool used to pick a browser to print with that, on some PCs, cannot start at all ("side-by-side configuration is incorrect"), and it did not try another one. It now checks which browser can really print (Google Chrome first, then Microsoft Edge, then a spare built-in one), remembers the one that works, and moves on to the next if one fails. This applies to every PDF in the tool and to the pictures inside Word exports. If a PDF you are replacing is still open in another program, you now get a message asking you to close it, and the old file is never passed off as the new one.
+
+## [v2.9.1] - 2026-09-29
+
+### Fixed — Productivity & Resources opens again
+- **Library ▸ Productivity & Resources (and Tools ▸ Productivity & Resources) showed nothing** — the page, with its productivity rates, crews, man-hours and duration estimate, never appeared. It opens again with all 151 work items. The page was lost from the app window in an earlier update; the calculations themselves were unaffected.
+
+## [v2.9.0] - 2026-09-29
+
+### Changed — Knowledge Base is now Construction Project Knowledge (Project Type Playbooks)
+- **Navigator ▸ Library ▸ Knowledge Base (and Tools ▸ Knowledge Base) opens the new Playbooks page**, which replaces the previous Knowledge Base page. There is one playbook for each of **77 project types**, covering the brief and components, MEP systems, the construction sequence by trade (with a Focus filter), a suggested WBS in P6 tree style, and the Basis of Planning.
+- **Exports:** the playbook as PDF, the suggested WBS as Excel, and a **baseline XER** per project type (a detailed baseline with 1000+ activities, or a skeleton).
+- **Removed:** the previous Knowledge Base page (knowledge projects table, reference-standard tree and example baselines) and the **Constructability** entry in the navigator.
+
+### Fixed — The app opens even with a damaged database
+- A corrupt or locked `controlyx.db` no longer stops the app from starting. Saving to the database is switched off for that session; the Knowledge Base and the analysis screens still work.
+
+### Added — Tool-wide enhancement, part 1: one report picker and one-document exports
+- **Two-level Report Contents picker.** The print preview now lists each report's sections and, inside them, each table, chart and KPI group. Untick any part and it is left out of the report entirely. Sections can be reordered by dragging, and the choice is remembered per feature.
+- **PDF, Word, HTML and Excel from the same preview.** All four are made from the one report you see, so they carry the same sections, tables and numbers. Earned Value and P6 Calendar Audit have all four now; the other features follow in the next parts.
+- **Word and Excel always use the standard light style**, whatever Appearance mode is chosen. The screen and the PDF still follow the mode.
+- **File ▸ Export to Word / Export to HTML** (Ctrl+Shift+W / Ctrl+Shift+H) open the report preview and save from its export bar.
+
+### Added — Earned Value: engineering log in any format
+- **The E1 / E2 engineering log is read by its content, not its exact layout.** Column names, heading rows, two-row headings, discipline sheets, text dates, duplicate "Type" columns and code legends (A/B/C/D/W, Code 1–4, or words) are recognised automatically.
+- **"Check how the log was read" panel.** Before counting, the tool shows which column it read as what and how sure it is, plus the review codes it found. You can change any of them, then press **Confirm and count**. A confirmed layout is remembered for the next log of the same kind.
+- **Counting rules:** each drawing counts once. Approved at any revision stays approved. Otherwise the latest revision decides, so a drawing rejected and then resubmitted counts as under review and submitted. Approved = A, B, Code 1, Code 2, "approved as noted", "no objection"; Not approved = C, D, Code 3, Code 4, "revise and resubmit", "rejected"; Under review = W, P, pending, or submitted with no reply yet. Statuses such as "Under preparation" or "Not submitted" are not counted as sent.
+
+### Added — Shortcuts, Help and contacts
+- **31 keyboard shortcuts** (was 10), including Alt+1…9 to jump to features, **Ctrl+K** to search any feature or command, Ctrl+Shift+W / H / E for Word / HTML / Excel, F1 for Help, and next / previous feature. Shortcuts are shown beside the menu items and in Help.
+- **Help ▸ Feature guide: what each feature needs** — the files (how many, XER or XML, baseline or update) and other inputs for every feature, also shown as a "Needs:" hint in the Analysis menu and the navigator.
+- **Mostafa Agamy's LinkedIn** in Help ▸ Contact & support and About; links open in your web browser.
+- The version shown in Help and About now comes from one place.
+
+### Fixed
 - Reporting Studio: the Excel export failed, and File ▸ Export to Excel / Print / Export to HTML went to the wrong place.
 - Overview, WBS, Narrative and Productivity PDFs and prints could come out blank.
 - File ▸ Print on Schedule (Gantt) now says it has an Excel export only.

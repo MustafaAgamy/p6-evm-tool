@@ -1,0 +1,125 @@
+{
+  "archetype": "gas_processing_plant",
+  "schema": 2,
+  "context": "procurement- & hot-commissioning-led · separation, compression & treatment trains",
+  "brief": {
+    "intro": "A gas processing plant takes raw wellhead gas and, through a chain of separation, compression, dehydration and treatment equipment, turns it into a saleable, on-spec product. The programme is dominated not by buildings — there mostly aren't any — but by heavy rotating equipment (compressors, pumps) and the process piping that connects vessels, and by a long, careful pre-commissioning and start-up sequence that must happen in the right order before hydrocarbon is ever introduced. Long-lead equipment ordering starts almost on day one, because compressors and major vessels can take the better part of a year to arrive; the pipe-rack and equipment foundations exist mainly to receive them. The back end of the schedule belongs to the commissioning team: purge and dry-out, pressure testing, and a staged, safety-gated introduction of gas that cannot be rushed.",
+    "scope": [
+      { "name": "Enabling & site civil works", "desc": "Earthworks, roads, drainage, hazardous-area grading." },
+      { "name": "Equipment foundations & pipe racks", "desc": "Heavy foundations for vessels and compressors, plus pipe-rack and sleeper foundations." },
+      { "name": "Structural steel", "desc": "Pipe racks, equipment support steel, pipe bridges." },
+      { "name": "Process equipment & vessels", "desc": "Separators, compressors, dehydration units and treatment packages." },
+      { "name": "Process piping & spool fabrication", "desc": "The piping network connecting all process equipment, largely pre-fabricated as spools." },
+      { "name": "Rotating equipment", "desc": "Compressors and pumps — set, aligned and run-in before proving." },
+      { "name": "Electrical power", "desc": "Generation/distribution to drive compressors and plant loads." },
+      { "name": "Instrumentation & SIS/ESD", "desc": "Field instruments, the safety instrumented system and emergency shutdown logic." },
+      { "name": "Fire & gas protection", "desc": "Firewater ring main, deluge systems and gas detection." },
+      { "name": "Pre-commissioning & start-up", "desc": "Purge/dry-out, leak testing, staged introduction of gas and first-gas performance test." }
+    ],
+    "glossary": [
+      { "term": "Mechanical completion (MC)", "plain": "construction is physically finished and checked, system by system, ready for pre-commissioning." },
+      { "term": "Pre-commissioning", "plain": "getting a system clean, dry and tested — ready to receive process fluid — before hydrocarbon is introduced." },
+      { "term": "Hydrotest", "plain": "pressure-testing piping with water to prove it holds pressure safely." },
+      { "term": "Purge / dry-out", "plain": "removing air and moisture from a system with nitrogen before introducing gas." },
+      { "term": "SIS / ESD", "plain": "the safety instrumented system and emergency shutdown logic that protects the plant automatically." },
+      { "term": "Loop check", "plain": "proving an instrument signal travels correctly from the field to the control system." },
+      { "term": "First gas / start-up", "plain": "the staged, safety-gated introduction of process gas that marks plant start-up." },
+      { "term": "Skid-mounted package", "plain": "pre-built equipment modules (e.g. dehydration units) delivered largely complete to reduce site work." }
+    ],
+    "must_get_right": [
+      "Order the long-lead rotating equipment and major vessels immediately — their delivery drives the whole programme, and the site work exists largely to receive them on time.",
+      "Commissioning is system/subsystem-based, not area-based — mechanical completion, loop checks and pre-commissioning follow process-system boundaries, not the construction sequence.",
+      "Protect the pre-commissioning and start-up window — purge/dry-out, leak testing and SIS/ESD proving cannot be compressed, and rework here costs disproportionate time.",
+      "Firewater and gas detection are safety-critical gating systems, not general MEP — they must be proven before hydrocarbon introduction, not treated as a follow-on trade."
+    ]
+  },
+  "components": [
+    { "name": "Process Equipment & Vessels", "desc": "Separators · compressors · dehydration/treatment packages", "disc": "Process", "primary": true },
+    { "name": "Process Piping", "desc": "Interconnecting piping · pipe spools · pipe racks", "disc": "Piping", "primary": true },
+    { "name": "Rotating Equipment", "desc": "Compressors · pumps · alignment & run-in", "disc": "Mechanical", "primary": true },
+    { "name": "Instrumentation & SIS/ESD", "desc": "Field instruments · safety & shutdown system", "disc": "Instrumentation", "primary": true },
+    { "name": "Electrical Power", "desc": "Generation/distribution to plant & compressor drives", "disc": "Electrical", "primary": false },
+    { "name": "Fire & Gas Protection", "desc": "Firewater ring · deluge · gas detection", "disc": "Fire Protection", "primary": false },
+    { "name": "Pre-Commissioning & Start-up", "desc": "Purge/dry-out · leak test · first gas", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process", "items": ["Process piping & pipe spool fabrication", "Rotating equipment — compressors, pumps", "Skid-mounted process packages (dehydration, treatment)", "Insulation & heat-tracing"] },
+    { "discipline": "Electrical", "items": ["Power generation/distribution to compressor drives", "Hazardous-area electrical & earthing", "Motor control centres & VSDs"] },
+    { "discipline": "Instrumentation & Safety", "items": ["Field instrumentation & control loops", "SIS / ESD — safety instrumented & shutdown system", "Fire & gas detection"] },
+    { "discipline": "Fire Protection", "items": ["Firewater ring main & deluge systems", "Foam systems (where applicable)", "Passive fire protection (fireproofing) on structural steel & vessel skirts"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Pipe Racks", "Structural Steel", "Equipment Set", "Piping & Rotating Equipment", "Electrical & Instrumentation", "Pre-Commissioning", "Start-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundns", "Steel", "Equip set", "Pipe/rotate", "E&I", "Start-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Earthworks → equipment & pipe-rack foundations → steel", "holds": [16] },
+      { "trade": "Process Piping & Equipment", "disc": "Piping", "kind": ["mechanical"], "start": 20, "width": 56, "label": "Set vessels/compressors → spool & pipe → hydrotest", "holds": [50, 70] },
+      { "trade": "Rotating Equipment", "disc": "Mechanical", "kind": ["mechanical"], "start": 34, "width": 40, "label": "Set compressors/pumps → align → run-in", "holds": [60] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical / Instrumentation", "kind": ["electrical", "elv"], "start": 30, "width": 48, "label": "Power & cabling → field instruments → SIS/ESD loop check", "holds": [64] },
+      { "trade": "Fire & Gas", "disc": "Fire Protection", "kind": ["fire"], "start": 44, "width": 30, "label": "Firewater ring → deluge → gas detection test", "holds": [] },
+      { "trade": "Pre-Commissioning & Start-up", "disc": "Commissioning", "kind": ["comm"], "start": 74, "width": 26, "label": "Purge/dry-out → leak test → first gas", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Underground process/firewater/drainage networks", "Equipment & pipe-rack foundations", "Structural steel — pipe racks & pipe bridges", "Hazardous-area paving & grading"] },
+    { "name": "Process Equipment & Vessels", "disc": "Process", "kind": ["mechanical"], "holds": [1], "steps": ["Long-lead procurement — compressors, vessels, packages", "Equipment delivery & heavy-lift set", "Alignment & levelling", "Insulation / heat-tracing", "Mechanical completion sign-off"] },
+    { "name": "Process Piping", "disc": "Piping", "kind": ["mechanical"], "holds": [1, 4], "steps": ["Pipe spool fabrication", "Field erection & tie-ins", "Hydrotest & reinstatement", "Flushing & N2 purge", "Insulation / coating"] },
+    { "name": "Rotating Equipment", "disc": "Mechanical", "kind": ["mechanical"], "holds": [3], "steps": ["Foundation & baseplate grouting", "Set compressors & pumps", "Alignment & coupling", "No-load run-in", "Vibration & performance proving"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [2], "steps": ["Power distribution & motor control centres", "Containment & cable routing", "Hazardous-area cabling & earthing", "Point-to-point & insulation testing", "Energisation"] },
+    { "name": "Instrumentation & SIS/ESD", "disc": "Instrumentation", "kind": ["elv"], "holds": [3], "steps": ["Field instrument install", "Junction box & cable termination", "Loop check / point-to-point", "SIS/ESD logic & cause-effect proving", "Control system integration"] },
+    { "name": "Fire & Gas Protection", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire pump house & tank installation", "Firewater ring main install", "Deluge system install", "Gas detection install", "Functional & cause-effect test"] },
+    { "name": "Pre-Commissioning & Start-up", "disc": "Commissioning", "kind": ["comm"], "holds": [3], "steps": ["System-by-system mechanical completion", "Purge / dry-out (N2)", "Leak test", "SIS/ESD proving", "Staged introduction of gas", "First gas → performance test"] }
+  ],
+  "wbs": [
+    { "code": "GP", "name": "Gas Processing Plant — Project", "level": 1 },
+    { "code": "GP.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "GP.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "GP.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "GP.02.20", "name": "Underground Networks (process/firewater/drainage)", "level": 3 },
+    { "code": "GP.03", "name": "Equipment Foundations & Pipe Racks", "level": 2 },
+    { "code": "GP.03.10", "name": "Heavy equipment foundations", "level": 3 },
+    { "code": "GP.03.20", "name": "Pipe-rack & sleeper foundations", "level": 3 },
+    { "code": "GP.04", "name": "Structural Steel", "level": 2 },
+    { "code": "GP.05", "name": "Process Equipment & Vessels", "level": 2 },
+    { "code": "GP.05.10", "name": "Separation train", "level": 3 },
+    { "code": "GP.05.20", "name": "Compression train", "level": 3 },
+    { "code": "GP.05.20.10", "name": "Compressor set & alignment", "level": 4 },
+    { "code": "GP.05.20.10.10", "name": "Coupling & baseplate grouting", "level": 5 },
+    { "code": "GP.05.20.10.10.10", "name": "Vibration & performance proving", "level": 6 },
+    { "code": "GP.05.30", "name": "Dehydration / treatment packages", "level": 3 },
+    { "code": "GP.06", "name": "Process Piping", "level": 2 },
+    { "code": "GP.06.10", "name": "Pipe spool fabrication", "level": 3 },
+    { "code": "GP.06.20", "name": "Field erection & tie-ins", "level": 3 },
+    { "code": "GP.06.20.10", "name": "Hydrotest & reinstatement", "level": 4 },
+    { "code": "GP.07", "name": "Rotating Equipment", "level": 2 },
+    { "code": "GP.08", "name": "Electrical Power", "level": 2 },
+    { "code": "GP.09", "name": "Instrumentation & SIS/ESD", "level": 2 },
+    { "code": "GP.09.10", "name": "Field instrumentation & loop checks", "level": 3 },
+    { "code": "GP.09.20", "name": "SIS/ESD logic & cause-effect proving", "level": 3 },
+    { "code": "GP.10", "name": "Fire & Gas Protection", "level": 2 },
+    { "code": "GP.11", "name": "Pre-Commissioning & Start-up", "level": 2 },
+    { "code": "GP.11.10", "name": "Mechanical completion by system", "level": 3 },
+    { "code": "GP.11.20", "name": "Purge / dry-out & leak test", "level": 3 },
+    { "code": "GP.11.30", "name": "First gas & performance test", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; piping and rotating-equipment installation move to two shifts at peak to protect the mechanical-completion date; pre-commissioning and start-up run a 7-day calendar with dedicated commissioning crews per system." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead equipment procurement → foundations & pipe racks → equipment set → piping tie-in & hydrotest → rotating-equipment run-in → SIS/ESD proving → purge/dry-out → staged introduction of gas → performance test. Civil and structural steel are not on the critical path once foundations and pipe racks are ready to receive equipment." },
+      { "heading": "Key assumptions", "body": "Process design (P&IDs, equipment data sheets) is frozen before procurement; the client's utility tie-ins (power, instrument air, N2) are available for pre-commissioning; a single mobilisation; no free-issue equipment substitutions after order. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led — the following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Compressors (centrifugal/reciprocating)", "40–60 weeks", "Before equipment set"], ["Major process vessels / separators", "30–45 weeks", "Before piping tie-in"], ["Heat exchangers / dehydration packages", "24–36 weeks", "Before piping tie-in"], ["MCC / switchgear", "24–32 weeks", "Before energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (compressors, vessels) require crane windows, clear laydown and, often, a temporary heavy-haul road; hazardous-area works require permit-controlled access; skilled commissioning resources (rotating-equipment specialists, SIS/ESD engineers) are shared across systems and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead equipment slippage, rework from a failed hydrotest or SIS/ESD proving, and re-test loops before first gas. Schedule contingency is held immediately before purge/dry-out and before first gas rather than spread thinly across construction activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

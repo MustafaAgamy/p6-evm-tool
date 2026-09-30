@@ -1,0 +1,123 @@
+{
+  "archetype": "industrial_factory",
+  "schema": 2,
+  "context": "procurement & structural-steel led · heavy-machine foundations drive the critical path; commissioning is a line-by-line ramp",
+  "brief": {
+    "intro": "A heavy industrial factory or process plant is a production building built around heavy machines — presses, furnaces, mixers, mills — and the material-handling systems (conveyors, cranes) that tie them into a line. Unlike a light assembly plant, the equipment here is heavy and vibration-sensitive, so it needs isolated foundations designed for load and dynamics, not just a level slab. The programme is procurement-led: heavy equipment and structural-steel packages carry long lead times and drive the critical path more than the building envelope does. Utilities — power, compressed air, cooling water, sometimes steam — must be proven before any line can be energised. Commissioning does not happen in one event; it runs line-by-line, ending in a no-load then loaded production ramp.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, access roads, utility-corridor trenching, laydown and hardstand areas." },
+      { "name": "Structure & shell", "desc": "Heavy machine/press foundations, structural-steel frame (portal frames, mezzanines, crane rails), envelope." },
+      { "name": "Heavy equipment & process lines", "desc": "Procurement, fabrication and installation of production machines, process equipment and packaged skids." },
+      { "name": "Material handling", "desc": "Conveyors, overhead cranes, hoists and AGVs linking process stages." },
+      { "name": "Electrical power & utilities", "desc": "MV/LV distribution, motor control centres, compressed air, process/utility piping, steam where required." },
+      { "name": "Instrumentation & controls", "desc": "PLC/SCADA field devices, interlocks, MES integration." },
+      { "name": "Fire, life-safety & ELV", "desc": "Detection, suppression, dust-explosion protection where applicable, structured cabling." },
+      { "name": "Mechanical services", "desc": "HVAC for occupied/process areas, dust and fume extraction." },
+      { "name": "Testing & commissioning", "desc": "FAT/SAT of individual machines, utility proving, line integration, no-load then loaded production ramp." }
+    ],
+    "glossary": [
+      { "term": "FAT / SAT", "plain": "Factory Acceptance Test at the vendor's works, then a Site Acceptance Test after the machine is installed." },
+      { "term": "No-load / loaded run", "plain": "first running equipment empty to prove the mechanics, then with real product to prove output." },
+      { "term": "Isolation / inertia block", "plain": "a heavy, separate foundation block that stops a machine's vibration reaching the rest of the structure." },
+      { "term": "Skid / packaged unit", "plain": "a piece of equipment pre-assembled off-site (e.g. a compressor or dosing unit) delivered as one lift." },
+      { "term": "Interlock", "plain": "safety/process logic that stops one machine unless another is in the right state — e.g. a conveyor won't run unless the downstream bin isn't full." },
+      { "term": "MES", "plain": "the software layer that tracks production and talks to the machine controllers (PLCs)." },
+      { "term": "Line-speed proving", "plain": "running the line at target throughput to confirm it actually hits the design production rate." }
+    ],
+    "must_get_right": [
+      "Sequence heavy foundations and structural steel ahead of machine delivery — machines cannot be set on unfinished floors or foundations.",
+      "Treat utility readiness (power, air, cooling) as a gating milestone before any line energisation, not a background task.",
+      "Plan commissioning line-by-line — FAT → SAT → line integration → ramp per line, staggered, not one building-wide event.",
+      "Protect a genuine no-load-to-loaded ramp window at the end — first-run issues are common and re-tests eat float."
+    ]
+  },
+  "components": [
+    { "name": "Structural Steel & Foundations", "desc": "Portal frames · crane rails · heavy machine/press bases", "disc": "Structural", "primary": true },
+    { "name": "Process & Production Equipment", "desc": "Presses · furnaces · mixers · mills · process lines", "disc": "Mechanical", "primary": true },
+    { "name": "Material Handling", "desc": "Conveyors · cranes · hoists · AGVs", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & Utilities", "desc": "MV/LV distribution · MCC · compressed air · process piping", "disc": "Electrical", "primary": true },
+    { "name": "Instrumentation & Controls", "disc": "Instrumentation", "desc": "PLC/SCADA · interlocks · MES", "primary": false },
+    { "name": "Fire & Life Safety", "desc": "Detection · suppression · dust-explosion protection where applicable", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "FAT/SAT · line integration · production ramp", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Process & production equipment — set & align", "Material handling — conveyors, cranes, hoists", "Compressed air & utility piping", "HVAC / dust & fume extraction"] },
+    { "discipline": "Electrical", "items": ["MV/LV switchgear & distribution", "Motor control centres (MCC) & VSDs", "Lighting & earthing", "Standby power where required"] },
+    { "discipline": "Instrumentation & Controls", "items": ["PLC / SCADA field devices", "Sensors & interlocks", "MES integration"] },
+    { "discipline": "Fire & Life Safety", "items": ["Fire detection & alarm", "Suppression system", "Dust-explosion protection (where combustible dust is present)"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structure & Steel", "Heavy Equipment Set", "Material Handling Install", "Utilities & MEP", "Controls Integration", "Commissioning & Ramp-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Equip. Set", "Handling", "Utilities", "Integrate", "Ramp-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → foundations → steel frame", "holds": [14] },
+      { "trade": "Process & Production Equipment", "disc": "Mechanical", "kind": ["mechanical"], "start": 18, "width": 55, "label": "Set machines → align → FAT/SAT", "holds": [30, 60] },
+      { "trade": "Electrical & Utilities", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 60, "label": "Distribution → MCC → terminate to machines", "holds": [50] },
+      { "trade": "Material Handling", "disc": "Mechanical", "kind": ["mechanical"], "start": 32, "width": 44, "label": "Conveyors/cranes → no-load run", "holds": [58] },
+      { "trade": "Instrumentation / Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "start": 44, "width": 36, "label": "Field devices → PLC → interlocks", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 70, "width": 30, "label": "Utility proving → line integration → ramp-up", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1], "steps": ["Site clearance & earthworks", "Utility-corridor trenching", "Heavy machine & press foundations", "Production-floor slab", "Structural steel frame & crane rails", "Roof & envelope"] },
+    { "name": "Process & Production Equipment", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 3], "steps": ["Long-lead procurement — presses / furnaces / mills / process lines", "Foundation & anchor-bolt setting", "Set & align equipment", "Piping & utility connections", "FAT witnessed at vendor works", "SAT after installation"] },
+    { "name": "Material Handling", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Conveyor structure & gallery", "Install conveyors / cranes / hoists", "Drives & interlocked guarding", "No-load run & tracking test"] },
+    { "name": "Electrical Power & Utilities", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Long-lead procurement — switchgear, MCC, transformers", "Containment routes & cable pull", "Set switchgear / MCC / transformers", "Terminate power to machines & handling", "Point-to-point & insulation testing", "Energise & prove utilities before line start"] },
+    { "name": "Instrumentation & Controls", "disc": "Instrumentation", "kind": ["elv", "bms"], "holds": [2], "steps": ["Field devices & sensors", "I/O wiring & panel termination", "PLC / SCADA configuration", "Interlock & sequence testing", "MES integration"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [1], "steps": ["Detection & alarm rough-in", "Suppression / dust-explosion protection", "Cause-and-effect test", "Fire system handover"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Individual machine FAT-to-SAT", "Utility readiness proving", "Line/cell integration test", "No-load production run", "Loaded ramp-up & line-speed proving", "Reliability run → handover"] }
+  ],
+  "wbs": [
+    { "code": "IF", "name": "Heavy Industrial Factory — Project", "level": 1 },
+    { "code": "IF.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "IF.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "IF.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "IF.02.20", "name": "Substructure & Heavy Foundations", "level": 3 },
+    { "code": "IF.02.20.10", "name": "Machine / press foundations & inertia blocks", "level": 4 },
+    { "code": "IF.02.20.20", "name": "Production-floor slab", "level": 4 },
+    { "code": "IF.03", "name": "Structural Steel", "level": 2 },
+    { "code": "IF.03.10", "name": "Portal frames & mezzanines", "level": 3 },
+    { "code": "IF.03.20", "name": "Crane rails & runway beams", "level": 3 },
+    { "code": "IF.04", "name": "Building Envelope", "level": 2 },
+    { "code": "IF.05", "name": "Process & Production Equipment", "level": 2 },
+    { "code": "IF.05.10", "name": "Equipment procurement & fabrication", "level": 3 },
+    { "code": "IF.05.20", "name": "Equipment set & alignment", "level": 3 },
+    { "code": "IF.05.20.10", "name": "Anchor-bolt setting & grouting", "level": 4 },
+    { "code": "IF.06", "name": "Material Handling", "level": 2 },
+    { "code": "IF.06.10", "name": "Conveyors, cranes & hoists", "level": 3 },
+    { "code": "IF.06.10.10", "name": "Install & no-load run", "level": 4 },
+    { "code": "IF.07", "name": "Electrical Power & Utilities", "level": 2 },
+    { "code": "IF.07.10", "name": "MV/LV distribution & MCC", "level": 3 },
+    { "code": "IF.07.20", "name": "Compressed air & utility piping", "level": 3 },
+    { "code": "IF.07.30", "name": "Cable containment & termination", "level": 3 },
+    { "code": "IF.08", "name": "Instrumentation & Controls", "level": 2 },
+    { "code": "IF.08.10", "name": "PLC/SCADA, interlocks & MES", "level": 3 },
+    { "code": "IF.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "IF.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "IF.10.10", "name": "Machine FAT / SAT", "level": 3 },
+    { "code": "IF.10.20", "name": "Utility readiness proving", "level": 3 },
+    { "code": "IF.10.30", "name": "Line / cell integration", "level": 3 },
+    { "code": "IF.10.40", "name": "No-load → loaded ramp-up", "level": 3 },
+    { "code": "IF.10.50", "name": "Reliability run & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; equipment set and MEP fit-out move to two shifts at peak to protect the critical path; commissioning runs a 7-day calendar once lines start FAT-to-SAT. A weather allowance is embedded in the civil calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead equipment/steel procurement → heavy foundations → structural steel → equipment set & alignment → utility termination → line integration → no-load run → loaded ramp-up. Material handling and instrumentation feed into line integration but do not usually drive the path unless procurement slips." },
+      { "heading": "Key assumptions", "body": "Design and vendor drawings are frozen ahead of foundation design; the client free-issues no equipment; a single mobilisation; utilities (grid power, water, gas/steam where applicable) are available to the site boundary by the date assumed. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Heavy process equipment (presses / furnaces / mills)", "30–50 weeks", "Before equipment set"], ["Structural steel package", "16–24 weeks", "Before steel erection start"], ["MV switchgear / MCC", "20–30 weeks", "Before power distribution"], ["Conveyors / cranes (fabricated)", "18–28 weeks", "Before material-handling install"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (presses, mills, cranes) require crane windows and clear laydown; production-floor works need protection from later trades' traffic. Skilled commissioning and machine-vendor technicians are shared across lines and are a resource constraint late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead equipment or steel slippage, foundation rework once a vendor's final loading data arrives, and line-integration re-test loops. Schedule contingency is held before line integration and before the loaded ramp-up rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

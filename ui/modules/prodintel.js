@@ -30,7 +30,7 @@ export function showProdIntel() {
   document.getElementById('prodintel-section')?.classList.remove('hidden');
   document.querySelector('.import-section')?.classList.add('hidden');
   document.getElementById('results-section')?.classList.add('hidden');
-  document.getElementById('kb-database-section')?.classList.add('hidden');
+  document.getElementById('kb-playbooks-section')?.classList.add('hidden');
   document.querySelector('.recent-section')?.classList.add('hidden');
   if (!_tree) loadTree(); else renderShell();
 }

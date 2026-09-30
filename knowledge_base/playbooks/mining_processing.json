@@ -1,0 +1,123 @@
+{
+  "archetype": "mining_processing",
+  "schema": 2,
+  "context": "conveyor- & chute-driven circuit · dry (no-load) then wet (ore) commissioning",
+  "brief": {
+    "intro": "New to this project type? A mineral / mining processing plant (concentrator or beneficiation plant) takes run-of-mine (ROM) ore and reduces it through crushing, grinding and separation to produce a saleable concentrate. Unlike a normal industrial building, the plant is held together by its conveyors and chutes — every process stage only works if the material handling feeding it works first. The equipment itself (crushers, mills, flotation cells, thickeners) sits on massive foundations, and once erected it is proven twice: a dry, no-load mechanical run, then a wet run with real ore. Your schedule stands or falls on getting the crushing/grinding equipment and conveyor structure in early, and protecting the wet (ore) commissioning window, which is often tied to the mine's own production ramp-up.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, haul roads, laydown for abnormal-load deliveries." },
+      { "name": "Civil & structural", "desc": "Crusher/mill foundations, conveyor gantry & transfer-tower foundations, structural steel bins and hoppers." },
+      { "name": "Crushing circuit", "desc": "Primary, secondary and tertiary crushers with screens and feeders — reduces ROM rock in stages." },
+      { "name": "Grinding (milling) circuit", "desc": "SAG and ball mills with cyclone classification — grinds crushed ore to process-ready particle size." },
+      { "name": "Material handling & conveying", "desc": "Overland conveyors, stackers/reclaimers, transfer chutes — the connective tissue linking every stage." },
+      { "name": "Separation & concentration", "desc": "Flotation cells, gravity/magnetic separation, thickeners and leach circuit — recovers the valuable mineral." },
+      { "name": "Slurry & process water", "desc": "Slurry pumping, reagent dosing, process water and the tailings line." },
+      { "name": "Electrical & instrumentation", "desc": "MV substations, motor control centres (MCCs), variable-speed drives, SCADA/DCS." },
+      { "name": "Testing & commissioning", "desc": "Dry (no-load) mechanical commissioning, then wet (ore) commissioning to first concentrate." }
+    ],
+    "glossary": [
+      { "term": "SAG mill / ball mill", "plain": "large rotating drums that grind crushed ore into fine particles ready for separation." },
+      { "term": "Flotation cell", "plain": "a tank where air bubbles and reagents lift the valuable mineral away from waste rock." },
+      { "term": "Thickener", "plain": "a large circular settling tank that recovers water from slurry before it goes to tailings or the next stage." },
+      { "term": "Tailings", "plain": "the waste slurry left once the valuable mineral has been extracted." },
+      { "term": "Slurry", "plain": "a pumpable mixture of ground ore and water moving between process stages." },
+      { "term": "Crusher (primary / secondary / tertiary)", "plain": "reduces run-of-mine rock to progressively smaller size before it reaches the mill." },
+      { "term": "Wet (ore) commissioning", "plain": "running the plant with real ore and water, after the dry mechanical (no-load) trial has been proven." },
+      { "term": "ROM", "plain": "run-of-mine — raw ore straight from the pit, before any processing." }
+    ],
+    "must_get_right": [
+      "It's conveyor- and chute-driven — get the material-handling route right first; every downstream process stage depends on its feeding conveyor.",
+      "Crushing/grinding circuit no-load (dry) proving must be complete before any ore is introduced — do not compress the dry-run gate.",
+      "Slurry and tailings systems (pumps, thickeners, tailings line) must be proven before wet commissioning — a failed slurry line stops the whole wet trial.",
+      "Protect the ore-commissioning window — first ore is often a one-shot event tied to the mine's own production ramp-up; re-trials cost real ore and real time."
+    ]
+  },
+  "components": [
+    { "name": "Crushing Circuit", "desc": "Primary/secondary/tertiary crushers · screens", "disc": "Process", "primary": true },
+    { "name": "Grinding (Milling) Circuit", "desc": "SAG/ball mills · cyclone classification", "disc": "Process", "primary": true },
+    { "name": "Material Handling & Conveying", "desc": "Overland conveyors · transfer towers · chutes", "disc": "Mechanical", "primary": true },
+    { "name": "Separation & Concentration", "desc": "Flotation · thickeners · leach circuit", "disc": "Process", "primary": true },
+    { "name": "Slurry & Process Water", "desc": "Slurry pumps · reagent dosing · tailings line", "disc": "Mechanical", "primary": false },
+    { "name": "Electrical & Instrumentation", "desc": "MV substations · MCCs · SCADA/DCS", "disc": "Electrical", "primary": true },
+    { "name": "Structural Steel & Bins", "desc": "Crusher/mill structures · ore bins/hoppers", "disc": "Structural", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Process", "items": ["Slurry pumping systems", "Process & reagent piping", "Compressed air & instrument air", "Dust suppression / extraction"] },
+    { "discipline": "Electrical", "items": ["MV switchgear & substations", "Motor control centres (MCCs) for crusher/mill drives", "Variable-speed drives (VSDs)", "Earthing & lightning protection"] },
+    { "discipline": "Instrumentation & Controls", "items": ["DCS / SCADA", "Level, flow & density instrumentation", "Weightometers & belt scales", "On-line analysers", "Dust-suppression / environmental monitoring (BMS-integrated)"] },
+    { "discipline": "Civil-adjacent Services", "items": ["Dust extraction & baghouse", "Tailings pipeline & pump stations", "Process water treatment"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structural Steel & Foundations", "Equipment Installation", "Conveying & Material Handling", "Electrical & Instrumentation", "Dry (No-load) Commissioning", "Wet (Ore) Commissioning & Ramp-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Foundations", "Structure", "Equip. Set", "Elec/Inst.", "Dry Comm.", "Wet Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Earthworks → crusher/mill foundations → structural steel", "holds": [14] },
+      { "trade": "Material Handling & Conveying", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 22, "width": 50, "label": "Conveyor structure → belt install → align → track", "holds": [40] },
+      { "trade": "Process Equipment (Crush/Grind/Separation)", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 30, "width": 48, "label": "Set crushers/mills → flotation/thickeners → pipe", "holds": [50] },
+      { "trade": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["mep", "electrical", "elv"], "start": 42, "width": 40, "label": "MCCs → drives → SCADA → terminate", "holds": [68] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 76, "width": 24, "label": "Dry (no-load) → wet (ore) → first concentrate", "holds": [88] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 5], "steps": ["Site clearance & earthworks", "Haul roads & laydown", "Crusher & mill foundations", "Conveyor gantry & transfer-tower foundations", "Structural steel erection (bins / hoppers / structures)", "Roof & cladding where enclosed"] },
+    { "name": "Crushing & Grinding Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1, 5], "steps": ["Long-lead procurement — crushers, SAG/ball mills, motors", "Foundation set & bolting", "Crusher / mill shell erection & alignment", "Liner installation", "Drive & gearbox coupling", "No-load mechanical run", "Ore-load run"] },
+    { "name": "Material Handling & Conveying", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["Conveyor structure & idler installation", "Belt installation & splicing", "Transfer chutes & skirting", "Stacker / reclaimer erection", "Tracking & no-load run", "Loaded belt trial"] },
+    { "name": "Separation & Concentration", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["Flotation cell & thickener erection", "Agitator & launder installation", "Reagent dosing system installation", "Piping & instrumentation tie-ins", "Water commissioning", "Ore / wet commissioning"] },
+    { "name": "Slurry & Process Water", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [1], "steps": ["Slurry pump-station installation", "Pipeline installation & pump commissioning", "Tailings-line installation & pressure test", "Process / reagent water proving"] },
+    { "name": "Electrical & Instrumentation", "disc": "Electrical", "kind": ["mep", "electrical", "elv"], "holds": [0, 4], "steps": ["MV substation & MCC installation", "Drive & VSD installation", "Cable containment & termination", "Point-to-point testing", "Energisation & no-load run", "Load test under production"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Dry (no-load) mechanical commissioning per circuit", "Water commissioning of slurry / process systems", "Ore introduction & wet commissioning", "First concentrate / product trial", "Performance & throughput test → handover"] }
+  ],
+  "wbs": [
+    { "code": "MIN", "name": "Mineral Processing Plant — Project", "level": 1 },
+    { "code": "MIN.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MIN.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "MIN.02.10", "name": "Enabling, Earthworks & Haul Roads", "level": 3 },
+    { "code": "MIN.02.20", "name": "Equipment Foundations", "level": 3 },
+    { "code": "MIN.02.20.10", "name": "Crusher & Mill Foundations", "level": 4 },
+    { "code": "MIN.03", "name": "Structural Steel & Bins", "level": 2 },
+    { "code": "MIN.03.10", "name": "Ore Bins, Hoppers & Transfer Towers", "level": 3 },
+    { "code": "MIN.04", "name": "Crushing Circuit", "level": 2 },
+    { "code": "MIN.04.10", "name": "Primary Crusher", "level": 3 },
+    { "code": "MIN.04.20", "name": "Secondary / Tertiary Crushing & Screening", "level": 3 },
+    { "code": "MIN.05", "name": "Grinding (Milling) Circuit", "level": 2 },
+    { "code": "MIN.05.10", "name": "SAG / Ball Mill Erection", "level": 3 },
+    { "code": "MIN.05.20", "name": "Cyclone Cluster & Classification", "level": 3 },
+    { "code": "MIN.06", "name": "Material Handling & Conveying", "level": 2 },
+    { "code": "MIN.06.10", "name": "Conveyor Structure & Belt Install", "level": 3 },
+    { "code": "MIN.06.10.10", "name": "Belt Tracking & No-load Run", "level": 4 },
+    { "code": "MIN.06.10.10.10", "name": "Alignment Survey & Tension Calibration", "level": 5 },
+    { "code": "MIN.06.10.10.10.10", "name": "Sign-off for Loaded (Ore) Trial", "level": 6 },
+    { "code": "MIN.06.20", "name": "Stacker / Reclaimer & Transfer Chutes", "level": 3 },
+    { "code": "MIN.07", "name": "Separation & Concentration", "level": 2 },
+    { "code": "MIN.07.10", "name": "Flotation Cells", "level": 3 },
+    { "code": "MIN.07.20", "name": "Thickeners & Tailings", "level": 3 },
+    { "code": "MIN.08", "name": "Slurry & Process Water", "level": 2 },
+    { "code": "MIN.08.10", "name": "Slurry Pump Stations & Pipelines", "level": 3 },
+    { "code": "MIN.09", "name": "Electrical & Instrumentation", "level": 2 },
+    { "code": "MIN.09.10", "name": "MV Substations, MCCs & SCADA/DCS", "level": 3 },
+    { "code": "MIN.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MIN.10.10", "name": "Dry (No-load) Commissioning", "level": 3 },
+    { "code": "MIN.10.20", "name": "Wet (Ore) Commissioning & First Concentrate", "level": 3 },
+    { "code": "MIN.10.20.10", "name": "Performance & Throughput Test", "level": 4 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Conveyor tie-in points and equipment-commissioning gates are carried as milestone activities so the network shows exactly which circuit feeds which." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day single-shift week; equipment erection may run extended shifts to protect the critical path; electrical and instrumentation works align to equipment readiness. Wet (ore) commissioning is scheduled around mine ore availability and typically runs continuous once started." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs equipment foundations → crushing/grinding equipment erection → conveying/material-handling tie-in → electrical & instrumentation → dry (no-load) commissioning → wet (ore) commissioning → first concentrate. Conveying is the connective tissue: no downstream circuit can be proven until the conveyor feeding it is running." },
+      { "heading": "Key assumptions", "body": "Mine/ROM ore availability is aligned to the wet-commissioning date; design is frozen and vendor equipment drawings are available before foundation design; the tailings storage facility is available ahead of wet commissioning." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on the crushing, grinding and separation equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Primary crusher", "30–45 weeks", "Before crushing-circuit foundation close-out"], ["SAG / ball mill (shell & drive)", "45–65 weeks", "Before mill-foundation backfill"], ["Flotation cells & thickeners", "25–35 weeks", "Before separation-circuit erection"], ["Slurry pumps (process duty)", "20–30 weeks", "Before wet commissioning"], ["MV switchgear & large motors / VSDs", "25–35 weeks", "Before electrical termination"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Remote-site logistics and abnormal loads (mill shells, crusher frames) need route surveys and escorted transport; specialist mechanical-alignment crews for mills and crushers are a constrained resource; wet commissioning needs mine operations, process and maintenance teams together on site at the same time." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead equipment (mills / crushers) slippage, conveyor mis-tracking discovered late in dry commissioning, and ore availability slipping the wet-commissioning window. Schedule contingency is held before dry commissioning and before wet (ore) commissioning, not spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}
