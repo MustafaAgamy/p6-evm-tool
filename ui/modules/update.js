@@ -1,4 +1,5 @@
-// Update Analysis — a single-file read of the current schedule against its own baseline.
+// Update Analysis — the current schedule read against its baseline: the one inside the file, else
+// the baseline attached for this update (here or on Earned Value; XER or XML — baseline.js).
 //
 // Four sections: (1) Time Status donut + PV/EV/Variance; (2) Planned vs Actual by activity
 // code — one chart per selected code; (3) Driving Path Analyzer — the governing milestone's
@@ -8,8 +9,10 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
+import { revealStage } from './featurereveal.js';
 import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
 import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
+import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
 
 let _shownReport = null;
 let _summaryLevel = 0;
@@ -145,33 +148,66 @@ export function renderUpdatePanel() {
     return;
   }
   body.innerHTML = `<div class="ua-empty">Reading this update against its baseline…</div>`;
-  _runAnalyze();
+  return _runAnalyze();
 }
 
 async function _runAnalyze() {
   const body = document.getElementById('update-body');
+  // The import already recorded whether this file carries its own baseline (the very test the
+  // server makes, has_embedded_baseline). When it does not, answer at once — no whole-file
+  // re-read under the Run bar just to say so. Unknown (older snapshot) → ask the server.
+  if (state.currentResult && state.currentResult.has_embedded_baseline === false) {
+    _showAnalysis(body, { ok: false, code: 'no_baseline' });
+    return;
+  }
+  revealStage('Reading this update against its baseline');   // the open Run bar names the real step
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', summary_level: _summaryLevel }),
     });
-    const data = await resp.json();
-    if (!data.ok) {
-      if (data.code === 'no_baseline') {
-        body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update has no baseline inside it.</div>
-          <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div></div>`;
-        return;
-      }
-      body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
-      return;
-    }
-    _shownReport = data.report;
-    if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
-    if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
-    _render(data.report);
+    _showAnalysis(body, await resp.json());
   } catch {
     if (body) body.innerHTML = `<div class="ua-empty">Could not reach the local server. Try re-importing the schedule.</div>`;
   }
+}
+
+// Paints one /api/update/analyze answer (or the instant no-baseline answer above) into the body.
+function _showAnalysis(body, data) {
+  if (!data.ok) {
+    if (data.code === 'no_baseline') {
+      _noBaseline(body, data.baseline_missing, '', data.baseline_expected_name);
+      return;
+    }
+    body.innerHTML = `<div class="ua-empty">${escapeHtml(data.error || 'Could not analyze this update.')}</div>`;
+    return;
+  }
+  _shownReport = data.report;
+  if (!_pickedTypes.length) _pickedTypes = [_defaultCodeType(data.report.code_types || [])].filter(Boolean);
+  if (!_scopePicked.length) _scopePicked = [data.report.scope_default].filter(Boolean);
+  _render(data.report);
+}
+
+// No baseline inside the file and none attached (an XER update, or an XML exported without its
+// baseline project): say so plainly and let the planner attach it right here. The attachment is
+// remembered for this update and used by every feature (Earned Value, reports, AI Chat…).
+function _noBaseline(body, missing, problem, expectedName) {
+  const lost = missing ? `<div style="margin-top:6px">The baseline attached earlier (${escapeHtml(missing)}) is no longer available — attach it again.</div>` : '';
+  const prob = problem ? `<div class="ua-note" style="margin-top:10px;color:var(--danger)">${escapeHtml(problem)}</div>` : '';
+  body.innerHTML = `<div class="ua-empty"><div style="font-size:15px;color:var(--text);margin-bottom:8px">This update carries no baseline and none is attached.</div>
+    ${expectedName ? `<div style="margin-bottom:6px;color:var(--text)"><b>${escapeHtml(expectedBaselineAdvice(expectedName))}</b></div>` : ''}
+    <div>${escapeHtml(UPDATE_NO_BASELINE_ADVICE)}</div>${lost}
+    <div style="margin-top:12px"><button class="btn-primary" id="ua-attach-bl">${ATTACH_BASELINE_LABEL}</button></div>${prob}</div>`;
+  document.getElementById('ua-attach-bl')?.addEventListener('click', async () => {
+    const btn = document.getElementById('ua-attach-bl');
+    if (btn) { btn.disabled = true; btn.textContent = 'Reading baseline…'; }
+    const data = await attachBaselineFile();
+    if (data.cancelled) { _noBaseline(body, missing, '', expectedName); return; }
+    const p = attachProblem(data);
+    if (p) { _noBaseline(body, missing, p, expectedName); return; }
+    body.innerHTML = `<div class="ua-empty">Reading this update against its baseline…</div>`;
+    _runAnalyze();                                 // the server now resolves the attached baseline
+  });
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
@@ -184,6 +220,7 @@ function _render(report) {
       <button class="btn-secondary" id="ua-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="ua-export-xlsx">Export Excel</button>
     </div>
+    ${report.baseline_label ? `<div class="ua-note" id="ua-baseline" style="margin:0 0 6px">Baseline: ${escapeHtml(report.baseline_label)}</div>` : ''}
     <div class="ua-reco">${escapeHtml(report.conclusion || '')}</div>
 
     <div class="ua-sec">1 · Time Status</div>

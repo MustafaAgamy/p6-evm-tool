@@ -78,3 +78,44 @@ def test_unparseable_text_raises_parse():
     with pytest.raises(AiError) as e:
         call_claude({'model': 'm'}, 'key', _opener=_ok(payload))
     assert e.value.code == 'parse'
+
+
+# ── NET-5: a timeout / dropped connection is a network problem, not a "bad response" ──
+class _SlowResp(_Resp):
+    def __init__(self, exc):
+        super().__init__({})
+        self._exc = exc
+
+    def read(self):
+        raise self._exc
+
+
+@pytest.mark.parametrize('exc, where', [
+    (TimeoutError('timed out'), 'open'),                       # connect / first byte timed out
+    (urllib.error.URLError(TimeoutError('timed out')), 'open'),
+    (TimeoutError('The read operation timed out'), 'read'),    # the answer stopped arriving
+])
+def test_timeout_says_the_service_did_not_answer_in_time(exc, where):
+    def opener(req, timeout=None):
+        if where == 'open':
+            raise exc
+        return _SlowResp(exc)
+    with pytest.raises(AiError) as e:
+        call_claude({'model': 'm'}, 'key', _opener=opener)
+    assert e.value.code == 'network'
+    assert 'did not answer in time' in str(e.value)
+    assert 'unexpected response' not in str(e.value)
+
+
+@pytest.mark.parametrize('exc', [
+    ConnectionResetError(10054, 'An existing connection was forcibly closed'),
+    __import__('http.client').client.RemoteDisconnected('Remote end closed connection'),
+    __import__('http.client').client.IncompleteRead(b''),
+])
+def test_dropped_connection_mid_answer_is_a_friendly_network_error(exc):
+    def opener(req, timeout=None):
+        return _SlowResp(exc)
+    with pytest.raises(AiError) as e:
+        call_claude({'model': 'm'}, 'key', _opener=opener)
+    assert e.value.code == 'network'
+    assert 'Could not reach the AI service' in str(e.value)

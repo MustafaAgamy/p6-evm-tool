@@ -1,0 +1,112 @@
+{
+  "archetype": "lowrise_residential",
+  "schema": 2,
+  "context": "finishing-led · walk-up, no lift or fire riser",
+  "brief": {
+    "intro": "Low-rise residential covers small walk-up apartment blocks or attached housing from ground plus one to ground plus three storeys — short enough that most building codes don't require a lift, a fire-fighting riser or complex vertical services. The structure is simple: a reinforced-concrete frame or load-bearing blockwork with flat RC slabs, built over two to four short storeys rather than a long repetitive tower cycle. Because there's little vertical MEP to coordinate, the whole programme is finishing-led — the pace is set by how fast the trade train (waterproofing, tiling, paint, fixtures) can move through each floor and unit, not by structural complexity or shaft coordination. This makes low-rise the simplest residential type to plan, but also the one where a stalled finishing trade has nowhere to hide — there's no long tower behind it to absorb the delay.",
+    "scope": [
+      { "name": "Enabling & substructure", "desc": "Earthworks, foundations, ground slab." },
+      { "name": "Structure", "desc": "RC frame or load-bearing blockwork, floor slabs, roof structure." },
+      { "name": "Roof & waterproofing", "desc": "Roof slab/pitched roof waterproofing, upstands and drainage outlets." },
+      { "name": "Envelope", "desc": "External walls, external render/cladding, windows & doors." },
+      { "name": "MEP first fix", "desc": "Conduit, pipework and stub-ups before wet trades close in." },
+      { "name": "Wet-area waterproofing", "desc": "Bathroom/kitchen tanking substrate, tested before tiling." },
+      { "name": "Internal finishes", "desc": "Plaster, screed, tiling and paint." },
+      { "name": "MEP second fix", "desc": "Fittings, devices and sanitary fixtures." },
+      { "name": "Snagging & handover", "desc": "Defect walk-through, closeout, handover pack." }
+    ],
+    "glossary": [
+      { "term": "Load-bearing block", "plain": "walls built of concrete block that carry the floor/roof loads directly, instead of an RC frame." },
+      { "term": "Wet area", "plain": "a bathroom/kitchen zone tanked (waterproofed) before tiling." },
+      { "term": "First fix / second fix", "plain": "rough-in services before finishes, versus fittings and devices after." },
+      { "term": "Roof waterproofing", "plain": "the membrane/screed system that keeps the top floor dry — it must be tested before internal finishing races ahead below it." },
+      { "term": "Screed", "plain": "the levelling/sloping layer laid before floor tiling." },
+      { "term": "Snagging", "plain": "the unit-by-unit defect walk-through before handover." }
+    ],
+    "must_get_right": [
+      "Close the roof (weather-tight) early — internal finishing below it cannot safely accelerate until the top is watertight.",
+      "Sequence blockwork so it doesn't box in first-fix services — chase and conduit routes must be agreed before walls go up.",
+      "Test wet-area waterproofing before tiling — the single biggest source of handover defects on this type.",
+      "Keep one continuous finishing trade train — with only 2–4 floors, any trade that falls behind has no floors of buffer to recover in."
+    ]
+  },
+  "components": [
+    { "name": "Structure", "desc": "RC frame or load-bearing block · slabs · roof", "disc": "Civil", "primary": true },
+    { "name": "Roofing & Waterproofing", "desc": "Roof membrane · wet-area tanking", "disc": "Architectural", "primary": true },
+    { "name": "Architectural Finishes", "desc": "Render · screed/tiling · paint", "disc": "Architectural", "primary": true },
+    { "name": "Plumbing & Sanitary", "desc": "Supply, drainage & fixtures", "disc": "Plumbing", "primary": true },
+    { "name": "Electrical & Lighting", "desc": "Distribution, wiring & fittings", "disc": "Electrical", "primary": true },
+    { "name": "ELV / Low Current", "desc": "Data & security wiring", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Split or window air-conditioning provisions", "Kitchen & bathroom extract ventilation", "Roof/attic ventilation"] },
+    { "discipline": "Electrical", "items": ["LV distribution & consumer unit per dwelling", "Lighting & socket circuits", "External/entrance lighting"] },
+    { "discipline": "Plumbing / Drainage", "items": ["Cold/hot water supply", "Soil, waste & vent pipework", "Sanitary fixtures & fittings"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Structure & Roof", "Envelope & Waterproofing", "MEP First Fix", "Internal Finishes", "MEP Second Fix", "Snagging & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "1st Fix", "Finishes", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Substructure → frame/blockwork → roof", "holds": [10] },
+      { "trade": "Roofing & Waterproofing", "disc": "Architectural", "kind": ["civil"], "start": 22, "width": 20, "label": "Roof membrane → test → protect", "holds": [30] },
+      { "trade": "Plumbing & Electrical", "disc": "Electrical", "kind": ["mechanical", "electrical"], "start": 20, "width": 40, "label": "First fix → wet-area tanking → second fix", "holds": [45, 72] },
+      { "trade": "Interior Finishes", "disc": "Architectural", "kind": ["civil"], "start": 38, "width": 38, "label": "Plaster → screed/tiling → paint", "holds": [] },
+      { "trade": "Handover", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Testing → snagging → handover", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 3], "steps": ["Enabling works & substructure", "RC frame or load-bearing blockwork", "Floor slabs", "Roof structure", "External render substrate"] },
+    { "name": "Roofing & Waterproofing", "disc": "Architectural", "kind": ["civil"], "holds": [1, 2], "steps": ["Roof screed to falls", "Membrane / waterproofing system", "Water test & sign-off", "Protection & upstand flashing"] },
+    { "name": "Plumbing & Sanitary", "disc": "Plumbing", "kind": ["mechanical"], "holds": [2, 4], "steps": ["First-fix pipework & stub-ups", "Wet-area tanking coordination", "Pressure test", "Sanitary fixture set & second fix", "Flush, flow & leak test"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [3], "steps": ["Conduit & wiring first fix", "Consumer unit & distribution", "Device & fitting second fix", "Circuit testing & certification"] },
+    { "name": "ELV / Low Current", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [], "steps": ["Data & TV containment", "Security/intercom cabling", "Device termination & test"] },
+    { "name": "Finishing & Handover", "disc": "Architectural", "kind": ["civil", "comm"], "holds": [3, 4], "steps": ["Plaster & internal walls", "Screed & tiling", "Paint & joinery", "Snagging walkthrough", "Unit handover pack"] }
+  ],
+  "wbs": [
+    { "code": "LRR", "name": "Low-Rise Residential — Project", "level": 1 },
+    { "code": "LRR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "LRR.02", "name": "Site & Substructure", "level": 2 },
+    { "code": "LRR.02.10", "name": "Enabling works & earthworks", "level": 3 },
+    { "code": "LRR.02.20", "name": "Foundations & ground slab", "level": 3 },
+    { "code": "LRR.03", "name": "Structure", "level": 2 },
+    { "code": "LRR.03.10", "name": "Frame / load-bearing blockwork", "level": 3 },
+    { "code": "LRR.03.20", "name": "Floor slabs", "level": 3 },
+    { "code": "LRR.04", "name": "Roof", "level": 2 },
+    { "code": "LRR.04.10", "name": "Roof structure", "level": 3 },
+    { "code": "LRR.04.20", "name": "Roof waterproofing", "level": 3 },
+    { "code": "LRR.04.20.10", "name": "Water test & sign-off", "level": 4 },
+    { "code": "LRR.05", "name": "Envelope", "level": 2 },
+    { "code": "LRR.05.10", "name": "External walls, render & windows", "level": 3 },
+    { "code": "LRR.06", "name": "Mechanical — Plumbing & Drainage", "level": 2 },
+    { "code": "LRR.06.10", "name": "First fix & wet-area tanking", "level": 3 },
+    { "code": "LRR.06.20", "name": "Sanitary fixtures & second fix", "level": 3 },
+    { "code": "LRR.07", "name": "Electrical", "level": 2 },
+    { "code": "LRR.07.10", "name": "First fix & distribution", "level": 3 },
+    { "code": "LRR.07.20", "name": "Second fix & testing", "level": 3 },
+    { "code": "LRR.08", "name": "ELV / Low Current", "level": 2 },
+    { "code": "LRR.09", "name": "Internal Finishes", "level": 2 },
+    { "code": "LRR.09.10", "name": "Wet areas — tanking & tiling", "level": 3 },
+    { "code": "LRR.09.20", "name": "Dry areas — plaster, screed, paint", "level": 3 },
+    { "code": "LRR.10", "name": "Testing, Snagging & Handover", "level": 2 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Given the short duration of this project type, the network is kept simple — few summary bands, activities calculated (F9) with no artificial constraints beyond contractual milestones, total float ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "A standard 6-day working calendar applies throughout. Finishing trades may add an extended day near handover to protect the completion date; there is little need for shift-based coordination given the building's short height." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs roof close-in (weather-tightness) → internal finishing trade train (plaster → screed/tiling → paint → fixtures) → snagging → handover. Because there are only two to four floors, the finishing train itself — not the structure — is almost always the critical path from an early date." },
+      { "heading": "Key assumptions", "body": "Design is frozen before structure starts, since there are few floor repeats to amortise late changes across; a single mobilisation; one continuous finishing crew per trade covering the whole building rather than parallel crews per floor; no lift or fire-riser scope assumed." },
+      { "heading": "Procurement & long-lead items", "body": "Nothing on this project type is truly long-lead; the items below are tracked because they gate a specific trade front rather than because of extended lead times:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Roof waterproofing membrane system", "2–4 weeks", "Before roof close-in"], ["Windows & external doors", "6–10 weeks", "Before envelope closure"], ["Sanitary ware & fittings", "4–8 weeks", "Before second fix"], ["Kitchen units", "6–10 weeks", "Before second fix"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Small footprint sites typically have limited laydown and a single access point; one finishing crew often serves the whole building rather than parallel crews working floor by floor; boundary or party-wall constraints apply where the building is terraced or attached." },
+      { "heading": "Risks, float & contingency", "body": "Roof waterproofing failure is the main technical risk; a weather delay to roof close-in cascades directly into finishing. Contingency is held after roof close-in and before handover, since there is little schedule depth elsewhere to absorb slippage." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (phase summary) to the client; controlled at Level 3; expanded to Level 4 lookahead for the field where useful — consistent with AACE 37R-06, kept simple given the short duration of this project type." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

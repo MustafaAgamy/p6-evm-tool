@@ -253,6 +253,14 @@ def _build_milestone_paths(schedules, roles, summary_level):
 
 
 def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=None, summary_level=0):
+    """The comparison report (see ``_build_report``). Per-schedule facts are worked out once
+    per schedule for the whole report, not once per milestone (same report, much faster)."""
+    from p6_critpath.paths import report_memo
+    with report_memo():
+        return _build_report(schedules, mode, near_threshold, milestone_code, summary_level)
+
+
+def _build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=None, summary_level=0):
     """Assemble the comparison report from {role: ScheduleData} where role is
     'baseline' | 'previous' | 'current'. Census + driving-path lanes (with the new critical
     path highlighted) + the milestone list for the selector. Later slices add the every-
@@ -287,6 +295,16 @@ def build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code=
         'float_migration': migration,
         'float_migration_base': base_role,
     }
+    # The current update's baseline-derived values (BL finish, Planned %, Slip) are approximate
+    # when its own Planned dates stand in for the baseline P6 names (none in the file, none
+    # attached) — marked '· approx' + one 'Baseline:' line on screen, PDF and Excel (R4 F2).
+    try:
+        from p6_evm.baseline import schedule_baseline
+        _bl = schedule_baseline(schedules.get('current'))
+    except Exception:
+        _bl = {'baseline_approx': False, 'baseline_label': None}
+    report['baseline_approx'] = _bl['baseline_approx']
+    report['baseline_label'] = _bl['baseline_label'] if _bl['baseline_approx'] else None
     from p6_critpath.dashboard import build_dashboard, build_narrative
     report['dashboard'] = build_dashboard(report)
     narrative = build_narrative(report)

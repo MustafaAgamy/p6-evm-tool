@@ -295,6 +295,10 @@ def build_milestone_module(hard_module, graph, contract_milestones):
     m['milestone_counts'] = counts
     m['baseline_milestones'] = baseline_milestones(graph)
     m['needs_input'] = not bool(cms)
+    # the milestones as the planner entered them — "Edit contract milestones" pre-fills from
+    # this (without it the edit screen came up empty and a re-run dropped the other rows)
+    m['contract_milestones'] = [{'name': cm.get('name') or '', 'date': cm.get('date') or ''}
+                                for cm in cms if isinstance(cm, dict)]
     m['kpis'] = {'contract_milestones': len(evals), 'matched': matched, 'masked': counts['Masked'],
                  'late': counts['Late'], 'on_track': counts['On track'], 'unmatched': counts['Unmatched'],
                  'computable': bool(matched)}

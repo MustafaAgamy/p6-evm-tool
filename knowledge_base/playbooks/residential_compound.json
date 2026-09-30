@@ -1,0 +1,121 @@
+{
+  "archetype": "residential_compound",
+  "schema": 2,
+  "context": "plot-by-plot repetition · site infrastructure & utility enablement",
+  "brief": {
+    "intro": "New to this project type? A residential compound is many near-identical low-rise villas or townhouses built in parallel across a serviced plot, tied together by shared site infrastructure — roads, utility networks, a perimeter wall and communal amenities. Unlike a single house, the schedule isn't driven by any one unit's complexity; it's driven by production rate — how many units per week move through each construction stage — and by whether infrastructure is ready ahead of the units it serves. The programme is really two schedules running together: a horizontal infrastructure schedule (roads, utility trunks, boundary works) and a repeating per-unit finishing cycle that rolls across the plots behind it. A late road or utility corridor blocks access to whole clusters of units, so infrastructure is planned ahead of the unit wave, not behind it, and handover is normally phased villa-by-villa or cluster-by-cluster rather than on one single date.",
+    "scope": [
+      { "name": "Enabling & site infrastructure", "desc": "Earthworks, main and internal roads, and utility trunk networks (water, sewer, power, telecom) built ahead of the unit wave." },
+      { "name": "Boundary & security works", "desc": "Perimeter wall/fencing, gatehouse and community security systems." },
+      { "name": "Per-unit structure", "desc": "Foundations, blockwork/frame and roof for each villa or townhouse type across the plot." },
+      { "name": "Per-unit MEP first & second fix", "desc": "Plumbing, electrical and HVAC rough-in and trim-out, repeated per unit." },
+      { "name": "Per-unit finishing", "desc": "Waterproofing, screed, tiling, paint, joinery and sanitary fixtures, repeated per unit." },
+      { "name": "External works per plot", "desc": "Boundary walls, driveways and external render/waterproofing around each unit." },
+      { "name": "Common amenities", "desc": "Clubhouse, pools and landscaped communal areas, where included in scope." },
+      { "name": "Utility energisation", "desc": "Power, water and telecom connection and metering per cluster of units." },
+      { "name": "Snagging & phased handover", "desc": "Defect inspection and handover, released villa-by-villa or cluster-by-cluster." }
+    ],
+    "glossary": [
+      { "term": "Plot / unit type", "plain": "the repeating house design built many times across the compound." },
+      { "term": "Enabling infrastructure", "plain": "the roads and utility trunk lines built ahead of the units they will serve." },
+      { "term": "Production rate", "plain": "how many units complete each stage per week — the real driver of the programme." },
+      { "term": "Cluster / phase", "plain": "a group of units released together for construction and handed over together." },
+      { "term": "Snagging", "plain": "the defect-fixing inspection carried out before a unit is handed to its owner." },
+      { "term": "Utility trunk network", "plain": "the main water, sewer, power and telecom lines laid before individual units connect to them." },
+      { "term": "Common amenities", "plain": "shared facilities such as a clubhouse, pool or landscaped area serving the whole compound." }
+    ],
+    "must_get_right": [
+      "Sequence infrastructure ahead of the unit wave — a road or utility trunk not ready on time blocks every unit behind it.",
+      "Plan around production rate, not one villa's logic — the programme lives or dies on units-per-week, so protect crew continuity across plots.",
+      "Phase the handover into clusters so utility energisation, snagging and handover happen predictably rather than all at once.",
+      "Keep common works (landscaping, amenities, boundary wall) visible on the schedule — they're often done last and can quietly become the tail of the whole programme."
+    ]
+  },
+  "components": [
+    { "name": "Site Infrastructure & Utilities", "desc": "Roads · water/sewer/power/telecom trunk networks", "disc": "Civil", "primary": true },
+    { "name": "Per-Unit Structure", "desc": "Foundations · blockwork/frame · roof, repeated per villa", "disc": "Structural", "primary": true },
+    { "name": "Per-Unit MEP", "desc": "Plumbing · electrical · HVAC first & second fix", "disc": "Mechanical/Electrical/Plumbing", "primary": true },
+    { "name": "Per-Unit Finishing", "desc": "Waterproofing · tiling · paint · joinery · fixtures", "disc": "Architectural", "primary": true },
+    { "name": "Boundary & Security", "desc": "Perimeter wall · gatehouse · community CCTV/access", "disc": "ELV / Security", "primary": false },
+    { "name": "Common Amenities", "desc": "Clubhouse · pools · landscaping", "disc": "Architectural", "primary": false },
+    { "name": "Utility Energisation & Metering", "desc": "Per-cluster connection to power/water/telecom", "disc": "Electrical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Split / ducted-split AC per unit (no central plant typical)", "Kitchen & bathroom extract", "Water heater — electric or solar, per unit"] },
+    { "discipline": "Electrical", "items": ["Utility feeder network & per-cluster substation/kiosk", "Per-unit distribution board & wiring", "Street & external lighting", "Standby generator (community, where specified)"] },
+    { "discipline": "Plumbing", "items": ["Per-unit domestic water & drainage", "Irrigation network for landscaping", "Storm drainage across the compound"] },
+    { "discipline": "ELV / Security / Fire", "items": ["Community CCTV, access control & gatehouse systems", "Per-unit data/TV/intercom points", "Fire alarm — where required by code"] }
+  ],
+  "overview_phases": ["Enabling & Infrastructure", "Boundary & Roads", "Per-Unit Structure", "Per-Unit MEP Rough-in", "Per-Unit Finishing", "Amenities & Landscaping", "Utility Energisation", "Snagging & Phased Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Infra", "Structure", "Rough-in", "Finish", "Energise", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Infrastructure", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Earthworks → roads → utility trunks", "holds": [18] },
+      { "trade": "Per-Unit Structure", "disc": "Structural", "kind": ["civil"], "start": 16, "width": 40, "label": "Foundations → blockwork → roof, plot by plot", "holds": [] },
+      { "trade": "Per-Unit MEP", "disc": "Mechanical/Electrical/Plumbing", "kind": ["mechanical", "electrical"], "start": 32, "width": 40, "label": "First fix → second fix, plot by plot", "holds": [50] },
+      { "trade": "Per-Unit Finishing", "disc": "Architectural", "kind": ["civil"], "start": 46, "width": 38, "label": "Waterproof → tile → paint → joinery", "holds": [] },
+      { "trade": "Amenities & Landscape", "disc": "Architectural", "kind": ["civil"], "start": 56, "width": 30, "label": "Clubhouse, pools, landscaping", "holds": [] },
+      { "trade": "Utility & Handover", "disc": "Electrical", "kind": ["electrical", "comm"], "start": 78, "width": 22, "label": "Energise → snag → phased handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Site Infrastructure", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Earthworks & site grading", "Main & internal road formation and paving", "Water, sewer, storm & telecom trunk networks", "Utility duct banks & chambers", "Boundary wall & perimeter works", "Gatehouse construction"] },
+    { "name": "Per-Unit Structure", "disc": "Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Foundations per unit", "Blockwork / frame walls", "Slab & roof structure", "Roof waterproofing", "External render substrate"] },
+    { "name": "Per-Unit MEP First & Second Fix", "disc": "Mechanical/Electrical/Plumbing", "kind": ["mechanical", "electrical"], "holds": [0, 4], "steps": ["Plumbing & electrical first fix in walls/slab", "AC ductwork/pipework first fix", "Wet-area waterproofing handover to tiling", "Second fix — sanitary fixtures, switches, AC units", "Testing — sanitary flow/leak & circuit testing"] },
+    { "name": "Per-Unit Finishing", "disc": "Architectural", "kind": ["civil"], "holds": [1, 4], "steps": ["Plaster & internal wall finishes", "Screed & floor tiling", "External render & cladding", "Paint", "Joinery & built-in fixtures", "Unit snagging"] },
+    { "name": "Boundary, Security & ELV", "disc": "ELV / Security", "kind": ["elv"], "holds": [], "steps": ["Perimeter CCTV & access-control containment", "Gatehouse security systems", "Community fire alarm (where required)", "Community system integration & testing", "Labelling & handover documentation"] },
+    { "name": "Amenities & Landscaping", "disc": "Architectural", "kind": ["civil"], "holds": [], "steps": ["Clubhouse structure & fit-out", "Pool shell, waterproofing & MEP", "Softscape & hardscape", "Irrigation network", "Amenity commissioning & handover"] },
+    { "name": "Utility Energisation & Handover", "disc": "Electrical", "kind": ["electrical", "comm"], "holds": [3], "steps": ["Per-cluster power/water/telecom connection & metering", "Community systems commissioning", "Cluster snagging & de-snag", "Phased villa-by-villa handover", "As-built records & O&M handover to community management"] }
+  ],
+  "wbs": [
+    { "code": "RC", "name": "Residential Compound — Project", "level": 1 },
+    { "code": "RC.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "RC.02", "name": "Site Infrastructure & Utilities", "level": 2 },
+    { "code": "RC.02.10", "name": "Earthworks & Roads", "level": 3 },
+    { "code": "RC.02.10.10", "name": "Main road formation & paving", "level": 4 },
+    { "code": "RC.02.10.20", "name": "Internal roads & access", "level": 4 },
+    { "code": "RC.02.20", "name": "Utility Trunk Networks", "level": 3 },
+    { "code": "RC.02.20.10", "name": "Water & sewer trunk lines", "level": 4 },
+    { "code": "RC.02.20.20", "name": "Power & telecom duct banks", "level": 4 },
+    { "code": "RC.03", "name": "Boundary & Security", "level": 2 },
+    { "code": "RC.03.10", "name": "Perimeter wall & fencing", "level": 3 },
+    { "code": "RC.03.20", "name": "Gatehouse & access control", "level": 3 },
+    { "code": "RC.04", "name": "Residential Units — Cluster A", "level": 2 },
+    { "code": "RC.04.10", "name": "Structure", "level": 3 },
+    { "code": "RC.04.20", "name": "MEP First & Second Fix", "level": 3 },
+    { "code": "RC.04.30", "name": "Finishing", "level": 3 },
+    { "code": "RC.04.30.10", "name": "Waterproofing & tiling", "level": 4 },
+    { "code": "RC.04.30.20", "name": "Paint & joinery", "level": 4 },
+    { "code": "RC.05", "name": "Residential Units — Cluster B", "level": 2 },
+    { "code": "RC.05.10", "name": "Structure", "level": 3 },
+    { "code": "RC.05.20", "name": "MEP First & Second Fix", "level": 3 },
+    { "code": "RC.05.30", "name": "Finishing", "level": 3 },
+    { "code": "RC.06", "name": "Common Amenities", "level": 2 },
+    { "code": "RC.06.10", "name": "Clubhouse", "level": 3 },
+    { "code": "RC.06.20", "name": "Pools & landscaping", "level": 3 },
+    { "code": "RC.07", "name": "Utility Energisation", "level": 2 },
+    { "code": "RC.08", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "RC.08.10", "name": "Cluster A snagging & handover", "level": 3 },
+    { "code": "RC.08.20", "name": "Cluster B snagging & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Because units repeat, a typical-unit fragnet is built once per unit type and replicated across each cluster/phase rather than modelled activity-by-activity for every plot." },
+      { "heading": "Calendars & working time", "body": "Standard local working week for finishing trades; enabling infrastructure and roads run on a continuous calendar ahead of unit release so they never become the constraint. A weather allowance is embedded for earthworks and external works." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs enabling infrastructure & main roads → utility trunk to each cluster → structure wave → MEP → finishing wave → energisation → phased handover. This is better read as a critical chain than a single critical path: the constraint is the slowest repeating trade's production rate, not any one unit's logic." },
+      { "heading": "Key assumptions", "body": "Design is frozen per unit type before release; land handover and enabling works are complete ahead of the unit wave; authority approvals for infrastructure are obtained per phase; a single continuous mobilisation across the site." },
+      { "heading": "Procurement & long-lead items", "body": "The following are tracked as milestones because they are shared across many units or gate energisation:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Aluminium doors & windows", "8–12 weeks", "Before second fix / glazing"], ["Kitchen & wardrobe joinery", "8–14 weeks", "Before joinery fix"], ["Sanitary fixtures & fittings", "4–8 weeks", "Before second fix"], ["Imported tiles / stone (if specified)", "10–16 weeks", "Before tiling start"], ["Utility substation / transformer package", "16–24 weeks", "Before energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Multiple simultaneous fronts across a large plot require crew-mobility and material-laydown planning; production rate is resource-constrained — finishing crews are typically the bottleneck; common amenities often compete for the same late-stage trade resources as the unit wave." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: infrastructure delay blocking unit access, finishing-crew productivity below plan slowing the wave, and late design changes to common amenities. Contingency is held at cluster boundaries so slippage doesn't cascade and phased handover dates stay achievable." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (cluster/phase handover milestones) and Level 2 (summary) to the client; controlled at Level 3 per cluster; expanded to Level 4 per unit for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

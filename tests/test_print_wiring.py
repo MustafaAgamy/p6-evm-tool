@@ -14,7 +14,8 @@ SERVER = (ROOT / 'server.py').read_text(encoding='utf-8')
 def test_generic_pdf_route_exists():
     assert "'/api/report/html'" in SERVER
     assert 'def _handle_report_html' in SERVER
-    assert '--print-to-pdf' in SERVER
+    # every PDF route prints through the ONE tool-wide browser helper (p6_export.pdf.run_chrome)
+    assert '_chrome_print_pdf(' in SERVER
 
 
 def test_shared_printview_helper_exists():

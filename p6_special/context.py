@@ -66,6 +66,19 @@ class SpecialContext:
     def extras(self):
         return self.memo('extras', lambda: db.get_evm_extras(self.snapshot_id))
 
+    def baseline_ax(self):
+        """' · approx' when the stored numbers were measured against the update's own Planned
+        dates standing in for the baseline P6 names (none in the file, none attached) — the same
+        mark the screens and feature reports put on baseline-derived values; '' otherwise.
+        Read from what the import stored (no parse)."""
+        def b():
+            f = (self.extras or {}).get('baseline_fields') or {}
+            if not f:
+                return ''
+            from p6_evm.baseline import baseline_approx
+            return ' · approx' if baseline_approx(f) else ''
+        return self.memo('baseline_ax', b)
+
     @property
     def snapshots(self):
         return self.memo('snapshots', lambda: db.get_project_snapshots(self.project_id))
@@ -115,12 +128,15 @@ class SpecialContext:
 
     # ── lazy parse / compute (recompute features) ────────────────────────────
     def parsed(self):
-        """The parsed ScheduleData for the open file (memoized). None if no file."""
+        """The parsed ScheduleData for the open file (memoized). None if no file. Its baseline
+        is resolved the one way every feature uses (p6_evm.baseline): embedded in the file, else
+        the baseline attached for this snapshot, else the file's own Planned dates."""
         def _parse():
             if not self.has_xml():
                 return None
-            from p6_evm.parser import parse_file
-            return parse_file(self.xml_path)
+            from p6_evm.baseline import load_for_project
+            return load_for_project(self.xml_path, snapshot_id=self.snapshot_id,
+                                    cached_path=(self.evm or {}).get('_cached_path'))
         return self.memo('parsed', _parse)
 
     # ── user-attached inputs (two-/three-file features) ──────────────────────
@@ -133,11 +149,19 @@ class SpecialContext:
         return self.input_path(role) is not None
 
     def parsed_input(self, role):
-        """Parsed ScheduleData for an attached input file (memoized), or None."""
+        """Parsed ScheduleData for an attached input file (memoized), or None. A previous
+        update gets the same baseline resolution as the open file (embedded, else its own
+        attached baseline, else the open file's baseline — inside the XML or attached, the same:
+        p6_evm.baseline.inherit_baseline); a baseline / revision input is read as it is."""
         def _parse():
             p = self.input_path(role)
             if not p:
                 return None
+            if role == 'previous':
+                from p6_evm.baseline import attached_baseline_for, load_schedule, inherit_baseline
+                prev = load_schedule(p, attached_baseline_for(p))
+                inherit_baseline(prev, self.parsed())
+                return prev
             from p6_evm.parser import parse_file
             return parse_file(p)
         return self.memo(f'parsed_input:{role}', _parse)

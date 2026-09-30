@@ -929,7 +929,7 @@ def _rasterize_section(fragment_html, css, mode, chrome):
             f.write(doc)
         fd2, png = tempfile.mkstemp(suffix='.png')
         os.close(fd2)
-        from p6_export.pdf import run_chrome     # falls back past a browser that cannot start
+        from p6_export.pdf import run_chrome          # the ONE tool-wide browser helper
         run_chrome(chrome, ['--headless=new', '--hide-scrollbars',
                             '--force-device-scale-factor=2', '--default-background-color=FFFFFFFF',
                             '--window-size=920,1400', f'--screenshot={png}',

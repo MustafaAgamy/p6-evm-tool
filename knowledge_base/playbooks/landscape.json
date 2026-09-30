@@ -1,0 +1,111 @@
+{
+  "archetype": "landscape",
+  "schema": 2,
+  "context": "civil & finishing-led · hardscape, softscape & irrigation",
+  "brief": {
+    "intro": "Landscape works turn a graded site into finished external areas — hard landscape (paving, kerbs, walls, steps, water features, furniture) and soft landscape (topsoil, planting, lawns and irrigation). New to this type? There is almost no building MEP here; the programme is driven by earthworks and grading first, buried drainage and irrigation next, then hardscape, then planting followed by an establishment / maintenance period before handover. It is weather- and season-sensitive, and finished areas must be protected from the trades that follow.",
+    "scope": [
+      { "name": "Setting out & grading", "desc": "Survey, cut/fill to design levels, and formation of falls to drainage." },
+      { "name": "Drainage & sub-base", "desc": "Land drainage, sub-surface drainage and compacted sub-base under paving." },
+      { "name": "Irrigation mains & first fix", "desc": "Buried irrigation mains, sleeves and control wiring laid before paving." },
+      { "name": "Hardscape", "desc": "Paving, kerbs, retaining and feature walls, steps and edge restraints." },
+      { "name": "Water features & pumps", "desc": "Pools, fountains and their pumps, plant and treatment." },
+      { "name": "Site electrical & lighting", "desc": "Feature and pathway lighting, irrigation controllers and power to features." },
+      { "name": "Soil placement & preparation", "desc": "Topsoil placement, grading, amelioration and preparation of planting beds." },
+      { "name": "Planting", "desc": "Trees, shrubs, groundcover and lawns / turf or seeding." },
+      { "name": "Site furniture & signage", "desc": "Benches, bins, bollards, play/sport equipment and signage." },
+      { "name": "Establishment / maintenance", "desc": "The care period after planting until the landscape is accepted and handed over." }
+    ],
+    "glossary": [
+      { "term": "Hardscape", "plain": "the built, paved external elements — paving, walls, steps, features." },
+      { "term": "Softscape", "plain": "the living parts — soil, planting, lawns and trees." },
+      { "term": "Sub-base", "plain": "the compacted stone layer that supports paving." },
+      { "term": "Irrigation first fix", "plain": "the buried pipes and sleeves laid before paving goes down." },
+      { "term": "Topsoil / subsoil", "plain": "the fertile upper soil for planting vs the layer beneath." },
+      { "term": "Establishment period", "plain": "the post-planting care time until the plants take and it is handed over." },
+      { "term": "Root barrier", "plain": "a barrier that stops roots damaging paving or services." }
+    ],
+    "must_get_right": [
+      "Grading and drainage come first — everything else sits on correct levels and falls.",
+      "Buried services and irrigation first-fix must go in before paving; retrofitting under paving is costly.",
+      "Planting is season-dependent — align the softscape window with the right season, or hold it.",
+      "Programme the establishment / maintenance period, and protect finished areas from following trades."
+    ]
+  },
+  "components": [
+    { "name": "Earthworks & grading", "desc": "Cut/fill · levels · falls", "disc": "Civil", "primary": true },
+    { "name": "Drainage & irrigation", "desc": "Land drainage · irrigation mains", "disc": "Civil", "primary": true },
+    { "name": "Hardscape", "desc": "Paving · walls · steps · features", "disc": "Finishes", "primary": true },
+    { "name": "Softscape / planting", "desc": "Topsoil · trees · shrubs · lawns", "disc": "Finishes", "primary": true },
+    { "name": "Site lighting", "desc": "Feature & pathway lighting", "disc": "Electrical", "primary": false },
+    { "name": "Water features", "desc": "Pools · fountains · pumps", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical / Public Health", "items": ["Irrigation mains, valves & sprinkler zones", "Land & sub-surface drainage", "Water-feature pumps, plant & treatment"] },
+    { "discipline": "Electrical", "items": ["Feature & pathway lighting", "Irrigation controllers & sensors", "Power to features & pumps"] }
+  ],
+  "overview_phases": ["Setting out & grading", "Drainage & sub-base", "Irrigation & services", "Hardscape", "Softscape & planting", "Establishment & handover"],
+  "sequence_chart": {
+    "phases": ["Grade", "Drain", "Services", "Hardscape", "Planting", "Handover"],
+    "lanes": [
+      { "trade": "Earthworks & Grading", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 40, "label": "Set out → cut/fill → formation", "holds": [22] },
+      { "trade": "Drainage & Irrigation", "disc": "Civil", "kind": ["civil", "mechanical"], "start": 24, "width": 40, "label": "Drainage → irrigation first fix", "holds": [] },
+      { "trade": "Hardscape", "disc": "Finishes", "kind": ["civil"], "start": 40, "width": 38, "label": "Sub-base → paving → walls → features", "holds": [58] },
+      { "trade": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "start": 48, "width": 34, "label": "Ducts → cabling → lighting", "holds": [] },
+      { "trade": "Softscape / Planting", "disc": "Finishes", "kind": ["civil"], "start": 66, "width": 30, "label": "Topsoil → planting → lawns", "holds": [] },
+      { "trade": "Establishment", "disc": "Commissioning", "kind": ["comm"], "start": 88, "width": 12, "label": "Care period → handover", "holds": [] }
+    ]
+  },
+  "trades": [
+    { "name": "Earthworks & Grading", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Set out & clear site", "Cut / fill to levels", "Form falls to drainage", "Proof-roll & compact formation"] },
+    { "name": "Drainage & Irrigation", "disc": "Civil", "kind": ["civil", "mechanical"], "holds": [], "steps": ["Land & sub-surface drainage", "Irrigation mains & sleeves", "Valve chambers & controllers", "Pressure test irrigation"] },
+    { "name": "Hardscape", "disc": "Finishes", "kind": ["civil"], "holds": [1], "steps": ["Sub-base & edge restraints", "Kerbs & channels", "Paving & steps", "Retaining & feature walls", "Water features", "Site furniture & signage"] },
+    { "name": "Electrical & Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [], "steps": ["Ducts & draw pits", "Cabling & feeder pillars", "Feature & pathway lighting", "Test & energise"] },
+    { "name": "Softscape / Planting", "disc": "Finishes", "kind": ["civil"], "holds": [], "steps": ["Topsoil placement & amelioration", "Tree pits & planting", "Shrub & groundcover planting", "Lawns / turf or seeding", "Initial watering-in"] },
+    { "name": "Establishment & Handover", "disc": "Commissioning", "kind": ["comm"], "holds": [], "steps": ["Maintenance / establishment period", "Defect & replacement of failed planting", "Final inspection", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "LS", "name": "Landscape — Project", "level": 1 },
+    { "code": "LS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "LS.02", "name": "Setting Out & Earthworks", "level": 2 },
+    { "code": "LS.02.10", "name": "Set out & clearance", "level": 3 },
+    { "code": "LS.02.20", "name": "Cut / fill & grading", "level": 3 },
+    { "code": "LS.03", "name": "Drainage & Irrigation", "level": 2 },
+    { "code": "LS.03.10", "name": "Land & sub-surface drainage", "level": 3 },
+    { "code": "LS.03.20", "name": "Irrigation first fix", "level": 3 },
+    { "code": "LS.03.20.10", "name": "Mains, sleeves & valves", "level": 4 },
+    { "code": "LS.04", "name": "Hardscape", "level": 2 },
+    { "code": "LS.04.10", "name": "Sub-base & edge restraints", "level": 3 },
+    { "code": "LS.04.20", "name": "Paving & steps", "level": 3 },
+    { "code": "LS.04.30", "name": "Walls & features", "level": 3 },
+    { "code": "LS.04.40", "name": "Water features", "level": 3 },
+    { "code": "LS.05", "name": "Site Electrical & Lighting", "level": 2 },
+    { "code": "LS.06", "name": "Softscape / Planting", "level": 2 },
+    { "code": "LS.06.10", "name": "Topsoil & bed preparation", "level": 3 },
+    { "code": "LS.06.20", "name": "Trees & shrubs", "level": 3 },
+    { "code": "LS.06.30", "name": "Lawns / turf", "level": 3 },
+    { "code": "LS.07", "name": "Furniture & Signage", "level": 2 },
+    { "code": "LS.08", "name": "Establishment & Handover", "level": 2 },
+    { "code": "LS.08.10", "name": "Maintenance / establishment period", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network in Primavera P6 developed to a Level 3 control schedule with retained-logic progress; calculated by F9 with total float kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "A 6-day site week, with planting scheduled inside the correct planting season and an explicit weather allowance for wet/hot periods. The establishment period runs on a maintenance calendar after practical completion of planting." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs grading → drainage & buried services → irrigation first fix → hardscape → topsoil & planting → establishment → handover. Late-season planting or a missed weather window, not the hardscape, most often governs the finish." },
+      { "heading": "Key assumptions", "body": "Formation levels are handed over correct and on time by earlier packages; topsoil and specified plant stock are available in the required season; water supply for irrigation and establishment is available; and finished areas are protected by others." },
+      { "heading": "Key quantities & seasonal windows", "body": "The programme is quantity- and season-driven rather than long-lead-equipment driven — the main drivers are tracked as quantities and windows:", "table": { "columns": ["Driver", "Basis", "Programme note" ], "rows": [["Paving area", "m² per crew-week", "Sets the hardscape duration"], ["Topsoil volume", "m³ placed per day", "Precedes all planting"], ["Semi-mature trees", "supply lead + season", "Order early; plant in season"], ["Planting / establishment", "season window + care period", "Gate the handover date"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Working over/around finished areas needs protection; irrigation water supply and disposal; and coordination with building trades still completing adjacent works are the main constraints." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: weather delay to earthworks and planting, plant-establishment failure (replacement in the defect period), and damage to finished landscape by following trades. Contingency is held before the planting window and before handover." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1–2 to the client, controlled at Level 3, expanded to a Level 4–5 field lookahead — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

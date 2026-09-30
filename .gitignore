@@ -27,6 +27,9 @@ controlyx.db
 # Brand assets are committed (exception to the image ignore above)
 !ui/brand/
 !ui/brand/*.png
+# The start-up splash picture the exe shows while it unpacks (controlyx.spec -> Splash)
+!packaging/
+!packaging/*.png
 
 # Session notes and AI context files
 SESSION_NOTES.md

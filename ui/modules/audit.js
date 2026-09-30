@@ -107,6 +107,7 @@ export function oosBulkOutcome(touchedIds, freshAfter) {
 
 import { state } from './state.js';
 import { escapeHtml } from './format.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
 let _filters = { severity: '', check: '', wbs: '', query: '', area: '' };
@@ -1944,10 +1945,28 @@ function msRowHtml(name = '', date = '') {
 
 // The gate screen shown before ANY check results (gate B). Pre-filled from the saved
 // contract milestones when re-opening a project.
+// The contract milestones to pre-fill the gate with: the saved list the module carries, else
+// (an older result) rebuilt from its evaluations — "9-Feb-2027" back to the date box's
+// 2027-02-09. Never empty while milestones exist, so "Edit" never drops the other rows.
+// (Exported for tests.)
+const _MS_MON = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+export function msGateRows(mc) {
+  const m = mc || {};
+  if (Array.isArray(m.contract_milestones) && m.contract_milestones.length) {
+    return m.contract_milestones.map((s) => ({ name: (s && s.name) || '', date: (s && s.date) || '' }));
+  }
+  return (m.milestones || []).filter((e) => e && e.contract_name).map((e) => {
+    const g = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(e.contract_date || ''));
+    const mo = g && _MS_MON[g[2].charAt(0).toUpperCase() + g[2].slice(1).toLowerCase()];
+    const date = mo ? `${g[3]}-${String(mo).padStart(2, '0')}-${g[1].padStart(2, '0')}` : '';
+    return { name: e.contract_name, date };
+  });
+}
+
 function renderMilestoneGate(am) {
   const mc = am.modules.hard_constraints || {};
   const baseline = mc.baseline_milestones || [];
-  const saved = mc.contract_milestones || [];
+  const saved = msGateRows(mc);
   const body = document.getElementById('audit-body');
   body.innerHTML = `
     <div class="ms-gate">
@@ -1987,6 +2006,15 @@ async function submitMilestones(am) {
   if (!milestones.length) { hint.textContent = 'Enter at least one milestone name and its contract date.'; return; }
   const runBtn = document.getElementById('ms-run');
   runBtn.disabled = true; runBtn.textContent = 'Evaluating…';
+  // Shared Run presentation: the review saves + renders UNDER the bar, which reaches 100%
+  // only once the review is on screen (owner comment 36 — no wait after 100%).
+  return revealAndRun(document.getElementById('audit-body'), 'Schedule Health', async () => {
+    revealStage('Checking your contract milestones');
+    await _submitMilestonesWork(am, milestones, hint, runBtn);
+  });
+}
+
+async function _submitMilestonesWork(am, milestones, hint, runBtn) {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/milestones/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1994,9 +2022,16 @@ async function submitMilestones(am) {
     }).then(r => r.json());
     if (resp.ok && resp.milestone_module) {
       am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
+      if (!am.modules.hard_constraints.contract_milestones) am.modules.hard_constraints.contract_milestones = resp.milestones || milestones;
       if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
       renderAudit(am);                                        // un-gated
       selectModule('hard_constraints');                      // land on the Milestone Check
+    } else if (resp.ok && resp.saved) {
+      // Kept with the project, but not checked against the baseline — say both plainly.
+      if (am.modules.hard_constraints) am.modules.hard_constraints.contract_milestones = resp.milestones || milestones;
+      hint.textContent = 'Your contract milestones are saved, but they could not be checked against the baseline'
+        + (resp.error ? ` — ${resp.error}` : '') + '. Press Run to try again.';
+      runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
     } else {
       hint.textContent = resp.error || 'Could not evaluate the milestones — please retry.';
       runBtn.disabled = false; runBtn.textContent = 'Run Schedule Health Review ▸';
@@ -2449,15 +2484,34 @@ function lagDaysCell(f) {
 }
 
 // Save one justification to the server (per project). Raw fetch keeps audit.js free of an
-// api.js import cycle; a failed save is silent — the typed text stays in the in-memory copy.
+// api.js import cycle. Resolves {ok, error} and never throws: a failed save is SAID beside
+// the box (lagJustNote) — the typed text stays in the in-memory copy and the next change
+// retries (alert is a no-op in WebView2).
 async function saveLagJustification(relKey, text) {
-  if (!state.currentSnapshotId) return;
+  if (!state.currentSnapshotId) return { ok: false, error: 'open a schedule first' };
   try {
-    await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/lag/justification`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ snapshot_id: state.currentSnapshotId, rel_key: relKey, text }),
     });
-  } catch { /* offline / server down — keep the local edit, retry on next blur */ }
+    const data = await resp.json();
+    return data && data.ok ? { ok: true } : { ok: false, error: (data && data.error) || 'not saved' };
+  } catch {
+    return { ok: false, error: 'the app could not reach its own local service' };
+  }
+}
+
+// The visible "not saved" line under a justification box (removed once a save succeeds).
+function lagJustNote(ta, res) {
+  const next = ta.nextElementSibling;
+  const old = next && next.classList && next.classList.contains('lag-just-note') ? next : null;
+  if (res.ok) { if (old) old.remove(); return; }
+  const note = old || document.createElement('div');
+  note.className = 'lag-just-note';
+  note.setAttribute('role', 'alert');
+  note.style.cssText = 'color:var(--danger,#c0392b);font-size:11px;margin-top:2px';
+  note.textContent = `Not saved — ${res.error}. Edit the reason again to retry.`;
+  if (!old) ta.insertAdjacentElement('afterend', note);
 }
 
 function lagRowsFiltered(m) {
@@ -2502,14 +2556,39 @@ function renderLagRows(m) {
 
   // Auto-grow each justification box to fit ALL the text the planner types — no hidden
   // overflow, the full sentence is always visible (wrap handled by the textarea + CSS).
-  const autosize = ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; };
-  tbody.querySelectorAll('.lag-just').forEach(ta => {
-    const relKey = ta.dataset.relkey;
-    const sync = () => { const f = (m.findings || []).find(x => x.rel_key === relKey); if (f) f.justification = ta.value; };
-    autosize(ta);
-    ta.addEventListener('input', () => { sync(); autosize(ta); });
-    ta.addEventListener('change', () => { sync(); saveLagJustification(relKey, ta.value); });
-  });
+  // Sized in ONE batch (or natively by CSS field-sizing) — never a per-row read/write
+  // interleave, which forced a full table layout per row (MAFI: a 30 s freeze on Run).
+  autosizeLagBoxes(tbody.querySelectorAll('.lag-just'));
+  // One delegated listener pair per table body (rows are re-rendered on every filter).
+  tbody._lagModel = m;
+  if (!tbody._lagWired) {
+    tbody._lagWired = true;
+    const findingFor = ta => ((tbody._lagModel && tbody._lagModel.findings) || []).find(x => x.rel_key === ta.dataset.relkey);
+    tbody.addEventListener('input', e => {
+      const ta = e.target.closest && e.target.closest('.lag-just'); if (!ta) return;
+      const f = findingFor(ta); if (f) f.justification = ta.value;
+      autosizeLagBoxes([ta]);
+    });
+    tbody.addEventListener('change', async e => {
+      const ta = e.target.closest && e.target.closest('.lag-just'); if (!ta) return;
+      const f = findingFor(ta); if (f) f.justification = ta.value;
+      // A failed save says so under the box (lagJustNote) — alert is a no-op in WebView2.
+      lagJustNote(ta, await saveLagJustification(ta.dataset.relkey, ta.value));
+    });
+  }
+}
+
+// Justification boxes grow to their text. Chromium 123+ (WebView2) does it natively with
+// CSS `field-sizing: content` (style.css) — no JS layout at all. Otherwise: every write,
+// then every read, then every write → ONE layout for the whole table, not one per row.
+const LAG_FIELD_SIZING = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('field-sizing', 'content');
+function autosizeLagBoxes(list) {
+  if (LAG_FIELD_SIZING) return;
+  const tas = Array.from(list || []);
+  if (!tas.length) return;
+  tas.forEach(ta => { ta.style.height = 'auto'; });
+  const hs = tas.map(ta => ta.scrollHeight);
+  tas.forEach((ta, i) => { ta.style.height = `${hs[i]}px`; });
 }
 
 // ── Lag Report — header filter popover (Excel-style AutoFilter) ────────────
@@ -2814,7 +2893,7 @@ export function renderLagPanel(auditModules) {
   const clampFs = px => Math.min(LAG_FS_MAX, Math.max(LAG_FS_MIN, px));
   const applyJustFs = px => {
     body.style.setProperty('--lag-just-fs', `${px}px`);
-    body.querySelectorAll('.lag-just').forEach(ta => { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; });
+    autosizeLagBoxes(body.querySelectorAll('.lag-just'));
   };
   let justFs = LAG_FS_DEF;
   try { const v = parseInt(localStorage.getItem('p6_lag_just_fs'), 10); if (Number.isFinite(v)) justFs = clampFs(v); } catch { /* default */ }

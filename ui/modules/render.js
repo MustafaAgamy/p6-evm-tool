@@ -67,7 +67,7 @@ export function clearError() {
 // results. Hide them all whenever we enter the import screen or render results — so no
 // matter which page the user was on before, nothing shows underneath.
 export function hideStandalonePages() {
-  ['recent-section', 'kb-section', 'kb-database-section', 'prodintel-section'].forEach((id) =>
+  ['recent-section', 'kb-section', 'kb-playbooks-section', 'prodintel-section'].forEach((id) =>
     document.getElementById(id)?.classList.add('hidden'));
 }
 
@@ -110,8 +110,13 @@ export function renderResults(result, filePath, { previousImport = null } = {}) 
   const prevNote = previousImport
     ? `  ·  Previously imported ${fmtDate(previousImport.slice(0, 10))} · results updated`
     : '';
+  // A date field holding something that is not a date is read as blank - say so (finding P22).
+  const ud = result.unparsed_dates;
+  const dateNote = ud && ud.count
+    ? `  ·  ${ud.count} date value${ud.count === 1 ? '' : 's'} in the file could not be read and ${ud.count === 1 ? 'was' : 'were'} left blank (e.g. "${(ud.samples || [])[0] || ''}")`
+    : '';
   document.getElementById('file-info-bar').textContent =
-    `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}`;
+    `${filename}  ·  Data date: ${dataDate}  ·  ${actCount} activities  ·  ${calCount} calendars${prevNote}${dateNote}`;
   document.getElementById('topbar-sub').textContent = `${filename} · ${dataDate}`;
 
   // Issues #3/#4: importing must NOT run or display any feature's analysis — only the

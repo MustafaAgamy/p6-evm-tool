@@ -1,0 +1,126 @@
+{
+  "archetype": "pharmaceutical_plant",
+  "schema": 2,
+  "context": "GMP cleanroom qualification · CQV (IQ/OQ/PQ)-led",
+  "brief": {
+    "intro": "New to this project type? A pharmaceutical / life-sciences plant manufactures drug products or active ingredients inside classified cleanrooms under Good Manufacturing Practice (GMP). Unlike a normal industrial building, construction completion is not the finish line — every system must be formally qualified (Installation, Operational and Performance Qualification) and every room classified before it can be used. Clean utilities (purified water, water-for-injection, clean steam, compressed gases) and cleanroom HVAC — particle counts and pressure cascades — are the schedule drivers, not the structure. Your schedule stands or falls on treating qualification as real, deliverable-based duration and never letting production start creep up against it.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, underground services." },
+      { "name": "Structure & shell", "desc": "Foundations, frame, envelope and roof — weather-tight before cleanroom fit-out begins." },
+      { "name": "Cleanroom fit-out", "desc": "Wall/ceiling/floor systems, hygienic doors, pass-throughs and airlocks — a functional system, not a finish." },
+      { "name": "Cleanroom HVAC", "desc": "AHUs, HEPA/ULPA filtration, pressure cascades, temperature & humidity control." },
+      { "name": "Clean utilities", "desc": "Purified water (PW), water-for-injection (WFI), clean steam, compressed gases (nitrogen, CDA, oxygen)." },
+      { "name": "Process equipment & skids", "desc": "Bioreactors/tanks, process skids, Clean-in-Place / Sterilise-in-Place (CIP/SIP) systems." },
+      { "name": "Electrical & BMS", "desc": "Power distribution, UPS for critical loads, building management system for environmental monitoring." },
+      { "name": "Automation & controls", "desc": "Process automation (DCS/PLC/SCADA) and data-integrity (21 CFR Part 11) configuration." },
+      { "name": "Commissioning, qualification & validation", "desc": "Cleanroom classification, IQ/OQ/PQ and process validation — the real handover gate." }
+    ],
+    "glossary": [
+      { "term": "GMP", "plain": "Good Manufacturing Practice — the regulatory quality standard the facility must be built and operated to." },
+      { "term": "Cleanroom classification (ISO 5–8)", "plain": "the particle-count standard a room must achieve and hold." },
+      { "term": "IQ / OQ / PQ", "plain": "Installation / Operational / Performance Qualification — the staged proof that equipment is installed right, works right, and performs right." },
+      { "term": "WFI / Purified Water", "plain": "high-purity water grades used in drug manufacturing, produced and distributed to strict quality limits." },
+      { "term": "Clean steam", "plain": "steam generated from purified water, used to sterilise equipment (SIP)." },
+      { "term": "CIP / SIP", "plain": "Clean-in-Place / Sterilise-in-Place — automated cleaning and sterilising of process equipment without taking it apart." },
+      { "term": "Pressure cascade", "plain": "rooms held at different air pressures, cleanest highest, so air only ever flows from clean to less-clean." },
+      { "term": "21 CFR Part 11", "plain": "the regulation governing electronic records and signatures in the automation system." }
+    ],
+    "must_get_right": [
+      "It's validation-led, not just construction-led — a system is only done when IQ/OQ/PQ is signed off; build CQV time into the programme as real duration, not a formality at the end.",
+      "Cleanroom finishes and HVAC are functional systems, not cosmetic — sequence them so the room can be classified (particle count, pressure cascade) before equipment moves in.",
+      "Clean utilities (PW/WFI/clean steam/gases) must be qualified before process equipment can be qualified — treat them as a hard predecessor, not parallel scope.",
+      "Protect the validation float — regulatory review and protocol re-test cycles are common; never schedule production start immediately after PQ with no buffer."
+    ]
+  },
+  "components": [
+    { "name": "Cleanroom HVAC", "desc": "AHUs · HEPA/ULPA · pressure cascades", "disc": "Mechanical", "primary": true },
+    { "name": "Clean Utilities", "desc": "PW/WFI · clean steam · compressed gases", "disc": "Process / Utilities", "primary": true },
+    { "name": "Process Equipment & Skids", "desc": "Bioreactors/tanks · process skids · CIP/SIP", "disc": "Process", "primary": true },
+    { "name": "Cleanroom Fit-out", "desc": "Walls/ceilings/floors · doors · pass-throughs", "disc": "Architectural", "primary": true },
+    { "name": "Automation & Controls", "desc": "DCS/PLC/SCADA · data integrity", "disc": "Instrumentation", "primary": false },
+    { "name": "Electrical & BMS", "desc": "Power distribution · UPS · environmental monitoring", "disc": "Electrical", "primary": false },
+    { "name": "Commissioning, Qualification & Validation", "desc": "IQ/OQ/PQ · cleanroom classification", "disc": "CQV", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical — Cleanroom HVAC", "items": ["AHUs with HEPA/ULPA filtration", "Pressure-cascade dampers & controls", "Temperature / humidity control", "Dedicated exhaust (fume / solvent) where applicable"] },
+    { "discipline": "Process / Clean Utilities", "items": ["Purified water & WFI generation and distribution loops (insulated, sloped)", "Clean-steam generation & distribution", "Compressed gases — nitrogen, CDA, oxygen", "CIP/SIP skids"] },
+    { "discipline": "Electrical", "items": ["Normal & essential power distribution", "UPS for critical process & BMS loads", "Earthing & area classification (where solvents present)"] },
+    { "discipline": "ELV / BMS / Automation", "items": ["Building management system — environmental monitoring & alarms", "Process automation (DCS/PLC)", "Access control & environmental data logging"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Structure & Envelope", "Cleanroom Fit-out", "Clean Utilities & HVAC Installation", "Process Equipment & Automation", "Commissioning & Cleanroom Classification", "Qualification (IQ/OQ/PQ)", "Process Validation & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Fit-out", "Utilities", "Equip./Auto.", "Comm./Class.", "IQ-OQ-PQ"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Foundations → frame → envelope weather-tight", "holds": [12] },
+      { "trade": "Cleanroom HVAC & Clean Utilities", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 24, "width": 52, "label": "AHU/ductwork → PW/WFI/steam → pressure cascade set", "holds": [50] },
+      { "trade": "Process Equipment & Automation", "disc": "Mechanical", "kind": ["mep", "mechanical", "elv"], "start": 38, "width": 42, "label": "Set skids/tanks → DCS/PLC → CIP/SIP wet test", "holds": [58] },
+      { "trade": "Electrical & BMS", "disc": "Electrical", "kind": ["mep", "electrical", "bms"], "start": 32, "width": 40, "label": "Power distribution → BMS → environmental monitoring", "holds": [] },
+      { "trade": "Commissioning & Classification", "disc": "Commissioning", "kind": ["comm"], "start": 66, "width": 20, "label": "System commissioning → cleanroom classification", "holds": [74] },
+      { "trade": "Qualification (IQ/OQ/PQ)", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "IQ → OQ → PQ → validation report", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Foundations & underground services", "Structural frame erection", "Roof & envelope", "Weather-tight / building dry-in", "Cleanroom sub-floor & sub-wall preparation"] },
+    { "name": "Cleanroom Fit-out", "disc": "Architectural", "kind": ["civil"], "holds": [4], "steps": ["Wall / ceiling panel system installation", "Epoxy / resin flooring & coving", "Cleanroom doors, interlocks & pass-throughs", "Sealant & surface finish for classification", "Final clean & particle-count preparation"] },
+    { "name": "Cleanroom HVAC", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4, 5], "steps": ["AHU & ductwork installation", "HEPA / ULPA filter installation", "Pressure-cascade damper & control installation", "Balancing — air changes & room pressure", "Particle-count & smoke-pattern test", "Cleanroom classification (at-rest)"] },
+    { "name": "Clean Utilities (PW / WFI / Steam / Gases)", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [4, 5], "steps": ["Utility-generation skid procurement & set", "Distribution loop piping (PW/WFI) — sloped & passivated", "Clean-steam generator & distribution installation", "Compressed-gas systems (N2 / CDA / O2)", "Loop flushing, passivation & sanitisation", "Quality sampling & utility qualification"] },
+    { "name": "Process Equipment & Skids", "disc": "Process", "kind": ["mep", "mechanical"], "holds": [4, 5], "steps": ["Long-lead skid procurement — bioreactors / tanks / process skids", "Rigging & set", "Process piping tie-ins", "CIP / SIP system installation", "Cold (utility) run", "Hot / wet run with product-representative media"] },
+    { "name": "Electrical & BMS", "disc": "Electrical", "kind": ["mep", "electrical", "bms"], "holds": [2], "steps": ["Power distribution installation", "UPS & essential power for critical loads", "BMS field devices & environmental sensors", "Point-to-point verification", "Integration & alarm testing"] },
+    { "name": "Automation & Controls", "disc": "Instrumentation", "kind": ["mep", "elv"], "holds": [3], "steps": ["DCS / PLC panel installation", "Field instrumentation wiring", "Control-system software configuration", "Data-integrity (21 CFR Part 11) configuration", "Loop check & integration test"] },
+    { "name": "Commissioning, Qualification & Validation", "disc": "CQV", "kind": ["comm"], "holds": [2, 4], "steps": ["System (mechanical) commissioning", "Cleanroom classification (at-rest → operational)", "Installation Qualification (IQ)", "Operational Qualification (OQ)", "Performance Qualification (PQ)", "Process validation runs → regulatory sign-off & handover"] }
+  ],
+  "wbs": [
+    { "code": "PHR", "name": "Pharmaceutical Plant — Project", "level": 1 },
+    { "code": "PHR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PHR.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "PHR.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "PHR.02.20", "name": "Foundations & Substructure", "level": 3 },
+    { "code": "PHR.03", "name": "Superstructure & Envelope", "level": 2 },
+    { "code": "PHR.04", "name": "Cleanroom Fit-out", "level": 2 },
+    { "code": "PHR.04.10", "name": "Walls, Ceilings & Flooring Systems", "level": 3 },
+    { "code": "PHR.04.20", "name": "Doors, Pass-throughs & Airlocks", "level": 3 },
+    { "code": "PHR.05", "name": "Cleanroom HVAC", "level": 2 },
+    { "code": "PHR.05.10", "name": "AHUs & HEPA Filtration", "level": 3 },
+    { "code": "PHR.05.20", "name": "Pressure Cascade & Balancing", "level": 3 },
+    { "code": "PHR.06", "name": "Clean Utilities", "level": 2 },
+    { "code": "PHR.06.10", "name": "Purified Water / WFI Systems", "level": 3 },
+    { "code": "PHR.06.10.10", "name": "Loop Passivation & Sanitisation", "level": 4 },
+    { "code": "PHR.06.20", "name": "Clean Steam & Compressed Gases", "level": 3 },
+    { "code": "PHR.07", "name": "Process Equipment & Skids", "level": 2 },
+    { "code": "PHR.07.10", "name": "Bioreactors / Process Tanks", "level": 3 },
+    { "code": "PHR.07.20", "name": "CIP / SIP Systems", "level": 3 },
+    { "code": "PHR.08", "name": "Electrical & BMS", "level": 2 },
+    { "code": "PHR.08.10", "name": "Power Distribution & UPS", "level": 3 },
+    { "code": "PHR.08.20", "name": "Building Management System", "level": 3 },
+    { "code": "PHR.09", "name": "Automation & Controls", "level": 2 },
+    { "code": "PHR.09.10", "name": "DCS / PLC Installation", "level": 3 },
+    { "code": "PHR.09.20", "name": "Data Integrity (21 CFR Part 11) Configuration", "level": 3 },
+    { "code": "PHR.10", "name": "Commissioning, Qualification & Validation", "level": 2 },
+    { "code": "PHR.10.10", "name": "Cleanroom Classification", "level": 3 },
+    { "code": "PHR.10.20", "name": "Installation Qualification (IQ)", "level": 3 },
+    { "code": "PHR.10.30", "name": "Operational Qualification (OQ)", "level": 3 },
+    { "code": "PHR.10.40", "name": "Performance Qualification (PQ)", "level": 3 },
+    { "code": "PHR.10.40.10", "name": "Process Validation Runs", "level": 4 },
+    { "code": "PHR.10.40.10.10", "name": "Regulatory Sign-off & Handover", "level": 5 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Qualification activities (IQ/OQ/PQ) are scheduled as real-duration activities with their own logic and deliverables (protocol write-up, execution, report) — never as zero-duration milestones." },
+      { "heading": "Calendars & working time", "body": "Civil and structure run a 6-day week; cleanroom fit-out and clean-utility installation run controlled, typically single-shift, conditions to protect quality. Qualification execution follows a fixed protocol-approval cycle — write → review → approve → execute → report — that cannot be compressed by adding shifts." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs cleanroom envelope & fit-out → HVAC & clean-utility installation → system commissioning → cleanroom classification → Installation Qualification → Operational Qualification → Performance Qualification → process validation → regulatory sign-off. Process-equipment installation runs in parallel with utilities but cannot itself be qualified until the utilities it depends on (clean steam, WFI, gases) are already qualified." },
+      { "heading": "Key assumptions", "body": "User requirement specifications (URS) and design are frozen before cleanroom fit-out starts; qualification protocols are pre-approved by Quality before execution; a single validation campaign with no major protocol failures; regulatory inspection is scheduled after PQ completion." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on process skids and cleanroom/utility equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Process skids (bioreactors / CIP-SIP)", "30–45 weeks", "Before process-area close-in"], ["Cleanroom AHUs & HEPA filtration", "20–30 weeks", "Before cleanroom fit-out complete"], ["WFI / clean-steam generation skids", "24–36 weeks", "Before clean-utility qualification"], ["DCS / automation panels", "20–28 weeks", "Before automation integration"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Cleanroom areas require strict access and gowning control from fit-out completion onward; specialist qualification (CQV) engineers and Quality Assurance reviewers are a constrained, shared resource across the validation phase; material and personnel flow must respect the classified-area pressure cascade even during construction close-out." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: protocol deviations during IQ/OQ/PQ requiring re-execution, cleanroom classification failure (particle count or pressure) forcing rework, and regulatory review comments extending the validation float. Schedule contingency is held around the qualification phase (IQ→PQ) and before regulatory sign-off, not spread across construction." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for fit-out/utilities works and qualification execution — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

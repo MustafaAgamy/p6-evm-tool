@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   FEATURE_NEEDS, featureNeeds, needsHint, needsTooltip, needsSearchText, filterNeeds,
-  needsGroups, requiredFileCount, UPDATE_NO_BASELINE_ADVICE,
+  needsGroups, requiredFileCount, UPDATE_NO_BASELINE_ADVICE, ATTACHED_BASELINE_PREFILL,
 } from '../../ui/modules/feature_needs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -39,7 +39,7 @@ const navItems = navGroups.flatMap(g => g.items.map(([id, label]) => ({ id, labe
 console.log('\nnavigator coverage');
 test('NAV parsed from app.js (root + groups)', () => {
   assert.deepEqual(navRoot, ['home']);
-  assert.ok(navItems.length >= 20, `only ${navItems.length} navigator items parsed`);
+  assert.ok(navItems.length >= 19, `only ${navItems.length} navigator items parsed`);
 });
 test('EVERY navigator id has a FEATURE_NEEDS entry', () => {
   const missing = [...navRoot, ...navItems.map(n => n.id)].filter(id => !featureNeeds(id));
@@ -132,37 +132,72 @@ test('Baseline Revision needs TWO baselines, each XER or XML (not "2 XERs")', ()
   f.files.forEach(x => assert.equal(x.formats, 'XER or XML'));
   assert.match(serverSrc, /rev0_path[\s\S]{0,400}rev1_path/);
 });
-test('Update Analysis reads ONE file — the baseline must be inside it', () => {
+test('Update Analysis: baseline inside the file, else the one attached for it (XER or XML)', () => {
   const f = featureNeeds('update');
-  assert.equal(f.files.length, 1);
-  // server: re-parses the one update file and refuses when it carries no baseline …
+  assert.equal(f.files.filter(x => x.k === 'p6').length, 1);                 // one imported update …
+  const bl = f.files.find(x => x.k === 'optional' && /baseline/i.test(x.role));
+  assert.ok(bl, 'the attachable baseline is listed');                         // … + its attachable baseline
+  assert.equal(bl.formats, 'XER or XML');
+  // server: re-reads the update through the ONE baseline resolver (embedded > attached > self) …
   const h = serverSrc.slice(serverSrc.indexOf('def _handle_update_analyze'), serverSrc.indexOf('def _handle_update_counts'));
+  assert.match(h, /_schedule_for\(curr_path, body\)/, 'Update Analysis no longer reads the attached baseline — update the help text');
   assert.match(h, /'no_baseline'/);
-  assert.ok(!/apply_baseline/.test(h), 'Update Analysis now applies an attached baseline — update the help text (feature_needs.js update entry)');
-  // … and an XER fills its "baseline" from the update's own planned (target) dates.
-  assert.match(xerSrc, /planned_start = _dt\(t\.get\('target_start_date'\)\)/);
-  assert.match(xerSrc, /data\.baseline_by_id\[task_code\]/);
-  assert.match(f.files[0].note, /XER never carries its baseline/);
+  const helper = serverSrc.slice(serverSrc.indexOf('def _schedule_for'), serverSrc.indexOf('class ', serverSrc.indexOf('def _schedule_for')));
+  assert.match(helper, /attached_baseline_for\(/);
+  assert.match(read('p6_evm', 'baseline.py'), /def resolve_baseline[\s\S]*'embedded'[\s\S]*'attached'/);
+  // … and refuses a 'self' baseline (the update's own planned dates), XER or XML alike.
+  const ua = read('p6_update', 'analysis.py');
+  assert.match(ua, /has_baseline = \(src in \('embedded', 'attached'\)\)/);
+  assert.match(xerSrc, /data\.baseline_source = 'self'/);
+  assert.match(read('p6_evm', 'parser.py'), /data\.baseline_source = 'self'/);
+  assert.match(f.files[0].note, /a normal XER update export does not, nor does an XML exported without it/);
+  // An XER that includes its baseline project is read like the XML (p6_evm/xer.py, finding P1).
+  assert.match(f.files[0].note, /so does an XER that includes the baseline project/);
+  assert.match(xerSrc, /def _read_embedded_baseline/);
+  assert.ok(!/not used here/.test(JSON.stringify(f)), 'Help still says the attached baseline is not used here');
+});
+test('Reporting Studio Update items follow the Update Analysis screen rule (R1 F1) and Help says so', () => {
+  const prov = read('p6_special', 'providers', 'update.py');
+  assert.match(prov, /return 'needs_input' if _no_baseline\(ctx\) else 'ready'/);
+  assert.match(read('p6_special', 'feature_reports.py'), /update_has_baseline\(data\)/);
+  assert.match(read('p6_update', 'analysis.py'), /has_baseline = update_has_baseline\(data\)/);
+  assert.match(read('ui', 'modules', 'special.js'), /i\.availability !== 'ready' && i\.note/, 'the Studio no longer shows why an item is not ready');
+  assert.match(featureNeeds('special').files[1].note, /Update Analysis results follow the Update Analysis screen[\s\S]*never measured against its own Planned dates/);
+});
+test('every screen that shows a baseline-derived value marks it approx under ONE rule (R1 F2)', () => {
+  const ov = read('ui', 'modules', 'overview.js');
+  assert.match(ov, /baselineApprox\(result, state\.currentXmlPath\)/);
+  assert.match(ov, /Baseline finish\$\{ax\}/); assert.match(ov, /Overall planned\$\{ax\}/);
+  assert.match(ov, /WBS_BL_COLS = new Set\(\['baseline_start', 'baseline_finish', 'planned', 'delay'\]\)/);
+  const cal = read('ui', 'modules', 'calendar.js');
+  assert.match(cal, /d\.baseline_approx \? 'Baseline \(approx\)' : 'plan of record'/);
+  assert.match(read('p6_calendar', 'report.py'), /'Baseline \(approx\)' if d\.get\('baseline_approx'\) else 'plan of record'/);
+  assert.match(read('ui', 'modules', 'critpath.js'), /BL finish\$\{_ax\(role\)\}/);
+  assert.match(read('ui', 'modules', 'period.js'), /Baseline\$\{ax\}<\/th>/);
+  assert.match(read('ui', 'modules', 'evm.js'), /noBaseline \? 'weighted table · approx' : 'weighted table'/);
 });
 test('Update Analysis: the screen and the server give the SAME advice as Help (SHELL-1)', () => {
-  // The handler never reads an attached / saved baseline, so "attach a baseline on the EVM tab"
-  // is advice that changes nothing. Screen, server and Help must all say: re-export the XML
-  // with its baseline, or import the XER.
+  // The handler reads the baseline attached for the update (here or on Earned Value), so screen,
+  // server and Help all say: attach the baseline (XER or XML), or re-export the XML with it.
   const upd = read('ui', 'modules', 'update.js');
   const at = upd.indexOf("data.code === 'no_baseline'");
   assert.ok(at > 0, 'no_baseline branch not found in update.js');
-  const block = upd.slice(at, upd.indexOf('return;', at));
-  assert.ok(!/EVM|Earned Value/.test(block), 'update.js no_baseline text still sends the planner to the EVM tab');
-  assert.ok(!/Attach a baseline/i.test(block), 'update.js no_baseline text still says "Attach a baseline"');
+  const fnAt = upd.indexOf('function _noBaseline(');
+  assert.ok(fnAt > 0, 'update.js _noBaseline (the no-baseline state) not found');
+  const block = upd.slice(fnAt, upd.indexOf('\n}\n', fnAt));
   assert.match(block, /UPDATE_NO_BASELINE_ADVICE/, 'update.js should show the shared UPDATE_NO_BASELINE_ADVICE');
+  assert.match(block, /ATTACH_BASELINE_LABEL/, 'the no-baseline state should offer the Attach button');
+  assert.match(block, /attachBaselineFile\(\)/);
   assert.match(upd, /import[^;]*UPDATE_NO_BASELINE_ADVICE[^;]*['"]\.\/feature_needs\.js['"]/);
   const h = serverSrc.slice(serverSrc.indexOf('def _handle_update_analyze'), serverSrc.indexOf('def _handle_update_counts'));
-  const lit = (h.match(/'code': 'no_baseline'[\s\S]{0,160}?'error':\s*((?:'[^']*'\s*)+)\}/) || [])[1] || '';
+  const lit = (h.match(/'code': 'no_baseline'[\s\S]{0,400}?'error':\s*((?:'[^']*'\s*)+)\}/) || [])[1] || '';
   const err = [...lit.matchAll(/'([^']*)'/g)].map(x => x[1]).join('');   // Python joins adjacent literals
   assert.ok(err, 'no_baseline error text not found in _handle_update_analyze');
-  assert.ok(!/Attach a baseline/i.test(err), `server no_baseline error still says "Attach a baseline": ${err}`);
-  assert.match(err, /XML/); assert.match(err, /XER/);
-  assert.match(UPDATE_NO_BASELINE_ADVICE, /Re-export[\s\S]*XML[\s\S]*baseline[\s\S]*XER/);
+  assert.match(err, /Attach the baseline \(XER or XML\)/);
+  assert.match(err, /XML/); assert.match(err, /every feature/);
+  assert.ok(!/import the update as an XER/i.test(err), 'server still sends the planner to the XER (its own dates)');
+  assert.match(UPDATE_NO_BASELINE_ADVICE, /Attach the baseline \(XER or XML\)[\s\S]*re-export[\s\S]*XML[\s\S]*baseline/);
+  assert.ok(!/import the update as an XER/i.test(UPDATE_NO_BASELINE_ADVICE));
   assert.ok(featureNeeds('update').files[0].note.includes(UPDATE_NO_BASELINE_ADVICE),
     'the Help note should carry the same advice the screen shows');
 });
@@ -184,35 +219,87 @@ test('Consultant Review: the RESCHEDULED but-for file is read as XER or XML (SHE
   assert.ok(!/needs the rescheduled corrected file as XML/.test(studio), 'Reporting Studio note still says the rescheduled file must be XML');
   assert.match(studio, /XER or XML/);
 });
-test('Earned Value: a XER update is prompted for its baseline (evm.js) and the upload route exists', () => {
+test('Earned Value: an update without its baseline (XER or XML) is prompted for it and the upload route exists', () => {
   const evm = read('ui', 'modules', 'evm.js');
-  assert.match(evm, /isXer[\s\S]{0,200}hasBaseline/);
+  assert.match(evm, /needsBaseline[\s\S]{0,200}hasBaseline/);
   assert.match(serverSrc, /'\/api\/baseline\/upload'/);
   assert.ok(featureNeeds('evm').files.some(x => x.k === 'optional' && /baseline/i.test(x.role)));
 });
-test('Earned Value: no baseline prompt / Attach button for an XML — Help says so (SHELL-2)', () => {
+test('Earned Value: the prompt / Attach button follow baseline_source, so an XML without its baseline gets them too', () => {
   const evm = read('ui', 'modules', 'evm.js');
-  // The prompt returns early unless the file is an XER; the banner is null for every XML.
-  assert.match(evm, /if \(!isXer \|\| hasBaseline \|\| _blPromptDone\) return;/,
-    'maybePromptBaseline changed — if an XML can now get a baseline, update the evm entry in feature_needs.js');
-  assert.match(evm, /return null;\s*\/\/ XML — baseline is embedded, nothing to attach/,
-    'baselineBannerState changed — if an XML can now get an Attach button, update the evm entry in feature_needs.js');
+  // The prompt returns early only when the baseline is not 'self' (embedded or attached), or
+  // when no baseline is assigned in P6 (its own dates ARE its baseline — review F3) …
+  assert.match(evm, /const needsBaseline = baselineSource\(result, state\.currentXmlPath\) === 'self' && baselineExpected\(result\);/);
+  assert.match(evm, /if \(src === 'self' && expected === false\)/, 'the no-baseline-assigned banner is gone — update Help');
+  assert.match(read('p6_evm', 'baseline.py'), /'baseline_expected': info\.get\('expected'\)/);
+  assert.match(evm, /if \(!needsBaseline \|\| hasBaseline \|\| _blPromptDone\) return;/,
+    'maybePromptBaseline changed — update the evm entry in feature_needs.js');
+  // … and the banner is null only for a baseline embedded in the file.
+  assert.match(evm, /return null;\s*\/\/ embedded — the file carries its baseline, nothing to attach/,
+    'baselineBannerState changed — update the evm entry in feature_needs.js');
+  // the server accepts a baseline for any update that doesn't embed one (XER or XML) …
+  const up = serverSrc.slice(serverSrc.indexOf('def _handle_baseline_upload'), serverSrc.indexOf('def _handle_baseline_clear'));
+  assert.match(up, /baseline_source', None\) == 'embedded'/);
+  assert.ok(!/endswith\('\.xer'\)/.test(up), 'baseline upload is XER-only again');
+  // … and Help says so.
   const bl = featureNeeds('evm').files.find(x => x.k === 'optional' && /baseline/i.test(x.role));
-  assert.match(bl.role, /only for an XER update/);
-  assert.ok(!/or an XML exported without its baseline/.test(bl.role), 'still claims the tool asks for a baseline for an XML');
-  assert.match(bl.note, /cannot be attached to an XML/);
+  assert.match(bl.role, /an XML exported without its baseline project/);
+  assert.ok(!/only for an XER update/.test(bl.role), 'Help still says the baseline is only for an XER');
+  assert.ok(!/cannot be attached to an XML/.test(bl.note), 'Help still says a baseline cannot be attached to an XML');
+  assert.match(bl.note, /remembered for this update and used by every feature/);
+  assert.match(bl.note, /no baseline assigned in P6[\s\S]*own Planned dates are its baseline/);
 });
-test('Knowledge Base: every file the screen saves is listed (SHELL-7)', () => {
-  const kb = read('ui', 'modules', 'database.js');
-  assert.match(kb, /example_with_gaps/);                                   // exportExample(…, gappy)
-  assert.match(kb, /clean_baseline/);                                      // exportExample(…, clean)
-  assert.match(kb, /function downloadContributed[\s\S]{0,120}filename\.split\('\.'\)\.pop\(\)/);   // own format
-  assert.match(kb, /\/api\/kb\/raw\/download/);                            // raw learned project
-  assert.match(kb, /\/api\/kb\/starter-xml/);
-  assert.match(kb, /\/api\/kb\/knowledge\/export/);
-  assert.match(read('p6_kb', 'pattern_learning.py'), /ext = os\.path\.splitext\(src_path\)\[1\]\.lower\(\)/);  // raw kept as learned
+test('No baseline assigned in P6: Update Analysis reads its own dates, Help says so (review F3)', () => {
+  assert.match(read('p6_update', 'analysis.py'), /if src == 'self' and not expected:\s+has_baseline = True/);
+  assert.match(featureNeeds('update').files[0].note, /no baseline assigned in P6[\s\S]*own Planned dates/);
+});
+test('Previous update inherits the current update’s baseline, inside the XML or attached (review F1)', () => {
+  const h = serverSrc.slice(serverSrc.indexOf('def _handle_period_compare'), serverSrc.indexOf('def _handle_period_previous'));
+  assert.match(h, /inherit_baseline\(data, curr\)/);
+  const c = serverSrc.slice(serverSrc.indexOf('def _handle_critpath_analyze'), serverSrc.indexOf('def _handle_critpath_report'));
+  assert.match(c, /inherit_baseline\(schedules\[role\], schedules\['current'\]\)/);
+  assert.match(read('p6_special', 'context.py'), /inherit_baseline\(prev, self\.parsed\(\)\)/);
+  for (const id of ['period', 'critpath']) {
+    const f = featureNeeds(id).files.find(x => /Previous update/.test(x.role));
+    assert.match(f.note, /current update’s baseline — the one inside the XML or the one attached/);
+  }
+});
+test('Attach buttons say "XER or XML" (Earned Value, Update Analysis, Reporting Studio)', () => {
+  const blj = read('ui', 'modules', 'baseline.js');
+  assert.match(blj, /ATTACH_BASELINE_LABEL = '📎 Attach baseline \(XER or XML\)'/);
+  const evm = read('ui', 'modules', 'evm.js');
+  assert.ok(!/Attach baseline XER'|Import baseline XER/.test(evm), 'evm.js still labels the attach button XER-only');
+  assert.match(evm, /attach: ATTACH_BASELINE_LABEL/);
+  assert.match(read('p6_special', 'providers', 'twofile.py'), /'label': 'Baseline \(XER or XML\)'/);
+});
+test('Baseline slots start with the baseline attached to this update (R3 F9)', () => {
+  const blj = read('ui', 'modules', 'baseline.js');
+  assert.match(blj, /export function attachedBaselineSlot\(result\)/);
+  assert.match(blj, /ATTACHED_BASELINE_TAG = 'attached to this update'/);
+  assert.match(ATTACHED_BASELINE_PREFILL, /attached to this update/);
+  assert.match(ATTACHED_BASELINE_PREFILL, /Change button picks another file/);
+  const cpa = read('ui', 'modules', 'critpath.js');
+  assert.match(cpa, /attachedBaselineSlot\(state\.currentResult\)/);
+  assert.match(cpa, /payload\[`\$\{role\}_path`\] = _slotPath\(role\)/, 'critpath does not send the attached baseline');
+  assert.match(cpa, /every\(r => _slotPath\(r\)\)/, 'critpath Run stays disabled with the attached baseline');
+  const cmp = read('ui', 'modules', 'compare.js');
+  assert.match(cmp, /function _reviewBaseline\(\)[\s\S]{0,400}attachedBaselineSlot\(state\.currentResult\)/);
+  assert.match(cmp, /const bl = _reviewBaseline\(\);[\s\S]{0,200}state\.compareBaselinePath = path;/);
+  const sr = read('ui', 'modules', 'special.js');
+  assert.match(sr, /inputs: effInputs\(\)/);
+  assert.match(sr, /api\('api\/special\/catalog', \{ snapshot_id: state\.currentSnapshotId, inputs: effInputs\(\) \}\)/);
+  assert.equal(featureNeeds('critpath').files.find(f => /^Baseline/.test(f.role)).note, ATTACHED_BASELINE_PREFILL);
+  assert.equal(featureNeeds('compare').files.find(f => /^Baseline/.test(f.role)).note, ATTACHED_BASELINE_PREFILL);
+  assert.match(featureNeeds('special').files[1].note, /comparison item’s Baseline is filled in with that attached baseline/);
+});
+test('Knowledge Base: every file the Playbooks screen saves is listed (SHELL-7)', () => {
+  const kb = read('ui', 'modules', 'knowledge.js');
+  assert.match(kb, /\/api\/kb\/detailed-xer/);
+  assert.match(kb, /\/api\/kb\/starter-xer/);
+  assert.match(kb, /\/api\/kb\/excel/);
+  assert.match(kb, /data-act="exp-pdf"/);
   const ex = featureNeeds('kb').exports.join(' | ');
-  for (const w of ['Starter baseline', 'with typical gaps', 'Clean reference baseline', 'Contributed schedules', 'learned project', 'Knowledge file (.json)']) {
+  for (const w of ['PDF', 'Excel', 'Detailed baseline (XER', 'Skeleton baseline (XER)']) {
     assert.ok(ex.includes(w), `kb exports missing "${w}": ${ex}`);
   }
 });

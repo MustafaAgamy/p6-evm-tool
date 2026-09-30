@@ -62,3 +62,49 @@ def test_help_links_are_on_the_allow_list():
     assert 'https://www.linkedin.com/in/ibrahim-gebril-417a40270/' in urls
     for u in urls:
         assert utils.is_allowed_external_url(u), u
+
+
+@pytest.mark.parametrize('url', [
+    'https://leafletjs.com',                                   # the map's "Leaflet" attribution
+    'https://www.openstreetmap.org/copyright',                 # "© OpenStreetMap contributors"
+    'https://open-meteo.com/',                                 # Bad Weather ▸ weather source
+])
+def test_every_linked_site_is_allowed(url):
+    """Every site the UI links to opens in the default browser (external_links.js → open_external)."""
+    assert utils.is_allowed_external_url(url)
+
+
+@pytest.mark.parametrize('url', [
+    'https://nominatim.openstreetmap.org/search?q=x',          # an API, not a page to open
+    'https://tile.openstreetmap.org/1/1/1.png',
+    'https://huggingface.co/Qwen/x.gguf',                      # a download, never a browser tab
+    'https://api.open-meteo.com/v1/forecast',
+    'https://openstreetmap.org.evil.example/',
+])
+def test_api_hosts_and_lookalikes_are_not_browser_links(url):
+    assert not utils.is_allowed_external_url(url)
+
+
+def test_user_agent_is_built_from_the_brand_constants():
+    assert utils.USER_AGENT.startswith(f'{utils.APP_NAME}/{utils.APP_VERSION}')
+    assert 'nPace' not in utils.USER_AGENT
+
+
+def test_network_error_message_is_plain_english():
+    import socket
+    import urllib.error
+    offline = utils.network_error_message(
+        urllib.error.URLError(socket.gaierror(11001, 'getaddrinfo failed')), 'OpenStreetMap',
+        needs='the place search')
+    assert offline.startswith('No internet connection')
+    assert 'The place search needs the internet' in offline
+    assert 'getaddrinfo' not in offline
+    slow = utils.network_error_message(urllib.error.URLError(TimeoutError('timed out')), 'Open-Meteo')
+    assert 'did not answer in time' in slow
+    busy = utils.network_error_message(
+        urllib.error.HTTPError('https://x', 429, 'Too Many', {}, None), 'OpenStreetMap')
+    assert 'busy' in busy
+    down = utils.network_error_message(
+        urllib.error.HTTPError('https://x', 503, 'Unavailable', {}, None), 'Open-Meteo')
+    assert 'temporarily unavailable' in down and '503' in down
+    assert 'could not read' in utils.network_error_message(ValueError('bad json'), 'Open-Meteo')

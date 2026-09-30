@@ -1,0 +1,125 @@
+{
+  "archetype": "correctional_facility",
+  "schema": 2,
+  "context": "security-systems-led · secure perimeter & precast cell fit-out drive the programme",
+  "brief": {
+    "intro": "New to this project type? A correctional facility is a secure building complex — precast concrete cells, secure perimeter walls or fencing, dormitory/admin blocks — where the structure itself is comparatively straightforward, but the acceptance criteria are not architectural, they are operational. No wing can be handed over until the full chain of security electronics (CCTV, access control, detention door control, intercom/duress) is integrated behind a single PSIM command platform and proven under a live lockdown/life-safety scenario. Your schedule stands or falls on completing the secure perimeter early, treating precast cell delivery as a manufacturing supply chain rather than generic structure, and protecting real time for the security-systems integration and lockdown test at the end.",
+    "scope": [
+      { "name": "Enabling & secure perimeter", "desc": "Site clearance, earthworks, secure perimeter wall/fencing and vehicle sally ports." },
+      { "name": "Substructure & foundations", "desc": "Foundations and pile caps for cellblocks, admin and support buildings." },
+      { "name": "Structure — precast cells & frame", "desc": "Factory-cast concrete cell modules erected on site, plus cast-in-place admin/support structure." },
+      { "name": "Architectural fit-out & security hardware", "desc": "Security doors/frames, detention-grade glazing and vandal-resistant finishes." },
+      { "name": "Electrical power", "desc": "Normal and standby (generator/UPS) distribution to keep security systems live through an outage." },
+      { "name": "HVAC & plumbing", "desc": "Anti-ligature mechanical ventilation and detention-grade, tamper-resistant plumbing fixtures." },
+      { "name": "Fire & life safety", "desc": "Fire alarm and suppression, interlocked with the lockdown logic rather than standing alone." },
+      { "name": "Security ELV / detention systems", "desc": "CCTV, access control, electric detention door control and intercom/duress stations." },
+      { "name": "PSIM integration", "desc": "The Physical Security Information Management platform that ties every security system into one officer interface." },
+      { "name": "Testing & commissioning", "desc": "Security-systems integration test culminating in a full lockdown / life-safety scenario test." }
+    ],
+    "glossary": [
+      { "term": "PSIM", "plain": "Physical Security Information Management — the software platform an officer uses to see and control every security system from one screen." },
+      { "term": "Detention door control", "plain": "electrically operated, centrally released high-security locking for cells and secure corridors." },
+      { "term": "Sally port", "plain": "a two-door secure airlock for vehicles or people — the first door must close before the second opens." },
+      { "term": "Anti-ligature", "plain": "fixtures and hardware designed with no points a person could use to self-harm." },
+      { "term": "Duress / intercom station", "plain": "a fixed point letting staff or inmates raise an alarm instantly." },
+      { "term": "CCTV / VMS", "plain": "the camera network and the video-management software that records and displays it." },
+      { "term": "Precast cell module", "plain": "a factory-cast concrete cell unit delivered to site and set in place, rather than built in-situ." },
+      { "term": "Lockdown / life-safety scenario test", "plain": "a live drill proving every door, alarm and camera responds correctly together during a security incident." }
+    ],
+    "must_get_right": [
+      "Complete the secure perimeter early — nothing else on site can be safely worked or occupied without it in place.",
+      "Sequence precast cell delivery and erection like a manufacturing supply chain, not generic structure — factory lead time and crane/erection windows drive the frame programme.",
+      "The security ELV integration (CCTV + access + door control + PSIM) is the true critical path, not the building shell — protect real time for the full lockdown/life-safety scenario test and expect at least one re-test."
+    ]
+  },
+  "components": [
+    { "name": "Secure Perimeter & Structure", "desc": "Perimeter wall/fencing · precast cells · frame", "disc": "Civil / Structural", "primary": true },
+    { "name": "Electrical Power", "desc": "Normal + standby distribution for security load", "disc": "Electrical", "primary": true },
+    { "name": "HVAC & Plumbing", "desc": "Anti-ligature ventilation · detention-grade fixtures", "disc": "Mechanical", "primary": false },
+    { "name": "Security ELV / Detention Systems", "desc": "CCTV · access control · detention door control · duress", "disc": "Extra-Low Voltage", "primary": true },
+    { "name": "PSIM Integration", "desc": "Unified security command & control platform", "disc": "Instrumentation", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Alarm · suppression · lockdown interlock", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "Security integration · lockdown / life-safety test", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["HVAC ventilation with anti-ligature grilles/diffusers", "Cellblock exhaust extraction", "Kitchen / laundry mechanical services (where present)"] },
+    { "discipline": "Electrical", "items": ["Normal power distribution", "Standby generators + UPS for security & life-safety loads", "Emergency & security-area lighting", "Earthing & bonding"] },
+    { "discipline": "Plumbing / Public Health", "items": ["Detention-grade, vandal/anti-ligature fixtures", "Domestic water & drainage", "Central water shut-off valves per cell block"] },
+    { "discipline": "ELV / ICT · Fire · BMS", "items": ["CCTV & video management system (VMS)", "Access control & electric detention door control", "Intercom / duress stations", "PSIM integration", "Fire alarm & suppression interlocked with lockdown logic"] }
+  ],
+  "overview_phases": ["Enabling & Perimeter", "Substructure", "Precast Cell Erection & Structure", "Envelope", "MEP Rough-in", "Security ELV & PSIM Integration", "Fit-out & Hardware", "Commissioning & Lockdown Test"],
+  "sequence_chart": {
+    "phases": ["Enable", "Perimeter", "Structure", "Rough-in", "Security", "Fit-out", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Perimeter & Structure", "disc": "Civil / Structural", "kind": ["civil"], "start": 0, "width": 45, "label": "Perimeter wall → precast cells → frame", "holds": [15] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 20, "width": 55, "label": "Containment → standby power → distribution → terminate", "holds": [50, 75] },
+      { "trade": "Mechanical & Plumbing", "disc": "Mechanical", "kind": ["mechanical"], "start": 25, "width": 45, "label": "Ventilation & plumbing rough-in → fixtures", "holds": [] },
+      { "trade": "Security ELV / PSIM", "disc": "Extra-Low Voltage", "kind": ["elv", "bms"], "start": 45, "width": 40, "label": "Containment → CCTV/access/door control → PSIM integrate", "holds": [70] },
+      { "trade": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "start": 50, "width": 30, "label": "Alarm/suppression rough-in → lockdown interlock", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Security integration → lockdown/life-safety test", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil / Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Site clearance & earthworks", "Secure perimeter wall/fencing & vehicle sally ports", "Foundations & pile caps", "Precast cell module procurement & delivery", "Precast cell erection & grouting", "Cast-in-place structure — admin & support blocks", "Roof & envelope — weather-tight"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 5], "steps": ["Containment & cable routes", "Standby generator & UPS procurement", "Set generators & UPS", "Normal & emergency power distribution", "Terminate panels & emergency lighting", "Load-bank & power-path proving"] },
+    { "name": "Mechanical & Plumbing", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2], "steps": ["Ductwork rough-in & anti-ligature diffusers", "Set AHUs / exhaust fans", "Detention-grade plumbing fixtures & central shut-offs", "Domestic water & drainage rough-in", "Balancing & functional test"] },
+    { "name": "Security ELV / Detention Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [3], "steps": ["Containment routes to cells & secure corridors", "CCTV camera & VMS installation", "Access control & card/biometric readers", "Detention door-control (electric locking) installation", "Intercom / duress stations", "Point-to-point & loop testing"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2], "steps": ["Fire alarm detection rough-in", "Suppression system installation", "Lockdown interlock wiring to fire panel", "Cause-and-effect & discharge test", "Fire-rated door & damper interlock verification"] },
+    { "name": "PSIM / Security Integration", "disc": "Instrumentation", "kind": ["bms"], "holds": [4], "steps": ["PSIM server & workstation installation", "Integrate CCTV, access control & door-control feeds", "Integrate fire / life-safety interlock", "Officer-station commissioning & training", "Full system integration test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2], "steps": ["Security ELV integration test", "PSIM end-to-end proving", "Full lockdown / life-safety scenario test", "Punch-list & re-test", "Handover to facility operator"] }
+  ],
+  "wbs": [
+    { "code": "CF", "name": "Correctional Facility — Project", "level": 1 },
+    { "code": "CF.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "CF.02", "name": "Site & Secure Perimeter", "level": 2 },
+    { "code": "CF.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "CF.02.20", "name": "Perimeter Wall/Fencing & Sally Ports", "level": 3 },
+    { "code": "CF.03", "name": "Substructure", "level": 2 },
+    { "code": "CF.03.10", "name": "Foundations & Pile Caps", "level": 3 },
+    { "code": "CF.04", "name": "Superstructure", "level": 2 },
+    { "code": "CF.04.10", "name": "Precast Cell Modules", "level": 3 },
+    { "code": "CF.04.10.10", "name": "Procurement & Delivery", "level": 4 },
+    { "code": "CF.04.10.20", "name": "Erection & Grouting", "level": 4 },
+    { "code": "CF.04.20", "name": "Cast-in-place Structure — Admin & Support", "level": 3 },
+    { "code": "CF.05", "name": "Building Envelope", "level": 2 },
+    { "code": "CF.06", "name": "Mechanical — HVAC & Plumbing", "level": 2 },
+    { "code": "CF.06.10", "name": "HVAC Rough-in & Equipment", "level": 3 },
+    { "code": "CF.06.20", "name": "Detention-Grade Plumbing", "level": 3 },
+    { "code": "CF.07", "name": "Electrical — Power", "level": 2 },
+    { "code": "CF.07.10", "name": "Standby Generation & UPS", "level": 3 },
+    { "code": "CF.07.20", "name": "Distribution & Emergency Lighting", "level": 3 },
+    { "code": "CF.08", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "CF.08.10", "name": "Detection & Suppression", "level": 3 },
+    { "code": "CF.08.20", "name": "Lockdown Interlock", "level": 3 },
+    { "code": "CF.09", "name": "Security ELV / Detention Systems", "level": 2 },
+    { "code": "CF.09.10", "name": "CCTV & Access Control", "level": 3 },
+    { "code": "CF.09.20", "name": "Detention Door Control", "level": 3 },
+    { "code": "CF.09.20.10", "name": "Electric Locking Devices", "level": 4 },
+    { "code": "CF.09.20.10.10", "name": "Install & Test Locking Devices", "level": 5 },
+    { "code": "CF.09.30", "name": "Intercom / Duress", "level": 3 },
+    { "code": "CF.10", "name": "PSIM Integration", "level": 2 },
+    { "code": "CF.11", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "CF.11.10", "name": "Security Systems Integration Test", "level": 3 },
+    { "code": "CF.11.20", "name": "Lockdown / Life-Safety Scenario Test & Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual and security-clearance milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and precast-erection works run a standard 6-day calendar; once the secure perimeter is closed, access to cellblock zones is restricted to vetted and escorted personnel, which is modelled as a reduced-productivity calendar for those areas; security-ELV and PSIM commissioning runs an extended-hours calendar to protect the integration and lockdown-test window." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs secure perimeter completion → precast cell delivery & erection → security ELV rough-in (CCTV, access, door control) → PSIM integration → full lockdown / life-safety scenario test → handover. The building shell and admin fit-out are not on the critical path once the perimeter is closed and cell modules are erected." },
+      { "heading": "Key assumptions", "body": "Design and security-hardware specifications are frozen and authority approvals obtained per phase gate; the secure perimeter is complete before internal security-clearance zones are worked; a single mobilisation; personnel vetting/clearance for restricted zones is arranged ahead of need. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is driven by specialist security and precast supply chains. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Precast cell modules", "16–26 weeks", "Before superstructure erection"], ["Detention door hardware (electric locking)", "20–30 weeks", "Before security ELV rough-in"], ["CCTV / access control / PSIM platform", "12–20 weeks", "Before security integration"], ["Standby generators & UPS", "20–32 weeks", "Before energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Once the secure perimeter closes, all site personnel must be security-vetted and escorted into cellblock zones, which limits daily crew size and access windows; precast erection requires crane windows and clear laydown; security-hardware installers and PSIM integrators are specialist, scarce trades concentrated late in the programme." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: precast module supply-chain slippage, security-hardware/PSIM integration debugging, and lockdown-test re-runs. Schedule contingency is held immediately before the security integration test and again before the full lockdown/life-safety scenario test, rather than spread thinly across the network." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

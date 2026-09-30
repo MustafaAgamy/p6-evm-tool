@@ -1,0 +1,125 @@
+{
+  "archetype": "process_oil_gas",
+  "schema": 2,
+  "context": "piping & rotating-equipment-led · system-based commissioning",
+  "brief": {
+    "intro": "New to this project type? A process / oil & gas facility (a gas plant, oil processing facility, tank farm or compressor station) is a plant whose real product is moving and treating hydrocarbons safely. The building work is minor — the plant is really thousands of metres of process pipe connecting vessels, pumps and compressors, tanks and columns, all wrapped in instrumentation and safety systems. Your schedule is driven by three things: fabricating and erecting the process piping, delivering and setting the rotating equipment (pumps, compressors), and delivering the static equipment (vessels, tanks, columns). Commissioning is organised by system and subsystem — mechanical completion, then loop checks, then start-up — not by area or floor, and nothing touches hydrocarbon until purge, leak test and dry-out are proven.",
+    "scope": [
+      { "name": "Enabling & site civil works", "desc": "Grading, drainage, access roads, hazardous-area site preparation." },
+      { "name": "Underground & foundations", "desc": "Underground process/firewater/drainage networks, equipment foundations and anchor bolts, pipe-rack and sleeper foundations." },
+      { "name": "Structural steel & pipe racks", "desc": "Pipe racks, pipe bridges and equipment support steel." },
+      { "name": "Static equipment", "desc": "Vessels, columns and tanks — procured, set on foundations and aligned." },
+      { "name": "Rotating equipment", "desc": "Pumps and compressors — set, aligned, coupled and run-in." },
+      { "name": "Process piping", "desc": "Spool fabrication, field erection, welding/NDT, flushing and hydrotest." },
+      { "name": "Electrical & hazardous-area works", "desc": "MV/LV power, Ex-rated equipment, earthing and cabling for classified areas." },
+      { "name": "Instrumentation & control", "desc": "Field instruments, DCS/PLC and the Safety Instrumented System (SIS/ESD)." },
+      { "name": "Fire, gas & firewater", "desc": "Firewater ring main, deluge/sprinkler systems and fire & gas detection." },
+      { "name": "Pre-commissioning & commissioning", "desc": "Mechanical completion by system, purge/leak test/dry-out, and start-up." }
+    ],
+    "glossary": [
+      { "term": "Spool", "plain": "a prefabricated section of pipe, cut and welded in the shop, ready to lift into place in the field." },
+      { "term": "Hydrotest", "plain": "a pressure test with water to prove piping and vessel joints hold before anything hazardous goes through them." },
+      { "term": "Mechanical completion (MC)", "plain": "construction is finished for a system and it's ready to hand to pre-commissioning." },
+      { "term": "Loop check", "plain": "tracing one instrument signal from the field device all the way to the control system to prove it reads and acts correctly." },
+      { "term": "SIS / ESD", "plain": "Safety Instrumented System / Emergency Shutdown — the safety logic that automatically trips the plant to a safe state." },
+      { "term": "N2 purge", "plain": "flushing air out of piping and vessels with nitrogen so there's no explosive air/hydrocarbon mixture before start-up." },
+      { "term": "Hazardous (Ex) area", "plain": "a zone where flammable vapours may be present, needing spark-proof (Ex-rated) electrical equipment and permitted hot/cold work." },
+      { "term": "Punch list", "plain": "the list of outstanding items to close before a system can move to the next test stage." }
+    ],
+    "must_get_right": [
+      "Spool fabrication, rotating equipment and static equipment (vessels/tanks) are the true long-lead, critical items — track and expedite them from day one.",
+      "Commissioning is organised by system, not by area — build the system breakdown (from the P&IDs) early so mechanical completion can be tracked system by system.",
+      "Protect the pre-commissioning sequence — purge, leak test, dry-out — before hydrocarbon is introduced; rework at this stage is expensive and unsafe.",
+      "Hazardous-area electrical and the firewater/deluge system gate start-up — never let their completion slip behind the piping and equipment."
+    ]
+  },
+  "components": [
+    { "name": "Static Equipment", "desc": "Vessels · columns · tanks", "disc": "Mechanical", "primary": true },
+    { "name": "Rotating Equipment", "desc": "Pumps · compressors · alignment", "disc": "Mechanical", "primary": true },
+    { "name": "Process Piping", "desc": "Spool fabrication · erection · hydrotest", "disc": "Piping", "primary": true },
+    { "name": "Instrumentation & Control", "desc": "Field instruments · DCS/PLC · SIS/ESD", "disc": "Instrumentation", "primary": true },
+    { "name": "Electrical & Hazardous Area", "desc": "MV/LV · Ex-rated equipment · earthing", "disc": "Electrical", "primary": false },
+    { "name": "Fire, Gas & Firewater", "desc": "Ring main · deluge · detection", "disc": "Fire Protection", "primary": false },
+    { "name": "Commissioning", "desc": "Mechanical completion · loop check · start-up", "disc": "Commissioning", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Process & Mechanical", "items": ["Static equipment — vessels, columns, tanks", "Rotating equipment — pumps, compressors, alignment & vibration", "Process piping & pipe racks — spool fabrication & erection", "Insulation, coating & heat-tracing"] },
+    { "discipline": "Electrical", "items": ["MV/LV power distribution & hazardous-area (Ex) equipment", "Earthing & lightning protection", "Cable containment & cabling", "Motor control centres (MCC)"] },
+    { "discipline": "Instrumentation & Control", "items": ["Field instruments — transmitters, control valves", "DCS/PLC integration", "SIS/ESD — safety instrumented system & cause-effect", "Loop checks & point-to-point testing"] },
+    { "discipline": "Fire, Safety & Utilities", "items": ["Firewater ring main & deluge/sprinkler systems", "Fire & gas detection", "Utility piping — plant/instrument air, N2, potable water"] }
+  ],
+  "overview_phases": ["Enabling & Civil", "Foundations & Pipe Racks", "Structural Steel & Equipment Setting", "Piping & Spool Erection", "Electrical & Instrumentation", "Insulation & Coating", "Pre-commissioning", "Commissioning & Start-up"],
+  "sequence_chart": {
+    "phases": ["Enable", "Found.", "Set Equip.", "Piping", "E&I", "Pre-Comm", "Start-up"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 32, "label": "Grading → underground → foundations & pipe racks", "holds": [20] },
+      { "trade": "Static & Rotating Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "start": 18, "width": 38, "label": "Procure → set vessels/pumps/compressors → align", "holds": [38, 52] },
+      { "trade": "Process Piping", "disc": "Piping", "kind": ["mep", "mechanical"], "start": 30, "width": 46, "label": "Fabricate spools → erect → hydrotest", "holds": [58] },
+      { "trade": "Electrical, Instrumentation & Fire/Gas", "disc": "Electrical", "kind": ["mep", "electrical", "bms", "fire"], "start": 38, "width": 46, "label": "Containment → cable/instrument install → loop check → energise", "holds": [70] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 80, "width": 20, "label": "Purge → leak test → SIS/ESD proving → start-up", "holds": [94] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2], "steps": ["Site clearance, grading & drainage", "Underground process/firewater/drainage networks", "Equipment foundations & anchor bolts (vessels, compressors)", "Pipe-rack & sleeper foundations", "Structural steel erection — pipe racks & pipe bridges", "Paving & hazardous-area grading"] },
+    { "name": "Static & Rotating Equipment", "disc": "Mechanical", "kind": ["mep", "mechanical"], "holds": [2, 4], "steps": ["Long-lead procurement — vessels, columns, tanks, pumps, compressors", "Receive & lay down heavy equipment", "Set static equipment — vessels, columns, tanks on foundations", "Set rotating equipment — pumps & compressors, base plates & grout", "Align & couple rotating equipment", "Mechanical run-in & vibration check"] },
+    { "name": "Process Piping", "disc": "Piping", "kind": ["mep", "mechanical"], "holds": [4], "steps": ["Spool fabrication (shop) — cut, fit, weld", "Spool transport & laydown", "Pipe-rack & field erection", "Field welding & NDT", "Flushing & hydrotest", "Reinstatement & final bolt-up", "Insulation, coating & heat-tracing"] },
+    { "name": "Electrical & Hazardous Area", "disc": "Electrical", "kind": ["mep", "electrical"], "holds": [3], "steps": ["Earthing grid & duct banks", "Cable containment & hazardous-area (Ex) equipment install", "Power & control cable pull", "MCC / switchgear set & terminate", "Point-to-point & insulation-resistance testing", "Energisation"] },
+    { "name": "Instrumentation & Control", "disc": "Instrumentation", "kind": ["mep", "bms"], "holds": [4], "steps": ["Field instrument installation — transmitters, control valves", "Instrument cable/tubing installation", "Loop check — signal path end to end", "DCS/PLC integration", "SIS/ESD cause-and-effect testing", "Control-system staging test"] },
+    { "name": "Fire, Gas & Firewater", "disc": "Fire Protection", "kind": ["mep", "fire"], "holds": [3], "steps": ["Firewater ring main & underground piping", "Deluge/sprinkler skid installation", "Fire & gas detector installation", "Firewater ring main flush & pressure test", "Deluge functional test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [2, 5], "steps": ["Mechanical completion by system/subsystem", "Pre-commissioning — loop checks & function tests", "N2 purge, leak test & dry-out", "SIS/ESD & cause-effect proving", "Firewater ring & deluge functional test", "First hydrocarbon introduction / start-up", "Performance test run → handover"] }
+  ],
+  "wbs": [
+    { "code": "PRO", "name": "Process Facility — Project", "level": 1 },
+    { "code": "PRO.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "PRO.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "PRO.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "PRO.02.20", "name": "Underground Utilities — Process/Firewater/Drainage", "level": 3 },
+    { "code": "PRO.02.30", "name": "Equipment & Pipe-rack Foundations", "level": 3 },
+    { "code": "PRO.02.30.10", "name": "Vessel/compressor foundations", "level": 4 },
+    { "code": "PRO.02.30.20", "name": "Pipe-rack & sleeper foundations", "level": 4 },
+    { "code": "PRO.03", "name": "Structural Steel — Pipe Racks & Bridges", "level": 2 },
+    { "code": "PRO.04", "name": "Static Equipment", "level": 2 },
+    { "code": "PRO.04.10", "name": "Vessels & columns — set & align", "level": 3 },
+    { "code": "PRO.04.20", "name": "Storage tanks", "level": 3 },
+    { "code": "PRO.05", "name": "Rotating Equipment", "level": 2 },
+    { "code": "PRO.05.10", "name": "Pumps — set & align", "level": 3 },
+    { "code": "PRO.05.20", "name": "Compressors — set & align", "level": 3 },
+    { "code": "PRO.05.20.10", "name": "Alignment & vibration proving", "level": 4 },
+    { "code": "PRO.06", "name": "Process Piping", "level": 2 },
+    { "code": "PRO.06.10", "name": "Spool fabrication (shop)", "level": 3 },
+    { "code": "PRO.06.20", "name": "Field erection & welding", "level": 3 },
+    { "code": "PRO.06.30", "name": "Flushing, hydrotest & reinstatement", "level": 3 },
+    { "code": "PRO.06.30.10", "name": "Hydrotest execution", "level": 4 },
+    { "code": "PRO.06.30.10.10", "name": "Hydrotest sign-off & punch close-out", "level": 5 },
+    { "code": "PRO.06.40", "name": "Insulation, coating & heat-tracing", "level": 3 },
+    { "code": "PRO.07", "name": "Electrical & Hazardous Area", "level": 2 },
+    { "code": "PRO.07.10", "name": "Earthing, duct banks & cable pull", "level": 3 },
+    { "code": "PRO.07.20", "name": "MCC / switchgear — set & energise", "level": 3 },
+    { "code": "PRO.08", "name": "Instrumentation & Control", "level": 2 },
+    { "code": "PRO.08.10", "name": "Field instruments & loop checks", "level": 3 },
+    { "code": "PRO.08.20", "name": "SIS/ESD cause-and-effect", "level": 3 },
+    { "code": "PRO.09", "name": "Fire, Gas & Firewater", "level": 2 },
+    { "code": "PRO.10", "name": "Pre-commissioning & Commissioning", "level": 2 },
+    { "code": "PRO.10.10", "name": "Mechanical completion by system", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities carry durations in working days; the network is calculated (F9) with no artificial constraints beyond contractual milestones. Total float is kept ≥ 0 in the baseline." },
+      { "heading": "Calendars & working time", "body": "Civil and structural steel run a 6-day week; piping and rotating-equipment erection move to two shifts at peak to protect the critical path; pre-commissioning and commissioning run a 7-day calendar. A weather allowance is embedded in the civil calendar." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs long-lead procurement (vessels, compressors, tanks) → equipment foundations → static/rotating equipment set → process piping fabrication and erection → hydrotest → electrical & instrumentation → pre-commissioning (purge/leak test/dry-out) → SIS/ESD proving → start-up. The structure and site civil works are not on the critical path once foundations and pipe racks are complete." },
+      { "heading": "Key assumptions", "body": "Design and hazardous-area classification are frozen; permits and authority approvals are obtained per phase gate; a single mobilisation; and, where the facility ties into an existing operating plant, tie-in/shutdown windows are agreed and held by the operator in advance. Any change to these invalidates the baseline dates." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Compressors (centrifugal/reciprocating)", "40–60 weeks", "Before mechanical run-in"], ["Large pressure vessels / columns", "30–50 weeks", "Before piping tie-in"], ["Heat exchangers", "20–30 weeks", "Before piping erection"], ["Pumps (API 610)", "20–28 weeks", "Before mechanical completion"], ["Control valves & instrumentation", "20–30 weeks", "Before loop check"], ["Switchgear & MCC", "24–32 weeks", "Before energisation"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Heavy lifts (vessels, compressors, columns) require crane windows and clear laydown/hardstand; hazardous-area work needs a hot-work/cold-work permit system; skilled coded welders and NDT technicians are a resource constraint on the piping fabrication front; brownfield tie-ins depend on operator-controlled shutdown windows." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: long-lead slippage on rotating and static equipment, hydrotest rework, tie-in/shutdown window slip on brownfield sites, and re-test loops on SIS/ESD proving. Schedule contingency is held immediately before pre-commissioning and before start-up rather than spread thinly across activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the field — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

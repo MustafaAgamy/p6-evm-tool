@@ -17,7 +17,7 @@ def _read(*parts):
 INDEX = _read('index.html')
 APP = _read('app.js')
 RECENT = _read('modules', 'recent.js')
-DATABASE = _read('modules', 'database.js')
+KNOWLEDGE = _read('modules', 'knowledge.js')
 
 
 def _section_class():
@@ -54,13 +54,13 @@ def test_app_wires_recent_navigation():
 
 
 # ── binding-standard regression guards ────────────────────────────────────────
-# Home (and the Database exit path) must NOT re-show the recent list. If the exit
+# Home (and the Knowledge Base exit path) must NOT re-show the recent list. If the exit
 # function re-reveals .recent-section, the list would trail Home again.
 
 def _reshows_recent(js):
     return re.search(r"recent-section'\)\??\.classList\.remove\('hidden'\)", js)
 
 
-def test_database_exit_does_not_reshow_recent():
-    assert not _reshows_recent(DATABASE), \
-        'exitDatabase re-shows .recent-section — it must not (recent lives on its own page)'
+def test_knowledge_exit_does_not_reshow_recent():
+    assert not _reshows_recent(KNOWLEDGE), \
+        'exitPlaybooks re-shows .recent-section — it must not (recent lives on its own page)'

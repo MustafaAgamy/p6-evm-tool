@@ -5,8 +5,9 @@
 import { state }                                    from './state.js';
 import { showError, clearError }                    from './render.js';
 import { escapeHtml }                               from './format.js';
+import { revealStage, revealAndRun }                from './featurereveal.js';
 import { showReportContentsPreview }                from './preview.js';
-import { showDatabase }                             from './database.js';
+import { showPlaybooks }                            from './knowledge.js';
 
 function _typeSelect(report) {
   const cur = report.detected ? report.detected.type : '';
@@ -142,7 +143,10 @@ function _v2Findings(report) {
     <div class="v2note">Every finding is raised solely from the current XER's own schedule logic; supporting knowledge is corroboration only. Open a row for the full P6 predecessors, successors, relationship types and lags.</div></div>`;
 }
 
-function renderReport(report) {
+// `kb` = the Knowledge-Engine counts fetched ALONGSIDE the review (one paint, no second
+// update after the Run bar reaches 100%); without it the line is fetched and the returned
+// promise settles once it is filled.
+function renderReport(report, kb) {
   const body = document.getElementById('construct-body');
   if (!body) return;
   if (!report.detected) { renderPick(report); return; }
@@ -167,7 +171,7 @@ function renderReport(report) {
       <button class="btn-primary" id="cx-pdf">📄 Print Preview</button>
     </div>
     <div class="cx-kb" id="cx-kb">
-      <span class="cx-kb-info" id="cx-kb-info">Knowledge Base…</span>
+      <span class="cx-kb-info" id="cx-kb-info">${escapeHtml(kb ? _kbInfoText(kb) : 'Knowledge Base…')}</span>
       <button class="btn-secondary" id="cx-kb-manage">📚 Manage Knowledge Base</button>
       <span class="cx-kb-note">Supporting knowledge only · never changes a finding · add projects in the Knowledge Base</span>
     </div>
@@ -186,7 +190,7 @@ function renderReport(report) {
     // only two sections; no repeated/duplicate information).
 
   const sel = document.getElementById('ct-type');
-  if (sel) sel.addEventListener('change', () => fetchAndRender(sel.value || null));
+  if (sel) sel.addEventListener('change', () => rerunUnderBar(sel.value || null));
   const pdf = document.getElementById('cx-pdf');
   if (pdf) pdf.addEventListener('click', () => previewReport(pdf));
   const xls = document.getElementById('cx-xls');
@@ -201,8 +205,8 @@ function renderReport(report) {
     addToDatabase((s && s.value) || null, save);
   });
   const kbm = document.getElementById('cx-kb-manage');
-  if (kbm) kbm.addEventListener('click', () => showDatabase());
-  kbKnowledgeRefresh();
+  if (kbm) kbm.addEventListener('click', () => showPlaybooks());
+  if (!kb) return kbKnowledgeRefresh();
 }
 
 function _kbInfoText(d) {
@@ -211,14 +215,19 @@ function _kbInfoText(d) {
     + (d.raw_projects && d.raw_projects.length ? ` · ${d.raw_projects.length} raw XER(s) kept` : '');
 }
 
-async function kbKnowledgeRefresh() {
-  const info = document.getElementById('cx-kb-info');
-  if (!info) return;
+async function _kbKnowledge() {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/kb/knowledge`);
     const d = await resp.json();
-    if (d.ok) info.textContent = _kbInfoText(d);
-  } catch { /* leave default text */ }
+    return d && d.ok ? d : null;
+  } catch { return null; }
+}
+
+async function kbKnowledgeRefresh() {
+  if (!document.getElementById('cx-kb-info')) return;
+  const d = await _kbKnowledge();
+  const info = document.getElementById('cx-kb-info');
+  if (d && info) info.textContent = _kbInfoText(d);   // else leave the default text
 }
 
 function previewReport(btn) {
@@ -313,8 +322,14 @@ function renderPick(report) {
   const go = document.getElementById('ct-go');
   if (go) go.addEventListener('click', () => {
     const sel = document.getElementById('ct-type');
-    fetchAndRender((sel && sel.value) || null);
+    rerunUnderBar((sel && sel.value) || null);
   });
+}
+
+// A re-review (another project type picked) plays the same shared Run bar as the first Run
+// (RUNUX-R4) — never a bare placeholder while the server works.
+function rerunUnderBar(forcedType) {
+  return revealAndRun(document.getElementById('construct-body'), 'Constructability', () => fetchAndRender(forcedType));
 }
 
 async function fetchAndRender(forcedType) {
@@ -325,6 +340,9 @@ async function fetchAndRender(forcedType) {
   }
   clearError();
   if (body) body.innerHTML = '<div class="cmp-loading">Reviewing against the Knowledge Base…</div>';
+  revealStage('Reviewing against the Knowledge Base');   // the open Run bar names the real step
+  // The Knowledge-Engine counts load in parallel, so the review renders in ONE pass.
+  const kbP = _kbKnowledge();
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/constructability`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -337,13 +355,13 @@ async function fetchAndRender(forcedType) {
     if (!data.ok) { showError(data.error || 'Constructability review failed.'); return; }
     state.constructReport = data.report;
     state.constructForcedType = forcedType || null;
-    renderReport(data.report);
+    renderReport(data.report, await kbP);
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
   }
 }
 
 export function renderConstructPanel() {
-  if (state.constructReport) { renderReport(state.constructReport); return; }
-  fetchAndRender(state.constructForcedType || null);
+  if (state.constructReport) return renderReport(state.constructReport);
+  return fetchAndRender(state.constructForcedType || null);
 }

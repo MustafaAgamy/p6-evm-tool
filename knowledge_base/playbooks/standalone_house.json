@@ -1,0 +1,114 @@
+{
+  "archetype": "standalone_house",
+  "schema": 2,
+  "context": "simplest residential form · finishing-led, minimal MEP",
+  "brief": {
+    "intro": "New to this project type? A standalone house is the simplest residential building type — a single detached dwelling with a straightforward structure and no shared walls, pools or bespoke finishes to complicate the programme. Once the shell is weather-tight, the schedule is almost entirely a finishing sequence: waterproofing wet areas, screeding and tiling, second-fix MEP, painting and joinery, each trade following the last through the same rooms. There is little to commission — a house has no plant room, no risers and no life-safety systems — so the real programme risk sits in material delivery (doors, sanitaryware, kitchen units) and in keeping the finishing trades moving through the house without treading on each other.",
+    "scope": [
+      { "name": "Enabling & foundations", "desc": "Earthworks and foundations for the house footprint." },
+      { "name": "Structure & shell", "desc": "Blockwork/frame, floor slab, roof structure and a weather-tight envelope." },
+      { "name": "Roof & external render", "desc": "Roof waterproofing and external wall render/finish." },
+      { "name": "MEP first fix", "desc": "Plumbing and electrical rough-in through walls and slab." },
+      { "name": "Wet-area waterproofing", "desc": "Bathroom/kitchen tanking, leak tested before tiling." },
+      { "name": "Screed & tiling", "desc": "Floor screed and tiling to wet areas and living spaces." },
+      { "name": "MEP second fix", "desc": "Sanitary fixtures, switches/sockets and light fittings." },
+      { "name": "Painting & joinery", "desc": "Internal paint, doors, wardrobes and kitchen units." },
+      { "name": "Snagging & handover", "desc": "Final inspection and handover." }
+    ],
+    "glossary": [
+      { "term": "First fix / second fix", "plain": "MEP work done before finishes (pipes/cables in walls) versus after (fixtures, switches, taps)." },
+      { "term": "Wet area", "plain": "a bathroom or kitchen zone requiring waterproofing (tanking) before tiling." },
+      { "term": "Screed", "plain": "the levelling layer laid under floor tiles." },
+      { "term": "Snagging", "plain": "the defect-fixing inspection carried out before handover." },
+      { "term": "Weather-tight", "plain": "the point where the roof and envelope stop rain ingress, allowing internal finishing to start reliably." }
+    ],
+    "must_get_right": [
+      "Get the shell weather-tight early — internal finishing cannot start reliably until the roof and envelope are sealed.",
+      "Protect the wet-area waterproofing test — nothing downstream (tiling, second fix) should start until it's tested and released.",
+      "Sequence material orders — doors, sanitaryware, kitchen units — against the finishing programme rather than ordering everything up front; the wrong item on site too early just gets damaged or stored."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Shell", "desc": "Foundations · blockwork/frame · roof", "disc": "Structural", "primary": true },
+    { "name": "Roof & Envelope", "desc": "Roof waterproofing · external render", "disc": "Architectural", "primary": true },
+    { "name": "Plumbing & Drainage", "desc": "Domestic water · drainage · wet-area tanking", "disc": "Plumbing", "primary": true },
+    { "name": "Electrical", "desc": "Distribution · lighting · power first & second fix", "disc": "Electrical", "primary": true },
+    { "name": "Internal Finishes", "desc": "Screed · tiling · paint · joinery", "disc": "Architectural", "primary": true },
+    { "name": "HVAC", "desc": "Split AC units", "disc": "Mechanical", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Split AC units per room", "Kitchen & bathroom extract", "Water heater"] },
+    { "discipline": "Electrical", "items": ["Distribution board & wiring", "Lighting & socket circuits", "External/garden lighting"] },
+    { "discipline": "Plumbing", "items": ["Domestic water & drainage", "Wet-area waterproofing (tanking)", "External drainage to boundary connection"] },
+    { "discipline": "ELV", "items": ["Data/TV points", "Video door entry (where specified)", "Structured cabling containment"] }
+  ],
+  "overview_phases": ["Enabling & Foundations", "Structure & Shell", "Roof & External Render", "MEP First Fix", "Wet-Area Waterproofing", "Screed & Tiling", "MEP Second Fix & Finishes", "Snagging & Handover"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Envelope", "1st Fix", "Waterproof", "Finishes", "Handover"],
+    "lanes": [
+      { "trade": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "start": 0, "width": 32, "label": "Foundations → shell → roof", "holds": [14] },
+      { "trade": "Roof & Envelope", "disc": "Architectural", "kind": ["civil"], "start": 20, "width": 24, "label": "Roof waterproof → external render", "holds": [] },
+      { "trade": "Plumbing & Electrical", "disc": "Mechanical/Electrical", "kind": ["mechanical", "electrical"], "start": 26, "width": 40, "label": "First fix → wet-area tanking → second fix", "holds": [50] },
+      { "trade": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "start": 48, "width": 36, "label": "Screed → tile → paint → joinery", "holds": [] },
+      { "trade": "Snagging & Handover", "disc": "Architectural", "kind": ["comm"], "start": 84, "width": 16, "label": "Snag → de-snag → handover", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structure", "disc": "Structural", "kind": ["civil"], "holds": [1, 4], "steps": ["Foundations & footings", "Blockwork/frame shell", "Floor slab", "Roof structure", "Roof waterproofing", "External render substrate"] },
+    { "name": "Plumbing", "disc": "Plumbing", "kind": ["mechanical"], "holds": [1, 3], "steps": ["Domestic water & drainage first fix", "Wet-area tanking", "Leak & flow test", "Sanitary fixture second fix", "Final flow & pressure check"] },
+    { "name": "Electrical", "disc": "Electrical", "kind": ["electrical"], "holds": [0, 3], "steps": ["Containment & wiring first fix", "Distribution board install", "Circuit testing", "Switches, sockets & light fittings second fix", "Final circuit certification"] },
+    { "name": "HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [], "steps": ["Pipework first fix", "Split unit set", "Refrigerant charge & pressure test", "Commission & test", "Handover with O&M instructions"] },
+    { "name": "Internal Finishes", "disc": "Architectural", "kind": ["civil"], "holds": [2], "steps": ["Plaster & internal walls", "Screed", "Floor & wall tiling", "Paint", "Joinery — doors, wardrobes, kitchen units"] },
+    { "name": "Testing & Handover", "disc": "Architectural", "kind": ["comm"], "holds": [1], "steps": ["MEP testing & certification", "Snagging", "De-snag", "Handover pack preparation", "Handover"] }
+  ],
+  "wbs": [
+    { "code": "SH", "name": "Standalone House — Project", "level": 1 },
+    { "code": "SH.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "SH.02", "name": "Enabling & Foundations", "level": 2 },
+    { "code": "SH.02.10", "name": "Earthworks", "level": 3 },
+    { "code": "SH.02.20", "name": "Foundations & footings", "level": 3 },
+    { "code": "SH.03", "name": "Structure & Shell", "level": 2 },
+    { "code": "SH.03.10", "name": "Blockwork / frame", "level": 3 },
+    { "code": "SH.03.20", "name": "Floor slab", "level": 3 },
+    { "code": "SH.03.30", "name": "Roof structure", "level": 3 },
+    { "code": "SH.04", "name": "Roof & External Render", "level": 2 },
+    { "code": "SH.04.10", "name": "Roof waterproofing", "level": 3 },
+    { "code": "SH.04.20", "name": "External render", "level": 3 },
+    { "code": "SH.05", "name": "Plumbing & Drainage", "level": 2 },
+    { "code": "SH.05.10", "name": "First fix", "level": 3 },
+    { "code": "SH.05.20", "name": "Wet-area tanking", "level": 3 },
+    { "code": "SH.05.20.10", "name": "Leak & flow test", "level": 4 },
+    { "code": "SH.05.30", "name": "Second fix — sanitary fixtures", "level": 3 },
+    { "code": "SH.06", "name": "Electrical", "level": 2 },
+    { "code": "SH.06.10", "name": "First fix", "level": 3 },
+    { "code": "SH.06.20", "name": "Second fix", "level": 3 },
+    { "code": "SH.07", "name": "HVAC", "level": 2 },
+    { "code": "SH.08", "name": "Internal Finishes", "level": 2 },
+    { "code": "SH.08.10", "name": "Screed & tiling", "level": 3 },
+    { "code": "SH.08.20", "name": "Paint & joinery", "level": 3 },
+    { "code": "SH.09", "name": "Testing, Snagging & Handover", "level": 2 },
+    { "code": "SH.09.10", "name": "MEP testing & certification", "level": 3 },
+    { "code": "SH.09.20", "name": "Snagging & de-snag", "level": 3 },
+    { "code": "SH.09.30", "name": "Handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. A single, straightforward structure means the finishing sequence carries most of the activity count." },
+      { "heading": "Calendars & working time", "body": "Standard 6-day working week; wet-area waterproofing curing and test time is held as real non-working duration rather than compressed." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure & roof → weather-tight envelope → MEP first fix → wet-area tanking & test → tiling → second fix → snagging → handover. With no plant or shared services to coordinate, the critical path is essentially the finishing-trade sequence moving room by room." },
+      { "heading": "Key assumptions", "body": "Design and material selections frozen before construction start; a single continuous mobilisation; no shared-wall or multi-unit interfaces to coordinate." },
+      { "heading": "Procurement & long-lead items", "body": "A short list of items are tracked because they gate finishing activities:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Doors & windows", "5–8 weeks", "Before second fix / glazing"], ["Kitchen & wardrobe units", "6–10 weeks", "Before joinery fix"], ["Sanitary fixtures & fittings", "4–6 weeks", "Before second fix"], ["Roof waterproofing membrane", "3–5 weeks", "Before roof works"]] } },
+      { "heading": "Access, resource & site constraints", "body": "A single small site with limited laydown space; finishing-trade crews are sequenced through the same rooms one after another rather than run in parallel." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: late material delivery, a wet-area waterproofing test failure, and weather delaying roof/render works. Contingency is held before wet-area testing and before handover." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary); controlled at Level 3; expanded to Level 4 for the field finishing sequence — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

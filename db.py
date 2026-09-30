@@ -4,6 +4,8 @@ DB lives at %APPDATA%/Controlyx/controlyx.db — one per OS user.
 """
 
 import sqlite3
+import threading
+import time
 import os
 import hashlib
 import shutil
@@ -36,18 +38,22 @@ def _db_path():
                 pass
     return new
 
-def get_conn():
-    conn = sqlite3.connect(_db_path())
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA foreign_keys=ON')
+def get_conn(path=None):
+    conn = sqlite3.connect(path or _db_path())
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA journal_mode=WAL')     # raises on a malformed DB file
+        conn.execute('PRAGMA foreign_keys=ON')
+    except Exception:
+        conn.close()                                # release the file so it can be set aside
+        raise
     return conn
 
 
 # ── Schema ─────────────────────────────────────────────────────────────────
 
-def init_db():
-    with get_conn() as conn:
+def init_db(path=None):
+    with get_conn(path) as conn:
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS projects (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,6 +175,18 @@ def init_db():
                 settings_json TEXT
             );
 
+            -- What the user typed/attached on a screen for ONE imported schedule that is
+            -- too big for ui_prefs.json and must survive a restart: the Baseline Narrative
+            -- project setup (parties, contract details, logos + layout drawing as images).
+            -- Kept out of project_settings so those images never ride along with every
+            -- /api/parse and /api/project/load answer.
+            CREATE TABLE IF NOT EXISTS snapshot_ui_state (
+                snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),
+                key         TEXT    NOT NULL,
+                value_json  TEXT,
+                PRIMARY KEY (snapshot_id, key)
+            );
+
             -- Milestone finishes per snapshot, extracted once for the Update-vs-Update
             -- milestone trend (slip chart). A single '__none__' row marks a snapshot as
             -- scanned when it has no milestones, so it is never re-parsed.
@@ -187,6 +205,323 @@ def init_db():
         _audit_cols = {r['name'] for r in conn.execute('PRAGMA table_info(audit_modules)')}
         if 'mgmt_json' not in _audit_cols:
             conn.execute('ALTER TABLE audit_modules ADD COLUMN mgmt_json TEXT')
+
+
+# ── Startup resilience ─────────────────────────────────────────────────────
+# A damaged controlyx.db used to raise out of make_server() before the window existed
+# (raw traceback, no app — every launch). Startup now calls open_db_resilient(), which
+# never raises: a genuinely corrupt file is set aside as controlyx.db.corrupt-bak-<time>
+# (with its -wal/-shm) and a fresh DB is created; a locked or unreadable DB is reported
+# as 'degraded' and left untouched. GET /api/health exposes DB_STATUS so the page can
+# say what happened instead of silently showing an empty Recent Projects list.
+
+DB_STATUS = {'status': 'unknown', 'detail': None, 'backup': None}
+
+_CORRUPT_CODES = ('SQLITE_CORRUPT', 'SQLITE_NOTADB')
+_CORRUPT_TEXT = ('file is not a database', 'database disk image is malformed',
+                 'malformed database schema')
+
+
+def _is_corruption(exc):
+    """True only for 'the file is damaged' errors — never for locked / busy / cannot-open
+    (those must not cause a quarantine)."""
+    name = getattr(exc, 'sqlite_errorname', '') or ''
+    if any(name.startswith(c) for c in _CORRUPT_CODES):
+        return True
+    msg = str(exc).lower()
+    return any(t in msg for t in _CORRUPT_TEXT)
+
+
+def _quick_check_ok(path):
+    """PRAGMA quick_check on a separate connection: True / False, None if it can't run."""
+    try:
+        conn = sqlite3.connect(path, timeout=5)
+        try:
+            rows = conn.execute('PRAGMA quick_check').fetchall()
+        finally:
+            conn.close()
+        return bool(rows) and rows[0][0] == 'ok'
+    except sqlite3.DatabaseError as exc:
+        return False if _is_corruption(exc) else None
+    except Exception:
+        return None
+
+
+def _quarantine_db(path):
+    """Rename a damaged DB (and its WAL/SHM sidecars) out of the way. Returns the backup
+    file name, or None when the main file could not be moved (e.g. held open by another
+    running copy of the app)."""
+    stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    backup = f'{path}.corrupt-bak-{stamp}'
+    try:
+        os.replace(path, backup)
+    except OSError:
+        return None
+    for suffix in ('-wal', '-shm'):
+        try:
+            if os.path.exists(path + suffix):
+                os.replace(path + suffix, backup + suffix)
+        except OSError:
+            pass
+    return os.path.basename(backup)
+
+
+def open_db_resilient():
+    """Create/upgrade the schema without ever raising. Returns a copy of DB_STATUS:
+    status 'ok' | 'recovered' (damaged file set aside, fresh DB) | 'degraded'.
+    (A file whose data pages are damaged opens 'ok'; start_background_check finds it.)"""
+    _OPEN_GEN[0] += 1
+    DB_STATUS.pop('check', None)
+    DB_STATUS.pop('salvaged', None)
+    try:
+        init_db()
+        DB_STATUS.update(status='ok', detail=None, backup=None)
+        return dict(DB_STATUS)
+    except sqlite3.DatabaseError as exc:
+        # Keep only the text: the traceback pins init_db's frame and its open connection,
+        # and Windows cannot rename a file that is still open.
+        first, first_corrupt = str(exc), _is_corruption(exc)
+    except Exception as exc:                            # e.g. the folder is not writable
+        DB_STATUS.update(status='degraded', detail=f'{type(exc).__name__}: {exc}', backup=None)
+        return dict(DB_STATUS)
+    import gc
+    gc.collect()                                        # close the failed connection now
+
+    try:
+        path = _db_path()
+    except Exception:
+        DB_STATUS.update(status='degraded', detail=first, backup=None)
+        return dict(DB_STATUS)
+    damaged = first_corrupt or (_quick_check_ok(path) is False)
+    if not damaged:                                     # locked / busy / cannot open
+        DB_STATUS.update(status='degraded', detail=first, backup=None)
+        return dict(DB_STATUS)
+    backup = _quarantine_db(path)
+    if not backup:
+        DB_STATUS.update(status='degraded', backup=None,
+                         detail=f'{first} (the damaged file could not be moved aside)')
+        return dict(DB_STATUS)
+    try:
+        init_db()
+        DB_STATUS.update(status='recovered', detail=first, backup=backup)
+    except Exception as exc:
+        DB_STATUS.update(status='degraded', detail=f'{first}; fresh DB failed: {exc}',
+                         backup=backup)
+    return dict(DB_STATUS)
+
+
+# ── Damage found AFTER start-up (S3) ───────────────────────────────────────
+# CREATE TABLE IF NOT EXISTS only reads the schema pages, so a file whose DATA pages are
+# damaged (the common case) opened as 'ok' and then every read of those rows failed with
+# "database disk image is malformed" — Recent Projects kept failing with no way out.
+# Now: (1) PRAGMA quick_check runs on a background thread once the server is listening
+# (never before the first paint); (2) any request that meets a corruption error marks the
+# DB 'damaged' (server._json notes it); (3) the page offers "set the damaged database aside
+# and start fresh" — POST /api/db/recover -> recover_damaged_db(), which copies every row
+# that can still be read into a new file and keeps the damaged one as .corrupt-bak-<time>.
+
+_DAMAGE_LOCK = threading.Lock()
+BACKGROUND_CHECK_DELAY_S = 2.0      # after the server listens: the window paints first
+_OPEN_GEN = [0]                     # bumped by open_db_resilient: a check started for an
+                                    # earlier open never reports on a newer one
+
+
+def mark_damaged(detail):
+    """Record that the history database is damaged (status 'damaged'). Returns True when
+    the status changed."""
+    text = str(detail or 'database disk image is malformed')
+    with _DAMAGE_LOCK:
+        if DB_STATUS.get('status') == 'damaged':
+            return False
+        DB_STATUS.update(status='damaged', detail=text, backup=None)
+    return True
+
+
+def note_error(err):
+    """Mark the DB damaged when ``err`` (an exception or its text) is a corruption error;
+    locked / busy / any other error is ignored. Returns True when it was corruption."""
+    if err is None:
+        return False
+    if isinstance(err, BaseException):
+        bad = _is_corruption(err)
+    else:
+        bad = any(t in str(err).lower() for t in _CORRUPT_TEXT)
+    if bad:
+        mark_damaged(str(err))
+    return bad
+
+
+def integrity_check(path=None, gen=None):
+    """PRAGMA quick_check on its own connection. Returns (ok, detail): ok True, False
+    (damaged — recorded in DB_STATUS) or None (could not run: locked, missing ...).
+    ``gen``: the open this check was started for (a stale check reports nothing)."""
+    if gen is not None and gen != _OPEN_GEN[0]:
+        return None, 'stale check'
+    DB_STATUS['check'] = 'running'
+    try:
+        path = path or _db_path()
+        if not os.path.exists(path):
+            return None, None
+        conn = sqlite3.connect(path, timeout=5)
+        try:
+            rows = [r[0] for r in conn.execute('PRAGMA quick_check(20)').fetchall()]
+        finally:
+            conn.close()
+        if rows and rows[0] == 'ok':
+            return True, None
+        detail = ('database disk image is malformed (' +
+                  '; '.join(str(r) for r in rows[:3]) + ')')
+        mark_damaged(detail)
+        return False, detail
+    except sqlite3.DatabaseError as exc:
+        if _is_corruption(exc):
+            mark_damaged(str(exc))
+            return False, str(exc)
+        return None, str(exc)
+    except Exception as exc:
+        return None, str(exc)
+    finally:
+        DB_STATUS['check'] = 'done'
+
+
+def start_background_check(delay_s=None):
+    """Run integrity_check() on a daemon thread after ``delay_s`` (default
+    BACKGROUND_CHECK_DELAY_S; the window paints first) on the DB file open NOW.
+    GET /api/health shows db.check: 'pending' -> 'running' -> 'done'."""
+    DB_STATUS['check'] = 'pending'
+    path, gen = _db_path(), _OPEN_GEN[0]
+    delay_s = BACKGROUND_CHECK_DELAY_S if delay_s is None else delay_s
+
+    def run():
+        time.sleep(max(0.0, delay_s))
+        if gen != _OPEN_GEN[0]:
+            return
+        integrity_check(path, gen)
+    t = threading.Thread(target=run, name='db-quick-check', daemon=True)
+    t.start()
+    return t
+
+
+def _salvage_rows(src, table, max_jumps=24):
+    """Every row of ``table`` that can still be read, in rowid order, as
+    (column names, rows). When a damaged page stops the scan, jump past it (growing steps)
+    and carry on; gives up after ``max_jumps`` failed jumps."""
+    q = 'SELECT rowid, * FROM "%s"' % table.replace('"', '""')
+    rows, names, last, step, jumps = [], None, None, 1, 0
+    while True:
+        try:
+            if last is None:
+                cur = src.execute(q + ' ORDER BY rowid')
+            else:
+                cur = src.execute(q + ' WHERE rowid > ? ORDER BY rowid', (last,))
+            names = [d[0] for d in cur.description]
+            for r in cur:
+                rows.append(tuple(r))
+                last = r[0]
+                step = 1
+            return names, rows
+        except sqlite3.DatabaseError:
+            jumps += 1
+            if jumps > max_jumps:
+                return names, rows
+            last = (last if last is not None else 0) + step
+            step *= 2
+
+
+def _copy_readable_rows(path, dst):
+    """Copy every readable row of every table of the damaged file at ``path`` into ``dst``
+    (a fresh schema). Returns ({table: rows copied}, [tables that could not be read])."""
+    salvaged, lost = {}, []
+    try:
+        src = sqlite3.connect('file:%s?mode=ro' % os.path.abspath(path).replace(os.sep, '/'),
+                              uri=True, timeout=5)
+    except sqlite3.Error:
+        return salvaged, lost
+    try:
+        tables = [r[0] for r in dst.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY rowid")]
+        for t in tables:
+            cols = [r[1] for r in dst.execute('PRAGMA table_info("%s")' % t)]
+            try:
+                have = {r[1] for r in src.execute('PRAGMA table_info("%s")' % t)}
+            except sqlite3.DatabaseError:
+                lost.append(t)
+                continue
+            use = [c for c in cols if c in have]
+            if not use:
+                continue
+            names, rows = _salvage_rows(src, t)
+            if names is None and not rows:
+                lost.append(t)
+                continue
+            idx = [names.index(c) for c in use] if names else []
+            sql = 'INSERT OR IGNORE INTO "%s" (%s) VALUES (%s)' % (
+                t, ', '.join('"%s"' % c for c in use), ', '.join('?' * len(use)))
+            n = 0
+            for r in rows:
+                try:
+                    n += dst.execute(sql, [r[i] for i in idx]).rowcount or 0
+                except sqlite3.Error:
+                    pass
+            salvaged[t] = n
+    finally:
+        src.close()
+    return salvaged, lost
+
+
+def recover_damaged_db(retries=10):
+    """Set the damaged history database aside and start a fresh one, copying across every
+    row that can still be read. Returns {'ok', 'backup', 'salvaged': {table: n},
+    'lost_tables': [...]} or {'ok': False, 'error'}; DB_STATUS becomes 'recovered'."""
+    import gc
+    with _DAMAGE_LOCK:
+        path = _db_path()
+        tmp = '%s.rebuild-%s' % (path, datetime.now().strftime('%Y%m%d-%H%M%S'))
+        salvaged, lost = {}, []
+        try:
+            init_db(tmp)                                # the fresh schema, in a side file
+            gc.collect()
+            dst = sqlite3.connect(tmp)
+            try:
+                dst.execute('PRAGMA foreign_keys=OFF')
+                if os.path.exists(path):
+                    salvaged, lost = _copy_readable_rows(path, dst)
+                dst.commit()
+                dst.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+            finally:
+                dst.close()
+            gc.collect()                                # release every handle on the file
+            backup = None
+            if os.path.exists(path):
+                for _ in range(max(1, retries)):
+                    backup = _quarantine_db(path)
+                    if backup:
+                        break
+                    gc.collect()
+                    time.sleep(0.2)
+                if not backup:
+                    raise OSError('the damaged file could not be moved aside '
+                                  '(is another copy of the app still open?)')
+            os.replace(tmp, path)
+            for suffix in ('-wal', '-shm'):
+                try:
+                    if os.path.exists(tmp + suffix):
+                        os.replace(tmp + suffix, path + suffix)
+                except OSError:
+                    pass
+            DB_STATUS.update(status='recovered', backup=backup, salvaged=salvaged,
+                             detail=DB_STATUS.get('detail'))
+            return {'ok': True, 'backup': backup, 'salvaged': salvaged, 'lost_tables': lost}
+        except Exception as exc:
+            for f in (tmp, tmp + '-wal', tmp + '-shm'):
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except OSError:
+                    pass
+            return {'ok': False, 'error': '%s: %s' % (type(exc).__name__, exc),
+                    'salvaged': salvaged}
 
 
 # ── File helpers ───────────────────────────────────────────────────────────
@@ -215,14 +550,46 @@ def cache_xml(xml_path, file_hash):
     filename = f"{file_hash[:12]}_{os.path.basename(xml_path)}"
     dest = os.path.join(schedules_dir(), filename)
     shutil.copy2(xml_path, dest)
+    # copy2 keeps the source's modified time — a baseline exported months ago would be the
+    # OLDEST cached file and deleted by the cleanup below in this very call. The cache is ordered
+    # by when a file was cached, so stamp the copy now.
+    try:
+        os.utime(dest, None)
+    except OSError:
+        pass
     _cleanup_old_xml_files()
     return dest
 
+
+def _attached_baseline_paths():
+    """Every file recorded as a snapshot's attached baseline (evm_extras) — never evicted."""
+    out = set()
+    try:
+        with get_conn() as conn:
+            rows = conn.execute("SELECT extras_json FROM evm_extras "
+                                "WHERE extras_json LIKE '%baseline_%'").fetchall()
+    except Exception:
+        return out
+    for row in rows:
+        try:
+            extras = _json.loads(row['extras_json'] or '{}')
+        except ValueError:
+            continue
+        for key in ('baseline_path', 'baseline_original'):
+            if extras.get(key):
+                out.add(os.path.normcase(os.path.abspath(extras[key])))
+    return out
+
+
 def _cleanup_old_xml_files():
-    """Keep only the MAX_CACHED_XML most recently modified XML files."""
+    """Keep only the MAX_CACHED_XML most recently modified XML files. A file attached as a
+    snapshot's baseline is kept regardless (and does not count toward the cap) — it is
+    'remembered for this update and used by every feature', so it must not disappear."""
     sdir = schedules_dir()
+    keep = _attached_baseline_paths()
     files = sorted(
-        [os.path.join(sdir, f) for f in os.listdir(sdir) if f.endswith('.xml')],
+        [p for p in (os.path.join(sdir, f) for f in os.listdir(sdir) if f.endswith('.xml'))
+         if os.path.normcase(os.path.abspath(p)) not in keep],
         key=os.path.getmtime
     )
     for old in files[:-MAX_CACHED_XML]:
@@ -444,6 +811,23 @@ def get_e1_summary(snapshot_id):
 
 def save_evm_extras(snapshot_id, extras):
     with get_conn() as conn:
+        # Keep the attached baseline's ORIGINAL path (save_baseline) with it: a recompute or a
+        # re-import of the same file re-saves extras with only the (resolved) baseline path.
+        bl = extras.get('baseline_path')
+        if bl and 'baseline_original' not in extras:
+            for row in conn.execute("SELECT extras_json FROM evm_extras "
+                                    "WHERE extras_json LIKE '%baseline_original%' "
+                                    "ORDER BY (snapshot_id = ?) DESC, snapshot_id DESC",
+                                    (snapshot_id,)).fetchall():
+                try:
+                    old = _json.loads(row['extras_json'] or '{}')
+                except ValueError:
+                    continue
+                if old.get('baseline_original') and bl in (old.get('baseline_path'),
+                                                           old['baseline_original']):
+                    extras = dict(extras, baseline_path=old.get('baseline_path') or bl,
+                                  baseline_original=old['baseline_original'])
+                    break
         conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
                      (snapshot_id, _json.dumps(extras, default=str)))
 
@@ -455,15 +839,86 @@ def get_evm_extras(snapshot_id):
     return _json.loads(row['extras_json']) if row and row['extras_json'] else None
 
 
-def save_baseline(snapshot_id, baseline_path):
-    """Remember the attached baseline for this snapshot (merged into evm_extras)."""
+def save_baseline(snapshot_id, baseline_path, original_path=None):
+    """Remember the attached baseline for this snapshot (merged into evm_extras): its cached
+    copy (``baseline_path``, content-exact) and the file the planner picked (``original_path``)
+    as a fallback should the copy ever be missing. ``None`` forgets both."""
     with get_conn() as conn:
         row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
                            (snapshot_id,)).fetchone()
         extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
         extras['baseline_path'] = baseline_path
+        if baseline_path and original_path:
+            extras['baseline_original'] = original_path
+        else:
+            extras.pop('baseline_original', None)
         conn.execute('INSERT OR REPLACE INTO evm_extras (snapshot_id, extras_json) VALUES (?, ?)',
                      (snapshot_id, _json.dumps(extras, default=str)))
+
+
+def get_attached_baseline(snapshot_id=None, paths=()):
+    """The baseline file attached for a snapshot (``evm_extras.baseline_path``) — by snapshot id
+    when given, else for the LATEST snapshot of that file (matched by cached or original path;
+    the cached path is content-specific). None when nothing is attached. Used by every feature
+    that needs a baseline (p6_evm.baseline.load_for_project), so an attachment applies everywhere."""
+    with get_conn() as conn:
+        sid = None
+        if snapshot_id:
+            row = conn.execute('SELECT id FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone()
+            sid = row['id'] if row else None
+        if sid is None:
+            for p in paths or ():
+                if not p:
+                    continue
+                row = conn.execute(
+                    'SELECT id FROM snapshots WHERE cached_path = ? OR original_path = ? '
+                    'ORDER BY id DESC LIMIT 1', (p, p)).fetchone()
+                if row:
+                    sid = row['id']
+                    break
+        if sid is None:
+            return None
+        row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
+                           (sid,)).fetchone()
+    extras = _json.loads(row['extras_json']) if row and row['extras_json'] else {}
+    cached, original = extras.get('baseline_path'), extras.get('baseline_original')
+    if cached and not os.path.isfile(cached) and original and os.path.isfile(original):
+        return original            # the cached copy is gone — the file the planner picked
+    return cached or None
+
+
+def get_prior_baseline_for_hash(file_hash):
+    """The baseline attached to the most recent earlier import of the SAME file (same SHA-256),
+    so re-importing an update keeps its attached baseline. None when there is none."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT id FROM snapshots WHERE file_hash = ? ORDER BY id DESC LIMIT 1',
+                           (file_hash,)).fetchone()
+    return get_attached_baseline(snapshot_id=row['id']) if row else None
+
+
+def clear_snapshot_results(snapshot_id):
+    """Drop a snapshot's computed rows (metrics / categories / audit modules) so it can be
+    recomputed IN PLACE — used when a baseline is attached or removed, so the snapshot keeps
+    its place in the history instead of a duplicate import being added."""
+    with get_conn() as conn:
+        for table in ('metrics', 'category_metrics', 'audit_modules'):
+            conn.execute(f'DELETE FROM {table} WHERE snapshot_id = ?', (snapshot_id,))
+
+
+def snapshot_exists(snapshot_id):
+    with get_conn() as conn:
+        return conn.execute('SELECT 1 FROM snapshots WHERE id = ?', (snapshot_id,)).fetchone() is not None
+
+
+def get_snapshot_source(snapshot_id):
+    """The exact file a snapshot was imported from — its cached copy first (content-exact: the
+    original path may since hold a newer update), else the original. None when neither exists."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT original_path, cached_path FROM snapshots WHERE id = ?',
+                           (snapshot_id,)).fetchone()
+    if not row:
+        return None
+    return resolve_xml_path(row['cached_path'], row['original_path'])
 
 
 def get_project_id_for_snapshot(snapshot_id):
@@ -471,6 +926,51 @@ def get_project_id_for_snapshot(snapshot_id):
         row = conn.execute('SELECT project_id FROM snapshots WHERE id = ?',
                            (snapshot_id,)).fetchone()
     return row['project_id'] if row else None
+
+
+def get_snapshot_ui_state(snapshot_id, key):
+    """A screen's saved state for one imported schedule (e.g. the Narrative project
+    setup), or None when nothing was saved."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT value_json FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
+                           (snapshot_id, key)).fetchone()
+    return _json.loads(row['value_json']) if row and row['value_json'] else None
+
+
+def get_snapshot_ui_state_inherited(snapshot_id, key):
+    """Like get_snapshot_ui_state, but a schedule with nothing saved under ``key`` yet (a
+    re-import, or the project's next update: every import is a new snapshot) gets the
+    state most recently saved for ANOTHER schedule of the same project. Returns
+    ``(value, from_snapshot_id)`` — ``from_snapshot_id`` is None when the value is this
+    schedule's own. A schedule whose state was cleared keeps it cleared (the NULL row
+    save_snapshot_ui_state leaves), and a later import inherits that clear too.
+    [startup:R2] S6"""
+    with get_conn() as conn:
+        row = conn.execute('SELECT value_json FROM snapshot_ui_state WHERE snapshot_id = ? AND key = ?',
+                           (snapshot_id, key)).fetchone()
+        if row is None:
+            row = conn.execute(
+                '''SELECT u.snapshot_id, u.value_json FROM snapshot_ui_state u
+                   JOIN snapshots s ON s.id = u.snapshot_id
+                   WHERE u.key = ? AND u.snapshot_id <> ?
+                     AND s.project_id = (SELECT project_id FROM snapshots WHERE id = ?)
+                   ORDER BY u.rowid DESC LIMIT 1''',          # REPLACE -> newest rowid = last saved
+                (key, snapshot_id, snapshot_id)).fetchone()
+            if row is None or not row['value_json']:
+                return None, None
+            return _json.loads(row['value_json']), row['snapshot_id']
+    return (_json.loads(row['value_json']) if row['value_json'] else None), None
+
+
+def save_snapshot_ui_state(snapshot_id, key, value):
+    """Save (or with ``value=None`` clear) a screen's state for one imported schedule. A
+    clear keeps a NULL row, so the schedule does not inherit an older schedule's state
+    again (get_snapshot_ui_state_inherited)."""
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO snapshot_ui_state (snapshot_id, key, value_json) '
+                     'VALUES (?, ?, ?)', (snapshot_id, key,
+                                          None if value is None else _json.dumps(value, default=str)))
+    return value
 
 
 def save_calendar_audit(snapshot_id, result):
@@ -637,6 +1137,7 @@ def delete_project(project_id):
             conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM category_metrics WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM metrics          WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM snapshot_ui_state WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute('DELETE FROM snapshots WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_settings WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))

@@ -11,7 +11,9 @@ standalone `.exe` (`Controlyx.exe`) — no Python required on the target machine
 `APP_EDITION` / `APP_TITLE` in `utils.py`. **Never hardcode the product name in a feature:**
 Python code does `from utils import APP_NAME` (or `APP_TITLE`); UI code reads
 `window.__APP_NAME__` / `window.__APP_TITLE__`, which `server.py` injects into every served
-page (the `<title>` and the `#app-title` toolbar element update from it automatically). A new
+page (the `<title>` and the `#app-title` toolbar element update from it automatically; static
+markup in `ui/index.html` leaves the name out and marks the element `data-brand="name|edition|title"`,
+which `server._fill_brand` fills before the page is sent). A new
 feature — or an edition bump to 2027 (one edit to `APP_EDITION`) — then inherits the name
 everywhere with no extra work. Some identifiers intentionally keep their original
 names (they are **not** product branding — renaming them would break imports or orphan user
@@ -35,7 +37,7 @@ DB is `controlyx.db`, each migrated automatically on first run from the older `P
 | **Report** | `p6_evm/report.py` | `render_html(result, meta)` → HTML string; Chrome headless → PDF |
 | **CLI** | `cli.py` | Terminal usage (no GUI needed) |
 | **Database** | `db.py` | SQLite schema, XML caching, all DB read/write operations |
-| **Utils** | `utils.py` | brand constants (`APP_NAME`/`APP_EDITION`/`APP_TITLE`), `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
+| **Utils** | `utils.py` | brand constants (`APP_NAME`/`APP_EDITION`/`APP_TITLE`), `APP_VERSION` (read from the newest `## [vX.Y.Z]` heading of the bundled `CHANGELOG.md` — never typed; injected as `window.__APP_VERSION__`), `resource_path()` for PyInstaller, `app_data_dir()` / `schedules_dir()` for per-user storage |
 | **Build** | `controlyx.spec` | PyInstaller spec → `dist/Controlyx.exe` |
 
 ---
@@ -66,6 +68,11 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 | GET | `/` | — | `ui/index.html` with `window.__SERVER_PORT__` injected |
 | GET | `/ui/*` | — | Static CSS / JS |
 | GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
+| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded\|damaged, detail, backup, check: pending\|running\|done}, ready, graphics, log_path}` — startup readiness probe (log_path = the startup.log file, shown by Help ▸ Open log folder). `db.check` = the background `PRAGMA quick_check` started once the server listens (`db.start_background_check`); `damaged` = data pages unreadable (found by that check, or by any response whose error is a corruption error — `server._json` → `db.note_error`) |
+| POST | `/api/db/recover` | `{}` | `{ok, backup, salvaged:{table:n}, lost_tables, db}` / 409 when the DB is not damaged — sets the damaged history DB aside (`.corrupt-bak-<time>`) and starts a fresh one with every readable row copied across (`db.recover_damaged_db`); the page's damaged-DB notice and the Recent Projects row offer it |
+| POST | `/api/client-log` | `{kind, message, detail}` | `{ok}` — page startup guard → `logs/startup.log`; `kind:'ready'` completes the readiness handshake |
+| GET / POST | `/api/graphics-mode` | POST `{safe: bool}` | `{ok, saved, reason, since, this_launch, forced}` — Help ▸ Contact & Support 'Safe graphics' (WebView2 `--disable-gpu` from the next launch; `app_startup` flag file) |
+| POST | `/api/narrative/setup` | `{snapshot_id[, setup]}` | `{ok, setup}` / `{ok}` — Narrative project setup per snapshot in `snapshot_ui_state` (never in `ui_prefs.json`) |
 | POST | `/api/parse` | `{path, overrides_path}` | `{ok, result, cached_path}` |
 | POST | `/api/report` | `{xml_path, cached_path, output_path, overrides_path}` | `{ok}` or `{ok, error}` |
 
@@ -107,11 +114,15 @@ pyinstaller controlyx.spec
 
 Data bundled: `ui/`, `p6_evm/`, `config.json`. `resource_path()` in `utils.py` resolves paths correctly in both dev and bundle.
 
+Start-up splash: the spec builds a PyInstaller `Splash` from `packaging/splash.png` (text from `utils.APP_TITLE`; not always-on-top; skipped with a warning when Tcl/Tk is missing) so something shows while the one-file exe unpacks; `app_startup.close_splash()` closes it on `window.events.shown`. WebView2 profile: `app_startup.webview_profile()` picks `<app data>\webview\<normal|safe>` (kept between launches; a fresh per-launch folder when another copy runs or on a relaunch) and app.py passes it as `storage_path` with `private_mode=True` (page storage stays per launch — preferences live in ui_prefs.json / the DB).
+
 ---
 
 ## PDF generation
 
-`/api/report` re-parses the XML (needs full `ScheduleData` for `baseline_by_id`), calls `render_html()`, writes a temp HTML file, then spawns Chrome headless. Chrome is located via Playwright's bundled Chromium first, then Windows install paths. End users need Chrome installed (or Playwright Chromium in the `.exe` bundle).
+`/api/report` re-parses the XML (needs full `ScheduleData` for `baseline_by_id`), calls `render_html()`, writes a temp HTML file, then spawns Chrome headless. Every PDF (and every Word-export chart picture) prints through ONE helper, `p6_export/pdf.py` (`server._find_chrome()` / `server._chrome_print_pdf()` wrap it): candidates are installed Google Chrome → Microsoft Edge → Chromium → Playwright headless shell → Playwright full Chromium LAST; each is PROBED once (a real one-line headless print), the first that works is cached for the session, and `run_chrome()` falls through to the next candidate when one cannot start (e.g. `[WinError 14001] side-by-side configuration`), exits with an error or writes no output. Never spawn Chrome with `subprocess` yourself (`tests/test_chrome_discovery.py` enforces it). End users need Chrome or Edge installed (Edge ships with Windows).
+
+Dark appearance modes: `report_theme.theme_style_tag()` also emits `@page { background: <page hex> }` for every mode whose page is not white, so PDF page margins are themed (Chrome prints @page margins outside `html`); light / Word / Excel unchanged.
 
 ---
 
@@ -157,25 +168,36 @@ JOIN metrics m ON m.snapshot_id = s.id
 
 ## Release process
 
-1. Update `CHANGELOG.md` — add a new section at the top:
+Releases are **automatic** — no manual tag needed:
+
+1. Update `CHANGELOG.md` — add a new section at the top (or rename `## [Unreleased]`). This also
+   sets the version the app shows — `utils.APP_VERSION` is read from the newest `## [vX.Y.Z]`
+   heading (`utils.release_version()`); nothing else to bump:
    ```markdown
    ## [vX.Y.Z] - YYYY-MM-DD
    ### Added / Fixed / Changed
    - ...
    ```
-2. Commit and push the changelog (and any other changes for the release)
-3. Tag and push — this triggers the build workflow:
-   ```bash
-   git tag vX.Y.Z
-   git push origin master vX.Y.Z
-   ```
+2. Merge to `master`. The build workflow sees that the newest `## [vX.Y.Z]` heading has no tag
+   yet, creates the `vX.Y.Z` tag on that commit, builds `dist/Controlyx.exe` and publishes the
+   GitHub Release. If that version is already tagged, the run does nothing.
+
+Pushing a `vX.Y.Z` tag by hand still works (build + Release for that tag), and **Actions ▸
+Build & Release ▸ Run workflow** builds the exe as a run artifact without releasing.
 
 The GitHub Actions workflow (`.github/workflows/build-release.yml`) builds `dist/Controlyx.exe`
 via PyInstaller and creates a GitHub Release. It extracts the `[vX.Y.Z]` section from
 `CHANGELOG.md` automatically as the release notes — **never use `generate_release_notes: true`
 or manual release note inputs**; the changelog is the single source of truth.
 
-**Never tag without updating `CHANGELOG.md` first.**
+**Never release without updating `CHANGELOG.md` first** — a `## [vX.Y.Z]` heading on master
+*is* the release trigger, so keep work-in-progress entries under `## [Unreleased]`.
+The workflow enforces it: before building it runs `tests/test_app_version.py` and fails when the
+version being released differs from the newest `## [vX.Y.Z]` heading (the version the exe shows).
+
+**Online calls** (Nominatim, Open-Meteo) go through `utils.open_url(req, timeout)` — a short
+connect timeout (`utils.CONNECT_TIMEOUT`, 6 s) with the caller's longer read timeout, so a blocked
+network is reported in seconds; errors become plain English via `utils.network_error_message`.
 
 ---
 

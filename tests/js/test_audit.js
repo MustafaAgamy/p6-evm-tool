@@ -327,5 +327,24 @@ test('change summary: both sides joined', () => {
     'P → B from Finish-to-Finish to Finish-to-Start; B → S from Start-to-Start to Finish-to-Start');
 });
 
+console.log('\nLag justification: a failed save is said beside the box');
+{
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../../ui/modules/audit.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const at = src.indexOf('async function saveLagJustification');
+  const fn = src.slice(at, src.indexOf('function lagRowsFiltered'));
+  test('the save reads the server answer (ok:false is not treated as saved)', () => {
+    assert.match(fn, /data && data\.ok \? \{ ok: true \}/);
+  });
+  test('a failed save shows a visible "Not saved" note (no alert)', () => {
+    assert.match(fn, /Not saved — \$\{res\.error\}/);
+    assert.doesNotMatch(fn, /\balert\(/);
+  });
+  test('the change handler awaits the save and shows the outcome', () => {
+    // runux: one delegated change listener per table body reads the key from the box itself.
+    assert.match(src, /lagJustNote\(ta, await saveLagJustification\((?:relKey|ta\.dataset\.relkey), ta\.value\)\)/);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

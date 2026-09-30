@@ -198,11 +198,10 @@ def svg_to_png(svg_markup, width_px=None, scale=2.0):
 
 
 def _find_chrome():
-    """Only when the caller passed no browser: the first installed Chromium we know of
+    """Only when the caller passed no browser: the first Chromium that PROBES OK (cached)
     (never imports the server — keeps this module usable from tests / the CLI)."""
-    from .pdf import chrome_candidates
-    found = chrome_candidates(None)
-    return found[0] if found else None
+    from .pdf import find_working_chrome
+    return find_working_chrome()
 
 
 def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):

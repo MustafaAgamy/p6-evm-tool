@@ -956,7 +956,8 @@ def _keep_titles_with_content(blocks):
 def _meta_from_blocks(blocks):
     meta = {}
     pat = {'project': r'Project\s*:\s*(.+)', 'data_date': r'Data\s*Date\s*:\s*(.+)',
-           'report_date': r'Report\s*Date\s*:\s*(.+)', 'source_file': r'Schedule\s*File\s*:\s*(.+)'}
+           'report_date': r'Report\s*Date\s*:\s*(.+)', 'source_file': r'Schedule\s*File\s*:\s*(.+)',
+           'baseline': r'Baseline\s*:\s*(.+)'}
     for b in blocks:
         if b.kind not in ('paragraph', 'heading'):
             continue

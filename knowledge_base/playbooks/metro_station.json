@@ -1,0 +1,127 @@
+{
+  "archetype": "metro_station",
+  "schema": 2,
+  "context": "systems-integration-led · ventilation/smoke-control & vertical transport gate handover",
+  "brief": {
+    "intro": "New to this project type? A metro station is a below- or at-grade transit building whose civil box — diaphragm walls, platform and concourse slabs — is only the shell. What actually governs the programme is fitting out and proving the station's life-safety and passenger systems: tunnel/station ventilation that clears smoke in a fire, escalators, lifts and platform screen doors that move passengers safely, and the fire, security and passenger-information systems tied together by SCADA. Because a station sits inside a wider metro line, its systems must also integrate with line-wide signalling, power and control-centre systems commissioned outside the station's own contract. The critical path typically runs from civil box handover through MEP fit-out into a long, staged systems-integration and trial-running programme before the station can open to passengers.",
+    "scope": [
+      { "name": "Station box civil works", "desc": "Diaphragm walls, excavation and the structural base, concourse and platform slabs." },
+      { "name": "Waterproofing & tanking", "desc": "Protecting the below-grade box against groundwater ingress before internal fit-out starts." },
+      { "name": "Architectural fit-out", "desc": "Platform/concourse finishes, cladding, ceilings and public-area walls and floors." },
+      { "name": "Ventilation & HVAC", "desc": "Tunnel and station ventilation (TVS/ECS) for smoke control, plus concourse and back-of-house air conditioning." },
+      { "name": "Electrical power & lighting", "desc": "Station power supply and distribution, normal/essential/UPS lighting, and earthing." },
+      { "name": "Fire & life safety", "desc": "Detection, suppression and the fire cause-and-effect logic that links a fire event to the station's automatic response." },
+      { "name": "Vertical transportation", "desc": "Escalators, lifts and platform screen doors that move passengers between levels and onto the platform." },
+      { "name": "ELV, security & passenger systems", "desc": "CCTV, access control, automatic fare collection (AFC) and public address/passenger information (PA/PIS)." },
+      { "name": "BMS / SCADA integration", "desc": "The station control system tying MEP and life-safety systems together, and integrating with the line-wide control centre." },
+      { "name": "Testing, systems integration & trial running", "desc": "Proving every system individually, then together, before an extended trial-running period ahead of opening." }
+    ],
+    "glossary": [
+      { "term": "TVS / ECS", "plain": "Tunnel Ventilation System / Environmental Control System — the fans and dampers that control airflow and clear smoke in a fire." },
+      { "term": "Platform screen doors (PSD)", "plain": "glass doors along the platform edge that only open once a train is correctly berthed." },
+      { "term": "AFC", "plain": "Automatic Fare Collection — the gates and ticketing equipment passengers use to enter and exit." },
+      { "term": "PIS / PA", "plain": "Passenger Information System / Public Address — the screens and speakers that inform passengers." },
+      { "term": "Cause-and-effect (C&E)", "plain": "the tested logic linking a fire or smoke detection event to the exact automatic response — fans start, doors release, dampers open." },
+      { "term": "Stray current", "plain": "current that leaks from the train's traction-return system into the ground or structure and can corrode reinforcement — controlled by earthing and bonding." },
+      { "term": "Station control room (SCR) / SCADA", "plain": "the local control point through which all station systems are monitored and, in an emergency, overridden." },
+      { "term": "Trial running", "plain": "an extended period the finished station operates as if in passenger service, to prove reliability before opening." }
+    ],
+    "must_get_right": [
+      "Ventilation and fire cause-and-effect is the system that gates handover — build real time into the schedule for the integrated smoke-control test, not just individual system tests.",
+      "Escalators, lifts and platform screen doors are long-lead, factory-tested equipment whose delivery and installation sequence drives the fit-out programme.",
+      "The station does not commission in isolation — passenger systems (AFC, PIS, SCADA) and traction/earthing must integrate with the wider line, so interface dates with the systemwide contractor are schedule constraints, not internal milestones.",
+      "Waterproofing and tanking must be proven before internal fit-out starts — a leak found after finishes are in is a costly rework loop."
+    ]
+  },
+  "components": [
+    { "name": "Station Box & Civil Structure", "desc": "Diaphragm walls · excavation · structural slabs", "disc": "Civil", "primary": true },
+    { "name": "Ventilation & Smoke Control", "desc": "TVS/ECS · fans · dampers · shafts", "disc": "Mechanical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Detection · suppression · cause-and-effect", "disc": "Fire Protection", "primary": true },
+    { "name": "Vertical Transportation", "desc": "Escalators · lifts · platform screen doors", "disc": "Conveying", "primary": true },
+    { "name": "Electrical Power & Lighting", "desc": "MV/LV · normal/essential/UPS lighting · earthing", "disc": "Electrical", "primary": false },
+    { "name": "ELV / Security / Passenger Systems", "desc": "CCTV · access control · AFC · PA/PIS", "disc": "Extra-Low Voltage", "primary": false },
+    { "name": "BMS / SCADA Integration", "desc": "Station control room · line-wide SCADA tie-in", "disc": "Instrumentation", "primary": true }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Tunnel & station ventilation (TVS/ECS) — fans, dampers, shafts", "HVAC — concourse & back-of-house air conditioning", "Chilled-water plant (where applicable)", "Smoke-control dampers & jet fans"] },
+    { "discipline": "Electrical", "items": ["Station power supply & distribution (MV/LV)", "Normal, essential & UPS lighting", "Earthing, bonding & stray-current mitigation", "Escalator / lift power supplies"] },
+    { "discipline": "Fire & ELV", "items": ["Fire detection & sprinkler/hydrant system", "Fire cause-and-effect (C&E) integration", "CCTV, access control & intrusion detection", "AFC gates, PA/PIS & structured cabling"] },
+    { "discipline": "BMS / SCADA", "items": ["Station control system (SCR)", "Integration with line-wide SCADA / control centre", "Building management — HVAC, lighting & plant monitoring"] }
+  ],
+  "overview_phases": ["Station Box & Civils", "Waterproofing & Tanking", "MEP Rough-in", "Ventilation & Fire Systems", "Vertical Transportation", "Architectural Fit-out", "Systems Integration", "Testing & Trial Running"],
+  "sequence_chart": {
+    "phases": ["Box", "Waterproof", "Rough-in", "Plant", "Fit-out", "Integrate", "Trial Run"],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 38, "label": "Diaphragm walls → excavate → slabs → waterproof", "holds": [20] },
+      { "trade": "Ventilation & Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 26, "width": 48, "label": "Duct/shaft install → set fans → balance", "holds": [50, 74] },
+      { "trade": "Electrical & Vertical Transport", "disc": "Electrical", "kind": ["electrical", "mechanical"], "start": 34, "width": 46, "label": "Power & lighting → escalators/lifts/PSD set", "holds": [60] },
+      { "trade": "Fire & ELV / Security", "disc": "Extra-Low Voltage", "kind": ["fire", "elv"], "start": 42, "width": 40, "label": "Detection & cabling → devices → C&E logic", "holds": [] },
+      { "trade": "BMS / SCADA", "disc": "Instrumentation", "kind": ["bms", "elv"], "start": 55, "width": 30, "label": "Station control → integrate to line SCADA", "holds": [] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "System tests → integrated C&E → trial running", "holds": [90] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [3], "steps": ["Diaphragm walls & piling", "Excavation & temporary works", "Structural slabs — base, concourse & platform", "Waterproofing & tanking", "Entrances & ventilation shaft structures", "Track interface & drainage sumps"] },
+    { "name": "Ventilation & Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "holds": [2, 5], "steps": ["Procurement — fans, dampers, AHUs", "Duct & shaft installation", "Set tunnel ventilation fans (TVS/ECS)", "HVAC & chilled-water installation", "Airflow balancing", "Smoke-control mode functional test"] },
+    { "name": "Electrical Power", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment & cable routes", "Set switchgear & distribution boards", "Normal, essential & UPS lighting", "Earthing, bonding & stray-current mitigation", "Energise & test power / lighting"] },
+    { "name": "Vertical Transportation", "disc": "Conveying", "kind": ["mechanical"], "holds": [3], "steps": ["Procurement — escalators, lifts & platform screen doors", "Install escalators & lifts", "Install platform screen doors", "Load & safety testing", "Integration with train-berthing signal"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [3], "steps": ["Fire detection & sprinkler/hydrant rough-in", "Device installation", "Cause-and-effect (C&E) logic configuration", "Integrated smoke-control & fire C&E test"] },
+    { "name": "ELV / Security & Passenger Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [4], "steps": ["Structured cabling & containment", "CCTV, access control & intrusion detection", "AFC gates installation", "PA / PIS installation", "Point-to-point & functional test"] },
+    { "name": "BMS / SCADA Integration", "disc": "Instrumentation", "kind": ["bms", "comm"], "holds": [3], "steps": ["Station control system (SCR) setup", "Field device integration", "Integration with line-wide SCADA / control centre", "Staging & integration test"] },
+    { "name": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "holds": [1, 4], "steps": ["Individual system functional tests", "Integrated fire / smoke cause-and-effect test", "AFC / PA / PIS & SCADA integration test", "Stray-current & emergency-lighting test", "Trial running", "Handover to operator"] }
+  ],
+  "wbs": [
+    { "code": "MTS", "name": "Metro Station — Project", "level": 1 },
+    { "code": "MTS.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "MTS.02", "name": "Station Box & Civil Works", "level": 2 },
+    { "code": "MTS.02.10", "name": "Diaphragm walls & piling", "level": 3 },
+    { "code": "MTS.02.20", "name": "Excavation & structural slabs", "level": 3 },
+    { "code": "MTS.02.20.10", "name": "Base slab", "level": 4 },
+    { "code": "MTS.02.20.20", "name": "Concourse & platform slabs", "level": 4 },
+    { "code": "MTS.02.30", "name": "Waterproofing & tanking", "level": 3 },
+    { "code": "MTS.02.40", "name": "Entrances & ventilation shafts", "level": 3 },
+    { "code": "MTS.03", "name": "Architectural Fit-out", "level": 2 },
+    { "code": "MTS.04", "name": "Mechanical — Ventilation & HVAC", "level": 2 },
+    { "code": "MTS.04.10", "name": "Tunnel & station ventilation (TVS/ECS)", "level": 3 },
+    { "code": "MTS.04.10.10", "name": "Fan & damper installation", "level": 4 },
+    { "code": "MTS.04.10.10.10", "name": "Smoke-control mode test", "level": 5 },
+    { "code": "MTS.04.20", "name": "HVAC & chilled water", "level": 3 },
+    { "code": "MTS.05", "name": "Electrical Power & Lighting", "level": 2 },
+    { "code": "MTS.05.10", "name": "MV/LV distribution", "level": 3 },
+    { "code": "MTS.05.20", "name": "Earthing & stray-current mitigation", "level": 3 },
+    { "code": "MTS.06", "name": "Vertical Transportation", "level": 2 },
+    { "code": "MTS.06.10", "name": "Escalators & lifts", "level": 3 },
+    { "code": "MTS.06.20", "name": "Platform screen doors", "level": 3 },
+    { "code": "MTS.06.20.10", "name": "PSD-to-signalling integration", "level": 4 },
+    { "code": "MTS.07", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "MTS.07.10", "name": "Detection & suppression", "level": 3 },
+    { "code": "MTS.07.20", "name": "Cause-and-effect (C&E) integration", "level": 3 },
+    { "code": "MTS.08", "name": "ELV / Security & Passenger Systems", "level": 2 },
+    { "code": "MTS.08.10", "name": "CCTV & access control", "level": 3 },
+    { "code": "MTS.08.20", "name": "AFC / PA / PIS", "level": 3 },
+    { "code": "MTS.09", "name": "BMS / SCADA Integration", "level": 2 },
+    { "code": "MTS.10", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "MTS.10.10", "name": "System functional tests", "level": 3 },
+    { "code": "MTS.10.20", "name": "Trial running & handover", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The station schedule interfaces with the wider line-wide master schedule through constrained milestones for civil handover and systems-integration access." },
+      { "heading": "Calendars & working time", "body": "Civil box works run an extended-shift, 6-day calendar to protect handover to MEP; fit-out and systems-integration works run controlled-access shifts once track and traction power are live nearby, governed by rail possession/track-access windows." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs station box & waterproofing → MEP rough-in → ventilation & fire systems set → vertical transportation install → systems integration → integrated fire/smoke cause-and-effect test → trial running → handover. Vertical transportation delivery and the integrated smoke-control/fire C&E test are the classic late-programme bottlenecks." },
+      { "heading": "Key assumptions", "body": "The civil box is handed over dry and to tolerance; line-wide systems (traction power, signalling, SCADA) are available for integration testing per the interface schedule; a single fit-out mobilisation; authority (fire and rail regulator) approvals are staged with design freeze." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is procurement-led on passenger and life-safety equipment. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Escalators", "30–45 weeks", "Before vertical-transportation install"], ["Lifts", "24–36 weeks", "Before vertical-transportation install"], ["Platform screen doors", "28–40 weeks", "Before platform fit-out"], ["Tunnel ventilation fans (TVS/ECS)", "24–34 weeks", "Before ventilation set"], ["Fire detection / cause-and-effect control panel", "16–24 weeks", "Before fire system integration"]] } },
+      { "heading": "Access, resource & site constraints", "body": "The worksite sits inside or adjacent to a live or soon-to-be-live rail corridor: possession/track-access windows, confined below-grade access, and shared laydown with the systemwide contractor all constrain work; specialist commissioning resources (ventilation, fire C&E, SCADA) are shared across stations on the line." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: late civil handover, vertical-transportation delivery slippage, cause-and-effect re-test loops, and interface delays with the line-wide systems contractor. Schedule contingency is held before the integrated systems test and trial running rather than spread across rough-in activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client/operator; controlled at Level 3; expanded to Level 4–5 lookahead for MEP and systems trades — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

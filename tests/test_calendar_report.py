@@ -459,3 +459,36 @@ def _xml_for_name(tmp_path):
     ''')
     p = tmp_path / "s2.xml"; p.write_text(content, encoding='utf-8')
     return str(p)
+
+
+def test_report_weather_ticked_but_no_estimate_says_no_data_available(tmp_path):
+    """NET-2 (owner rule: never invent data; ticked-but-empty says "No data available").
+    When no weather estimate is saved — e.g. the first Calculate ran with no internet, which
+    now saves nothing instead of an invented zero — the Bad Weather PDF must not be a bare
+    header: every ticked section keeps its heading and says "No data available", unticked
+    sections stay absent, and no zero-delay figure or conclusion is printed."""
+    result = _result(tmp_path)
+    html = render_calendar_report(result, META, weather=None, feature='weather',
+                                  sections=['wx_dashboard', 'wx_upcoming'])
+    assert html.count('No data available') == 2
+    assert '1 · Execution Dashboard' in html and '4 · Upcoming Bad-Weather Days' in html
+    assert 'Recovery Recommendations' not in html          # unticked -> absent
+    assert 'Bad-weather Completion' not in html            # no invented waterfall
+    assert 'no weather delay' not in html.lower()
+    # default (all ticked) -> all seven say so
+    assert render_calendar_report(result, META, weather=None,
+                                  feature='weather').count('No data available') == 7
+
+
+def test_report_weather_ticked_section_empty_says_no_data_available(tmp_path):
+    """A real estimate whose ticked section has nothing to show (no histogram) says
+    "No data available" under that section's heading instead of vanishing."""
+    weather = {
+        'expected_bad_days_total': 0, 'net_finish_delay': 0, 'weather_adjusted_finish': '2025-03-31',
+        'thresholds': {'rain_mm': 5, 'temp_max_c': 42, 'wind_kmh': None, 'dust': True},
+        'by_cause': [], 'bad_days': [], 'milestones': [], 'recovery': [], 'monthly': [],
+    }
+    html = render_calendar_report(_result(tmp_path), META, weather=weather, feature='weather',
+                                  sections=['wx_timeline'])
+    assert '2 · Calendar Timeline &amp; Statistics' in html
+    assert 'No data available' in html

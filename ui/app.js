@@ -3,8 +3,7 @@ import { initTheme }                          from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel, exportEvmExcel, exportDashboardExcel, exportNarrativeExcel, exportOverviewExcel, exportWbsExcel, exportScheduleExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
-import { renderConstructPanel }               from './modules/construct.js';
-import { showDatabase, exitDatabase, initDatabase } from './modules/database.js';
+import { showPlaybooks, exitPlaybooks }        from './modules/knowledge.js';
 import { showProdIntel, exitProdIntel, prodintelPrint } from './modules/prodintel.js';
 import { showRecent, exitRecent }                   from './modules/recent.js';
 import { maybePromptBaseline, renderEvm }      from './modules/evm.js';
@@ -22,6 +21,7 @@ import { renderSchedule }                       from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
+import { installExternalLinks }                 from './modules/external_links.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
 import { openHelp, closeHelp }                   from './modules/help.js';
 import { createShortcutHandler, withHelpClosedFirst, shortcutForCmd, shortcutForNav, keysText } from './modules/shortcuts.js';
@@ -29,7 +29,10 @@ import { needsHint, needsTooltip }              from './modules/feature_needs.js
 import { DOC_KINDS, docExportRoute, requestDocExport, clearDocExport, noDocExportMessage } from './modules/export_intent.js';
 import { openPalette, closePalette, buildPaletteItems } from './modules/palette.js';
 import { playBoot }                            from './modules/boot.js';
-import { playFeatureReveal }                   from './modules/featurereveal.js';
+import { revealAndRun }                        from './modules/featurereveal.js';
+
+// Startup guard (ui/startup_guard.js, inlined into index.html): every module loaded.
+if (window.__cxStartup) window.__cxStartup.booted();
 
 document.addEventListener('DOMContentLoaded', () => {
   state.serverPort = window.__SERVER_PORT__;
@@ -37,8 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
   playBoot({ onDone: grabKeyFocus });   // branded startup splash; on lift, pull key focus into the page so shortcuts receive keys
   initTheme();
   initTooltips();
-  initDatabase();
-  loadHistory();
+  installExternalLinks();   // every web link → the default browser (never navigates the app window away)
+  // Real start-up step for the splash (BLACK-9): Recent Projects answered (or its own Retry shown).
+  loadHistory().finally(() => { if (window.__cxStartup) window.__cxStartup.step('history'); });
 
   // Unified Appearance control (six modes) — themes the whole app screen AND every report
   // preview/PDF from one choice. initTheme() above already painted the saved mode on load.
@@ -95,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ['special','Reporting Studio'],
     ]},
     { group:'Library', items:[
-      ['prodintel','Productivity & Resources','prodintel'], ['kb','Knowledge Base'], ['construct','Constructability'], ['recent','Recent Projects'],
+      ['prodintel','Productivity & Resources','prodintel'], ['kb','Knowledge Base'], ['recent','Recent Projects'],
     ]},
   ];
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
@@ -143,14 +147,14 @@ document.addEventListener('DOMContentLoaded', () => {
     oos:       { title:'Out of Sequence',         icon:'critpath',  verb:'Run Analysis',          desc:'Activities progressing against their planned logic.' },
     lag:       { title:'Lag Report',              icon:'lag',       verb:'Run Lag Report',        desc:'Relationship lags and leads, with a justification register.' },
     calendar:  { title:'P6 Calendar Audit',       icon:'calendar',  verb:'Run Calendar Audit',    desc:'Working-time calendars, net working days and comparisons.' },
-    construct: { title:'Constructability',        icon:'construct', verb:'Run Constructability',  desc:'Reviews sequencing and logic against the built-in construction knowledge base.' },
     chat:      { title:'AI Chat',                 icon:'ai',        verb:'Open AI Chat',          desc:'Ask a senior planning manager anything about this schedule, run a time-impact analysis, a what-if, or a manager’s briefing — offline, grounded in your data.' },
     narrative: { title:'Baseline Narrative',      icon:'doc',       verb:'Generate Narrative',    desc:'A written basis-of-schedule narrative from this programme.' },
-    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its own embedded baseline.' },
+    update:    { title:'Update Analysis',         icon:'update',    verb:'Run Update Analysis',   desc:'This update measured against its baseline — inside the file, or attached (XER or XML).' },
     special:   { title:'Reporting Studio',        icon:'special',   verb:'Open Reporting Studio', desc:"Pick results from any feature and build one detailed report — export to Word, PDF or Excel." },
   };
 
-  // Compute + render a feature's results (the actual analysis).
+  // Compute + render a feature's results (the actual analysis). Async features RETURN their
+  // work promise so the shared Run presentation reaches 100% only once their results are in.
   function runFeature(view) {
     const r = state.currentResult;
     switch (view) {
@@ -163,11 +167,10 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'lag':        renderLagPanel(r.audit_modules); break;
       case 'calendar':   renderCalendar(r.calendar_audit); break;
       case 'weather':    renderWeatherView(r.calendar_audit); break;
-      case 'construct':  renderConstructPanel(); break;
       case 'chat':       renderChat(); break;
-      case 'narrative':  renderNarrative(); break;
-      case 'update':     renderUpdatePanel(); break;
-      case 'special':    renderSpecialPanel(); break;
+      case 'narrative':  return renderNarrative();
+      case 'update':     return renderUpdatePanel();
+      case 'special':    return renderSpecialPanel();
       case 'compare':    renderComparePanel(); break;
       case 'revcompare': renderRevComparePanel(); break;
       case 'period':     renderPeriodPanel(); break;
@@ -207,11 +210,14 @@ document.addEventListener('DOMContentLoaded', () => {
       gate.classList.add('hidden');
       switchView(view);
       document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // Brief branded "opening the feature" reveal (same motion family as the startup
-      // splash), then render the results underneath it. Overlay the full content area
-      // (the feature panel is still empty here, so it has no height to cover).
-      const host = document.querySelector('main.content') || document.getElementById('results-section') || document.getElementById(view + '-panel');
-      playFeatureReveal(host, { title: meta.title, onDone: () => runFeature(view) });
+      // Shared Run presentation (featurereveal.js): the feature computes + renders UNDER the
+      // overlay from the start, and the bar reaches 100% only once its results are painted —
+      // then the overlay lifts at once (owner comment 36: no wait after 100%).
+      // The overlay lives on THIS feature's own panel — never #analysis-views, which also holds
+      // every other panel and the Run gate — so moving to another feature hides it with its
+      // panel: a long Run never covers or blocks the next feature (RUNUX-R1).
+      const host = document.getElementById(view + '-panel') || document.getElementById('analysis-views');
+      revealAndRun(host, meta.title, () => runFeature(view));
     });
     // Secondary action — re-open the native file picker to import a different schedule.
     gate.querySelector('.fg-change').addEventListener('click', () => { triggerBrowse(); });
@@ -234,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRunGate(view);
     gate.classList.remove('hidden');
   }
-  function goHome() { navCursor = 'home'; exitDatabase(); exitRecent(); exitProdIntel(); loadAnother(); loadHistory(); setCrumb('home'); }
+  function goHome() { navCursor = 'home'; exitPlaybooks(); exitRecent(); exitProdIntel(); loadAnother(); loadHistory(); setCrumb('home'); }
   let navCursor = null;   // the navigator item the planner last opened (Ctrl+[ / Ctrl+] step from here)
 
   navTree.addEventListener('click', (e) => {
@@ -244,11 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
     navCursor = id;
     if (id !== 'prodintel') exitProdIntel();
     if (id === 'home')   { goHome(); return; }
-    if (id === 'recent') { exitDatabase(); showRecent();   setCrumb('recent'); markNav('recent'); return; }
-    if (id === 'kb')     { exitRecent();  showDatabase();  setCrumb('kb');     markNav('kb');     return; }
-    if (id === 'prodintel') { exitDatabase(); exitRecent(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); return; }
+    if (id === 'recent') { exitPlaybooks(); showRecent();   setCrumb('recent'); markNav('recent'); return; }
+    if (id === 'kb')     { exitRecent();  showPlaybooks(); setCrumb('kb');     markNav('kb');     return; }
+    if (id === 'prodintel') { exitRecent(); exitPlaybooks(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); return; }
     // a feature/module view — only runs the one the user picked
-    exitDatabase(); exitRecent();
+    exitRecent(); exitPlaybooks();
     if (!state.currentResult) {
       showError('Import a P6 schedule first, then choose a module.');
       document.querySelector('.import-section')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -407,9 +413,9 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'appearance')   openAppearancePicker();
     else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
     else if (cmd === 'nav-toggle')  toggleNav();
-    else if (cmd === 'recent')      { navCursor = 'recent'; exitDatabase(); showRecent(); setCrumb('recent'); markNav('recent'); }
-    else if (cmd === 'kb')          { navCursor = 'kb'; exitRecent(); showDatabase(); setCrumb('kb'); markNav('kb'); }
-    else if (cmd === 'prodintel')   { navCursor = 'prodintel'; exitDatabase(); exitRecent(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); }
+    else if (cmd === 'recent')      { navCursor = 'recent'; exitPlaybooks(); showRecent(); setCrumb('recent'); markNav('recent'); }
+    else if (cmd === 'kb')          { navCursor = 'kb'; exitRecent(); showPlaybooks(); setCrumb('kb'); markNav('kb'); }
+    else if (cmd === 'prodintel')   { navCursor = 'prodintel'; exitRecent(); exitPlaybooks(); state.currentView = 'prodintel'; showProdIntel(); setCrumb('prodintel'); markNav('prodintel'); }
     else if (cmd === 'showchooser') { if (state.currentResult) { document.getElementById('results-section').classList.remove('hidden'); showChooser(); } }
     else if (cmd === 'help-start')    openHelp('getting-started');
     else if (cmd === 'help-features') openHelp('feature-guide');
@@ -426,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('import-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-    exitDatabase(); exitRecent();
+    exitPlaybooks(); exitRecent();
     navCursor = id;
     document.getElementById('import-section')?.classList.add('hidden');
     document.getElementById('results-section').classList.remove('hidden');
@@ -439,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // openFeatureById's "import a schedule first" gate.
   function openChat() {
     navCursor = 'chat';
-    exitDatabase(); exitRecent(); exitProdIntel();
+    exitPlaybooks(); exitRecent(); exitProdIntel();
     document.getElementById('import-section')?.classList.add('hidden');
     document.getElementById('results-section')?.classList.remove('hidden');
     document.getElementById('analysis-chooser')?.classList.add('hidden');
@@ -586,7 +592,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!again) return;
     if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
-    if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) { runFeature(view); return; }
+    if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) {
+      // Same shared Run bar as the gate's Run (RUNUX-R4) — never a bare re-render.
+      revealAndRun(document.getElementById(view + '-panel'), (FEATURE_META[view] || {}).title || view, () => runFeature(view));
+      return;
+    }
     showError(onResults && SELF_GATING.has(view)
       ? 'Use this feature’s own Run button to run it again.'
       : 'Nothing to run again here — open a feature and run it first.');
@@ -674,7 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('tab-oos').addEventListener('click', () => switchView('oos'));
   document.getElementById('tab-calendar').addEventListener('click', () => switchView('calendar'));
   document.getElementById('tab-weather').addEventListener('click', () => switchView('weather'));
-  document.getElementById('tab-construct').addEventListener('click', () => { switchView('construct'); renderConstructPanel(); });
   document.getElementById('tab-compare').addEventListener('click', () => { switchView('compare'); renderComparePanel(); });
   document.getElementById('tab-revcompare')?.addEventListener('click', () => { switchView('revcompare'); renderRevComparePanel(); });
   document.getElementById('tab-lag').addEventListener('click', () => switchView('lag'));
@@ -703,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showError('Please drop a .xml or .xer file exported from Primavera P6.');
       return;
     }
-    exitDatabase();
+    exitPlaybooks();
     exitRecent();
     importFile(file.path);
   });
@@ -753,4 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+  // Startup guard: the shell is built — lifts the "couldn't start" watchdog and completes
+  // the app's readiness handshake (POST /api/client-log kind=ready).
+  if (window.__cxStartup) window.__cxStartup.ready();
 });

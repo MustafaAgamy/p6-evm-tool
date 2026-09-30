@@ -14,6 +14,7 @@
 
 import { shortcutGroups } from './shortcuts.js';
 import { filterNeeds, needsGroups, fileTag, requiredFileCount, FEATURE_NEEDS } from './feature_needs.js';
+import { openExternal } from './external_links.js';
 
 // Product name from the server-injected brand (utils.APP_NAME / APP_TITLE) — never hardcoded.
 const APP_NAME = (typeof window !== 'undefined' && window.__APP_NAME__) || 'Controlyx';
@@ -21,6 +22,9 @@ const APP_TITLE = (typeof window !== 'undefined' && window.__APP_TITLE__) || APP
 // Edition + release version from the same injected source (utils.APP_EDITION / APP_VERSION).
 const APP_EDITION = (typeof window !== 'undefined' && window.__APP_EDITION__) || '';
 const APP_VERSION = (typeof window !== 'undefined' && window.__APP_VERSION__) || '';
+// What's New is READ from the newest CHANGELOG release (utils.release_notes(), injected as
+// window.__APP_RELEASE_NOTES__) — never typed here, so it can never name an old release (c25).
+const RELEASE_NOTES = (typeof window !== 'undefined' && window.__APP_RELEASE_NOTES__) || null;
 
 const STYLE_ID = 'hc-help-style';
 const OVERLAY_ID = 'hc-help-overlay';
@@ -32,7 +36,7 @@ const SECTIONS = [
     icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/>' },
   { key: 'shortcuts', label: 'Keyboard Shortcuts', sub: 'Work faster',
     icon: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>' },
-  { key: 'whats-new', label: "What's New", sub: 'Recent highlights',
+  { key: 'whats-new', label: "What's New", sub: APP_VERSION ? `New in v${APP_VERSION}` : 'Recent highlights',
     icon: '<path d="m12 3 2.3 4.7 5.2.8-3.7 3.6.9 5.1L12 15l-4.6 2.4.9-5.1L4.5 8.5l5.2-.8z"/>' },
   { key: 'contact', label: 'Contact & Support', sub: 'Get help',
     icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
@@ -263,8 +267,13 @@ function injectStyle() {
   .hc-wn-dot.green{ background:var(--success,#15803d); }
   .hc-wn-dot svg{ width:19px; height:19px; }
   .hc-wn-body h4{ margin:0 0 3px; font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:9px; flex-wrap:wrap; color:var(--text,#1e293b); }
+  .hc-wn-body{ min-width:0; }
   .hc-wn-body p{ margin:0; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
-  .hc-ver-pill{ font-size:10.5px; font-weight:700; color:var(--accent-dark,#1d4ed8); background:var(--accent-soft,#dbe6ff); border-radius:5px; padding:2px 7px; letter-spacing:.03em; }
+  .hc-wn-body ul{ margin:2px 0 0; padding-left:18px; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
+  .hc-wn-body li.more{ list-style:none; margin-left:-18px; font-style:italic; }
+  .hc-wn-kind{ font-size:10.5px; font-weight:700; color:var(--accent-dark,#1d4ed8); background:var(--accent-soft,#dbe6ff); border-radius:5px; padding:2px 7px; letter-spacing:.03em; text-transform:uppercase; }
+  .hc-wn-sub{ margin:24px 0 4px; font-size:15px; font-weight:800; color:var(--text,#1e293b); }
+  .hc-wn-note{ margin:0 0 12px; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
 
   /* ---- Contact ---- */
   .hc-contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -294,6 +303,20 @@ function injectStyle() {
     padding:13px 16px; font-size:13px; color:var(--ink-soft,#41506a); font-weight:500;
   }
   .hc-resp .rdot{ width:9px; height:9px; border-radius:50%; flex:none; background:var(--success,#15803d); }
+  /* ---- Contact: Safe graphics (window opens black) ---- */
+  .hc-gfx{ margin-top:16px; background:var(--card-bg,#fff); border:1px solid var(--border,#e2e8f0); border-radius:13px; padding:16px 18px; display:flex; gap:16px; align-items:flex-start; }
+  .hc-gfx-txt{ flex:1; min-width:0; font-size:13px; line-height:1.5; color:var(--ink-soft,#41506a); }
+  .hc-gfx-txt b{ color:var(--text,#1e293b); }
+  .hc-gfx-status{ margin-top:6px; font-size:12.5px; font-weight:600; color:var(--muted,#64748b); }
+  .hc-gfx-status.err{ color:var(--danger,#b91c1c); }
+  .hc-gfx-sw{ flex:none; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text,#1e293b); cursor:pointer; white-space:nowrap; }
+  .hc-gfx-sw input{ width:17px; height:17px; accent-color:var(--accent,#2563eb); cursor:pointer; }
+  .hc-gfx-sw input:disabled{ cursor:default; }
+  .hc-log .hc-gfx-status{ font-weight:500; word-break:break-all; }
+  .hc-log-btn{ flex:none; padding:7px 13px; border-radius:9px; border:1px solid var(--border,#e2e8f0); background:var(--surface-2,var(--card-bg,#fff)); color:var(--text,#1e293b); font-family:inherit; font-size:13px; font-weight:700; line-height:1.2; cursor:pointer; white-space:nowrap; }
+  .hc-log-btn:hover{ border-color:var(--accent,#2563eb); color:var(--accent,#2563eb); }
+  .hc-log-btn:disabled{ opacity:.6; cursor:default; }
+  @media (max-width:640px){ .hc-gfx{ flex-direction:column; } }
 
   /* ---- About ---- */
   .hc-about{ text-align:center; padding:44px 30px; position:relative; overflow:hidden; }
@@ -378,7 +401,7 @@ function screenGettingStarted() {
       <p>${esc(APP_NAME)} reads your Primavera P6 exports and turns them into clear schedule intelligence — earned value, health checks, delay analysis and board-ready reports. No spreadsheets, no manual number-crunching. Follow four steps.</p>
     </div>
     <div class="hc-flow">
-      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML/XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
+      <div class="hc-step"><div class="num">1</div><h4>Import</h4><p>Drag in a P6 XML or XER export, or Browse to it. ${esc(APP_NAME)} parses activities, WBS and logic.</p></div>
       <div class="hc-step"><div class="num">2</div><h4>Choose a feature</h4><p>Pick what you need — Earned Value, Schedule Health, Consultant Review and more.</p></div>
       <div class="hc-step"><div class="num">3</div><h4>Run</h4><p>Confirm the inputs and click Run. Every analysis is explicit — nothing fires until you ask.</p></div>
       <div class="hc-step"><div class="num">4</div><h4>Results</h4><p>Read the KPIs on screen, then export a polished one-page PDF or a custom report.</p></div>
@@ -421,7 +444,7 @@ function screenFeatureGuide() {
         <span class="hc-lg"><span class="sw none"></span>No schedule needed</span>
       </div>
     </div>
-    <div class="hc-fg-formats"><b>XER or XML?</b> Every file picker accepts both. The difference is the <b>baseline</b>: an XML exported from P6 <i>with its baseline project</i> carries the baseline inside it; an XER never does, so features that measure an update against its baseline need the baseline file too (or read the update's own planned dates).</div>
+    <div class="hc-fg-formats"><b>XER or XML?</b> Every file picker accepts both. The difference is the <b>baseline</b>: an XML exported from P6 <i>with its baseline project</i> carries the baseline inside it; a normal XER update export does not (it carries only a pointer to the baseline), so features that measure an update against its baseline need the baseline file attached too (otherwise they read the update's own planned dates).</div>
     <div class="hc-fg-count"><b id="hc-fg-shown">${total}</b> of ${total} features</div>
     <div id="hc-fg-grid"></div>
     <div class="hc-fg-empty" id="hc-fg-empty">No features match your search. Try “baseline”, “XER”, “delay” or “calendar”.</div>
@@ -451,45 +474,69 @@ function screenShortcuts() {
   </section>`;
 }
 
-function screenWhatsNew() {
+// What's New = the newest CHANGELOG release (utils.release_notes()), so the version in the
+// heading and every item always belong to the release this copy IS — never an old one (c25).
+// Added → blue "New", Changed → amber "Improved", Fixed → green "Fixed".
+const WN_KIND = {
+  Added:   { dot: '',      label: 'New',      icon: '<path d="M12 5v14M5 12h14"/>' },
+  Changed: { dot: 'amber', label: 'Improved', icon: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>' },
+  Fixed:   { dot: 'green', label: 'Fixed',    icon: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>' },
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function wnDate(iso) {                         // '2026-09-26' → '26 Sep 2026'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  return m && MONTHS[+m[2] - 1] ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : '';
+}
+
+function wnItem(raw) {
+  const it = raw && typeof raw === 'object' ? raw : {};
+  const k = WN_KIND[it.kind] || WN_KIND.Changed;
+  const points = (Array.isArray(it.points) ? it.points : []).map(p => `<li>${esc(p)}</li>`).join('');
+  const more = it.more > 0
+    ? `<li class="more">…and ${esc(it.more)} more ${it.more === 1 ? 'change' : 'changes'}</li>` : '';
+  return `
+      <div class="hc-wn">
+        <div class="hc-wn-dot ${k.dot}">${svg(k.icon)}</div>
+        <div class="hc-wn-body">
+          <h4>${esc(it.title || k.label)} <span class="hc-wn-kind">${k.label}</span></h4>
+          ${points || more ? `<ul>${points}${more}</ul>` : ''}
+        </div>
+      </div>`;
+}
+
+// Pure: notes = utils.release_notes() shape {version, date, items, upcoming}; version =
+// utils.APP_VERSION. Exported for tests/js/test_whats_new.js.
+export function whatsNewHtml(notes, version, title) {
+  const n = notes && typeof notes === 'object' ? notes : {};
+  const items = Array.isArray(n.items) ? n.items : [];
+  const upcoming = Array.isArray(n.upcoming) ? n.upcoming : [];
+  const ver = String(version || '');
+  const date = wnDate(n.date);
+  const name = esc(title || '');
+  const lead = ver
+    ? `The headline changes in ${name} v${esc(ver)}${date ? `, released ${date}` : ''}.`
+    : `The headline changes in ${name}.`;
+  const released = items.length
+    ? `<div class="hc-card hc-pad">${items.map(wnItem).join('')}</div>`
+    : `<div class="hc-card hc-pad"><p class="hc-wn-note">The release notes are not included in this copy of ${name}.</p></div>`;
+  const extra = upcoming.length ? `
+    <h3 class="hc-wn-sub">Also in this build</h3>
+    <p class="hc-wn-note">Already in this copy of ${name}; the next release notes will list them.</p>
+    <div class="hc-card hc-pad">${upcoming.map(wnItem).join('')}</div>` : '';
   return `
   <section class="hc-screen" data-sec="whats-new">
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>What's New</div>
-      <h2>Recent highlights</h2>
-      <p>The latest improvements shipped in ${esc(APP_TITLE)}.</p>
+      <h2>${ver ? `What's new in v${esc(ver)}` : 'Recent highlights'}</h2>
+      <p>${lead}</p>
     </div>
-    <div class="hc-card hc-pad">
-      <div class="hc-wn">
-        <div class="hc-wn-dot">${svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Keyboard shortcuts, command palette &amp; "what each feature needs"</h4>
-          <p>Alt+1…Alt+9 jump straight to the main features, Ctrl+K searches every feature and command, Ctrl+Shift+E / W / H export, Ctrl+R runs the feature again — and every menu shows its shortcut. The Feature guide, the Analysis menu and the navigator tooltips now state exactly which files each feature needs.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot">${svg('<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">Since v2.2.0</span></h4>
-          <p>Importing a file no longer auto-runs anything. You pick a feature, confirm its inputs, then Run — clearer intent and no surprise recalculations.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot amber">${svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Reorganised Project Navigator</h4>
-          <p>Recent Projects now lives on its own page and the sidebar groups Home, History and Database — less clutter, faster switching between schedules.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot green">${svg('<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Branded startup splash</h4>
-          <p>A polished ${esc(APP_NAME)} splash screen greets you on launch while your database and knowledge base load in the background.</p>
-        </div>
-      </div>
-    </div>
+    ${released}${extra}
   </section>`;
+}
+
+function screenWhatsNew() {
+  return whatsNewHtml(RELEASE_NOTES, APP_VERSION, APP_TITLE);
 }
 
 // External links (LinkedIn) open in the planner's default browser: in the packaged app the
@@ -546,7 +593,98 @@ function screenContact() {
       </div>
     </div>
     <div class="hc-resp"><span class="rdot"></span>We usually respond within 2 days.</div>
+    <div class="hc-gfx" id="hc-gfx">
+      <div class="hc-gfx-txt"><b>Window opens black?</b> Turn on <b>Safe graphics</b>: the app then draws its window without the graphics card (scrolling can feel a little slower). ${esc(APP_NAME)} also turns it on by itself after a start that never showed the page. It applies the next time you open the app.
+        <div class="hc-gfx-status" id="hc-gfx-status" role="status" aria-live="polite">Checking…</div>
+      </div>
+      <label class="hc-gfx-sw"><input type="checkbox" id="hc-gfx-toggle" disabled> Safe graphics</label>
+    </div>
+    <div class="hc-gfx hc-log" id="hc-log">
+      <div class="hc-gfx-txt"><b>Problem when the app starts?</b> ${esc(APP_NAME)} notes every step of each start in a small file, <b>startup.log</b>. Open its folder and send that file to Technical Software Support so they can see which step went wrong.
+        <div class="hc-gfx-status" id="hc-log-status" role="status" aria-live="polite"></div>
+      </div>
+      <button type="button" class="hc-log-btn" id="hc-log-open">Open log folder</button>
+    </div>
   </section>`;
+}
+
+// ---- Contact: start-up log folder (startup BLACK-8) ----
+// Opens the folder through the desktop app's bridge (window.pywebview.api.open_log_folder);
+// the log file's path is always shown in words too (from GET /api/health), so the owner can
+// find it even when the folder cannot be opened. Never alert/confirm.
+export function wireLogFolder(root, win) {
+  const w = win || (typeof window !== 'undefined' ? window : globalThis);
+  const btn = root.querySelector('#hc-log-open');
+  const out = root.querySelector('#hc-log-status');
+  if (!btn || !out) return;
+  const say = (text, err) => { out.textContent = text; out.classList.toggle('err', !!err); };
+  const logPath = () => (typeof fetch === 'function'
+    ? fetch('/api/health').then(r => r.json()).then(h => (h && h.log_path) || '').catch(() => '')
+    : Promise.resolve(''));
+  logPath().then(p => { if (p && !out.textContent) say('Log file: ' + p); });
+  btn.addEventListener('click', () => {
+    const api = w && w.pywebview && w.pywebview.api;
+    btn.disabled = true;
+    say('Opening…');
+    const fail = p => say('Could not open the folder' + (p ? ' — the log file is here: ' + p : ' (the app is not answering).'), true);
+    if (!api || typeof api.open_log_folder !== 'function') {
+      logPath().then(p => { btn.disabled = false; p ? say('Open this folder in Explorer: ' + p) : fail(''); });
+      return;
+    }
+    Promise.resolve().then(() => api.open_log_folder()).then(res => {
+      btn.disabled = false;
+      if (res && res.ok) say('Opened. Send the file startup.log to support — ' + res.path);
+      else fail(res && res.path);
+    }).catch(() => logPath().then(p => { btn.disabled = false; fail(p); }));
+  });
+}
+
+// ---- Contact: Safe graphics switch (GET/POST /api/graphics-mode) ----
+// Plain words only; never alert/confirm (no-ops in the app's WebView2).
+export function graphicsStatusText(st) {
+  if (!st || !st.ok) return (st && st.error) || 'Could not read the graphics setting.';
+  const since = st.since ? ` since ${String(st.since).slice(0, 10)}` : '';
+  let t = st.saved ? `On${since}` : 'Off (normal graphics)';
+  if (st.saved && st.reason && st.reason !== 'turned on in Help') t += ` — turned on automatically (${st.reason})`;
+  if (st.forced) t += ` — note: the ${st.forced === '1' ? 'on' : 'off'} setting in this computer's CONTROLYX_SAFE_GRAPHICS variable wins`;
+  const now = st.this_launch === 'safe';
+  if (now !== !!st.saved) t += '. Takes effect the next time you open the app.';
+  else t += now ? '. This window is using it now.' : '.';
+  return t;
+}
+
+export function wireGraphicsSwitch(root) {
+  const box = root.querySelector('#hc-gfx-toggle');
+  const out = root.querySelector('#hc-gfx-status');
+  if (!box || !out || typeof fetch !== 'function') return;
+  const show = (st, err) => {
+    out.textContent = err || graphicsStatusText(st);
+    out.classList.toggle('err', !!err || !(st && st.ok));
+  };
+  const read = r => r.json().catch(() => ({ ok: false }));
+  fetch('/api/graphics-mode').then(read).then(st => {
+    if (st && st.ok) { box.checked = !!st.saved; box.disabled = false; }
+    show(st);
+  }).catch(() => show(null, 'Could not read the graphics setting (the app is not answering).'));
+  box.addEventListener('change', () => {
+    const want = box.checked;
+    box.disabled = true;
+    out.textContent = 'Saving…';
+    out.classList.remove('err');
+    fetch('/api/graphics-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ safe: want }),
+    }).then(read).then(st => {
+      box.disabled = false;
+      if (st && st.ok) { box.checked = !!st.saved; show(st); return; }
+      box.checked = !want;
+      show(st, 'Not saved — ' + ((st && st.error) || 'the app did not accept the change.'));
+    }).catch(() => {
+      box.disabled = false;
+      box.checked = !want;
+      show(null, 'Not saved — the app is not answering. Try again.');
+    });
+  });
 }
 
 function screenAbout() {
@@ -709,15 +847,17 @@ export function openHelp(section) {
   const box = overlay.querySelector('#hc-fg-search');
   if (box) box.addEventListener('input', () => renderFeatures(overlay, box.value));
   renderFeatures(overlay, '');
+  wireGraphicsSwitch(overlay);
+  wireLogFolder(overlay);
 
-  // External links → the default browser (packaged app: js_api.open_external with an https
-  // allow-list; browser/dev harness: the plain target=_blank link).
+  // External links → the default browser. The app-wide interceptor (external_links.js,
+  // installed by app.js) normally handles the click first; this is the fallback when Help is
+  // shown without it. Same path either way: js_api.open_external (https allow-list) or a new
+  // tab in a plain browser, with a visible note if it could not open.
   overlay.querySelectorAll('a[data-external]').forEach(a => a.addEventListener('click', e => {
-    const api = window.pywebview && window.pywebview.api;
-    if (api && typeof api.open_external === 'function') {
-      e.preventDefault();
-      try { api.open_external(a.href); } catch (err) { /* fall back to nothing — link stays visible */ }
-    }
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    openExternal(a.href);
   }));
 
   // Close: ✕ button and clicking the scrim (outside the shell).

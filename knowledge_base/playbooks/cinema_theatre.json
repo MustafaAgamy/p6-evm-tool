@@ -1,0 +1,123 @@
+{
+  "archetype": "cinema_theatre",
+  "schema": 2,
+  "context": "acoustic & stage-commissioning-led · box-in-box structure and the fly tower drive the fit-out",
+  "brief": {
+    "intro": "New to this project type? A cinema, theatre or performing-arts venue is built around two things an ordinary building doesn't have: an auditorium engineered for sound, and — for live theatre — a fly tower above the stage where scenery and rigging are hoisted out of the audience's sight. The acoustic performance depends on how the structure itself is built: a \"box-in-box\" auditorium, isolated from the rest of the building on a floating floor and resilient wall mounts, so sound and vibration don't leak in or out. Get that structural/acoustic envelope wrong and no amount of later finishing can fix it. Once the shell and acoustic envelope are right, the programme shifts to stage machinery (rigging, hoists, revolves, an orchestra-pit lift for a theatre) or projection/screen systems for a cinema, then to AV and lighting. The true finish line is proving all of it together — an acoustic tuning pass and a live rehearsal or test screening — alongside a life-safety evacuation test sized for a packed, low-lit auditorium.",
+    "scope": [
+      { "name": "Enabling & site works", "desc": "Earthworks, foundations and temporary access." },
+      { "name": "Structure & fly tower", "desc": "Frame, floor slabs and — for a live theatre — the fly tower above the stage." },
+      { "name": "Acoustic envelope (box-in-box)", "desc": "Isolated auditorium walls, floating floor and resilient mounts separating the house from the rest of the building." },
+      { "name": "Building envelope", "desc": "Roof, cladding and glazing to get the shell weather-tight." },
+      { "name": "Mechanical — low-noise HVAC", "desc": "Acoustically-lined, vibration-isolated air handling sized to a strict background-noise rating for the auditorium." },
+      { "name": "Electrical power & house/stage lighting", "desc": "Distribution, standby power and house lighting, plus theatrical dimming/control for a live venue." },
+      { "name": "Fire & life safety", "desc": "Evacuation systems sized for a packed, low-lit crowd, including a fire/tab curtain sealing the stage opening." },
+      { "name": "Stage machinery & rigging / projection systems", "desc": "Fly-system hoists, revolves and orchestra-pit lift for theatre, or screen and projection systems for cinema." },
+      { "name": "ELV / AV & acoustic systems", "desc": "Sound reinforcement, acoustic tuning, structured cabling and access control." },
+      { "name": "Testing, commissioning & handover", "desc": "Life-safety proving, acoustic tuning and a live rehearsal or test event before opening." }
+    ],
+    "glossary": [
+      { "term": "Fly tower", "plain": "the tall space above a theatre stage where scenery and lighting bars are hoisted up, out of the audience's view." },
+      { "term": "Box-in-box construction", "plain": "building the auditorium as its own isolated structure inside the building, so sound and vibration don't transfer in or out." },
+      { "term": "Raked seating", "plain": "sloped seating tiers giving every seat a clear sightline to the stage or screen." },
+      { "term": "Reverberation time (RT60)", "plain": "how long sound persists in a room before dying away, tuned by acoustic finishes for speech or music." },
+      { "term": "Fire / tab curtain", "plain": "a fire-rated curtain that seals the stage opening from the auditorium in the event of a fire." },
+      { "term": "Rigging / fly system", "plain": "counterweight or motorised hoists carrying scenery and lighting bars over the stage." },
+      { "term": "Orchestra-pit lift", "plain": "a hydraulic platform that raises and lowers to become an orchestra pit, extra seating or a stage extension." }
+    ],
+    "must_get_right": [
+      "Acoustic isolation (box-in-box, floating floor, resilient mounts) is structural, not a finish — get it right before the shell closes in; it cannot be retrofitted cheaply.",
+      "Stage machinery/rigging (or projection/screen systems for a cinema) needs its own procurement and installation window before AV and acoustic commissioning can begin.",
+      "Life-safety evacuation for a packed, low-lit auditorium — fire/tab curtain, emergency lighting, voice alarm — must be proven, not just installed.",
+      "Protect real time for acoustic tuning and a live rehearsal or test event before handover; it is the actual finish line, not the last snag."
+    ]
+  },
+  "components": [
+    { "name": "Structure & Acoustic Envelope", "desc": "Frame · fly tower · box-in-box isolation", "disc": "Structural", "primary": true },
+    { "name": "Mechanical — Low-Noise HVAC", "desc": "Acoustically-lined, vibration-isolated air handling", "disc": "Mechanical", "primary": true },
+    { "name": "Electrical Power & House/Stage Lighting", "desc": "Distribution · standby power · dimming & control", "disc": "Electrical", "primary": true },
+    { "name": "Fire & Life Safety", "desc": "Evacuation systems · fire/tab curtain", "disc": "Fire Protection", "primary": true },
+    { "name": "Stage Machinery & Rigging / Projection Systems", "desc": "Fly system · pit lift · screen & projection", "disc": "Mechanical", "primary": true },
+    { "name": "ELV / AV & Acoustic Systems", "desc": "Sound reinforcement · acoustic tuning · access control", "disc": "Extra-Low Voltage", "primary": false }
+  ],
+  "mep_systems": [
+    { "discipline": "Mechanical", "items": ["Low-noise, low-vibration AHUs & ductwork (acoustically lined/isolated)", "Chilled-water plant serving auditorium comfort cooling", "Stage machinery — fly-system hoists, revolves, orchestra-pit lift (theatre)", "Screen/projection support systems (cinema)"] },
+    { "discipline": "Electrical", "items": ["MV/LV distribution & standby/emergency power", "House & auditorium lighting", "Stage/theatrical lighting dimming and control (theatre)", "Emergency & evacuation lighting"] },
+    { "discipline": "Plumbing", "items": ["Front-of-house toilets, concessions & bar wet services", "Backstage / dressing-room wet services (theatre)", "Drainage"] },
+    { "discipline": "ELV / Fire / BMS", "items": ["Fire alarm, voice alarm & fire/tab-curtain control", "Sprinklers & fire suppression to stage/fly tower", "AV, sound reinforcement & acoustic-tuning systems", "Structured cabling, CCTV & access control"] }
+  ],
+  "overview_phases": ["Enabling & Substructure", "Structure & Fly Tower", "Acoustic Envelope (Box-in-Box)", "MEP Rough-in", "Stage Machinery & Rigging Install", "Auditorium Fit-out & Raked Seating", "Fire & Life-Safety Integration", "AV/Acoustic Commissioning & Rehearsal"],
+  "sequence_chart": {
+    "phases": ["Enable", "Structure", "Acoustic", "Rough-in", "Stage/AV", "Life-Safety", "Comm."],
+    "lanes": [
+      { "trade": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "start": 0, "width": 34, "label": "Earthworks → structure → fly tower → box-in-box shell", "holds": [16] },
+      { "trade": "Mechanical", "disc": "Mechanical", "kind": ["mechanical"], "start": 22, "width": 46, "label": "Ductwork → low-noise AHUs → balance auditorium", "holds": [54] },
+      { "trade": "Electrical", "disc": "Electrical", "kind": ["electrical"], "start": 24, "width": 50, "label": "Containment → house/stage lighting dimming → energise", "holds": [56, 80] },
+      { "trade": "Stage Machinery & Rigging", "disc": "Mechanical", "kind": ["mechanical"], "start": 30, "width": 38, "label": "Fly-system install → align → load test", "holds": [62] },
+      { "trade": "Fire / ELV / AV", "disc": "Fire Protection", "kind": ["fire", "elv", "bms"], "start": 44, "width": 40, "label": "Tab curtain → devices → AV/acoustic tuning → integrate", "holds": [80] },
+      { "trade": "Commissioning", "disc": "Commissioning", "kind": ["comm"], "start": 78, "width": 22, "label": "Life-safety proving → acoustic test → live rehearsal", "holds": [92] }
+    ]
+  },
+  "trades": [
+    { "name": "Civil / Structural", "disc": "Civil", "kind": ["civil"], "holds": [2, 5], "steps": ["Site clearance & foundations", "Superstructure frame", "Fly-tower structure (theatre) / screen-wall structure (cinema)", "Box-in-box acoustic shell — isolated walls & floating floor", "Roof & envelope weather-tightness", "Raked-seating structural steelwork"] },
+    { "name": "Mechanical — Low-Noise HVAC", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 5], "steps": ["Long-lead procurement — AHUs, acoustic attenuators, chillers", "Acoustically-lined ductwork & vibration-isolated plant mounts", "Set AHUs & chillers", "Distribute ductwork to the auditorium at low velocity", "Flush, balance & commission", "Background-noise (NC/NR rating) verification"] },
+    { "name": "Electrical Power & House/Stage Lighting", "disc": "Electrical", "kind": ["electrical"], "holds": [1, 4], "steps": ["Containment routes & cable pull", "Set switchgear & standby/emergency power", "House & auditorium lighting install", "Stage/theatrical lighting dimming & control (theatre) or projection power (cinema)", "Energise & test"] },
+    { "name": "Stage Machinery & Rigging / Projection Systems", "disc": "Mechanical", "kind": ["mechanical"], "holds": [0, 3], "steps": ["Long-lead procurement — fly-system hoists, revolves, pit lift, or projectors & screens", "Rigging grid & counterweight/motorised system install", "Alignment & load testing", "Orchestra-pit lift or screen/masking system commissioning", "Integration with stage/house lighting control"] },
+    { "name": "Fire & Life Safety", "disc": "Fire Protection", "kind": ["fire"], "holds": [2, 3], "steps": ["Sprinklers & fire suppression to stage/fly tower", "Fire/tab curtain installation & drop test", "Fire alarm & voice-alarm devices", "Cause-and-effect programming", "Evacuation & smoke-control proving test"] },
+    { "name": "ELV / AV & Acoustic Systems", "disc": "Extra-Low Voltage", "kind": ["elv"], "holds": [2, 4], "steps": ["Structured cabling & containment", "Sound-reinforcement & AV rack install", "Acoustic tuning (RT60) measurement & adjustment", "CCTV & access control", "Live rehearsal / test-event integration"] }
+  ],
+  "wbs": [
+    { "code": "THR", "name": "Cinema / Theatre / Performing Arts — Project", "level": 1 },
+    { "code": "THR.01", "name": "Project Management & Preliminaries", "level": 2 },
+    { "code": "THR.02", "name": "Site & Civil Works", "level": 2 },
+    { "code": "THR.02.10", "name": "Enabling & Earthworks", "level": 3 },
+    { "code": "THR.02.20", "name": "Substructure & Foundations", "level": 3 },
+    { "code": "THR.03", "name": "Superstructure", "level": 2 },
+    { "code": "THR.03.10", "name": "Fly Tower / Screen-Wall Structure", "level": 3 },
+    { "code": "THR.03.20", "name": "Raked-Seating Structural Steelwork", "level": 3 },
+    { "code": "THR.04", "name": "Acoustic Envelope (Box-in-Box)", "level": 2 },
+    { "code": "THR.04.10", "name": "Isolated Walls & Floating Floor", "level": 3 },
+    { "code": "THR.04.10.10", "name": "Acoustic isolation verification", "level": 4 },
+    { "code": "THR.05", "name": "Building Envelope", "level": 2 },
+    { "code": "THR.06", "name": "Mechanical — Low-Noise HVAC", "level": 2 },
+    { "code": "THR.06.10", "name": "Chilled-water plant", "level": 3 },
+    { "code": "THR.06.20", "name": "Acoustically-lined air distribution", "level": 3 },
+    { "code": "THR.06.20.10", "name": "Balance & background-noise verification", "level": 4 },
+    { "code": "THR.07", "name": "Electrical — Power & Lighting", "level": 2 },
+    { "code": "THR.07.10", "name": "House & auditorium lighting", "level": 3 },
+    { "code": "THR.07.20", "name": "Stage/theatrical lighting dimming & control", "level": 3 },
+    { "code": "THR.08", "name": "Stage Machinery & Rigging / Projection Systems", "level": 2 },
+    { "code": "THR.08.10", "name": "Fly system — hoists & counterweights", "level": 3 },
+    { "code": "THR.08.10.10", "name": "Alignment & load test", "level": 4 },
+    { "code": "THR.08.20", "name": "Orchestra-pit lift / screen & masking systems", "level": 3 },
+    { "code": "THR.09", "name": "Fire & Life Safety", "level": 2 },
+    { "code": "THR.09.10", "name": "Fire / tab curtain", "level": 3 },
+    { "code": "THR.09.20", "name": "Fire alarm & voice alarm", "level": 3 },
+    { "code": "THR.09.20.10", "name": "Cause-and-effect programming", "level": 4 },
+    { "code": "THR.10", "name": "ELV / AV & Acoustic Systems", "level": 2 },
+    { "code": "THR.10.10", "name": "Sound reinforcement & acoustic tuning", "level": 3 },
+    { "code": "THR.11", "name": "Auditorium Fit-out & Raked Seating Install", "level": 2 },
+    { "code": "THR.12", "name": "Testing & Commissioning", "level": 2 },
+    { "code": "THR.12.10", "name": "Life-safety proving & live rehearsal", "level": 3 }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      { "heading": "Scheduling method & tools", "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The acoustic envelope and stage-machinery packages are modelled as their own sub-networks given their sequencing and re-test risk." },
+      { "heading": "Calendars & working time", "body": "Structure and the acoustic shell run a 6-day week; MEP fit-out and stage-machinery installation move to extended hours ahead of the acoustic tuning window; commissioning runs against the availability of the acoustic consultant and a fixed rehearsal or test-event date." },
+      { "heading": "Sequencing logic & critical path", "body": "The driving path runs structure & fly tower → box-in-box acoustic isolation → MEP rough-in → stage machinery/rigging (or projection systems) install → AV and acoustic tuning → life-safety proving → live rehearsal / test event → handover. The acoustic envelope, not the visible finishes, gates everything that follows it." },
+      { "heading": "Key assumptions", "body": "Design freeze on the acoustic envelope and stage/fly-tower rigging layout before the shell closes in; authority approvals obtained per phase gate; a single mobilisation; the acoustic consultant and stage-machinery specialist are engaged through commissioning, not just design." },
+      { "heading": "Procurement & long-lead items", "body": "The schedule is acoustic-envelope- and stage-machinery-led. The following are tracked as milestones and drive the network:", "table": { "columns": ["Item", "Typical lead time", "Needed on site by"], "rows": [["Fly-system hoists & counterweight rigging", "20–30 weeks", "Before fly-tower close-in"], ["House/stage lighting dimming system", "14–20 weeks", "Before lighting rough-in"], ["Acoustically-lined AHUs & attenuators", "16–24 weeks", "Before HVAC rough-in"], ["Auditorium seating (raked)", "12–18 weeks", "Before auditorium fit-out"], ["Projection & screen systems (cinema variant)", "10–16 weeks", "Before AV commissioning"]] } },
+      { "heading": "Access, resource & site constraints", "body": "Fly-tower and rigging installation need dedicated crane/hoist access and exclusion zones below; acoustic tuning requires the building substantially quiet and finished around it, competing with the last trades on site. Skilled acoustic and stage-machinery commissioning specialists are scarce and shared across the final weeks." },
+      { "heading": "Risks, float & contingency", "body": "Principal risks: acoustic isolation defects found late (very costly to fix once the shell is closed), stage-machinery/rigging re-test loops, and acoustic-tuning re-work if background noise targets are missed. Schedule contingency is held immediately before acoustic tuning and before the life-safety proving test rather than spread thinly across finishing activities." },
+      { "heading": "Schedule levels of detail", "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3; expanded to Level 4–5 lookahead for the acoustic envelope, stage machinery and commissioning — consistent with AACE 37R-06." }
+    ]
+  },
+  "standards": [
+    { "code": "WBS", "text": "UNIFORMAT II — building systems" },
+    { "code": "WBS", "text": "CSI MasterFormat — trade sections" },
+    { "code": "BOP", "text": "AACE 38R-06 — Basis of Schedule" },
+    { "code": "LOD", "text": "AACE 37R-06 — schedule levels of detail" }
+  ],
+  "baseline": { "xer": true }
+}

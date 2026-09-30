@@ -8,6 +8,7 @@
 import { state }                 from './state.js';
 import { showError, clearError } from './render.js';
 import { createReportRegistry }  from './report_registry.js';
+import { revealAndRun, revealStage } from './featurereveal.js';
 
 const PORT = () => state.serverPort;
 let registry = null;
@@ -40,9 +41,24 @@ async function fetchAndRender() {
   }
 }
 
+// The server renders ONE html for the screen and the PDF / HTML exports, so its stylesheet
+// is written for a standalone page: its `body`, `p`, `table` and `*` rules, mounted inside
+// the app, restyled EVERY feature from the moment the report was generated (Times New Roman
+// text, a grey page, dark text in the dark modes, the menu bar jumping). On screen those
+// page-level rules apply to the report container only; :where() keeps each rule's
+// specificity exactly as written, so the report itself renders the same. (Exports send the
+// document model, never this DOM, so they are unaffected.)
+const DOC_SCOPE = ':where(#narrative-doc)';
+export function scopeReportCss(html) {
+  return String(html || '').replace(/<style>([\s\S]*?)<\/style>/, (m, css) => '<style>' +
+    css.replace(/(^|[{}])(\s*)(body|p|table|\*)(?=\s*\{)/g,
+      (r, brace, ws, sel) => brace + ws + (sel === 'body' ? DOC_SCOPE : DOC_SCOPE + ' ' + sel)) +
+    '</style>');
+}
+
 function mountReport(html) {
   const host = document.getElementById('narrative-doc');
-  host.innerHTML = editStyles() + html;
+  host.innerHTML = editStyles() + scopeReportCss(html);
   makeEditable(host);
   mountContents(host);
 }
@@ -445,8 +461,65 @@ function getSetup() {
   }
   return state.narrativeSetup;
 }
+// The setup is SAVED in the app database per imported schedule (POST /api/narrative/setup):
+// the web view's own storage is empty after every restart and too small for the logos and
+// layout drawing. The browser copy above is only this session's cache. [startup:F3] SET-2
+const SETUP_RETRY_MS = [1000, 3000, 8000];
+let _setupSaveT = null;
+let _setupPending = null;
+const _setupSeq = {};                          // per schedule: the newest save wins
+function postSetup(payload) {
+  return fetch(`http://localhost:${PORT()}/api/narrative/setup`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }).then(r => r.json());
+}
+/** Load the saved setup of the open schedule into state (before the setup chat starts). */
+export async function loadSavedSetup(timeoutMs = 5000) {
+  const sid = state.currentSnapshotId;
+  if (!sid) return null;
+  try {
+    const d = await Promise.race([postSetup({ snapshot_id: sid }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))]);
+    if (sid !== state.currentSnapshotId || !d || !d.ok) return null;
+    if (d.setup && typeof d.setup === 'object') {
+      state.narrativeSetup = d.setup;
+      try { localStorage.setItem(setupStoreKey(), JSON.stringify(d.setup)); } catch { /* too big for the browser copy */ }
+      return d.setup;
+    }
+    const local = getSetup();                  // typed earlier this session, not saved yet
+    if (local && Object.keys(local).length) saveSetup();
+  } catch { /* the app did not answer: this session's copy; saved on the next change */ }
+  return null;
+}
+function sendSetup(payload, seq, attempt) {
+  const sid = payload.snapshot_id;
+  if (seq !== _setupSeq[sid]) return;          // a newer change is on its way
+  postSetup(payload).then(d => {
+    if (d && d.ok) return;
+    if (d && d.error && !/busy/i.test(d.error)) { showError('Narrative setup not saved — ' + d.error); return; }
+    throw new Error((d && d.error) || 'not saved');
+  }).catch(() => {
+    if (seq !== _setupSeq[sid]) return;
+    if (attempt < SETUP_RETRY_MS.length) setTimeout(() => sendSetup(payload, seq, attempt + 1), SETUP_RETRY_MS[attempt]);
+    else showError('Narrative setup not saved — the app did not answer. Change any setup field to try again.');
+  });
+}
 function saveSetup() {
   try { localStorage.setItem(setupStoreKey(), JSON.stringify(state.narrativeSetup || {})); } catch (e) { /* ignore */ }
+  const sid = state.currentSnapshotId;
+  if (!sid) return;
+  const payload = { snapshot_id: sid, setup: state.narrativeSetup || {} };
+  const seq = _setupSeq[sid] = (_setupSeq[sid] || 0) + 1;
+  if (_setupPending && _setupPending.sid !== sid) flushSetupSave();   // never drop another schedule's
+  clearTimeout(_setupSaveT);
+  _setupPending = { sid, run: () => sendSetup(payload, seq, 0) };
+  _setupSaveT = setTimeout(flushSetupSave, 300);
+}
+function flushSetupSave() {
+  clearTimeout(_setupSaveT);
+  const p = _setupPending;
+  _setupPending = null;
+  if (p) p.run();
 }
 function fileToDataUrl(file) {
   return new Promise((res, rej) => {
@@ -802,7 +875,9 @@ const CHAT_Q = {
   generate:      "That's everything I need. I'll build the full report — all sections plus the Critical Path and Mapping Sheet appendix — matched across Word, PDF and on screen.",
 };
 let _chatMeta = {};
+let _chatMetaFor = null;   // which file the detected choices were read from (Edit setup reuses them)
 let _chatCur = 0;
+const chatFileKey = () => [state.currentXmlPath || '', state.currentCachedPath || '', state.currentSnapshotId || ''].join('|');
 
 function chatCss() {
   return `<style>
@@ -886,6 +961,7 @@ async function fetchDetected() {
     // report. Detection only needs the meta (the detected choices); the real generate path sets it.
     // The choices endpoint returns {ok, meta} (no doc), unlike /api/narrative which returns {ok, doc}.
     _chatMeta = data.meta || {};
+    _chatMetaFor = chatFileKey();
     return _chatMeta;
   } catch { return null; }
 }
@@ -1113,11 +1189,19 @@ function finishSetup(gen) {
   if (chat) chat.style.display = 'none';
   if (rep) rep.style.display = '';
   exportBar(true);                                 // the report is now being mounted — exports apply
-  fetchAndRender();
+  // Shared Run presentation: the report builds + mounts UNDER the bar, which reaches 100%
+  // only once it is on screen (owner comment 36 — no wait after 100%, no visible jump).
+  return revealAndRun(document.getElementById('narrative-body'), 'Baseline Narrative', () => {
+    revealStage('Writing the baseline narrative');
+    return fetchAndRender();
+  });
 }
 
-// Open (or re-open) the guided interview.
-async function startSetupChat() {
+// Open (or re-open) the guided interview. "Edit setup" passes { reuse: true }: the choices
+// already read from THIS file are shown at once (they are properties of the file — no second
+// whole-file read behind a bare "Reading your schedule…" wait); a new Run always reads afresh.
+async function startSetupChat(opts) {
+  const reuse = !!(opts && opts.reuse) && _chatMetaFor === chatFileKey() && _chatMeta.project_name != null;
   const chat = document.getElementById('bn-chat-wrap');
   const rep = document.getElementById('bn-report-wrap');
   if (rep) rep.style.display = 'none';
@@ -1133,7 +1217,9 @@ async function startSetupChat() {
      </div>`;
   document.getElementById('bn-continue').addEventListener('click', () => { if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
   document.getElementById('bn-back').addEventListener('click', () => { if (_chatCur > 0) { _chatCur--; renderChat(); } });
-  const meta = await fetchDetected();
+  // A fresh read is a whole-file read: the open Run bar names that step (RUNUX-R2).
+  if (!reuse) revealStage('Reading your schedule');
+  const meta = reuse ? _chatMeta : await fetchDetected();
   const note = document.getElementById('bn-readnote');
   if (!meta) { document.getElementById('bn-thread').innerHTML = '<p class="ai-empty" style="padding:16px">Open a baseline schedule first — the setup then reads it.</p>'; if (note) note.textContent = ''; return; }
   const proj = meta.project_name || 'your project';
@@ -1164,9 +1250,10 @@ export function renderNarrativePanel() {
     if (h) h.addEventListener('click', () => exportNarrative('html'));
     _wired = true;
   }
+  flushSetupSave();                                // the previous schedule's last edit is sent
   state.narrativeSetup = null;
   state.narrativeDoc = null; registry = null;      // drop any prior project's report + selection
-  _chatMeta = {}; _chatCur = 0;
+  _chatMeta = {}; _chatMetaFor = null; _chatCur = 0;
   exportBar(false);                                // exports appear only once a report is mounted
   const panel = document.getElementById('narrative-body');
   if (panel) {
@@ -1178,8 +1265,14 @@ export function renderNarrativePanel() {
         '<div id="narrative-doc" style="flex:1;min-width:0"></div></div>' +
       '</div>';
     const edit = document.getElementById('bn-edit-setup');
-    if (edit) edit.addEventListener('click', () => startSetupChat());
-    startSetupChat();
+    if (edit) edit.addEventListener('click', () => startSetupChat({ reuse: true }));
+    // the saved setup (database) first, so a restarted app pre-fills parties/logos/layout;
+    // loadSavedSetup never rejects (it falls back to this session's copy).
+    const sid = state.currentSnapshotId;
+    return loadSavedSetup().then(() => {
+      if (sid !== state.currentSnapshotId || !document.getElementById('bn-chat-wrap')) return null;
+      return startSetupChat();          // the Run presentation waits for the first question
+    });
   }
 }
 

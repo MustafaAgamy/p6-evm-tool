@@ -21,6 +21,7 @@ does not keep, so they are read here straight from the file — isolated exactly
 ``p6_narrative.codes`` so ``p6_evm`` stays untouched. On any problem the reader returns ``{}``
 and the affected section falls back to an honest no-data note.
 """
+import os
 import re
 import calendar as _cal
 from collections import defaultdict
@@ -55,15 +56,37 @@ def read_resource_meta(path):
     """``{resource_id: {'type': 'RT_Labor'|'RT_Equip'|'RT_Mat'|None, 'unit': str|None}}``
     read directly from a P6 file. XER ← RSRC (``rsrc_type``, ``unit_id``) + UMEASURE;
     XML ← Resource (``ResourceType``, ``UnitOfMeasureObjectId``) + UnitOfMeasure.
-    Returns ``{}`` on any problem."""
+    Returns ``{}`` on any problem.
+
+    One report asks for this twice (§13 Resource Loading and §15 Productivity), and each read
+    re-parses the whole file — seconds on a big XML. The answer depends only on the file, so it
+    is remembered per (path, modified time, size); a changed or re-exported file is re-read.
+    Callers always get their own copy."""
     if not path:
         return {}
     try:
-        if path.lower().endswith('.xer'):
-            return _res_from_xer(path)
-        return _res_from_xml(path)
-    except Exception:
-        return {}
+        st = os.stat(path)
+        key = (os.path.abspath(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = None
+    meta = _META_CACHE.get(key) if key else None
+    if meta is None:
+        try:
+            if path.lower().endswith('.xer'):
+                meta = _res_from_xer(path)
+            else:
+                meta = _res_from_xml(path)
+        except Exception:
+            return {}
+        if key:
+            if len(_META_CACHE) >= _META_CACHE_MAX:
+                _META_CACHE.pop(next(iter(_META_CACHE)), None)
+            _META_CACHE[key] = meta
+    return {rid: dict(v) for rid, v in meta.items()}
+
+
+_META_CACHE = {}           # (abs path, mtime_ns, size) -> resource meta (small: types + units)
+_META_CACHE_MAX = 4
 
 
 def _short_unit(abbrev, name):
@@ -75,28 +98,15 @@ def _short_unit(abbrev, name):
     return min(cands, key=len) if cands else None
 
 
+_ENGINE_TYPE = {'Labour': 'RT_Labor', 'Equipment': 'RT_Equip', 'Material': 'RT_Mat'}
+
+
 def _norm_type(raw):
-    """Normalise a raw resource-type string to the P6 XER enum used across the engine."""
-    s = str(raw or '').strip().lower()
-    if not s:
-        return None
-    if s.startswith('rt_'):                       # already an XER enum
-        if 'labor' in s or 'labour' in s:
-            return 'RT_Labor'
-        if 'equip' in s:
-            return 'RT_Equip'
-        if 'mat' in s:
-            return 'RT_Mat'
-        return raw
-    if 'nonlabor' in s or 'nonlabour' in s or 'non-labor' in s:  # XML Nonlabor ⇒ equipment
-        return 'RT_Equip'
-    if s.startswith('labor') or s.startswith('labour'):
-        return 'RT_Labor'
-    if s.startswith('mat'):
-        return 'RT_Mat'
-    if 'equip' in s:
-        return 'RT_Equip'
-    return None
+    """Normalise a raw resource-type string to the P6 XER enum used across the engine, through
+    the ONE resource-type vocabulary the parsers use (p6_evm.parser.resource_type_label - finding
+    P21), so the narrative classes a resource exactly as every other feature does."""
+    from p6_evm.parser import resource_type_label
+    return _ENGINE_TYPE.get(resource_type_label(raw))
 
 
 def _res_from_xer(path):
@@ -131,7 +141,35 @@ def _res_from_xml(path):
     m = re.search(r'xmlns="([^"]+)"', head)
     ns = f'{{{m.group(1)}}}' if m else ''
     root = ET.parse(path).getroot()
+    # The same report also needs this file's activity-code catalog (p6_narrative.codes), which
+    # is another whole-file parse — seconds on a big XML. Read it from this tree now, once.
+    try:
+        from p6_narrative import codes
+        codes.remember(codes.file_key(path), codes.codes_from_root(root, ns))
+    except Exception:
+        pass
+    return _res_from_root(root, ns)
 
+
+def prime_from_root(path, root, ns):
+    """Remember this file's resource meta, read from a tree another reader already parsed."""
+    key = _file_key(path)
+    if key and key not in _META_CACHE:
+        meta = _res_from_root(root, ns)
+        if len(_META_CACHE) >= _META_CACHE_MAX:
+            _META_CACHE.pop(next(iter(_META_CACHE)), None)
+        _META_CACHE[key] = meta
+
+
+def _file_key(path):
+    try:
+        st = os.stat(path)
+        return (os.path.abspath(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _res_from_root(root, ns):
     def text(el, name):
         c = el.find(f'{ns}{name}')
         return c.text if c is not None else None

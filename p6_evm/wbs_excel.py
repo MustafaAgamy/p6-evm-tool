@@ -119,12 +119,16 @@ def _branch_note(subset):
     return f'{n} · overall {pl_s} planned · {ac_s} actual'
 
 
-def _block(title, subset):
+# columns measured against the baseline — '· approx' when the update's own Planned dates stand in
+_BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (days)'}
+
+
+def _block(title, subset, approx=False):
     base = subset[0].get('depth') or 0 if subset else 0
     return {
         'title': title,
         'note': _branch_note(subset),
-        'headers': _HEADERS,
+        'headers': [f'{h} · approx' if approx and h in _BL_HEADERS else h for h in _HEADERS],
         'rows': [_row(n, base) for n in subset],
     }
 
@@ -139,6 +143,7 @@ def wbs_excel(report):
     report = report or {}
     nodes = report.get('wbs_summary') or []
     mains = report.get('wbs_main') or []
+    approx = bool(report.get('baseline_approx'))
 
     if not nodes:
         return [{'name': 'WBS',
@@ -152,10 +157,10 @@ def wbs_excel(report):
     for m in mains:
         sub = _subset(nodes, m.get('id'))
         if sub:
-            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub))
+            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx))
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
-        blocks.append(_block('WBS Summary', nodes))
+        blocks.append(_block('WBS Summary', nodes, approx))
 
     return [{'name': 'WBS', 'blocks': blocks, 'col_widths': _COL_WIDTHS}]
 

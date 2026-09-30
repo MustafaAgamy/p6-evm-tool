@@ -66,13 +66,13 @@ def _kpi_grid(ctx):
     d = _delay_days(ctx)
     delay_tone = 'neutral' if d in (None,) else ('bad' if d > 0 else ('good' if d < 0 else 'neutral'))
     return P.kpi_group([
-        P.kpi('SPI · schedule', fmt.ratio(spi), tone=('bad' if (spi is not None and spi < 1) else 'neutral')),
+        P.kpi('SPI · schedule' + ctx.baseline_ax(), fmt.ratio(spi), tone=('bad' if (spi is not None and spi < 1) else 'neutral')),
         P.kpi('Forecast finish', _fmt_date(ex.get('expected_finish')), tone='neutral'),
-        P.kpi('Delay', (fmt.DASH if d is None else f'{int(round(d))} d'), tone=delay_tone),
-        P.kpi('Baseline finish', _fmt_date(ex.get('baseline_finish')), tone='neutral'),
-        P.kpi('Overall planned', fmt.pct01(e.get('overall_planned_pct'), dp=2), tone='neutral'),
+        P.kpi('Delay' + ctx.baseline_ax(), (fmt.DASH if d is None else f'{int(round(d))} d'), tone=delay_tone),
+        P.kpi('Baseline finish' + ctx.baseline_ax(), _fmt_date(ex.get('baseline_finish')), tone='neutral'),
+        P.kpi('Overall planned' + ctx.baseline_ax(), fmt.pct01(e.get('overall_planned_pct'), dp=2), tone='neutral'),
         P.kpi('Overall actual', fmt.pct01(e.get('overall_actual_pct'), dp=2), tone='neutral'),
-        P.kpi('Planned value', fmt.num(e.get('pv')), tone='neutral'),
+        P.kpi('Planned value' + ctx.baseline_ax(), fmt.num(e.get('pv')), tone='neutral'),
         P.kpi('Earned value', fmt.num(e.get('ev')), tone='neutral'),
         P.kpi('Actual cost', fmt.num(e.get('ac')), tone='neutral'),
         P.kpi('CPI · cost', fmt.ratio(cpi), tone='neutral'),

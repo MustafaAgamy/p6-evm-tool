@@ -52,6 +52,22 @@ def test_wbs_rename_not_reported_as_add_remove():
     assert d['added'] == [] and d['removed'] == []
 
 
+
+def test_wbs_rename_only_between_siblings_and_first_best_wins():
+    # Two added siblings overlap the removed branch equally → the first (sorted) one is the
+    # rename target; an added branch under another parent is never considered.
+    W = {'w0': {'name': 'WBS 1', 'parent_object_id': None}, 'w9': {'name': 'WBS 2', 'parent_object_id': None}}
+    W0 = dict(W, w1={'name': 'Old', 'parent_object_id': 'w0'})
+    W1 = dict(W, wa={'name': 'New B', 'parent_object_id': 'w0'}, wb={'name': 'New A', 'parent_object_id': 'w0'},
+              wc={'name': 'Old', 'parent_object_id': 'w9'})
+    rev0 = _sched([_act('A1', 'x', wbs='WBS 1 > Old'), _act('A2', 'y', wbs='WBS 1 > Old')], W0)
+    rev1 = _sched([_act('A1', 'x', wbs='WBS 1 > New B'), _act('A2', 'y', wbs='WBS 1 > New A'),
+                   _act('A3', 'z', wbs='WBS 2 > Old')], W1)
+    d = diff_wbs(rev0, rev1)
+    assert d['renamed'] == [{'from': 'WBS 1 > Old', 'to': 'WBS 1 > New A'}]
+    assert [x['path'] for x in d['added']] == ['WBS 1 > New B', 'WBS 2 > Old']
+    assert d['removed'] == []
+
 # ── Calendars ────────────────────────────────────────────────────────────────
 
 def test_calendar_reassignment_workweek_change():
