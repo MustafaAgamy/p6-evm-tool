@@ -56,11 +56,24 @@ def _md_plain(text):
     return re.sub(r'\s+', ' ', text.replace('`', '').replace('**', '')).strip()
 
 
+def _first_sentence(text):
+    return re.split(r'(?<=[.!?])\s+', _md_plain(text), 1)[0]
+
+
 def _note_point(bullet):
-    """One line per bullet: its bold lead-in, else its first sentence."""
-    m = re.match(r'\*\*(.+?)\*\*', bullet)
-    point = m.group(1) if m else re.split(r'(?<=[.!?])\s+', _md_plain(bullet), 1)[0]
-    point = _md_plain(point).rstrip('.:;').strip()
+    """One line per bullet: its bold lead-in, else its first sentence.
+
+    A short label lead-in ("**Cause:** the start-up screen …") says nothing on its own,
+    so it keeps the first sentence after it: "Cause: the start-up screen …".
+    """
+    m = re.match(r'\*\*(.+?)\*\*\s*(.*)$', bullet)
+    if m:
+        point, rest = _md_plain(m.group(1)), _first_sentence(m.group(2))
+        if point.endswith(':') and len(point.split()) <= 3 and rest:
+            point = f'{point} {rest}'
+    else:
+        point = _first_sentence(bullet)
+    point = point.rstrip('.:;,').strip()
     return point if len(point) <= 140 else point[:139].rstrip() + '…'
 
 

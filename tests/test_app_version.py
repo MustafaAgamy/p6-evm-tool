@@ -151,6 +151,17 @@ def test_release_notes_read_the_newest_release_and_the_unreleased_section(tmp_pa
     assert 'Old feature' not in str(notes)       # older releases are not "new"
 
 
+def test_release_notes_short_label_keeps_its_first_sentence(tmp_path):
+    md = ('## [v3.1.4] - 2026-10-01\n\n### Fixed — Black screen\n'
+          '- **Cause:** the screen waited for every file. It now retries.\n'
+          '- **Every feature finds the baseline the same way:** inside the file, else attached.\n'
+          '- **Used everywhere,** not only in Earned Value.\n')
+    points = utils.release_notes(_write(tmp_path, md))['items'][0]['points']
+    assert points == ['Cause: the screen waited for every file',   # a bare "Cause" says nothing
+                      'Every feature finds the baseline the same way',
+                      'Used everywhere']
+
+
 def test_release_notes_missing_changelog_is_empty(tmp_path):
     empty = {'version': '', 'date': '', 'items': [], 'upcoming': []}
     assert utils.release_notes(str(tmp_path / 'nope.md')) == empty

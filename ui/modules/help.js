@@ -22,6 +22,9 @@ const APP_TITLE = (typeof window !== 'undefined' && window.__APP_TITLE__) || APP
 // Edition + release version from the same injected source (utils.APP_EDITION / APP_VERSION).
 const APP_EDITION = (typeof window !== 'undefined' && window.__APP_EDITION__) || '';
 const APP_VERSION = (typeof window !== 'undefined' && window.__APP_VERSION__) || '';
+// What's New is READ from the newest CHANGELOG release (utils.release_notes(), injected as
+// window.__APP_RELEASE_NOTES__) — never typed here, so it can never name an old release (c25).
+const RELEASE_NOTES = (typeof window !== 'undefined' && window.__APP_RELEASE_NOTES__) || null;
 
 const STYLE_ID = 'hc-help-style';
 const OVERLAY_ID = 'hc-help-overlay';
@@ -33,7 +36,7 @@ const SECTIONS = [
     icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/>' },
   { key: 'shortcuts', label: 'Keyboard Shortcuts', sub: 'Work faster',
     icon: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>' },
-  { key: 'whats-new', label: "What's New", sub: 'Recent highlights',
+  { key: 'whats-new', label: "What's New", sub: APP_VERSION ? `New in v${APP_VERSION}` : 'Recent highlights',
     icon: '<path d="m12 3 2.3 4.7 5.2.8-3.7 3.6.9 5.1L12 15l-4.6 2.4.9-5.1L4.5 8.5l5.2-.8z"/>' },
   { key: 'contact', label: 'Contact & Support', sub: 'Get help',
     icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
@@ -264,8 +267,13 @@ function injectStyle() {
   .hc-wn-dot.green{ background:var(--success,#15803d); }
   .hc-wn-dot svg{ width:19px; height:19px; }
   .hc-wn-body h4{ margin:0 0 3px; font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:9px; flex-wrap:wrap; color:var(--text,#1e293b); }
+  .hc-wn-body{ min-width:0; }
   .hc-wn-body p{ margin:0; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
-  .hc-ver-pill{ font-size:10.5px; font-weight:700; color:var(--accent-dark,#1d4ed8); background:var(--accent-soft,#dbe6ff); border-radius:5px; padding:2px 7px; letter-spacing:.03em; }
+  .hc-wn-body ul{ margin:2px 0 0; padding-left:18px; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
+  .hc-wn-body li.more{ list-style:none; margin-left:-18px; font-style:italic; }
+  .hc-wn-kind{ font-size:10.5px; font-weight:700; color:var(--accent-dark,#1d4ed8); background:var(--accent-soft,#dbe6ff); border-radius:5px; padding:2px 7px; letter-spacing:.03em; text-transform:uppercase; }
+  .hc-wn-sub{ margin:24px 0 4px; font-size:15px; font-weight:800; color:var(--text,#1e293b); }
+  .hc-wn-note{ margin:0 0 12px; font-size:13px; color:var(--muted,#64748b); line-height:1.55; }
 
   /* ---- Contact ---- */
   .hc-contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -466,45 +474,69 @@ function screenShortcuts() {
   </section>`;
 }
 
-function screenWhatsNew() {
+// What's New = the newest CHANGELOG release (utils.release_notes()), so the version in the
+// heading and every item always belong to the release this copy IS — never an old one (c25).
+// Added → blue "New", Changed → amber "Improved", Fixed → green "Fixed".
+const WN_KIND = {
+  Added:   { dot: '',      label: 'New',      icon: '<path d="M12 5v14M5 12h14"/>' },
+  Changed: { dot: 'amber', label: 'Improved', icon: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>' },
+  Fixed:   { dot: 'green', label: 'Fixed',    icon: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>' },
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function wnDate(iso) {                         // '2026-09-26' → '26 Sep 2026'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  return m && MONTHS[+m[2] - 1] ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : '';
+}
+
+function wnItem(raw) {
+  const it = raw && typeof raw === 'object' ? raw : {};
+  const k = WN_KIND[it.kind] || WN_KIND.Changed;
+  const points = (Array.isArray(it.points) ? it.points : []).map(p => `<li>${esc(p)}</li>`).join('');
+  const more = it.more > 0
+    ? `<li class="more">…and ${esc(it.more)} more ${it.more === 1 ? 'change' : 'changes'}</li>` : '';
+  return `
+      <div class="hc-wn">
+        <div class="hc-wn-dot ${k.dot}">${svg(k.icon)}</div>
+        <div class="hc-wn-body">
+          <h4>${esc(it.title || k.label)} <span class="hc-wn-kind">${k.label}</span></h4>
+          ${points || more ? `<ul>${points}${more}</ul>` : ''}
+        </div>
+      </div>`;
+}
+
+// Pure: notes = utils.release_notes() shape {version, date, items, upcoming}; version =
+// utils.APP_VERSION. Exported for tests/js/test_whats_new.js.
+export function whatsNewHtml(notes, version, title) {
+  const n = notes && typeof notes === 'object' ? notes : {};
+  const items = Array.isArray(n.items) ? n.items : [];
+  const upcoming = Array.isArray(n.upcoming) ? n.upcoming : [];
+  const ver = String(version || '');
+  const date = wnDate(n.date);
+  const name = esc(title || '');
+  const lead = ver
+    ? `The headline changes in ${name} v${esc(ver)}${date ? `, released ${date}` : ''}.`
+    : `The headline changes in ${name}.`;
+  const released = items.length
+    ? `<div class="hc-card hc-pad">${items.map(wnItem).join('')}</div>`
+    : `<div class="hc-card hc-pad"><p class="hc-wn-note">The release notes are not included in this copy of ${name}.</p></div>`;
+  const extra = upcoming.length ? `
+    <h3 class="hc-wn-sub">Also in this build</h3>
+    <p class="hc-wn-note">Already in this copy of ${name}; the next release notes will list them.</p>
+    <div class="hc-card hc-pad">${upcoming.map(wnItem).join('')}</div>` : '';
   return `
   <section class="hc-screen" data-sec="whats-new">
     <div class="hc-head">
       <div class="hc-eyebrow"><span class="bar"></span>What's New</div>
-      <h2>Recent highlights</h2>
-      <p>The latest improvements shipped in ${esc(APP_TITLE)}.</p>
+      <h2>${ver ? `What's new in v${esc(ver)}` : 'Recent highlights'}</h2>
+      <p>${lead}</p>
     </div>
-    <div class="hc-card hc-pad">
-      <div class="hc-wn">
-        <div class="hc-wn-dot">${svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Keyboard shortcuts, command palette &amp; "what each feature needs"</h4>
-          <p>Alt+1…Alt+9 jump straight to the main features, Ctrl+K searches every feature and command, Ctrl+Shift+E / W / H export, Ctrl+R runs the feature again — and every menu shows its shortcut. The Feature guide, the Analysis menu and the navigator tooltips now state exactly which files each feature needs.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot">${svg('<path d="M22 11.5V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Explicit choose-feature → Run workflow <span class="hc-ver-pill">Since v2.2.0</span></h4>
-          <p>Importing a file no longer auto-runs anything. You pick a feature, confirm its inputs, then Run — clearer intent and no surprise recalculations.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot amber">${svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Reorganised Project Navigator</h4>
-          <p>Recent Projects now lives on its own page and the sidebar groups Home, History and Database — less clutter, faster switching between schedules.</p>
-        </div>
-      </div>
-      <div class="hc-wn">
-        <div class="hc-wn-dot green">${svg('<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>')}</div>
-        <div class="hc-wn-body">
-          <h4>Branded startup splash</h4>
-          <p>A polished ${esc(APP_NAME)} splash screen greets you on launch while your database and knowledge base load in the background.</p>
-        </div>
-      </div>
-    </div>
+    ${released}${extra}
   </section>`;
+}
+
+function screenWhatsNew() {
+  return whatsNewHtml(RELEASE_NOTES, APP_VERSION, APP_TITLE);
 }
 
 // External links (LinkedIn) open in the planner's default browser: in the packaged app the
