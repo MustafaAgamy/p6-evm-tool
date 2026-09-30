@@ -150,3 +150,53 @@ def as_date(x):
         return datetime.fromisoformat(str(x)[:19]).date()
     except ValueError:
         return None
+
+
+
+def ring_label_fits(name, pct_txt, cx, cy, R, ri, a0, a1, name_px=15, pct_px=17, at=None):
+    """True when a doughnut slice's on-ring label — ``name`` (``name_px`` bold) with
+    ``pct_txt`` (``pct_px`` bold) under it, centred on the ring's mid-radius at angle ``at``
+    (default: the slice's mid-angle; the layout of ``html._doughnut`` /
+    ``docx_native.add_doughnut``) — lies wholly INSIDE the slice. Angles: degrees clockwise
+    from 12 o'clock."""
+    ang0 = (a0 + a1) / 2.0 if at is None else at
+    t = math.radians(ang0 - 90.0)
+    lx = cx + (R + ri) / 2.0 * math.cos(t)
+    ly = cy + (R + ri) / 2.0 * math.sin(t)
+    k = name_px / 15.0                                  # the two lines' offsets scale too
+    boxes = []
+    for txt, px, base in ((name, name_px, ly - 5.0 * k), (pct_txt, pct_px, ly + 15.0 * k)):
+        w = len(str(txt or '')) * px * 0.56
+        boxes.append((lx - w / 2.0, base - px * 0.74, lx + w / 2.0, base + px * 0.22))
+    pad = 2.0
+    for x0, y0, x1, y1 in boxes:
+        for fx in (0.0, 0.25, 0.5, 0.75, 1.0):
+            for fy in (0.0, 0.5, 1.0):
+                x, y = x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy
+                d = math.hypot(x - cx, y - cy)
+                if d < ri + pad or d > R - pad:
+                    return False
+                ang = (math.degrees(math.atan2(y - cy, x - cx)) + 90.0) % 360.0
+                if a1 - a0 < 359.9 and not (a0 <= ang <= a1 or a0 <= ang + 360.0 <= a1):
+                    return False
+    return True
+
+
+def ring_label_spot(name, pct_txt, cx, cy, R, ri, a0, a1, name_px=15, pct_px=17):
+    """Where a doughnut slice's white on-ring label fits wholly inside its slice:
+    ``(angle, name_px, pct_px, dy)`` — the slice's mid-angle when the label fits there, else
+    the nearest angle of the slice where it does (a horizontal label fits where the ring runs
+    across, near 12 / 6 o'clock), then a slightly smaller font — or ``None`` (the slice is
+    labelled in the external ladder). ``dy`` scales the two lines' offsets (-5 / +15 px).
+    White text centred at the mid-angle ran past the ring and vanished white-on-white: SG §6
+    printed 'ocurement 17.3%' and 'onstruction 82.2%' (NARRFIX). Shared by ``html._doughnut``
+    and ``docx_native.add_doughnut`` so the PDF and the Word place it identically."""
+    mid = (a0 + a1) / 2.0
+    n = int(max(a1 - a0, 0))
+    cands = sorted({mid} | {a0 + d for d in range(1, n)}, key=lambda a: abs(a - mid))
+    for scale in (1.0, 0.87, 0.75, 0.65):         # 0.65: a ~10 px name, still legible
+        npx, ppx = name_px * scale, pct_px * scale
+        for ang in cands:
+            if ring_label_fits(name, pct_txt, cx, cy, R, ri, a0, a1, npx, ppx, at=ang):
+                return ang, npx, ppx, scale
+    return None

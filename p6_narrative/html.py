@@ -215,6 +215,7 @@ def _doughnut(rows, cap, center_big, value_fn):
     centre hole. A wrapping amount legend follows. Crisp vector for PDF/screen; the Word
     twin (``docx_native.add_doughnut``) draws the identical layout as native editable
     shapes, so §6 reads the same in Word, PDF and HTML."""
+    from p6_narrative.util import ring_label_spot
     rows = [r for r in rows if r]
     if not rows:
         return '<p class="note">No cost loading in the file.</p>'
@@ -230,13 +231,17 @@ def _doughnut(rows, cap, center_big, value_fn):
         mid = (a0 + a1) / 2.0
         body += ('<path d="%s" fill="#%s" stroke="#fff" stroke-width="2"/>'
                  % (_arc_path(cx, cy, R, ri, a0, a1), col))
-        if p >= 15:                                    # dominant slice → label ON the ring
-            lx, ly = _polar(cx, cy, (R + ri) / 2.0, mid)
+        spot = (ring_label_spot(_clip(r.get('name'), 18), '%s%%' % _fmt_pct(p),
+                                cx, cy, R, ri, a0, a1) if p >= 15 else None)
+        if spot:                                       # dominant slice → label ON the ring
+            ang, npx, ppx, k = spot
+            lx, ly = _polar(cx, cy, (R + ri) / 2.0, ang)
             body += ('<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
-                     'font-family="Calibri,sans-serif" font-size="15" font-weight="700">%s</text>'
+                     'font-family="Calibri,sans-serif" font-size="%.4g" font-weight="700">%s</text>'
                      '<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
-                     'font-family="Calibri,sans-serif" font-size="17" font-weight="700">%s%%</text>'
-                     % (lx, ly - 5, _esc(_clip(r.get('name'), 18)), lx, ly + 15, _fmt_pct(p)))
+                     'font-family="Calibri,sans-serif" font-size="%.4g" font-weight="700">%s%%</text>'
+                     % (lx, ly - 5 * k, npx, _esc(_clip(r.get('name'), 18)), lx, ly + 15 * k, ppx,
+                        _fmt_pct(p)))
         else:
             smalls.append((r, col, mid))
     # centre hole — cap + grouped total

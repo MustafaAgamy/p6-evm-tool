@@ -1350,6 +1350,37 @@ def _code_pair_table(document, pair):
     return _code_head_rows(t)
 
 
+def _year_label(y, avail_in, size_pt):
+    """'2025' when it fits ``avail_in`` inches at ``size_pt`` (bold digits ~0.55 em), else '’25'."""
+    full = str(y)
+    if len(full) * size_pt * 0.55 <= avail_in * 72.0:
+        return full
+    try:
+        return '’%02d' % (int(y) % 100)
+    except (TypeError, ValueError):
+        return full
+
+
+def _cell_side_margins(cell, inches):
+    """Left / right cell margins of ``inches`` (w:tcMar, in schema order within w:tcPr)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn('w:tcMar')):
+        tcPr.remove(old)
+    mar = OxmlElement('w:tcMar')
+    for side in ('left', 'right'):
+        e = OxmlElement('w:' + side)
+        e.set(qn('w:w'), str(int(round(inches * 1440))))
+        e.set(qn('w:type'), 'dxa')
+        mar.append(e)
+    later = [qn('w:' + n) for n in ('textDirection', 'tcFitText', 'vAlign', 'hideMark',
+                                    'headers', 'cellIns', 'cellDel', 'cellMerge', 'tcPrChange')]
+    nxt = next((ch for ch in tcPr if ch.tag in later), None)
+    if nxt is not None:
+        nxt.addprevious(mar)
+    else:
+        tcPr.append(mar)
+
+
 def _render_critpath(document, p, number, note):
     """Native Word Appendix — Critical Path: the "critical-path sweep". An auto-narrative, a KPI
     strip, a trade legend, and a REAL Word table whose month-cells are shaded (``_shade``) by the
@@ -1405,7 +1436,7 @@ def _render_critpath(document, p, number, note):
             rpr.append(shd)
             run(lp, ' %s    ' % disp, font=CAL, size=9, color=BODYNAVY)
 
-    # the sweep — a native shaded-cell grid: year header (no merge), month header, one row/zone.
+    # the sweep — a native shaded-cell grid: year header, month header, one row/zone.
     t = document.add_table(rows=0, cols=ncol)
     t.style = 'Table Grid'
     t.autofit = False
@@ -1415,16 +1446,21 @@ def _render_critpath(document, p, number, note):
         span = 0
         while i + span < len(months) and months[i + span]['y'] == y:
             span += 1
-        spans.append((y, i + 1))                     # (year, first 1-based month-column)
+        spans.append((y, i + 1, span))               # (year, first 1-based month-column, months)
         i += span
-    year_at = {a: y for (y, a) in spans}
 
+    # the year header: ONE cell per year spanning its months, centred (the twin of the HTML
+    # colspan) with slim side margins — a year in its first month's cell alone wrapped to
+    # '202 / 5' (GBT Word Appendix Critical Path, NARRFIX); a year over too few months to
+    # hold '2025' prints '’25'
     yr = t.add_row(); _row_h(yr, 11, exact=False)
     c0 = yr.cells[0]; _shade(c0, '26517D'); _no_space(c0); _set_w(c0, label_w)
-    for k in range(1, ncol):
-        c = yr.cells[k]; _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w)
-        if k in year_at:
-            run(c.paragraphs[0], str(year_at[k]), font=CAL, size=7.5, bold=True, color=WHITE)
+    for (y, a, span) in spans:
+        c = yr.cells[a] if span == 1 else yr.cells[a].merge(yr.cells[a + span - 1])
+        _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w * span); _cell_side_margins(c, 0.02)
+        c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(c.paragraphs[0], _year_label(y, mo_w * span - 0.04, 7.5),
+            font=CAL, size=7.5, bold=True, color=WHITE)
 
     mr = t.add_row(); _row_h(mr, 12, exact=False)
     lc = mr.cells[0]; _shade(lc, '3A6EA5'); _no_space(lc); _set_w(lc, label_w)

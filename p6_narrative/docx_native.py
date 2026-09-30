@@ -293,10 +293,16 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
     name = series_name or (title or 'Series 1')
     lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
                if num_fmt else '')
-    dlbls = (f'<c:dLbls>{lbl_fmt}<c:dLblPos val="outEnd"/>'
+    lbl_pt, lbl_rot, ax_max = _bar_label_fit(vals, num_fmt) if data_labels else (None, 0, None)
+    lbl_tx = ('' if lbl_pt is None else
+              f'<c:txPr><a:bodyPr rot="{lbl_rot}" vert="horz"/><a:lstStyle/><a:p><a:pPr>'
+              f'<a:defRPr sz="{int(round(lbl_pt * 100))}"/></a:pPr><a:endParaRPr lang="en-US"/>'
+              f'</a:p></c:txPr>')
+    dlbls = (f'<c:dLbls>{lbl_fmt}{lbl_tx}<c:dLblPos val="outEnd"/>'
              f'<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
              f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
              if data_labels else '')
+    val_max = f'<c:max val="{ax_max:g}"/>' if ax_max else ''
 
     def build(rid):
         dpts = ''.join(
@@ -314,12 +320,42 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
             f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
             f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
             f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
-            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/>{val_max}</c:scaling>'
             f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
             f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}'
             f'</c:chartSpace>')
 
     return _inject(document, build, cats, [(name, vals)])
+
+
+_PLOT_W_PT, _PLOT_H_PT = 400.0, 190.0    # the plot area of a _CX x _CY chart, roughly
+
+
+def _bar_label_fit(vals, num_fmt=None):
+    """Data-label size / rotation for a column chart whose every bar carries its value:
+    ``(None, 0, None)`` when Word's default 10 pt labels fit side by side; ``(pt, 0, None)``
+    with a smaller size (>= 7 pt) when that fits; else ``(7.5, -5400000, axis_max)`` —
+    labels turned upright (like the PDF's cash-flow bars) with the value axis raised so the
+    tallest bar's label stays inside the plot. Many months of 5-6 digit man-hours printed
+    their labels over each other ('5,938' '5,913' '6,124' - GBT Word §13.1, NARRFIX)."""
+    vals = [float(v) for v in vals]
+    if not vals:
+        return None, 0, None
+    texts = [('{:,.0f}'.format(v) if num_fmt else '%g' % v) for v in vals]
+    chars = max(len(t) for t in texts)
+    slot = _PLOT_W_PT / len(vals) - 3.0             # room per bar, less a small gap
+    per = chars * 0.55                              # label width per 1 pt of font
+    if 10.0 * per <= slot:
+        return None, 0, None
+    if 7.0 * per <= slot:
+        return round(slot / per * 2) / 2.0, 0, None
+    top = max(vals)
+    if top <= 0:
+        return 7.5, -5400000, None
+    room = (chars * 7.5 * 0.55 + 10.0) / _PLOT_H_PT  # the upright label's height, as a share
+    need = top / max(1.0 - room, 0.4)
+    unit = 10 ** (len('%d' % int(need)) - 2) * 5 if need >= 100 else 5
+    return 7.5, -5400000, float(math.ceil(need / unit) * unit)
 
 
 def add_bar_chart_stacked(document, categories, series, title):
@@ -476,18 +512,21 @@ def _next_id(document):
         return 1
 
 
-def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='roundRect'):
+def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='roundRect',
+             adj=None):
     """One filled text-box shape (a WBS node or a chevron). ``counter`` is a
-    one-item list used as a mutable shape-id allocator."""
+    one-item list used as a mutable shape-id allocator. ``adj`` sets the preset's
+    adjust value (a chevron's / home-plate's notch depth, 1/100000 of min(w, h))."""
     sid = counter[0]
     counter[0] += 1
     ln = (f'<a:ln w="9525"><a:solidFill><a:srgbClr val="{line}"/></a:solidFill></a:ln>'
           if line else '<a:ln><a:noFill/></a:ln>')
+    av = f'<a:gd name="adj" fmla="val {int(adj)}"/>' if adj is not None else ''
     return (
         f'<wps:wsp><wps:cNvPr id="{sid}" name="{_xesc(name) or ("Shape %d" % sid)}"/>'
         f'<wps:cNvSpPr/>'
         f'<wps:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{w}" cy="{h}"/></a:xfrm>'
-        f'<a:prstGeom prst="{prst}"><a:avLst/></a:prstGeom>'
+        f'<a:prstGeom prst="{prst}"><a:avLst>{av}</a:avLst></a:prstGeom>'
         f'<a:solidFill><a:srgbClr val="{fill}"/></a:solidFill>{ln}</wps:spPr>'
         f'<wps:txbx><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
         f'<w:r><w:rPr><w:b/><w:color w:val="{tcol}"/><w:sz w:val="{sz * 2}"/>'
@@ -771,6 +810,9 @@ def add_process(document, steps):
         return None
 
 
+_CHEVRON_NOTCH_PX = 14            # = util.chevron_layout(notch=) and html._chevrons' notch
+
+
 def add_chevron_flow(document, labels, palette=None):
     """Native HORIZONTAL chevron flow for §11 Sequence of Work — a home-plate first step
     then chevrons, in the blue sequence palette, white centred labels.
@@ -807,10 +849,14 @@ def add_chevron_flow(document, labels, palette=None):
                 # layout's per-shape font converted px→pt (font_px·0.75), so the shrink the
                 # layout already chose is honoured 1:1 with the SVG.
                 sz = max(int(round(it['font_px'] * 0.75)), 1)
+                # the notch as deep as the SVG's (14 px): Word's default (half the shape's
+                # height) narrowed a chevron's text area below the layout's, so a word that
+                # fits the SVG broke mid-word ('Column / s' - GBT Word §11, NARRFIX)
+                adj = int(round(100000.0 * _CHEVRON_NOTCH_PX / max(min(it['w'], it['h']), 1)))
                 shapes.append(_wps_box(
                     counter, it['label'], _emu(it['x']), _emu(it['y']),
                     _emu(it['w']), _emu(it['h']), col, None, 'FFFFFF',
-                    it['label'], sz=sz, prst=prst))
+                    it['label'], sz=sz, prst=prst, adj=adj))
         w_emu, h_emu = _emu(lay['width']), _emu(lay['height'])
         # The layout already fits max_width_px; _fit_display is a no-op unless the group still
         # exceeds the page (safety), so multiple rows keep their real size rather than crushing.
@@ -1164,6 +1210,7 @@ def add_doughnut(document, categories, values, title=None, num_fmt='#,##0', unit
     if ctotal is None:
         ctotal = val_total
     try:
+        from p6_narrative.util import ring_label_spot
         W, H, cx, cy, R, ri = 760.0, 330.0, 205.0, 165.0, 124.0, 73.0
         w_emu, h_emu = _emu(W), _emu(H)
         palette = ramp_colors(cats)
@@ -1186,16 +1233,19 @@ def add_doughnut(document, categories, values, title=None, num_fmt='#,##0', unit
             mid = (a0 + a1) / 2.0
             sectors.append(_annular_sector(nid(), cats[i], cx, cy, R, ri, a0, a1,
                                            w_emu, h_emu, col))
-            if p >= 15.0:                        # dominant slice → label ON the ring
-                lx, ly = _pt(cx, cy, (R + ri) / 2.0, mid)
+            spot = (ring_label_spot(_clip(cats[i], 18), '%s%%' % _pct_str(p),
+                                    cx, cy, R, ri, a0, a1) if p >= 15.0 else None)
+            if spot:                             # dominant slice → label ON the ring
+                ang, npx, ppx, k = spot          # (where it fits inside its slice - util)
+                lx, ly = _pt(cx, cy, (R + ri) / 2.0, ang)
                 nm = _clip(cats[i], 18)
                 ring_labels.append(_center_text(
-                    nid(), 'ring-name', lx, ly - 5 - 15 * 0.34,
-                    _est_w(nm, 15), 15 * 1.8, [(nm, _hp(15), True, 'FFFFFF')]))
+                    nid(), 'ring-name', lx, ly - 5 * k - npx * 0.34,
+                    _est_w(nm, npx), npx * 1.8, [(nm, _hp(npx), True, 'FFFFFF')]))
                 ptxt = '%s%%' % _pct_str(p)
                 ring_labels.append(_center_text(
-                    nid(), 'ring-pct', lx, ly + 15 - 17 * 0.34,
-                    _est_w(ptxt, 17), 17 * 1.8, [(ptxt, _hp(17), True, 'FFFFFF')]))
+                    nid(), 'ring-pct', lx, ly + 15 * k - ppx * 0.34,
+                    _est_w(ptxt, ppx), ppx * 1.8, [(ptxt, _hp(ppx), True, 'FFFFFF')]))
             else:
                 smalls.append((i, col, mid, p))
 
