@@ -856,9 +856,13 @@ def _codes(p, number, title, meta, cur):
             rows = ''.join('<tr><td class="cv">%s</td><td>%s</td></tr>'
                            % (_esc(r.get('code')), _esc(r.get('description')))
                            for r in (t.get('rows') or []))
-            cells += ('<div><div class="ct">%d &middot; %s</div>'
-                      '<table class="codetbl"><tr><th style="width:40%%">Code Value</th>'
-                      '<th>Description</th></tr>%s</table></div>'
+            # the code's title is the first row of the table's <thead>: a long code table that
+            # continues onto the next page repeats its title with its 'Code Value | Description'
+            # header - like the Word export - instead of opening the page with rows of an
+            # unnamed code (GBT PDF p22 '7 · Silos Area Name', NARRFIX)
+            cells += ('<div><table class="codetbl"><thead><tr><th class="ct" colspan="2">'
+                      '%d &middot; %s</th></tr><tr><th style="width:40%%">Code Value</th>'
+                      '<th>Description</th></tr></thead><tbody>%s</tbody></table></div>'
                       % (i + j + 1, _esc(t.get('dimension')), rows))
         out += '<div class="codes">%s</div>' % cells
     return out
@@ -1629,6 +1633,7 @@ table { border-collapse: collapse; }
 .codetbl th { background:#dbe5f1; border:1px solid #9fb2c8; padding:4px 7px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; font-size:10px; }
 .codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
 .codetbl td.cv { text-align:center; font-weight:600; }
+.codetbl th.ct { background:none; border:none; padding:0 0 5px; text-align:left; font-size:12px; font-weight:700; color:inherit; font-family:inherit; }
 .cover-t { text-align:center; }
 /* §12 Activity IDs — role-coloured anatomy + per-type breakdown (twins the native Word §12) */
 .actidblk { break-inside:avoid; page-break-inside:avoid; }

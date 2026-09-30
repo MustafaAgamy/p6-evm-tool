@@ -168,12 +168,19 @@ def test_chrome_small_code_tables_never_chain_into_one_pushed_block():
     doc = _codes_doc([10, 3, 4, 2, 6, 2, 14, 4, 8, 8])     # the GBT §10 head, all small
     html = page_html(doc)
     assert ':not(:last-child)' in html and ':not(:first-child)' in html
-    old = html.replace(':not(:last-child)', '').replace(':not(:first-child)', '')
+    # the markup of that time: each code's title a div.ct ABOVE its table (the title now rides
+    # in the table's <thead> - NARRFIX); the fixed rules must hold for that markup as well
+    div_titles = re.sub(r'<table class="codetbl"><thead><tr><th class="ct" colspan="2">(.*?)</th></tr>'
+                        r'(.*?)</thead><tbody>(.*?)</tbody></table>',
+                        r'<div class="ct">\g<1></div><table class="codetbl">\g<2>\g<3></table>', html)
+    assert div_titles.count('<div class="ct">') == 10
+    old = div_titles.replace(':not(:last-child)', '').replace(':not(:first-child)', '')
     with tempfile.TemporaryDirectory() as folder:
         after = _blank_flags(_print(html, chrome, folder, 'after'))
+        after_div = _blank_flags(_print(div_titles, chrome, folder, 'after_div'))
         before = _blank_flags(_print(old, chrome, folder, 'before'))
     assert before, 'the pre-fix rules should leave a large blank before a pushed code pair'
-    assert after == [], after
+    assert after == [] and after_div == [], (after, after_div)
 
 
 def test_chrome_table_taller_than_a_third_continues_instead_of_leaving_a_blank():
@@ -197,6 +204,22 @@ def test_chrome_table_taller_than_a_third_continues_instead_of_leaving_a_blank()
     # the long table really continues: its rows are on two pages, header on both
     on = [p for p in pages if 'C3-' in p['text']]
     assert len(on) == 2 and all('Code Value Description' in p['text'] for p in on), [p['text'][:80] for p in on]
+    # … and its TITLE repeats too, so the continued rows are never of an unnamed code (NARRFIX:
+    # GBT PDF p22 opened with 14 rows of '7 · Silos Area Name' under only the header row)
+    assert all('3 · Code structure 3' in p['text'] for p in on), [p['text'][:80] for p in on]
+
+
+def test_code_table_title_is_the_first_row_of_its_repeating_head():
+    """NARRFIX — the code's title rides in the table's <thead> (repeated on every page the
+    table runs onto, like the Word export) instead of a div above the table."""
+    html = page_html(_codes_doc([4, 30]))
+    for k, n in ((1, 4), (2, 30)):
+        title = '%d &middot; Code structure %d' % (k, k)
+        i = html.index(title)
+        head = html[html.rindex('<table class="codetbl">', 0, i):html.index('</thead>', i)]
+        assert '<thead><tr><th class="ct" colspan="2">' in head and head.count('<tr>') == 2
+        assert html.count(title) == 1                     # no separate title div any more
+    assert '.codetbl th.ct {' in html                      # styled like the old title line
 
 
 # ── NARR-PDF-4: a WBS tree over a third of a page continues between its branches ────────
