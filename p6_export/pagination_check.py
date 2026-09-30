@@ -828,13 +828,36 @@ def check_pdf(path, headings=None):
 
 # ── heading hints from a source HTML ─────────────────────────────────────────────
 def html_headings(html):
-    """Heading texts of a report HTML: h1-h6 + the renderers' heading classes."""
+    """Heading texts of a report HTML: h1-h6 + the renderers' heading selectors.
+
+    A ``tag.class`` selector matches that TAG only, exactly as the print composer applies it:
+    ``p.rescap`` (a lead-in above a chart group) is a heading, but ``div.rescap`` (the 'Peak …'
+    caption closing a chart) is not - reading the bare class made every chart caption a
+    'heading' and flagged the table after it as orphaned. ``[attr]`` / ``[attr="v"]`` too."""
     from html.parser import HTMLParser
-    classes = set()
+    sels = []                                   # (tag or None, class or None, attr or None, value)
     for s in (getattr(_rt, 'HEADING_SELECTORS', ()) if _rt else ()):
-        m = re.fullmatch(r'(?:[a-z0-9]+)?\.([\w-]+)', s)
+        m = re.fullmatch(r'([a-z0-9]+)?\.([\w-]+)', s)
         if m:
-            classes.add(m.group(1))
+            sels.append((m.group(1), m.group(2), None, None))
+            continue
+        m = re.fullmatch(r'\[([\w-]+)(?:="([^"]*)")?\]', s)
+        if m:
+            sels.append((None, None, m.group(1), m.group(2)))
+
+    def _is_heading(tag, attrs):
+        if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            return True
+        a = dict(attrs)
+        cls = set((a.get('class') or '').split())
+        for t, c, at, v in sels:
+            if t and t != tag:
+                continue
+            if c and c in cls:
+                return True
+            if at and at in a and (v is None or (a.get(at) or '') == v):
+                return True
+        return False
 
     class P(HTMLParser):
         def __init__(self):
@@ -844,8 +867,7 @@ def html_headings(html):
         def handle_starttag(self, tag, attrs):
             if tag in ('br', 'img', 'hr', 'meta', 'link', 'input', 'col', 'wbr', 'source'):
                 return
-            cls = set((dict(attrs).get('class') or '').split())
-            self.stack.append([tag, tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6') or bool(cls & classes), []])
+            self.stack.append([tag, _is_heading(tag, attrs), []])
 
         def handle_endtag(self, tag):
             while self.stack:
