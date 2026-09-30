@@ -889,3 +889,152 @@ def test_app_py_relaunches_only_when_the_page_never_made_contact():
                encoding='utf-8').read()
     assert 'abort=app_startup.WEBVIEW_INIT_FAILED' in src and 'contact=app_startup.PAGE_CONTACT' in src
     assert 'app_startup.relaunch_safe_graphics(' in src and 'PAGE_CONTACT.is_set()' in src
+
+
+# ── S4: GPU / browser process failures (the page still says 'ready', the window is black) ──
+
+class _Recorder:
+    def __init__(self, relaunch_ok=True):
+        self.reloads = 0
+        self.relaunches = []
+        self.destroyed = 0
+        self.relaunch_ok = relaunch_ok
+
+    def reload(self):
+        self.reloads += 1
+
+    def relaunch(self, reason):
+        self.relaunches.append(reason)
+        return self.relaunch_ok
+
+    def destroy(self):
+        self.destroyed += 1
+
+
+def _handler(rec, closed=None):
+    return app_startup.renderer_failure_handler(closed=closed, relaunch=rec.relaunch,
+                                                destroy=rec.destroy)
+
+
+def test_renderer_failures_reload_the_page():
+    rec = _Recorder()
+    h = _handler(rec)
+    for kind in ('RenderProcessExited', 'RenderProcessUnresponsive', 'FrameRenderProcessExited'):
+        assert h(kind, rec.reload) == 'reloaded'
+    assert rec.reloads == 3 and rec.relaunches == [] and not app_startup.safe_graphics_enabled()
+
+
+def test_gpu_failure_turns_safe_graphics_on_and_reloads_then_relaunches_on_the_second(tmp_path):
+    app_startup.begin_launch()
+    rec = _Recorder()
+    h = _handler(rec)
+    assert h('GpuProcessExited', rec.reload) == 'reloaded'
+    assert rec.reloads == 1 and rec.relaunches == []
+    assert app_startup.safe_graphics_enabled()                    # from the next launch on
+    rec_state = json.loads((tmp_path / 'launch_state.json').read_text(encoding='utf-8'))
+    assert rec_state['gpu_failed'] == 1
+    assert h('GpuProcessExited', rec.reload) == 'relaunched'      # second in this run
+    assert len(rec.relaunches) == 1 and 'GPU' in rec.relaunches[0] and rec.destroyed == 1
+    assert h('GpuProcessExited', rec.reload) == 'reloaded'        # never a second relaunch
+    assert len(rec.relaunches) == 1
+
+
+def test_gpu_failures_in_safe_graphics_only_reload():
+    app_startup.STATE['graphics'] = 'safe'
+    rec = _Recorder()
+    h = _handler(rec)
+    assert h('GpuProcessExited', rec.reload) == 'reloaded'
+    assert h('GpuProcessExited', rec.reload) == 'reloaded'
+    assert rec.relaunches == [] and rec.reloads == 2
+
+
+def test_browser_process_exit_relaunches_once_and_closes_the_dead_window():
+    rec = _Recorder()
+    h = _handler(rec)
+    assert h('BrowserProcessExited', rec.reload) == 'relaunched'
+    assert rec.destroyed == 1 and rec.reloads == 0               # a dead browser can't reload
+    assert h('BrowserProcessExited', rec.reload) == 'logged'      # one relaunch per window
+    assert len(rec.relaunches) == 1
+    refused = _Recorder(relaunch_ok=False)                        # already a relaunch
+    assert _handler(refused)('BrowserProcessExited', refused.reload) == 'logged'
+    assert refused.destroyed == 0
+
+
+def test_process_failures_after_the_window_closed_are_ignored():
+    closed = threading.Event()
+    closed.set()
+    rec = _Recorder()
+    h = _handler(rec, closed=closed)
+    for kind in ('BrowserProcessExited', 'GpuProcessExited', 'RenderProcessExited'):
+        assert h(kind, rec.reload) == 'ignored'
+    assert rec.reloads == 0 and rec.relaunches == [] and not app_startup.safe_graphics_enabled()
+
+
+def test_a_failed_reload_is_logged_not_raised():
+    rec = _Recorder()
+
+    def broken():
+        raise RuntimeError('controller gone')
+    assert _handler(rec)('RenderProcessExited', broken) == 'reload failed'
+
+
+def test_early_attach_waits_for_the_core_then_hooks_process_failed(monkeypatch):
+    """The recovery is attached as soon as CoreWebView2 exists (polled through the UI
+    thread's Invoke) — during start-up, before any 'ready' — and fires the handler."""
+    import sys
+    import types
+    fake_system = types.ModuleType('System')
+    fake_system.Action = lambda f: f
+    monkeypatch.setitem(sys.modules, 'System', fake_system)
+    app_startup.STATE.pop('process_failed_hooked', None)
+
+    class Event:
+        def __init__(self):
+            self.handlers = []
+
+        def __iadd__(self, f):
+            self.handlers.append(f)
+            return self
+
+    core = types.SimpleNamespace(ProcessFailed=Event())
+    wv = types.SimpleNamespace(CoreWebView2=None, invoked=0)
+
+    def invoke(action):
+        wv.invoked += 1
+        if wv.invoked == 3:
+            wv.CoreWebView2 = core                   # WebView2 finished initialising
+        action()
+    wv.Invoke = invoke
+    window = types.SimpleNamespace(native=types.SimpleNamespace(browser=types.SimpleNamespace(webview=wv)))
+    rec = _Recorder()
+    assert app_startup.attach_renderer_recovery_early(window, timeout_s=5, poll_s=0.01,
+                                                      relaunch=rec.relaunch) is True
+    assert len(core.ProcessFailed.handlers) == 1 and app_startup.STATE['process_failed_hooked']
+    reloads = []
+    sender = types.SimpleNamespace(Reload=lambda: reloads.append(1))
+    core.ProcessFailed.handlers[0](sender, types.SimpleNamespace(ProcessFailedKind='RenderProcessExited'))
+    assert reloads == [1]
+    # idempotent: the late hook after 'ready' does not attach a second handler
+    assert app_startup.hook_renderer_recovery(window) is True
+    assert len(core.ProcessFailed.handlers) == 1
+    app_startup.STATE.pop('process_failed_hooked', None)
+
+
+def test_early_attach_gives_up_quietly_when_the_window_closes(monkeypatch):
+    import sys
+    import types
+    fake_system = types.ModuleType('System')
+    fake_system.Action = lambda f: f
+    monkeypatch.setitem(sys.modules, 'System', fake_system)
+    app_startup.STATE.pop('process_failed_hooked', None)
+    closed = threading.Event()
+    closed.set()
+    window = types.SimpleNamespace(native=None)
+    assert app_startup.attach_renderer_recovery_early(window, closed=closed, timeout_s=1) is False
+
+
+def test_app_attaches_process_failure_recovery_before_waiting_for_ready():
+    src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app.py'),
+               encoding='utf-8').read()
+    early = src.index('app_startup.attach_renderer_recovery_early')
+    assert early < src.index('res = app_startup.watch_startup(')
