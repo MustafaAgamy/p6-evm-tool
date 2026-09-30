@@ -326,6 +326,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/api/graphics-mode':              # Help: Safe graphics switch
             self._handle_graphics_mode_post(body)
             return
+        if self.path == '/api/db/recover':                 # S3: set a damaged history DB aside
+            self._handle_db_recover()
+            return
         if self.path == '/api/parse':
             self._handle_parse(body)
         elif self.path == '/api/report':
@@ -779,6 +782,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _handle_db_recover(self):
+        """POST /api/db/recover: only when the history DB is known to be damaged — set it
+        aside (kept as .corrupt-bak-<time>) and start a fresh one with every row that can
+        still be read (db.recover_damaged_db). Never touches a healthy or locked DB."""
+        if db.DB_STATUS.get('status') != 'damaged':
+            self._json(409, {'ok': False, 'db': dict(db.DB_STATUS),
+                             'message': 'The project history database is not damaged.'})
+            return
+        res = db.recover_damaged_db()
+        app_startup.log('database recovery: %s', res)
+        self._json(200, {**res, 'db': dict(db.DB_STATUS)})
+
     def _handle_app_health(self):
         """GET /api/health: a light readiness probe (the server answers, the DB state
         ok / recovered / degraded, and the page handshake state). Never touches XML."""
@@ -828,6 +843,11 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {'ok': True, **status})
 
     def _json(self, status, data):
+        if isinstance(data, dict) and data.get('error') and data.get('ok') is not True:
+            try:
+                db.note_error(str(data.get('error')))   # S3: damaged history DB -> said
+            except Exception:
+                pass
         body = json.dumps(data, cls=_Encoder).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
@@ -3898,7 +3918,9 @@ class Handler(BaseHTTPRequestHandler):
             rows = db.get_recent_projects(limit=10)
         except Exception as exc:          # a damaged/locked DB: answer, don't drop the socket
             app_startup.log('history unavailable: %r', exc)
-            self._json(503, {'ok': False, 'error': f'Recent projects could not be read: {exc}'})
+            damaged = db.note_error(exc)
+            self._json(503, {'ok': False, 'error': f'Recent projects could not be read: {exc}',
+                             'damaged': damaged, 'db': dict(db.DB_STATUS)})
             return
         # Normalise to the shape app.js already expects
         history = []
@@ -4204,4 +4226,8 @@ def make_server():
     srv = _bind_loopback()
     app_startup.log('server listening on port %s (%s)', srv.server_address[1],
                     'IPv4 + IPv6 loopback' if srv.companion is not None else 'IPv4 loopback')
+    # A file whose DATA pages are damaged opens as 'ok' (S3): check it in the background,
+    # after the window has painted; damage is reported through /api/health (db.status).
+    if status.get('status') == 'ok':
+        db.start_background_check()
     return srv
