@@ -347,6 +347,55 @@ await test('followRunStages polls with its id, shows the step + its band, and st
   } finally { REVEAL_WATCHERS.delete(m); globalThis.fetch = realFetch; }
 });
 
+await test('RUNUX-R3: a Run\'s stages, server steps and requests go to ITS bar only — never to another open Run\'s bar', async () => {
+  const { followRunStages, revealStage, runInReveal } = await import('../../ui/modules/featurereveal.js');
+  const answer = { ok: true, stage: { label: 'Reading Rev.01 — b.xml', from: 0.25, to: 0.8, est_s: 11, step: 2, steps: 3 } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve({ json: () => Promise.resolve(answer) });
+  const A = createRevealModel(), B = createRevealModel();   // A = Baseline Revision (long), B = a later Run
+  const label = (m, now) => { m.workStarted(0); return m.frame(now).label.replace(/ · \d+ s$/, ''); };   // minus the elapsed seconds
+  REVEAL_WATCHERS.add(A);
+  let st = null;
+  try {
+    // A's work names its stage and starts following the server's steps …
+    runInReveal(A, () => { revealStage('Reading both revisions and comparing'); st = followRunStages(4321, { every: 20 }); });
+    A.requestSent();
+    // … then the planner runs another feature while A is still polling.
+    REVEAL_WATCHERS.add(B);
+    runInReveal(B, () => revealStage('Collecting the results of every feature'));
+    B.requestSent();
+    await new Promise(r => setTimeout(r, 120));
+    assert.equal(label(A, 1000), 'Reading Rev.01 — b.xml', 'A shows its own server step');
+    assert.equal(label(B, 1000), 'Collecting the results of every feature', 'B keeps its own stage — never A\'s step');
+    const T = REVEAL_TIMING, plain = 6 + (T.WAIT_CAP - 6) * (1 - Math.exp(-9000 / T.TAU_MS));
+    assert.ok(Math.abs(B.frame(9000).display - plain) < 1e-9, 'B\'s bar follows its own time, not A\'s server band');
+    // a stage named outside any Run's work goes to the latest opened Run only
+    revealStage('Rendering elsewhere');
+    assert.equal(label(B, 9100), 'Rendering elsewhere');
+    assert.equal(label(A, 9100), 'Reading Rev.01 — b.xml');
+    // a request sent from B's work counts for B only
+    const target = { fetch: () => new Promise(() => {}) };
+    installRequestTap(target);
+    const a0 = A.inflight, b0 = B.inflight;
+    runInReveal(B, () => target.fetch('http://localhost:1/api/special/catalog'));
+    assert.equal(B.inflight, b0 + 1);
+    assert.equal(A.inflight, a0, 'A does not count B\'s request');
+    // once A's bar is gone, its poller never touches B
+    REVEAL_WATCHERS.delete(A);
+    answer.stage = { label: 'Comparing the revisions', from: 0.8, to: 1, est_s: 2, step: 3, steps: 3 };
+    await new Promise(r => setTimeout(r, 80));
+    assert.equal(label(B, 9200), 'Rendering elsewhere');
+  } finally {
+    if (st) st.stop();
+    REVEAL_WATCHERS.delete(A); REVEAL_WATCHERS.delete(B); globalThis.fetch = realFetch;
+  }
+  // the Run's work itself is invoked as that Run's work
+  const src = read('ui', 'modules', 'featurereveal.js');
+  assert.match(src, /runInReveal\(m \|\| null, work\)/);
+  assert.match(src, /const parts = \[runWork\(model\)\];/);
+  assert.doesNotMatch(src, /REVEAL_WATCHERS\.forEach\(w => \{ try \{ if \(w\.setLabel\)/, 'no broadcast of a stage to every open bar');
+});
+
 await test('Baseline Revision, Critical Path and Consultant Review send a run_id and follow the server steps', () => {
   for (const [mod, api] of [['revcompare.js', '/api/revcompare'], ['critpath.js', '/api/critpath/analyze'], ['compare.js', '/api/compare'],
     ['period.js', '/api/period/compare']]) {

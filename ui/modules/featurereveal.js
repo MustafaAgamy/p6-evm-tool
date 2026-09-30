@@ -131,6 +131,7 @@ export function createRevealModel(opts) {
 // exactly the same behaviour); it only notifies the reveals that were open when the
 // request was sent. Only /api/ calls count (static files, fonts, etc. are ignored).
 export const REVEAL_WATCHERS = new Set();
+let ACTIVE = null;                 // the Run whose work is being invoked right now (RUNUX-R3)
 const TAPPED = typeof WeakSet === 'function' ? new WeakSet() : null;
 
 function isApiRequest(input) {
@@ -147,7 +148,9 @@ export function installRequestTap(target) {
   target.fetch = function (input, init) {
     const p = orig.apply(target, arguments);
     if (REVEAL_WATCHERS.size && isApiRequest(input)) {
-      const watchers = Array.from(REVEAL_WATCHERS);
+      // Sent from a Run's own work → it counts for THAT Run only (RUNUX-R3); otherwise every
+      // open Run treats it as work in flight (the safe side: no bar reaches 100% early).
+      const watchers = ACTIVE && REVEAL_WATCHERS.has(ACTIVE) ? [ACTIVE] : Array.from(REVEAL_WATCHERS);
       watchers.forEach(w => { try { w.requestSent(); } catch (e) {} });
       const done = () => watchers.forEach(w => { try { w.requestDone(); } catch (e) {} });
       if (p && typeof p.then === 'function') p.then(done, done); else done();
@@ -158,17 +161,36 @@ export function installRequestTap(target) {
   return true;
 }
 
+// Stages belong to the Run they were named in (RUNUX-R3): while a Run's `work` is being
+// invoked, that Run is the ACTIVE one, and every stage named then — including the server
+// steps a followRunStages() started then keeps reporting — goes to THAT Run's bar only,
+// never to another feature's bar that happens to be open at the same time (ACTIVE is
+// declared beside REVEAL_WATCHERS).
+export function runInReveal(model, fn) {
+  const prev = ACTIVE; ACTIVE = model;
+  try { return fn(); } finally { ACTIVE = prev; }
+}
+// The Run a stage belongs to: the one whose work is running now, else the latest opened.
+function ownerReveal() {
+  if (ACTIVE && REVEAL_WATCHERS.has(ACTIVE)) return ACTIVE;
+  let last = null;
+  REVEAL_WATCHERS.forEach(w => { last = w; });
+  return last;
+}
+
 // A feature names the REAL stage it is in ("Downloading weather history", "Comparing Rev.00
-// with Rev.01", …) and the open Run bar shows it (with the elapsed seconds on a long wait).
+// with Rev.01", …) and ITS open Run bar shows it (with the elapsed seconds on a long wait).
 // Call it inside the `work` of revealAndRun, right before each step. No reveal open → no-op.
-export function revealStage(label) {
-  REVEAL_WATCHERS.forEach(w => { try { if (w.setLabel) w.setLabel(label); } catch (e) {} });
+export function revealStage(label, model) {
+  const w = model || ownerReveal();
+  if (w && REVEAL_WATCHERS.has(w)) { try { if (w.setLabel) w.setLabel(label); } catch (e) {} }
 }
 
 // The server's real step as a share of the bar (from..to of the calculation, 0..1).
-export function revealBand(from, to, estS) {
+export function revealBand(from, to, estS, model) {
   const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  REVEAL_WATCHERS.forEach(w => { try { if (w.setBand) w.setBand(from, to, estS, now); } catch (e) {} });
+  const w = model || ownerReveal();
+  if (w && REVEAL_WATCHERS.has(w)) { try { if (w.setBand) w.setBand(from, to, estS, now); } catch (e) {} }
 }
 
 // A long server Run (reading two or three whole schedules, then comparing) reports the step
@@ -178,6 +200,8 @@ export function revealBand(from, to, estS) {
 export function followRunStages(port, opts) {
   const id = 'run-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   const every = (opts && opts.every) || 400;
+  // Bound to the Run it was started in: its steps never show on another feature's bar.
+  const owner = (opts && opts.model) || ownerReveal();
   let stopped = false, timer = null, lastKey = null;
   const tick = () => {
     if (stopped) return;
@@ -190,8 +214,9 @@ export function followRunStages(port, opts) {
         const key = st.step + '|' + st.label;
         if (key === lastKey) return;
         lastKey = key;
-        revealBand(st.from, st.to, st.est_s);
-        revealStage(st.label);
+        if (!owner) return;
+        revealBand(st.from, st.to, st.est_s, owner);
+        revealStage(st.label, owner);
       })
       .catch(() => {})
       .then(() => { if (!stopped) timer = setTimeout(tick, every); });
@@ -324,7 +349,8 @@ function makePainter(ov) {
 // the bar reaches 100% (results already painted). Resolves once the overlay starts lifting.
 function runReveal(host, o) {
   const work = typeof o.work === 'function' ? o.work : null;
-  const runWork = () => Promise.resolve().then(() => (work ? work() : undefined));
+  // The work is invoked as THIS Run's work: stages it names belong to this bar (RUNUX-R3).
+  const runWork = (m) => Promise.resolve().then(() => (work ? runInReveal(m || null, work) : undefined));
   if (!host || typeof document === 'undefined') {
     return runWork().catch(() => {});
   }
@@ -377,7 +403,7 @@ function runReveal(host, o) {
     if (started || finished) return; started = true;
     clearTimeout(startTimer);
     model.workStarted(nowMs());
-    const parts = [runWork()];
+    const parts = [runWork(model)];
     if (o.gate) parts.push(Promise.resolve(o.gate));
     Promise.all(parts.map(p => p.catch(() => {}))).then(() => {
       model.settled(nowMs());
