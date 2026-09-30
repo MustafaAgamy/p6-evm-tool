@@ -1083,7 +1083,6 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
     on any failure / no ``chrome`` / no PyMuPDF (the caller then falls back)."""
     if not chrome:
         return None
-    import shutil
     try:
         import pymupdf
     except Exception:
