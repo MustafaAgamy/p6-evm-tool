@@ -92,3 +92,28 @@ def test_no_snapshot_answers_carry_the_baseline_keys(test_server, tmp_path):
     assert bf['baseline_source'] == 'self'          # not null — null reads as 'embedded' for an XML
     assert bf['baseline_approx'] is True and bf['baseline_label']
     assert bf['baseline_name'] is None and bf['baseline_path'] is None
+
+
+def test_two_file_features_name_the_attached_baseline_not_its_cached_copy(test_server, tmp_path):
+    """F9 — the attached baseline pre-fills the Baseline slot of Consultant Review and Critical
+    Path Analyzer as its cached copy ({hash12}_name); the report names the planner's file."""
+    f = _files(tmp_path)
+    b = _post(test_server, 'api/parse', {'path': f['no_bl']})
+    assert b['ok'], b.get('error')
+    up = _post(test_server, 'api/baseline/upload', {
+        'path': f['baseline'], 'xml_path': f['no_bl'], 'cached_path': b['cached_path'],
+        'snapshot_id': b['snapshot_id']})
+    cached = up['result']['baseline_path']
+    assert cached != f['baseline'] and cached.endswith('_baseline.xml')
+
+    cr = _post(test_server, 'api/compare', {
+        'baseline_path': cached, 'update_path': f['no_bl'], 'cached_path': b['cached_path']})
+    assert cr['ok'], cr.get('error')
+    assert cr['report']['baseline_file'] == 'baseline.xml'
+    assert cr['report']['update_file'] == 'no_bl.xml'
+
+    cp = _post(test_server, 'api/critpath/analyze', {
+        'mode': 'update_baseline', 'current_path': f['no_bl'], 'cached_path': b['cached_path'],
+        'baseline_path': cached})
+    assert cp['ok'], cp.get('error')
+    assert cp['report']['files']['baseline'] == 'baseline.xml'

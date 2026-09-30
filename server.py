@@ -1478,8 +1478,10 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             report = build_report(baseline_path, update_path, config)
-            report['baseline_file'] = os.path.basename(baseline_path)
-            report['update_file'] = os.path.basename(update_path)
+            # The attached baseline is its cached copy ({hash12}_name) — name the planner's file (R3 F9).
+            from p6_evm.baseline import display_name
+            report['baseline_file'] = display_name(baseline_path)
+            report['update_file'] = display_name(update_path)
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -1530,7 +1532,8 @@ class Handler(BaseHTTPRequestHandler):
             report = build_report(schedules, mode,
                                   milestone_code=body.get('milestone_code'),
                                   summary_level=int(body.get('summary_level', 0) or 0))
-            report['files'] = {role: os.path.basename(p) for role, p in paths.items()}
+            from p6_evm.baseline import display_name    # cached copies ({hash12}_name) → file name (R3 F9)
+            report['files'] = {role: display_name(p) for role, p in paths.items()}
             self._json(200, {'ok': True, 'report': report})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
