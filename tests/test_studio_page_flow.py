@@ -205,3 +205,19 @@ def test_chrome_cover_and_end_of_contents_are_by_design_breaks_not_defects():
     pages = {f['page'] for f in res['info']}
     assert 1 in pages, res['info']                                     # the cover
     assert any('contents' in f['detail'] for f in res['info']), res['info']
+
+
+def test_health_score_list_prints_whole_and_compact_inside_a_studio_item():
+    """GBT: the reused Schedule Health summary's score list (a div grid - it cannot repeat
+    its header on a new page) split 10 + 1 rows once Studio items could flow; it is kept
+    whole (``rpt-keep``), and inside a Studio item its print rhythm is tighter so moving it
+    whole never leaves a large blank. The standalone Health PDF keeps its own rhythm."""
+    from p6_audit.report import render_summary_report
+    subs = [{'name': f'Check {i}', 'status': 'Pass', 'score': 95.0, 'weight': 10, 'points': 9.5}
+            for i in range(10)]
+    html = render_summary_report({'score': 96.6, 'grade': 'A', 'sub_features': subs,
+                                  'weight_covered': 85}, {'project_name': 'Synthetic'})
+    assert '<div class="comp rpt-keep">' in html
+    assert '.sr-sec .comp .crow' not in html                     # standalone rhythm unchanged
+    doc = _doc([_item('overview:snapshot', 'Project snapshot', P.text(_paras(1)))])
+    assert '.sr-sec .comp .crow{padding-top:4px;padding-bottom:4px;}' in doc
