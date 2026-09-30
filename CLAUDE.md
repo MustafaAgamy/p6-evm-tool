@@ -68,7 +68,8 @@ POST /api/report  →  resolve_xml_path() (original → cached fallback)
 | GET | `/` | — | `ui/index.html` with `window.__SERVER_PORT__` injected |
 | GET | `/ui/*` | — | Static CSS / JS |
 | GET | `/api/history` | — | JSON array of last 10 projects (most recent snapshot each) |
-| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded, detail, backup}, ready, graphics, log_path}` — startup readiness probe (log_path = the startup.log file, shown by Help ▸ Open log folder) |
+| GET | `/api/health` | — | `{ok, app, version, db:{status: ok\|recovered\|degraded\|damaged, detail, backup, check: pending\|running\|done}, ready, graphics, log_path}` — startup readiness probe (log_path = the startup.log file, shown by Help ▸ Open log folder). `db.check` = the background `PRAGMA quick_check` started once the server listens (`db.start_background_check`); `damaged` = data pages unreadable (found by that check, or by any response whose error is a corruption error — `server._json` → `db.note_error`) |
+| POST | `/api/db/recover` | `{}` | `{ok, backup, salvaged:{table:n}, lost_tables, db}` / 409 when the DB is not damaged — sets the damaged history DB aside (`.corrupt-bak-<time>`) and starts a fresh one with every readable row copied across (`db.recover_damaged_db`); the page's damaged-DB notice and the Recent Projects row offer it |
 | POST | `/api/client-log` | `{kind, message, detail}` | `{ok}` — page startup guard → `logs/startup.log`; `kind:'ready'` completes the readiness handshake |
 | GET / POST | `/api/graphics-mode` | POST `{safe: bool}` | `{ok, saved, reason, since, this_launch, forced}` — Help ▸ Contact & Support 'Safe graphics' (WebView2 `--disable-gpu` from the next launch; `app_startup` flag file) |
 | POST | `/api/narrative/setup` | `{snapshot_id[, setup]}` | `{ok, setup}` / `{ok}` — Narrative project setup per snapshot in `snapshot_ui_state` (never in `ui_prefs.json`) |
