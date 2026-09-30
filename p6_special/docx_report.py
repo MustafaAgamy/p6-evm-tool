@@ -1096,13 +1096,16 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
     htmlpath = pdf = None
     try:
         fd, htmlpath = tempfile.mkstemp(suffix='.html')
+        doc_html = _section_print_doc(fragment_html, css, mode, page_h, first_top)
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            f.write(_section_print_doc(fragment_html, css, mode, page_h, first_top))
+            f.write(doc_html)
         fd2, pdf = tempfile.mkstemp(suffix='.pdf')
         os.close(fd2)
         from p6_export.pdf import run_chrome     # own profile dir + fallback past a browser
+        from p6_special.pdf_render import print_timeout      # a big section gets more time
         run_chrome(chrome, [f'--print-to-pdf={pdf}', '--no-pdf-header-footer',   # that cannot start
-                            f'file:///{htmlpath.replace(os.sep, "/")}'], timeout=90)
+                            f'file:///{htmlpath.replace(os.sep, "/")}'],
+                   timeout=print_timeout(doc_html, 90))
         out = []
         with pymupdf.open(pdf) as doc:
             for i, pg in enumerate(doc):
