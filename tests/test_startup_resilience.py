@@ -374,6 +374,136 @@ def test_history_failure_answers_503_instead_of_dropping(test_server, monkeypatc
     assert status == 503 and 'malformed' in json.loads(body)['error']
 
 
+# ── S3: damaged DATA pages (open 'ok', then every read fails) ──────────────
+
+def _db_with_damaged_data_page(tmp_path, n=300):
+    """A real history DB of ``n`` projects (one snapshot + metrics each) whose projects
+    leaf page holding 'Project 150' is overwritten — schema pages intact, like the owner's
+    .corrupt-bak files. Returns the number of projects on the smashed page (> 0)."""
+    import gc
+    db.init_db()
+    conn = sqlite3.connect(str(_db_file(tmp_path)))
+    conn.executemany('INSERT INTO projects (id, p6_project_id, name, created_at) VALUES (?,?,?,?)',
+                     [(i, 'P%04d' % i, 'Project %d %s' % (i, 'x' * 60), '2026-01-01')
+                      for i in range(1, n + 1)])
+    conn.executemany('INSERT INTO snapshots (id, project_id, imported_at, data_date, original_path) '
+                     'VALUES (?,?,?,?,?)',
+                     [(i, i, '2026-01-01T00:00:%02d.%06d' % (i % 60, i), '2026-01-01',
+                       'C:/x/p%d.xml' % i) for i in range(1, n + 1)])
+    conn.executemany('INSERT INTO metrics (snapshot_id, spi) VALUES (?, 1.0)',
+                     [(i,) for i in range(1, n + 1)])
+    conn.commit()
+    conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    psz = conn.execute('PRAGMA page_size').fetchone()[0]
+    conn.close()
+    gc.collect()
+    raw = bytearray(_db_file(tmp_path).read_bytes())
+    hit = raw.find(b'Project 150 ')
+    assert hit > 0
+    page = hit // psz
+    assert raw[page * psz] == 0x0D                        # a table LEAF page (data, not schema)
+    lost = sum(1 for i in range(1, n + 1)
+               if raw.find(b'Project %d ' % i, page * psz, (page + 1) * psz) >= 0)
+    raw[page * psz:(page + 1) * psz] = b'\xde\xad\xbe\xef' * (psz // 4)
+    _db_file(tmp_path).write_bytes(bytes(raw))
+    return lost
+
+
+def test_damaged_data_pages_open_ok_but_the_background_check_finds_them(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    _db_with_damaged_data_page(tmp_path)
+    st = db.open_db_resilient()
+    assert st['status'] == 'ok'                  # the gap: CREATE TABLE IF NOT EXISTS passes
+    with pytest.raises(sqlite3.DatabaseError):
+        db.get_recent_projects(limit=500)
+    t = db.start_background_check(delay_s=0)
+    t.join(10)
+    assert db.DB_STATUS['status'] == 'damaged' and db.DB_STATUS['check'] == 'done'
+    assert 'malformed' in db.DB_STATUS['detail']
+
+
+def test_a_stale_background_check_never_reports_on_a_newer_open(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    _db_with_damaged_data_page(tmp_path)
+    db.open_db_resilient()
+    t = db.start_background_check(delay_s=0.3)
+    db.open_db_resilient()                                # e.g. the next test / a re-open
+    t.join(5)
+    assert db.DB_STATUS['status'] == 'ok'
+
+
+def test_note_error_marks_only_corruption(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    db.open_db_resilient()
+    assert db.note_error(sqlite3.OperationalError('database is locked')) is False
+    assert db.note_error('Recent projects could not be read: database is locked') is False
+    assert db.DB_STATUS['status'] == 'ok'
+    assert db.note_error('Load failed: database disk image is malformed') is True
+    assert db.DB_STATUS['status'] == 'damaged'
+
+
+def test_damaged_db_is_said_and_can_be_set_aside_keeping_readable_rows(tmp_path, monkeypatch):
+    """The page's path end to end: health says 'damaged' after the background check,
+    /api/history says the real error, POST /api/db/recover keeps a backup, copies every
+    readable row into a fresh file, and Recent Projects works again."""
+    import server
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    monkeypatch.setattr(db, 'schedules_dir', lambda: str(tmp_path / 'schedules'))
+    monkeypatch.setattr(db, 'BACKGROUND_CHECK_DELAY_S', 0.0)
+    lost = _db_with_damaged_data_page(tmp_path)
+    srv = server.make_server()
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    port = srv.server_address[1]
+    try:
+        for _ in range(100):
+            h = json.loads(_get(port, '/api/health')[2])
+            if h['db'].get('check') == 'done':
+                break
+            time.sleep(0.05)
+        assert h['db']['status'] == 'damaged', h['db']
+        status, _, body = _get(port, '/api/history')
+        info = json.loads(body)
+        assert status == 503 and info['damaged'] is True and 'malformed' in info['error']
+        status, res = _post(port, '/api/db/recover', {})
+        assert status == 200 and res['ok'] is True, res
+        assert (tmp_path / res['backup']).exists()
+        assert 0 < res['salvaged']['projects'] <= 300 - lost      # the smashed page is gone
+        assert res['salvaged']['snapshots'] == 300 and res['salvaged']['metrics'] == 300
+        status, _, body = _get(port, '/api/history')
+        rows = json.loads(body)
+        assert status == 200 and len(rows) == 10
+        h = json.loads(_get(port, '/api/health')[2])
+        assert h['db']['status'] == 'recovered' and h['db']['backup'] == res['backup']
+        assert db.integrity_check()[0] is True
+        # a healthy DB is never set aside
+        status, res2 = _post(port, '/api/db/recover', {})
+        assert status == 409 and res2['ok'] is False
+        assert len([p for p in os.listdir(tmp_path) if p.endswith(res['backup'][-15:])]) >= 1
+        assert len([p for p in os.listdir(tmp_path) if 'corrupt-bak' in p and
+                    not p.endswith(('-wal', '-shm'))]) == 1
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_recover_refuses_a_healthy_db(test_server, tmp_path):
+    status, res = _post(test_server, '/api/db/recover', {})
+    assert status == 409 and res['ok'] is False
+    assert not [p for p in os.listdir(tmp_path) if 'corrupt-bak' in p]
+
+
+def test_recover_that_cannot_move_the_file_says_why_and_keeps_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, 'app_data_dir', lambda: str(tmp_path))
+    _db_with_damaged_data_page(tmp_path)
+    db.open_db_resilient()
+    db.mark_damaged('database disk image is malformed')
+    monkeypatch.setattr(db, '_quarantine_db', lambda path: None)    # held open elsewhere
+    res = db.recover_damaged_db(retries=1)
+    assert res['ok'] is False and 'could not be moved aside' in res['error']
+    assert _db_file(tmp_path).exists()
+    assert not [p for p in os.listdir(tmp_path) if '.rebuild-' in p]  # side file cleaned up
+    assert db.DB_STATUS['status'] == 'damaged'
+
 # ── app_startup: watchdog, safe graphics, launch bookkeeping, single instance ──
 
 class _FakeWindow:
