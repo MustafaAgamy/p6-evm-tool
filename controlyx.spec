@@ -7,6 +7,7 @@
 #
 # Output: dist\Controlyx.exe  (single self-contained executable)
 
+import os
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
@@ -202,8 +203,12 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 # shows this picture at once (its text line names each file being unpacked, then the start-up
 # stage) and app.py closes it as soon as the app window is on screen
 # (app_startup.close_splash). Not always-on-top. Picture: packaging/splash.png (made from
-# packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE).
-# If Tcl/Tk is missing on the build machine the exe is simply built without a splash.
+# packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE;
+# the picture is committed — .gitignore has '!packaging/*.png').
+# If Tcl/Tk is missing on the build machine (PyInstaller raises SystemExit for that) a LOCAL
+# build is simply made without a splash. On the release runner (GITHUB_ACTIONS) any other
+# failure — e.g. the picture missing from the checkout — stops the build instead of silently
+# shipping an exe with no start-up picture.
 splash_parts = []
 if sys.platform == 'win32':
     try:
@@ -222,7 +227,12 @@ if sys.platform == 'win32':
             break
         except TypeError:
             continue
-        except Exception as _exc:                   # e.g. no Tcl/Tk on the build machine
+        except (Exception, SystemExit) as _exc:     # SystemExit = PyInstaller: no usable Tcl/Tk
+            _no_tcltk = isinstance(_exc, SystemExit)
+            if os.environ.get('GITHUB_ACTIONS') and not _no_tcltk:
+                print('::error::startup splash not built (%r) - the release exe would open '
+                      'with nothing on screen while it unpacks' % (_exc,))
+                raise
             print('WARNING: startup splash not built (%r)' % (_exc,))
             break
 

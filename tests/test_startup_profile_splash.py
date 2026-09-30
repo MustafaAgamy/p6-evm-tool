@@ -277,6 +277,67 @@ def test_spec_builds_a_splash_from_the_product_name():
     assert w <= 760 and h <= 480                                  # never resized (no PIL)
 
 
+
+# ── S1: the splash picture is committed, and the release build never drops it silently ──
+
+def test_splash_picture_is_committed_not_ignored():
+    """packaging/splash.png must be in git: on the release runner the checkout is all there is."""
+    import subprocess
+    try:
+        tracked = subprocess.run(['git', '-C', ROOT, 'ls-files', '--error-unmatch', 'packaging/splash.png'],
+                                 capture_output=True, text=True, timeout=30)
+        ignored = subprocess.run(['git', '-C', ROOT, 'check-ignore', '-q', 'packaging/splash.png'],
+                                 capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip('git not available')
+    if tracked.returncode == 128 and 'not a git repository' in (tracked.stderr or ''):
+        pytest.skip('not a git checkout')
+    assert tracked.returncode == 0, 'packaging/splash.png is not committed'
+    assert ignored.returncode == 1, 'packaging/splash.png is ignored by .gitignore'
+    gi = open(os.path.join(ROOT, '.gitignore'), encoding='utf-8').read()
+    assert '!packaging/*.png' in gi
+
+
+def _run_spec_splash_block(monkeypatch, splash_cls, ci):
+    spec = open(os.path.join(ROOT, 'controlyx.spec'), encoding='utf-8').read()
+    block = spec[spec.index('splash_parts = []'):spec.index('exe = EXE(')]
+    if ci:
+        monkeypatch.setenv('GITHUB_ACTIONS', 'true')
+    else:
+        monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    a = types.SimpleNamespace(binaries=[], datas=[])
+    g = {'os': os, 'sys': types.SimpleNamespace(platform='win32', path=list(sys.path)),
+         'Path': __import__('pathlib').Path, 'SPECPATH': ROOT, 'a': a, 'Splash': splash_cls}
+    exec(compile(block, 'controlyx.spec', 'exec'), g)
+    return g['splash_parts']
+
+
+def test_spec_splash_missing_picture_fails_the_release_build_but_not_a_local_one(monkeypatch, capsys):
+    class NoPicture:
+        def __init__(self, image, **kw):
+            raise ValueError("Image file '%s' not found" % image)
+    with pytest.raises(ValueError):
+        _run_spec_splash_block(monkeypatch, NoPicture, ci=True)
+    assert '::error::startup splash not built' in capsys.readouterr().out
+    assert _run_spec_splash_block(monkeypatch, NoPicture, ci=False) == []      # local: warn only
+
+
+def test_spec_splash_no_tcltk_builds_without_splash_even_on_ci(monkeypatch, capsys):
+    class NoTk:
+        def __init__(self, image, **kw):
+            raise SystemExit('ERROR: ... tkinter is not installed.')
+    assert _run_spec_splash_block(monkeypatch, NoTk, ci=True) == []
+    assert 'WARNING: startup splash not built' in capsys.readouterr().out
+
+
+def test_spec_splash_built_when_the_picture_is_there(monkeypatch):
+    class Ok:
+        def __init__(self, image, **kw):
+            assert os.path.isfile(image), image
+            self.binaries = ['tk']
+    parts = _run_spec_splash_block(monkeypatch, Ok, ci=True)
+    assert len(parts) == 2 and parts[1] == ['tk']
+
 # ── BLACK-8: log folder + health ─────────────────────────────────────────
 
 def test_open_log_folder(tmp_path):
