@@ -158,3 +158,73 @@ def test_health_grid_columns_keep_their_start_rows_and_last_three_bars():
     assert '<h2 class="sec">Fix these first' in only
     empty = render_summary_report(dict(_health(9), fix_first=[]), META, sections=['fixes'])
     assert 'nothing to fix first' in empty
+
+
+# ── FLOAT-PDF-1 ─────────────────────────────────────────────────────────────────
+def _float_m(n_wbs=9):
+    wbs = [{'wbs': f'Root > Package {i:02d}', 'short': f'WBSPKG {i:02d}', 'activities': 400 - i * 40,
+            'avg_float': 160.0 - i * 15, 'max_float': 240.0 - i * 20, 'over_44': 300 - i * 30,
+            'pct': 100.0 - i * 10, 'is_construction': i % 3 == 0} for i in range(n_wbs)]
+    return {
+        'module': 'float', 'name': 'Float Analysis',
+        'mgmt': {
+            'float_health': 95.8, 'fh_color': 'green',
+            'high': {'pct': 4.2, 'penalty': 4.2, 'count': 34, 'base': 809, 'target': 5, 'max_pct': 20},
+            'neg': {'pct': 0.0, 'penalty': 0, 'count': 0, 'target': 0, 'max_pct': 5},
+            'stats': {'total': 1409, 'critical': 393, 'critical_pct': 27.9,
+                      'near_critical': 279, 'near_critical_pct': 19.8, 'near_band': 10},
+            'indicators': {'threshold': 44, 'constr_total': 809, 'constr_over': 34,
+                           'constr_over_pct': 4.2, 'top_wbs': 'Phase II Design',
+                           'top_wbs_pct': 100.0, 'highest_float': 247.0,
+                           'highest_float_wbs': 'Phase I Engineering'},
+            'wbs': wbs,
+            'conclusion': 'Across the construction scope, 4.2% of activities carry total float '
+                          'greater than 44 working days.',
+        },
+    }
+
+
+def test_float_wbs_table_prints_whole_with_its_heading():
+    """GBT: the 9-row 'Float distribution by WBS' table (about 40 % of a page) started at
+    the bottom of page 1 and was continued 5 + 4 rows; it now moves whole, with its heading,
+    to the next page (page 1 keeps the dashboard - about a quarter of it left blank)."""
+    from p6_audit.float_report import render_float_report
+    chrome = _chrome_or_skip()
+    with tempfile.TemporaryDirectory() as folder:
+        pages = _pdf_pages(render_float_report(_float_m(), META), chrome, folder, 'float')
+    on = [i for i, t in enumerate(pages) if 'WBSPKG' in t]
+    head = [i for i, t in enumerate(pages) if 'float distribution by wbs' in t.lower()]
+    assert len(set(on)) == 1, [len(re.findall('WBSPKG', t)) for t in pages]
+    assert head == on[:1], (head, on)
+
+
+def test_float_wbs_table_keep_is_limited_to_short_tables():
+    from p6_audit.float_report import render_float_report
+    assert '<table class="rpt-keep">' in render_float_report(_float_m(9), META)
+    assert '<table class="rpt-keep">' not in render_float_report(_float_m(14), META)
+    # the composer keeps a marked table whole only up to PAGINATION_KEEP_TABLE of a page
+    assert 0.35 < rt.PAGINATION_KEEP_TABLE <= 0.5
+    assert "el.classList.contains('rpt-keep')&&hg<=H*KT" in rt.pagination_script()
+
+
+def test_a_note_under_cards_does_not_travel_with_the_next_heading_in_word():
+    """Word: the Float note under the indicator cards ('... shown per WBS below') was kept
+    with the NEXT heading, so note + heading + table were pushed together and page 1 was
+    left 44 % blank. A note closing a table / cards block never keeps with the next heading;
+    a line right above a heading at the start (a kicker) still does."""
+    from p6_audit.float_report import render_float_report
+    from p6_export.html_model import parse_report
+    rep = parse_report(render_float_report(_float_m(), META))
+    blocks = list(rep.front) + [b for s in rep.sections for b in [s] + list(s.blocks)] + list(rep.tail)
+    note = next(b for b in blocks if b.kind == 'paragraph' and b.text.startswith('Average Float'))
+    assert note.keep_with_next is False
+    head = next(b for b in blocks if b.kind == 'heading' and 'Distribution by WBS' in b.text)
+    assert head.keep_with_next is True
+    html = ('<html><body><p>Kicker line</p><h2>Section</h2><p>Body text of the section.</p>'
+            '<table><tr><td>a</td><td>b</td></tr></table><p>Short note under the table.</p>'
+            '<h2>Next section</h2><p>More.</p></body></html>')
+    rep = parse_report(html)
+    flat = list(rep.front) + [b for s in rep.sections for b in [s] + list(s.blocks)] + list(rep.tail)
+    by = {getattr(b, 'text', ''): b for b in flat if b.kind in ('paragraph', 'heading')}
+    assert by['Kicker line'].keep_with_next is True
+    assert by['Short note under the table.'].keep_with_next is False

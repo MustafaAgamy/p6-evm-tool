@@ -252,6 +252,8 @@ MEASURED_SELECTORS = (
 ) + KEEP_WHOLE_SELECTORS
 
 PAGINATION_FIT = 0.35        # a block up to 35 % of the page height is always kept whole
+PAGINATION_KEEP_TABLE = 0.45 # a table its renderer marked ``rpt-keep`` (a short summary table
+                             # under its own section heading) is kept whole up to 45 %
 PAGINATION_FLOW = 0.92       # a block taller than 92 % of the page height is let to flow
 PAGINATION_MIN_ROWS = 3      # a table fragment never holds fewer than 3 body rows
 PAGINATION_HEAD_MAX_PX = 80  # a heading-LIKE line (styled by a renderer) is at most ~2 lines …
@@ -322,7 +324,8 @@ def pagination_script():
     return (
         "(function(){\n"
         "if(window.__rptPagination)return;window.__rptPagination=1;\n"
-        f"var SEL='{measured}',FIT={PAGINATION_FIT},FLOW={PAGINATION_FLOW},MM=96/25.4;\n"
+        f"var SEL='{measured}',FIT={PAGINATION_FIT},FLOW={PAGINATION_FLOW},"
+        f"KT={PAGINATION_KEEP_TABLE},MM=96/25.4;\n"
         f"var HSEL='{heads}',HMAX={PAGINATION_HEAD_MAX_PX},HTXT={PAGINATION_HEAD_MAX_CHARS};\n"
         "var SIZES={a3:[297,420],a4:[210,297],a5:[148,210],b5:[176,250],letter:[215.9,279.4],"
         "legal:[215.9,355.6],ledger:[279.4,431.8]};\n"
@@ -415,7 +418,11 @@ def pagination_script():
         "todo.push([el,'rpt-flow']);for(var a2=el.parentElement,d2=0;a2&&a2!==document.body&&d2<3;"
         "d2++,a2=a2.parentElement){if(hOf(a2)>flow)break;todo.push([a2,'rpt-flow']);}}"
         "if(el.tagName==='LI'&&hg>fit&&hg<=flow)todo.push([el,'rpt-flow']);"
-        "if(el.tagName==='TABLE'){if(hg>fit&&!el.tHead)todo.push([el,'@head']);"
+        "if(el.tagName==='TABLE'){var kt=el.classList.contains('rpt-keep')&&hg<=H*KT;"
+        "if(hg>fit&&!el.tHead)todo.push([el,'@head']);"
+        # finding FLOAT-PDF-1: a short summary table its renderer marked rpt-keep (one row per
+        # WBS, under its own heading) is kept whole up to KT of a page instead of continuing
+        "if(kt)todo.push([el,'rpt-fit']);else "
         # a table too big to be "small" continues on the next page with its header repeated
         # (owner: keep a table together when it fits, otherwise continue it intentionally) —
         # never pushed whole to leave the page above it half blank. The renderer's own

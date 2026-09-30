@@ -937,9 +937,16 @@ def _keep_titles_with_content(blocks):
     is kept on the same page as it (Word keep_with_next / Excel block title)."""
     for i, b in enumerate(blocks):
         nxt = blocks[i + 1] if i + 1 < len(blocks) else None
+        prev = blocks[i - 1] if i else None
         if b.kind == 'heading':
             b.keep_with_next = True
         elif b.kind == 'paragraph' and nxt is not None and nxt.kind in _CONTENT_KINDS + ('heading',):
+            # a note right UNDER a table / cards / chart closes that block: it never travels
+            # with the NEXT section's heading (finding FLOAT-PDF-1: the Float note under the
+            # indicator cards was chained to 'Float distribution by WBS' + its table and
+            # pushed with them, leaving page 1 44 % blank in Word)
+            if nxt.kind == 'heading' and prev is not None and prev.kind in _CONTENT_KINDS:
+                continue
             if len(b.text) <= 140:
                 b.keep_with_next = True
         if b.kind == 'section':
