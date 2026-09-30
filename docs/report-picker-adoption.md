@@ -53,6 +53,10 @@ fresh page) is not a defect. Word files are laid out by Word itself (COM, ~1-2 s
 Spire.Doc (first 10 pages only). `--html report.html` passes the renderer's heading texts as hints.
 Target: zero flags on GBT_XML for your feature's PDF and Word. In a test: `pc.check_pdf(path)['flags'] == []`
 (see tests/test_pagination_check.py for the synthetic-report pattern).
+Print through `p6_export.pdf.html_to_pdf` / `run_chrome(chrome, args)` — never
+`subprocess.run([chrome, ...])` yourself: `server._find_chrome()` can return a Playwright Chromium
+that cannot start (WinError 14001), and run_chrome falls back to the next installed Chrome / Edge
+(own profile dir per launch). The Baseline Narrative and Reporting Studio PDF / Word already do.
 
 What the shared print composer (report_theme.pagination_script) already does for you, so a renderer
 needs no page-break code of its own: every heading is paired with its first block, and a short
