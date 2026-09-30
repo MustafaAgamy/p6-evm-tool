@@ -313,11 +313,18 @@ def test_html_falls_back_to_extraction_without_chrome(tmp_path):
 
 
 def test_rasterize_section_returns_none_without_chrome():
-    """The rasteriser cleanly returns None when no chrome is given, or the path is
-    missing — so the caller always has a safe fallback (never an exception)."""
+    """The rasteriser cleanly returns None when no chrome is given — so the caller always
+    has a safe fallback (never an exception). A missing / unstartable chrome path falls
+    back to the next installed Chromium (p6_export.pdf.run_chrome, audit TOOLING-1): a
+    picture when one exists, None when none does — never an exception."""
+    from p6_export.pdf import chrome_candidates
     from p6_special.docx_report import _rasterize_section
     assert _rasterize_section('<p>x</p>', '.x{}', 'light', None) is None
-    assert _rasterize_section('<p>x</p>', '.x{}', 'light', 'C:/nope/chrome-does-not-exist.exe') is None
+    png = _rasterize_section('<p>x</p>', '.x{}', 'light', 'C:/nope/chrome-does-not-exist.exe')
+    if chrome_candidates(None):
+        assert png and png[:8] == b'\x89PNG\r\n\x1a\n'
+    else:
+        assert png is None
 
 
 def test_section_doc_does_not_nest_style_tags():
