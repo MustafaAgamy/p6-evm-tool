@@ -432,7 +432,14 @@ def pagination_script():
         # child is carried up by Chrome to the block itself - every bar of a 377-bar list then
         # forbade the break after it and Chrome split bars instead (STUDIO-RICH-7)
         "function inKept(n,fit){var k=n.parentElement&&n.parentElement.closest(KSEL);"
-        "return !!k&&hOf(k)<=fit;}\n"
+        "if(k&&hOf(k)<=fit)return true;"
+        # ... and so is a title inside a small card its RENDERER keeps whole in its own CSS
+        # (break-inside:avoid, not one of the shared selectors): a Baseline Revision finding
+        # card ends on a bold link label - marked as a heading it forbade the break after every
+        # card, Chrome was left with no allowed break and cut 226 cards in two (STUDIO-RICH-15)
+        "for(var a=n.parentElement;a&&a!==document.body;a=a.parentElement){if(hOf(a)>fit)break;"
+        "var bi=getComputedStyle(a).breakInside;if(bi==='avoid'||bi==='avoid-page')return true;}"
+        "return false;}\n"
         "function headings(fit){var out=[],seen=new Set(),i,n;\n"
         "try{var hs=document.querySelectorAll(HSEL);for(i=0;i<hs.length;i++){"
         "if(!inCell(hs[i])&&!inKept(hs[i],fit)){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"

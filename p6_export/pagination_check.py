@@ -439,7 +439,7 @@ def _carded(P, row):
     lines = [l for l in row.lines if re.search(r'[0-9A-Za-z]', l.t or '')]   # not the '▸' between cards
     if len(lines) < 2:
         return False
-    owners = set()
+    owners, loose = set(), 0
     for l in lines:
         box = None
         for k, d in enumerate(P.draws):
@@ -448,10 +448,11 @@ def _carded(P, row):
                     and (box is None or d.w * d.h < P.draws[box].w * P.draws[box].h)):
                 box = k
         if box is None:
-            return False
+            loose += 1          # a label BETWEEN two cards (the link text of a before / after pair)
+            continue
         d = P.draws[box]
         owners.add((round(d.x0), round(d.y0), round(d.x1), round(d.y1)))
-    return len(owners) >= 2
+    return len(owners) >= 2 and loose <= len(owners)
 
 
 _VALUE_RE = re.compile(r'^[+\-−]?\d[\d.,]*\s*(?:d|wd|days?|%|h)?'
