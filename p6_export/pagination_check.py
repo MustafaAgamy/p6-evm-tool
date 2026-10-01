@@ -1166,12 +1166,18 @@ def _frame_sides_only(ink, last, run=24, dark=None):
       at the slice's edge (a WBS band's outline).
 
     A text line or a chart cut at the edge leaves many short runs, or ink right above a wide
-    run, and is still flagged (STUDIO-RICH-9: 206 of 206 GBT slices were these)."""
+    run, and is still flagged (STUDIO-RICH-9: 206 of 206 GBT slices were these).
+
+    Returns None when something is cut, else the side borders that reach the edge as
+    ``(x0, x1, rows)`` - how many pixel rows each runs up from the edge (the caller adds how
+    far they go on in the next picture: a SMALL card parted by the slice edge is still a
+    defect)."""
     import numpy as np
     W = ink.shape[1]
     cols = np.nonzero(ink[last])[0]
     if not len(cols):
-        return False
+        return None
+    sides = []
     runs, start = [], cols[0]
     for a, b in zip(cols, cols[1:]):
         if b != a + 1:
@@ -1179,26 +1185,41 @@ def _frame_sides_only(ink, last, run=24, dark=None):
             start = b
     runs.append((start, cols[-1]))
     if len(runs) > 8:
-        return False                      # glyph pieces: a text line is cut there
+        return None                       # glyph pieces: a text line is cut there
     top = max(0, last - run + 1)
     for a, b in runs:
         if b - a + 1 <= 5:                # a side border: it runs down the picture
             if ink[top:last + 1, a:b + 1].any(axis=1).mean() < 0.9:
-                return False
+                return None
+            col = ink[:last + 1, a:b + 1].any(axis=1)
+            gaps = np.nonzero(~col)[0]
+            sides.append((int(a), int(b), int(last - (gaps[-1] if len(gaps) else -1))))
             continue
         if b - a + 1 < 0.15 * W:
-            return False                  # a short wide piece: a bar / glyph cut at the edge
+            return None                   # a short wide piece: a bar / glyph cut at the edge
         # a horizontal line: thin, drawn darker than a box's light fill, nothing dark right
         # above it (the box's padding)
         m = ink if dark is None else dark
         if m[last, a:b + 1].mean() < 0.6:
-            return False
+            return None
         k = last
         while k > 0 and m[k - 1, a:b + 1].mean() > 0.6:
             k -= 1
         if last - k > 12 or m[max(0, k - 4):k, a + 6:max(a + 7, b - 5)].mean() > 0.05:
-            return False
-    return True
+            return None
+    return sides
+
+
+def _sides_go_on(ink, sides):
+    """How many pixel rows the side borders ``sides`` (of the previous picture) run down from
+    the top of this picture (the shortest of them; 0 when one does not go on)."""
+    import numpy as np
+    out = []
+    for a, b, _ in sides:
+        col = ink[:, max(0, a - 2):b + 3].any(axis=1)
+        gaps = np.nonzero(~col)[0]
+        out.append(int(gaps[0]) if len(gaps) else int(len(col)))
+    return min(out) if out else 0
 
 
 def docx_picture_flags(path, pic_pages=None):
@@ -1230,7 +1251,8 @@ def docx_picture_flags(path, pic_pages=None):
         return []
     rels = d.part.rels
     found, k, head = [], 0, ''
-    heads, open_end = {}, set()          # picture -> its heading; pictures ending on open boxes
+    heads, open_end = {}, {}             # picture -> its heading; pictures ending on open boxes
+    small_split = set()                  # ... whose open box is a SMALL card parted by the edge
     for p in d.element.body.iter(qn('w:p')):
         st = p.find(qn('w:pPr') + '/' + qn('w:pStyle'))
         sv = str(st.get(qn('w:val')) or '') if st is not None else ''
@@ -1257,10 +1279,17 @@ def docx_picture_flags(path, pic_pages=None):
                 continue
             where = f'picture {k}' + (f" under {head!r}" if head else '')
             last = int(rows[-1])
+            if k - 1 in open_end and open_end[k - 1][0]:
+                # the card the previous slice ended in: its side borders' rows there + here. A
+                # card that small (<= FIT of a page-sized slice) is one the rules keep whole
+                sides, hk = open_end[k - 1]
+                if min(x[2] for x in sides) + _sides_go_on(ink, sides) <= FIT * max(hk, H):
+                    small_split.add(k - 1)
             if H - 1 - last <= max(2, H * 0.001) and float(ink[last].mean()) < PIC_RULE:
-                if _frame_sides_only(ink, last, dark=(a[:, :, :3] < 200).any(axis=2)
-                                     if a.shape[2] >= 3 else None):
-                    open_end.add(k)       # fine IF the next picture goes on with the section
+                sides = _frame_sides_only(ink, last, dark=(a[:, :, :3] < 200).any(axis=2)
+                                          if a.shape[2] >= 3 else None)
+                if sides is not None and sides is not False:
+                    open_end[k] = (sides, H)   # fine IF the next picture goes on with the section
                 found.append((k, 'picture_truncated',
                                    f'{where}: its content runs into the bottom edge of the picture '
                                    '(cut off - the rest never reached the page)'))
@@ -1275,9 +1304,15 @@ def docx_picture_flags(path, pic_pages=None):
                                    f'~{h_pt * (1 - extent):.0f} pt of white on the page'))
     # one page-sized slice of a long section ending inside a card / table (only its side
     # borders reach the edge, or a box closes right there) whose NEXT picture continues the same
-    # section is not cut - the section goes on in that picture (STUDIO-RICH-9)
+    # section is not cut - the section goes on in that picture (STUDIO-RICH-9); a small card
+    # parted by the slice edge stays flagged
     found = [f for f in found if not (f[1] == 'picture_truncated' and f[0] in open_end
+                                      and f[0] not in small_split
                                       and f[0] + 1 in heads and heads[f[0] + 1] == heads[f[0]])]
+    found = [(n, kind, detail.split(': its content')[0] + ': a small card is parted by the bottom edge '
+              'of the picture - its rest opens the next picture (the rules keep it whole)')
+             if kind == 'picture_truncated' and n in small_split and heads.get(n + 1) == heads[n]
+             else (n, kind, detail) for n, kind, detail in found]
     pages = list(pic_pages) if pic_pages and len(pic_pages) == k else None
     return [_flag(kind, (pages[n - 1] if pages else 0) or 0, detail) for n, kind, detail in found]
 

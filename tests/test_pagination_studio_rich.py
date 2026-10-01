@@ -528,3 +528,39 @@ def test_chrome_keeps_driving_path_cards_whole(tmp_path, monkeypatch):
     assert 'block_split' in {f['type'] for f in before['flags']}, before['flags']
     # AFTER - every card whole, and a lane's title row stays with its first cards
     assert [a['flags'] for a in after] == [[], []], after
+
+
+def _small_card_split(h_px=600, w_px=900):
+    """Two slices parting a SMALL card: 60 px of it (top border + its flag line) end slice 1,
+    50 px (title + bottom border) open slice 2."""
+    import pymupdf
+    grey = (0.6, 0.64, 0.7)
+    out = []
+    for part in (1, 2):
+        doc = pymupdf.open()
+        page = doc.new_page(width=w_px, height=h_px)
+        if part == 1:
+            for i, y in enumerate(range(30, 500, 22)):
+                page.insert_text((36, y), 'Row %02d   CONS.TR28.32.SS.%04d   Install steel beams' % (i, 1100 + i), fontsize=15)
+            page.draw_line((300, 540), (560, 540), color=grey, width=1.5)
+            for x in (300, 560):
+                page.draw_line((x, 540), (x, h_px + 6), color=grey, width=1.5)
+            page.insert_text((314, 562), 'COMPLETION MILESTONE', fontsize=11)
+        else:
+            for x in (300, 560):
+                page.draw_line((x, -6), (x, 50), color=grey, width=1.5)
+            page.draw_line((300, 50), (560, 50), color=grey, width=1.5)
+            page.insert_text((314, 30), 'Phase I Scope Completion', fontsize=15)
+            for i, y in enumerate(range(90, 400, 22)):
+                page.insert_text((36, y), 'Row %02d   Baseline finish 09-Feb.2027' % i, fontsize=15)
+        out.append(page.get_pixmap(alpha=False).tobytes('png'))
+    return out
+
+
+def test_word_slices_parting_a_small_card_stay_flagged(tmp_path):
+    """The long-card rule does not excuse a SMALL card whose title ends one picture and whose
+    body opens the next (the Word twin of the PDF's block_split)."""
+    from p6_export import pagination_check as pc
+    path = _docx_sections([_small_card_split()], str(tmp_path / 'small.docx'))
+    flags = [f for f in pc.docx_picture_flags(path) if f['type'] == 'picture_truncated']
+    assert len(flags) == 1 and 'small card' in flags[0]['detail'], flags
