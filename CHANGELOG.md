@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — AI Chat: answer paragraphs were written out but stayed invisible
+- The word-by-word writing added for comment 15 left every paragraph of an answer invisible (headings, tables and chips showed; the sentences did not). The text is now visible as it is written and after it.
+
 ### Added — AI Chat: Stop and Copy, like Claude (comment 15)
 - **Stop.** While an answer is being worked out or written on screen, the Send button becomes a red Stop button. Pressing it while the answer is still being computed cancels it ("Stopped. Ask again whenever you are ready."); pressing it while a finished answer is being written shows the whole answer at once.
 - **Copy.** Every answer has a Copy button. It puts the answer on the clipboard as clean text — the verdict, the key figures, each section, the actions — with tables tab-separated so they paste into Excel or Word as tables.

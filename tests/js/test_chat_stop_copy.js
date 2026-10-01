@@ -120,7 +120,10 @@ test('it visibly analyses first, then writes the answer a few words at a time', 
   assert.ok(revealPace(4, 5000, 30).chunk > revealPace(4, 60, 2).chunk);
   // wired: words are hidden then shown; Stop / finish shows them all
   const rv = src.slice(src.indexOf('function revealV2(card, anchor)'), src.indexOf('function libCount()'));
-  assert.ok(rv.includes("wrapWords(u, w)") && rv.includes("classList.add('pv2-wp')"));
+  assert.ok(rv.includes("wrapWords(u, w)") && rv.includes("x.className = 'pv2-w pv2-wp'"));
+  // the written words must never keep the brain stream's 'pchat-w' class: it is opacity 0 until '.on',
+  // which left every written paragraph invisible
+  assert.ok(!rv.includes("classList.add('pv2-wp')") && /.pchat-w{opacity:0}/.test(src));
   assert.ok(rv.includes("card.querySelectorAll('.pv2-wp').forEach((x) => x.classList.remove('pv2-wp'))"));
   assert.ok(rv.includes('Analysing your P6 file…'));
   assert.ok(rv.includes('if (reducedMotion()) { followTo(anchor); return; }'));      // no animation when the PC asks for none
