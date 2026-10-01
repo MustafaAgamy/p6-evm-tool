@@ -57,13 +57,20 @@ Per-feature progress for #1/#2/#29 (Earned Value and P6 Calendar Audit already h
 | [ ] | #3, #5, #18 Final whole-tool check | After everything else | 3 |
 | [ ] | #20, #21 (and #19) Final merge and final exe | Last | 2 |
 
-## How to save usage
+## How to save usage (staying on Pro)
 
-- Full builder → reviewer → verifier process only for Phase B and the first feature of Phase D.
-  Everything else: build, self-review the diff, run the related tests.
-- Sonnet for recipe work (Phase D per-feature passes, #38 content, #28 checks); Opus for #23,
-  #17 and the AI Chat group.
+- **Acceptance first:** before a comment starts, the owner writes 2–3 lines of "done means …"
+  next to its row. Redoing a misunderstood comment is the biggest waste.
+- **Sonnet builds, Opus reviews:** Sonnet writes the code and tests; one Opus pass reviews the
+  whole phase's diff before its merge (not one reviewer per comment). Opus builds only #23,
+  #17 and #15.
+- **Tests are the quality gate:** every comment gets a test that fails before the fix and
+  passes after. Related tests while working (`pytest -q -x tests/test_<area>*.py`); the full
+  suite once per phase, before the merge.
+- **No subagents or worktrees** for small and medium comments; the per-phase review replaces
+  them.
+- **The owner checks the exe by hand** at the checkpoint release and at the end; Claude's live
+  headless checks only for the first feature of Phase D.
 - One fresh session per phase (or per few features in Phase D). Commit and push after each
   comment and tick its row here.
-- Run only the related tests while working (`pytest -q -x tests/test_<area>*.py`); the full
-  suite once per phase, before the merge.
+- #9 Course videos: Claude writes the scripts and shot list; the owner records.
