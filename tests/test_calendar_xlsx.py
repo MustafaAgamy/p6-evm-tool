@@ -110,7 +110,8 @@ def test_workbook_has_a_sheet_per_calendar_plus_report_tables(tmp_path):
     with zipfile.ZipFile(p) as z:
         n_sheets = len([n for n in z.namelist() if n.startswith('xl/worksheets/sheet')])
         wb = z.read('xl/workbook.xml').decode()
-    assert n_sheets == 6                      # C1, C2, Exceptions, Comparison, Usage, Weather
+    # C1, C2, Exceptions, Comparison, Usage, Weather + the rest of the report (owner comment 29)
+    assert n_sheets >= 6
     # sheet names sanitise '/' → '-' (illegal in Excel sheet names)
     for s in ['5 Days-Week', '6 Days-Week', 'Exceptions', 'Comparison', 'Usage', 'Weather']:
         assert s in wb

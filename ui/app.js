@@ -671,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // than living statically in index.html, so a hard `.addEventListener` on a missing one threw
   // at init and halted the rest of the wiring (a pre-existing bug). Guarding keeps init going.
   document.getElementById('evm-excel-btn')?.addEventListener('click', exportEvmExcel);
-  document.getElementById('narr-excel-btn')?.addEventListener('click', exportNarrativeExcel);
+  // the Narrative's Excel button is created and wired by narrative.js (it sends the report on screen)
   document.getElementById('ov-excel-btn')?.addEventListener('click', exportOverviewExcel);
   document.getElementById('wbs-excel-btn')?.addEventListener('click', exportWbsExcel);
   document.getElementById('schedule-body')?.addEventListener('click', (e) => {

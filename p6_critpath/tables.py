@@ -33,7 +33,7 @@ def _band(tf, near=NEAR_THRESHOLD):
 def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
     """Band moves from base → current, matched by activity code. Counts the four moves the
     dashboard shows, and keeps the ids for drill-down."""
-    def bands(data):
+    def bands(data, facts):
         out = {}
         for a in data.activities.values():
             if a.get('task_type') in _MILESTONES:
@@ -42,9 +42,11 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
             if tf is None:
                 continue
             out[a.get('id')] = _band(tf, near)
+            facts[a.get('id')] = (a.get('name') or '', tf)
         return out
 
-    pb, cb = bands(base_data), bands(curr_data)
+    pf, cf = {}, {}            # id → (name, total float) on each side, for the Excel list
+    pb, cb = bands(base_data, pf), bands(curr_data, cf)
     counts = {'near_to_crit': 0, 'safe_to_near': 0, 'crit_to_recovered': 0, 'held_crit': 0}
     rows = []
     for code, cur in cb.items():
@@ -62,7 +64,8 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
             kind = 'held_crit'
         if kind:
             counts[kind] += 1
-            rows.append({'id': code, 'from': prev, 'to': cur, 'kind': kind})
+            rows.append({'id': code, 'from': prev, 'to': cur, 'kind': kind,
+                         'name': cf[code][0], 'base_tf': pf[code][1], 'curr_tf': cf[code][1]})
     return {'counts': counts, 'rows': rows}
 
 

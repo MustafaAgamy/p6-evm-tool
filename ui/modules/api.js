@@ -208,6 +208,12 @@ export async function exportExcel(btnId = 'excel-btn') {
       if (caption) excelBody.lag_filter_caption = caption;
       if (justifications && Object.keys(justifications).length) excelBody.lag_justifications = justifications;
     }
+    if (state.currentModule === 'hard_constraints') {
+      // the milestones found in the schedule file are held on screen only (not stored) — send
+      // them so the workbook lists them too
+      const mc = (((state.currentResult || {}).audit_modules || {}).modules || {}).hard_constraints || {};
+      if (Array.isArray(mc.baseline_milestones)) excelBody.baseline_milestones = mc.baseline_milestones;
+    }
     const data = await apiFetch('api/export/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -673,8 +679,8 @@ export async function exportDashboardExcel() {
   }
 }
 
-// Baseline Narrative (narrative) — server rebuilds the section-keyed narrative
-// from the DB result (falling back to the held result) and mirrors it to a sheet.
+// Baseline Narrative (narrative) — the whole REPORT as a workbook: one sheet per section, every
+// table with all its rows (owner comment 29).
 export async function exportNarrativeExcel() {
   if (!state.currentResult) { showError('Open a schedule first.'); return; }
   const btn = new ButtonState(document.getElementById('narr-excel-btn'), 'Export to Excel');
@@ -685,7 +691,9 @@ export async function exportNarrativeExcel() {
     const data = await apiFetch('api/narrative/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null, result: state.currentResult, output_path: outputPath }),
+      // the report as generated on screen (when it has been) — else the server rebuilds it from the file
+      body:    JSON.stringify({ snapshot_id: state.currentSnapshotId || null, doc: state.narrativeDoc || null,
+        xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || null, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }

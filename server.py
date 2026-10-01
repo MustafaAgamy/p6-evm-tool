@@ -1493,32 +1493,45 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': False, 'error': str(exc)})
 
     def _handle_narrative_excel(self, body):
-        """Export the Baseline Narrative to .xlsx. DB is the read path: rebuild the
-        narrative from the stored result for the snapshot (falling back to the
-        client-supplied result), then mirror its sections into a workbook."""
+        """Export the Baseline Narrative REPORT to .xlsx — one sheet per report section, every
+        table with all its rows, every chart as its numbers (owner comment 29). Built from the
+        same document the screen / PDF / Word use: the client's document (with its edits and its
+        Report-Contents selection) when it posts one, else the report rebuilt from the snapshot's
+        own schedule file with the saved setup (the sanctioned report re-parse)."""
         output_path = body.get('output_path', '')
         if not output_path:
             self._json(200, {'ok': False, 'error': 'No output path provided'})
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_evm.narrative import build_narrative
-            from p6_evm.narrative_excel import narrative_excel
+            from p6_narrative.xlsx_report import narrative_sheets
             from p6_evm.xlsx_writer import write_sections_xlsx
-            result = None
+            doc = body.get('doc')
             snap = body.get('snapshot_id')
-            if snap is not None:
-                pid = db.snapshot_project_id(snap)
-                if pid is not None:
-                    result = db.get_project_result(pid)
-            if result is None:
-                result = body.get('result')
-            if not result:
-                self._json(200, {'ok': False, 'error': 'No project loaded — import a schedule first.'})
-                return
-            sheets = narrative_excel({'narrative': build_narrative(result), 'result': result})
-            write_sections_xlsx(os.path.abspath(output_path), sheets,
-                                meta=_excel_meta('Baseline Narrative', result))
+            if doc:
+                from p6_narrative.builder import apply_edits
+                doc = apply_edits(doc, body.get('edits'))
+            else:
+                src = db.get_snapshot_source(snap) if snap is not None else None
+                if not src:
+                    src = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+                if not src:
+                    self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+                    return
+                from p6_evm.parser import parse_file
+                from p6_narrative.report import build_report
+                setup = body.get('setup')
+                if setup is None and snap is not None:
+                    try:
+                        setup, _src = db.get_snapshot_ui_state_inherited(snap, 'narrative_setup')
+                    except Exception:
+                        setup = None
+                doc = build_report(parse_file(src), path=src, setup=setup).to_dict()
+            meta = (doc or {}).get('meta') or {}
+            write_sections_xlsx(os.path.abspath(output_path), narrative_sheets(doc),
+                                meta=_excel_meta('Baseline Narrative Report',
+                                                 {'project_name': meta.get('project_name'),
+                                                  'data_date': meta.get('data_date')}, snapshot_id=snap))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2781,9 +2794,15 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             headers, rows = report_excel(report, trend)
             _bl = report.get('baseline_label') if report.get('baseline_approx') else None   # approx only
-            write_xlsx(os.path.abspath(output_path), 'Update vs Update', headers, rows,
-                       meta=_excel_meta('Update vs Update — Windows Analysis', report,
-                                        **({'baseline': _bl} if _bl else {})))
+            # Sheet 1 = the report as before; then the S-curve numbers, progress by every activity
+            # code, the critical path lists and the what-moved activities (owner comment 29).
+            from p6_evm.xlsx_writer import write_sections_xlsx, _sheet
+            from p6_period.exporters import report_excel_extra_sheets
+            first = _sheet(headers, rows, meta=_excel_meta('Update vs Update — Windows Analysis', report,
+                                                           **({'baseline': _bl} if _bl else {})))
+            write_sections_xlsx(os.path.abspath(output_path),
+                                [{'name': 'Update vs Update', 'xml': first}]
+                                + report_excel_extra_sheets(report))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2994,13 +3013,23 @@ class Handler(BaseHTTPRequestHandler):
                 # columns already exist here (Lag (wd), Flags). No caption row: write_xlsx
                 # has no title/caption argument (see p6_evm/xlsx_writer.py — read-only).
                 m = filter_lag_findings(m, lag_visible_keys)
+            if module == 'hard_constraints' and not m.get('baseline_milestones') \
+                    and isinstance(body.get('baseline_milestones'), list):
+                # the schedule's own milestones are an on-screen list (not stored) — the client sends it
+                m = dict(m, baseline_milestones=body['baseline_milestones'])
             headers, rows = excel_columns(m)
             sev_col, legend = excel_severity_meta(m, headers)
-            write_xlsx(os.path.abspath(output_path), (m.get('name') or 'Schedule Health Review')[:31],
-                       headers, rows, highlight_cols=excel_highlight_cols(headers),
-                       severity_col=sev_col, legend=legend,
-                       meta=_excel_meta(m.get('name') or 'Schedule Health Review',
-                                        m, snapshot_id=snapshot_id))
+            # Sheet 1 = the findings register (unchanged); then the rest of the report — score,
+            # key figures, severity rules, by-WBS table, milestones — so the workbook carries
+            # everything the screen / PDF show (owner comment 29).
+            from p6_evm.xlsx_writer import write_sections_xlsx, _sheet
+            from p6_audit.excel_sheets import extra_sheets
+            findings_xml = _sheet(headers, rows, excel_highlight_cols(headers), sev_col, legend,
+                                  meta=_excel_meta(m.get('name') or 'Schedule Health Review',
+                                                   m, snapshot_id=snapshot_id))
+            write_sections_xlsx(os.path.abspath(output_path),
+                                [{'name': (m.get('name') or 'Schedule Health Review')[:31],
+                                  'xml': findings_xml}] + extra_sheets(m))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

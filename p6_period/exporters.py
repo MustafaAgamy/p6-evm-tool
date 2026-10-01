@@ -1012,3 +1012,70 @@ def report_excel(report, trend=None):
     rows += [[''], ['Executive conclusion — this period'], [report.get('conclusion', '')]]
     rows += [[''], ['Project conclusion & outlook'], [report.get('project_conclusion', '')]]
     return headers, rows
+
+
+_MOVED_WORDS = (('finished', 'Finished'), ('started', 'Started'), ('slipped', 'Slipped'),
+                ('stalled', 'Stalled'), ('re_sequenced', 'Re-sequenced'))
+
+
+def report_excel_extra_sheets(report):
+    """The parts of the Update-vs-Update report the flat first sheet only counts or draws —
+    as extra sheets for ``write_sections_xlsx`` (owner comment 29): the S-curve's numbers, the
+    progress by EVERY activity code, the critical path in each update, and the activities
+    behind each 'what moved' count. A part with no data gets no sheet; never raises."""
+    report = report or {}
+    sheets = []
+    try:
+        sc = report.get('scurve') or {}
+        periods = sc.get('periods') or []
+        if periods:
+            fc, ac = sc.get('forecast') or [], sc.get('actual') or []
+            marks = {sc.get('dd_prev_idx'): 'Previous data date', sc.get('dd_now_idx'): 'Current data date'}
+            pick = lambda xs, i: xs[i] if i < len(xs) and xs[i] is not None else ''
+            sheets.append({'name': 'S-Curve', 'blocks': [{
+                'title': 'S-curve — cumulative progress by month',
+                'note': 'Forecast = the cumulative % the previous update planned; Actual = the cumulative % achieved.',
+                'headers': ['Month', 'Forecast cumulative %', 'Actual cumulative %', 'Marker'],
+                'rows': [[p, pick(fc, i), pick(ac, i), marks.get(i, '')] for i, p in enumerate(periods)]}]})
+
+        bc = report.get('progress_by_code') or {}
+        rows = []
+        for code_type, vals in bc.items():
+            for v in vals or []:
+                pl, act = v.get('planned'), v.get('actual')
+                gap = round(act - pl, 1) if isinstance(pl, (int, float)) and isinstance(act, (int, float)) else ''
+                rows.append([code_type, v.get('value', ''), '' if pl is None else pl,
+                             '' if act is None else act, gap])
+        if rows:
+            sheets.append({'name': 'Progress by Code', 'blocks': [{
+                'title': 'Planned vs actual progress this period, by activity code',
+                'note': 'Percent of the whole project, weighted by each activity\'s cost / duration share. '
+                        'Actual − planned below zero = behind the plan.',
+                'headers': ['Activity code', 'Code value', 'Planned this period %', 'Actual this period %',
+                            'Actual − planned %'],
+                'rows': rows}]})
+
+        cp = report.get('critical_path') or {}
+        blocks = []
+        for key, title in (('previous', 'Critical path — previous update'),
+                           ('current', 'Critical path — current update')):
+            acts = cp.get(key) or []
+            if acts:
+                blocks.append({'title': title, 'note': f'{len(acts)} activities, in path order.',
+                               'headers': ['#', 'Activity ID', 'Activity Name', 'WBS', 'Start', 'Finish'],
+                               'rows': [[i, a.get('id', ''), a.get('name', ''), a.get('wbs_path', ''),
+                                         a.get('start') or '', a.get('finish') or '']
+                                        for i, a in enumerate(acts, 1)]})
+        if blocks:
+            sheets.append({'name': 'Critical Path', 'blocks': blocks})
+
+        lists = (report.get('buckets') or {}).get('lists') or {}
+        rows = [[lbl, a.get('activity_id', ''), a.get('activity_name', '')]
+                for key, lbl in _MOVED_WORDS for a in (lists.get(key) or [])]
+        if rows:
+            sheets.append({'name': 'What Moved', 'blocks': [{
+                'title': 'What moved this period — the activities behind each count',
+                'headers': ['Movement', 'Activity ID', 'Activity Name'], 'rows': rows}]})
+    except Exception:
+        pass
+    return sheets

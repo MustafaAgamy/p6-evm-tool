@@ -619,6 +619,103 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
     return _cells_sheet(cells, col_widths=col_widths)
 
 
+_CAL_FIGURES = (
+    ('project_start', 'Project start'), ('project_finish', 'Project finish'),
+    ('data_date', 'Data date'), ('baseline_start', 'Baseline start'),
+    ('baseline_finish', 'Baseline finish'), ('window_start', 'Review window start'),
+    ('window_finish', 'Review window finish'), ('total_calendar_days', 'Calendar days'),
+    ('total_working_days', 'Working days'), ('total_nonworking_days', 'Non-working days'),
+    ('total_holidays', 'Holidays'), ('total_exceptions', 'Exceptions'),
+    ('shutdown_periods', 'Shutdown periods'),
+    ('avg_working_days_per_month', 'Average working days per month'),
+    ('avg_working_hours_per_day', 'Average working hours per day'),
+    ('normal_hours', 'Normal working hours'),
+)
+
+
+def _calendar_extra_sheets(ca):
+    """[(sheet name, blocks)] for the parts of the Calendar Audit report that are not the
+    timelines / Exceptions / Comparison / Usage sheets: Summary, Monthly Working Time and
+    Calendar Issues. A part with no data is left out; never raises."""
+    out = []
+    try:
+        by_cal = ca.get('by_calendar') or {}
+        assigned = ca.get('assigned_calendars') or []
+        primary = ca.get('primary_calendar_id')
+        dash = ca.get('dashboard') or {}
+
+        summary = []
+        figures = [[lab, (_human_date(dash[k]) if k.endswith(('_start', '_finish', '_date')) else dash[k])]
+                   for k, lab in _CAL_FIGURES if dash.get(k) not in (None, '')]
+        if figures:
+            summary.append({'title': 'Key figures', 'headers': ['Figure', 'Value'], 'rows': figures})
+        concl = [[c] for c in (ca.get('conclusion') or []) if c]
+        if concl:
+            summary.append({'title': 'Conclusions', 'headers': ['Conclusion'], 'rows': concl})
+        totals = []
+        for c in assigned:
+            t = (by_cal.get(c.get('object_id')) or {}).get('totals') or {}
+            if t:
+                totals.append([c.get('name', ''), t.get('working_days', ''),
+                               t.get('nonworking_days', ''), t.get('working_hours', '')])
+        if totals:
+            summary.append({'title': 'Working time in the review window, by calendar',
+                            'headers': ['Calendar', 'Working days', 'Non-working days', 'Working hours'],
+                            'rows': totals})
+        hours = []
+        for c in assigned:
+            for h in (by_cal.get(c.get('object_id')) or {}).get('hours_profiles') or []:
+                hours.append([c.get('name', ''), h.get('name', ''), h.get('hours', ''),
+                              h.get('hours_per_day', ''), h.get('sub', ''), h.get('note', '')])
+        if hours:
+            summary.append({'title': 'Working-hours patterns',
+                            'headers': ['Calendar', 'Pattern', 'Hours', 'Hours/Day', 'Applies', 'Note'],
+                            'rows': hours})
+        if summary:
+            out.append(('Summary', summary))
+
+        monthly = []
+        for c in assigned:
+            months = (by_cal.get(c.get('object_id')) or {}).get('monthly_stats') or []
+            if months:
+                monthly.append({'title': c.get('name', 'Calendar'),
+                                'headers': ['Month', 'Working days', 'Non-working days', 'Holidays',
+                                            'Exceptions', 'Working hours'],
+                                'rows': [[m.get('label', ''), m.get('working_days', ''),
+                                          m.get('nonworking_days', ''), m.get('holidays', ''),
+                                          m.get('exceptions', ''), m.get('working_hours', '')]
+                                         for m in months]})
+        if monthly:
+            out.append(('Monthly Working Time', monthly))
+
+        others = []                    # the Exceptions sheet covers the main calendar only
+        for c in assigned:
+            if c.get('object_id') == primary:
+                continue
+            exc = (by_cal.get(c.get('object_id')) or {}).get('exceptions') or {}
+            rows = ([['Holiday', h.get('description', ''), h.get('days', ''), '', h.get('reason') or '']
+                     for h in exc.get('holidays') or []]
+                    + [['Reduced / special hours', x.get('description', ''), x.get('days', ''),
+                        x.get('hours') or '', x.get('reason') or ''] for x in exc.get('special') or []]
+                    + [['Shutdown', x.get('description', ''), x.get('days', ''), '', x.get('reason') or '']
+                       for x in exc.get('shutdowns') or []])
+            if rows:
+                others.append({'title': c.get('name', 'Calendar'),
+                               'headers': ['Kind', 'Date', 'Days', 'Hours', 'Description'], 'rows': rows})
+        if others:
+            out.append(('Other Calendars Exceptions', others))
+
+        issues = [[i, x.get('severity', ''), x.get('title', ''), x.get('detail', '')]
+                  for i, x in enumerate(ca.get('conflicts') or [], 1)]
+        if issues:
+            out.append(('Calendar Issues', [{'title': 'Calendar issues found',
+                                             'headers': ['#', 'Severity', 'Issue', 'Detail'],
+                                             'rows': issues}]))
+    except Exception:
+        pass
+    return out
+
+
 def write_calendar_xlsx(path, ca, weather=None, meta=None):
     """Write the full Calendar Audit workbook (#04/#05/#08): one coloured timeline sheet
     per assigned calendar (names inside the day cells) + Exceptions, Comparison, Usage and
@@ -669,6 +766,13 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
         ['Calendar', 'Activities', '% of Activities', 'Role'],
         [[u['name'], u['activities'], ('—' if u['role'] == 'Unused' else f"{u['pct']}%"), u['role']]
          for u in usage], header_style=2)))
+
+    # The rest of the report (owner comment 29): the key figures, the conclusions, the working
+    # time month by month for every assigned calendar, the working-hours patterns, the other
+    # calendars' own exceptions and the calendar issues found — so nothing shown on screen /
+    # in the PDF is missing from the workbook.
+    for name, blocks in _calendar_extra_sheets(ca):
+        sheets.append((name, _stacked_sheet(blocks, title_style=9, note_style=0, header_style=2)))
 
     if weather:
         w = weather

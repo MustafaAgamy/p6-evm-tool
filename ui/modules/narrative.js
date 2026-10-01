@@ -406,8 +406,10 @@ function exportDoc() {
   return doc;
 }
 
-const NARRATIVE_BTN_IDS = { docx: 'narrative-word-btn', pdf: 'narrative-pdf-btn', html: 'narrative-html-btn' };
-const NARRATIVE_OK_LABELS = { docx: '✓ Word saved', pdf: '✓ PDF saved', html: '✓ HTML saved' };
+const NARRATIVE_BTN_IDS = { docx: 'narrative-word-btn', pdf: 'narrative-pdf-btn', html: 'narrative-html-btn', xlsx: 'narr-excel-btn' };
+const NARRATIVE_OK_LABELS = { docx: '✓ Word saved', pdf: '✓ PDF saved', html: '✓ HTML saved', xlsx: '✓ Excel saved' };
+// the server route of each export kind (Excel = the whole report as a workbook, one sheet per section)
+const NARRATIVE_ROUTES = { xlsx: 'excel' };
 
 async function exportNarrative(kind) {
   if (!state.narrativeDoc) { showError('Generate the narrative first.'); return; }
@@ -420,7 +422,7 @@ async function exportNarrative(kind) {
     const outputPath = await window.pywebview.api.choose_save_path(`${safe}_Baseline_Narrative.${ext}`, ext);
     if (!outputPath) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
-    const resp = await fetch(`http://localhost:${PORT()}/api/narrative/${kind}`, {
+    const resp = await fetch(`http://localhost:${PORT()}/api/narrative/${NARRATIVE_ROUTES[kind] || kind}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ doc: exportDoc(), edits: {}, output_path: outputPath }),
     });
@@ -1248,6 +1250,18 @@ export function renderNarrativePanel() {
       p.parentNode.insertBefore(h, p.nextSibling);
     }
     if (h) h.addEventListener('click', () => exportNarrative('html'));
+    // Export Excel — the same report as a workbook: one sheet per section, every table with all
+    // its rows, every chart as its numbers (owner comment 29). It follows the Report-Contents
+    // selection like the other three.
+    let x = document.getElementById('narr-excel-btn');
+    if (!x && p && p.parentNode) {
+      x = document.createElement('button');
+      x.className = 'btn-secondary';
+      x.id = 'narr-excel-btn';
+      x.textContent = 'Export Excel';
+      (h || p).parentNode.insertBefore(x, (h || p).nextSibling);
+    }
+    if (x) x.addEventListener('click', () => exportNarrative('xlsx'));
     _wired = true;
   }
   flushSetupSave();                                // the previous schedule's last edit is sent

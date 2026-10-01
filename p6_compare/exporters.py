@@ -218,6 +218,17 @@ def logic_excel_sections(report, impact=None):
             'rows': rows,
         }]})
 
+    # ── Milestones — baseline finish vs update finish (owner comment 29) ──
+    ms_rows = report.get('milestones') or []
+    if ms_rows:
+        sheets.append({'name': 'Milestones', 'blocks': [{
+            'title': 'Milestones — baseline finish vs update finish',
+            'note': f'{len(ms_rows)} milestones matched between the two schedules by activity ID.',
+            'headers': ['Milestone ID', 'Milestone', 'Baseline finish', 'Update finish'],
+            'rows': [[m.get('activity_id', ''), m.get('name', ''), _blank(m.get('baseline_finish')),
+                      _blank(m.get('update_finish'))] for m in ms_rows],
+        }]})
+
     # ── Impact (But-For) — only when the before/after impact ran ─────────
     if impact:
         impact_blocks = []
