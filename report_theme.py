@@ -310,6 +310,10 @@ def pagination_css():
         '  figcaption, .figcaption, .figcap { break-before: avoid; page-break-before: avoid; }\n'
         # a chart's legend under its bars never opens a page alone (STUDIO-RICH-4)
         '  .rc-tdiv + .legend { break-before: avoid; page-break-before: avoid; }\n'
+        # a band row titling the rows under it inside a table ('Non-working days - all listed,
+        # differences highlighted') never ends a page: it keeps with its first rows (STUDIO-RICH-6)
+        '  tr.rc-lband, tr.rc-lband + tr:not(:last-child),'
+        ' tr.rc-lband + tr + tr:not(:last-child) { break-after: avoid; page-break-after: avoid; }\n'
         '  /* 2 · charts, diagrams, pictures, KPI tiles / cards, month grids: moved whole */\n'
         f'  {keep} {{\n    break-inside: avoid; page-break-inside: avoid;\n  }}\n'
         '  /* 3 · tables: header repeated, rows never split, never 1-2 stranded rows */\n'
@@ -350,12 +354,14 @@ def pagination_script():
     """The print-time composer (JavaScript, no ``</script>`` inside). See the module notes."""
     measured = ','.join(MEASURED_SELECTORS).replace("'", "\\'")
     heads = ','.join(HEADING_SELECTORS).replace("'", "\\'")
+    kept = ','.join(KEEP_WHOLE_SELECTORS).replace("'", "\\'")
     return (
         "(function(){\n"
         "if(window.__rptPagination)return;window.__rptPagination=1;\n"
         f"var SEL='{measured}',FIT={PAGINATION_FIT},FLOW={PAGINATION_FLOW},"
         f"KT={PAGINATION_KEEP_TABLE},MM=96/25.4;\n"
         f"var HSEL='{heads}',HMAX={PAGINATION_HEAD_MAX_PX},HTXT={PAGINATION_HEAD_MAX_CHARS};\n"
+        f"var KSEL='{kept}';\n"
         "var SIZES={a3:[297,420],a4:[210,297],a5:[148,210],b5:[176,250],letter:[215.9,279.4],"
         "legal:[215.9,355.6],ledger:[279.4,431.8]};\n"
         "function mm(v,d){var m=/^(-?[\\d.]+)(mm|cm|in|px|pt)?$/.exec(String(v||'').trim());"
@@ -410,9 +416,15 @@ def pagination_script():
         "return false;}\n"
         "var NOHEAD={TABLE:1,svg:1,SVG:1,PRE:1,CANVAS:1,SELECT:1,UL:1,OL:1,DL:1,FIGURE:1,IMG:1,"
         "TEXTAREA:1,BUTTON:1,SCRIPT:1,STYLE:1,TEMPLATE:1};\n"
-        "function headings(){var out=[],seen=new Set(),i,n;\n"
+        # a title INSIDE a small kept-whole block (a bar's bold label, a tile's caption) is not
+        # paired: the block travels whole anyway, and the pair's break-after:avoid on its last
+        # child is carried up by Chrome to the block itself - every bar of a 377-bar list then
+        # forbade the break after it and Chrome split bars instead (STUDIO-RICH-7)
+        "function inKept(n,fit){var k=n.parentElement&&n.parentElement.closest(KSEL);"
+        "return !!k&&hOf(k)<=fit;}\n"
+        "function headings(fit){var out=[],seen=new Set(),i,n;\n"
         "try{var hs=document.querySelectorAll(HSEL);for(i=0;i<hs.length;i++){"
-        "if(!inCell(hs[i])){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"
+        "if(!inCell(hs[i])&&!inKept(hs[i],fit)){out.push([hs[i],1]);seen.add(hs[i]);}}}catch(e){}\n"
         "var bfs=parseFloat(getComputedStyle(document.body).fontSize)||12;"
         "var tw=document.createTreeWalker(document.body,1,{acceptNode:function(x){"
         "if(x.tagName==='THEAD'||x.tagName==='TFOOT')return 2;"
@@ -422,7 +434,7 @@ def pagination_script():
         "if(!tx||tx.length>HTXT)continue;var cs=getComputedStyle(n);"
         "if(!/^(block|flex|grid|list-item|flow-root|table-caption)$/.test(cs.display))continue;"
         "if((parseInt(cs.fontWeight,10)||400)<600&&(parseFloat(cs.fontSize)||bfs)<bfs*1.15)continue;"
-        "if(sideBySide(n))continue;out.push([n,0]);seen.add(n);}\n"
+        "if(sideBySide(n)||inKept(n,fit))continue;out.push([n,0]);seen.add(n);}\n"
         "return out;}\n"
         # a lead-in: a <p>, or a short text-only <div> (one or two lines of inline text - no
         # block, table, chart or picture inside): the intro line ('410 critical activities, in
@@ -431,7 +443,7 @@ def pagination_script():
         "function leadIn(c){if(c.tagName==='P')return true;"
         "if(c.tagName!=='DIV'||hOf(c)>HMAX||!(c.textContent||'').trim())return false;"
         "return !c.querySelector('div,p,table,svg,img,canvas,ul,ol,dl,pre,figure,section,select,textarea');}\n"
-        "function pairHeads(todo,fit){var hs=headings();for(var i=0;i<hs.length;i++){"
+        "function pairHeads(todo,fit){var hs=headings(fit);for(var i=0;i<hs.length;i++){"
         "var h=hs[i][0],b=nextBlock(h);if(!b)continue;var hh=hOf(h);"
         "if(!hs[i][1])todo.push([h,'rpt-head']);"
         "for(var c=b,d=0,led=0;c&&d<4;d++){var ch=hOf(c),tg=c.tagName;"

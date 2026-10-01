@@ -379,9 +379,14 @@ def _card_value(P, b, body):
 
 
 def _col_match(a_lines, b_lines):
+    """How many of ``b_lines`` sit in one of ``a_lines``' columns: the same left edge, right
+    edge or CENTRE (a centred column - 'Rev.00' over '24h/day' over 'Non-working' - shares
+    neither edge from row to row; STUDIO-RICH-6)."""
     hits = 0
     for l in b_lines:
-        if any(abs(l.x0 - m.x0) < 4 or abs(l.x1 - m.x1) < 4 for m in a_lines):
+        c = (l.x0 + l.x1) / 2
+        if any(abs(l.x0 - m.x0) < 4 or abs(l.x1 - m.x1) < 4 or abs(c - (m.x0 + m.x1) / 2) < 3
+               for m in a_lines):
             hits += 1
     return hits
 
@@ -418,8 +423,8 @@ class _Region:
         k = 0
         while k < len(self.rows) and k < 3 and self.rows[k].bold:
             k += 1
-        if k == len(self.rows) and len(self.rows) > 1:
-            return 0                     # every row bold: no separate header row
+        if len(self.rows) > 1 and (k == len(self.rows) or all(r.bold for r in self.rows)):
+            return 0                     # every row bold (a list of bold bars): no header row
         if strict and (any(r.bold for r in self.rows[k:])
                        or not all(re.search('[a-z]', _sig(r)) for r in self.rows[:k])):
             return 0
@@ -480,7 +485,14 @@ def _make_regions(P):
         if b.grid and not b.heading:
             last_y = max(cur.y1, pend[-1].y1) if (cur is not None and pend) else (cur.y1 if cur else 0)
             if cur is not None and b.y0 - last_y <= 24 and _col_match(cur.lines, b.lines) >= 2:
-                if b.bold and len(cur.rows) > 1 and re.search('[a-z]', _sig(b))                         and any(_sig(r) == _sig(b) for r in cur.rows):
+                # A header repeats one of the table's HEADER rows (its leading bold rows, over
+                # body rows that are not bold) and does not open with a number / date: all-bold
+                # rows sharing a signature - dated rows '07 Jan 2025 Non-working' / '25 Jan
+                # 2025 Non-working', bars 'Erection of Each Level of TR34 ...' / '... TR35 ...'
+                # - are body rows, not a header repeated (STUDIO-RICH-6)
+                hdr = cur.header_rows() if b.bold and len(cur.rows) > 1 else 0
+                if hdr and re.search('[a-z]', _sig(b)) and not re.match(r'\s*\d', b.text) \
+                        and any(_sig(r) == _sig(b) for r in cur.rows[:hdr]):
                     # the same header row again: a new table starts here, with the bold title
                     # row(s) sitting right on top of it
                     lead = []
@@ -683,8 +695,16 @@ def _figure_cut(A, B, area_top, area_bottom):
     if B.bands and min(b.y0 for b in B.bands) < clip_b - 0.5:
         return None                       # text above the graphic: it starts fresh
     wide = 0.85 * max(A.W, 1)
-    ea = [d for d in fa if abs(d.y1 - clip_a) < 0.35 and d.w < wide]
-    eb = [d for d in fb if abs(d.y0 - clip_b) < 0.35 and d.w < wide]
+
+    def panel(d, P):
+        # a long card / panel the content flows through (a bars list's card, 40 pages of
+        # bars): taller on this page than anything kept whole and holding lines of text - its
+        # background is sliced at the break like a long table's, it is not a chart (STUDIO-RICH-7)
+        return (d.y1 - d.y0 > FIT * (area_bottom - area_top)
+                and sum(1 for b in P.bands if d.x0 - 1 <= b.x0 and b.x1 <= d.x1 + 1
+                        and d.y0 - 1 <= b.y0 and b.y1 <= d.y1 + 1) >= 3)
+    ea = [d for d in fa if abs(d.y1 - clip_a) < 0.35 and d.w < wide and not panel(d, A)]
+    eb = [d for d in fb if abs(d.y0 - clip_b) < 0.35 and d.w < wide and not panel(d, B)]
     if not ea or not eb:
         return None
 
