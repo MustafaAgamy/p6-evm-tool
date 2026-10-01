@@ -7,6 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — AI Chat: charts in the answers (comment 33)
+- **Each answer now shows the one or two charts that fit its question**, right under the short answer: where the project stands (SPI, progress, days late) and progress by discipline; milestones by working days late; the critical path by area; how total float is spread; what to fix in the schedule logic; value of work planned against done by package; design approvals planned against received; client items by working days late. 14 of the 15 questions get charts; the weather question has no figures in the P6 file to chart.
+- Every chart is drawn from the tool's own numbers — the same ones the answer quotes — and follows all six appearance modes. A chart whose figures are not in the file is left out, never drawn empty.
+### Fixed — AI Chat dashboard
+- The month labels under the S-curve no longer print on top of each other near the data date, and the first and last labels stay inside the chart.
+- The Start and Finish labels of the time bar stay inside the card.
+- When the finish is late but the value of work done is ahead of plan (or the reverse), the headline now says what that means instead of only "BEHIND · SPI 1.63".
+- The Delay tile reads "+104 days" (working days) instead of "+104 wd".
+
 ### Changed — AI Chat: every answer is now short, clear and tells you what to do (comment 14)
 - **Each of the 15 answers opens with four short parts: The problem · Where it is · Why · What to do.** About 150–270 plain words instead of 2,000–10,000. It names the activity (name and ID), its area, its planned and forecast dates, and the numbers from your P6 file.
 - **Advice you can act on.** For example, instead of "aim recovery at the chain that sets the finish": "Start Drilling For Piles (CONS.PL.S9.1000) now. Ask the team responsible why it has not started and get a firm start date. Each day it waits adds a day to the finish." At most four steps, each naming the activity or the screen to use.

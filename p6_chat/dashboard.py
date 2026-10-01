@@ -359,6 +359,13 @@ def build(data, metrics):
             hbits.append('%d working days ahead of the baseline finish.' % abs(delay))
         else:
             hbits.append('On the baseline finish.')
+    # the two measures can disagree — say what that means instead of leaving 'BEHIND · SPI 1.63'
+    if delay is not None and delay > 0 and spi is not None and spi >= 1.0:
+        hbits.append('The value of work done is ahead of plan, but the finish is late: the late work is on '
+                     'the critical path. The finish date is the one to report.')
+    elif delay is not None and delay <= 0 and spi is not None and spi < 0.98:
+        hbits.append('The finish date holds, but less work is done than planned: the work behind is not on '
+                     'the critical path yet.')
     health = {
         'verdict': verdict,
         'tone': vtone,
@@ -378,8 +385,8 @@ def build(data, metrics):
          'h': ('vs %.1f%% planned' % op) if op is not None else 'vs planned',
          't': _tone_complete(oa, op)},
         {'k': 'Delay',
-         'v': ('%+d wd' % delay) if delay is not None else '—',
-         'h': 'vs baseline finish', 't': _tone_delay(delay)},
+         'v': ('%+d days' % delay) if delay is not None else '—',
+         'h': 'working days vs baseline', 't': _tone_delay(delay)},
         {'k': 'Earned value', 'v': '%.1fM' % (ev / 1e6), 'h': 'EV to date', 't': ''},
         {'k': 'Planned value', 'v': '%.1fM' % (pv / 1e6), 'h': 'PV to date', 't': ''},
     ]
