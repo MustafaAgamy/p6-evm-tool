@@ -152,3 +152,116 @@ def test_checker_still_flags_a_real_heading_under_a_table(tmp_path):
     ]
     res = pc.check_pdf(_pdf(str(tmp_path / 'ctl.pdf'), pages), headings=[_REC])
     assert ('orphaned_heading', 1) in {(f['type'], f['page']) for f in res['flags']}, res['flags']
+
+
+# ── STUDIO-RICH-9: a Word page slice that ends INSIDE a card is not a cut picture ─────────
+# The Studio .docx prints a long reused section (a Baseline Revision register / WBS tree in a
+# card) as one picture per Word page. Every slice but the last ends inside the card: only the
+# card's side borders (or the bottom line of a box closing right at the slice edge) reach the
+# picture's bottom edge, and the NEXT picture goes on with the same section. The checker read
+# each of those as 'picture_truncated' - 206 of 206 flags on the GBT rich Studio .docx, the
+# pages verified as PNG: nothing missing. A slice cut through a text line, or the LAST slice
+# of a section ending open, is still flagged.
+def _card_slice(h_px, edge='sides', w_px=900, lines=10):
+    """A page-sized slice of a card: top border, side borders running past the bottom edge,
+    ``lines`` text rows; ``edge``: 'sides' (only the side borders reach the edge), 'box' (a
+    band's bottom line on the last pixel row - the band closes there) or 'text' (a text line
+    cut by the edge)."""
+    import pymupdf
+    doc = pymupdf.open()
+    page = doc.new_page(width=w_px, height=h_px)
+    grey = (0.75, 0.78, 0.82)
+    page.draw_line((20, 8), (w_px - 20, 8), color=grey, width=1.5)
+    for x in (20, w_px - 20):
+        page.draw_line((x, 8), (x, h_px + 6), color=grey, width=1.5)
+    y = 34
+    for i in range(lines):
+        page.insert_text((36, y), 'CONS.TR28.32.SS.%04d   Install steel beams   Added   Tower %d' % (1100 + i, i),
+                         fontsize=15)
+        y += 22
+    if edge == 'box':                      # a tree band in the right column closes at the edge
+        band = pymupdf.Rect(470, h_px - 40, w_px - 40, h_px - 0.75)
+        page.draw_rect(band, color=(0.3, 0.3, 0.3), width=1.5)
+        page.insert_text((486, h_px - 16), 'Tower 33 - Machine Tower', fontsize=13)
+    elif edge == 'text':
+        page.insert_text((36, h_px + 7), 'CONS.TR28.32.SS.1170   Phase D > Delivery Bins > Chain', fontsize=15)
+    return page.get_pixmap(alpha=False).tobytes('png')
+
+
+def _docx_sections(sections, path):
+    """A .docx with one Heading 1 per section and its pictures (png list) under it."""
+    import io
+    from docx import Document
+    from docx.shared import Inches
+    d = Document()
+    for i, pics in enumerate(sections, 1):
+        d.add_heading('%d Section' % i, level=1)
+        for png in pics:
+            d.add_picture(io.BytesIO(png), width=Inches(6.3))
+    d.save(path)
+    return path
+
+
+def _truncated(path):
+    from p6_export import pagination_check as pc
+    return sorted(f['detail'].split(':')[0] for f in pc.docx_picture_flags(path)
+                  if f['type'] == 'picture_truncated')
+
+
+def test_word_slice_ending_inside_a_card_that_the_next_slice_continues_is_not_cut(tmp_path):
+    path = _docx_sections([
+        [_card_slice(300, 'sides'), _card_slice(330, 'box', lines=6), _card_slice_closed()],  # continues
+        [_card_slice(300, 'sides')],                                   # the last slice ends open
+        [_card_slice(300, 'text', lines=8), _card_slice_closed()],     # a text line cut by the edge
+    ], str(tmp_path / 'slices.docx'))
+    assert _truncated(path) == ["picture 4 under '2 Section'", "picture 5 under '3 Section'"]
+
+
+def _card_slice_closed(h_px=300, w_px=900, lines=6):
+    """The last slice of a card: the box closes with white below it (a clean end)."""
+    import pymupdf
+    doc = pymupdf.open()
+    page = doc.new_page(width=w_px, height=h_px)
+    grey = (0.75, 0.78, 0.82)
+    bottom = 34 + lines * 22
+    page.draw_rect(pymupdf.Rect(20, -4, w_px - 20, bottom), color=grey, width=1.5)
+    y = 20
+    for i in range(lines):
+        page.insert_text((36, y), 'CONS.TR33.SS.%04d   Machine tower   Moved' % (1200 + i), fontsize=15)
+        y += 22
+    return page.get_pixmap(alpha=False).tobytes('png')
+
+
+def test_word_slice_rule_pre_fix_flagged_every_continued_slice(tmp_path, monkeypatch):
+    """Without the rule (STUDIO-RICH-9 reverted) the continued slices are 'cut' as well."""
+    from p6_export import pagination_check as pc
+    path = _docx_sections([[_card_slice(300, 'sides'), _card_slice(330, 'box', lines=6),
+                            _card_slice_closed()]], str(tmp_path / 'pre.docx'))
+    assert _truncated(path) == []
+    monkeypatch.setattr(pc, '_frame_sides_only', lambda *a, **k: False)
+    assert _truncated(path) == ["picture 1 under '1 Section'", "picture 2 under '1 Section'"]
+
+
+# ── a Word layout that times out stops the Word IT started, never another Word ────────────
+def test_word_layout_timeout_stops_only_its_own_word(tmp_path, monkeypatch):
+    import subprocess
+    from p6_export import pagination_check as pc
+    calls = []
+
+    def fake_run(cmd, **kw):
+        if '--word-layout' in cmd:
+            with open(cmd[-1], 'w', encoding='ascii') as fh:    # the child records its Word
+                fh.write('4242')
+            raise subprocess.TimeoutExpired(cmd, kw.get('timeout'))
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(pc.subprocess, 'run', fake_run)
+    monkeypatch.setattr(pc.os, 'name', 'nt')
+    import pytest
+    with pytest.raises(subprocess.TimeoutExpired):
+        pc._word_layout_subprocess(str(tmp_path / 'x.docx'), 1)
+    assert calls == [['taskkill', '/PID', '4242', '/F']]
+    # no pid recorded (Word never started) -> nothing is stopped
+    calls.clear()
+    assert pc._stop_pid_in(str(tmp_path / 'missing.pid')) is False and calls == []

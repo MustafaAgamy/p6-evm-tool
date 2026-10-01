@@ -1163,10 +1163,31 @@ def spire_available():
         return False
 
 
-def word_layout(path):
+def _word_pid(word):
+    """Process id of the Word instance ``word`` (found by a unique caption on its hidden main
+    window); None on any error."""
+    try:
+        import uuid
+        import win32gui
+        import win32process
+        tag = 'cx-wl-' + uuid.uuid4().hex
+        old = word.Caption
+        word.Caption = tag
+        try:
+            hwnd = win32gui.FindWindow('OpusApp', tag)
+        finally:
+            word.Caption = old
+        return int(win32process.GetWindowThreadProcessId(hwnd)[1]) if hwnd else None
+    except Exception:
+        return None
+
+
+def word_layout(path, pid_file=None):
     """Word's own pagination of a .docx / .doc via COM: in body order, paragraphs outside
     tables (page, y, style, outline level, bold, size, keep flags, picture height), and tables
-    with the page + y of every row. No PDF export (it hangs when Word runs headless)."""
+    with the page + y of every row. No PDF export (it hangs when Word runs headless).
+    ``pid_file``: where to write the process id of the Word this call starts (so a caller that
+    gives up waiting can stop exactly that Word)."""
     import pythoncom
     import win32com.client as wc
     path = os.path.abspath(path)
@@ -1176,6 +1197,11 @@ def word_layout(path):
     try:
         word.Visible = False
         word.DisplayAlerts = 0
+        if pid_file:
+            pid = _word_pid(word)
+            if pid:
+                with open(pid_file, 'w', encoding='ascii') as fh:
+                    fh.write(str(pid))
         doc = word.Documents.Open(path, False, True, False)   # ConfirmConversions, ReadOnly, AddToRecent
         try:
             doc.Repaginate()
@@ -1568,35 +1594,22 @@ def analyze_word_layout(layout):
     return flags, info, npages
 
 
-def _word_pids():
-    """Process ids of the running Word instances (Windows; empty elsewhere / on any error)."""
-    if os.name != 'nt':
-        return set()
-    try:
-        cp = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq WINWORD.EXE', '/FO', 'CSV', '/NH'],
-                            capture_output=True, timeout=30)
-        return {int(m) for m in re.findall(r'"WINWORD\.EXE","(\d+)"', cp.stdout.decode('utf-8', 'replace'),
-                                           flags=re.I)}
-    except Exception:
-        return set()
-
-
 def _word_layout_subprocess(path, timeout):
     """Run the COM layout in its own process (a hung Word never hangs the caller)."""
     fd, out = tempfile.mkstemp(suffix='.json', prefix='cx_wl_')
     os.close(fd)
-    before = _word_pids()
+    pid_file = out + '.pid'
     try:
         try:
-            cp = subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out],
+            cp = subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out,
+                                 pid_file],
                                 timeout=timeout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                 cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         except subprocess.TimeoutExpired:
             # the child is gone but the Word it started keeps laying the document out (CPU +
-            # RAM for hours): stop the Word processes that appeared during this run
-            for pid in _word_pids() - before:
-                subprocess.run(['taskkill', '/PID', str(pid), '/F'], stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
+            # RAM for hours): stop THAT Word only (its pid was recorded by the child) - never
+            # a Word the user has open
+            _stop_pid_in(pid_file)
             raise
         if cp.returncode:
             tail = (cp.stderr or b'').decode('utf-8', 'replace').strip().splitlines()[-1:] or ['']
@@ -1604,10 +1617,29 @@ def _word_layout_subprocess(path, timeout):
         with open(out, encoding='utf-8') as fh:
             return json.load(fh)
     finally:
-        try:
-            os.remove(out)
-        except OSError:
-            pass
+        for f in (out, pid_file):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+
+def _stop_pid_in(pid_file):
+    """Force-stop the process whose id ``pid_file`` holds (nothing when it is missing)."""
+    try:
+        with open(pid_file, encoding='ascii') as fh:
+            pid = int(fh.read().strip())
+    except (OSError, ValueError):
+        return False
+    try:
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/PID', str(pid), '/F'], stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=60)
+        else:
+            os.kill(pid, 9)
+        return True
+    except Exception:
+        return False
 
 
 def _spire_to_pdf(path):
@@ -1687,7 +1719,7 @@ def check_file(path, engine='auto', headings=None, timeout=1800):
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ['--word-layout']:                    # internal: COM layout in a child process
-        res = word_layout(argv[1])
+        res = word_layout(argv[1], pid_file=argv[3] if len(argv) > 3 else None)
         with open(argv[2], 'w', encoding='utf-8') as fh:
             json.dump(res, fh, ensure_ascii=False)
         return EXIT_CLEAN
