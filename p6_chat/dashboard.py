@@ -13,7 +13,8 @@ Nothing here invents a number:
 ``build(data, metrics)`` is PURE (a parsed ScheduleData + a metrics.compute() result in, a
 plain dict out). ``build_from_snapshot(...)`` mirrors the app's report re-parse pattern
 (db.resolve → parse_file → config.json → metrics.compute → build) and is fully guarded.
-Money is reported in POUNDS MILLIONS (£M) throughout.
+Money is reported in MILLIONS of the schedule's own cost unit ("12.3M") — never with a
+currency symbol: the P6 file does not say which currency its costs are in.
 """
 import os
 import json
@@ -276,7 +277,7 @@ def _scurve(data, metrics):
             'dd_index': dd_index, 'bac_m': round(bac_total / 1e6, 4)}
 
 
-# ── gap by activity-code (PV − EV per code value, £M) ────────────────────────
+# ── gap by activity-code (PV − EV per code value, millions) ──────────────────
 
 def _gap_by_code(data):
     scopes = scope_all(data) or {}
@@ -347,7 +348,7 @@ def build(data, metrics):
 
     # ── health ──
     verdict, vtone = _verdict(spi, delay)
-    sv_m = round((ev - pv) / 1e6, 4)          # £M, negative = behind (EV < PV)
+    sv_m = round((ev - pv) / 1e6, 4)          # millions, negative = behind (EV < PV)
     hbits = []
     if oa is not None and op is not None:
         hbits.append('Earned %.1f%% against a planned %.1f%%.' % (oa, op))
@@ -379,8 +380,8 @@ def build(data, metrics):
         {'k': 'Delay',
          'v': ('%+d wd' % delay) if delay is not None else '—',
          'h': 'vs baseline finish', 't': _tone_delay(delay)},
-        {'k': 'Earned value', 'v': '£%.1fM' % (ev / 1e6), 'h': 'EV to date', 't': ''},
-        {'k': 'Planned value', 'v': '£%.1fM' % (pv / 1e6), 'h': 'PV to date', 't': ''},
+        {'k': 'Earned value', 'v': '%.1fM' % (ev / 1e6), 'h': 'EV to date', 't': ''},
+        {'k': 'Planned value', 'v': '%.1fM' % (pv / 1e6), 'h': 'PV to date', 't': ''},
     ]
 
     # ── gauges ──
