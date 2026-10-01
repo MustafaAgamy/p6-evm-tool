@@ -94,7 +94,7 @@ function drawBuilder(host, templates) {
           <button class="btn-secondary" id="sr-save-tpl">💾 Save as template</button>
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
-          <button class="btn-secondary" id="sr-word" title="Editable Word — real editable tables and text built from the same content as the PDF, so it matches closely; opens with a one-time format prompt + a 'Compatibility Mode' label (cosmetic)">⬇ Word</button>
+          <button class="btn-secondary" id="sr-word" title="Word (.docx) — editable tables and text built from the same content as the PDF, with the same page layout; chart sections are placed as pictures">⬇ Word</button>
           <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
@@ -108,7 +108,11 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-name').addEventListener('input', e => { S.name = e.target.value; });
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
-  document.getElementById('sr-word').addEventListener('click', () => doExport('doc'));
+  // Word = the real .docx built from the same content as the PDF (tables and text editable,
+  // chart sections as page-true pictures): it follows the PDF's page layout. The older
+  // Office-HTML .doc let Word re-flow the report itself (cards stacked one per line: 163
+  // pages against the PDF's 105 on a GBT update), so Word did not match the PDF.
+  document.getElementById('sr-word').addEventListener('click', () => doExport('docx', { editable: true }));
   document.getElementById('sr-excel').addEventListener('click', () => doExport('xlsx'));
   document.getElementById('sr-pdf').addEventListener('click', () => doExport('pdf'));
   document.getElementById('sr-save-tpl').addEventListener('click', doSaveTemplate);
@@ -269,7 +273,7 @@ async function saveFile(ext, mode, opts = {}) {
   const safe = (S.name || 'special-report').replace(/[^\w\- ]+/g, '').trim() || 'special-report';
   // the editable Word is a separate file from the exact copy — name it distinctly so
   // exporting both doesn't silently overwrite one with the other.
-  const base = opts.editable ? `${safe} (editable)` : safe;
+  const base = safe;
   const out = await window.pywebview.api.choose_save_path(`${base}.${ext}`, ext);
   if (!out) return false;
   const route = ext === 'docx' ? 'api/special/docx'
