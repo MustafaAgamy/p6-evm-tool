@@ -261,6 +261,9 @@ KEEP_WHOLE_SELECTORS = (
     'svg', 'img', 'canvas', 'figure', '.rpt-keep', '[data-export="tile"]', '.tile', '.kpi',
     '.vcard', '.lcard', '.grade-card', '.costcard', '.flagcard', '.chartcard', '.chartwrap',
     '.chart2', '.mvchart', '.calfig', '.mgrid-wrap', '.rc-calcard', '.seqflow > div',
+    # one bar of a before / after bars list (label + Rev.00 bar + Rev.01 bar) and one row of
+    # a diverging trade chart (name + resource id + bar) - never parted (STUDIO-RICH-4)
+    '.barow', '.rc-trow',
 )
 
 # Measured by the print-time composer: kept whole when small (<= FIT of a page), let to
@@ -305,6 +308,8 @@ def pagination_css():
         ' break-inside: avoid; page-break-inside: avoid;\n  }}\n'
         f'  {intro} {{ break-after: avoid; page-break-after: avoid; }}\n'
         '  figcaption, .figcaption, .figcap { break-before: avoid; page-break-before: avoid; }\n'
+        # a chart's legend under its bars never opens a page alone (STUDIO-RICH-4)
+        '  .rc-tdiv + .legend { break-before: avoid; page-break-before: avoid; }\n'
         '  /* 2 · charts, diagrams, pictures, KPI tiles / cards, month grids: moved whole */\n'
         f'  {keep} {{\n    break-inside: avoid; page-break-inside: avoid;\n  }}\n'
         '  /* 3 · tables: header repeated, rows never split, never 1-2 stranded rows */\n'
@@ -419,16 +424,24 @@ def pagination_script():
         "if((parseInt(cs.fontWeight,10)||400)<600&&(parseFloat(cs.fontSize)||bfs)<bfs*1.15)continue;"
         "if(sideBySide(n))continue;out.push([n,0]);seen.add(n);}\n"
         "return out;}\n"
+        # a lead-in: a <p>, or a short text-only <div> (one or two lines of inline text - no
+        # block, table, chart or picture inside): the intro line ('410 critical activities, in
+        # sequence ...') or the legend pills a renderer puts between a heading and its table /
+        # bars (STUDIO-RICH-3)
+        "function leadIn(c){if(c.tagName==='P')return true;"
+        "if(c.tagName!=='DIV'||hOf(c)>HMAX||!(c.textContent||'').trim())return false;"
+        "return !c.querySelector('div,p,table,svg,img,canvas,ul,ol,dl,pre,figure,section,select,textarea');}\n"
         "function pairHeads(todo,fit){var hs=headings();for(var i=0;i<hs.length;i++){"
         "var h=hs[i][0],b=nextBlock(h);if(!b)continue;var hh=hOf(h);"
         "if(!hs[i][1])todo.push([h,'rpt-head']);"
         "for(var c=b,d=0,led=0;c&&d<4;d++){var ch=hOf(c),tg=c.tagName;"
         # a short lead-in paragraph ("The major milestones ... are listed below") belongs to
         # the heading: it may not end the page either, so heading + lead-in + the start of
-        # the next block (a table's first rows, a chart) travel together (STUDIO-PDF-1)
-        "if(!led&&tg==='P'&&ch<=HMAX*2&&hh+ch<=fit){var s=c.nextElementSibling;"
+        # the next block (a table's first rows, a chart) travel together (STUDIO-PDF-1); up to
+        # two short lead-ins (an intro line + a row of legend pills) chain on (STUDIO-RICH-3)
+        "if(led<2&&(!led||tg==='DIV')&&ch<=HMAX*2&&hh+ch<=fit){var s=c.nextElementSibling;"
         "while(s&&!visible(s))s=s.nextElementSibling;"
-        "if(s){todo.push([c,'rpt-head']);hh+=ch;led=1;c=s;continue;}}"
+        "if(s&&leadIn(c)){todo.push([c,'rpt-head']);hh+=ch;led++;c=s;continue;}}"
         "if(hh+ch<=fit){if(tg!=='TR'&&tg!=='TBODY'&&tg!=='THEAD')todo.push([c,'rpt-fit']);break;}"
         "if(tg==='TABLE'||tg==='P'||tg==='UL'||tg==='OL'||tg==='PRE')break;"
         "c=firstBlock(c);}}}\n"

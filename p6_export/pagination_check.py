@@ -567,6 +567,16 @@ def _section_size(pages, body, firsts):
         if kind == 'heading':
             seen[round(size * 2) / 2][1] += 1
     cands = [k for k, (n, t) in seen.items() if k >= 1.2 * body and t >= max(1, 0.5 * n)]
+    # The report's LARGEST titles are its top-level sections even when they flow on under the
+    # previous one (the Reporting Studio's numbered items: ~40 % start a page). A page that
+    # ends early because the next item's opening - its title, intro and an unsplittable chart
+    # row - does not fit under it is a section break, not a pushed block (STUDIO-RICH-5).
+    common = [k for k, (n, t) in seen.items() if n >= 3]
+    if common:
+        top = max(common)
+        n, t = seen[top]
+        if top >= 1.4 * body and t >= 0.25 * n:
+            cands.append(top)
     return min(cands) if cands else float('inf')
 
 
