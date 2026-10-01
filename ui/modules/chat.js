@@ -1413,6 +1413,7 @@ function ensureV2Css() {
   .pchat-drawer mark,.pv2 mark{background:color-mix(in srgb,var(--accent) 22%,transparent);color:inherit;border-radius:3px;padding:0 1px}
   .pchat button:focus-visible,.pchat summary:focus-visible,.pchat [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .pv2-pending{display:none!important}
+  .pv2-wp{display:none}
   .pv2-in{animation:pv2in .26s ease both}
   @keyframes pv2in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){.pv2-in{animation:none}.pv2-thinking .pv2-think-sum::after{animation:none}}
@@ -1684,6 +1685,22 @@ function followTo(anchor) {
   const bottom = t.scrollHeight - t.clientHeight;
   t.scrollTop = Math.max(t.scrollTop, Math.min(bottom, top));
 }
+// How an answer is paced, like an assistant working (owner comment 15): first it visibly
+// ANALYSES — one thinking step at a time — then it WRITES the answer, the text flowing in a few
+// words at a time and the tables / chips arriving whole. A long answer writes faster so the
+// writing stays within ~6 s; Stop shows the rest at once.
+//   nSteps = thinking steps · words = total words in the text blocks · blocks = whole-block units
+export function revealPace(nSteps, words, blocks) {
+  const stepMs = nSteps > 0 ? Math.max(320, Math.min(560, Math.floor(2400 / nSteps))) : 0;
+  const settleMs = nSteps > 0 ? 420 : 0;                       // a beat before the answer starts
+  const blockMs = 90;
+  const budget = Math.max(1200, 6000 - (blocks || 0) * blockMs);
+  const chunk = words > 900 ? 6 : words > 400 ? 4 : words > 150 ? 3 : 2;      // words shown per tick
+  const ticks = Math.ceil((words || 0) / chunk);
+  const tickMs = ticks ? Math.max(12, Math.min(55, Math.floor(budget / ticks))) : 0;
+  return { stepMs, settleMs, blockMs, chunk, tickMs };
+}
+
 function revealV2(card, anchor) {
   if (REVEAL) REVEAL.finish();
   if (reducedMotion()) { followTo(anchor); return; }
@@ -1692,6 +1709,17 @@ function revealV2(card, anchor) {
   const sum = think ? think.querySelector('.pv2-think-sum') : null;
   const finalSum = sum ? sum.textContent : '';
   const units = [...card.querySelectorAll('.pv2-rv')];
+  // a text block (the verdict, a paragraph, a lead line) is written word by word; the rest whole
+  const isText = (u) => u.tagName === 'P';
+  const wordsOf = new Map();
+  let totalWords = 0;
+  units.forEach((u) => {
+    if (!isText(u)) return;
+    const w = []; wrapWords(u, w);
+    w.forEach((x) => x.classList.add('pv2-wp'));
+    wordsOf.set(u, w); totalWords += w.length;
+  });
+  const pace = revealPace(steps.length, totalWords, units.length - wordsOf.size);
   const timers = [];
   let done = false;
   const collapse = () => { if (think) { think.open = false; think.classList.remove('pv2-thinking'); if (sum) sum.textContent = finalSum; } };
@@ -1699,6 +1727,7 @@ function revealV2(card, anchor) {
     if (done) return; done = true;
     timers.forEach(clearTimeout);
     steps.concat(units).forEach((u) => u.classList.remove('pv2-pending'));
+    card.querySelectorAll('.pv2-wp').forEach((x) => x.classList.remove('pv2-wp'));
     collapse();
     if (REVEAL && REVEAL.card === card) REVEAL = null;
     refreshSendButton();
@@ -1709,15 +1738,24 @@ function revealV2(card, anchor) {
   if (think) {
     think.open = true; think.classList.add('pv2-thinking');
     steps.forEach((s) => s.classList.add('pv2-pending'));
-    if (sum) sum.textContent = 'Analysing your file…';
+    if (sum) sum.textContent = 'Analysing your P6 file…';
   }
   const show = (u) => { u.classList.remove('pv2-pending'); u.classList.add('pv2-in'); followTo(anchor); };
   const at = (ms, fn) => timers.push(setTimeout(() => { if (!done) fn(); }, ms));
   let t = 0;
-  steps.forEach((s) => { t += 220; at(t, () => show(s)); });
-  if (think) { t += 280; at(t, collapse); }
-  const gap = units.length ? Math.max(45, Math.min(120, Math.floor(4200 / units.length))) : 120;   // long answers stay under ~4 s
-  units.forEach((u) => { t += gap; at(t, () => show(u)); });
+  steps.forEach((s) => { t += pace.stepMs; at(t, () => show(s)); });
+  if (think) { t += pace.settleMs; at(t, collapse); }
+  units.forEach((u) => {
+    const w = wordsOf.get(u);
+    t += pace.blockMs;
+    at(t, () => show(u));
+    if (!w || !w.length) return;
+    for (let i = 0; i < w.length; i += pace.chunk) {            // the text flows in
+      const part = w.slice(i, i + pace.chunk);
+      t += pace.tickMs;
+      at(t, () => { part.forEach((x) => x.classList.remove('pv2-wp')); followTo(anchor); });
+    }
+  });
   at(t + 20, finish);
   followTo(anchor);
 }

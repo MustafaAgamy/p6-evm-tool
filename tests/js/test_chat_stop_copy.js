@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { answerPlainText, sendButtonState, failNote, STOP_NOTE, COPY_BAR } from '../../ui/modules/chat.js';
+import { answerPlainText, sendButtonState, failNote, STOP_NOTE, COPY_BAR, revealPace } from '../../ui/modules/chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(__dirname, '..', '..', 'ui', 'modules', 'chat.js'), 'utf8');
@@ -99,6 +99,32 @@ test('the rest of the Claude-like flow is still there', () => {
   assert.ok(src.includes('function revealV2(card, anchor)'));                            // the answer is revealed in steps
   assert.ok(src.includes('<span class="pv2-chiplbl">Drill in</span>'));                  // follow-up suggestions
   assert.ok(src.includes("if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }"));
+});
+
+test('it visibly analyses first, then writes the answer a few words at a time', () => {
+  // thinking: one step at a time, slow enough to read, about 2.4 s for a normal answer
+  const p = revealPace(4, 300, 6);
+  assert.equal(p.stepMs, 560);
+  assert.ok(p.settleMs > 0);
+  assert.equal(revealPace(8, 300, 6).stepMs, 320);            // many steps: quicker, never a blur
+  assert.equal(revealPace(0, 300, 6).stepMs, 0);              // nothing to think about → straight to the answer
+  // writing: a few words per tick, a tick people can follow
+  assert.ok(p.chunk >= 2 && p.tickMs >= 12 && p.tickMs <= 55);
+  // a long answer writes faster, so the writing stays within about six seconds
+  for (const [w, b] of [[60, 2], [300, 6], [1200, 10], [5000, 30]]) {
+    const q = revealPace(4, w, b);
+    const total = 4 * q.stepMs + q.settleMs + b * q.blockMs + Math.ceil(w / q.chunk) * q.tickMs;
+    assert.ok(total <= 4 * 560 + 420 + 9000 + 5000 * 12 / 6 + 1, `${w} words → ${total} ms`);
+    if (w <= 1200) assert.ok(total <= 12500, `${w} words → ${total} ms`);
+  }
+  assert.ok(revealPace(4, 5000, 30).chunk > revealPace(4, 60, 2).chunk);
+  // wired: words are hidden then shown; Stop / finish shows them all
+  const rv = src.slice(src.indexOf('function revealV2(card, anchor)'), src.indexOf('function libCount()'));
+  assert.ok(rv.includes("wrapWords(u, w)") && rv.includes("classList.add('pv2-wp')"));
+  assert.ok(rv.includes("card.querySelectorAll('.pv2-wp').forEach((x) => x.classList.remove('pv2-wp'))"));
+  assert.ok(rv.includes('Analysing your P6 file…'));
+  assert.ok(rv.includes('if (reducedMotion()) { followTo(anchor); return; }'));      // no animation when the PC asks for none
+  assert.ok(src.includes('.pv2-wp{display:none}'));
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
