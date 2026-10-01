@@ -293,10 +293,19 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
     name = series_name or (title or 'Series 1')
     lbl_fmt = (f'<c:numFmt formatCode="{_xesc(num_fmt)}" sourceLinked="0"/>'
                if num_fmt else '')
-    dlbls = (f'<c:dLbls>{lbl_fmt}<c:dLblPos val="outEnd"/>'
+    lbl_pt, lbl_rot, ax_max, ax_unit = (_bar_label_fit(vals, num_fmt) if data_labels
+                                        else (None, 0, None, None))
+    lbl_tx = ('' if lbl_pt is None else
+              f'<c:txPr><a:bodyPr rot="{lbl_rot}" vert="horz"/><a:lstStyle/><a:p><a:pPr>'
+              f'<a:defRPr sz="{int(round(lbl_pt * 100))}"/></a:pPr><a:endParaRPr lang="en-US"/>'
+              f'</a:p></c:txPr>')
+    dlbls = (f'<c:dLbls>{lbl_fmt}{lbl_tx}<c:dLblPos val="outEnd"/>'
              f'<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
              f'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
              if data_labels else '')
+    # a raised axis starts at 0 with a round major unit (a max alone let Word start it at -1000)
+    val_max = f'<c:max val="{ax_max:g}"/><c:min val="0"/>' if ax_max else ''
+    val_unit = f'<c:majorUnit val="{ax_unit:g}"/>' if ax_unit else ''
 
     def build(rid):
         dpts = ''.join(
@@ -314,12 +323,45 @@ def add_bar_chart(document, categories, values, title, color='2E75B6', series_na
             f'<c:axId val="111"/><c:axId val="222"/></c:barChart>'
             f'<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
             f'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/></c:catAx>'
-            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
-            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/></c:valAx>'
+            f'<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/>{val_max}</c:scaling>'
+            f'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/>{val_unit}</c:valAx>'
             f'</c:plotArea><c:plotVisOnly val="1"/></c:chart>{_external_data(rid)}'
             f'</c:chartSpace>')
 
     return _inject(document, build, cats, [(name, vals)])
+
+
+_PLOT_W_PT, _PLOT_H_PT = 400.0, 190.0    # the plot area of a _CX x _CY chart, roughly
+
+
+def _bar_label_fit(vals, num_fmt=None):
+    """Data-label size / rotation for a column chart whose every bar carries its value:
+    ``(None, 0, None, None)`` when Word's default 10 pt labels fit side by side; ``(pt, 0,
+    None, None)`` with a smaller size (>= 7 pt) when that fits; else ``(7.5, -5400000, max,
+    unit)`` — labels turned upright (like the PDF's cash-flow bars) with the value axis
+    raised to ``max`` (from 0, major ``unit``) so the tallest bar's label stays inside the
+    plot. Many months of 5-6 digit man-hours printed their labels over each other ('5,938'
+    '5,913' '6,124' - GBT Word §13.1, NARRFIX)."""
+    vals = [float(v) for v in vals]
+    if not vals:
+        return None, 0, None, None
+    texts = [('{:,.0f}'.format(v) if num_fmt else '%g' % v) for v in vals]
+    chars = max(len(t) for t in texts)
+    slot = _PLOT_W_PT / len(vals) - 3.0             # room per bar, less a small gap
+    per = chars * 0.55                              # label width per 1 pt of font
+    if 10.0 * per <= slot:
+        return None, 0, None, None
+    if 7.0 * per <= slot:
+        return round(slot / per * 2) / 2.0, 0, None, None
+    top = max(vals)
+    if top <= 0 or min(vals) < 0:
+        return 7.5, -5400000, None, None
+    room = (chars * 7.5 * 0.55 + 10.0) / _PLOT_H_PT  # the upright label's height, as a share
+    need = top / max(1.0 - room, 0.4)
+    raw = need / 7.0                                 # about 6-7 gridlines
+    mag = 10 ** math.floor(math.log10(raw))
+    unit = next(m * mag for m in (1, 2, 2.5, 5, 10) if m * mag >= raw)
+    return 7.5, -5400000, float(math.ceil(need / unit) * unit), float(unit)
 
 
 def add_bar_chart_stacked(document, categories, series, title):
@@ -476,18 +518,21 @@ def _next_id(document):
         return 1
 
 
-def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='roundRect'):
+def _wps_box(counter, name, x, y, w, h, fill, line, tcol, text, sz=17, prst='roundRect',
+             adj=None):
     """One filled text-box shape (a WBS node or a chevron). ``counter`` is a
-    one-item list used as a mutable shape-id allocator."""
+    one-item list used as a mutable shape-id allocator. ``adj`` sets the preset's
+    adjust value (a chevron's / home-plate's notch depth, 1/100000 of min(w, h))."""
     sid = counter[0]
     counter[0] += 1
     ln = (f'<a:ln w="9525"><a:solidFill><a:srgbClr val="{line}"/></a:solidFill></a:ln>'
           if line else '<a:ln><a:noFill/></a:ln>')
+    av = f'<a:gd name="adj" fmla="val {int(adj)}"/>' if adj is not None else ''
     return (
         f'<wps:wsp><wps:cNvPr id="{sid}" name="{_xesc(name) or ("Shape %d" % sid)}"/>'
         f'<wps:cNvSpPr/>'
         f'<wps:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{w}" cy="{h}"/></a:xfrm>'
-        f'<a:prstGeom prst="{prst}"><a:avLst/></a:prstGeom>'
+        f'<a:prstGeom prst="{prst}"><a:avLst>{av}</a:avLst></a:prstGeom>'
         f'<a:solidFill><a:srgbClr val="{fill}"/></a:solidFill>{ln}</wps:spPr>'
         f'<wps:txbx><w:txbxContent><w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
         f'<w:r><w:rPr><w:b/><w:color w:val="{tcol}"/><w:sz w:val="{sz * 2}"/>'
@@ -771,6 +816,9 @@ def add_process(document, steps):
         return None
 
 
+_CHEVRON_NOTCH_PX = 14            # = util.chevron_layout(notch=) and html._chevrons' notch
+
+
 def add_chevron_flow(document, labels, palette=None):
     """Native HORIZONTAL chevron flow for §11 Sequence of Work — a home-plate first step
     then chevrons, in the blue sequence palette, white centred labels.
@@ -807,10 +855,14 @@ def add_chevron_flow(document, labels, palette=None):
                 # layout's per-shape font converted px→pt (font_px·0.75), so the shrink the
                 # layout already chose is honoured 1:1 with the SVG.
                 sz = max(int(round(it['font_px'] * 0.75)), 1)
+                # the notch as deep as the SVG's (14 px): Word's default (half the shape's
+                # height) narrowed a chevron's text area below the layout's, so a word that
+                # fits the SVG broke mid-word ('Column / s' - GBT Word §11, NARRFIX)
+                adj = int(round(100000.0 * _CHEVRON_NOTCH_PX / max(min(it['w'], it['h']), 1)))
                 shapes.append(_wps_box(
                     counter, it['label'], _emu(it['x']), _emu(it['y']),
                     _emu(it['w']), _emu(it['h']), col, None, 'FFFFFF',
-                    it['label'], sz=sz, prst=prst))
+                    it['label'], sz=sz, prst=prst, adj=adj))
         w_emu, h_emu = _emu(lay['width']), _emu(lay['height'])
         # The layout already fits max_width_px; _fit_display is a no-op unless the group still
         # exceeds the page (safety), so multiple rows keep their real size rather than crushing.
@@ -874,6 +926,9 @@ def add_hbar(document, categories, values, title, color='1F4E79', name='Series',
     return _inject(document, build, cats, [(name, vals)])
 
 
+LAST_LABEL_SHIFT_X = -0.04   # the S-curve end label moves left by 4 % of the chart width
+
+
 def add_cashflow_combo(document, categories, bar_vals, line_vals, title,
                        bar_color='1F4E79', line_color='E8A33D',
                        bar_name='Monthly value of work', line_name='Cumulative',
@@ -901,12 +956,26 @@ def add_cashflow_combo(document, categories, bar_vals, line_vals, title,
     bar_txpr = ('<c:txPr><a:bodyPr rot="-5400000" vert="horz"/><a:lstStyle/>'
                 '<a:p><a:pPr><a:defRPr sz="700" b="1"/></a:pPr>'
                 '<a:endParaRPr lang="en-US"/></a:p></c:txPr>')
-    bar_dlbls = (f'<c:dLbls>{fmt}{bar_txpr}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/>'
+    # a sliver column (under 2 % of the tallest) carries no label: its '0M' / '1M' sat on the
+    # axis where the S-curve runs and was struck through (GBT Word p46, NARRFIX) - the same
+    # columns as the PDF twin (util.bar_label_shown)
+    from p6_narrative.util import bar_label_shown
+    bar_off = ''.join(f'<c:dLbl><c:idx val="{i}"/><c:delete val="1"/></c:dLbl>'
+                      for i, v in enumerate(bvals) if not bar_label_shown(v, bvals))
+    bar_dlbls = (f'<c:dLbls>{bar_off}{fmt}{bar_txpr}<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/>'
                  '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
                  '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
     if label_last_only:
         per = ''.join(f'<c:dLbl><c:idx val="{i}"/><c:delete val="1"/></c:dLbl>'
                       for i in range(len(lvals) - 1))
+        # the end-point label (the total, e.g. '916M') sits above its point and LEFT of it: the
+        # last point is next to the right-hand axis, and centred on it the label was drawn over
+        # that axis line and its ticks (GBT Word p46, NARRFIX) - the PDF twin anchors it 'end'
+        per += (f'<c:dLbl><c:idx val="{len(lvals) - 1}"/><c:layout><c:manualLayout>'
+                f'<c:x val="{LAST_LABEL_SHIFT_X:g}"/><c:y val="0"/></c:manualLayout></c:layout>'
+                f'{fmt}<c:dLblPos val="t"/><c:showLegendKey val="0"/><c:showVal val="1"/>'
+                '<c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/>'
+                '<c:showBubbleSize val="0"/></c:dLbl>')
         line_dlbls = (f'<c:dLbls>{per}{fmt}<c:dLblPos val="t"/><c:showLegendKey val="0"/>'
                       '<c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/>'
                       '<c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>')
@@ -1164,6 +1233,7 @@ def add_doughnut(document, categories, values, title=None, num_fmt='#,##0', unit
     if ctotal is None:
         ctotal = val_total
     try:
+        from p6_narrative.util import ring_label_spot
         W, H, cx, cy, R, ri = 760.0, 330.0, 205.0, 165.0, 124.0, 73.0
         w_emu, h_emu = _emu(W), _emu(H)
         palette = ramp_colors(cats)
@@ -1186,16 +1256,19 @@ def add_doughnut(document, categories, values, title=None, num_fmt='#,##0', unit
             mid = (a0 + a1) / 2.0
             sectors.append(_annular_sector(nid(), cats[i], cx, cy, R, ri, a0, a1,
                                            w_emu, h_emu, col))
-            if p >= 15.0:                        # dominant slice → label ON the ring
-                lx, ly = _pt(cx, cy, (R + ri) / 2.0, mid)
+            spot = (ring_label_spot(_clip(cats[i], 18), '%s%%' % _pct_str(p),
+                                    cx, cy, R, ri, a0, a1) if p >= 15.0 else None)
+            if spot:                             # dominant slice → label ON the ring
+                ang, npx, ppx, k = spot          # (where it fits inside its slice - util)
+                lx, ly = _pt(cx, cy, (R + ri) / 2.0, ang)
                 nm = _clip(cats[i], 18)
                 ring_labels.append(_center_text(
-                    nid(), 'ring-name', lx, ly - 5 - 15 * 0.34,
-                    _est_w(nm, 15), 15 * 1.8, [(nm, _hp(15), True, 'FFFFFF')]))
+                    nid(), 'ring-name', lx, ly - 5 * k - npx * 0.34,
+                    _est_w(nm, npx), npx * 1.8, [(nm, _hp(npx), True, 'FFFFFF')]))
                 ptxt = '%s%%' % _pct_str(p)
                 ring_labels.append(_center_text(
-                    nid(), 'ring-pct', lx, ly + 15 - 17 * 0.34,
-                    _est_w(ptxt, 17), 17 * 1.8, [(ptxt, _hp(17), True, 'FFFFFF')]))
+                    nid(), 'ring-pct', lx, ly + 15 * k - ppx * 0.34,
+                    _est_w(ptxt, ppx), ppx * 1.8, [(ptxt, _hp(ppx), True, 'FFFFFF')]))
             else:
                 smalls.append((i, col, mid, p))
 
@@ -1615,18 +1688,30 @@ _HTREE_BOX_W, _HTREE_BOX_H = 140, 32
 _H_MAX_NODES, _H_MAX_LABEL, _H_MAX_DEPTH = 10, 24, 3
 
 
-def _wbs_vertical(document, seq, base, max_depth):
+def _wbs_vertical(document, seq, base, max_depth, r0=0, r1=None):
     """VERTICAL indented WBS tree (the approved overview / big-branch layout): every node on its
     own ROW, indented by ``level - base``, joined to its children by one gutter ELBOW (a single
     vertical line down the gutter plus a horizontal stub into each child's left edge). ``seq`` is
-    the DFS record list (``{'node','level','row'}``). Returns the drawing element or ``None``."""
+    the DFS record list (``{'node','level','row'}``). Returns the drawing element or ``None``.
+
+    ``r0`` / ``r1`` draw only the rows ``[r0, r1)`` — one PART of a tall tree (see
+    :func:`_wbs_vertical_parts`): a connector that comes from a parent in an earlier part runs
+    in from the part's top edge, one that goes on to a child in a later part runs out of its
+    bottom edge, so the stacked parts read as one continuous tree."""
     rec_by_id = {id(r['node']): r for r in seq}
+    r1 = len(seq) if r1 is None else r1
+    # where two parts meet, each keeps only half the usual gap between rows, so the rows run
+    # on at their normal pitch across the join (the outer edges keep the full padding)
+    join = (_TREE_ROW_H - _TREE_BOX_H) / 2.0
+    top_pad = _TREE_PAD if r0 == 0 else join
+    bot_pad = _TREE_PAD if r1 >= len(seq) else join
+    total_h = top_pad + (r1 - r0 - 1) * _TREE_ROW_H + _TREE_BOX_H + bot_pad
 
     def x_of(level):
         return _TREE_PAD + (level - base) * _TREE_INDENT
 
     def y_of(row):
-        return _TREE_PAD + row * _TREE_ROW_H
+        return top_pad + (row - r0) * _TREE_ROW_H
 
     counter = [_next_id(document)]
     base_id = counter[0]
@@ -1637,21 +1722,25 @@ def _wbs_vertical(document, seq, base, max_depth):
     for rec in seq:
         kids = rec['node'].get('children') or []
         child_recs = [rec_by_id[id(k)] for k in kids if id(k) in rec_by_id]
-        if not child_recs:
-            continue
+        if not child_recs or rec['row'] >= r1 or child_recs[-1]['row'] < r0:
+            continue                    # no link, or the link lies wholly in another part
         gutter_x = x_of(rec['level']) + _TREE_GUTTER
-        parent_bottom = y_of(rec['row']) + _TREE_BOX_H
-        last_center = y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+        parent_bottom = y_of(rec['row']) + _TREE_BOX_H if rec['row'] >= r0 else 0
+        last_center = (y_of(child_recs[-1]['row']) + _TREE_BOX_H / 2.0
+                       if child_recs[-1]['row'] < r1 else total_h)
         # vertical line: just below the parent → last child's vertical centre
-        shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
-                                0, _emu(last_center - parent_bottom), _WBS_LINE))
+        if last_center > parent_bottom:
+            shapes.append(_wps_line(counter, _emu(gutter_x), _emu(parent_bottom),
+                                    0, _emu(last_center - parent_bottom), _WBS_LINE))
         # horizontal stub into each child's left edge
         for cr in child_recs:
+            if not r0 <= cr['row'] < r1:
+                continue
             cy = y_of(cr['row']) + _TREE_BOX_H / 2.0
             shapes.append(_wps_line(counter, _emu(gutter_x), _emu(cy),
                                     _emu(x_of(cr['level']) - gutter_x), 0, _WBS_LINE))
     # boxes (colour-coded by ABSOLUTE WBS level: lv0 navy … lv4 white, clamped)
-    for rec in seq:
+    for rec in seq[r0:r1]:
         lvl = rec['level']
         fill, border, tcol = _WBS_TREE_LEVELS[min(max(lvl, 0), len(_WBS_TREE_LEVELS) - 1)]
         nm = rec['node'].get('name') or ''
@@ -1660,8 +1749,60 @@ def _wbs_vertical(document, seq, base, max_depth):
             _emu(_TREE_BOX_W), _emu(_TREE_BOX_H), fill, border, tcol, nm, sz=10))
 
     total_w = _TREE_PAD + max_depth * _TREE_INDENT + _TREE_BOX_W + _TREE_PAD
-    total_h = _TREE_PAD + (len(seq) - 1) * _TREE_ROW_H + _TREE_BOX_H + _TREE_PAD
     return _group_drawing(document, ''.join(shapes), base_id, _emu(total_w), _emu(total_h))
+
+
+def _tree_part_rows(document):
+    """Rows one PART of a tall vertical tree may hold: about a third of the page body (the
+    shared pagination FIT), so a part that does not fit the rest of a page moves to the next
+    one leaving at most a third of a page blank (owner point 14)."""
+    try:
+        from p6_export.docx_pagination import FIT, _body_height_pt
+        limit_px = _body_height_pt(document) * FIT / 0.75
+    except Exception:                       # pragma: no cover - the shared layer ships
+        limit_px = 340.0
+    return max(6, int((limit_px - 2 * _TREE_PAD - _TREE_BOX_H) / _TREE_ROW_H) + 1)
+
+
+def _tree_parts(seq, max_rows):
+    """Split the DFS rows into balanced parts of at most ~``max_rows``: a part never ends on a
+    node whose first child would open the next part (a label stays with its first child) and
+    never leaves a tail of 1-2 rows."""
+    n = len(seq)
+    if n <= max_rows:
+        return [(0, n)]
+    size = int(math.ceil(n / math.ceil(n / float(max_rows))))
+    parts, r0 = [], 0
+    while r0 < n:
+        r1 = min(n, r0 + size)
+        if 0 < n - r1 < 3:              # never a 1-2 row tail: this part hands it rows
+            r1 = max(r0 + 3, n - 3)
+        while r1 < n and r1 - r0 > 3 and seq[r1 - 1]['node'].get('children'):
+            r1 -= 1
+        parts.append((r0, r1))
+        r0 = r1
+    return parts
+
+
+def _wbs_vertical_parts(document, seq, base, max_depth):
+    """The vertical tree as ONE drawing when it is short, else as stacked PARTS (each about a
+    third of a page, joined edge to edge with no paragraph spacing) so Word can continue a
+    tall tree on the next page instead of pushing the whole drawing there and leaving the page
+    above it blank (the Word twin of the PDF rule, finding NARR-PDF-4). Returns the first
+    drawing or ``None``."""
+    parts = _tree_parts(seq, _tree_part_rows(document))
+    if len(parts) == 1:
+        return _wbs_vertical(document, seq, base, max_depth)
+    first = None
+    for r0, r1 in parts:
+        drawing = _wbs_vertical(document, seq, base, max_depth, r0, r1)
+        if drawing is None:
+            return first
+        pf = document.paragraphs[-1].paragraph_format
+        pf.space_before = pf.space_after = Emu(0)
+        pf.line_spacing = 1.0
+        first = first if first is not None else drawing
+    return first
 
 
 def _wbs_horizontal(document, root):
@@ -1801,6 +1942,6 @@ def add_wbs_tree(document, nodes):
                 if drawing is not None:
                     return drawing
 
-        return _wbs_vertical(document, seq, base, max_depth)
+        return _wbs_vertical_parts(document, seq, base, max_depth)
     except Exception:                       # pragma: no cover - never crash the export
         return None

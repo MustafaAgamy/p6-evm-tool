@@ -301,15 +301,21 @@ def _cp_widths(prev, curr, div):
             return d if d > 0 else 30
         except Exception:
             return 30
+    def _floor(s):
+        # room for the block's own name on about two lines (it wraps inside the block; a
+        # 58 px block used to CUT a long name - 'Above Silos From S6 Till S10 …' read 'Above')
+        n = len(str(s.get('key') or ''))
+        return min(150, max(58, int(n * 6.2 / 2) + 14))
     pd = div if div <= len(curr) else len(curr)
     prefix = [_days(curr[i]) for i in range(pd)]
     curr_tail = [_days(s) for s in curr[pd:]]
     prev_tail = [_days(s) for s in prev[div:]] if div <= len(prev) else []
     widest = max(sum(prefix) + sum(curr_tail), sum(prefix) + sum(prev_tail), 1)
     scale = 620.0 / widest
-    px = lambda w: max(58, round(w * scale))
-    pre = [px(w) for w in prefix]
-    return pre + [px(w) for w in prev_tail], pre + [px(w) for w in curr_tail]
+    px = lambda w, s: max(_floor(s), round(w * scale))
+    pre = [px(w, curr[i]) for i, w in enumerate(prefix)]
+    return (pre + [px(w, s) for w, s in zip(prev_tail, prev[div:])],
+            pre + [px(w, s) for w, s in zip(curr_tail, curr[pd:])])
 
 
 def _cp_chain_html(segs, widths, div, tail_role, flag_role, finish_date):
@@ -659,22 +665,25 @@ def _milestone_drift_svg(report):
     tmin, tmax = min(ords), max(ords)
     if tmin == tmax:
         tmin, tmax = tmin - 15, tmax + 15
-    x0, x1, rowh, top = 168, 905, 24, 14
+    # drawn 700 units wide (was 940): on the Reporting Studio's portrait page the 940-wide chart
+    # was scaled to 68 % and its labels printed at 4 pt; 700 keeps them near 7 pt there and the
+    # landscape report still shows it at natural size (max-height stops it growing)
+    x0, x1, rowh, top = 196, 680, 24, 14
     n = len(rows)
     h = top + n * rowh + 22
     xat = lambda t: x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin))
     od = lambda iso: datetime.strptime(iso, '%Y-%m-%d').toordinal()
-    trunc = lambda s: (s[:26] + '…') if s and len(s) > 27 else (s or '')
+    trunc = lambda s: (s[:35] + '…') if s and len(s) > 36 else (s or '')
     parts = []
     for k in range(5):
         t = tmin + (tmax - tmin) * k / 4
         x = xat(t)
         parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{top + n * rowh:.0f}" stroke="var(--rpt-chart-grid)"/>'
-                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="8" fill="var(--rpt-chart-axis)">'
+                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="9.5" fill="var(--rpt-chart-axis)">'
                      f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
     for i, r in enumerate(rows):
         y = top + i * rowh + 12
-        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="8.5" fill="var(--rpt-ink)">{_e(trunc(r.get("name")))}</text>')
+        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="10" fill="var(--rpt-ink)">{_e(trunc(r.get("name")))}</text>')
         xs = [xat(od(r[k])) for k in ('baseline_iso', 'prev_iso', 'curr_iso') if r.get(k)]
         if len(xs) >= 2:
             parts.append(f'<line x1="{min(xs):.0f}" y1="{y}" x2="{max(xs):.0f}" y2="{y}" stroke="var(--rpt-chart-grid)"/>')
@@ -688,7 +697,7 @@ def _milestone_drift_svg(report):
               + (' · approx' if report.get('baseline_approx') else '') + '</span>'
               '<span><i style="background:var(--rpt-warn);border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
               '<span><i style="background:var(--rpt-bad);border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
-    return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
+    return legend + f'<svg viewBox="0 0 700 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
 
 
 _SECTION_LABELS = [
@@ -788,8 +797,11 @@ def render_html(report, trend=None, sections=None, code_filter=None,
       .cpconcl.good {{ background: var(--rpt-good-bg); color: var(--rpt-good); }} .cpconcl.warn {{ background: var(--rpt-warn-bg); color: var(--rpt-warn); }}
       .cpconcl .cpic {{ font-size: 15px; line-height: 1.2; }}
       .cprowlbl {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); margin: 2px 0 5px; }}
-      .cpchain {{ display: flex; align-items: stretch; margin-bottom: 4px; }}
-      .cpblk {{ flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 44px; border-radius: 7px; font-weight: 700; font-size: 11px; padding: 0 4px; text-align: center; overflow: hidden; }}
+      /* the chain WRAPS onto a second line when the page is narrower than the chain (the Reporting
+         Studio's portrait page: a 1 000 px chain overflowed the 688 px page and Chrome shrank the
+         WHOLE document to 67 %); a block grows in height so its full name shows, never cut */
+      .cpchain {{ display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; margin-bottom: 4px; }}
+      .cpblk {{ flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 44px; border-radius: 7px; font-weight: 700; font-size: 11px; line-height: 1.15; padding: 3px 5px; text-align: center; overflow-wrap: anywhere; break-inside: avoid; }}
       .cpblk small {{ font-weight: 600; font-size: 9px; opacity: .85; margin-top: 1px; }}
       .cpblk.shared {{ background: var(--rpt-accent-soft); color: var(--rpt-accent); }} .cpblk.new {{ background: var(--rpt-bad-bg); color: var(--rpt-bad); }} .cpblk.gone {{ background: var(--rpt-surface-2); color: var(--rpt-muted); text-decoration: line-through; }}
       .cparw {{ flex: none; display: flex; align-items: center; color: var(--rpt-muted); font-weight: 900; font-size: 14px; padding: 0 4px; }} .cparw.new {{ color: var(--rpt-bad); }}

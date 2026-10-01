@@ -724,6 +724,44 @@ def _pnum(v):
     return str(v)
 
 
+# ── "Where the problems are" | "Fix these first" (finding HEALTH-PDF-1) ────────────
+# The two side-by-side columns fragment independently in print, and at a page bottom
+# Chrome left 3 discipline bars and ONE of the five fix items under the two headings,
+# with the rest on the next page. Each column now starts protected: a heading always
+# travels with its first 3 bars, the short "Fix these first" list (<= 6 items) is kept
+# whole with its heading, every bar / fix row is whole, and the last 3 bars stay
+# together - so a column that continues on the next page never leaves fewer than 3 rows
+# on either page. The layout (one flex row, two columns) is unchanged on screen.
+_FIX_KEEP_MAX = 6          # a "Fix these first" list longer than this is not kept whole
+
+
+def _keep(inner):
+    return f'<div class="rpt-keep">{inner}</div>' if inner else ''
+
+
+def _column(head, rows, fallback, first):
+    """A column: heading + its first ``first`` rows kept together, then the other rows
+    (whole), the last 3 kept together; no rows -> heading + the fallback line."""
+    if not rows:
+        return _keep(head + fallback)
+    if len(rows) <= first + 3:
+        return _keep(head + ''.join(rows))
+    return (_keep(head + ''.join(rows[:first])) + ''.join(rows[first:-3])
+            + _keep(''.join(rows[-3:])))
+
+
+def _problems_fixes_grid(problems, fixes):
+    """``problems`` / ``fixes`` = (heading html, row htmls, fallback html) or None when
+    the part is unticked in the Report Contents picker."""
+    cells = []
+    if problems:
+        cells.append(_column(*problems, first=3))
+    if fixes:
+        cells.append(_column(*fixes, first=_FIX_KEEP_MAX))
+    return (f'<div class="grid2">{"".join(f"<div>{c}</div>" for c in cells)}</div>'
+            if cells else '')
+
+
 def render_summary_report(health, meta, sections=None, modules=None, completion_float=None, theme='light'):
     """Standalone PDF for the Schedule Health Review Summary — the weighted roll-up.
     Mirrors the on-screen dashboard exactly: overall score + verdict, checks-status
@@ -821,22 +859,20 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     # Where the problems are — horizontal bars (defect share), like the screen.
     areas = (h.get('problem_areas', {}) or {}).get('areas', [])
     pa_max = max([1.0] + [(a.get('pct') or 0) for a in areas])
-    problem_bars = ''.join(
+    bar_rows = [
         f'<div class="wb"><div class="l" title="{_esc(a.get("name"))}">{_esc(a.get("name"))}</div>'
         f'<div class="wbt"><i style="width:{round(100.0 * (a.get("pct") or 0) / pa_max)}%;'
         f'background:{_BAD if i == 0 else (_WARN if i < 3 else _ACC)}"></i></div>'
-        f'<div class="c">{_pnum(a.get("pct"))}%</div></div>' for i, a in enumerate(areas)) \
-        or '<div class="empty2">No findings to place — the logic is clean.</div>'
+        f'<div class="c">{_pnum(a.get("pct"))}%</div></div>' for i, a in enumerate(areas)]
 
     # Fix these first — ranked list with a lift badge, like the screen.
     fixes = h.get('fix_first', [])
-    fix_list = ''.join(
+    fix_rows = [
         f'<div class="fix"><div class="rk">{i + 1}</div>'
         f'<div class="fx"><b>{_esc(f.get("name"))} {_pnum(f.get("score"))}%</b> '
         f'<span class="sub">(wt {_pnum(f.get("weight"))})</span>'
         f'<div class="sub">{_esc(f.get("recommendation"))}</div></div>'
-        f'<span class="lift">+~{_pnum(f.get("lift"))}</span></div>' for i, f in enumerate(fixes)) \
-        or '<div class="empty2">Every check is at target — nothing to fix first.</div>'
+        f'<span class="lift">+~{_pnum(f.get("lift"))}</span></div>' for i, f in enumerate(fixes)]
 
     # ── Report-content selector (Preview = PDF = Print): render only ticked parts ──
     sel = set(sections) if sections else None
@@ -873,21 +909,21 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     if on('composition'):
         composition_html = (
             '<h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>'
-            f'<div class="comp">{comp}{comp_total}</div>'
+            # rpt-keep: the ~11-row score list prints whole (a div grid cannot repeat its
+            # header row, and a split stranded the total row on the next page)
+            f'<div class="comp rpt-keep">{comp}{comp_total}</div>'
             f'<div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the '
             f'{_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. '
             'Amber rows are the sub-features to review before submission.</div>')
 
-    grid_cells = []
-    if on('problems'):
-        grid_cells.append('<div><h2 class="sec">Where the problems are '
-                          '<span class="rlab">defect share by discipline</span></h2>'
-                          f'{problem_bars}</div>')
-    if on('fixes'):
-        grid_cells.append('<div><h2 class="sec">Fix these first '
-                          '<span class="rlab">biggest lift</span></h2>'
-                          f'{fix_list}</div>')
-    grid_html = f'<div class="grid2">{"".join(grid_cells)}</div>' if grid_cells else ''
+    grid_html = _problems_fixes_grid(
+        ('<h2 class="sec">Where the problems are '
+         '<span class="rlab">defect share by discipline</span></h2>', bar_rows,
+         '<div class="empty2">No findings to place — the logic is clean.</div>')
+        if on('problems') else None,
+        ('<h2 class="sec">Fix these first <span class="rlab">biggest lift</span></h2>', fix_rows,
+         '<div class="empty2">Every check is at target — nothing to fix first.</div>')
+        if on('fixes') else None)
 
     conclusion_html = (f'<h2 class="sec">Conclusion</h2><div class="concl">{_esc(statement)}</div>'
                        if on('conclusion') else '')
@@ -895,7 +931,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Schedule Health Review — Summary — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 20mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 20mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
@@ -953,6 +989,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
   .fix .rk {{ width:19px; height:19px; flex:none; border-radius:50%; background:var(--rpt-accent-soft); border:1px solid var(--rpt-hair-strong); display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:var(--rpt-ink-soft); }}
   .fix .sub {{ color:var(--rpt-ink-soft); font-size:9.5px; }} .fix .lift {{ margin-left:auto; font-size:9px; font-weight:700; color:var(--rpt-good); background:var(--rpt-good-bg); border-radius:5px; padding:2px 8px; white-space:nowrap; align-self:center; }}
   .grid2 {{ display:flex; gap:16px; align-items:flex-start; }} .grid2 > div {{ flex:1; }}
+  @media print {{ .wb, .fix {{ break-inside:avoid; page-break-inside:avoid; }} }}
   .concl {{ border-left:4px solid var(--rpt-accent); background:var(--rpt-accent-soft); border-radius:0 8px 8px 0; padding:13px 16px; font-size:11.5px; line-height:1.6; color:var(--rpt-ink); margin-top:6px; }}
   .dcma {{ font-size:10px; color:var(--rpt-ink-soft); font-style:italic; margin-top:6px; }}
   .foot {{ border-top:1px solid var(--rpt-hair-strong); margin-top:20px; padding-top:8px; font-size:9px; color:var(--rpt-muted); }}
@@ -1001,7 +1038,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 20mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 20mm 14mm; }}
   body {{ font-family: 'Segoe UI', Arial, sans-serif; color: var(--rpt-ink); font-size: 11px; margin: 0; }}
   .head {{ border-bottom: 3px solid var(--rpt-accent); padding-bottom: 12px; margin-bottom: 18px; }}
   .kicker {{ font-size: 10px; letter-spacing: 2px; color: var(--rpt-accent); font-weight: 700; text-transform: uppercase; }}

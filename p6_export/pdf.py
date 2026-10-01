@@ -274,7 +274,14 @@ def run_chrome(chrome, args, timeout=180):
 
 def html_to_pdf(html, output_path, chrome=None, timeout=180):
     """Print ``html`` to ``output_path``. ``chrome`` = path from ``server._find_chrome()``
-    (``None`` → the browser :func:`find_working_chrome` picks)."""
+    (``None`` → the browser :func:`find_working_chrome` picks).
+    The shared pagination layer (report_theme.with_pagination) is applied first — once —
+    and a report that never declared a page size prints on A4 like its Word twin."""
+    try:
+        import report_theme
+        html = report_theme.with_pagination(html)
+    except Exception:
+        pass
     with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w',
                                      encoding='utf-8') as tmp:
         tmp.write(html)

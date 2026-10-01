@@ -140,10 +140,12 @@ def _rhead(meta):
     return '<div class="rhead">%s</div>' % cells
 
 
-def _page(meta, body, footer=''):
-    return ('<div class="page"><div class="b1"><div class="b2">%s%s'
+def _page(meta, body, footer='', front=False):
+    """One report sheet. ``front`` marks the unnumbered front matter (cover + Table of
+    Contents): in the PDF (:func:`page_html`) those pages carry no page number."""
+    return ('<div class="page%s"><div class="b1"><div class="b2">%s%s'
             '<div class="rfoot">%s</div></div></div></div>'
-            % (_rhead(meta), body, _esc(footer)))
+            % (' front' if front else '', _rhead(meta), body, _esc(footer)))
 
 
 # ── shared horizontal bar chart (§6 value + §7 disciplines) ───────────────────
@@ -213,6 +215,7 @@ def _doughnut(rows, cap, center_big, value_fn):
     centre hole. A wrapping amount legend follows. Crisp vector for PDF/screen; the Word
     twin (``docx_native.add_doughnut``) draws the identical layout as native editable
     shapes, so §6 reads the same in Word, PDF and HTML."""
+    from p6_narrative.util import ring_label_spot
     rows = [r for r in rows if r]
     if not rows:
         return '<p class="note">No cost loading in the file.</p>'
@@ -228,13 +231,17 @@ def _doughnut(rows, cap, center_big, value_fn):
         mid = (a0 + a1) / 2.0
         body += ('<path d="%s" fill="#%s" stroke="#fff" stroke-width="2"/>'
                  % (_arc_path(cx, cy, R, ri, a0, a1), col))
-        if p >= 15:                                    # dominant slice → label ON the ring
-            lx, ly = _polar(cx, cy, (R + ri) / 2.0, mid)
+        spot = (ring_label_spot(_clip(r.get('name'), 18), '%s%%' % _fmt_pct(p),
+                                cx, cy, R, ri, a0, a1) if p >= 15 else None)
+        if spot:                                       # dominant slice → label ON the ring
+            ang, npx, ppx, k = spot
+            lx, ly = _polar(cx, cy, (R + ri) / 2.0, ang)
             body += ('<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
-                     'font-family="Calibri,sans-serif" font-size="15" font-weight="700">%s</text>'
+                     'font-family="Calibri,sans-serif" font-size="%.4g" font-weight="700">%s</text>'
                      '<text x="%.1f" y="%.1f" text-anchor="middle" fill="#fff" '
-                     'font-family="Calibri,sans-serif" font-size="17" font-weight="700">%s%%</text>'
-                     % (lx, ly - 5, _esc(_clip(r.get('name'), 18)), lx, ly + 15, _fmt_pct(p)))
+                     'font-family="Calibri,sans-serif" font-size="%.4g" font-weight="700">%s%%</text>'
+                     % (lx, ly - 5 * k, npx, _esc(_clip(r.get('name'), 18)), lx, ly + 15 * k, ppx,
+                        _fmt_pct(p)))
         else:
             smalls.append((r, col, mid))
     # centre hole — cap + grouped total
@@ -387,7 +394,9 @@ def _ms_table(p, number, title, meta, cur):
     if not body:
         body = ('<tr><td colspan="%d" class="note">No Start/Finish milestones defined.</td></tr>'
                 % max(len(cols), 1))
-    return '<p>%s</p><table class="dt">%s%s</table>' % (intro, head, body)
+    # <thead>: a long milestone list continues onto the next page with its header repeated
+    return ('<p>%s</p><table class="dt"><thead>%s</thead><tbody>%s</tbody></table>'
+            % (intro, head, body))
 
 
 # ── §6 Contract Value ─────────────────────────────────────────────────────────
@@ -852,9 +861,13 @@ def _codes(p, number, title, meta, cur):
             rows = ''.join('<tr><td class="cv">%s</td><td>%s</td></tr>'
                            % (_esc(r.get('code')), _esc(r.get('description')))
                            for r in (t.get('rows') or []))
-            cells += ('<div><div class="ct">%d &middot; %s</div>'
-                      '<table class="codetbl"><tr><th style="width:40%%">Code Value</th>'
-                      '<th>Description</th></tr>%s</table></div>'
+            # the code's title is the first row of the table's <thead>: a long code table that
+            # continues onto the next page repeats its title with its 'Code Value | Description'
+            # header - like the Word export - instead of opening the page with rows of an
+            # unnamed code (GBT PDF p22 '7 · Silos Area Name', NARRFIX)
+            cells += ('<div><table class="codetbl"><thead><tr><th class="ct" colspan="2">'
+                      '%d &middot; %s</th></tr><tr><th style="width:40%%">Code Value</th>'
+                      '<th>Description</th></tr></thead><tbody>%s</tbody></table></div>'
                       % (i + j + 1, _esc(t.get('dimension')), rows))
         out += '<div class="codes">%s</div>' % cells
     return out
@@ -952,6 +965,11 @@ def _resload(p, number, title, meta, cur):
                 'its baseline resource assignments.</p>')
     out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
     for i, g in enumerate(p.get('groups') or [], 1):
+        # each sub-section (heading, basis note, chart, Peak caption, totals table) is ONE
+        # print group, kept whole when it is up to 45 % of a page (report_theme 'rpt-group'):
+        # SG §13.2's 5-row equipment table opened page 22 alone, untitled, 79 % blank (NARRFIX)
+        from p6_narrative.util import restable_title
+        grp_at = len(out)
         out.append('<div class="sub">%s.%d &middot; %s</div>'
                    % (_esc(number), i, _esc(g.get('title'))))
         out.append('<p class="rescap">%s Total budgeted %s %s across %s.</p>'
@@ -966,16 +984,22 @@ def _resload(p, number, title, meta, cur):
                        % (_esc(ch.get('chart_title')),
                           _res_hist(ch.get('span'), ch.get('values'), ch.get('color')), peak))
         heads = g.get('row_headers') or ['Resource', 'Total']
-        thead = '<tr>%s</tr>' % ''.join(
-            '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
-            for j, h in enumerate(heads))
+        # the table's title is the first row of its <thead> (twin of the Word title row): a
+        # totals table that opens a page - or continues onto one - still says what it is
+        thead = ('<tr><th class="tcap" colspan="%d">%s</th></tr><tr>%s</tr>'
+                 % (len(heads), _esc(restable_title(number, i, g)), ''.join(
+                     '<th%s>%s</th>' % (' class="num"' if j else '', _esc(h))
+                     for j, h in enumerate(heads))))
         body = ''.join(
             '<tr>%s</tr>' % ''.join(
                 '<td%s>%s</td>' % (' class="num"' if j else '', _esc(c))
                 for j, c in enumerate(r))
             for r in (g.get('rows') or []))
-        out.append('<table class="dt">%s%s</table>' % (thead, body))
+        out.append('<table class="dt"><thead>%s</thead><tbody>%s</tbody></table>'
+                   % (thead, body))
+        out[grp_at:] = ['<div class="resgrp rpt-group">%s</div>' % ''.join(out[grp_at:])]
     return ''.join(out)
+
 
 
 def _materials(p, number, title, meta, cur):
@@ -1030,6 +1054,7 @@ def _mln(v, sym):
 def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
     """Combo chart as vector SVG — monthly value-of-work columns (left axis) + the cumulative
     S-curve line (right axis). The vector twin of ``docx_native.add_cashflow_combo``."""
+    from p6_narrative.util import bar_label_shown
     n = len(labels)
     if not n or not values:
         return ''
@@ -1059,10 +1084,11 @@ def _volwork_svg(labels, values, cum, bar_hex, line_hex, sym):
         cx = x + barw / 2
         p.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#%s"/>'
                  % (x, y, barw, bh, _esc(bar_hex)))
-        p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
-                 'text-anchor="start" font-family="Calibri,sans-serif" '
-                 'transform="rotate(-90 %.1f %.1f)">%s</text>'
-                 % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
+        if bar_label_shown(v, values):      # a sliver column has no label (the S-curve
+            p.append('<text x="%.1f" y="%.1f" font-size="7.5" fill="#17457a" font-weight="700" '
+                     'text-anchor="start" font-family="Calibri,sans-serif" '
+                     'transform="rotate(-90 %.1f %.1f)">%s</text>'   # struck '0M' / '1M')
+                     % (cx, y - 3, cx, y - 3, _esc(_mln(v, sym))))
         mx = pL + i * band + band / 2
         p.append('<text x="%.1f" y="%.1f" font-size="8" fill="#8a95a1" text-anchor="end" '
                  'font-family="Calibri,sans-serif" transform="rotate(-45 %.1f %.1f)">%s</text>'
@@ -1161,9 +1187,12 @@ def _prodrate(p, number, title, meta, cur):
                    '</div>' % (_esc(number), sub))
         heads = p.get('headers') or []
         thead = '<tr>%s</tr>' % ''.join('<th>%s</th>' % _esc(h) for h in heads)
-        rowsb = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % _esc(c) for c in r)
-                        for r in (p.get('rows') or []))
-        out.append('<table class="dt" style="table-layout:fixed">%s%s%s</table>'
+        # the figures (Total quantity, Working days) never break inside the number
+        # ('243,805, / 397', NARRFIX); a header label wraps only at its spaces (prodtbl CSS)
+        rowsb = ''.join('<tr>%s</tr>' % ''.join(
+            '<td%s>%s</td>' % (' class="nw"' if j in (2, 3) else '', _esc(c))
+            for j, c in enumerate(r)) for r in (p.get('rows') or []))
+        out.append('<table class="dt prodtbl" style="table-layout:fixed">%s%s%s</table>'
                    % (_cg(p.get('widths') or []), thead, rowsb))
 
     # Order (Ibrahim): {number}.1 method → {number}.2 per-activity breakdown → {number}.3 the
@@ -1346,7 +1375,7 @@ def _cover(meta):
     if sub:
         lines += ('<div style="font-size:12px;color:#8a95a1;margin-top:16px">%s</div>' % sub)
     body = '<div style="margin-top:60mm" class="cover-t">%s</div>' % lines
-    return _page(meta, body, '')
+    return _page(meta, body, '', front=True)
 
 
 _TOC_GROUPS = [
@@ -1408,7 +1437,7 @@ def _toc(meta, paged, page_map=None):
             'Table of Contents</div>'
             '<div style="height:2px;width:120px;background:#1F4E79;margin:0 auto 22px"></div>'
             '%s' % out)
-    return _page(meta, body, '')
+    return _page(meta, body, '', front=True)
 
 
 # ── public API ────────────────────────────────────────────────────────────────
@@ -1434,10 +1463,55 @@ def render_narrative_html(doc, seq_style=None, page_map=None):
 
 def page_html(doc, page_map=None):
     """Full standalone HTML page (Chrome → PDF source). ``page_map`` is threaded to the
-    TOC so the two-pass export can stamp real physical page numbers on the second pass."""
+    TOC so the two-pass export can stamp real physical page numbers on the second pass.
+
+    PRINT MODEL (owner point 14). On screen the report is a stack of fixed A4 sheets; on
+    paper a section is often longer than one sheet, and a fixed sheet then spilled onto
+    frameless, header-less, zero-margin continuation pages. The PDF therefore paints the
+    page furniture PER PHYSICAL PAGE instead of per section: the double frame and the
+    3-logo header band are one ``position:fixed`` layer (Chrome repeats it on every
+    printed page), each section's content box repeats its padding on every page it runs
+    onto (``box-decoration-break: clone``), and the page number is Chrome's own page
+    counter in the bottom margin — the same physical number the Table of Contents
+    prints (front matter unnumbered). Screen view unchanged (all of it is print-only)."""
+    import report_theme                       # the shared pagination layer (owner point 14)
+    meta = (doc or {}).get('meta') or {}
+    furniture = ('<div class="pfx" aria-hidden="true"><div class="pfx1"></div>'
+                 '<div class="pfx2"></div><div class="pfxh">%s</div></div>' % _rhead(meta))
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<title>Baseline Narrative Report</title></head><body>'
-            + render_narrative_html(doc, page_map=page_map) + '</body></html>')
+            '<title>Baseline Narrative Report</title>' + report_theme.pagination_tag()
+            + '</head><body>' + furniture
+            + render_narrative_html(doc, page_map=page_map)
+            + '<style id="narr-print">%s</style></body></html>' % _PRINT_CSS)
+
+
+# The PDF page model (see page_html). Geometry = the screen sheet's: frame 9 mm from the
+# paper edge, inner frame 2.2 mm inside it, content 9 mm inside the inner frame, the logo
+# band at the top of every page. ``--rpt-page-reserve`` tells the shared pagination
+# composer how much of each page the furniture takes (it sizes "fits on a page" by it).
+_PRINT_CSS = """
+:root { --rpt-page-reserve: 42mm; }
+@page { size: A4 portrait; margin: 9mm 0 9mm 0;
+  @bottom-center { content: counter(page); font-family: Calibri, sans-serif; font-size: 10px; color: #8a95a1; } }
+@page front { @bottom-center { content: none; } }
+@media screen { .pfx { display: none; } }
+@media print {
+  html, body { background: #fff; }
+  .pfx { display: contents; }         /* no box of its own: never a (blank) page of its own */
+  .pfx1 { position: fixed; top: 0; bottom: 0; left: 9mm; right: 9mm; border: 1px solid #000; }
+  .pfx2 { position: fixed; top: calc(2.2mm + 1px); bottom: calc(2.2mm + 1px);
+          left: calc(11.2mm + 1px); right: calc(11.2mm + 1px); border: 1px solid #000; }
+  .pfxh { position: fixed; top: calc(10.2mm + 2px); left: calc(20.2mm + 2px); right: calc(20.2mm + 2px); }
+  .pfxh .rhead { height: 15mm; margin: 0; overflow: hidden; }
+  .page { width: auto; min-height: 0; margin: 0; background: transparent;
+          padding: calc(10.2mm + 2px + 15mm + 14px) calc(20.2mm + 2px) calc(11.2mm + 2px);
+          -webkit-box-decoration-break: clone; box-decoration-break: clone;
+          break-after: page; page-break-after: always; }
+  .page.front { page: front; }
+  .b1, .b2 { border: 0; min-height: 0; padding: 0; }
+  .page .rhead, .page .rfoot { display: none; }
+}
+"""
 
 
 # ── the approved visual spec (mockups/narrative_full.html), verbatim + the native
@@ -1472,6 +1546,8 @@ table { border-collapse: collapse; }
 .dt th { background:#26517d; color:#fff; text-align:center; vertical-align:middle; padding:6px 9px; font-size:10.5px; font-family:Calibri,sans-serif; overflow-wrap:anywhere; }
 .dt td { border:1px solid #dbe3ec; padding:7px 9px; text-align:center; vertical-align:middle; overflow-wrap:anywhere; word-break:break-word; line-height:1.35; }
 .dt tr:nth-child(even) td { background:#f7f9fb; }
+.dt thead + tbody tr:nth-child(even) td { background:transparent; }
+.dt thead + tbody tr:nth-child(odd) td { background:#f7f9fb; }
 .r { text-align:right; }
 .tiles { display:flex; gap:8px; }
 .tile { flex:1; border:1px solid #b9d1ea; background:#DEEAF6; border-radius:7px; padding:9px 6px; text-align:center; }
@@ -1518,6 +1594,7 @@ table { border-collapse: collapse; }
 .callegend { display:flex; gap:14px; flex-wrap:wrap; margin:4px 0 10px; font-size:9.5px; color:#5b6472; font-family:Calibri,sans-serif; }
 .callegend span { display:inline-flex; align-items:center; gap:4px; }
 .callegend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.dt th.tcap { background:none; color:#17457a; text-align:left; font-size:11px; font-weight:700; padding:2px 0 5px; border:none; font-family:Calibri,sans-serif; overflow-wrap:normal; }
 .calname { font-size:11px; font-weight:700; color:#17457a; margin:6px 0 3px; font-family:Calibri,sans-serif; }
 .hist { display:flex; align-items:flex-end; gap:7px; margin:2px 0 5px; padding:0 2px 3px; border-bottom:1px solid #e2e8ef; }
 .hist .col { flex:1; text-align:center; }
@@ -1529,6 +1606,8 @@ table { border-collapse: collapse; }
 .reshist .rbar { border-radius:3px 3px 0 0; min-height:1px; }
 .reshist .v { color:#17457a; }
 .dt th.num, .dt td.num { text-align:center; }
+.dt.prodtbl th { overflow-wrap:normal; word-break:normal; hyphens:none; }
+.dt.prodtbl td.nw { white-space:nowrap; overflow-wrap:normal; word-break:normal; }
 .rescap { font-size:10px; color:#5b6472; margin:3px 0 9px; font-family:Calibri,sans-serif; }
 .resload-fig { break-after:avoid; page-break-after:avoid; }
 /* §15.3 per-activity breakdown — each resource's caption + table stay together on one page */
@@ -1578,6 +1657,7 @@ table { border-collapse: collapse; }
 .codetbl th { background:#dbe5f1; border:1px solid #9fb2c8; padding:4px 7px; font-weight:700; color:#14324f; font-family:Calibri,sans-serif; font-size:10px; }
 .codetbl td { border:1px solid #b9c6d3; padding:3px 8px; }
 .codetbl td.cv { text-align:center; font-weight:600; }
+.codetbl th.ct { background:none; border:none; padding:0 0 5px; text-align:left; font-size:12px; font-weight:700; color:inherit; font-family:inherit; }
 .cover-t { text-align:center; }
 /* §12 Activity IDs — role-coloured anatomy + per-type breakdown (twins the native Word §12) */
 .actidblk { break-inside:avoid; page-break-inside:avoid; }

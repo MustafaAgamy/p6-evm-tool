@@ -370,7 +370,7 @@ def compare_full_report(ctx):
             return None
         from p6_compare.report import build_report_from_data
         from p6_compare.exporters import render_html
-        return render_html(build_report_from_data(base, cur, ctx.config), theme=ctx.mode)
+        return render_html(build_report_from_data(base, cur, ctx.config), theme=ctx.mode, layout='portrait')
     html = ctx.memo(f'fr:compare_full:{ctx.mode}', b)
     if not html:
         return None

@@ -978,23 +978,251 @@ def _render_html_extract(document, markup):
             continue
 
 
+# ── reused sections → page-sized slices (owner point 14: STUDIO-WORD-1 / -2) ────────
+# A reused section used to be ONE screenshot of a fixed 920 x 1400 px viewport placed
+# 6.3 in wide (690 pt, taller than the room under its heading): the heading was left
+# alone on a near-blank page, a longer section was cut at the screenshot edge and a short
+# one was a mostly-white picture. Now the section is PRINTED by Chrome on pages exactly as
+# tall as the room a Word page has (the shared pagination rules decide the breaks:
+# headings with their block, table rows whole, header rows repeated), every printed page
+# becomes one picture trimmed to its content, and the first one is short enough to sit
+# under the numbered heading + feature caption on the same page.
+_CANVAS_PX = 920                          # the section's layout width (as on screen)
+_PIC_W_IN = 6.3                           # … placed 6.3 in wide in Word
+_PT_PER_PX = _PIC_W_IN * 72.0 / _CANVAS_PX
+_LEAD_PT = 84.0                           # numbered heading + feature caption + spacing
+_ROOM_SAFETY = 0.96                       # Word's line metrics vs the estimate below
+_TRIM_PAD_PX = 10                         # white kept above / below trimmed content
+
+
+def _para_h_pt(p_el):
+    """Rough height of one header/footer paragraph: tallest inline picture or text line,
+    times the paragraph line spacing, plus its space before/after (docDefaults 1.15 / 10pt)."""
+    tall = [int(e.get('cy') or 0) / 12700.0 for e in p_el.iter(qn('wp:extent'))]
+    sizes = [int(s.get(qn('w:val')) or 22) / 2.0 for s in p_el.iter(qn('w:sz'))] or [_BODY_PT]
+    line, after, before, mult = max(tall + [max(sizes) * 1.22]), 10.0, 0.0, 1.15
+    sp = p_el.find(qn('w:pPr') + '/' + qn('w:spacing'))
+    if sp is not None:
+        if sp.get(qn('w:after')) is not None:
+            after = int(sp.get(qn('w:after'))) / 20.0
+        if sp.get(qn('w:before')) is not None:
+            before = int(sp.get(qn('w:before'))) / 20.0
+        if sp.get(qn('w:line')) and (sp.get(qn('w:lineRule')) or 'auto') == 'auto':
+            mult = int(sp.get(qn('w:line'))) / 240.0
+    return before + line * mult + after
+
+
+def _part_h_pt(part):
+    """Height of a header / footer part (paragraphs + the tallest cell of each table row)."""
+    h = 0.0
+    for el in part._element:
+        if el.tag == qn('w:p'):
+            h += _para_h_pt(el)
+        elif el.tag == qn('w:tbl'):
+            for tr in el.iter(qn('w:tr')):
+                h += max([sum(_para_h_pt(p) for p in tc.iter(qn('w:p')))
+                          for tc in tr.iter(qn('w:tc'))] or [0.0])
+    return h
+
+
+def _page_room_pt(document):
+    """The height a picture can take on one Word page: the page minus the top / bottom
+    margins — or minus the running header / footer where those reach past the margins
+    (Word then pushes the body in) — with a small safety allowance."""
+    try:
+        s = document.sections[-1]
+        pt = lambda v: int(v or 0) / 12700.0
+        top = max(pt(s.top_margin), pt(s.header_distance) + _part_h_pt(s.header))
+        bottom = max(pt(s.bottom_margin), pt(s.footer_distance) + _part_h_pt(s.footer))
+        room = (pt(s.page_height) - top - bottom) * _ROOM_SAFETY
+        return max(room, 300.0)
+    except Exception:
+        return 640.0
+
+
+def _section_print_doc(fragment_html, css, mode, page_h_px, first_top_px):
+    """The standalone page Chrome PRINTS a reused section from: the same document the
+    screenshot used (theme + scoped section CSS, 920 px wide) on pages ``page_h_px`` tall,
+    the first page ``first_top_px`` shorter, colours printed as on screen, and the shared
+    pagination layer (headings with their block, rows whole, table header repeated)."""
+    import report_theme
+    page = ('<style id="sr-slice-page">@page{size:%dpx %dpx;margin:0}'
+            '@page :first{margin-top:%dpx}'
+            'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+            '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>'
+            % (_CANVAS_PX, int(page_h_px), int(max(first_top_px, 0))))
+    doc = _section_doc(fragment_html, css, mode).replace('</head>', page + '</head>', 1)
+    return report_theme.with_pagination(doc, page_size=None)
+
+
+def _content_rows(page):
+    """(top, bottom) in PDF points of what is painted on a printed page (white trimmed),
+    or None for a blank page. Without numpy the whole page is kept."""
+    try:
+        import pymupdf
+    except ImportError:                   # pragma: no cover — older PyMuPDF name
+        import fitz as pymupdf
+    try:
+        import numpy as np
+    except Exception:                     # pragma: no cover — numpy ships in the bundle
+        return 0.0, page.rect.height
+    z = 0.5
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False)
+    a = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+    rows = np.nonzero((a < 244).any(axis=2).any(axis=1))[0]
+    if not len(rows):
+        return None
+    return float(rows[0]) / z, float(rows[-1] + 1) / z
+
+
+def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
+    """Print a reused section with Chrome and cut it into page-sized pictures.
+
+    Returns ``[(png_bytes, height_pt), …]`` in reading order (each at most ``room_pt``
+    tall when placed ``_PIC_W_IN`` wide; the first at most ``first_room_pt``), or ``None``
+    on any failure / no ``chrome`` / no PyMuPDF (the caller then falls back)."""
+    if not chrome:
+        return None
+    try:
+        import pymupdf
+    except Exception:
+        try:
+            import fitz as pymupdf        # older PyMuPDF name
+        except Exception:
+            return None
+    px = lambda pt: pt / _PT_PER_PX
+    page_h = px(room_pt)
+    first_top = page_h - px(first_room_pt)
+    htmlpath = pdf = None
+    try:
+        fd, htmlpath = tempfile.mkstemp(suffix='.html')
+        doc_html = _section_print_doc(fragment_html, css, mode, page_h, first_top)
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(doc_html)
+        fd2, pdf = tempfile.mkstemp(suffix='.pdf')
+        os.close(fd2)
+        from p6_export.pdf import run_chrome     # own profile dir + fallback past a browser
+        from p6_special.pdf_render import print_timeout      # a big section gets more time
+        run_chrome(chrome, [f'--print-to-pdf={pdf}', '--no-pdf-header-footer',   # that cannot start
+                            f'file:///{htmlpath.replace(os.sep, "/")}'],
+                   timeout=print_timeout(doc_html, 90))
+        out = []
+        with pymupdf.open(pdf) as doc:
+            for i, pg in enumerate(doc):
+                box = _content_rows(pg)
+                if box is None:
+                    continue
+                pad = _TRIM_PAD_PX * 0.75           # CSS px → PDF pt
+                y0 = max(box[0] - pad, first_top * 0.75 if i == 0 else 0.0)
+                y1 = min(box[1] + pad, pg.rect.height)
+                if y1 - y0 < 2:
+                    continue
+                clip = pymupdf.Rect(0, y0, pg.rect.width, y1)
+                zoom = 2 * 96 / 72.0                # the old screenshot's 2x device scale
+                pix = pg.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip, alpha=False)
+                out.append((pix.tobytes('png'), _PIC_W_IN * 72.0 * clip.height / pg.rect.width))
+        return out or None
+    except Exception:
+        return None
+    finally:
+        for p in (htmlpath, pdf):
+            try:
+                if p and os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
+
+def _add_slice(document, png, height_pt, max_pt):
+    """One slice in its own paragraph: single line spacing and no paragraph spacing, so
+    the line is exactly the picture's height (the default 1.15 spacing would add 15 %),
+    shrunk (aspect kept) only if it would not fit ``max_pt``."""
+    width = Inches(_PIC_W_IN)
+    if height_pt > max_pt > 0:
+        width = Emu(int(width * max_pt / height_pt))
+    p = document.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pf = p.paragraph_format
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing = 1.0
+    p.add_run().add_picture(io.BytesIO(png), width=width)
+    return p
+
+
 def _render_html(document, pl, chrome=None, mode='light'):
     """A reused feature-report section. First strip the section's OWN leading heading
     (FIX 3) so it does not duplicate the Studio's numbered heading. Then, when a
-    ``chrome`` executable is available, render the actual section to an IMAGE and embed
-    it so Word matches the PDF (FIX 2); otherwise (or on any rasterisation failure) fall
-    back to the native text/table extraction so tests without Chrome still get content."""
+    ``chrome`` executable is available, PRINT the actual section and embed it as
+    page-sized pictures (:func:`_slice_section`) so Word matches the PDF — complete, no
+    blank canvas, the first slice on the heading's page; otherwise (or on any failure)
+    fall back to the native text/table extraction so tests without Chrome still get
+    content."""
     markup = _strip_leading_heading(str(pl.get('html') or ''))
     css = pl.get('css') or ''
     if chrome:
         try:
-            png = _rasterize_section(markup, css, mode, chrome)
-            if png:
-                document.add_picture(io.BytesIO(png), width=Inches(6.3))
+            room = _page_room_pt(document)
+            first = max(room - _LEAD_PT, room * 0.5)
+            slices = _slice_section(markup, css, mode, chrome, room, first)
+            if slices:
+                # A section whose start needs more than a third of a page opens on a fresh
+                # page (a new top-level section — the blank above it is by design); a short
+                # one flows on under the previous item. Either way its numbered heading +
+                # caption + first picture always fit on one page together.
+                lead = slices[0][1] + (slices[1][1] if len(slices) > 1
+                                       and slices[0][1] < _TINY_SLICE * room else 0.0)
+                if lead + _LEAD_PT > _FLOW_MAX * room:
+                    _open_on_new_page(document)
+                prev = None
+                for k, (png, h) in enumerate(slices):
+                    cap = first if k == 0 else room
+                    if k == 1 and prev is not None and slices[0][1] < _TINY_SLICE * room:
+                        # a tiny first slice (an intro line whose table was moved on) stays
+                        # with the next one: both fit under the heading together
+                        prev.paragraph_format.keep_with_next = True
+                        cap = first - slices[0][1]
+                    prev = _add_slice(document, png, h, cap)
                 return
         except Exception:
             pass
     _render_html_extract(document, markup)
+
+
+_TINY_SLICE = 0.2      # a first slice under 20 % of a page travels with the next slice
+_FLOW_MAX = 0.35       # a section start taller than this (with its heading) opens a page
+
+
+def _open_on_new_page(document):
+    """Give the item's numbered heading (the Heading-1 paragraph just written above this
+    section, possibly followed by its feature caption) *page break before* — unless it
+    already follows a page break (the contents page ends with one)."""
+    body = [el for el in document.element.body if el.tag in (qn('w:p'), qn('w:tbl'))]
+    for back in (1, 2):
+        if len(body) < back:
+            return
+        el = body[-back]
+        if el.tag != qn('w:p'):
+            return
+        st = el.find(qn('w:pPr') + '/' + qn('w:pStyle'))
+        if st is not None and str(st.get(qn('w:val')) or '').startswith('Heading1'):
+            prv = body[-back - 1] if len(body) > back else None
+            if prv is not None and any(br.get(qn('w:type')) == 'page' for br in prv.iter(qn('w:br'))):
+                return
+            ppr = el.get_or_add_pPr()
+            if ppr.find(qn('w:pageBreakBefore')) is None:
+                pb = OxmlElement('w:pageBreakBefore')
+                # schema order: pStyle, keepNext, keepLines, pageBreakBefore, …
+                anchor = None
+                for tag in ('w:keepLines', 'w:keepNext', 'w:pStyle'):
+                    anchor = ppr.find(qn(tag))
+                    if anchor is not None:
+                        break
+                if anchor is not None:
+                    anchor.addnext(pb)
+                else:
+                    ppr.insert(0, pb)
+            return
 
 
 _BLOCK = {
@@ -1186,6 +1414,14 @@ def build_docx(path, report_name, meta, rendered, letterhead=None, chrome=None, 
             _render_block(document, item.get('payload') or {}, chrome=chrome, mode=mode)
         except Exception:
             continue
+
+    # The shared Word page-composition rules (owner point 14): headings / captions kept with
+    # their first block, small tables whole, long tables never strand 1-2 rows.
+    try:
+        from p6_export import docx_pagination
+        docx_pagination.paginate_docx(document)
+    except Exception:
+        pass
 
     document.save(str(path))
     return str(path)

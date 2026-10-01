@@ -117,6 +117,9 @@ def _indicator_tiles(mgmt):
     ])
 
 
+_WBS_KEEP_ROWS = 10        # a WBS table of up to 10 packages prints whole with its heading
+
+
 def _wbs_rows(mgmt):
     rows = []
     for r in mgmt.get('wbs', [])[:16]:
@@ -139,7 +142,7 @@ def _notice(name, meta, msg, theme='light'):
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 18mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 18mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:12px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}
@@ -186,8 +189,12 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
                 f'<div class="tiles g4">{_indicator_tiles(mgmt)}</div>'
                 f'<div class="hovernote">Average Float and Maximum Float are always shown '
                 f'<b>per&nbsp;WBS</b> below — never as a single project-wide figure.</div>') if on('indicators') else ''
+    # FLOAT-PDF-1: a short WBS table (one row per package, fits in well under half a page) is
+    # kept whole with its heading rather than continued 5 + 4 rows (the print composer keeps a
+    # table marked rpt-keep whole up to report_theme.PAGINATION_KEEP_TABLE of a page)
+    keep = ' class="rpt-keep"' if len(mgmt.get('wbs', []) or []) <= _WBS_KEEP_ROWS else ''
     wbs_html = (f'<h2 class="sec">Float Distribution by WBS</h2>'
-                f'<table><thead><tr><th>WBS Package</th><th class="num">Activities</th>'
+                f'<table{keep}><thead><tr><th>WBS Package</th><th class="num">Activities</th>'
                 f'<th class="num">Average Float</th><th class="num">Maximum Float</th>'
                 f'<th class="num">Activities &gt; {_esc(thr)} WD</th>'
                 f'<th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>'
@@ -201,7 +208,7 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 18mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 18mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:16px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}

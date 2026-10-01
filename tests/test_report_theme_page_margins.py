@@ -31,7 +31,8 @@ def test_coloured_mode_paints_the_page_box(mode):
     assert f'@page {{ background: {bg}; }}' in tag
     assert 'var(' not in rt.page_background_rule(mode)       # concrete hex only
     # inside the one theme block, so force_light() swaps it out with the rest
-    assert tag.rstrip().endswith('</style>') and tag.index('@page') < tag.index('</style>')
+    # (the theme block is followed by the shared page-composition layer, so only its position matters)
+    assert tag.startswith('<style id="rpt-theme"') and tag.index('@page { background') < tag.index('</style>')
 
 
 @pytest.mark.parametrize('mode', WHITE_PAGE_MODES)

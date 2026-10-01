@@ -833,7 +833,7 @@ function criticalView(r) {
     const parts = [];
     if (rev.finish) parts.push(`ends ${esc(rev.finish)}`);
     if (len != null) parts.push(`path length ${esc(len)} wd`);
-    if (tf != null) parts.push(`TF on finish ${esc(tf)}`);
+    if (tf != null) parts.push(`TF on finish ${esc(_d1(tf))}`);
     return `<div class="rc-cklab${side === 'r1' ? ' r1' : ''}">${tag}${parts.length ? ' — ' + parts.join(' · ') : ''}</div>`;
   };
   const cpCard = `<div class="rc-card"><h3>Driving chain <span class="rc-n">${cp.length_change_wd != null ? `Rev.01 critical path ${num(cp.length_change_wd, true)} wd · dates on each node` : 'driving chain · dates on each node'}</span></h3>
@@ -863,7 +863,7 @@ function criticalView(r) {
   const nf = q.negative_float || {};
   const reg = nf.register || [];
   const nfRows = reg.map(a => `<tr><td class="rc-aid">${esc(a.id)}</td><td>${esc(a.name)}</td>
-      <td class="n">${a.tf != null ? `<span class="rc-d up">${a.tf} d</span>` : '—'}</td><td class="rc-mut">${esc(a.wbs)}</td></tr>`).join('');
+      <td class="n">${a.tf != null ? `<span class="rc-d up">${_d1(a.tf)} d</span>` : '—'}</td><td class="rc-mut">${esc(a.wbs)}</td></tr>`).join('');
   const nfCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Negative-float register <span class="rc-n">${reg.length} activities</span></h3>
     ${reg.length ? `<div class="rc-tblscroll"><table class="rc-t"><thead><tr><th>Activity ID</th><th>Activity Name</th><th class="n">Total Float</th><th>WBS</th></tr></thead><tbody>${nfRows}</tbody></table></div>`
                  : noData('No activities carry negative float in Rev.01.')}</div>`;
@@ -1844,3 +1844,6 @@ export async function openRevcompareReport() {
     showError('Preview failed. Try again.');
   }
 }
+
+// A day count as P6 shows it: whole when whole, else one decimal (never 0.6666666666666666).
+function _d1(v) { return (typeof v === 'number' && !Number.isInteger(v)) ? Math.round(v * 10) / 10 : v; }

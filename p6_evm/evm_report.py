@@ -200,8 +200,12 @@ def _category_table(result, approx=False):
     rows.append(
         f'<tr class="tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>'
         f'<td class="num">—</td><td class="num">{tot_pw:.2f}%</td><td class="num">{tot_wa:.2f}%</td></tr>')
+    # a short category table (one row per WBS category + Overall) prints whole with its
+    # heading - the print composer keeps a table marked rpt-keep whole up to
+    # report_theme.PAGINATION_KEEP_TABLE of a page (GBT: 11 rows were continued 6 + 5)
+    keep = ' class="rpt-keep"' if len(cats) <= 12 else ''
     return _part('category.table', 'Category weights table', (
-        '<table><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
+        f'<table{keep}><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
         f'<th class="num">Planned %{ax}</th><th class="num">Actual %</th>'
         f'<th class="num">Planned Weight %{ax}</th><th class="num">Weighted Actual %</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table>'))
@@ -347,7 +351,7 @@ def render_evm_report(result, meta, gap=None, engineering=None, theme='light', s
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>EVM Results — {_esc(meta.get('project_name', ''))}</title>
 <style>
-  @page {{ margin: 20mm 14mm; }}
+  @page {{ size: A4 portrait; margin: 20mm 14mm; }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; color:var(--rpt-ink); font-size:11px; margin:0; }}
   .head {{ border-bottom:3px solid var(--rpt-accent); padding-bottom:12px; margin-bottom:18px; }}
   .kicker {{ font-size:10px; letter-spacing:2px; color:var(--rpt-accent); font-weight:700; text-transform:uppercase; }}

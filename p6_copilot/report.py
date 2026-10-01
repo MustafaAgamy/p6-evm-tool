@@ -8,6 +8,15 @@ import html as _html
 from datetime import datetime, date
 
 
+def _pagination_tag():
+    """The shared page-composition layer (report_theme) — headings kept with their content."""
+    try:
+        import report_theme
+        return report_theme.pagination_tag()
+    except Exception:
+        return ''
+
+
 def _to_date(v):
     """Parse the many date shapes the report sees (datetime, ISO string, '15-Aug-2027') to a
     date. None on anything unparseable — the caller degrades gracefully."""
@@ -318,7 +327,7 @@ def render_manager_report_html(report, meta=None):
     .drivers li{{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-top:1px solid #eef2f7}}
     .drivers li:first-child{{border-top:none}} .drivers .dn{{color:#334155}} .drivers .dd{{color:#dc2626;font-weight:600}}
     .nwtag{{display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#1d4ed8;border-radius:4px;padding:1px 5px;margin-left:6px;text-transform:uppercase;letter-spacing:.4px;vertical-align:middle}}
-    </style></head><body>
+    </style>{_pagination_tag()}</head><body>
     <h1>Manager Report — {e(r.get('project_name') or 'Project')}</h1>
     <div class="sub">Plain-English management summary · from the update of {e(r.get('data_date') or '—')}</div>
     <div class="one"><div class="k">If you read one thing</div><div class="t">{e(r.get('one_line') or '')}</div></div>

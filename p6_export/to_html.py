@@ -29,6 +29,11 @@ def standalone_html(html, title=None):
     if isinstance(doc, bytes):
         doc = doc.decode('utf-8', 'replace')
     doc = doc.lstrip('﻿')
+    try:                        # the shared print rules travel with the file (CSS only —
+        import report_theme     # the print-time composer script is stripped just below)
+        doc = report_theme.with_pagination(doc)
+    except Exception:
+        pass
     doc = _SCRIPT_RE.sub('', doc)
     doc = _LINK_RE.sub('', doc)
     doc = _BASE_RE.sub('', doc)

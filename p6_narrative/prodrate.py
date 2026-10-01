@@ -80,11 +80,14 @@ NO_UNIT_NOTE = ("The rate columns are blank because these material resources car
                 "resource’s total loaded value, its working days and the crew assigned to "
                 "its activities are still shown.")
 
-HEADERS = ['Quantities resource', 'Unit', 'Total quantity', 'Working-days',
+HEADERS = ['Quantities resource', 'Unit', 'Total quantity', 'Working days',
            'Rate/day', 'Range (min–max)', 'Crew assigned (per day)']
-# Column widths (inches) — Σ = 6.9" (A4 usable width). Name + crew columns widened so the worst
-# wrapped cell stays inside the uniform §15 row height without clipping.
-WIDTHS = [1.65, 0.52, 0.72, 0.58, 0.78, 0.87, 1.78]   # unit col widened so "Ton" never wraps
+# Column widths (inches) — Σ = 6.9" (A4 usable width). 'Working days' wraps at its space (a
+# 0.58" column broke the word as 'Workin / g-days', NARRFIX); 'Total quantity' holds an
+# 11-character figure such as 243,805,397 on ONE line (0.72" broke it as '243,805,3 / 97'); the
+# crew column keeps "Carpenter Helper ~0.5/day;" on one line, the range keeps '11.9 – 168.4'
+# on one line; the name column gives the room.
+WIDTHS = [1.30, 0.50, 0.92, 0.72, 0.75, 0.95, 1.76]   # unit col wide enough that "Ton" never wraps
 
 # Crew-cell character budget: the crew of one quantity can, in the unit-less cost-model fallback,
 # aggregate every labour/plant resource in the project (a cost resource spans all activities). The
@@ -99,7 +102,7 @@ CREW_MAX_CHARS = 72
 # activity id" + "remove the location column"). Activities that share the SAME quantity and the SAME
 # working-days share a rate, so they are grouped onto one line; the Activity IDs in a group are
 # listed until this cap, then summarised as "; +N more" so no single line overflows the page.
-BREAKDOWN_HEADERS = ['Activity ID', 'Quantity', 'Working-days', 'Rate/day']
+BREAKDOWN_HEADERS = ['Activity ID', 'Quantity', 'Working days', 'Rate/day']
 BREAKDOWN_WIDTHS = [3.2, 1.1, 0.9, 1.7]                   # inches, Σ = 6.9" (A4 usable width)
 BREAKDOWN_ID_CAP = 16
 BREAKDOWN_INTRO = ("For each quantity of work below, its activities are listed with the quantity, "

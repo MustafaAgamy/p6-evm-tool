@@ -245,8 +245,10 @@ def add_cover(document, meta):
 
 
 # ── table of contents ─────────────────────────────────────────────────────────
-def add_toc(document):
-    """A 'Table of Contents' title plus a real, updatable Word TOC field, then a page break.
+def add_toc(document, page_break=True):
+    """A 'Table of Contents' title plus a real, updatable Word TOC field, then a page break
+    (``page_break=False``: none — the caller starts the next heading on a new page with
+    'page break before', so a break paragraph can never spill onto a page of its own).
 
     Word fills the field with the true page number of every section on open (see
     ``enable_update_fields``). The title is a plain styled paragraph — deliberately NOT a
@@ -269,7 +271,8 @@ def add_toc(document):
     for el in (begin, instr, sep, placeholder, end):
         r.append(el)
 
-    document.add_page_break()
+    if page_break:
+        document.add_page_break()
     return para
 
 

@@ -38,6 +38,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 from p6_narrative import docx_calendar, docx_native, docx_template
+from p6_narrative.util import restable_title
 
 # ── palette / fonts (mirror the approved builder) ─────────────────────────────
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
@@ -319,16 +320,76 @@ def data_table(document, headers, rows, widths=None, h=21, aligns=None):
     return t
 
 
+CELL_PAD_PT = 5.4          # Word's default left + right cell margin ('Table Grid': 0.08" each)
+LINE_PITCH = 1.15          # a Times New Roman line is ~1.15 x its font size
+
+
+def _tnr_width_pt(text, size):
+    """Width of ``text`` in Times New Roman at ``size`` pt — a per-character estimate that runs
+    2-7 % WIDE of the real metrics (checked against the font), so a wrap count from it never
+    comes out short."""
+    w = 0.0
+    for ch in str(text or ''):
+        if ch in "iljtf.,;:!|'()[]/ ":
+            w += 0.30
+        elif ch.isdigit():
+            w += 0.50
+        elif ch in 'mwMW':
+            w += 0.85
+        elif ch.isupper():
+            w += 0.70
+        else:
+            w += 0.46
+    return w * size
+
+
+def _wrapped_lines(text, width_pt, size):
+    """How many lines ``text`` wraps to in a cell ``width_pt`` wide (greedy, at spaces; a word
+    longer than the line is broken across as many lines as it needs)."""
+    words = str(text or '').split()
+    if not words or width_pt <= 0:
+        return 1
+    space = _tnr_width_pt(' ', size)
+    lines, cur = 1, 0.0
+    for wd in words:
+        ww = _tnr_width_pt(wd, size)
+        if cur and cur + space + ww <= width_pt:
+            cur += space + ww
+            continue
+        if cur:
+            lines += 1
+        extra = max(0, -(-int(ww * 100) // int(width_pt * 100)) - 1)   # ceil(ww / width) - 1
+        lines += extra
+        cur = ww - extra * width_pt if extra else ww
+    return lines
+
+
+def _equal_row_height(rows, widths, size, floor_pt):
+    """The ONE data-row height of an equal-row table: the floor, raised to the tallest wrapped
+    cell (lines x line pitch + 4 pt) so no cell is ever clipped by the shared height."""
+    need = floor_pt
+    for row_vals in rows or []:
+        for ci, val in enumerate(row_vals):
+            if not widths or ci >= len(widths):
+                continue
+            n = _wrapped_lines(val, widths[ci] * 72.0 - 2 * CELL_PAD_PT, size)
+            need = max(need, n * size * LINE_PITCH + 4.0)
+    return round(need, 1)
+
+
 def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
                      header_h_pt=30.0, cell_size=10):
-    """A navy-header data table whose DATA ROWS all share one EXACT height
-    (``WD_ROW_HEIGHT_RULE.EXACTLY``) — unlike :func:`data_table`, which grows each row to fit
-    (``AT_LEAST``). Used by §15 so every production row is the same height; ``row_h_pt`` is set
-    generously (≈0.55") so the tallest wrapped cell (crew / long resource names) still fits
-    without clipping. The header row keeps ``AT_LEAST`` so its multi-line labels are never cut.
-    Zebra striping; every cell centred and wrapping. Other sections' tables are untouched."""
+    """A navy-header data table whose DATA ROWS all share one height — unlike
+    :func:`data_table`, whose rows each grow to their own text. Used by §15 so every production
+    row is the same height. The shared height is ``row_h_pt`` (≈0.55") raised to the tallest
+    wrapped cell (:func:`_equal_row_height`), and it is AT LEAST, never EXACT: an exact 40 pt
+    row clipped SG's 4-line crew cell ('… +15 more' cut off, NARRFIX) — should a cell still
+    need more than the estimate, only that row grows; nothing is ever cut. Rows never split
+    (cantSplit) and the header repeats. The header row keeps ``AT_LEAST`` so its multi-line
+    labels are never cut. Zebra striping; every cell centred and wrapping."""
     if not headers:
         return None
+    row_h_pt = _equal_row_height(rows, widths, cell_size, row_h_pt)
     t = document.add_table(rows=1, cols=len(headers))
     t.style = 'Table Grid'
     t.autofit = False
@@ -345,7 +406,7 @@ def _equal_row_table(document, headers, rows, widths=None, row_h_pt=40.0,
         run(p, hd, font=CAL, size=9.5, bold=True, color=WHITE)
     for ri, row_vals in enumerate(rows or []):
         rr = t.add_row()
-        _row_h(rr, row_h_pt, exact=True)              # EXACTLY: every data row shares one height
+        _row_h(rr, row_h_pt, exact=False)             # one shared height, AT LEAST: never clips
         for ci, val in enumerate(row_vals):
             if ci >= len(rr.cells):
                 break
@@ -379,36 +440,6 @@ def banner(document, left_text, right_text):
     run(pr, right_text + '  ', font=CAL, size=15, bold=True, color=WHITE)
     _keep_table_together(ban, header=False)     # the one-row banner stays whole
     return ban
-
-
-def _code_table(cell, title, rows):
-    """One small 'Code Value | Description' table inside ``cell``."""
-    run(cell.paragraphs[0], title, size=12, bold=True)
-    t = cell.add_table(rows=1, cols=2)
-    t.style = 'Table Grid'
-    t.autofit = False
-    hr = t.rows[0]
-    _row_h(hr, 18)
-    for i, h in enumerate(['Code Value', 'Description']):
-        hc = hr.cells[i]
-        _shade(hc, 'DBE5F1'); _no_space(hc)
-        _set_w(hc, 1.2 if i == 0 else 2.1)
-        pp = hc.paragraphs[0]
-        pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
-    for cv, desc in rows:
-        rr = t.add_row()
-        _row_h(rr, 18)
-        c0, c1 = rr.cells
-        _no_space(c0); _no_space(c1); _set_w(c0, 1.2); _set_w(c1, 2.1)
-        c0.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-        c1.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-        p0 = c0.paragraphs[0]
-        p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run(p0, cv, size=10.5, bold=True)
-        run(c1.paragraphs[0], desc, size=10.5)
-    _keep_table_together(t, header=True)        # 'Code Value | Description' header repeats
-    return t
 
 
 # ── §1 Project Overview ───────────────────────────────────────────────────────
@@ -841,10 +872,18 @@ def _render_activity_ids(document, p, number, note):
         _shade(bc, 'EEF3F9')
         bp = bc.paragraphs[0]; bp.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run(bp, blk.get('sample'), size=12, bold=True, color=NAVY, font=CAL)
+        # the whole block travels together, as its PDF twin (.actidblk, break-inside:avoid):
+        # the 1-row box keeps with the gap + breakdown table (a table's LAST row has no
+        # keep-with-next of its own — heading + box used to end a page with the table on
+        # the next, GBT Word p32, 12.12 CONS.S1.MECH.1000), the table keeps with its ✓ note
+        bp.paragraph_format.keep_with_next = True
         _keep_table_together(bt, header=False)
         gap = para(document, '', after=2)
         gap.paragraph_format.keep_with_next = True      # box stays with its breakdown table
-        _actid_breakdown_table(document, blk.get('cols'))
+        brk = _actid_breakdown_table(document, blk.get('cols'))
+        for c in brk.rows[-1].cells:
+            for cp in c.paragraphs:
+                cp.paragraph_format.keep_with_next = True
         para(document, '✓  %s  (%s activities)' % (blk.get('note') or '', _count(blk.get('count'))),
              size=10, italic=True, color=GREEN, before=3, after=8)
 
@@ -891,13 +930,66 @@ def _render_resload(document, p, number, note):
             else:
                 _keep_last_with_next(document)
             pu = (' ' + ch['peak_unit']) if ch.get('peak_unit') else ''
-            para(document, 'Peak %s%s in %s.'
-                 % (_wn(ch.get('peak_val')), pu, ch.get('peak_label') or ''),
-                 size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+            pk = para(document, 'Peak %s%s in %s.'
+                      % (_wn(ch.get('peak_val')), pu, ch.get('peak_label') or ''),
+                      size=10, italic=True, color=GREY, after=6, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+            # the Peak caption CLOSES the chart group (sub-heading, basis note, label, chart,
+            # Peak - kept together); the totals table below is its own block that follows or
+            # moves on alone. Chained to the table, the whole group + table (640 pt) did not
+            # fit under the §13 intro and left SG Word p22 85 % blank (NARRFIX).
+            pk.paragraph_format.keep_with_next = False
         rows = g.get('rows') or []
         if rows:
-            data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
-                       rows, aligns=['l', 'r', 'r'])
+            t = data_table(document, g.get('row_headers') or ['Resource', 'Total', 'Peak'],
+                           rows, aligns=['l', 'r', 'r'])
+            # the totals table carries its title as a first header row, repeated with the
+            # navy header on every page: when it moves on alone (the chart group filled the
+            # page) it no longer opens a page untitled - SG Word p22/p23 (NARRFIX). Same
+            # text as the PDF's <thead> title row (util.restable_title).
+            _table_title_row(t, restable_title(number, i, g))
+
+
+def _table_title_row(t, text):
+    """Insert a title row ABOVE a data table's header row: one merged cell, bold navy Calibri
+    11 on white, only a bottom border; cantSplit and repeated (``w:tblHeader``) with the
+    header row, so a table that opens or continues on a page still carries its title."""
+    if t is None or not len(t.rows):
+        return t
+    try:
+        tr = t.add_row()._tr
+        t._tbl.remove(tr)
+        t.rows[0]._tr.addprevious(tr)
+        row = t.rows[0]
+        c = row.cells[0].merge(row.cells[-1]) if len(row.cells) > 1 else row.cells[0]
+        _no_space(c)
+        c.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+        tcPr = c._tc.get_or_add_tcPr()
+        tb = OxmlElement('w:tcBorders')
+        for edge in ('top', 'left', 'bottom', 'right'):
+            e = OxmlElement('w:' + edge)
+            e.set(qn('w:val'), 'single' if edge == 'bottom' else 'nil')
+            if edge == 'bottom':
+                e.set(qn('w:sz'), '4'); e.set(qn('w:space'), '0'); e.set(qn('w:color'), '26517D')
+            tb.append(e)
+        anchor = next((x for x in tcPr if x.tag in {qn('w:' + n) for n in (
+            'shd', 'noWrap', 'tcMar', 'textDirection', 'tcFitText', 'vAlign', 'hideMark')}), None)
+        if anchor is not None:                # CT_TcPr order: tcBorders precedes shd / vAlign
+            anchor.addprevious(tb)
+        else:
+            tcPr.append(tb)
+        pp = c.paragraphs[0]
+        pp.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        pp.paragraph_format.space_after = Pt(3)
+        run(pp, text, font=CAL, size=11, bold=True, color=SUBNAVY)
+        _row_h(row, 20, exact=False)
+        trPr = row._tr.get_or_add_trPr()
+        cant = OxmlElement('w:cantSplit'); cant.set(qn('w:val'), 'true')
+        trPr.insert(0, cant)
+        th = OxmlElement('w:tblHeader'); th.set(qn('w:val'), 'true')
+        trPr.append(th)
+    except Exception:                       # pragma: no cover - defensive
+        pass
+    return t
 
 
 def _render_materials(document, p, number, note):
@@ -1152,18 +1244,250 @@ def _render_codes(document, p, number, note):
     if not tables:
         _muted(document, 'No activity codes are defined in the file.')
         return
-    # two small Code Value | Description tables per row, equal row heights
+    # two Code Value | Description tables per row, side by side — as ONE body-level Word
+    # table (see _code_pair_table), so a pair breaks between rows like any table
     for i in range(0, len(tables), 2):
-        pair = tables[i:i + 2]
-        container = document.add_table(rows=1, cols=2)
-        container.autofit = False
-        cells = container.rows[0].cells
-        _set_w(cells[0], 3.45); _set_w(cells[1], 3.45)
-        for j, tbl in enumerate(pair):
+        pair = []
+        for j, tbl in enumerate(tables[i:i + 2]):
             dim = tbl.get('dimension') or 'Codes'
             rows = [(r.get('code'), r.get('description')) for r in (tbl.get('rows') or [])]
-            _code_table(cells[j], '%d · %s' % (i + j + 1, dim), rows)
+            pair.append(('%d · %s' % (i + j + 1, dim), rows))
+        _code_pair(document, pair)
         para(document, '', after=6)
+
+
+# left table | gap | right table (inches) — the two 3.45 in halves of the old layout
+_CODE_PAIR_W = (1.2, 2.1, 0.3, 1.2, 2.1)
+
+
+def _code_pair(document, pair):
+    """Lay out one pair of code tables side by side (see ``_code_pair_table``).
+
+    NARR-WORD-3: in the ONE 5-column table a SHORT table beside a LONG one that runs onto the
+    next page broke with it — '8 · Procurement SUB WBS' (4 rows) went 3 + 1 across the page
+    break next to the 25-row '7 · Silos Area Name', and '10 · EV - FW Movement' repeated its
+    title + 'Code Value | Description' header over NO rows on the page where '9 · Type of
+    Civil Work' continued (the title and header rows repeat as one row for both halves).
+    So when the pair is unequal and its long half continues across pages, the halves are two
+    tables: the long one breaks like any long table (its own title + header repeated, >= 3
+    rows a page) and the short one — small enough to be kept whole — rides in a borderless
+    text box on a 1 pt line that keeps with the long one, in the other half beside its first
+    rows: it never splits and never repeats on the next page. (A floating table does NOT
+    work: Word leaves it where it stands, and splits it, when keep rules push the long table
+    to the next page.) The long table keeps its header + as many rows as the short one has
+    together, so the box always fits beside its first page part. Two long halves of unequal
+    length are stacked (each breaks on its own). A pair that is kept whole, or of equal
+    halves, stays one table."""
+    if len(pair) == 2 and len(pair[0][1]) != len(pair[1][1]):
+        try:
+            from p6_export import docx_pagination as _dp
+            fit_h = _dp._body_height_pt(document) * _dp.FIT
+            half_w = sum(_CODE_PAIR_W[:2]) * 72.0
+        except Exception:                   # pragma: no cover - p6_export always ships
+            return _code_pair_table(document, pair)
+
+        def est(t):
+            return _dp._table_height_pt(t._tbl, half_w)
+
+        lk = 0 if len(pair[0][1]) > len(pair[1][1]) else 1          # the long half
+        long_t = _code_side_table(document, *pair[lk])
+        if est(long_t) > fit_h:                                     # it continues across pages
+            short_t = _code_side_table(document, *pair[1 - lk])
+            if est(short_t) <= fit_h:                               # kept whole → beside it
+                x_in = 0.0 if lk == 1 else sum(_CODE_PAIR_W[:3])
+                long_t._tbl.addprevious(_beside_box(short_t._tbl, x_in, sum(_CODE_PAIR_W[:2]),
+                                                    est(short_t) + 4, pair[1 - lk][0]))
+                # the long table keeps its header + as many rows as the short one has together,
+                # so the short one (same row pitch) always fits beside its first page part
+                for row in long_t.rows[:2 + max(len(pair[1 - lk][1]), 3) - 1]:
+                    for c in row.cells:
+                        for p in c.paragraphs:
+                            p.paragraph_format.keep_with_next = True
+                if lk == 1:                     # in the right column, exactly where the right
+                    _table_indent(long_t, sum(_CODE_PAIR_W[:3]))   # half of a one-table pair sits
+                return long_t
+            # both halves continue: stacked in reading order, each breaks on its own
+            first, second = (long_t, short_t) if lk == 0 else (short_t, long_t)
+            second._tbl.addprevious(first._tbl)
+            first._tbl.addnext(OxmlElement('w:p'))
+            return second
+        long_t._tbl.getparent().remove(long_t._tbl)                 # a small pair: one table
+    return _code_pair_table(document, pair)
+
+
+def _table_indent(t, inches):
+    """Left-align table ``t`` and indent it ``inches`` from the left margin (w:tblInd, dxa).
+    A right-aligned table was pushed to the right text margin — onto the page border and
+    0.57 in right of the column every other right-hand code table uses (NARRFIX)."""
+    tblPr = t._tbl.tblPr
+    for tag in ('w:jc', 'w:tblInd'):
+        for el in tblPr.findall(qn(tag)):
+            tblPr.remove(el)
+    ind = OxmlElement('w:tblInd')
+    ind.set(qn('w:w'), str(int(round(inches * 1440))))
+    ind.set(qn('w:type'), 'dxa')
+    # schema order (CT_TblPr): tblStyle, tblpPr, tblOverlap, bidiVisual, tblStyleRowBandSize,
+    # tblStyleColBandSize, tblW, jc, tblCellSpacing, tblInd, tblBorders, shd, tblLayout, …
+    after = [qn('w:' + n) for n in ('tblStyle', 'tblpPr', 'tblOverlap', 'bidiVisual',
+                                    'tblStyleRowBandSize', 'tblStyleColBandSize', 'tblW',
+                                    'jc', 'tblCellSpacing')]
+    k = 0
+    for i, ch in enumerate(tblPr):
+        if ch.tag in after:
+            k = i + 1
+    tblPr.insert(k, ind)
+
+
+_TB_XML = (
+    '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    ' xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+    '<w:pPr><w:keepNext/><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>'
+    '<w:rPr><w:sz w:val="2"/></w:rPr></w:pPr>'
+    '<w:r><w:rPr><w:sz w:val="2"/></w:rPr><w:drawing>'
+    '<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251659264"'
+    ' behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">'
+    '<wp:simplePos x="0" y="0"/>'
+    '<wp:positionH relativeFrom="margin"><wp:posOffset>{x}</wp:posOffset></wp:positionH>'
+    '<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>'
+    '<wp:extent cx="{cx}" cy="{cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>'
+    '<wp:wrapNone/><wp:docPr id="{id}" name="{name}"/><wp:cNvGraphicFramePr/>'
+    '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+    '<wps:wsp><wps:cNvSpPr txBox="1"/>'
+    '<wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr>'
+    '<wps:txbx><w:txbxContent/></wps:txbx>'
+    '<wps:bodyPr rot="0" vert="horz" wrap="square" lIns="{lins}" tIns="0" rIns="0" bIns="0"'
+    ' anchor="t" anchorCtr="0"><a:spAutoFit/></wps:bodyPr>'
+    '</wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r></w:p>')
+
+_EMU_IN, _EMU_PT = 914400, 12700
+
+
+def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
+    """A 1 pt paragraph that keeps with the next block and carries ``tbl`` in a borderless
+    text box on the same line, ``x_in`` from the left margin (in front of the text — it sits
+    in the empty half beside the block below). The box moves with its paragraph, so the
+    table always stays beside the block the paragraph keeps with."""
+    from docx.oxml import parse_xml
+    lins = int(0.08 * _EMU_IN)                        # room for the table's own left border
+    p = parse_xml(_TB_XML.format(x=int((x_in - 0.08) * _EMU_IN), cx=int((w_in + 0.1) * _EMU_IN),
+                                 cy=int(h_pt * _EMU_PT), id=9000, name=name, lins=lins))
+    box = p.find('.//' + qn('w:txbxContent'))
+    tbl.getparent().remove(tbl)
+    box.append(tbl)
+    end = parse_xml(_TB_XML[:_TB_XML.index('<w:r>')] + '</w:p>')   # a text box ends with a
+    end.find(qn('w:pPr')).remove(end.find(qn('w:pPr')).find(qn('w:keepNext')))  # paragraph: 1 pt
+    box.append(end)
+    return p
+
+
+def _fill_code_half(t, c0, name, rows):
+    """Title, 'Code Value | Description' header and code rows of one code table, written in
+    columns ``c0`` / ``c0 + 1`` of ``t`` (rows 0 / 1 / 2 …)."""
+    title, head = t.rows[0], t.rows[1]
+    tc = title.cells[c0].merge(title.cells[c0 + 1])
+    tc.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+    tc.paragraphs[0].paragraph_format.space_after = Pt(3)
+    run(tc.paragraphs[0], name, size=12, bold=True)
+    for j, h in enumerate(('Code Value', 'Description')):
+        hc = head.cells[c0 + j]
+        _cell_borders(hc, color='auto')
+        _shade(hc, 'DBE5F1')
+        pp = hc.paragraphs[0]
+        pp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(pp, h, font=CAL, size=9.5, bold=True, color=DKNAVY)
+    for ri, (cv, desc) in enumerate(rows):
+        rr = t.rows[2 + ri]
+        a, b = rr.cells[c0], rr.cells[c0 + 1]
+        _cell_borders(a, color='auto'); _cell_borders(b, color='auto')
+        a.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(a.paragraphs[0], cv, size=10.5, bold=True)
+        run(b.paragraphs[0], desc, size=10.5)
+
+
+def _code_grid(document, n, widths):
+    """An empty code-table grid: a title row, a header row and ``n`` code rows."""
+    t = document.add_table(rows=2 + n, cols=len(widths))
+    t.autofit = False
+    for row in t.rows:
+        for ci, cell in enumerate(row.cells):
+            _set_w(cell, widths[ci])
+            _no_space(cell)
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    _row_h(t.rows[0], 22, exact=False)
+    _row_h(t.rows[1], 18, exact=False)
+    return t
+
+
+def _code_head_rows(t):
+    """Code rows AT LEAST 18 pt (a long description wraps onto a second line — an EXACT
+    18 pt row cut it off: 'Delivery Bins.Mechanical Inst. Seq.' lost 'Seq.', NARRFIX); every
+    row cantSplit; the title AND 'Code Value' header rows repeat."""
+    for rr in t.rows[2:]:
+        _row_h(rr, 18, exact=False)
+    _keep_table_together(t, header=True)             # every row cantSplit, title row repeats
+    th = OxmlElement('w:tblHeader')                   # … and the Code Value header row too
+    th.set(qn('w:val'), 'true')
+    t.rows[1]._tr.get_or_add_trPr().append(th)
+    return t
+
+
+def _code_side_table(document, name, rows):
+    """One code table on its own (half the page wide) — a half of an unequal long pair."""
+    t = _code_grid(document, len(rows), _CODE_PAIR_W[:2])
+    _fill_code_half(t, 0, name, rows)
+    return _code_head_rows(t)
+
+
+def _code_pair_table(document, pair):
+    """Two 'Code Value | Description' code tables side by side, built as ONE Word table:
+    a title row and a header row (both repeated on every page the pair runs onto) over the
+    code rows, a blank gap column between the halves, borders only where a table has a cell.
+
+    It used to be a one-row layout table holding two nested tables: that row can never
+    break (Word keeps a cantSplit row whole and never repeats a NESTED table's header), so
+    a 22-row code table was pushed whole to the next page, leaving most of a page blank
+    (finding NARR-WORD-1). Rows of this table break like any table's, and the shared Word
+    rules (p6_export.docx_pagination) keep a small pair whole and a long one at >= 3 rows
+    a page. An unequal pair whose long half continues is laid out by ``_code_pair``."""
+    n = max([len(rows) for _, rows in pair] + [0])
+    t = _code_grid(document, n, _CODE_PAIR_W)
+    for k, (name, rows) in enumerate(pair):
+        _fill_code_half(t, 3 * k, name, rows)
+    return _code_head_rows(t)
+
+
+def _year_label(y, avail_in, size_pt):
+    """'2025' when it fits ``avail_in`` inches at ``size_pt`` (bold digits ~0.55 em), else '’25'."""
+    full = str(y)
+    if len(full) * size_pt * 0.55 <= avail_in * 72.0:
+        return full
+    try:
+        return '’%02d' % (int(y) % 100)
+    except (TypeError, ValueError):
+        return full
+
+
+def _cell_side_margins(cell, inches):
+    """Left / right cell margins of ``inches`` (w:tcMar, in schema order within w:tcPr)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn('w:tcMar')):
+        tcPr.remove(old)
+    mar = OxmlElement('w:tcMar')
+    for side in ('left', 'right'):
+        e = OxmlElement('w:' + side)
+        e.set(qn('w:w'), str(int(round(inches * 1440))))
+        e.set(qn('w:type'), 'dxa')
+        mar.append(e)
+    later = [qn('w:' + n) for n in ('textDirection', 'tcFitText', 'vAlign', 'hideMark',
+                                    'headers', 'cellIns', 'cellDel', 'cellMerge', 'tcPrChange')]
+    nxt = next((ch for ch in tcPr if ch.tag in later), None)
+    if nxt is not None:
+        nxt.addprevious(mar)
+    else:
+        tcPr.append(mar)
 
 
 def _render_critpath(document, p, number, note):
@@ -1221,7 +1545,7 @@ def _render_critpath(document, p, number, note):
             rpr.append(shd)
             run(lp, ' %s    ' % disp, font=CAL, size=9, color=BODYNAVY)
 
-    # the sweep — a native shaded-cell grid: year header (no merge), month header, one row/zone.
+    # the sweep — a native shaded-cell grid: year header, month header, one row/zone.
     t = document.add_table(rows=0, cols=ncol)
     t.style = 'Table Grid'
     t.autofit = False
@@ -1231,16 +1555,21 @@ def _render_critpath(document, p, number, note):
         span = 0
         while i + span < len(months) and months[i + span]['y'] == y:
             span += 1
-        spans.append((y, i + 1))                     # (year, first 1-based month-column)
+        spans.append((y, i + 1, span))               # (year, first 1-based month-column, months)
         i += span
-    year_at = {a: y for (y, a) in spans}
 
+    # the year header: ONE cell per year spanning its months, centred (the twin of the HTML
+    # colspan) with slim side margins — a year in its first month's cell alone wrapped to
+    # '202 / 5' (GBT Word Appendix Critical Path, NARRFIX); a year over too few months to
+    # hold '2025' prints '’25'
     yr = t.add_row(); _row_h(yr, 11, exact=False)
     c0 = yr.cells[0]; _shade(c0, '26517D'); _no_space(c0); _set_w(c0, label_w)
-    for k in range(1, ncol):
-        c = yr.cells[k]; _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w)
-        if k in year_at:
-            run(c.paragraphs[0], str(year_at[k]), font=CAL, size=7.5, bold=True, color=WHITE)
+    for (y, a, span) in spans:
+        c = yr.cells[a] if span == 1 else yr.cells[a].merge(yr.cells[a + span - 1])
+        _shade(c, '26517D'); _no_space(c); _set_w(c, mo_w * span); _cell_side_margins(c, 0.02)
+        c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run(c.paragraphs[0], _year_label(y, mo_w * span - 0.04, 7.5),
+            font=CAL, size=7.5, bold=True, color=WHITE)
 
     mr = t.add_row(); _row_h(mr, 12, exact=False)
     lc = mr.cells[0]; _shade(lc, '3A6EA5'); _no_space(lc); _set_w(lc, label_w)
@@ -1495,7 +1824,11 @@ def write_docx(doc, output_path, chrome=None):
     # A real, native Word TOC field on its own page: Word fills in the TRUE page number of
     # every one of the ten Heading-1 sections when it updates fields on open (the PAGEREF
     # approach cached ordinals that resolved to "page 1" on the planner's Word — this does not).
-    docx_template.add_toc(document)
+    # Every section opens a new page through its heading's 'page break before' — not a
+    # separate page-break paragraph after the section before: when a section filled its last
+    # page to the bottom margin that paragraph spilled onto the next page and broke there,
+    # leaving a page with nothing but its page number (SG Word p12 after §7, NARRFIX).
+    docx_template.add_toc(document, page_break=False)
 
     for idx, section in enumerate(sections, 1):
         try:
@@ -1508,18 +1841,27 @@ def write_docx(doc, output_path, chrome=None):
         else:
             hp = docx_template.heading(document, docx_template.format_number((number,)),
                                        section.get('title', ''))
+        hp.paragraph_format.page_break_before = True           # each section on a new page
+        # Word keeps a 'page break before' heading's space-before at the page top (after a
+        # break paragraph it dropped it): 0 keeps every section title where it stood (y 95 pt)
+        hp.paragraph_format.space_before = Pt(0)
         if section.get('cover'):                               # cover/divider: also pushed down the page
             hp.paragraph_format.space_before = Pt(210)
         _bookmark_para(hp, '_sec_%s' % number, 900 + number)   # PAGEREF target for the TOC
         _render(document, section, number)
-        if idx < len(sections):
-            document.add_page_break()
 
     # Real TOC page numbers: refresh all fields (the TOC PAGEREFs) with the true page on open.
     docx_template.enable_update_fields(document)
     # Final safety pass: guarantee every drawing object has a document-wide unique id
     # (header logos vs. body charts/org-charts) so Word never "repairs" the file on open.
     _dedupe_drawing_ids(document)
+    # The shared Word page-composition rules (owner point 14): headings / intros / captions
+    # kept with their first block, small tables whole, long tables never strand 1-2 rows.
+    try:
+        from p6_export import docx_pagination
+        docx_pagination.paginate_docx(document)
+    except Exception:
+        pass
 
     document.save(output_path)
     return output_path

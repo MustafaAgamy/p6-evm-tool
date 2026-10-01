@@ -22,15 +22,34 @@ import tempfile
 _MARKER_RE = re.compile(r'SECPGMARK-(\d+)-')
 
 
+_SECONDS_PER_MB = 60      # measured: a 6.4 MB Studio document (1 793 pages) prints in ~210 s
+
+
+def print_timeout(html, base=180):
+    """Seconds Chrome is allowed to print ``html``: ``base`` plus a minute per MB of markup.
+    A rich Reporting Studio selection is several MB (GBT with the Baseline Revision Key
+    Findings: 6.4 MB, ~210 s a pass) - a flat 180 s stopped the export half-way
+    ('did not finish within 180 s') although Chrome was still printing normally."""
+    try:
+        mb = len(html or '') / 1e6
+    except TypeError:
+        mb = 0.0
+    return int(base + _SECONDS_PER_MB * mb)
+
+
 def chrome_pdf(html, chrome, pdf_path, timeout=180):
     """Print ``html`` to ``pdf_path`` with the canonical Special-Report Chrome flags
-    (``--headless --print-to-pdf --no-pdf-header-footer``)."""
+    (``--headless --print-to-pdf --no-pdf-header-footer``). ``chrome`` is tried first, then
+    every other installed Chromium (:func:`p6_export.pdf.run_chrome`) — a browser that cannot
+    start (a broken Playwright build) must not fail the export. ``timeout`` is the allowance
+    for a small document; a bigger one gets a minute more per MB (:func:`print_timeout`)."""
+    from p6_export.pdf import run_chrome
+    timeout = print_timeout(html, timeout)
     html_path = None
     try:
         fd, html_path = tempfile.mkstemp(suffix='.html')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(html)
-        from p6_export.pdf import run_chrome          # the ONE tool-wide browser helper
         run_chrome(chrome, [f'--print-to-pdf={pdf_path}', '--no-pdf-header-footer',
                             f'file:///{html_path.replace(os.sep, "/")}'], timeout=timeout)
     finally:
