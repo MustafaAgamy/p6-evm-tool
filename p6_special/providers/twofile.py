@@ -165,7 +165,7 @@ def _cmp_section(ctx, key):
 
     def b():
         from p6_compare.exporters import render_html
-        return render_html(report, sections=[key], theme=ctx.mode)
+        return render_html(report, sections=[key], theme=ctx.mode, layout='portrait')
     return _cmp_payload(ctx.memo(f'cmp_sec:{key}:{ctx.mode}', b))
 
 
@@ -185,7 +185,7 @@ def _cmp_impact_section(ctx):
 
     def b():
         from p6_compare.exporters import render_html
-        return render_html(report, impact=impact, sections=['impact'], theme=ctx.mode)
+        return render_html(report, impact=impact, sections=['impact'], theme=ctx.mode, layout='portrait')
     return _cmp_payload(ctx.memo(f'cmp_sec:impact:{ctx.mode}', b))
 
 

@@ -313,9 +313,13 @@ function _cpWidths(prev, curr, div) {
   const prevTail = (div <= prev.length ? prev.slice(div) : []).map(days);
   const sum = arr => arr.reduce((x, y) => x + y, 0);
   const widest = Math.max(sum(prefix) + sum(currTail), sum(prefix) + sum(prevTail), 1);
-  const scale = 620 / widest, px = w => Math.max(58, Math.round(w * scale));
-  const pre = prefix.map(px);
-  return [pre.concat(prevTail.map(px)), pre.concat(currTail.map(px))];
+  // room for the block's own name on about two lines (it wraps inside the block) — the same
+  // rule as the report (p6_period/exporters._cp_widths): a 58 px block used to cut a long name
+  const floor = s => Math.min(150, Math.max(58, Math.floor(String(s.key || '').length * 6.2 / 2) + 14));
+  const scale = 620 / widest, px = (w, s) => Math.max(floor(s), Math.round(w * scale));
+  const prevSegs = div <= prev.length ? prev.slice(div) : [];
+  const pre = prefix.map((w, i) => px(w, curr[i]));
+  return [pre.concat(prevTail.map((w, i) => px(w, prevSegs[i]))), pre.concat(currTail.map((w, i) => px(w, curr[pd + i])))];
 }
 function _cpChainHtml(segs, widths, div, tailRole, flagRole, finishDate) {
   let out = '';

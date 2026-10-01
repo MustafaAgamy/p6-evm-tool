@@ -329,11 +329,61 @@ def _tile(label, value, sub=None):
     return f'<div class="tile"><div class="tl">{_e(label)}</div><div class="tv">{_e(value)}</div>{s}</div>'
 
 
-def _logic_table_html(report, cap=_PDF_ROW_CAP):
+def _links_cell(links, changed=False):
+    """One activity's driving links as ONE table cell, a link per block:
+    ``ID  rel`` on the first line and the linked activity's name under it (portrait layout)."""
+    if not links:
+        return '—'
+    out = []
+    for l in links:
+        t = l.get('type', 'FS')
+        lag = round(l.get('lag_days', 0) or 0)
+        rel = t if not lag else f"{t}{'+' if lag > 0 else ''}{lag}"
+        out.append(f'<div class="lk"><span class="mono">{_e(l.get("code", ""))}</span> '
+                   f'<b class="lkr{" chg" if changed else ""}">{_e(rel)}</b>'
+                   f'<div class="lkn">{_e(l.get("name", ""))}</div></div>')
+    return ''.join(out)
+
+
+def _logic_table_stacked_html(shown):
+    """The driving-logic change table for a PORTRAIT page (the Reporting Studio document):
+    the same rows and the same data as the 16-column landscape table, with each side's
+    predecessor / successor links stacked in one cell (ID, relationship, name) - 8 columns
+    that fit an A4 portrait page at a readable size. The 16-column table is 1 050 px wide:
+    on a 688 px portrait page Chrome shrank the WHOLE document to fit it (every page printed
+    at 67 %, this table at 2.7 pt)."""
+    body = []
+    for i, r in enumerate(shown, start=1):
+        body.append(
+            '<tr>'
+            f'<td class="num">{i}</td>'
+            f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
+            f'<td>{_e(r.get("change_label"))}</td>'
+            f'<td>{_links_cell(r.get("baseline_preds"))}</td>'
+            f'<td>{_links_cell(r.get("baseline_succs"))}</td>'
+            f'<td>{_links_cell(r.get("update_preds"), changed=True)}</td>'
+            f'<td>{_links_cell(r.get("update_succs"), changed=True)}</td>'
+            '</tr>')
+    return (
+        '<table class="data stk"><colgroup><col style="width:4%"><col style="width:13%">'
+        '<col style="width:17%"><col style="width:10%"><col style="width:14%"><col style="width:14%">'
+        '<col style="width:14%"><col style="width:14%"></colgroup><thead><tr>'
+        '<th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>'
+        '<th colspan="2" class="grp">Baseline — driving links</th>'
+        '<th colspan="2" class="grpu">Update — driving links</th></tr>'
+        '<tr><th>Predecessors</th><th>Successors</th><th>Predecessors</th><th>Successors</th></tr>'
+        '</thead><tbody>' + ''.join(body) + '</tbody></table>')
+
+
+def _logic_table_html(report, cap=_PDF_ROW_CAP, stacked=False):
     rows = (report.get('logic', {}) or {}).get('rows', [])
     if not rows:
         return '<p class="note">No driving relationship or lag changes vs the baseline.</p>'
     shown, total = rows[:cap], len(rows)
+    more = (f'<p class="note">Showing the first {cap} of {total} logic / lag changes — the '
+            f'complete list is in the Excel export.</p>' if total > cap else '')
+    if stacked:
+        return _logic_table_stacked_html(shown) + more
     body = []
     for i, r in enumerate(shown, start=1):
         body.append(
@@ -361,9 +411,7 @@ def _logic_table_html(report, cap=_PDF_ROW_CAP):
         '<th colspan="6" class="grpu">Update — driving links</th></tr>'
         '<tr><th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th>'
         '<th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th></tr>'
-        '</thead><tbody>' + ''.join(body) + '</tbody></table>'
-        + (f'<p class="note">Showing the first {cap} of {total} logic / lag changes — the '
-           f'complete list is in the Excel export.</p>' if total > cap else ''))
+        '</thead><tbody>' + ''.join(body) + '</tbody></table>' + more)
 
 
 def _duration_table_html(report, cap=_PDF_ROW_CAP):
@@ -523,7 +571,10 @@ def _charts_html(report):
 COMPARE_SECTIONS = ('dashboard', 'charts', 'logic', 'duration', 'impact')
 
 
-def render_html(report, impact=None, theme='light', sections=None):
+def render_html(report, impact=None, theme='light', sections=None, layout='landscape'):
+    """``layout='portrait'`` (the Reporting Studio's A4 portrait document) prints the driving
+    logic table in its stacked 8-column form; the feature's own report stays landscape with
+    the 16-column table. Same rows, same data either way."""
     if sections is None:
         sections = COMPARE_SECTIONS
     inc = lambda k: k in sections
@@ -542,7 +593,7 @@ def render_html(report, impact=None, theme='light', sections=None):
             f'— of the {dboard.get("changed_activities", 0)} total changed (the other '
             f'{dboard.get("duration_only", 0)} changed in duration only).</p>'
             f'<div>{pills}</div>'
-            f'{_logic_table_html(report)}')
+            f'{_logic_table_html(report, stacked=(layout == "portrait"))}')
     duration_section = ''
     if inc('duration'):
         duration_section = f'<h2>Duration &amp; remaining changes vs baseline</h2>{_duration_table_html(report)}'
@@ -565,6 +616,10 @@ def render_html(report, impact=None, theme='light', sections=None):
       table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 5px 6px; font-weight: 600; }}
       table.data th.grp {{ background: var(--rpt-th-bg); }} table.data th.grpu {{ background: var(--rpt-accent); color: var(--rpt-accent-ink); }}
       table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 4px 6px; vertical-align: top; }}
+      table.data.stk {{ table-layout: fixed; }}
+      table.data.stk td, table.data.stk th {{ overflow-wrap: anywhere; }}
+      .lk {{ margin: 0 0 4px; }} .lk:last-child {{ margin-bottom: 0; }}
+      .lkr {{ font-weight: 700; }} .lkn {{ color: var(--rpt-ink-soft); }}
       .mono {{ font-family: Consolas, monospace; }}
       .num {{ text-align: right; }}
       .chg {{ color: var(--rpt-bad); font-weight: 700; }}

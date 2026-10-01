@@ -301,15 +301,21 @@ def _cp_widths(prev, curr, div):
             return d if d > 0 else 30
         except Exception:
             return 30
+    def _floor(s):
+        # room for the block's own name on about two lines (it wraps inside the block; a
+        # 58 px block used to CUT a long name - 'Above Silos From S6 Till S10 …' read 'Above')
+        n = len(str(s.get('key') or ''))
+        return min(150, max(58, int(n * 6.2 / 2) + 14))
     pd = div if div <= len(curr) else len(curr)
     prefix = [_days(curr[i]) for i in range(pd)]
     curr_tail = [_days(s) for s in curr[pd:]]
     prev_tail = [_days(s) for s in prev[div:]] if div <= len(prev) else []
     widest = max(sum(prefix) + sum(curr_tail), sum(prefix) + sum(prev_tail), 1)
     scale = 620.0 / widest
-    px = lambda w: max(58, round(w * scale))
-    pre = [px(w) for w in prefix]
-    return pre + [px(w) for w in prev_tail], pre + [px(w) for w in curr_tail]
+    px = lambda w, s: max(_floor(s), round(w * scale))
+    pre = [px(w, curr[i]) for i, w in enumerate(prefix)]
+    return (pre + [px(w, s) for w, s in zip(prev_tail, prev[div:])],
+            pre + [px(w, s) for w, s in zip(curr_tail, curr[pd:])])
 
 
 def _cp_chain_html(segs, widths, div, tail_role, flag_role, finish_date):
@@ -788,8 +794,11 @@ def render_html(report, trend=None, sections=None, code_filter=None,
       .cpconcl.good {{ background: var(--rpt-good-bg); color: var(--rpt-good); }} .cpconcl.warn {{ background: var(--rpt-warn-bg); color: var(--rpt-warn); }}
       .cpconcl .cpic {{ font-size: 15px; line-height: 1.2; }}
       .cprowlbl {{ font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--rpt-muted); margin: 2px 0 5px; }}
-      .cpchain {{ display: flex; align-items: stretch; margin-bottom: 4px; }}
-      .cpblk {{ flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 44px; border-radius: 7px; font-weight: 700; font-size: 11px; padding: 0 4px; text-align: center; overflow: hidden; }}
+      /* the chain WRAPS onto a second line when the page is narrower than the chain (the Reporting
+         Studio's portrait page: a 1 000 px chain overflowed the 688 px page and Chrome shrank the
+         WHOLE document to 67 %); a block grows in height so its full name shows, never cut */
+      .cpchain {{ display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; margin-bottom: 4px; }}
+      .cpblk {{ flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 44px; border-radius: 7px; font-weight: 700; font-size: 11px; line-height: 1.15; padding: 3px 5px; text-align: center; overflow-wrap: anywhere; break-inside: avoid; }}
       .cpblk small {{ font-weight: 600; font-size: 9px; opacity: .85; margin-top: 1px; }}
       .cpblk.shared {{ background: var(--rpt-accent-soft); color: var(--rpt-accent); }} .cpblk.new {{ background: var(--rpt-bad-bg); color: var(--rpt-bad); }} .cpblk.gone {{ background: var(--rpt-surface-2); color: var(--rpt-muted); text-decoration: line-through; }}
       .cparw {{ flex: none; display: flex; align-items: center; color: var(--rpt-muted); font-weight: 900; font-size: 14px; padding: 0 4px; }} .cparw.new {{ color: var(--rpt-bad); }}

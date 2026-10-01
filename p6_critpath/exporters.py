@@ -521,6 +521,9 @@ def render_html(report, sections=None, milestone_ids=None, theme='light'):
       .box.bnew {{ border: 2px solid var(--rpt-bad); background: var(--rpt-bad-bg); }}
       .box.bleft {{ border: 1px dashed var(--rpt-hair-strong); background: var(--rpt-surface-2); }}
       .bflag {{ position: absolute; top: -8px; left: 8px; color: var(--rpt-accent-ink); font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; }}
+      /* room for the flag pill that sits on a card's top edge: on the first row of a page it ran
+         into the running header rule (PDF) or was cut in half (Word page pictures) */
+      .chain > .box, .chain > .msbox {{ margin-top: 8px; }}
       .bfnew {{ background: var(--rpt-bad); }} .bfleft {{ background: var(--rpt-muted); color: var(--rpt-bg); }}
       .bt {{ font-size: 11px; font-weight: 700; }} .bcrumb {{ font-size: 8.5px; color: var(--rpt-muted); margin: 2px 0 6px; }}
       .brow {{ display: flex; justify-content: space-between; font-size: 10px; margin: 2px 0; }}

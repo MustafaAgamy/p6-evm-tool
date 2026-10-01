@@ -2043,8 +2043,9 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .cpconcl.warn { background: rgba(217,119,6,.12); border: 1px solid rgba(217,119,6,.40); color: var(--text); }
 .cpconcl .cpic { font-size: 15px; line-height: 1.2; }
 .cprowlbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin: 2px 0 5px; }
-.cpchain { display: flex; align-items: stretch; margin-bottom: 4px; overflow-x: auto; padding-bottom: 2px; }
-.cpblk { flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 46px; border-radius: 7px; font-weight: 700; font-size: 12px; padding: 0 5px; text-align: center; overflow: hidden; }
+/* the chain wraps onto a second line instead of scrolling sideways, and a block grows so its full name shows (same as the report) */
+.cpchain { display: flex; align-items: stretch; flex-wrap: wrap; row-gap: 6px; margin-bottom: 4px; padding-bottom: 2px; }
+.cpblk { flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 46px; border-radius: 7px; font-weight: 700; font-size: 12px; line-height: 1.15; padding: 3px 5px; text-align: center; overflow-wrap: anywhere; }
 .cpblk small { font-weight: 600; font-size: 9.5px; opacity: .85; margin-top: 1px; }
 .cpblk.shared { background: var(--accent-soft); color: var(--accent-dark); } .cpblk.new { background: var(--danger-bg); color: var(--danger); } .cpblk.gone { background: var(--hair); color: var(--muted); text-decoration: line-through; }
 .cparw { flex: none; display: flex; align-items: center; color: var(--muted); font-weight: 900; font-size: 15px; padding: 0 5px; } .cparw.new { color: var(--danger); }
