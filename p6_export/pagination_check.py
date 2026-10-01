@@ -287,10 +287,12 @@ def _strip_running(pages):
             if k not in seen:
                 seen.add(k)
                 # the next row under it - past the 1-2 wrapped lines of its own header cells
-                # ('Start (before -> after)' wraps under a one-line 'Activity ID')
+                # ('Start (before -> after)' wraps under a one-line 'Activity ID'; such lines
+                # are bold like the header - a two-cell BODY row right under a two-column
+                # table's header is the next row, not a wrapped header line)
                 nx = None
                 for c in bands[j + 1:j + 4]:
-                    if len(c.lines) >= 3 or c.y0 - b.y1 > 14:
+                    if len(c.lines) >= 3 or c.y0 - b.y1 > 14 or not c.bold:
                         nx = c
                         break
                 occ[k].append((b, nx))
@@ -299,8 +301,13 @@ def _strip_running(pages):
     def table_header(k):
         # a table's header row repeated on every page of the table: 3+ cells, and wherever
         # it sits, table rows with the same columns follow right under it
-        if not all(len(b.lines) >= 3 and nx is not None and nx.grid and nx.y0 - b.y1 <= 30
-                   and _col_match(b.lines, nx.lines) >= 3 for b, nx in occ[k]):
+        # (a two-column table's header - 'Milestone | Date' - is a BOLD row whose two cells both
+        # start columns of the rows under it)
+        if not all(nx is not None and nx.grid and nx.y0 - b.y1 <= 30
+                   and ((len(b.lines) >= 3 and _col_match(b.lines, nx.lines) >= 3)
+                        or (len(b.lines) == 2 and b.bold and not nx.bold
+                            and _col_match(b.lines, nx.lines) >= 2))
+                   for b, nx in occ[k]):
             return False
         # ... but when the row under it is the SAME on every page too, the two are a running
         # header TABLE (the narrative letterhead 'OWNER CONSULTANT CONTRACTOR' over 'logo logo
@@ -323,7 +330,13 @@ def _strip_running(pages):
     dcnt = collections.Counter()
     for P in pages:
         dcnt.update({dkey(d) for d in P.draws if not d.img})
-    drun = {k for k, c in dcnt.items() if n >= 3 and c >= need}
+    # a running DRAWING is page furniture: the header / footer band's logos and rules, or a
+    # page frame - not a card / bar that happens to sit at the same place on many pages (a row
+    # of driving-path cards continuing at the top of every page; STUDIO-RICH-10)
+    def furniture(k):
+        y0, h = k[0] * 3, k[3] * 3
+        return y0 + h < 0.15 * H + 3 or y0 > 0.85 * H - 3 or h >= 0.6 * H
+    drun = {k for k, c in dcnt.items() if n >= 3 and c >= need and furniture(k)}
     # the text of every running header / footer row (in the sheet's header / footer band) —
     # a report shell's repeated table footer is drawn right under the content on the LAST
     # page of its sheet (under the contents list, at the end of the report), away from its
@@ -402,9 +415,32 @@ def _boxed_rows(P, reg):
     as a 'table'): its few-row / small-table rules do not apply - each column is a list that
     continues on the next page, its branches kept with their first child by the renderer."""
     def boxed(row):
-        return all(_list_band(P, _Band([l])) for l in row.lines)
+        return all(_list_band(P, _Band([l])) for l in row.lines) or _carded(P, row)
     rows = reg.rows
     return bool(rows) and sum(1 for r in rows if boxed(r)) >= 0.8 * len(rows)
+
+
+def _carded(P, row):
+    """A 'row' made of lines that each sit inside a DIFFERENT card (rounded box narrower than
+    half the page): a row of cards side by side (driving-path activity / milestone cards) read
+    as a table row. Each card is kept whole by the rules; the next row of cards on the next
+    page is not a table continuing with 1 row (STUDIO-RICH-10). A table drawn inside ONE card
+    has all of a row's lines in the same box and stays a table."""
+    if len(row.lines) < 2:
+        return False
+    owners = set()
+    for l in row.lines:
+        box = None
+        for k, d in enumerate(P.draws):
+            if (d.curve and not d.thin and not d.img and d.w < 0.5 * P.W
+                    and d.x0 - 1 <= l.x0 and l.x1 <= d.x1 + 1 and d.y0 - 1 <= l.y0 and l.y1 <= d.y1 + 1
+                    and (box is None or d.w * d.h < P.draws[box].w * P.draws[box].h)):
+                box = k
+        if box is None:
+            return False
+        d = P.draws[box]
+        owners.add((round(d.x0), round(d.y0), round(d.x1), round(d.y1)))
+    return len(owners) >= 2
 
 
 def _card_value(P, b, body):

@@ -392,3 +392,139 @@ def test_checker_strips_a_letterhead_table_that_repeats_on_every_page(tmp_path):
     assert not any(l.t.strip() in ('OWNER', 'CONSULTANT', 'CONTRACTOR', 'logo')
                    for P in pages for l in P.lines)
     assert pc.check_pdf(path)['flags'] == []
+
+
+# ── a title inside a card that closes on the page is the card's label, not a heading ──────
+# GBT rich Studio, Float Analysis: once the Float Health card (score + 'High Float > 44 WD -
+# construction' driver label + bar + note) is kept whole, the 'how the score is calculated'
+# legend starts the next page - the checker read the bold driver label as a heading whose
+# block (the legend) started the next page (heading_separated_from_block).
+def _card_label_pdf(path, boxed=True):
+    doc = pymupdf.open()
+    for no in range(1, 4):
+        pg = doc.new_page(width=A4[0], height=A4[1])
+        pg.insert_text((40, 30), 'PROJECT REPORT  Grain Bulk Terminal', fontsize=8)
+        pg.insert_text((280, 825), f'Page {no} of 3', fontsize=8)
+    p1, p2, p3 = doc
+    p1.insert_text((40, 110), '17 Float Analysis', fontsize=16, fontname='hebo')
+    for y in range(140, 540, 14):
+        p1.insert_text((40, y), f'Narrative line {y}: the float profile of the schedule in plain words.', fontsize=9)
+    if boxed:
+        p1.draw_rect(pymupdf.Rect(40, 560, 555, 660), color=(0.8, 0.84, 0.9), fill=(0.97, 0.98, 1.0), width=1)
+    p1.insert_text((200, 590), 'High Float > 44 WD - construction', fontsize=12, fontname='hebo')
+    p1.insert_text((200, 604), 'the score driver - 100 minus this %', fontsize=8)
+    p1.insert_text((200, 630), 'Score = 100 - the construction High-Float defect above.', fontsize=8)
+    y = 110
+    p2.insert_text((40, y), 'Activity ID', fontsize=9, fontname='hebo')
+    p2.insert_text((200, y), 'Activity Name', fontsize=9, fontname='hebo')
+    p2.insert_text((450, y), 'Total Float', fontsize=9, fontname='hebo')
+    for i in range(40):
+        y += 16
+        p2.insert_text((40, y), f'CONS.PL.S{i:02d}.1010', fontsize=9)
+        p2.insert_text((200, y), f'{_AREAS[i % len(_AREAS)]} {_WORKS[i % len(_WORKS)]}', fontsize=9)
+        p2.insert_text((450, y), f'{45 + i} wd', fontsize=9)
+    for y in range(110, 780, 14):
+        p3.insert_text((40, y), f'Closing narrative line {y}, plain words.', fontsize=9)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_checker_a_label_inside_a_closed_card_is_not_a_heading_ending_the_page(tmp_path, monkeypatch):
+    import pytest
+    if pymupdf is None:
+        pytest.skip('PyMuPDF missing')
+    from p6_export import pagination_check as pc
+    path = _card_label_pdf(str(tmp_path / 'card.pdf'))
+    assert pc.check_pdf(path)['flags'] == []
+    monkeypatch.setattr(pc, '_in_closed_box', lambda *a, **k: False)     # the pre-fix reading
+    assert 'heading_separated_from_block' in {f['type'] for f in pc.check_pdf(path)['flags']}
+    # control: the same label with no card around it is still a heading ending the page
+    monkeypatch.undo()
+    loose = _card_label_pdf(str(tmp_path / 'loose.pdf'), boxed=False)
+    assert 'heading_separated_from_block' in {f['type'] for f in pc.check_pdf(loose)['flags']}
+
+
+# ── Chrome proof: driving-path cards and score cards are never parted by a page break ──────
+_NEW_KEEP = ('.chain > .box', '.chain > .msbox', '.fh', '.scorelegend')
+_CHAIN_CSS = (
+    'body{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:0;color:#1f2937}'
+    'h2{font-size:16px;margin:14px 0 8px}'
+    '.chain{display:flex;align-items:stretch;flex-wrap:wrap;gap:5px;margin-bottom:8px}'
+    '.arw{display:flex;align-items:center;color:#64748b;font-weight:900;font-size:15px}'
+    '.box{flex:none;width:184px;border:1px solid #d9dee6;border-radius:10px;padding:9px 11px}'
+    '.box .bt{font-size:12px;font-weight:700;line-height:1.2}.box .bc{font-size:9.5px;color:#64748b;margin:3px 0 8px}'
+    '.b4{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px}.b4 .k{font-size:9px;color:#64748b}'
+    '.b4 .v{font-size:12px;font-weight:700}.b4 .full{grid-column:1/-1;border-top:1px dashed #d9dee6;padding-top:4px}'
+    '.msbox{flex:none;width:188px;border:2px solid #2563eb;border-radius:10px;padding:10px 11px;background:#dbeafe}'
+    '.msbox .msflag{font-size:9px;text-transform:uppercase;color:#2563eb;margin-bottom:6px}'
+    '.msbox .mst{font-size:12px;font-weight:800;color:#2563eb;margin-bottom:6px}'
+    '.msbox .r{display:flex;justify-content:space-between;font-size:11px;margin:2px 0}'
+    '.lanehdr{display:flex;gap:9px;align-items:center;margin:10px 0 6px;font-size:11px}'
+    '.lanetag{font-size:10px;font-weight:800;text-transform:uppercase;padding:3px 9px;'
+    'border-radius:6px;background:#dbeafe;color:#1e40af}')
+
+
+def _chain_doc(lanes=12, intro=True):
+    """Driving-path lanes of activity cards ending on a milestone card. ``intro``: a lane
+    title row (Critical Path Analyzer '.lanehdr') of varying length above each lane, else lanes
+    of 4-6 cards; card heights vary by lane
+    (the cards do not sit at the same place on every page - identical drawings / text at the
+    same place on most pages are page furniture to the checker)."""
+    out = []
+    for n in range(lanes):
+        parts = []
+        for i in range(5 if intro else 4 + n % 3):
+            parts.append(
+                f'<div class="box"><div class="bt">{_AREAS[(n + i) % len(_AREAS)]} '
+                f'{_WORKS[(n * 3 + i) % len(_WORKS)]}</div><div class="bc">Phase {n % 4 + 1} · '
+                f'{_AREAS[i % len(_AREAS)]} works' + ' · Silos Civil Works · Elevated Raft' * (n % 3)
+                + '</div><div class="b4"><div><div class="k">Planned</div>'
+                f'<div class="v">0.0%</div></div><div><div class="k">Actual</div><div class="v">0.0%</div></div>'
+                f'<div><div class="k">Baseline finish</div><div class="v">1{i}-Oct.2026</div></div>'
+                f'<div><div class="k">Expected finish</div><div class="v">1{i}-Oct.2026</div></div>'
+                f'<div class="full"><div class="k">Delay</div><div class="v">0 d</div></div></div></div>'
+                '<div class="arw">&#9656;</div>')
+        parts.append(f'<div class="msbox"><div class="msflag">&#9670; Completion Milestone</div>'
+                     f'<div class="mst">Phase {n + 1} Scope Completion</div>'
+                     f'<div class="r"><span>Baseline Finish</span><b>09-Feb.2027</b></div>'
+                     f'<div class="r"><span>Expected Finish</span><b>09-Feb.2027</b></div>'
+                     f'<div class="r"><span>Delay</span><b>0 d</b></div></div>')
+        lead = (f'<div class="lanehdr"><span class="lanetag">Path {n + 1}</span><span>'
+                + 'activities on the longest path to the milestone. ' * (n % 3 + 1)
+                + '</span></div>') if intro else ''
+        out.append(f'{lead}<div class="chain">{"".join(parts)}</div>')
+    return ('<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:18mm}'
+            f'{_CHAIN_CSS}</style></head><body><h2>Driving Path Analyzer</h2>{"".join(out)}</body></html>')
+
+
+def test_chrome_keeps_driving_path_cards_whole(tmp_path, monkeypatch):
+    import pytest
+    if pymupdf is None:
+        pytest.skip('PyMuPDF missing')
+    from p6_export.pdf import chrome_candidates, run_chrome
+    from p6_export import pagination_check as pc
+    import report_theme as rt
+    found = chrome_candidates(None)
+    if not found:
+        pytest.skip('no Chromium installed')
+
+    def printed(name, intro):
+        src = tmp_path / f'{name}.html'
+        src.write_text(rt.with_pagination(_chain_doc(intro=intro)), encoding='utf-8')
+        out = str(tmp_path / f'{name}.pdf')
+        run_chrome(found[0], [f'--print-to-pdf={out}', '--no-pdf-header-footer',
+                              'file:///' + str(src).replace(os.sep, '/')], timeout=120)
+        return pc.check_pdf(out)
+
+    assert all(s in rt.KEEP_WHOLE_SELECTORS for s in _NEW_KEEP)
+    after = [printed('after', True), printed('after_plain', False)]
+    # BEFORE - the shared layer without the STUDIO-RICH-10 selectors: a card is split across
+    # the break (title on one page, dates on the next)
+    monkeypatch.setattr(rt, 'KEEP_WHOLE_SELECTORS', tuple(s for s in rt.KEEP_WHOLE_SELECTORS if s not in _NEW_KEEP))
+    monkeypatch.setattr(rt, 'MEASURED_SELECTORS', tuple(s for s in rt.MEASURED_SELECTORS if s not in _NEW_KEEP))
+    before = printed('before_plain', False)
+    assert all(a['pages'] >= 3 for a in after)
+    assert 'block_split' in {f['type'] for f in before['flags']}, before['flags']
+    # AFTER - every card whole, and a lane's title row stays with its first cards
+    assert [a['flags'] for a in after] == [[], []], after

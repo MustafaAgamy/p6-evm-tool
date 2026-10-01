@@ -61,7 +61,7 @@ def _pre_fix(html):
     for old, new in (("function inCell(e){", "function inCell(e){return !!(e.parentElement&&"
                       "e.parentElement.closest('td,th'));"),
                      ("function shell(t){", "function shell(t){return false;"),
-                     ("if(!led&&", "if(0&&")):
+                     ("if(led<2&&", "if(0&&")):
         assert html.count(old) == 1, old
         html = html.replace(old, new)
     return html
