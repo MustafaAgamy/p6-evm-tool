@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — AI Chat: download the dashboard as a PDF (comment 39)
+- **A "Download PDF" button on the Professional Dashboard.** It saves the dashboard exactly as shown — same figures and charts, in the format you picked (Executive, Midnight or Blueprint) — on one A4 landscape page with a report head line (product, "Professional Dashboard", date generated). The file is named after the project.
+- **Amounts no longer carry a pound sign.** The dashboard printed "£" on every amount although the P6 file does not say which currency its costs are in; amounts now read "370.4M".
 ### Fixed — Baseline Narrative: the 31 failing automated checks, and what they uncovered (comment 23)
 - **The Reporting Studio offered only 11 of the Narrative's 19 sections.** Activity IDs, Resource Loading, Material Resources, Productivity Rates, Volume of Work and the three appendices (Critical Path, Critical Path From P6, Mapping Sheet) can now be picked into a Studio report too.
 - **Scope of Work ignored an activity code named "Discipline"** when the schedule also had a "Type of Works" code, and used the work type as the discipline. A code named Discipline is now the discipline, and Type of Works the work type under it. Grain Bulk, Saint Gobain, MAFI and Alstom are unaffected (none has a code named Discipline).

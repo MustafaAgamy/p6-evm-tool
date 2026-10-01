@@ -88,9 +88,11 @@ def test_kpis_exactly_six_in_order(dash):
         assert k['t'] in ('', 'good', 'warn', 'bad')
     # the % complete value reads as a percentage
     assert dash['kpis'][2]['v'].endswith('%')
-    # money KPIs read in £M
-    assert dash['kpis'][4]['v'].startswith('£') and dash['kpis'][4]['v'].endswith('M')
-    assert dash['kpis'][5]['v'].startswith('£') and dash['kpis'][5]['v'].endswith('M')
+    # money KPIs read in millions of the schedule's own cost unit — with NO currency symbol
+    # (the P6 file does not carry one; a pound sign used to be printed on every amount)
+    import re
+    for i in (4, 5):
+        assert re.fullmatch(r'\d+\.\dM', dash['kpis'][i]['v']), dash['kpis'][i]['v']
 
 
 def test_gauges_spi_and_cpi(dash):

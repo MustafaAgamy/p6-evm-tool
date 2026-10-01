@@ -384,6 +384,12 @@ function ensureDashCss() {
   .pdash .styleseg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
   .pdash .styleseg button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
   .pdash .styleseg button.on{background:var(--accent);color:#fff}
+  .pdash .dtools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .pdash .dpdf{border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:12px;font-weight:700;padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap}
+  .pdash .dpdf:disabled{opacity:.6;cursor:default}
+  .pdash[data-style="blueprint"] .dpdf,.pdash[data-style="midnight"] .dpdf{color:#04121f}
+  .pdash .dpdf-note{font-size:11px;color:var(--ink2);max-width:260px;text-align:right;min-height:14px}
+  .pdash .dprint-head{display:none}
   .pdash[data-style="blueprint"] .styleseg button.on,.pdash[data-style="midnight"] .styleseg button.on{color:#04121f}
   .pdash .health{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--mut);background:var(--panel);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:13px}
   .pdash .health.bad{border-left-color:var(--bad)}.pdash .health.warn{border-left-color:var(--warn)}.pdash .health.good{border-left-color:var(--good)}
@@ -458,8 +464,10 @@ function ensureDashCss() {
   document.head.appendChild(s);
 }
 
-// £M money magnitude (sign is applied by the caller).
-function money(v) { return '£' + Math.abs(Number(v) || 0).toFixed(1) + 'M'; }
+// Money magnitude in millions of the schedule's own cost unit (sign is applied by the caller).
+// No currency symbol: the P6 file does not say which currency its costs are in, so the tool
+// must not print one (it used to print a pound sign on every amount).
+function money(v) { return Math.abs(Number(v) || 0).toFixed(1) + 'M'; }
 
 function dashScurveSvg(sc) {
   const months = sc.months || [], plan = sc.plan || [], earn = sc.earn || [], fore = sc.fore || [];
@@ -525,6 +533,85 @@ function dashGaugesSvg(gauges) {
 }
 
 let DASH_SEQ = 0;
+// ── Download PDF (owner comment 39) ───────────────────────────────────────────
+// The dashboard on screen IS the report: the same HTML, in the format the planner chose
+// (Executive / Midnight / Blueprint), on ONE A4 landscape page with a report head line.
+export const DASH_PDF_PAGE = { w: 1123, h: 794 };       // A4 landscape in CSS px (96 dpi)
+
+// The zoom that fits a dashboard measured (w x h px) on screen onto the page, never enlarging.
+export function dashPdfZoom(w, h, page = DASH_PDF_PAGE, pad = 26) {
+  const availW = page.w - 2 * pad, availH = page.h - 2 * pad;
+  if (!(w > 0) || !(h > 0)) return 1;
+  const z = Math.min(1, availW / w, availH / h);
+  return Math.max(0.4, Math.round(z * 1000) / 1000);
+}
+
+// A dashboard file name from the project name: letters / digits only, never empty.
+export function dashPdfName(project) {
+  const base = String(project || '').normalize('NFKD').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+  return `dashboard_${base || 'project'}.pdf`;
+}
+
+// The standalone document Chrome prints. css = the dashboard's own stylesheet text; dashHtml =
+// the .pdash element's outerHTML (screen-only controls already removed); w = its on-screen width.
+// The dashboard's narrow-screen rules (@media max-width) must not apply on paper: the print
+// engine's window is narrow, so they would stack the cards in one column and cut the page off.
+export function stripNarrowMedia(css) {
+  return String(css || '').replace(/@media\s*\(max-width:[^)]*\)\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+}
+
+// h = the dashboard's on-screen height. The page keeps the dashboard at its ON-SCREEN width
+// (so it is laid out exactly as the planner sees it) and scales that picture down to the sheet.
+export function dashPdfDoc({ css, dashHtml, w, h, zoom, ground, brand, generated }) {
+  const z = zoom || 1, bg = ground || '#fff';
+  const W = Math.round(w || 1071), H = Math.round(h || 742);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(brand || 'Controlyx')} — Professional Dashboard</title>
+<style>${stripNarrowMedia(css)}
+@page { size: A4 landscape; margin: 0; }
+html, body { margin: 0 !important; padding: 0 !important; background: ${bg} !important; }
+* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+.dpage { box-sizing: border-box; width: ${DASH_PDF_PAGE.w}px; height: ${DASH_PDF_PAGE.h}px; padding: 26px; overflow: hidden; background: ${bg}; display: flex; justify-content: center; align-items: flex-start; }
+.dfit { flex: none; width: ${Math.floor(W * z)}px; height: ${Math.floor(H * z)}px; overflow: hidden; }
+.dfit .pdash { width: ${W}px; transform: scale(${z}); transform-origin: 0 0; border-radius: 0; padding: 0; box-shadow: none; }
+.dfit .pdash .dprint-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink2); border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 10px; letter-spacing: .04em; text-transform: uppercase; font-weight: 700; }
+</style></head><body><div class="dpage"><div class="dfit">${String(dashHtml || '').replace('<div class="dprint-head"></div>',
+    `<div class="dprint-head"><span>${escapeHtml(brand || 'Controlyx')} · Professional Dashboard</span><span>Generated ${escapeHtml(generated || '')}</span></div>`)}</div></div></body></html>`;
+}
+
+async function downloadDashboardPdf(dash, meta) {
+  const btn = dash.querySelector('[data-dpdf]'), note = dash.querySelector('.dpdf-note');
+  const say = (t) => { if (note) note.textContent = t || ''; };
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || typeof api.choose_save_path !== 'function') { say('Saving a PDF is available in the desktop app.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    const outputPath = await api.choose_save_path(dashPdfName(meta && meta.project), 'pdf');
+    if (!outputPath) { say(''); return; }
+    say('Saving the PDF…');
+    const r = dash.getBoundingClientRect();
+    const clone = dash.cloneNode(true);
+    clone.querySelectorAll('[data-screen-only]').forEach((n) => n.remove());
+    const css = (document.getElementById('pdash-css') || {}).textContent || '';
+    // the format's own ground colour (its CSS variable): the element's background is still
+    // mid-fade for a quarter-second after a format switch, which left a light margin on dark pages
+    const cs = getComputedStyle(dash);
+    const ground = (cs.getPropertyValue('--ground') || '').trim() || cs.backgroundColor || '#fff';
+    const now = new Date();
+    const generated = `${String(now.getDate()).padStart(2, '0')} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.getMonth()]} ${now.getFullYear()}`;
+    // + the print head line the screen does not show, − the tools row height it does not print
+    const h = r.height + 30;
+    const html = dashPdfDoc({ css, dashHtml: clone.outerHTML, w: r.width, h, zoom: dashPdfZoom(r.width, h),
+      ground, brand: window.__APP_TITLE__ || window.__APP_NAME__ || '', generated });
+    const res = await postJSON('/api/report/html', { html, output_path: outputPath });
+    say(res && res.ok ? 'PDF saved — ' + String(outputPath).split(/[\\/]/).pop()
+      : 'The PDF could not be saved: ' + ((res && res.error) || 'unknown error'));
+  } catch (e) {
+    say('The PDF could not be saved: ' + String((e && e.message) || e));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function renderDashboard(p) {
   const meta = p.meta || {}, health = p.health || {}, ts = p.time_status || {}, sc = p.scurve || {};
   const wrap = document.createElement('div');
@@ -570,16 +657,21 @@ function renderDashboard(p) {
   const styleId = 'pdash-seg-' + (++DASH_SEQ);
   wrap.innerHTML = `
   <div class="pdash" data-style="exec">
+    <div class="dprint-head"></div>
     <div class="dhead">
       <div class="lead">
         <div class="kick">Professional Dashboard · generated from your P6 file</div>
         <h1>${escapeHtml(meta.project || 'Project')} — Earned Value Command Board</h1>
         <div class="dmeta">${metaBits.join(' · ')}</div>
       </div>
-      <div class="styleseg" data-seg="${styleId}">
-        <button data-dstyle="exec" class="on">Executive</button>
-        <button data-dstyle="midnight">Midnight</button>
-        <button data-dstyle="blueprint">Blueprint</button>
+      <div class="dtools" data-screen-only="1">
+        <div class="styleseg" data-seg="${styleId}">
+          <button data-dstyle="exec" class="on">Executive</button>
+          <button data-dstyle="midnight">Midnight</button>
+          <button data-dstyle="blueprint">Blueprint</button>
+        </div>
+        <button class="dpdf" data-dpdf="1" title="Save this dashboard as a one-page PDF, in the format shown">⬇ Download PDF</button>
+        <div class="dpdf-note" aria-live="polite"></div>
       </div>
     </div>
 
@@ -633,12 +725,14 @@ function renderDashboard(p) {
       </div>
     </div>
 
-    <div class="dfoot">Every figure is read from your imported schedule — <span class="off">offline · nothing invented</span>. Ask me to switch the format above, or open the Reporting Studio to add this to a formal report.</div>
+    <div class="dfoot">Every figure is read from your imported schedule — <span class="off">offline · nothing invented</span>. <span data-screen-only="1">Use <b>Download PDF</b> above to save this page in the format shown, or open the Reporting Studio to add it to a formal report.</span></div>
   </div>`;
 
   // style switcher — delegated to this dashboard only (multiple can coexist in the thread)
   const seg = wrap.querySelector('.styleseg');
   const dash = wrap.querySelector('.pdash');
+  const pdfBtn = wrap.querySelector('[data-dpdf]');
+  if (pdfBtn) pdfBtn.addEventListener('click', () => downloadDashboardPdf(dash, meta));
   seg.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-dstyle]'); if (!b) return;
     dash.setAttribute('data-style', b.dataset.dstyle);
