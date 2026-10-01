@@ -84,7 +84,16 @@ export function answerPlainText(a) {
   const L = [], A = (x) => (Array.isArray(x) ? x : []);
   const add = (t) => { const v = plain(t); if (v) L.push(v); };
   const gap = () => { if (L.length && L[L.length - 1] !== '') L.push(''); };
-  add(a.question); add(a.verdict);
+  add(a.question);
+  const b = briefOf(a);
+  if (b) {
+    L.push(BRIEF_HEADS.problem.toUpperCase()); add(b.problem);
+    if (b.where.length) { gap(); L.push(BRIEF_HEADS.where.toUpperCase()); b.where.forEach((x) => L.push('- ' + plain(x))); }
+    if (b.why.length) { gap(); L.push(BRIEF_HEADS.why.toUpperCase()); b.why.forEach((x) => L.push('- ' + plain(x))); }
+    gap(); L.push(BRIEF_HEADS.do.toUpperCase()); b.do.forEach((x, i) => L.push(`${i + 1}. ` + plain(x)));
+    gap(); L.push('THE FULL ANALYSIS');
+  }
+  add(a.verdict);
   const pills = A(a.pills).map((p) => plain(p && p.text)).filter(Boolean);
   if (pills.length) L.push(pills.join(' · '));
   A(a.sections).filter(Boolean).forEach((sec) => {
@@ -1345,6 +1354,26 @@ function ensureV2Css() {
   .pv2-kicker .g{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--accent-dark)}
   .pv2-lead{font-weight:700;color:var(--text);margin:0 0 4px}
   .pv2-verdict{font-size:16px;font-weight:700;line-height:1.45;margin:0 0 2px;color:var(--text)}
+  /* the short plain answer (comment 14): the problem · where it is · why · what to do */
+  .pv2-brief{display:grid;gap:10px;margin:2px 0 4px}
+  .pv2-b{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;background:var(--card-bg);padding:10px 14px}
+  .pv2-b-problem{border-left-color:var(--danger)}
+  .pv2-b-where{border-left-color:var(--accent)}
+  .pv2-b-why{border-left-color:var(--warning)}
+  .pv2-b-do{border-left-color:var(--success)}
+  .pv2-bh{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+  .pv2-b-problem .pv2-bh{color:var(--danger)}.pv2-b-do .pv2-bh{color:var(--success)}
+  .pv2-bprob{font-size:16px;font-weight:700;line-height:1.5;margin:0;color:var(--text)}
+  .pv2-bl{margin:0;padding-left:20px;display:grid;gap:6px}
+  .pv2-bl li{font-size:14px;line-height:1.55;color:var(--text)}
+  ol.pv2-bl li::marker{font-weight:800;color:var(--success)}
+  .pv2-more{border:1px solid var(--border);border-radius:10px;background:var(--card-bg);margin-top:4px}
+  .pv2-more>summary{cursor:pointer;padding:10px 14px;font-size:13px;font-weight:700;color:var(--accent);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .pv2-more>summary .pv2-more-sub{font-weight:500;font-size:12px;color:var(--muted)}
+  .pv2-more[open]>summary{border-bottom:1px solid var(--border);margin-bottom:10px}
+  .pv2-more[open]>summary>span:first-child::after{content:' — hide'}
+  .pv2-more>*:not(summary){margin-left:14px;margin-right:14px}
+  .pv2-more>*:last-child{margin-bottom:12px}
   .pv2-pills{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
   .pv2-pill{display:inline-flex;align-items:center;font-size:12px;font-weight:650;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--hair);color:var(--ink-soft)}
   .pv2-pill.danger{color:var(--danger,#c02626);background:color-mix(in srgb,var(--danger,#c02626) 12%,var(--card-bg));border-color:color-mix(in srgb,var(--danger,#c02626) 32%,var(--card-bg))}
@@ -1505,6 +1534,27 @@ function specificHtml(spec, focusId) {
   return `<div class="pv2-spec pv2-rv"><div class="pv2-seclabel">Your questions, one by one — ${spec.length} from the library</div>${rows}</div>`;
 }
 
+// ── the short plain answer that opens every answer (owner comment 14) ────────
+// {problem, where[], why[], do[]} from p6_chat/merged/_brief.py → a usable brief or null.
+export function briefOf(a) {
+  const b = a && a.brief;
+  if (!b || typeof b !== 'object' || !b.problem) return null;
+  const list = (x) => arr(x).filter((s) => s != null && String(s).trim() !== '').map(String);
+  const out = { problem: String(b.problem), where: list(b.where), why: list(b.why), do: list(b.do) };
+  return out.do.length ? out : null;
+}
+export const BRIEF_HEADS = { problem: 'The problem', where: 'Where it is', why: 'Why', do: 'What to do' };
+export function briefHtml(b) {
+  const block = (key, body) => `<div class="pv2-b pv2-b-${key}"><div class="pv2-bh pv2-rv">${BRIEF_HEADS[key]}</div>${body}</div>`;
+  const items = (xs, tag) => `<${tag} class="pv2-bl">${xs.map((x) => `<li class="pv2-rv">${md(x)}</li>`).join('')}</${tag}>`;
+  return '<div class="pv2-brief">'
+    + block('problem', `<p class="pv2-bprob pv2-rv">${md(b.problem)}</p>`)
+    + (b.where.length ? block('where', items(b.where, 'ul')) : '')
+    + (b.why.length ? block('why', items(b.why, 'ul')) : '')
+    + block('do', items(b.do, 'ol'))
+    + '</div>';
+}
+
 // The full v2 answer card. `opts.asked` = what the user typed/clicked (the kicker then
 // skips repeating the question when it is the same words).
 export function answerV2Html(a, opts) {
@@ -1530,43 +1580,57 @@ export function answerV2Html(a, opts) {
   if (a.followup === 'cause') h.push(`<p class="pv2-lead pv2-rv">Here's why:</p>`);
   else if (a.followup === 'expand') h.push(`<p class="pv2-lead pv2-rv">Here's the full picture:</p>`);
 
-  if (a.verdict) h.push(`<p class="pv2-verdict pv2-rv">${md(a.verdict)}</p>`);
+  // The parts of the long analysis. With a brief (owner comment 14) the answer OPENS with the
+  // short plain answer — the problem, where it is, why, what to do — and the long analysis
+  // sits under "Show the full analysis"; without one the answer reads as before.
+  const brief = briefOf(a);
+  const verdict = a.verdict ? `<p class="pv2-verdict pv2-rv">${md(a.verdict)}</p>` : '';
 
   const pills = arr(a.pills).filter((p) => p && p.text);
-  if (pills.length) {
-    h.push(`<div class="pv2-pills pv2-rv">${pills.map((p) =>
-      `<span class="pv2-pill ${V2_TONES.indexOf(p.tone) >= 0 ? p.tone : 'neutral'}">${md(p.text)}</span>`).join('')}</div>`);
-  }
+  const pillsHtml = pills.length
+    ? `<div class="pv2-pills pv2-rv">${pills.map((p) =>
+      `<span class="pv2-pill ${V2_TONES.indexOf(p.tone) >= 0 ? p.tone : 'neutral'}">${md(p.text)}</span>`).join('')}</div>` : '';
 
   const covers = arr(a.covers).filter(Boolean);
-  if (covers.length) {
-    h.push(`<div class="pv2-covers pv2-rv"><div class="ch">${covers.length === 1 ? 'Answers this topic' : 'Answers these topics'}</div>`
-      + `<ol>${covers.map((c) => `<li>${md(c)}</li>`).join('')}</ol></div>`);
-  }
+  const coversHtml = covers.length
+    ? `<div class="pv2-covers pv2-rv"><div class="ch">${covers.length === 1 ? 'Answers this topic' : 'Answers these topics'}</div>`
+      + `<ol>${covers.map((c) => `<li>${md(c)}</li>`).join('')}</ol></div>` : '';
 
+  const secs = [];
   arr(a.sections).filter(Boolean).forEach((s) => {
     const paras = arr(s.paras).filter(Boolean);
     const table = tableHtml(s.table);
     if (!paras.length && !table) return;
-    h.push('<div class="pv2-sec">'
+    secs.push('<div class="pv2-sec">'
       + (s.label ? `<div class="pv2-seclabel pv2-rv">${md(s.label)}</div>` : '')
       + paras.map((p) => `<p class="pv2-rv">${md(p)}</p>`).join('')
       + table + '</div>');
   });
-
-  h.push(specificHtml(spec, focusItem ? focusItem.id : null));
+  const specHtml = specificHtml(spec, focusItem ? focusItem.id : null);
 
   const tools = arr(a.tools).filter((t) => t && V2_TOOLS[t.cap]);
-  if (tools.length) h.push(`<div class="pv2-tools pv2-rv">${tools.map((t) => toolButton(t.cap, t.label, 'pv2-tool')).join('')}</div>`);
+  const toolsHtml = tools.length ? `<div class="pv2-tools pv2-rv">${tools.map((t) => toolButton(t.cap, t.label, 'pv2-tool')).join('')}</div>` : '';
 
-  if (a.measured) {
-    h.push(`<div class="pv2-measured pv2-rv"><div class="pv2-mh">How this is measured — from your P6</div><div class="pv2-mb">${md(a.measured)}</div></div>`);
-  }
+  const measured = a.measured
+    ? `<div class="pv2-measured pv2-rv"><div class="pv2-mh">How this is measured — from your P6</div><div class="pv2-mb">${md(a.measured)}</div></div>` : '';
   const actions = arr(a.actions).filter(Boolean);
-  if (actions.length) h.push(`<div class="pv2-rv"><div class="pv2-acth">What I'd do</div><ul class="pv2-actions">${actions.map((x) => `<li>${md(x)}</li>`).join('')}</ul></div>`);
+  const actionsHtml = actions.length
+    ? `<div class="pv2-rv"><div class="pv2-acth">${brief ? 'More I would do' : "What I'd do"}</div><ul class="pv2-actions">${actions.map((x) => `<li>${md(x)}</li>`).join('')}</ul></div>` : '';
 
   const evidence = arr(a.evidence).filter((e) => e && (e.k || e.v));
-  if (evidence.length) h.push(`<div class="pv2-evi pv2-rv">${evidence.map((e) => `<span class="pv2-chip"><b>${md(e.k)}</b> ${md(e.v)}</span>`).join('')}</div>`);
+  const evidenceHtml = evidence.length
+    ? `<div class="pv2-evi pv2-rv">${evidence.map((e) => `<span class="pv2-chip"><b>${md(e.k)}</b> ${md(e.v)}</span>`).join('')}</div>` : '';
+
+  if (brief) {
+    h.push(briefHtml(brief), toolsHtml);
+    const full = [verdict, pillsHtml, coversHtml, secs.join(''), specHtml, measured, actionsHtml, evidenceHtml].join('');
+    if (full) {
+      h.push(`<details class="pv2-more"${focusItem ? ' open' : ''}><summary><span>Show the full analysis</span>`
+        + `<span class="pv2-more-sub">the detailed tables, each question one by one, and how it is measured</span></summary>${full}</details>`);
+    }
+  } else {
+    h.push(verdict, pillsHtml, coversHtml, secs.join(''), specHtml, toolsHtml, measured, actionsHtml, evidenceHtml);
+  }
 
   const drills = arr(a.drilldowns).filter((d) => d && d.to && d.text);
   if (drills.length) {
@@ -1708,9 +1772,10 @@ function revealV2(card, anchor) {
   const steps = think ? [...think.querySelectorAll('.pv2-step')] : [];
   const sum = think ? think.querySelector('.pv2-think-sum') : null;
   const finalSum = sum ? sum.textContent : '';
-  const units = [...card.querySelectorAll('.pv2-rv')];
+  // what sits under 'Show the full analysis' is not on screen: it is not animated
+  const units = [...card.querySelectorAll('.pv2-rv')].filter((u) => !u.closest('details.pv2-more:not([open])'));
   // a text block (the verdict, a paragraph, a lead line) is written word by word; the rest whole
-  const isText = (u) => u.tagName === 'P';
+  const isText = (u) => u.tagName === 'P' || u.tagName === 'LI';
   const wordsOf = new Map();
   let totalWords = 0;
   units.forEach((u) => {
