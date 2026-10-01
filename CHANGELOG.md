@@ -37,6 +37,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Fixed — Dark report PDFs had a white border
 - In the Dark, Midnight, Blueprint and Sepia looks, every PDF page had a white frame round the edges (the page margins). The whole page is now coloured, on every page, with the same margins and page numbers as before. Checked on the Earned Value and Baseline Revision Comparison PDFs. Light and High-contrast PDFs, Word and Excel are unchanged.
+- Re-checked on the finished tool across all six looks: Schedule Health (summary and float), P6 Calendar Audit, Bad Weather, Earned Value, the Reporting Studio document and the Report Contents export — every page of all 42 PDFs is coloured to the sheet edge, and a Word file exported while the app is in a dark look comes out white with dark text. A new check now stops any future report from printing a white frame in a dark look.
 
 ### Fixed — Web links and online services
 - **Every web link opens in your web browser.** LinkedIn (Help ▸ Contact / About), the map's Leaflet and OpenStreetMap credits and the Open-Meteo weather-source link now open in your default browser instead of taking over the app window. If a link cannot be opened, a note shows the address to copy. Only these known sites are allowed.
