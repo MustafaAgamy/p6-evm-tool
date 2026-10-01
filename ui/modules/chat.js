@@ -25,6 +25,8 @@ let BUSY = false;
 let POLL = null;        // setup status-poll timer
 let LAST_QID = null;    // merged question of the last v2 answer — sent as last_qid so "why?" continues the thread
 let REVEAL = null;      // the in-flight progressive reveal {card, finish()}
+let ABORT = null;       // AbortController of the answer request in flight (Stop button)
+let STOPPED = false;    // the planner pressed Stop on the answer in flight
 const V2_MODE = 'planning';   // the role split is gone — every answer uses the one planning-manager voice
 
 const api = (path) => `http://localhost:${state.serverPort}${path}`;
@@ -37,8 +39,108 @@ async function postJSON(path, body) {
   const r = await fetch(api(path), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
+    signal: ABORT ? ABORT.signal : undefined,        // only set while an answer is in flight
   });
   return r.json();
+}
+
+// ── Stop + Copy (owner comment 15 — the chat behaves like Claude) ─────────────
+// While an answer is being fetched or revealed, the Send button becomes Stop. Stop cancels a
+// request still running (the turn then says so), and ends the reveal of an answer already
+// computed by showing it whole at once — a computed answer is never left half-shown.
+export const STOP_NOTE = 'Stopped. Ask again whenever you are ready.';
+function beginAnswer() {
+  STOPPED = false;
+  ABORT = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+}
+function endAnswer() { ABORT = null; }
+// the text an interrupted / failed request leaves in the turn
+export function failNote(e, stopped, prefix) {
+  if (stopped || (e && e.name === 'AbortError')) return STOP_NOTE;
+  return (prefix || '') + String((e && e.message) || e);
+}
+export function stopAnswer() {
+  STOPPED = true;
+  if (ABORT) { try { ABORT.abort(); } catch (_) { /* already settled */ } }
+  if (REVEAL) REVEAL.finish();
+}
+// what the composer's button is right now: 'stop' while an answer is in flight, else 'send'
+export function sendButtonState(busy, revealing) {
+  return (busy || revealing) ? { mode: 'stop', glyph: '■', label: 'Stop' } : { mode: 'send', glyph: '↑', label: 'Send' };
+}
+function refreshSendButton() {
+  const b = document.getElementById('pchat-send'); if (!b) return;
+  const st = sendButtonState(BUSY, !!REVEAL);
+  b.disabled = false;
+  b.classList.toggle('stop', st.mode === 'stop');
+  b.textContent = st.glyph; b.title = st.label; b.setAttribute('aria-label', st.label);
+}
+
+const plain = (v) => String(v == null ? '' : v).replace(/\*\*(.+?)\*\*/g, '$1').trim();
+// An answer as plain text for the clipboard: the verdict, the key figures, every section with
+// its table (tab-separated, so it pastes into Excel / Word as a table), then the actions.
+export function answerPlainText(a) {
+  a = a || {};
+  const L = [], A = (x) => (Array.isArray(x) ? x : []);
+  const add = (t) => { const v = plain(t); if (v) L.push(v); };
+  const gap = () => { if (L.length && L[L.length - 1] !== '') L.push(''); };
+  add(a.question); add(a.verdict);
+  const pills = A(a.pills).map((p) => plain(p && p.text)).filter(Boolean);
+  if (pills.length) L.push(pills.join(' · '));
+  A(a.sections).filter(Boolean).forEach((sec) => {
+    const paras = A(sec.paras).filter(Boolean), t = sec.table;
+    if (!paras.length && !(t && A(t.cols).length)) return;
+    gap(); add(sec.label); paras.forEach(add);
+    if (t && A(t.cols).length) {
+      L.push(A(t.cols).map(plain).join('\t'));
+      A(t.rows).forEach((r) => L.push(A(r).map(plain).join('\t')));
+      add(t.note);
+    }
+  });
+  const spec = A(a.specific).filter((x) => x && typeof x === 'object' && x.q);
+  if (spec.length) {
+    gap(); L.push('Your questions, one by one');
+    spec.forEach((x) => {
+      L.push('Q: ' + plain(x.q)); add(x.headline); A(x.body).forEach(add);
+      const adv = A(x.advice).map(plain).filter(Boolean);
+      if (adv.length) L.push("What I'd do: " + adv.join(' '));
+    });
+  }
+  if (a.measured) { gap(); L.push('How this is measured: ' + plain(a.measured)); }
+  const acts = A(a.actions).map(plain).filter(Boolean);
+  if (acts.length) { gap(); L.push("What I'd do"); acts.forEach((x) => L.push('- ' + x)); }
+  const ev = A(a.evidence).filter((e) => e && (e.k || e.v)).map((e) => (plain(e.k) + ' ' + plain(e.v)).trim());
+  if (ev.length) { gap(); L.push(ev.join(' · ')); }
+  while (L.length && L[L.length - 1] === '') L.pop();
+  return L.join('\n');
+}
+export const COPY_BAR = '<div class="pchat-actions"><button type="button" class="pchat-copy" data-copy="1" title="Copy this answer">⧉ Copy</button></div>';
+// A Copy button under a finished answer; `text` is what it puts on the clipboard.
+function addCopyBar(parent, text, cls) {
+  if (!parent || !text) return;
+  const d = document.createElement('div'); d.innerHTML = COPY_BAR;
+  const bar = d.firstElementChild; if (cls) bar.classList.add(cls);
+  bar.querySelector('[data-copy]')._copyText = text;
+  parent.appendChild(bar);
+}
+async function copyText(text) {
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (_) { /* fall through */ }
+  try {                                       // older WebView / no clipboard permission
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove();
+    return !!ok;
+  } catch (_) { return false; }
+}
+async function copyAnswer(btn) {
+  const body = btn.closest('.pchat-body');
+  const text = btn._copyText || (body ? body.innerText : '');
+  const ok = await copyText(text);
+  const was = '⧉ Copy';
+  btn.textContent = ok ? '✓ Copied' : 'Could not copy — select the text and press Ctrl+C';
+  btn.classList.toggle('done', ok);
+  setTimeout(() => { btn.textContent = was; btn.classList.remove('done'); }, ok ? 1600 : 4000);
 }
 
 // ── one-time CSS (uses the app's appearance tokens) ──────────────────────────
@@ -95,6 +197,10 @@ function ensureCss() {
   .pchat-composer textarea{flex:1;border:0;outline:0;resize:none;background:transparent;color:var(--text);font:inherit;font-size:14px;max-height:120px;min-height:22px;padding:5px 0}
   .pchat-composer .send{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-size:16px;cursor:pointer}
   .pchat-composer .send:hover{background:var(--accent-dark)}.pchat-composer .send:disabled{opacity:.5;cursor:default}
+  .pchat-composer .send.stop{background:var(--danger);font-size:13px}.pchat-composer .send.stop:hover{background:var(--danger);filter:brightness(.92)}
+  .pchat-actions{display:flex;gap:8px;margin-top:9px}
+  .pchat-copy{border:1px solid var(--border);background:var(--card-bg);color:var(--ink-soft);font:inherit;font-size:12px;padding:4px 11px;border-radius:8px;cursor:pointer}
+  .pchat-copy:hover{border-color:var(--accent);color:var(--accent)}.pchat-copy.done{border-color:var(--success);color:var(--success)}
   .pchat-composer .attach{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card-bg);color:var(--ink-soft);font-size:15px;cursor:pointer}
   .pchat-composer .attach:hover{border-color:var(--accent);color:var(--accent)}
   .pchat-dropcta{display:flex;flex-direction:column;align-items:center;gap:7px;padding:30px 18px}
@@ -759,7 +865,7 @@ async function askDashboard(question) {
         cached_path: state.currentCachedPath || null,
       });
     } catch (e) {
-      payload = { ok: false, error: 'The dashboard engine was unreachable: ' + String((e && e.message) || e) };
+      payload = { ok: false, error: failNote(e, STOPPED, 'The dashboard engine was unreachable: ') };
     }
     if (think) think.remove();
     if (!payload || !payload.ok) {
@@ -1189,7 +1295,7 @@ async function askCopilot(cap, qid, mode, question) {
         resp = { ok: false, error: 'This analysis is not available.' };
       }
     } catch (e) {
-      resp = { ok: false, error: 'The Copilot engine was unreachable: ' + String((e && e.message) || e) };
+      resp = { ok: false, error: failNote(e, STOPPED, 'The Copilot engine was unreachable: ') };
     }
 
     if (think) think.remove();
@@ -1307,6 +1413,7 @@ function ensureV2Css() {
   .pchat-drawer mark,.pv2 mark{background:color-mix(in srgb,var(--accent) 22%,transparent);color:inherit;border-radius:3px;padding:0 1px}
   .pchat button:focus-visible,.pchat summary:focus-visible,.pchat [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .pv2-pending{display:none!important}
+  .pv2-wp{display:none}
   .pv2-in{animation:pv2in .26s ease both}
   @keyframes pv2in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
   @media (prefers-reduced-motion:reduce){.pv2-in{animation:none}.pv2-thinking .pv2-think-sum::after{animation:none}}
@@ -1578,6 +1685,22 @@ function followTo(anchor) {
   const bottom = t.scrollHeight - t.clientHeight;
   t.scrollTop = Math.max(t.scrollTop, Math.min(bottom, top));
 }
+// How an answer is paced, like an assistant working (owner comment 15): first it visibly
+// ANALYSES — one thinking step at a time — then it WRITES the answer, the text flowing in a few
+// words at a time and the tables / chips arriving whole. A long answer writes faster so the
+// writing stays within ~6 s; Stop shows the rest at once.
+//   nSteps = thinking steps · words = total words in the text blocks · blocks = whole-block units
+export function revealPace(nSteps, words, blocks) {
+  const stepMs = nSteps > 0 ? Math.max(320, Math.min(560, Math.floor(2400 / nSteps))) : 0;
+  const settleMs = nSteps > 0 ? 420 : 0;                       // a beat before the answer starts
+  const blockMs = 90;
+  const budget = Math.max(1200, 6000 - (blocks || 0) * blockMs);
+  const chunk = words > 900 ? 6 : words > 400 ? 4 : words > 150 ? 3 : 2;      // words shown per tick
+  const ticks = Math.ceil((words || 0) / chunk);
+  const tickMs = ticks ? Math.max(12, Math.min(55, Math.floor(budget / ticks))) : 0;
+  return { stepMs, settleMs, blockMs, chunk, tickMs };
+}
+
 function revealV2(card, anchor) {
   if (REVEAL) REVEAL.finish();
   if (reducedMotion()) { followTo(anchor); return; }
@@ -1586,6 +1709,17 @@ function revealV2(card, anchor) {
   const sum = think ? think.querySelector('.pv2-think-sum') : null;
   const finalSum = sum ? sum.textContent : '';
   const units = [...card.querySelectorAll('.pv2-rv')];
+  // a text block (the verdict, a paragraph, a lead line) is written word by word; the rest whole
+  const isText = (u) => u.tagName === 'P';
+  const wordsOf = new Map();
+  let totalWords = 0;
+  units.forEach((u) => {
+    if (!isText(u)) return;
+    const w = []; wrapWords(u, w);
+    w.forEach((x) => x.classList.add('pv2-wp'));
+    wordsOf.set(u, w); totalWords += w.length;
+  });
+  const pace = revealPace(steps.length, totalWords, units.length - wordsOf.size);
   const timers = [];
   let done = false;
   const collapse = () => { if (think) { think.open = false; think.classList.remove('pv2-thinking'); if (sum) sum.textContent = finalSum; } };
@@ -1593,23 +1727,35 @@ function revealV2(card, anchor) {
     if (done) return; done = true;
     timers.forEach(clearTimeout);
     steps.concat(units).forEach((u) => u.classList.remove('pv2-pending'));
+    card.querySelectorAll('.pv2-wp').forEach((x) => x.classList.remove('pv2-wp'));
     collapse();
     if (REVEAL && REVEAL.card === card) REVEAL = null;
+    refreshSendButton();
   };
   REVEAL = { card, finish };
+  refreshSendButton();
   units.forEach((u) => u.classList.add('pv2-pending'));
   if (think) {
     think.open = true; think.classList.add('pv2-thinking');
     steps.forEach((s) => s.classList.add('pv2-pending'));
-    if (sum) sum.textContent = 'Analysing your file…';
+    if (sum) sum.textContent = 'Analysing your P6 file…';
   }
   const show = (u) => { u.classList.remove('pv2-pending'); u.classList.add('pv2-in'); followTo(anchor); };
   const at = (ms, fn) => timers.push(setTimeout(() => { if (!done) fn(); }, ms));
   let t = 0;
-  steps.forEach((s) => { t += 220; at(t, () => show(s)); });
-  if (think) { t += 280; at(t, collapse); }
-  const gap = units.length ? Math.max(45, Math.min(120, Math.floor(4200 / units.length))) : 120;   // long answers stay under ~4 s
-  units.forEach((u) => { t += gap; at(t, () => show(u)); });
+  steps.forEach((s) => { t += pace.stepMs; at(t, () => show(s)); });
+  if (think) { t += pace.settleMs; at(t, collapse); }
+  units.forEach((u) => {
+    const w = wordsOf.get(u);
+    t += pace.blockMs;
+    at(t, () => show(u));
+    if (!w || !w.length) return;
+    for (let i = 0; i < w.length; i += pace.chunk) {            // the text flows in
+      const part = w.slice(i, i + pace.chunk);
+      t += pace.tickMs;
+      at(t, () => { part.forEach((x) => x.classList.remove('pv2-wp')); followTo(anchor); });
+    }
+  });
   at(t + 20, finish);
   followTo(anchor);
 }
@@ -1626,6 +1772,7 @@ function showV2(bodyEl, resp, asked) {
   const card = document.createElement('div');
   card.className = 'pv2';
   card.innerHTML = answerV2Html(a, { asked });
+  addCopyBar(card, answerPlainText(a), 'pv2-rv');
   bodyEl.appendChild(card);
   const turn = bodyEl.closest('.pchat-turn');
   revealV2(card, (turn && turn.previousElementSibling) || turn);
@@ -1648,7 +1795,7 @@ async function askV2(qid, text, opts) {
     if (opts.followup) body.followup = opts.followup;
     let r;
     try { r = await postJSON('/api/chat/qa2', body); } catch (e) {
-      r = { ok: false, error: 'The answer engine was unreachable: ' + String((e && e.message) || e) };
+      r = { ok: false, error: failNote(e, STOPPED, 'The answer engine was unreachable: ') };
     }
     if (think) think.remove();
     if (!r || !r.ok || !r.answer) {
@@ -1686,8 +1833,10 @@ function answerFooter(out) {
   return (foot.textContent || foot.querySelector('button')) ? foot : null;
 }
 
+// Callers flip BUSY first, then call this: the button shows Stop while an answer is in flight.
 function setSendEnabled(on) {
-  const b = document.getElementById('pchat-send'); if (b) b.disabled = !on;
+  if (on) endAnswer(); else beginAnswer();
+  refreshSendButton();
 }
 
 // Ask a typed question. Special intents first (dashboard → the dashboard; what-if / time
@@ -1715,7 +1864,13 @@ async function ask(question) {
         mode: V2_MODE, last_qid: LAST_QID,
       });
     } catch (e) {
-      r = { ok: false, error: String((e && e.message) || e) };
+      r = { ok: false, error: failNote(e, STOPPED), stopped: STOPPED || (e && e.name === 'AbortError') };
+    }
+    if (r && r.stopped) {                            // the planner pressed Stop while it was thinking
+      if (think) think.remove();
+      const pe = document.createElement('div'); pe.className = 'pchat-stream'; pe.textContent = STOP_NOTE;
+      bodyEl.appendChild(pe); scrollThread();
+      return;
     }
     if (r && r.ok && r.answer) {                     // routed — the full grounded answer
       if (think) think.remove();
@@ -1759,6 +1914,7 @@ async function streamModelAnswer(bodyEl, think, question0) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: question0, role: null,
         snapshot_id: state.currentSnapshotId || null, result: state.currentResult || null }),
+      signal: ABORT ? ABORT.signal : undefined,
     });
     const ct = resp.headers.get('Content-Type') || '';
     if (ct.indexOf('ndjson') < 0) {                    // a plain JSON (e.g. validation) reply
@@ -1780,11 +1936,12 @@ async function streamModelAnswer(bodyEl, think, question0) {
       }
     }
   } catch (e) {
-    ensureAns(); raw += (raw ? '\n\n' : '') + 'Sorry — the local engine was unreachable: ' + String((e && e.message) || e);
+    ensureAns(); raw += (raw ? '\n\n' : '') + failNote(e, STOPPED, 'Sorry — the local engine was unreachable: ');
   }
   ensureAns();
   if (caret) caret.remove();
   ansEl.className = ''; ansEl.innerHTML = mdToHtml(raw);
+  addCopyBar(bodyEl, raw.replace(/\*\*(.+?)\*\*/g, '$1').trim());
   const out = meta || {};
   if (out.charts && out.charts.length) bodyEl.appendChild(renderCharts(out.charts));
   const foot = answerFooter(out); if (foot) bodyEl.appendChild(foot);
@@ -2021,6 +2178,7 @@ export async function renderChat() {
   if (!host._pchatWired) {
     host._pchatWired = true;
     host.addEventListener('click', (e) => {
+      const cp = e.target.closest('[data-copy]'); if (cp) { copyAnswer(cp); return; }
       const at = e.target.closest('#pchat-attach, #pchat-attach-cta'); if (at) { pickAndSend(); return; }
       // Browse-all + drawer open/close
       const br = e.target.closest('[data-browse]'); if (br) { openDrawer(); return; }
@@ -2068,8 +2226,11 @@ export async function renderChat() {
   // Send the composer text — kept in the box while an answer is still being computed.
   const send = () => { if (BUSY) return; const v = input.value; input.value = ''; input.style.height = 'auto'; ask(v); };
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; });
+  // Enter sends (Shift+Enter = a new line); while an answer is in flight Enter keeps the text.
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
-  document.getElementById('pchat-send').addEventListener('click', send);
+  // the button: Send, or Stop while an answer is being fetched / revealed
+  document.getElementById('pchat-send').addEventListener('click', () => { if (BUSY || REVEAL) stopAnswer(); else send(); });
+  refreshSendButton();
 
   // load the 15-question library + brain status
   try {
