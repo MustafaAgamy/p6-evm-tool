@@ -115,15 +115,30 @@ def _prodintel_excel_sections(r):
                  ['Estimated duration (days)', roll.get('duration_days')],
                  ['Controlling component', roll.get('controlling_component')],
                  ['Blended rate (MH/%s)' % (r.get('primary_unit') or ''), roll.get('blended_mh_per_primary')]]
+    # what each setting did to the rate (owner comment 37): the planner's own factor, a factor the
+    # library item carries with evidence, or none — the same lines as the screen's ledger
+    for row in (r.get('context_ledger') or []):
+        if not (row.get('choice') or row.get('applied')):
+            continue
+        if row.get('applied') or row.get('source') == 'user':
+            txt = 'x%s — %s' % (row.get('multiplier'), row.get('evidence') or '')
+        else:
+            txt = row.get('evidence') or 'not adjusted'
+        summ.append(['Factor · %s (%s)' % (row.get('factor'), row.get('choice') or '—'), txt])
+    if r.get('context_net') not in (None, 1, 1.0):
+        summ.append(['All factors together', 'x%s on man-hours; output per day ÷ %s' % (r.get('context_net'), r.get('context_net'))])
+    if r.get('project_type_applies') is False:
+        summ.append(['Note', 'This work item is not normally part of %s projects' % (ctx.get('Project type') or '')])
     summ += [['Overall confidence', r.get('overall_confidence')]]
 
-    prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Crew', 'Quantity', 'Man-hours']
+    prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Library norm (MH/unit)', 'Crew', 'Quantity', 'Man-hours']
     prod_r = []
     for c in comps:
         rate = c.get('rate') or {}
         crew = ', '.join('%sx %s' % (g.get('count'), g.get('trade')) for g in (c.get('gang') or []))
         prod_r.append([c.get('name'), c.get('unit'), dash(rate.get('mh_per_unit')),
                        ('%s %s' % (rate.get('output_per_day'), rate.get('output_unit') or '')) if rate.get('output_per_day') else '—',
+                       dash(rate.get('mh_per_unit_base', rate.get('mh_per_unit'))),
                        crew or '—', dash(c.get('component_qty')) if hasq else '—',
                        dash(c.get('man_hours')) if hasq else '—'])
 
