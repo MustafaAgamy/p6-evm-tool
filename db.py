@@ -165,6 +165,11 @@ def init_db(path=None):
                 extras_json TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS snapshot_views (
+                snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
+                views_json  TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS calendar_audit (
                 snapshot_id INTEGER PRIMARY KEY REFERENCES snapshots(id),
                 data_json   TEXT
@@ -832,6 +837,22 @@ def save_evm_extras(snapshot_id, extras):
                      (snapshot_id, _json.dumps(extras, default=str)))
 
 
+def save_snapshot_views(snapshot_id, views):
+    """Store the view-only projections of a snapshot — the Schedule (Gantt) activity rows and
+    the WBS summary tree — so a re-opened project shows them without re-parsing its file."""
+    with get_conn() as conn:
+        conn.execute('INSERT OR REPLACE INTO snapshot_views (snapshot_id, views_json) VALUES (?, ?)',
+                     (snapshot_id, _json.dumps(views, default=str)))
+
+
+def get_snapshot_views(snapshot_id):
+    """→ {'activities', 'wbs_summary', 'wbs_main'} or None when nothing was stored."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT views_json FROM snapshot_views WHERE snapshot_id = ?',
+                           (snapshot_id,)).fetchone()
+    return _json.loads(row['views_json']) if row and row['views_json'] else None
+
+
 def get_evm_extras(snapshot_id):
     with get_conn() as conn:
         row = conn.execute('SELECT extras_json FROM evm_extras WHERE snapshot_id = ?',
@@ -1132,6 +1153,7 @@ def delete_project(project_id):
             conn.execute(f'DELETE FROM e1_summary       WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM calendar_audit   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM evm_extras       WHERE snapshot_id IN ({ph})', snap_ids)
+            conn.execute(f'DELETE FROM snapshot_views   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_modules    WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_findings   WHERE snapshot_id IN ({ph})', snap_ids)
             conn.execute(f'DELETE FROM audit_scores     WHERE snapshot_id IN ({ph})', snap_ids)

@@ -17,7 +17,7 @@ import { renderOverview, renderWbs, overviewPrint, wbsPrint } from './modules/ov
 import { renderNarrative, narrativePrint }        from './modules/narrative.js';
 import { renderChat }                             from './modules/chat.js';
 import { printView }                              from './modules/printview.js';
-import { renderSchedule }                       from './modules/gantt.js';
+import { renderSchedule, schedulePrint }        from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
 import { escapeHtml }                            from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     update:   { pdf: 'ua-export-pdf',   xls: 'ua-export-xlsx' },
     overview: { xls: 'ov-excel-btn' },
     wbs:      { xls: 'wbs-excel-btn' },
-    schedule: { xls: 'sched-excel-btn' },
+    schedule: { xls: 'sched-excel-btn' },             // PDF / Word / HTML: PRINT_VIEW.schedule (schedulePrint)
     narrative:{ pdf: 'narrative-pdf-btn', xls: 'narr-excel-btn', docx: 'narrative-word-btn', html: 'narrative-html-btn' },   // its own guarded exports (narrativePrint() is null)
     special:  { pdf: 'sr-preview',       xls: 'sr-excel', docx: 'sr-word' },   // 'sr-preview' = the Studio preview (reads a pending HTML note); 'sr-pdf' is a direct save
   };
@@ -325,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true },
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
+    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html'], exportName: 'schedule_gantt' },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
@@ -376,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const pv = PRINT_VIEW[state.currentView];
     if (map && !pv) {                                      // registered here only — no screen-print fallback
-      if (!map[kind]) {                                    // the view has no such export at all (Schedule (Gantt) is Excel-only)
+      if (!map[kind]) {                                    // the view has no such export at all (a view that is Excel-only)
         const alt = kind === 'pdf' ? (map.xls && 'File ▸ Export to Excel') : (map.pdf && 'File ▸ Print / Export to PDF');
         showError(`${CRUMB[state.currentView] || 'This view'} has no ${kind === 'pdf' ? 'PDF' : 'Excel'} export`
           + (alt ? ` — use ${alt}.` : '.'));
@@ -390,10 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pv) {
       if (kind !== 'pdf') { showError('This view exports to PDF — use File ▸ Print / Export to PDF.'); return; }
       const sections = pv.get && pv.get();
-      if (!sections || !sections.length) { showError('Open this view and let it finish loading, then File ▸ Print / Export to PDF.'); return; }
+      if (!sections || !sections.length) {
+        showError(state.currentView === 'schedule'
+          ? 'This project has no activity timeline to print — import the schedule again to rebuild the Gantt.'
+          : 'Open this view and let it finish loading, then File ▸ Print / Export to PDF.');
+        return;
+      }
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
-      printView({ module: pv.module, title: pv.title, subtitle, sections });
+      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName,
+        meta: { project: r.project_name, data_date: r.data_date ? String(r.data_date).slice(0, 10) : '' } });
       return true;
     }
     showError('This view has no report — open an analysis module (Earned Value, Schedule Health, Calendar, …), then use File ▸ Print / Export.');
@@ -669,6 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('wbs-excel-btn')?.addEventListener('click', exportWbsExcel);
   document.getElementById('schedule-body')?.addEventListener('click', (e) => {
     if (e.target.closest('#sched-excel-btn')) exportScheduleExcel();
+    if (e.target.closest('#sched-print-btn')) runReport('pdf');
   });
 
   // Analysis chooser (shown after upload) → reveal the chosen view. Routed through

@@ -94,8 +94,8 @@ export const FEATURE_NEEDS = [
     hint: '1 P6 schedule (XER or XML)',
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: [],
-    produces: 'Gantt chart of every activity grouped by WBS.',
-    exports: ['Excel'],
+    produces: 'Gantt chart of every activity on its current dates, grouped by top-level WBS.',
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],   // File ▸ Print preview (printView) + its own Excel
     start: 'Navigator ▸ Project Overview ▸ Schedule (Gantt)',
   },
 

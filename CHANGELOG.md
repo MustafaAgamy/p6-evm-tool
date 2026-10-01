@@ -7,6 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Schedule (Gantt): shown after re-opening, current dates, true WBS groups, and it prints (comment 26)
+- **The Gantt (and the WBS view) is still there after a project is re-opened from Recent Projects.** Their rows are now stored with the import; a project imported with an older version is rebuilt once from its saved schedule file, then read from the database.
+- **Bars use the current dates, as P6 shows them in Start / Finish:** actual dates where the work has started or finished, the remaining early dates for the rest. They used to be drawn from the Planned dates, so on a progressed update finished work appeared in the wrong place.
+- **Grouping is by the real top-level WBS.** The old chart grouped by each activity's lowest WBS name and merged different WBS that shared a name (e.g. every "Civil"). The WBS path now reads from the top level down.
+- **Start and Finish columns, a pinned activity column and a pinned month header**, so a bar can always be tied to its activity and date however far the chart is scrolled. Hovering a row shows its dates, status, % complete, total float and WBS.
+- **Critical milestones are red** (they were always dark); finished work is never shown as critical. The legend says "not critical" instead of "on track".
+- **File ▸ Print / PDF / Word / HTML now work for the Gantt** (it was Excel-only): a summary plus one table per WBS group with the bar on a page-wide time scale, with the Report Contents picker. The Excel gains Status, Planned Start / Finish and Total Float.
+- **Any printed screen report longer than one page was cut off after its first page** (Overview, WBS, Gantt) — fixed.
+
 ### Changed — Opening Controlyx: the small dark unpack window is removed (comment 40)
 - **The small dark window that appeared first — with a line naming each file being unpacked — is gone.** The first thing on screen is now the app window with its loading screen counting to 100 %. The loading screen keeps the same dark look it had before. Note: the exe still needs a few seconds to unpack itself after the click, and nothing is shown during those seconds.
 

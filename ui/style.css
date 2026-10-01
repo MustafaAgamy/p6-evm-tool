@@ -2648,11 +2648,16 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .tnode .pbadge.soon { color: #f0c36a; background: rgba(183,121,31,0.22); }
 
 /* ── Project ▸ Schedule (Gantt) ─────────────────────────────────────────────── */
-.g-wrap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
-.g-inner { position: relative; width: calc(248px + var(--trackw)); }
-.g-scale { display: flex; position: sticky; top: 0; z-index: 3; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 34px; }
-.g-lbl { width: 248px; flex-shrink: 0; padding: 0 12px; box-sizing: border-box; overflow: hidden; }
-.g-scale-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; display: flex; align-items: center; }
+/* The chart scrolls INSIDE .g-wrap (both ways), so the month header stays at the top and the
+   activity column (ID, name, Start, Finish) stays at the left however far it is scrolled. */
+.g-wrap { --g-lblw: 400px; overflow: auto; max-height: calc(100vh - 250px); min-height: 240px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
+.g-inner { position: relative; width: calc(var(--g-lblw) + var(--trackw)); }
+.g-scale { display: flex; position: sticky; top: 0; z-index: 4; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 34px; }
+.g-lbl { width: var(--g-lblw); flex-shrink: 0; padding: 0 10px 0 12px; box-sizing: border-box; overflow: hidden; position: sticky; left: 0; z-index: 2;
+  background: var(--card-bg); border-right: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr) 70px 70px; column-gap: 8px; align-items: center; }
+.g-lbl > i { font-style: normal; font-size: 10.5px; color: var(--text); font-family: ui-monospace, monospace; white-space: nowrap; }
+.g-scale-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; z-index: 5; }
+.g-scale-lbl > i { font-size: 10px; color: var(--muted); font-family: inherit; }
 .g-track { width: var(--trackw); flex-shrink: 0; position: relative; }
 .g-scale-track { height: 34px; }
 .g-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
@@ -2666,20 +2671,54 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 /* Blocks of rows off screen are not laid out until scrolled to (gantt.js sets each block's
    exact height). The extra 48px on .g-inner keeps the last bars' "%" labels inside it. */
 .g-blk { content-visibility: auto; }
-.g-inner.g-lazy { width: calc(248px + var(--trackw) + 48px); }
+.g-inner.g-lazy { width: calc(var(--g-lblw) + var(--trackw) + 48px); }
 .g-row { display: flex; height: 30px; border-bottom: 1px solid var(--hair); }
-.g-row .g-lbl { display: flex; flex-direction: column; justify-content: center; }
-.g-row .g-lbl b { font-size: 11.5px; color: var(--text); font-family: ui-monospace, monospace; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.g-row .g-lbl span { font-size: 10.5px; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-nm { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.g-nm b { font-size: 11.5px; color: var(--text); font-family: ui-monospace, monospace; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-nm span { font-size: 10.5px; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g-grp { display: flex; height: 26px; background: var(--bg); border-bottom: 1px solid var(--border); }
-.g-grp-lbl { font-size: 11px; font-weight: 700; color: var(--text); display: flex; align-items: center; }
+.g-grp-lbl { font-size: 11px; font-weight: 700; color: var(--text); background: var(--bg); grid-template-columns: minmax(0, 1fr) auto; }
+.g-grp-lbl span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-grp-lbl em { font-style: normal; font-weight: 600; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
 .g-bar { position: absolute; top: 8px; height: 14px; border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
 .g-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
 .g-bar.crit { background: var(--danger-bg); } .g-bar.crit .g-fill { background: var(--danger); }
 .g-plabel { position: absolute; top: 8px; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; line-height: 14px; white-space: nowrap; }
 .g-ms { position: absolute; top: 9px; width: 12px; height: 12px; background: var(--text); transform: rotate(45deg); }
+.g-ms.crit { background: var(--danger); }
 .g-key { width: 11px; height: 11px; border-radius: 3px; background: var(--accent); display: inline-block; vertical-align: middle; }
 .g-key.crit { background: var(--danger); }
+.g-key.ms { background: var(--text); transform: rotate(45deg) scale(0.8); border-radius: 0; }
+@media (max-width: 1100px) { .g-wrap { --g-lblw: 330px; } .g-lbl { grid-template-columns: minmax(0, 1fr) 62px 62px; } }
+
+/* Schedule (Gantt) — the printed / PDF / Word / HTML layout (gantt.js printSections) */
+.gp-grp { margin: 0 0 16px; }
+.gp-h { font-size: 13px; margin: 0 0 6px; color: var(--text); break-after: avoid; }
+.gp-h small { font-weight: 500; font-size: 11px; color: var(--muted); margin-left: 6px; }
+.gp-table { width: 100%; border-collapse: collapse; font-size: 10.5px; table-layout: fixed; }
+.gp-table th, .gp-table td { padding: 2px 5px; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+.gp-table th { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border); }
+.gp-table thead { display: table-header-group; }
+.gp-table tr { break-inside: avoid; }
+.gp-table th:nth-child(1) { width: 19%; } .gp-table th:nth-child(2) { width: 24%; }
+.gp-table th:nth-child(3), .gp-table th:nth-child(4) { width: 9%; }
+.gp-table th:nth-child(5), .gp-table th:nth-child(6) { width: 6%; }
+.gp-table.gp-sum { table-layout: auto; max-width: 560px; }
+.gp-table.gp-sum th:nth-child(n) { width: auto; }
+.gp-id, .gp-d, .gp-n { font-family: ui-monospace, monospace; }
+.gp-d, .gp-id, .gp-n, .gp-table th { white-space: nowrap; } .gp-id { font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; } .gp-n { text-align: right !important; }
+.gp-crit .gp-id { color: var(--danger); }
+.gp-tl { padding-left: 8px !important; }
+.gp-scale { position: relative; height: 12px; }
+.gp-scale span { position: absolute; top: 0; font-size: 8.5px; font-family: ui-monospace, monospace; white-space: nowrap; border-left: 1px solid var(--border); padding-left: 2px; text-transform: none; letter-spacing: 0; }
+.gp-track { position: relative; height: 12px; background: var(--bg); border-radius: 2px; }
+.gp-track u { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed var(--accent); text-decoration: none; }
+.gp-bar { position: absolute; top: 2px; height: 8px; border-radius: 2px; background: var(--accent-soft); overflow: hidden; min-width: 2px; }
+.gp-bar s { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); text-decoration: none; }
+.gp-bar.crit { background: var(--danger-bg); } .gp-bar.crit s { background: var(--danger); }
+.gp-ms { position: absolute; top: 2px; width: 8px; height: 8px; margin-left: -4px; background: var(--text); transform: rotate(45deg); }
+.gp-ms.crit { background: var(--danger); }
+.gp-bar, .gp-bar s, .gp-ms, .gp-track { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 /* ── Project ▸ WBS summary timeline ─────────────────────────────────── */
 .wbst-toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }

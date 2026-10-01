@@ -33,6 +33,9 @@ async function appCss() {
 }
 
 const PRINT_CSS = `
+  /* The inlined app stylesheet pins the app window (html, body { height:100%; overflow:hidden }):
+     in THIS document that cut every report off after its first page. A report flows. */
+  html, body { height:auto !important; overflow:visible !important; }
   html.light, body { background:#fff; margin:0; }
   .pr-doc { max-width: 900px; margin: 0 auto; padding: 26px 32px 40px;
     font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#1e293b; }
@@ -50,7 +53,9 @@ const PRINT_CSS = `
   /* The inlined app stylesheet carries a print safety net (body > *:not(.rpv-overlay) →
      display:none) meant for the app window; in THIS document it hid the whole report, so
      every printView PDF / Print came out blank. The report body must always print. */
-  @media print { body > .pr-doc { display: block !important; } }
+  @media print { body > .pr-doc { display: block !important; padding-bottom: 0; } }
+  /* no trailing space after the last block: it could spill onto an empty last page */
+  @media print { .pr-sec:last-child, .pr-sec:last-child > :last-child { margin-bottom: 0; } }
 `;
 
 // Sections come out in the SELECTED order (selectedKeys), each wrapped in [data-sec] so the
@@ -71,7 +76,9 @@ export function composeDoc(css, title, subtitle, sections, selectedKeys, extraHe
 }
 
 // sections: [{ key, label, html }] — html is the section's rendered content (may be '')
-export async function printView({ module, title, subtitle, sections }) {
+// exports / exportName / meta: an ADOPTED view (its sections carry data-part wrappers and mark
+// screen-only cells data-export="skip") may offer Word / HTML beside PDF — default PDF only.
+export async function printView({ module, title, subtitle, sections, exports, exportName, meta }) {
   const usable = (sections || []).filter(Boolean);
   if (!usable.length) return false;
   const css = await appCss();
@@ -92,6 +99,7 @@ export async function printView({ module, title, subtitle, sections }) {
     sections: secMeta,
     selected,
     storageKey,
+    ...(exports ? { exports, feature: title, exportName: exportName || `${module}_report`, meta: meta || {} } : {}),
     onRerender: (sel) => doc(sel),
     onSave: async (mode, sel) => {
       const outputPath = await window.pywebview.api.choose_save_path(`${module}_report.pdf`, 'pdf');

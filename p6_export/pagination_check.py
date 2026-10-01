@@ -301,6 +301,14 @@ def _strip_running(pages):
                     if len(c.lines) >= 3 or c.y0 - b.y1 > 14 or not c.bold:
                         nx = c
                         break
+                # the first body row may open with the first line of a WRAPPED cell (an activity
+                # name on two lines: its upper line sits alone, above the row's other cells) -
+                # the row itself is the band right under that line
+                if (nx is not None and not nx.grid and len(nx.lines) <= 2 and len(b.lines) >= 3
+                        and _col_match(b.lines, nx.lines) == len(nx.lines)):
+                    i = bands.index(nx)
+                    if i + 1 < len(bands) and bands[i + 1].grid and bands[i + 1].y0 - nx.y0 < 14:
+                        nx = bands[i + 1]
                 occ[k].append((b, nx))
     need = max(3, 0.3 * n)
 
