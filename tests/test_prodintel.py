@@ -138,3 +138,93 @@ def test_primary_quantity_still_derives_all():
     comps = {c["component_id"]: c for c in r["components"]}
     assert comps["reinforcement"]["component_qty"] == 15   # 100 m3 x 0.15
     assert comps["formwork"]["component_qty"] == 900
+
+
+# ── Owner comment 37: the settings (project type / country / methodology) change the rate ──
+
+RC = "civil.structural.concrete.rc_column"
+
+
+def _q(factors=None, **ctx):
+    c = {"Project type": "Industrial", "Location": "KSA", "Methodology": "Jump-form"}
+    c.update(ctx)
+    if factors is not None:
+        c["factors"] = factors
+    return engine.query(RC, context=c, quantity=100)
+
+
+def test_no_factor_means_the_library_norm_and_says_so():
+    base = engine.query(RC, context={}, quantity=100)
+    r = _q()
+    assert r["context_net"] == 1.0
+    assert r["rollup"]["total_mh"] == base["rollup"]["total_mh"]
+    ledger = {row["factor"]: row for row in r["context_ledger"]}
+    for dim in ("Project type", "Location", "Methodology"):       # every screen setting is in the ledger
+        assert ledger[dim]["applied"] is False and ledger[dim]["source"] == "none"
+        assert "insufficient evidence" in ledger[dim]["evidence"]
+    assert all(c["rate"]["adjusted"] is False for c in r["components"] if c.get("rate"))
+
+
+def test_each_setting_factor_changes_rate_manhours_and_duration():
+    base = _q()
+    fw0 = {c["component_id"]: c for c in base["components"]}["formwork"]
+    for dim in ("Project type", "Location", "Methodology"):
+        r = _q({dim: 1.25})
+        fw = {c["component_id"]: c for c in r["components"]}["formwork"]
+        assert r["context_net"] == 1.25, dim
+        assert fw["rate"]["adjusted"] is True and fw["rate"]["factor"] == 1.25
+        assert fw["rate"]["output_per_day"] == round(fw0["rate"]["output_per_day"] / 1.25, 2)     # slower crew
+        assert fw["rate"]["mh_per_unit"] == round(fw0["rate"]["mh_per_unit"] * 1.25, 2)
+        assert fw["rate"]["output_per_day_base"] == fw0["rate"]["output_per_day"]                # the norm is kept
+        assert fw["man_hours"] == round(fw0["man_hours"] * 1.25)
+        assert fw["duration_days"] == round(fw0["duration_days"] * 1.25, 1)                      # duration follows
+        assert r["rollup"]["total_mh"] > base["rollup"]["total_mh"]
+        row = {x["factor"]: x for x in r["context_ledger"]}[dim]
+        assert row["applied"] is True and row["source"] == "user" and "entered by you" in row["evidence"]
+
+
+def test_factors_multiply_together_and_a_faster_factor_shortens():
+    r = _q({"Location": 1.25, "Methodology": 0.8})
+    assert r["context_net"] == 1.0                               # 1.25 x 0.8
+    fast = _q({"Methodology": 0.8})
+    assert fast["rollup"]["duration_days"] < _q()["rollup"]["duration_days"]
+    assert fast["rollup"]["total_mh"] < _q()["rollup"]["total_mh"]
+
+
+def test_a_bad_factor_is_ignored_and_reported_never_applied():
+    for bad in (9, 0.05, "abc", -1):
+        r = _q({"Location": bad})
+        row = {x["factor"]: x for x in r["context_ledger"]}["Location"]
+        assert r["context_net"] == 1.0 and row["applied"] is False, bad
+        assert "ignored" in row["evidence"], bad
+    assert _q({"Location": ""})["context_net"] == 1.0
+    assert _q({"Location": 1})["context_net"] == 1.0
+
+
+def test_project_type_applicability_is_reported():
+    items = kb.load_items()
+    it = next(i for i in items if "Residential" not in (i.get("project_types") or []) and i.get("project_types"))
+    assert engine.item_result(it, context={"Project type": "Residential"})["project_type_applies"] is False
+    ok = it["project_types"][0]
+    assert engine.item_result(it, context={"Project type": ok})["project_type_applies"] is True
+    assert engine.item_result(it, context={})["project_type_applies"] is None
+
+
+def test_shipped_library_still_carries_no_factor_of_its_own():
+    """The tool never supplies a multiplier: a factor is the planner's, or evidence in the item."""
+    for it in kb.load_items():
+        for dim, choices in (it.get("context_factors") or {}).items():
+            for choice, entry in (choices or {}).items():
+                assert entry.get("evidence"), (it["item_id"], dim, choice)
+
+
+def test_excel_summary_lists_the_factors():
+    import server
+    r = _q({"Location": 1.15, "Methodology": 0.9})
+    sheets = server._prodintel_excel_sections(r)
+    summary = dict((row[0], row[1]) for row in sheets[0][2]) if isinstance(sheets[0], tuple) else \
+        dict((row[0], row[1]) for row in sheets[0]["blocks"][0]["rows"])
+    assert summary["Factor · Location (KSA)"].startswith("x1.15")
+    assert summary["Factor · Methodology (Jump-form)"].startswith("x0.9")
+    assert "insufficient evidence" in summary["Factor · Project type (Industrial)"]
+    assert summary["All factors together"].startswith("x1.035")

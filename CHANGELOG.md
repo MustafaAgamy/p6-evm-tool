@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Productivity & Resources: the settings now change the rate (comment 37)
+- **Project type, Location and Methodology did nothing** — the library holds one norm per work item and no factor for any of them, so changing a setting never moved a rate. Each setting now has a **"your factor ×" box**: type your own man-hour factor for that choice (1.20 = 20% more man-hours, slower; 0.85 = faster) and every rate, man-hour figure and duration follows it. The factor is remembered for that choice on this computer, so switching country switches the factor.
+- **A factor now also changes the output per day and the duration.** Before, a factor could only touch the man-hours, leaving the crew output and the duration unchanged.
+- **The screen says what each setting did**: "your factor ×1.25", or "no factor, library norm". An adjusted rate shows the library norm it came from. Controlyx supplies no factor of its own.
+- **Project type** also warns when the chosen work item is not normally part of that kind of project.
+- The Excel lists the factors and the library norm beside the adjusted rate. Messages on this screen appear in the page (pop-ups did nothing in the desktop window).
+
 ### Fixed — Schedule (Gantt): shown after re-opening, current dates, true WBS groups, and it prints (comment 26)
 - **The Gantt (and the WBS view) is still there after a project is re-opened from Recent Projects.** Their rows are now stored with the import; a project imported with an older version is rebuilt once from its saved schedule file, then read from the database.
 - **Bars use the current dates, as P6 shows them in Start / Finish:** actual dates where the work has started or finished, the remaining early dates for the rest. They used to be drawn from the Planned dates, so on a progressed update finished work appeared in the wrong place.

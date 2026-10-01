@@ -3540,6 +3540,20 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-ptchips{display:flex;gap:5px;flex-wrap:wrap}
 .pi-ptchip{border:1px solid var(--border);background:var(--bg);color:var(--ink-soft);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer}
 .pi-ptchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* comment 37 — the planner's own factor beside each setting */
+.pi-setf{display:flex;gap:6px;align-items:center}
+.pi-fbox{display:inline-flex;align-items:center;gap:5px;border:1px dashed var(--border);border-radius:8px;padding:0 6px 0 8px;height:34px;font-size:11px;color:var(--muted);background:var(--bg);white-space:nowrap}
+.pi-fbox.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
+.pi-fbox input.pi-factor{width:52px;height:24px;border:0;background:transparent;text-align:right;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text);padding:0 2px}
+.pi-fhelp{flex-basis:100%;font-size:11.5px;color:var(--ink-soft);line-height:1.45;border-top:1px solid var(--border);padding-top:9px}
+.pi-note{display:none;margin:0 0 10px;padding:8px 12px;border-radius:9px;background:var(--accent-soft);color:var(--text);font-size:12.5px;border:1px solid var(--border)}
+.pi-note.on{display:block}
+.pi-setline{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 2px}
+.pi-setchip{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:3px 10px;color:var(--muted);background:var(--bg)}
+.pi-setchip.on{color:var(--text);border-color:var(--accent)}
+.pi-setnet{font-size:11.5px;font-weight:700;color:var(--accent);margin-left:4px}
+.pi-ptwarn{margin-top:8px;font-size:12px;color:var(--warning);border:1px solid var(--warning);border-radius:9px;padding:7px 11px}
+.pi-adjnote{font-size:11px;color:var(--accent);margin:2px 0 6px}
 .pi-grid{display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:16px;align-items:start}
 @media(max-width:1080px){.pi-grid{grid-template-columns:1fr}}
 .pi-col{display:flex;flex-direction:column;gap:14px;min-width:0}

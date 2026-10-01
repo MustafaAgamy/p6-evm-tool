@@ -11,6 +11,9 @@ Design rules baked in here (never bypassed):
   roll-up is flagged ``basis_incomplete`` rather than inventing one.
 - Percentiles   -> only when a component has >= PERCENTILE_MIN_RECORDS validated records.
 - Context factor without evidence -> "not adjusted — insufficient evidence" (x1.0).
+- The planner's OWN factor for a setting (Project type / Location / Methodology), typed on the
+  screen, is applied and labelled as his: the tool never supplies a factor of its own.
+- A factor changes the man-hours per unit AND the output per day (and so the duration).
 - Overall confidence is the weakest link across the priced components.
 """
 from .kb import by_id, load_items
@@ -19,7 +22,13 @@ PERCENTILE_MIN_RECORDS = 5
 DEFAULT_SHIFT_HOURS = 8.0
 
 # context dimensions surfaced in the adjustment ledger, in display order
-CONTEXT_DIMENSIONS = ["Location", "Access", "Congestion", "Shift / environment", "Methodology"]
+CONTEXT_DIMENSIONS = ["Project type", "Location", "Methodology", "Access", "Congestion", "Shift / environment"]
+
+# a planner-entered factor outside this range is a typing slip (0.2 = five times faster, 5 = five
+# times slower): it is ignored and reported, never applied
+USER_FACTOR_MIN, USER_FACTOR_MAX = 0.2, 5.0
+USER_FACTOR_SOURCE = "your factor — entered by you"
+NO_FACTOR_NOTE = "not adjusted — insufficient evidence"
 
 
 def _round(x, n=1):
@@ -60,27 +69,51 @@ def _percentile_supported(comp):
     return _component_state(comp) == "validated" and records >= PERCENTILE_MIN_RECORDS
 
 
+def _user_factor(ctx, dim):
+    """The planner's own factor for one setting, from ``context["factors"]`` → (value, problem).
+    Blank / 1 = none. Out of range or not a number → (None, why): reported, never applied."""
+    raw = (ctx.get("factors") or {}).get(dim) if isinstance(ctx.get("factors"), dict) else None
+    if raw in (None, ""):
+        return None, None
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return None, "your factor is not a number — ignored"
+    if not (USER_FACTOR_MIN <= val <= USER_FACTOR_MAX):
+        return None, "your factor %s is outside %s–%s — ignored" % (raw, USER_FACTOR_MIN, USER_FACTOR_MAX)
+    return val, None
+
+
 def _context_ledger(item, context):
-    """One row per context dimension. Applied only where the item carries evidence for it;
-    otherwise an honest 'not adjusted — insufficient evidence' pass-through (x1.0)."""
+    """One row per context dimension, in this order of authority:
+    1. the planner's own factor for the chosen setting (``context["factors"]``) — applied and
+       labelled as his;
+    2. a factor the item itself carries WITH evidence;
+    3. otherwise an honest 'not adjusted — insufficient evidence' pass-through (x1.0).
+    A factor multiplies the man-hours per unit (1.20 = 20 % more man-hours, slower)."""
     factors = item.get("context_factors") or {}
     ctx = context or {}
     ledger = []
     net = 1.0
     for dim in CONTEXT_DIMENSIONS:
         chosen = ctx.get(dim)
+        user, problem = _user_factor(ctx, dim)
         entry = None
         dimdata = factors.get(dim) or {}
         if chosen and isinstance(dimdata, dict):
             entry = dimdata.get(chosen)
-        if entry and isinstance(entry, dict) and entry.get("multiplier") and entry.get("evidence"):
+        if user is not None and chosen:
+            net *= user
+            ledger.append({"factor": dim, "choice": chosen, "applied": user != 1.0, "multiplier": user,
+                           "evidence": USER_FACTOR_SOURCE, "source": "user"})
+        elif entry and isinstance(entry, dict) and entry.get("multiplier") and entry.get("evidence"):
             mult = float(entry["multiplier"])
             net *= mult
             ledger.append({"factor": dim, "choice": chosen, "applied": True,
-                           "multiplier": mult, "evidence": entry.get("evidence")})
+                           "multiplier": mult, "evidence": entry.get("evidence"), "source": "kb"})
         else:
-            ledger.append({"factor": dim, "choice": chosen, "applied": False,
-                           "multiplier": 1.0, "evidence": "not adjusted — insufficient evidence"})
+            ledger.append({"factor": dim, "choice": chosen, "applied": False, "multiplier": 1.0,
+                           "evidence": problem or NO_FACTOR_NOTE, "source": "none"})
     return ledger, net
 
 
@@ -128,14 +161,26 @@ def item_result(item, context=None, quantity=None, component_quantities=None):
         }
         if rate:
             adj = float(rate.get("mh_per_unit")) * ctx_net if rate.get("mh_per_unit") is not None else None
+            adjusted = abs(ctx_net - 1.0) > 1e-9
+
+            def _f(v, n=2):          # a rate value with the context factor on it
+                return _round(float(v) * ctx_net, n) if (adjusted and v is not None) else v
+            out_base = rate.get("output_per_day")
+            out_adj = _round(float(out_base) / ctx_net, 2) if (adjusted and out_base) else out_base
             row["rate"] = {
-                "mh_per_unit": rate.get("mh_per_unit"),
+                # what the screen shows and calculates with: the rate FOR THE CHOSEN SETTINGS
+                "mh_per_unit": _f(rate.get("mh_per_unit")),
                 "mh_per_unit_adjusted": _round(adj, 2) if adj is not None else None,
-                "low": rate.get("low"),
-                "likely": rate.get("likely", rate.get("mh_per_unit")),
-                "high": rate.get("high"),
-                "output_per_day": rate.get("output_per_day"),
+                "low": _f(rate.get("low")),
+                "likely": _f(rate.get("likely", rate.get("mh_per_unit"))),
+                "high": _f(rate.get("high")),
+                "output_per_day": out_adj,
                 "output_unit": rate.get("output_unit"),
+                # the library norm before any factor, so the screen can show both
+                "adjusted": adjusted,
+                "factor": _round(ctx_net, 3),
+                "mh_per_unit_base": rate.get("mh_per_unit"),
+                "output_per_day_base": out_base,
             }
             ov = cq_over.get(comp.get("component_id"))
             try:
@@ -149,8 +194,8 @@ def item_result(item, context=None, quantity=None, component_quantities=None):
                 n_gangs = max(1, int(comp.get("default_gangs", 1) or 1))
                 mh = cqty * mhu
                 out_day = rate.get("output_per_day")
-                if out_day:
-                    dur = cqty / (float(out_day) * n_gangs)
+                if out_day:               # a factor slows / speeds the crew: output per day ÷ factor
+                    dur = cqty * ctx_net / (float(out_day) * n_gangs)
                 elif gp:
                     dur = mh / (gp * n_gangs * shift)
                 else:
@@ -176,6 +221,10 @@ def item_result(item, context=None, quantity=None, component_quantities=None):
         "aliases": item.get("aliases", []),
         "context": {**context, "shift_hours": shift},
         "context_ledger": ledger,
+        "context_net": _round(ctx_net, 3),
+        # is this work item normally part of the chosen project type? (None = no type chosen)
+        "project_type_applies": ((context.get("Project type") in (item.get("project_types") or []))
+                                 if context.get("Project type") else None),
         "has_quantity": any_qty,
         "quantity": qty,
         "components": comps_out,
