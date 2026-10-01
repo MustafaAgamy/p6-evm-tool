@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — AI Chat: every answer is now short, clear and tells you what to do (comment 14)
+- **Each of the 15 answers opens with four short parts: The problem · Where it is · Why · What to do.** About 150–270 plain words instead of 2,000–10,000. It names the activity (name and ID), its area, its planned and forecast dates, and the numbers from your P6 file.
+- **Advice you can act on.** For example, instead of "aim recovery at the chain that sets the finish": "Start Drilling For Piles (CONS.PL.S9.1000) now. Ask the team responsible why it has not started and get a firm start date. Each day it waits adds a day to the finish." At most four steps, each naming the activity or the screen to use.
+- **The full analysis is still there**, one click away under "Show the full analysis" — the detailed tables, each library question one by one, and how each figure is measured.
+- **No planner shorthand.** "wd", "chain", "trunk", "danglers", "TIA", "EOT" are written out ("working days", "critical path", "activities with a missing link", "time impact analysis", "extension of time") in the answers, the tables and the follow-up questions. Activity names are never reworded.
+- **It says only what the file shows.** No late client item in the file: it says the delay reads as the contractor's own. No real actual cost: it says CPI means nothing. Project on time or ahead: it does not talk about a delay.
+- Copy puts the short answer first, then the full analysis.
+
 ### Fixed — AI Chat: answer paragraphs were written out but stayed invisible
 - The word-by-word writing added for comment 15 left every paragraph of an answer invisible (headings, tables and chips showed; the sentences did not). The text is now visible as it is written and after it.
 

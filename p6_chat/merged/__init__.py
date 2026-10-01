@@ -56,7 +56,13 @@ def build(qid, F, N, role='planning'):
         return K2.no_project()
     try:
         out = fn(F, N or {'ok': False}, role)
-        return out if isinstance(out, dict) and out.get('verdict') else None
+        if not (isinstance(out, dict) and out.get('verdict')):
+            return None
+        # the short, plain answer that opens it: the problem, where it is, why, what to do
+        from . import _brief
+        out['brief'] = _brief.build(qid, out, F, N)
+        _brief.plain_answer(out)                 # no planner shorthand in the long analysis either
+        return out
     except Exception as exc:
         return K2.A2("I hit a snag composing that answer.",
                      [K2.sec('What happened', "The numbers are in the project — try again, or open the matching "
