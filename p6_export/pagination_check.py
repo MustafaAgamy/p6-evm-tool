@@ -42,6 +42,9 @@ Defects (``flags``):
                                 report section embedded as a picture was cut off
   picture_mostly_blank          (Word) a picture is mostly white (< 50 % painted, >= 2 in
                                 of white on the page)
+  text_too_small                pages of text printed below 5 pt: an element wider than the
+                                page shrank the whole document, or a wide table was scaled
+                                down until nobody can read it
 
 Informational (``info``, never counted): ``section_break_blank`` — a page ends early because
 the next page starts a new top-level section, or it is the cover page (page 1, its content
@@ -97,13 +100,15 @@ FRAGMENT = 0.12           # a page holding < 12 % of content (a figure / cards t
 INTRO_MAX_PT = 60.0       # a heading's short intro (about 3-4 lines)
 TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the first item
 COVER_DROP = 0.2          # page 1 whose content starts > 20 % of the page down is a cover
+SMALL_TEXT_PT = 5.0       # body text printed below this is not readable on paper
+SMALL_TEXT_CHARS = 300    # ... when a page carries at least this many such characters
 CONTENTS_ROWS = 3         # a page ending with >= 3 "title ... page-number" rows ends the contents
 DEFECT_TYPES = (
     'orphaned_heading', 'kpi_separated_from_heading', 'heading_separated_from_block',
     'picture_separated_from_caption', 'table_split_few_rows', 'small_table_split',
     'table_header_not_repeated', 'empty_repeated_header', 'graphic_cut', 'text_cut',
     'content_in_margin', 'large_blank_then_continuation',
-    'stranded_fragment', 'empty_page', 'picture_truncated', 'picture_mostly_blank',
+    'stranded_fragment', 'empty_page', 'picture_truncated', 'picture_mostly_blank', 'text_too_small',
     'block_split',
 )
 INFO_TYPES = ('section_break_blank',)
@@ -449,11 +454,27 @@ def _carded(P, row):
     return len(owners) >= 2
 
 
+_VALUE_RE = re.compile(r'^[+\-−]?\d[\d.,]*\s*(?:d|wd|days?|%|h)?'
+                       r'(?:\s*/\s*[+\-−]?\d[\d.,]*\s*(?:d|wd|days?|%|h)?)*$', re.I)
+
+
 def _card_value(P, b, body):
     """A KPI tile's value ("0 days" under the label "DELAY"): a big / numeric line inside a card
     box that also holds a smaller label above it — card content, not a heading (STUDIO-PDF-2)."""
     if not re.search(r'[0-9]', b.text) and b.size < 1.8 * body:
         return False
+
+    # a pure figure ('0 d / 0 wd', '+42 d / -42.7 wd', '55.6 %') right under its smaller label
+    # ('SLIP / TOTAL FLOAT') is a card's value whether or not the card's box was drawn as one
+    # shape (a dashed / hairline card has no filled box to find) - never a heading
+    if _VALUE_RE.match(b.text.strip()):
+        for o in P.bands:
+            if o is b:
+                continue
+            for l in o.lines:        # per LINE: a row of cards reads as one band of mixed sizes
+                if (l.size < 0.9 * b.size and -2 <= b.y0 - l.y1 <= 12 and l.x0 < b.x1 and b.x0 < l.x1
+                        and re.search(r'[A-Za-z]{3}', l.t)):
+                    return True
 
     def inside(o, d):
         return d.x0 - 1 <= o.x0 and o.x1 <= d.x1 + 1 and d.y0 - 1 <= o.y0 and o.y1 <= d.y1 + 1
@@ -845,7 +866,10 @@ def _in_closed_box(P, h, area_top, area_bottom):
             continue
         if d.y1 >= area_bottom - 2 or (d.y0 <= area_top + 2 and d.y1 - d.y0 >= 0.9 * (area_bottom - area_top)):
             continue
-        if any(b is not h and b.y0 >= h.y1 - 1 and d.x0 - 1 <= b.x0 and b.x1 <= d.x1 + 1
+        # other text of the same card - under the band (a card title) or above it (the band is
+        # the card's LAST line: a driving-path card ends on its bold 'Slip / Total float' value,
+        # which is not a heading over whatever starts the next page)
+        if any(b is not h and d.y0 - 1 <= b.y0 and d.x0 - 1 <= b.x0 and b.x1 <= d.x1 + 1
                and b.y1 <= d.y1 + 1 for b in P.bands):
             return True
     return False
@@ -1028,6 +1052,22 @@ def _analyze_pages(pages, hints=()):
                 flags.append(_flag('stranded_fragment', P.no,
                                    f'only {min(P.bottom, P.H) - P.top:.0f}pt of a {k0} block '
                                    f'({(min(P.bottom, P.H) - P.top) / area:.0%} of the page) sits on page {P.no}'))
+    # text printed too small to read. Chrome shrinks the WHOLE document (down to 67 %) when any
+    # element is wider than the page, and the print composer scales an over-wide table: both
+    # leave pages of text nobody can read (a 16-column table printed at 2.7 pt; STUDIO-RICH-12).
+    small = []
+    for P in pages:
+        tiny = [l for l in P.lines if l.size < SMALL_TEXT_PT and len(l.t.strip()) >= 3]
+        chars = sum(len(l.t.strip()) for l in tiny)
+        if chars >= SMALL_TEXT_CHARS:
+            small.append((P.no, chars, min(l.size for l in tiny), max(tiny, key=lambda l: len(l.t)).t.strip()[:40]))
+    if small:
+        lo = min(x[2] for x in small)
+        flags.append(_flag('text_too_small', small[0][0],
+                           f'{len(small)} page(s) print text smaller than {SMALL_TEXT_PT:g} pt (down to '
+                           f'{lo:.1f} pt; pages {", ".join(str(x[0]) for x in small[:12])}'
+                           f'{" ..." if len(small) > 12 else ""}) - an element wider than the page shrank '
+                           f'the document, or a wide table was scaled down: e.g. {small[0][3]!r}'))
     return flags, info, (T, B)
 
 

@@ -665,22 +665,25 @@ def _milestone_drift_svg(report):
     tmin, tmax = min(ords), max(ords)
     if tmin == tmax:
         tmin, tmax = tmin - 15, tmax + 15
-    x0, x1, rowh, top = 168, 905, 24, 14
+    # drawn 700 units wide (was 940): on the Reporting Studio's portrait page the 940-wide chart
+    # was scaled to 68 % and its labels printed at 4 pt; 700 keeps them near 7 pt there and the
+    # landscape report still shows it at natural size (max-height stops it growing)
+    x0, x1, rowh, top = 196, 680, 24, 14
     n = len(rows)
     h = top + n * rowh + 22
     xat = lambda t: x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin))
     od = lambda iso: datetime.strptime(iso, '%Y-%m-%d').toordinal()
-    trunc = lambda s: (s[:26] + '…') if s and len(s) > 27 else (s or '')
+    trunc = lambda s: (s[:35] + '…') if s and len(s) > 36 else (s or '')
     parts = []
     for k in range(5):
         t = tmin + (tmax - tmin) * k / 4
         x = xat(t)
         parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{top + n * rowh:.0f}" stroke="var(--rpt-chart-grid)"/>'
-                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="8" fill="var(--rpt-chart-axis)">'
+                     f'<text x="{x:.0f}" y="{top + n * rowh + 14:.0f}" text-anchor="middle" font-size="9.5" fill="var(--rpt-chart-axis)">'
                      f'{datetime.fromordinal(int(t)).strftime("%b-%y")}</text>')
     for i, r in enumerate(rows):
         y = top + i * rowh + 12
-        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="8.5" fill="var(--rpt-ink)">{_e(trunc(r.get("name")))}</text>')
+        parts.append(f'<text x="{x0 - 8}" y="{y + 3:.0f}" text-anchor="end" font-size="10" fill="var(--rpt-ink)">{_e(trunc(r.get("name")))}</text>')
         xs = [xat(od(r[k])) for k in ('baseline_iso', 'prev_iso', 'curr_iso') if r.get(k)]
         if len(xs) >= 2:
             parts.append(f'<line x1="{min(xs):.0f}" y1="{y}" x2="{max(xs):.0f}" y2="{y}" stroke="var(--rpt-chart-grid)"/>')
@@ -694,7 +697,7 @@ def _milestone_drift_svg(report):
               + (' · approx' if report.get('baseline_approx') else '') + '</span>'
               '<span><i style="background:var(--rpt-warn);border-radius:50%;width:10px;height:10px"></i>Previous forecast</span>'
               '<span><i style="background:var(--rpt-bad);border-radius:50%;width:10px;height:10px"></i>Current forecast</span></div>')
-    return legend + f'<svg viewBox="0 0 940 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
+    return legend + f'<svg viewBox="0 0 700 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
 
 
 _SECTION_LABELS = [

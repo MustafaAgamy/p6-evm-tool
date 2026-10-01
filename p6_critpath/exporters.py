@@ -48,8 +48,21 @@ def _e(v):
     return (str(v).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
 
 
+def _n1(v):
+    """A day count as P6 shows it: whole when whole, else one decimal. A float carried from
+    hours (total float 341.33 h / 8) printed as -42.666666666666664 on the cards."""
+    if isinstance(v, float):
+        v = round(v, 1)
+        if v == int(v):
+            v = int(v)
+    return v
+
+
 def _sd(v, suffix=' d'):
-    return '—' if v is None else f"{'+' if v > 0 else ''}{v}{suffix}"
+    if v is None:
+        return '—'
+    v = _n1(v)
+    return f"{'+' if v > 0 else ''}{v}{suffix}"
 
 
 def _cpli(v):
@@ -254,8 +267,8 @@ def _lane(lane, approx=False):
     ms = lane.get('milestone') or {}
     if not ms.get('name') and not lane.get('boxes'):
         # This milestone doesn't exist in this schedule — show a placeholder, not an empty box.
-        return (f'<div class="lane"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
-                f'<span class="lanesub">this milestone is not in this schedule</span></div></div>')
+        return (f'<div class="lane"><div class="lanekeep"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
+                f'<span class="lanesub">this milestone is not in this schedule</span></div></div></div>')
     fin = ms.get('baseline_finish') if role == 'baseline' else ms.get('expected_finish')
     boxes = [f'<div class="msbox"><div class="msflag">◆ Milestone</div><div class="mst">{_e(ms.get("name"))}</div>'
              f'<div class="msr"><span>{"BL Finish" if role == "baseline" else "Exp Finish"}</span><b>{_e(fin)}</b></div>'
@@ -284,8 +297,8 @@ def _lane(lane, approx=False):
             f'<div><div class="bk">Expected</div><div class="bv">{_e(b.get("exp_finish"))}</div></div>'
             f'<div class="bfull"><div class="bk">Slip{ax} / Total float</div><div class="bv">{_sd(b.get("slip_days"))} / {tf}</div></div>'
             f'</div></div>')
-    return (f'<div class="lane"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
-            f'<span class="lanesub">{_e(lane.get("sub"))}</span></div><div class="chain">{"".join(boxes)}</div></div>')
+    return (f'<div class="lane"><div class="lanekeep"><div class="lanehdr"><span class="lanetag lt-{role}">{_e(_ROLE_LABEL.get(role))}</span>'
+            f'<span class="lanesub">{_e(lane.get("sub"))}</span></div></div><div class="chain">{"".join(boxes)}</div></div>')
 
 
 def _lanes(report, milestone_ids=None):
@@ -302,10 +315,10 @@ def _lanes(report, milestone_ids=None):
     out = []
     for b in sorted(blocks, key=lambda x: 0 if x.get('is_governing') else 1):
         flag = '◆ ' if b.get('is_governing') else ''
-        hdr = (f'<div class="mphdr"><span class="mpname">{flag}{_e(b.get("name"))}</span>'
+        hdr = (f'<div class="mpkeep"><div class="mphdr"><span class="mpname">{flag}{_e(b.get("name"))}</span>'
                f'<span class="mpfin">Baseline {_e(b.get("baseline_finish")) or "—"} '
                f'· Current {_e(b.get("current_finish")) or "—"} '
-               f'· Slip {_sd(b.get("slip_days"))}</span></div>')
+               f'· Slip {_sd(b.get("slip_days"))}</span></div></div>')
         lanes_html = ''.join(_lane(l, report.get('baseline_approx')) for l in b.get('lanes', []))
         out.append(f'<div class="mpblock">{hdr}{lanes_html}</div>')
     return ''.join(out) + legend
@@ -504,6 +517,14 @@ def render_html(report, sections=None, milestone_ids=None, theme='light'):
       .mpname {{ font-size: 12px; font-weight: 800; color: var(--rpt-ink); }}
       .mpfin {{ font-size: 10px; color: var(--rpt-muted); }}
       .lane {{ margin-bottom: 12px; }} .lanehdr {{ display: flex; gap: 9px; align-items: center; margin-bottom: 6px; }}
+      /* a title never ends a page: it reserves the height of one row of cards under itself
+         (unbreakable block + a pulled-back spacer), so the title and its first cards move
+         together - break-after:avoid alone is not honoured before a wrapping row of cards */
+      @media print {{
+        .lanekeep, .mpkeep {{ break-inside: avoid; page-break-inside: avoid; }}
+        .lanekeep::after {{ content: ""; display: block; height: 150px; margin-bottom: -150px; }}
+        .mpkeep::after {{ content: ""; display: block; height: 190px; margin-bottom: -190px; }}
+      }}
       .lanetag {{ font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 6px; }}
       .lt-baseline {{ background: var(--rpt-surface-2); color: var(--rpt-ink-soft); }} .lt-previous {{ background: var(--rpt-warn-bg); color: var(--rpt-warn); }} .lt-current {{ background: var(--rpt-accent-soft); color: var(--rpt-accent); }}
       .lanesub {{ color: var(--rpt-muted); font-size: 10.5px; }}
@@ -582,7 +603,7 @@ def _pct_round(v):
 
 def _num_cell(v):
     """Keep a number numeric (so figures stay computable); em dash when unknown."""
-    return '—' if v is None else v
+    return '—' if v is None else _n1(v)
 
 
 def _crit_severity(driver_tf):

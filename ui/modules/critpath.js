@@ -693,7 +693,10 @@ function _fdate(s) {
   if (m) return `${+m[3]}-${_MON[+m[2] - 1]}-${m[1]}`;
   return s;
 }
-function _sign(v) { return v == null ? '—' : `${v > 0 ? '+' : ''}${v}`; }
+// A day count as P6 shows it: whole when whole, else one decimal (a float carried from hours
+// printed as -42.666666666666664 on the cards) — same rule as the report (_n1 in exporters.py).
+function _n1(v) { return (typeof v === 'number' && !Number.isInteger(v)) ? Math.round(v * 10) / 10 : v; }
+function _sign(v) { if (v == null) return '—'; const n = _n1(v); return `${n > 0 ? '+' : ''}${n}`; }
 function _fmtCpli(v) { return v == null ? 'n/a' : v.toFixed(2); }
 
 // Difference chip a→b, coloured by whether a rise is bad for this measure.
