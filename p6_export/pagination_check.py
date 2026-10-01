@@ -299,8 +299,15 @@ def _strip_running(pages):
     def table_header(k):
         # a table's header row repeated on every page of the table: 3+ cells, and wherever
         # it sits, table rows with the same columns follow right under it
-        return all(len(b.lines) >= 3 and nx is not None and nx.grid and nx.y0 - b.y1 <= 30
-                   and _col_match(b.lines, nx.lines) >= 3 for b, nx in occ[k])
+        if not all(len(b.lines) >= 3 and nx is not None and nx.grid and nx.y0 - b.y1 <= 30
+                   and _col_match(b.lines, nx.lines) >= 3 for b, nx in occ[k]):
+            return False
+        # ... but when the row under it is the SAME on every page too, the two are a running
+        # header TABLE (the narrative letterhead 'OWNER CONSULTANT CONTRACTOR' over 'logo logo
+        # logo' - matched as one column grid since centred columns match by their centre),
+        # not a table's header over its body rows
+        under = {(round(nx.y0 / 3), sig(nx)) for _, nx in occ[k]}
+        return not (len(occ[k]) >= 3 and len(under) == 1)
 
     H = pages[0].H if pages else 842.0
 
@@ -783,6 +790,25 @@ def _figure_cut(A, B, area_top, area_bottom):
     return len(ea), len(eb)
 
 
+def _in_closed_box(P, h, area_top, area_bottom):
+    """Heading-like band ``h`` is the title of a card drawn around it that also holds content
+    under it and CLOSES on page P (above the page-area bottom): the card's own label (the Float
+    Health card's bold 'High Float > 44 WD - construction' driver over its bar and note), not a
+    heading whose block can be parted from it by the break (STUDIO-RICH-10). A page-spanning
+    shell / frame or a title bar holding only the title does not count."""
+    for d in P.draws:
+        if d.thin or d.img or d.w >= 0.9 * P.W:
+            continue
+        if not (d.x0 - 1 <= h.x0 and h.x1 <= d.x1 + 1 and d.y0 - 1 <= h.y0 and h.y1 <= d.y1 + 1):
+            continue
+        if d.y1 >= area_bottom - 2 or (d.y0 <= area_top + 2 and d.y1 - d.y0 >= 0.9 * (area_bottom - area_top)):
+            continue
+        if any(b is not h and b.y0 >= h.y1 - 1 and d.x0 - 1 <= b.x0 and b.x1 <= d.x1 + 1
+               and b.y1 <= d.y1 + 1 for b in P.bands):
+            return True
+    return False
+
+
 def _block_split(A, B, area_top, area_bottom, area):
     """A SMALL card / box split by the break between page A and page B (STUDIO-RICH-10).
 
@@ -793,7 +819,7 @@ def _block_split(A, B, area_top, area_bottom, area):
     leaves such a TEXT box alone (text at the break is how a long panel or a table row reads);
     a long panel that flows across pages is taller than FIT and is not reported here.
     A whole table row ending right on the break (its text sits a few points above its bottom
-    edge) followed by the next row (text right under its top edge) is not a split box."""
+    edge) followed by the next row (its text inside the cell padding) is not a split box."""
     fa = [d for d in A.draws if not d.thin and not d.img]
     fb = [d for d in B.draws if not d.thin and not d.img]
     if not fa or not fb:
@@ -808,12 +834,18 @@ def _block_split(A, B, area_top, area_bottom, area):
     ea = [d for d in fa if abs(d.y1 - clip_a) < 0.35 and d.w < wide and d.y0 > area_top + 2]
     eb = [d for d in fb if abs(d.y0 - clip_b) < 0.35 and d.w < wide and d.y1 < area_bottom - 2]
 
-    def text_in(d, bands, bottom):
+    def edge_band(d, bands, bottom):
         inside = [b for b in bands if b.x0 < d.x1 and b.x1 > d.x0
                   and b.y0 >= d.y0 - 1.5 and b.y1 <= d.y1 + 1.5]
         if not inside:
             return None
-        return (d.y1 - max(b.y1 for b in inside)) if bottom else (min(b.y0 for b in inside) - d.y0)
+        return max(inside, key=lambda b: b.y1) if bottom else min(inside, key=lambda b: b.y0)
+
+    def text_in(d, bands, bottom):
+        e = edge_band(d, bands, bottom)
+        if e is None:
+            return None
+        return (d.y1 - e.y1) if bottom else (e.y0 - d.y0)
     for a in ea:
         for b in eb:
             if abs(a.x0 - b.x0) > 1.5 or abs(a.x1 - b.x1) > 1.5:
@@ -822,8 +854,20 @@ def _block_split(A, B, area_top, area_bottom, area):
             if h > FIT * area:
                 continue
             ga, gb = text_in(a, A.bands, True), text_in(b, B.bands, False)
-            if ga is not None and gb is not None and ga <= 10 and gb <= 10:
-                continue                  # two whole rows meeting at the break
+            if ga is None or gb is None:
+                continue                  # a part holding no text: a table's / chart's frame
+                                          # (graphic_cut reads charts)
+            # two whole rows meeting at the break: the next row's text sits inside its cell
+            # padding - a box's continuation starts with its text right on its top edge (the
+            # padding is not repeated on a sliced fragment)
+            if ga <= 10 and 1.5 < gb <= 10:
+                continue
+            # ... or a table's last row on A (a shaded row of 3+ cells) and its header repeated
+            # on B: the same columns
+            la, lb = edge_band(a, A.bands, True), edge_band(b, B.bands, False)
+            if (la is not None and lb is not None and len(la.lines) >= 3 and len(lb.lines) >= 3
+                    and _col_match(la.lines, lb.lines) >= 3):
+                continue
             return a, b, h
     return None
 
@@ -879,8 +923,9 @@ def _analyze_pages(pages, hints=()):
                                                    f'the edge of the sheet'))
         if nxt is None or nxt.empty:
             continue
-        # headings that end the page
-        hs = [b for b in P.bands if b.heading]
+        # headings that end the page (a title inside a card that closes on this page keeps its
+        # content inside that card - it cannot be parted from it by the break)
+        hs = [b for b in P.bands if b.heading and not _in_closed_box(P, b, area_top, area_bottom)]
         if hs:
             h = max(hs, key=lambda b: b.y0)
             below = [it for it in _below(P, h.y1, head=h) if it[2] != 'rule']

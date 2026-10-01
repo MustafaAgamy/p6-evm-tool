@@ -265,3 +265,130 @@ def test_word_layout_timeout_stops_only_its_own_word(tmp_path, monkeypatch):
     # no pid recorded (Word never started) -> nothing is stopped
     calls.clear()
     assert pc._stop_pid_in(str(tmp_path / 'missing.pid')) is False and calls == []
+
+
+# ── STUDIO-RICH-10: a small card split by the page break is flagged (block_split) ─────────
+# GBT rich Studio PDF: the Update Analysis driving path's 'Completion Milestone' card printed
+# its flag line at the foot of p109 and its title + dates at the top of p110; the Float Health
+# 'how the score is calculated' legend left its colour key alone on p17. Chrome paints each
+# fragment as its own box, and the checker's graphic_cut rule leaves TEXT boxes alone (text at
+# the break is how a long panel or a table row reads) - zero flags were reported.
+def _split_box_pdf(path, kind='card'):
+    """4 pages of text; at the foot of p2 a box opens (ending on the page-area bottom) and it
+    goes on at the top of p3. ``kind``: 'card' (a 100 pt card: flag line on p2, title + dates
+    on p3), 'rows' (two whole table rows meeting at the break - text close to both edges) or
+    'panel' (a long panel: 330 pt on p2 + 120 pt on p3)."""
+    doc = pymupdf.open()
+    for no in range(1, 5):
+        pg = doc.new_page(width=A4[0], height=A4[1])
+        pg.insert_text((40, 30), 'PROJECT REPORT  Grain Bulk Terminal', fontsize=8)
+        pg.insert_text((280, 825), f'Page {no} of 4', fontsize=8)
+    # the page area (top 100, bottom 780): p1 / p4 hold a framed panel of text lines filling it
+    top, bottom = 100.0, 780.0
+    for no in (0, 3):
+        doc[no].draw_rect(pymupdf.Rect(40, top, 555, bottom), color=(0.8, 0.8, 0.8), width=1)
+        for y in range(120, 772, 14):
+            doc[no].insert_text((50, y), f'Narrative line {y}: the schedule is reviewed in plain words.', fontsize=10)
+    a_top = {'card': bottom - 30, 'rows': bottom - 24, 'panel': bottom - 330}[kind]
+    b_h = {'card': 70, 'rows': 24, 'panel': 120}[kind]
+    p2, p3 = doc[1], doc[2]
+    for y in range(120, int(a_top) - 20, 14):
+        p2.insert_text((40, y), f'Narrative line {y} before the card, plain words.', fontsize=10)
+    edge, fill = (0.15, 0.39, 0.92), (0.86, 0.9, 1.0)
+    p2.draw_rect(pymupdf.Rect(57, a_top, 198, bottom), color=edge, fill=fill, width=1.5)
+    p3.draw_rect(pymupdf.Rect(57, top, 198, top + b_h), color=edge, fill=fill, width=1.5)
+    if kind == 'card':
+        p2.insert_text((66, a_top + 13), 'COMPLETION MILESTONE', fontsize=7)
+        p3.insert_text((66, top + 12), 'Phase I Scope Completion', fontsize=9)
+        p3.insert_text((66, top + 28), 'Baseline Finish   09-Feb.2027', fontsize=8)
+        p3.insert_text((66, top + 42), 'Expected Finish   09-Feb.2027', fontsize=8)
+    elif kind == 'rows':
+        p2.insert_text((66, bottom - 6), 'CONS.PL.S01.1000   14 wd', fontsize=9)
+        p3.insert_text((66, top + 12), 'CONS.PL.S01.1010   12 wd', fontsize=9)
+    else:
+        for y in range(int(a_top) + 14, int(bottom) - 4, 14):
+            p2.insert_text((66, y), f'panel line {y}', fontsize=9)
+        for y in range(int(top) + 12, int(top + b_h) - 4, 14):
+            p3.insert_text((66, y), f'panel line {y}', fontsize=9)
+    for y in range(int(top + b_h) + 30, 772, 14):
+        p3.insert_text((40, y), f'Narrative line {y} after the card, plain words.', fontsize=10)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_checker_flags_a_small_card_split_by_the_break(tmp_path):
+    import pytest
+    if pymupdf is None:
+        pytest.skip('PyMuPDF missing')
+    from p6_export import pagination_check as pc
+    res = pc.check_pdf(_split_box_pdf(str(tmp_path / 'card.pdf')))
+    got = [(f['type'], f['page']) for f in res['flags']]
+    assert got == [('block_split', 2)], res['flags']
+    assert 'COMPLETION MILESTONE' in res['flags'][0]['detail']
+    assert 'block_split' in pc.DEFECT_TYPES
+
+
+def test_checker_leaves_whole_rows_and_a_long_panel_at_the_break_alone(tmp_path):
+    import pytest
+    if pymupdf is None:
+        pytest.skip('PyMuPDF missing')
+    from p6_export import pagination_check as pc
+    for kind in ('rows', 'panel'):
+        res = pc.check_pdf(_split_box_pdf(str(tmp_path / f'{kind}.pdf'), kind))
+        assert 'block_split' not in {f['type'] for f in res['flags']}, (kind, res['flags'])
+
+
+# ── the narrative's letterhead table is running furniture, not a table header ─────────────
+# Since centred columns match by their centre (STUDIO-RICH-6), the Baseline Narrative's
+# letterhead 'OWNER  CONSULTANT  CONTRACTOR' over 'logo logo logo' (both centred in the same
+# three cells, on every page) read as a table header repeated over its first row - kept as
+# content, it made every page start with a 'table' (GBT narrative PDF: 0 -> 27 flags, 15 of
+# them 'large blank ... page N+1 starts with table OWNER CONSULTANT CONTRACTOR').
+_AREAS = ('Silo', 'Tower', 'Jetty', 'Conveyor', 'Workshop', 'Substation', 'Gatehouse',
+          'Warehouse', 'Pump house', 'MCC room', 'Weighbridge')
+_WORKS = ('piling', 'raft', 'columns', 'slab', 'steel erection', 'cladding', 'roofing',
+          'cabling', 'testing', 'handover')
+
+
+def _letterhead_pdf(path, n=5):
+    doc = pymupdf.open()
+    k = 0
+    for no in range(1, n + 1):
+        pg = doc.new_page(width=A4[0], height=A4[1])
+        for cx, word in ((150, 'OWNER'), (300, 'CONSULTANT'), (450, 'CONTRACTOR')):
+            w = pymupdf.get_text_length(word, fontsize=7)
+            pg.insert_text((cx - w / 2, 72), word, fontsize=7)
+            w = pymupdf.get_text_length('logo', fontsize=7)
+            pg.insert_text((cx - w / 2, 81), 'logo', fontsize=7)
+        if no == 1:
+            pg.insert_text((40, 120), '1) Project Overview', fontsize=16, fontname='hebo')
+        y = 150 if no == 1 else 115
+        pg.insert_text((40, y), 'Milestone', fontsize=9, fontname='hebo')
+        pg.insert_text((300, y), 'Area', fontsize=9, fontname='hebo')
+        pg.insert_text((420, y), 'Date', fontsize=9, fontname='hebo')
+        y += 16
+        while y < 780:
+            k += 1
+            area, work = _AREAS[k % len(_AREAS)], _WORKS[(k // len(_AREAS)) % len(_WORKS)]
+            pg.insert_text((40, y), f'{area} {work} completed', fontsize=9)
+            pg.insert_text((300, y), area, fontsize=9)
+            pg.insert_text((420, y), f'{k % 28 + 1:02d}-Feb-2027', fontsize=9)
+            y += 16
+        pg.insert_text((280, 825), f'Page {no} of {n}', fontsize=8)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_checker_strips_a_letterhead_table_that_repeats_on_every_page(tmp_path):
+    import pytest
+    if pymupdf is None:
+        pytest.skip('PyMuPDF missing')
+    from p6_export import pagination_check as pc
+    path = _letterhead_pdf(str(tmp_path / 'narr.pdf'))
+    pages = pc._read_pdf(path)
+    pc._strip_running(pages)
+    assert not any(l.t.strip() in ('OWNER', 'CONSULTANT', 'CONTRACTOR', 'logo')
+                   for P in pages for l in P.lines)
+    assert pc.check_pdf(path)['flags'] == []
