@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — AI Chat: Stop and Copy, like Claude (comment 15)
+- **Stop.** While an answer is being worked out or written on screen, the Send button becomes a red Stop button. Pressing it while the answer is still being computed cancels it ("Stopped. Ask again whenever you are ready."); pressing it while a finished answer is being written shows the whole answer at once.
+- **Copy.** Every answer has a Copy button. It puts the answer on the clipboard as clean text — the verdict, the key figures, each section, the actions — with tables tab-separated so they paste into Excel or Word as tables.
+- Already in place and unchanged: your question appears as your own message, a thinking indicator shows while the file is read, the answer appears step by step, and follow-up questions are offered under it. Enter sends; Shift+Enter starts a new line.
+
 ### Added — AI Chat: download the dashboard as a PDF (comment 39)
 - **A "Download PDF" button on the Professional Dashboard.** It saves the dashboard exactly as shown — same figures and charts, in the format you picked (Executive, Midnight or Blueprint) — on one A4 landscape page with a report head line (product, "Professional Dashboard", date generated). The file is named after the project.
 - **Amounts no longer carry a pound sign.** The dashboard printed "£" on every amount although the P6 file does not say which currency its costs are in; amounts now read "370.4M".
