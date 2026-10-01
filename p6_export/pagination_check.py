@@ -100,6 +100,7 @@ FRAGMENT = 0.12           # a page holding < 12 % of content (a figure / cards t
 INTRO_MAX_PT = 60.0       # a heading's short intro (about 3-4 lines)
 TOP_ZONE_PT = 26.0        # "what the page starts with" looks this far below the first item
 COVER_DROP = 0.2          # page 1 whose content starts > 20 % of the page down is a cover
+REPEAT_LABEL = 5          # a line text found this many times on one page is a row label
 SMALL_TEXT_PT = 5.0       # body text printed below this is not readable on paper
 SMALL_TEXT_CHARS = 300    # ... when a page carries at least this many such characters
 CONTENTS_ROWS = 3         # a page ending with >= 3 "title ... page-number" rows ends the contents
@@ -382,9 +383,23 @@ def _mark_headings(pages, body, hints):
     # Completion' ... 'Baseline 12-Jan-2027 · Slip +32 d' - two lines far apart, one heading)
     whole = {h.replace(' ', '') for h in hints}
     for P in pages:
+        # a label that repeats down the page ('REV.01' on every bar of a before / after list,
+        # 'SLIP / TOTAL FLOAT' on every card) marks ROWS of one block - a band holding it is a
+        # row label, not a heading over what follows (a 400-bar list read 'A-SOG-RC-1 REV.01'
+        # as a heading ending the page)
+        seen_txt = {}
+        for bb in P.bands:
+            for l in bb.lines:
+                k = norm(l.t)
+                if len(k) >= 3:
+                    seen_txt[k] = seen_txt.get(k, 0) + 1
         for b in P.bands:
             txt = b.text
             n = norm(txt)
+            if len(b.lines) >= 2 and any(seen_txt.get(norm(l.t), 0) >= REPEAT_LABEL for l in b.lines):
+                continue
+            if re.match(r'^\s*[•◦▪‣·]\s*\S', txt):
+                continue                      # a bullet item of a list, not a title
             if len(n) < 3 or len(txt) > HEAD_MAX_CHARS or not re.search(r'[a-z]', n):
                 continue
             alnum = re.sub(r'[^0-9a-z]', '', n)

@@ -7,6 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Reporting Studio reports print at full size and break cleanly
+- **A Studio report no longer prints small.** When one part of a report was wider than the page, the whole PDF was shrunk to two-thirds size — body text near 5 pt and one table at 2.7 pt, too small to read. Reports now print at full size. The page checker also flags any report whose text prints too small.
+- **Consultant Review — driving logic table.** Inside the Studio it uses a portrait layout: each side's predecessor and successor links are stacked in one cell (ID, relationship, name). Same rows, same data; the Consultant Review's own landscape report is unchanged.
+- **Update vs Update.** The critical-path comparison wraps onto a second line instead of running off the page, and each block shows its full name (long names were cut). The milestones drift chart is readable on a portrait page. The same on screen.
+- **Critical Path Analyzer.** A path title is never left alone at the bottom of a page; the "New on path / Left path" label sits inside its card; day counts read as P6 shows them (−42.7 wd, not −42.666666666666664) in the report, Excel and on screen.
+- **Baseline Revision.** Each finding prints on one row as on screen (predecessor → link → successor), about three to four findings a page instead of one; a finding is never cut by a page break; total float is rounded.
+- **Word from the Studio matches the PDF.** The Word button now exports the .docx built from the same content and page layout as the PDF (tables and text editable, chart sections as pictures).
+
+
 ### Changed — Help, the version shown and the release check
 - **Help, About and What's New show the real version.** The version is read from the newest release in this changelog, so it can no longer show an old number (Help used to name a release six versions old). **Help ▸ What's New** now lists that release's changes, read from the same changelog, plus the changes already in this build.
 - Help ▸ Getting started now says "P6 XML or XER export".
