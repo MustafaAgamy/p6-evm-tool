@@ -20,35 +20,35 @@ function injectCss() {
   if (injected) return; injected = true;
   const css = `
   #boot{position:fixed; inset:0; z-index:99999; overflow:hidden; opacity:1;
-    background:radial-gradient(125% 95% at 50% 40%, #ffffff 0%, #eef3fb 45%, #dde6f5 100%);
+    background:radial-gradient(125% 95% at 50% 40%, #14284f 0%, #0a1330 42%, #06090f 100%);
     display:grid; place-items:center; transition:opacity .28s ease; will-change:opacity;
     font-family:"Segoe UI",system-ui,-apple-system,sans-serif;}
   #boot.gone{opacity:0; pointer-events:none;}
   #boot .grid{position:absolute; inset:0; opacity:.7;
-    background-image:linear-gradient(rgba(40,80,160,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(40,80,160,.07) 1px,transparent 1px);
+    background-image:linear-gradient(rgba(120,150,220,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,220,.05) 1px,transparent 1px);
     background-size:44px 44px; -webkit-mask:radial-gradient(circle at 50% 44%,#000 30%,transparent 78%); mask:radial-gradient(circle at 50% 44%,#000 30%,transparent 78%);}
-  #boot .vig{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 220px 30px rgba(150,172,212,.35);}
+  #boot .vig{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 240px 40px rgba(3,5,12,.9);}
   #boot .stagewrap{position:relative; width:min(860px,92vw); height:min(430px,52vh);}
   #boot svg.stage{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
   #boot .wm{position:absolute; left:50%; top:calc(50% + 118px); transform:translate(-50%,0); text-align:center; opacity:0;}
   #boot .wm .nm{font-family:Archivo,"Segoe UI",system-ui; font-weight:800; font-size:46px; letter-spacing:.02em; line-height:1; white-space:nowrap;
-    color:#0f1f3d; -webkit-text-fill-color:transparent; -webkit-background-clip:text; background-clip:text;
-    background-image:linear-gradient(90deg,#0f1f3d 0%,#1f3f7a 60%,#2f62c0 100%);
-    filter:drop-shadow(0 2px 14px rgba(47,98,192,.18)); clip-path:inset(0 100% 0 0);}
-  #boot .wm .nm .yr{-webkit-text-fill-color:#2563eb; color:#2563eb; font-size:.42em; font-weight:700; letter-spacing:.02em; margin-left:.26em; vertical-align:.62em;}
-  #boot .wm .tg{margin-top:10px; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#55668a; font-weight:600; white-space:nowrap;}
-  #boot .wm .p6{margin-top:7px; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#7a889f; font-weight:600; white-space:nowrap;}
-  #boot .wm .p6 em{font-style:normal; color:#55668a;}
+    color:#fff; -webkit-text-fill-color:transparent; -webkit-background-clip:text; background-clip:text;
+    background-image:linear-gradient(90deg,#fff 0%,#dfe8ff 60%,#bcd2ff 100%);
+    filter:drop-shadow(0 2px 18px rgba(91,155,255,.35)); clip-path:inset(0 100% 0 0);}
+  #boot .wm .nm .yr{-webkit-text-fill-color:#5b9bff; color:#5b9bff; font-size:.42em; font-weight:700; letter-spacing:.02em; margin-left:.26em; vertical-align:.62em;}
+  #boot .wm .tg{margin-top:10px; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#8a99bd; font-weight:600; white-space:nowrap;}
+  #boot .wm .p6{margin-top:7px; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#5f6d8f; font-weight:600; white-space:nowrap;}
+  #boot .wm .p6 em{font-style:normal; color:#7f8fb3;}
   #boot .hud{position:absolute; left:50%; bottom:8%; transform:translateX(-50%); width:min(440px,74vw); text-align:center;}
-  #boot .cap{display:flex; justify-content:space-between; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#47597c; font-weight:600; margin-bottom:9px;}
-  #boot .cap b{color:#0f1f3d; font-variant-numeric:tabular-nums; font-family:Archivo,"Segoe UI",system-ui;}
-  #boot .track{height:3px; border-radius:3px; background:rgba(40,80,160,.16); overflow:hidden;}
-  #boot .barf{height:100%; width:0%; border-radius:3px; background:linear-gradient(90deg,#f6a723,#5b9bff); box-shadow:0 0 10px rgba(91,155,255,.45);}
-  #boot .ver{position:absolute; left:0; right:0; bottom:20px; text-align:center; color:#7a889f; font-size:10.5px; letter-spacing:.28em; text-transform:uppercase;}
+  #boot .cap{display:flex; justify-content:space-between; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#9fb0d6; font-weight:600; margin-bottom:9px;}
+  #boot .cap b{color:#fff; font-variant-numeric:tabular-nums; font-family:Archivo,"Segoe UI",system-ui;}
+  #boot .track{height:3px; border-radius:3px; background:rgba(120,150,220,.16); overflow:hidden;}
+  #boot .barf{height:100%; width:0%; border-radius:3px; background:linear-gradient(90deg,#f6a723,#5b9bff); box-shadow:0 0 12px rgba(91,155,255,.6);}
+  #boot .ver{position:absolute; left:0; right:0; bottom:20px; text-align:center; color:#556488; font-size:10.5px; letter-spacing:.28em; text-transform:uppercase;}
   #boot .skip{position:absolute; top:16px; right:16px; z-index:2; display:inline-flex; align-items:center; gap:6px;
-    background:rgba(15,31,61,.05); color:#33445f; border:1px solid rgba(15,31,61,.16); border-radius:20px;
+    background:rgba(255,255,255,.06); color:#cdd8f0; border:1px solid rgba(255,255,255,.14); border-radius:20px;
     padding:6px 13px; font:600 12px/1 "Segoe UI",system-ui; cursor:pointer;}
-  #boot .skip:hover{background:rgba(15,31,61,.1); color:#0f1f3d;}
+  #boot .skip:hover{background:rgba(255,255,255,.12); color:#fff;}
   @media (prefers-reduced-motion: reduce){ #boot{transition:opacity .3s ease;} }`;
   const s = document.createElement('style'); s.id = 'boot-style'; s.textContent = css;
   document.head.appendChild(s);
@@ -132,13 +132,13 @@ export function playBoot(opts) {
            </filter>
          </defs>
          <g class="bars"></g>
-         <path class="cpath" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+         <path class="cpath" fill="none" stroke="#5b9bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
                pathLength="100" filter="url(#bootglow)" opacity="0" d="M60 300 L170 286 L300 250 L430 222 L560 176 L700 120"/>
          <g class="markg" opacity="0" filter="url(#bootglow)" transform="translate(300,86) scale(11.4)">
            <path class="mark" d="M4 19V5M4 15l5-5 4 3 7-8" fill="none" stroke="url(#bootmg)" stroke-width="2.05"
                  stroke-linecap="round" stroke-linejoin="round" pathLength="100"/>
          </g>
-         <circle class="spark" r="5.5" fill="#2563eb" opacity="0"/>
+         <circle class="spark" r="5.5" fill="#fff" opacity="0"/>
        </svg>
        <div class="wm"><div class="nm">${esc(B.name)}<span class="yr">${esc(B.edition)}</span></div><div class="tg">Project&nbsp;Control&nbsp;Intelligence&nbsp;Platform</div><div class="p6">for&nbsp;<em>Primavera&nbsp;P6</em>&nbsp;·&nbsp;XER&nbsp;&amp;&nbsp;XML</div></div>
      </div>
@@ -164,7 +164,7 @@ export function playBoot(opts) {
   const barEls = BARS.map((b, i) => {
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     el.setAttribute('x', b.x); el.setAttribute('y', b.y); el.setAttribute('height', 12); el.setAttribute('rx', 3.5);
-    el.setAttribute('fill', b.crit ? '#3f6bd6' : '#b9c6de'); barsG.appendChild(el);
+    el.setAttribute('fill', b.crit ? '#3f6bd6' : '#2c3c5e'); barsG.appendChild(el);
     b.appear = 0.03 + i * (0.30 / BARS.length); return el;
   });
 

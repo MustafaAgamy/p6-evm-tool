@@ -197,50 +197,18 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# ── Startup splash (startup DB-2) ─────────────────────────────────────────
-# The one-file exe unpacks ~1,000 files (~230 MB) into %TEMP%\_MEI* before Python even
-# starts; nothing was visible for those seconds, so the owner clicked again. The bootloader
-# shows this picture at once (a light picture that says 'Loading...'; no text line, so no file
-# names) and app.py closes it as soon as the app window is on screen
-# (app_startup.close_splash). Not always-on-top. Picture: packaging/splash.png (made from
-# packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE;
-# the picture is committed — .gitignore has '!packaging/*.png').
-# If Tcl/Tk is missing on the build machine (PyInstaller raises SystemExit for that) a LOCAL
-# build is simply made without a splash. On the release runner (GITHUB_ACTIONS) any other
-# failure — e.g. the picture missing from the checkout — stops the build instead of silently
-# shipping an exe with no start-up picture.
+# ── No start-up window from the bootloader (owner comment 40) ──────────────
+# The one-file exe used to show a small dark picture while it unpacked, with a text line
+# naming every file (webview\lib\...\WebView2Loader.dll). The owner asked for that window
+# to be removed: the first thing on screen is the app window with its loading screen that
+# counts to 100 %. So no Splash is built; app_startup.splash_text / close_splash stay as
+# harmless no-ops (there is no pyi_splash module in an exe built without one).
 splash_parts = []
-if sys.platform == 'win32':
-    try:
-        sys.path.insert(0, SPECPATH)
-        from utils import APP_TITLE as _SPLASH_TITLE
-    except Exception:
-        _SPLASH_TITLE = ''
-    # NO text line (owner comment 40): with a text position the bootloader prints the name of
-    # every file it unpacks ('numpy.libs\libscipy_openblas64_...dll') on a dark window - the
-    # owner read that as a black screen. The picture is light and says 'Loading...' itself.
-    _splash_kw = dict(minify_script=True, always_on_top=False)
-    for _drop in ((), ('always_on_top',)):          # older PyInstaller: no always_on_top
-        try:
-            _kw = {k: v for k, v in _splash_kw.items() if k not in _drop}
-            splash = Splash(str(Path(SPECPATH) / 'packaging' / 'splash.png'), binaries=a.binaries, datas=a.datas, **_kw)
-            splash_parts = [splash, splash.binaries]
-            break
-        except TypeError:
-            continue
-        except (Exception, SystemExit) as _exc:     # SystemExit = PyInstaller: no usable Tcl/Tk
-            _no_tcltk = isinstance(_exc, SystemExit)
-            if os.environ.get('GITHUB_ACTIONS') and not _no_tcltk:
-                print('::error::startup splash not built (%r) - the release exe would open '
-                      'with nothing on screen while it unpacks' % (_exc,))
-                raise
-            print('WARNING: startup splash not built (%r)' % (_exc,))
-            break
 
 exe = EXE(
     pyz,
     a.scripts,
-    *splash_parts,          # the startup splash (empty when not built)
+    *splash_parts,          # always empty: no bootloader window (comment 40)
     a.binaries,
     a.zipfiles,
     a.datas,

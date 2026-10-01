@@ -7,10 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Changed — Opening the tool shows no dark window
-- **No more dark start-up window with file names.** The small picture shown while the program unpacks no longer lists internal file names; it is a light picture with the logo and "Loading…".
-- **Light from the first click to 100 %.** The window opens light (no black flash), and the loading screen that counts to 100 % is light too, as are the two "Retry" start-up messages.
-
+### Changed — Opening Controlyx: the small dark unpack window is removed (comment 40)
+- **The small dark window that appeared first — with a line naming each file being unpacked — is gone.** The first thing on screen is now the app window with its loading screen counting to 100 %. The loading screen keeps the same dark look it had before. Note: the exe still needs a few seconds to unpack itself after the click, and nothing is shown during those seconds.
 
 ### Changed — Reporting Studio lists the analysis features only
 - **The Overview group is no longer offered in the Reporting Studio** (Project snapshot, Key indicators, Progress by category). The list now starts at the analysis features, so you choose among their results. The Overview screen itself is unchanged and keeps its own Print.
