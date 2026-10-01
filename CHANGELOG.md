@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Reporting Studio lists the analysis features only
+- **The Overview group is no longer offered in the Reporting Studio** (Project snapshot, Key indicators, Progress by category). The list now starts at the analysis features, so you choose among their results. The Overview screen itself is unchanged and keeps its own Print.
+- A report you saved earlier that included Overview results still opens: those results are left out, the screen says how many, and the report exports as before. Saving it again stores it without them.
+
+
 ### Fixed — Reporting Studio reports print at full size and break cleanly
 - **A Studio report no longer prints small.** When one part of a report was wider than the page, the whole PDF was shrunk to two-thirds size — body text near 5 pt and one table at 2.7 pt, too small to read. Reports now print at full size. The page checker also flags any report whose text prints too small.
 - **Consultant Review — driving logic table.** Inside the Studio it uses a portrait layout: each side's predecessor and successor links are stacked in one cell (ID, relationship, name). Same rows, same data; the Consultant Review's own landscape report is unchanged.

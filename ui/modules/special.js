@@ -15,6 +15,7 @@ const S = {
   name: '',
   inputs: {},           // {role: path}
   templateId: null,
+  retired: 0,           // results a saved report listed that the Studio no longer offers (Overview)
 };
 
 function api(path, body) {
@@ -125,9 +126,9 @@ function drawTemplates(templates) {
   bar.innerHTML = `<span class="sr-tpllabel">Saved reports:</span>${chips}<button class="sr-chip sr-new" data-tpl="__new">+ New report</button>`;
   bar.querySelectorAll('[data-tpl]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.tpl;
-    if (id === '__new') { S.templateId = null; S.selected = []; S.name = ''; renderSpecialPanel(); return; }
+    if (id === '__new') { S.templateId = null; S.selected = []; S.name = ''; S.retired = 0; renderSpecialPanel(); return; }
     const t = (templates || []).find(x => x.id === id);
-    if (t) { S.templateId = t.id; S.selected = (t.item_ids || []).slice(); S.name = t.name; renderSpecialPanel(); }
+    if (t) { S.templateId = t.id; S.selected = (t.item_ids || []).slice(); S.name = t.name; S.retired = t.retired || 0; renderSpecialPanel(); }
   }));
 }
 
@@ -215,11 +216,14 @@ async function attach(role) {
 function drawSelected() {
   const box = document.getElementById('sr-selected');
   document.getElementById('sr-count').textContent = `${S.selected.length} item${S.selected.length === 1 ? '' : 's'}`;
+  // A report saved before the Overview group left the Studio (owner comment 35): say what was
+  // left out, in the page (WebView2 has no alert) — never a raw item code in the list.
+  const gone = S.retired ? `<div class="sr-retired">${S.retired} Overview result${S.retired === 1 ? '' : 's'} in this saved report ${S.retired === 1 ? 'is' : 'are'} no longer part of the Reporting Studio and ${S.retired === 1 ? 'was' : 'were'} left out. The Overview screen has its own Print.</div>` : '';
   if (!S.selected.length) {
-    box.innerHTML = `<div class="sr-selempty">Tick results on the left to add them here, numbered in order.</div>`;
+    box.innerHTML = gone + `<div class="sr-selempty">Tick results on the left to add them here, numbered in order.</div>`;
     return;
   }
-  box.innerHTML = S.selected.map((id, i) => {
+  box.innerHTML = gone + S.selected.map((id, i) => {
     const it = itemById(id);
     const title = it ? it.title : id;
     const src = it ? it.feature_title : '';
@@ -293,5 +297,6 @@ async function doSaveTemplate() {
   });
   if (!res.ok) { showError(res.error || 'Save failed.'); return; }
   S.templateId = res.template && res.template.id;
+  S.retired = 0;                        // saved again without the retired results
   renderSpecialPanel();
 }

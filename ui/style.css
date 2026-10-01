@@ -2378,6 +2378,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .sr-namewrap input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px;
   color: var(--text); padding: 11px 13px; font-size: 15px; font-weight: 600; }
 .sr-selempty { text-align: center; color: var(--muted); font-size: 12.5px; padding: 20px 0; }
+.sr-retired { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--warning-bg, #fff7ed); color: var(--warning, #b45309); font-size: 12px; line-height: 1.4; }
 .sr-srow { display: flex; align-items: center; gap: 11px; padding: 10px 11px; margin: 8px 4px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
 .sr-num { width: 25px; height: 25px; border-radius: 7px; background: var(--accent); color: #fff;

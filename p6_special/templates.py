@@ -10,8 +10,23 @@ import db
 KEY = 'special_reports'
 
 
-def list_templates(project_id):
+def _stored(project_id):
     return list((db.get_project_settings(project_id) or {}).get(KEY) or [])
+
+
+def list_templates(project_id):
+    """The saved reports, each without the results that were retired from the Studio (the
+    Overview group, owner comment 35). ``retired`` = how many were left out, so the screen can
+    say so; the stored record is only rewritten when the planner saves the report again."""
+    from p6_special.registry import split_retired
+    out = []
+    for t in _stored(project_id):
+        kept, retired = split_retired(t.get('item_ids'))
+        t = dict(t, item_ids=kept)
+        if retired:
+            t['retired'] = len(retired)
+        out.append(t)
+    return out
 
 
 def get_template(project_id, template_id):
@@ -31,12 +46,13 @@ def _next_id(existing):
 
 def save_template(project_id, template):
     """Insert or update a named template. Returns the stored record."""
-    items = list_templates(project_id)
+    from p6_special.registry import split_retired
+    items = _stored(project_id)
     tid = template.get('id')
     rec = {
         'id': tid or _next_id(items),
         'name': (template.get('name') or 'Untitled report').strip() or 'Untitled report',
-        'item_ids': list(template.get('item_ids') or []),
+        'item_ids': split_retired(template.get('item_ids'))[0],
         'letterhead': template.get('letterhead') or {},
         'mode': template.get('mode') or 'light',
     }
@@ -49,6 +65,6 @@ def save_template(project_id, template):
 
 
 def delete_template(project_id, template_id):
-    items = [t for t in list_templates(project_id) if t.get('id') != template_id]
+    items = [t for t in _stored(project_id) if t.get('id') != template_id]
     db.save_project_settings(project_id, {KEY: items})
     return items
