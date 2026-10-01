@@ -1019,6 +1019,51 @@ PIC_MIN_PX = 40           # icons / logos / bullets are not checked
 PIC_RULE = 0.9            # a bottom row painted across >= 90 % of the width is a rule / border
 
 
+def _frame_sides_only(ink, last, run=24, dark=None):
+    """The ink at a picture's bottom edge only CLOSES or CONTINUES boxes - nothing is cut:
+
+    * thin vertical lines that run down the picture: the side borders of a card / table the
+      section flows through (one page-sized slice of a long Baseline Revision card - the next
+      slice goes on inside the same card), and/or
+    * a thin horizontal line under an EMPTY strip: the bottom border of a box that ends right
+      at the slice's edge (a WBS band's outline).
+
+    A text line or a chart cut at the edge leaves many short runs, or ink right above a wide
+    run, and is still flagged (STUDIO-RICH-9: 206 of 206 GBT slices were these)."""
+    import numpy as np
+    W = ink.shape[1]
+    cols = np.nonzero(ink[last])[0]
+    if not len(cols):
+        return False
+    runs, start = [], cols[0]
+    for a, b in zip(cols, cols[1:]):
+        if b != a + 1:
+            runs.append((start, a))
+            start = b
+    runs.append((start, cols[-1]))
+    if len(runs) > 8:
+        return False                      # glyph pieces: a text line is cut there
+    top = max(0, last - run + 1)
+    for a, b in runs:
+        if b - a + 1 <= 5:                # a side border: it runs down the picture
+            if ink[top:last + 1, a:b + 1].any(axis=1).mean() < 0.9:
+                return False
+            continue
+        if b - a + 1 < 0.15 * W:
+            return False                  # a short wide piece: a bar / glyph cut at the edge
+        # a horizontal line: thin, drawn darker than a box's light fill, nothing dark right
+        # above it (the box's padding)
+        m = ink if dark is None else dark
+        if m[last, a:b + 1].mean() < 0.6:
+            return False
+        k = last
+        while k > 0 and m[k - 1, a:b + 1].mean() > 0.6:
+            k -= 1
+        if last - k > 12 or m[max(0, k - 4):k, a + 6:max(a + 7, b - 5)].mean() > 0.05:
+            return False
+    return True
+
+
 def docx_picture_flags(path, pic_pages=None):
     """Pictures in a .docx body that are CUT or MOSTLY BLANK (STUDIO-WORD-2).
 
@@ -1048,6 +1093,7 @@ def docx_picture_flags(path, pic_pages=None):
         return []
     rels = d.part.rels
     found, k, head = [], 0, ''
+    heads, open_end = {}, set()          # picture -> its heading; pictures ending on open boxes
     for p in d.element.body.iter(qn('w:p')):
         st = p.find(qn('w:pPr') + '/' + qn('w:pStyle'))
         sv = str(st.get(qn('w:val')) or '') if st is not None else ''
@@ -1055,6 +1101,7 @@ def docx_picture_flags(path, pic_pages=None):
             head = ' '.join(''.join(t.text or '' for t in p.iter(qn('w:t'))).split())[:60]
         for ext, blip in zip(p.iter(qn('wp:extent')), p.iter(qn('a:blip'))):
             k += 1
+            heads[k] = head
             try:
                 pix = pymupdf.Pixmap(rels[blip.get(qn('r:embed'))].target_part.blob)
                 if pix.alpha or pix.n > 3:
@@ -1074,6 +1121,9 @@ def docx_picture_flags(path, pic_pages=None):
             where = f'picture {k}' + (f" under {head!r}" if head else '')
             last = int(rows[-1])
             if H - 1 - last <= max(2, H * 0.001) and float(ink[last].mean()) < PIC_RULE:
+                if _frame_sides_only(ink, last, dark=(a[:, :, :3] < 200).any(axis=2)
+                                     if a.shape[2] >= 3 else None):
+                    open_end.add(k)       # fine IF the next picture goes on with the section
                 found.append((k, 'picture_truncated',
                                    f'{where}: its content runs into the bottom edge of the picture '
                                    '(cut off - the rest never reached the page)'))
@@ -1086,6 +1136,11 @@ def docx_picture_flags(path, pic_pages=None):
                 found.append((k, 'picture_mostly_blank',
                                    f'{where}: only {extent:.0%} of the picture is painted - '
                                    f'~{h_pt * (1 - extent):.0f} pt of white on the page'))
+    # one page-sized slice of a long section ending inside a card / table (only its side
+    # borders reach the edge, or a box closes right there) whose NEXT picture continues the same
+    # section is not cut - the section goes on in that picture (STUDIO-RICH-9)
+    found = [f for f in found if not (f[1] == 'picture_truncated' and f[0] in open_end
+                                      and f[0] + 1 in heads and heads[f[0] + 1] == heads[f[0]])]
     pages = list(pic_pages) if pic_pages and len(pic_pages) == k else None
     return [_flag(kind, (pages[n - 1] if pages else 0) or 0, detail) for n, kind, detail in found]
 
@@ -1513,14 +1568,36 @@ def analyze_word_layout(layout):
     return flags, info, npages
 
 
+def _word_pids():
+    """Process ids of the running Word instances (Windows; empty elsewhere / on any error)."""
+    if os.name != 'nt':
+        return set()
+    try:
+        cp = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq WINWORD.EXE', '/FO', 'CSV', '/NH'],
+                            capture_output=True, timeout=30)
+        return {int(m) for m in re.findall(r'"WINWORD\.EXE","(\d+)"', cp.stdout.decode('utf-8', 'replace'),
+                                           flags=re.I)}
+    except Exception:
+        return set()
+
+
 def _word_layout_subprocess(path, timeout):
     """Run the COM layout in its own process (a hung Word never hangs the caller)."""
     fd, out = tempfile.mkstemp(suffix='.json', prefix='cx_wl_')
     os.close(fd)
+    before = _word_pids()
     try:
-        cp = subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out],
-                            timeout=timeout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        try:
+            cp = subprocess.run([sys.executable, '-m', 'p6_export.pagination_check', '--word-layout', path, out],
+                                timeout=timeout, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        except subprocess.TimeoutExpired:
+            # the child is gone but the Word it started keeps laying the document out (CPU +
+            # RAM for hours): stop the Word processes that appeared during this run
+            for pid in _word_pids() - before:
+                subprocess.run(['taskkill', '/PID', str(pid), '/F'], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+            raise
         if cp.returncode:
             tail = (cp.stderr or b'').decode('utf-8', 'replace').strip().splitlines()[-1:] or ['']
             raise RuntimeError(f'Word layout exited {cp.returncode}: {tail[0][:200]}')
