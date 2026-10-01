@@ -77,7 +77,7 @@ const appSrc = read('ui', 'app.js');
 const a = appSrc.indexOf('  const REPORT_BTN = {');
 const b = appSrc.indexOf('  function runMenuCmd(cmd)');
 assert.ok(a > 0 && b > a, 'REPORT_BTN … runReport block not found in app.js');
-function harness(view, { result = true, missing = [] } = {}) {
+function harness(view, { result = true, missing = [], gantt = () => [{ key: 's', label: 'S', html: '<p>x</p>' }] } = {}) {
   const log = { clicked: [], errors: [], printed: [] };
   const state = { currentView: view, currentResult: result ? { project_name: 'P', data_date: '2025-12-11' } : null };
   const document = { getElementById: (id) => (missing.includes(id) ? null : { click: () => log.clicked.push(id) }) };
@@ -85,10 +85,10 @@ function harness(view, { result = true, missing = [] } = {}) {
     critpath: 'Critical Path Analyzer', period: 'Update vs Update', update: 'Update Analysis' };
   const sec = () => [{ key: 's', label: 'S', html: '<p>x</p>' }];
   const fn = new Function('state', 'document', 'CRUMB', 'showError', 'printView', 'prodintelPrint', 'overviewPrint',
-    'wbsPrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage',
+    'wbsPrint', 'schedulePrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage',
     appSrc.slice(a, b) + '\nreturn { runReport, REPORT_BTN };');
   const api = fn(state, document, CRUMB, (m) => log.errors.push(m), (o) => log.printed.push(o.module), sec, sec, sec,
-    () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage);
+    gantt, () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage);
   return { ...api, log };
 }
 test('Earned Value: Ctrl+Shift+W opens the PDF preview and leaves a Word export for its bar', () => {
@@ -163,21 +163,28 @@ test('screen views (Overview) and library views print through printView with the
   assert.deepEqual(l.log.printed, ['prodintel']);
   assert.equal(EI.takeDocExport().kind, 'html');
 });
-test('Excel-only view and no-schedule say so in the page, no pending note', () => {
+test('Schedule (Gantt) prints through printView (comment 26); no-schedule says so in the page', () => {
   EI.clearDocExport();
   const g = harness('schedule'); g.runReport('docx');
-  assert.deepEqual(g.log.errors, ['Schedule (Gantt) has no Word export yet — use File ▸ Export to Excel.']);
+  assert.deepEqual(g.log.errors, []);
+  assert.deepEqual(g.log.printed, ['schedule']);                 // the same preview as File ▸ Print
+  assert.equal(EI.takeDocExport().kind, 'docx');                 // … which then presses its own Word button
   const z = harness('evm', { result: false }); z.runReport('html');
   assert.deepEqual(z.log.errors, ['Import a P6 schedule and open a module first.']);
   assert.equal(EI.takeDocExport(), null);
 });
-test('F6: File ▸ Print on Schedule (Gantt) says it is Excel-only — never "run the analysis first"', () => {
+test('F6: File ▸ Print on Schedule (Gantt) opens its preview — never "run the analysis first"', () => {
   const g = harness('schedule');
   g.runReport('pdf');
   assert.deepEqual(g.log.clicked, []);
-  assert.deepEqual(g.log.errors, ['Schedule (Gantt) has no PDF export — use File ▸ Export to Excel.']);
+  assert.deepEqual(g.log.errors, []);
+  assert.deepEqual(g.log.printed, ['schedule']);
   g.runReport('xls');                                           // its Excel still works
   assert.deepEqual(g.log.clicked, ['sched-excel-btn']);
+  // a re-opened project whose schedule file is gone has no rows: a true message, no preview
+  const n = harness('schedule', { gantt: () => null }); n.runReport('pdf');
+  assert.deepEqual(n.log.printed, []);
+  assert.deepEqual(n.log.errors, ['This project has no activity timeline to print — import the schedule again to rebuild the Gantt.']);
   // "Run first" stays for a report whose button is registered but not on screen yet.
   const e = harness('evm', { missing: ['pdf-btn', 'evm-excel-btn'] });
   e.runReport('pdf'); e.runReport('xls');
@@ -238,7 +245,8 @@ test('feature_needs lists Word / HTML exactly where they exist', () => {
   // Adopted previews (api.js passes exports: ADOPTED_EXPORTS) — update when a feature adopts.
   const adoptedViews = ['evm', 'calendar'];
   assert.equal((read('ui', 'modules', 'api.js').match(/exports: ADOPTED_EXPORTS/g) || []).length, adoptedViews.length);
-  const own = { narrative: ['Word', 'HTML'], special: ['Word'] };      // REPORT_BTN docx / html
+  const own = { narrative: ['Word', 'HTML'], special: ['Word'],        // REPORT_BTN docx / html
+    schedule: ['Word', 'HTML'] };                                      // PRINT_VIEW exports (printView)
   for (const f of FEATURE_NEEDS) {
     const want = adoptedViews.includes(f.id) ? ['Word', 'HTML'] : (own[f.id] || []);
     for (const k of ['Word', 'HTML']) {

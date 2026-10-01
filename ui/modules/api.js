@@ -759,7 +759,8 @@ export async function exportWbsExcel() {
 export async function exportScheduleExcel() {
   const r = state.currentResult;
   if (!r || !(r.activities && r.activities.length)) {
-    showError('Open Schedule (Gantt) with an imported schedule first.'); return;
+    showError(r ? 'This project has no activity timeline to export — import the schedule again to rebuild the Gantt.'
+      : 'Import a P6 schedule and open Schedule (Gantt) first.'); return;
   }
   const btn = new ButtonState(document.getElementById('sched-excel-btn'), 'Export to Excel');
   btn.loading('Exporting…');
@@ -769,7 +770,8 @@ export async function exportScheduleExcel() {
     const data = await apiFetch('api/schedule/excel', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ result: r, output_path: outputPath }),
+      body:    JSON.stringify({ result: { activities: r.activities, data_date: r.data_date, project_name: r.project_name,
+        activity_count: r.activity_count }, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }
