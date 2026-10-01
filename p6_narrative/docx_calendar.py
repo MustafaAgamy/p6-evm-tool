@@ -59,7 +59,7 @@ def render_calendar(document, payload, chrome=None, number=8):
     if cc is not None or ac is not None:
         bits = []
         if cc is not None:
-            bits.append('%s calendars assigned to activities' % cc)
+            bits.append('%s %s assigned to activities' % (cc, 'calendar' if cc == 1 else 'calendars'))
         if ac is not None:
             bits.append('%s activities' % W._count(ac))
         W.para(document, ' · '.join(bits), size=11, color=W.GREY, after=4)

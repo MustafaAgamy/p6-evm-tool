@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Baseline Narrative: the 31 failing automated checks, and what they uncovered (comment 23)
+- **The Reporting Studio offered only 11 of the Narrative's 19 sections.** Activity IDs, Resource Loading, Material Resources, Productivity Rates, Volume of Work and the three appendices (Critical Path, Critical Path From P6, Mapping Sheet) can now be picked into a Studio report too.
+- **Scope of Work ignored an activity code named "Discipline"** when the schedule also had a "Type of Works" code, and used the work type as the discipline. A code named Discipline is now the discipline, and Type of Works the work type under it. Grain Bulk, Saint Gobain, MAFI and Alstom are unaffected (none has a code named Discipline).
+- **"1 calendars assigned"** now reads "1 calendar assigned" in the PDF and in Word.
+- **Project Brief table** is kept whole on one page when the Narrative is printed through the Reporting Studio (it could be cut after six rows).
+- The remaining failures were checks written for the first version of the report and never updated after the section-by-section review. They now check the approved report: the 19 sections in order, the WBS overview and branch breakdown (Level 4 when a branch has four or fewer Level-4 nodes, else Level 3), the sequence read from the logic, the calendar section, and the Word look (logo-only header, cover, Times New Roman body, native charts and drawings with no pictures).
+
 ### Fixed — Baseline Narrative: critical path on a baseline exported without float (comment 17)
 - **The Narrative said "no critical path" on the Saint Gobain baseline.** That XER was exported with the Total Float column empty for every activity. The float is now rebuilt from each activity's own early and late dates, exactly as P6 computes it, so the Appendix (Critical Path) is drawn: 223 critical activities, 19 Dec 2024 to Project Completion 30 Aug 2025. Grain Bulk is unchanged (410 critical activities).
 - When a file carries neither float nor early / late dates, the report now says what to do: schedule the project in P6 (F9), export it again and re-import it.

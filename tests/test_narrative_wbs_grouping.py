@@ -85,24 +85,31 @@ def test_wbs_carries_overview_and_per_branch_breakdown():
     # (b) one breakdown chart per major branch
     branches = {b['name']: b for b in p['branches']}
     assert {'Engineering', 'Construction'} <= set(branches)
+    # each branch is its Level-2 columns: [name, [[Level-3 name, [Level-4 names]], …]]
     for b in p['branches']:
-        assert 'root' in b and b['layout'] in ('tree', 'columns')
-    # 'worlds' kept for back-compat / fallback rendering
-    assert p['worlds']
+        assert b['depth'] in (3, 4) and isinstance(b['columns'], list)
+    assert set(p) == {'overview', 'branches'}
 
 
 def test_per_branch_breakdown_reaches_level_four_and_caps_there():
     branches = {b['name']: b for b in _wbs_payload(_deep_epc())['branches']}
-    eng = branches['Engineering']['root']
-    assert eng['name'] == 'Engineering'
-    # the six-tier Engineering branch is expanded to — and capped at — depth 4
-    assert _max_depth(eng) == 4
-    # the deepest kept name is Approval; Detailing (tier 5) is dropped by the cap
-    names = []
+    eng = branches['Engineering']
+    # the six-tier Engineering branch (Level 1) is expanded to — and capped at — Level 4:
+    # Engineering › Phase I Engineering › Shop Drawing › Submittal
+    assert eng['depth'] == 4
+    assert eng['columns'] == [['Phase I Engineering', [['Shop Drawing', ['Submittal']]]]]
+    # Approval / Detailing (Levels 5 and 6) are below the cap
+    assert 'Approval' not in str(eng) and 'Detailing' not in str(eng)
+    # a branch with no sub-WBS has nothing to break down
+    assert branches['Construction']['columns'] == []
 
-    def _walk(n):
-        names.append(n['name'])
-        for k in n.get('children') or []:
-            _walk(k)
-    _walk(eng)
-    assert 'Approval' in names and 'Detailing' not in names
+
+def test_a_branch_with_many_level_four_nodes_stops_at_level_three():
+    """The approved rule: Level 4 only when the branch has 4 or fewer Level-4 nodes — a wider
+    branch would not be readable, so it is drawn to Level 3."""
+    d = _deep_epc()
+    for i in range(5):                                # five more Level-4 nodes under Shop Drawing
+        d.wbs['X%d' % i] = {'name': 'Package %d' % i, 'parent_object_id': 'SHOP'}
+    eng = {b['name']: b for b in _wbs_payload(d)['branches']}['Engineering']
+    assert eng['depth'] == 3
+    assert eng['columns'] == [['Phase I Engineering', [['Shop Drawing', []]]]]

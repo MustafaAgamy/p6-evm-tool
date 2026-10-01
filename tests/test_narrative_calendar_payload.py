@@ -13,7 +13,7 @@ from p6_evm.parser import parse_file
 from p6_narrative.html import render_narrative_html
 from p6_narrative.report import build_report
 
-# A 5-day-week default calendar (Fri+Sat off) with a New-Year holiday (Wed 01 Jan 2025)
+# A 5-day-week default calendar (Fri+Sat off) with one holiday (Wed 08 Jan 2025)
 # and a 7-day shutdown run, one WBS, two activities spanning Jan–Mar 2025.
 _XML = textwrap.dedent('''\
 <?xml version="1.0"?>
@@ -31,12 +31,12 @@ _XML = textwrap.dedent('''\
       <StandardWorkHours><DayOfWeek>Thursday</DayOfWeek><WorkTime><Start>08:00:00</Start><Finish>16:00:00</Finish></WorkTime></StandardWorkHours>
     </StandardWorkWeek>
     <HolidayOrExceptions>
-      <HolidayOrException><Date>2025-01-01T00:00:00</Date></HolidayOrException>
+      <HolidayOrException><Date>2025-01-08T00:00:00</Date></HolidayOrException>
     </HolidayOrExceptions>
   </Calendar>
   <Project>
     <ObjectId>1</ObjectId><Id>P1</Id><Name>Calendar Project</Name>
-    <DataDate>2025-02-01T00:00:00</DataDate>
+    <DataDate>2025-01-01T00:00:00</DataDate>
     <PlannedStartDate>2025-01-01T00:00:00</PlannedStartDate>
     <ScheduledFinishDate>2025-03-31T17:00:00</ScheduledFinishDate>
     <WBS><ObjectId>10</ObjectId><Name>Construction</Name><ParentObjectId></ParentObjectId></WBS>
@@ -66,32 +66,37 @@ def _calendar_section(doc):
     raise AssertionError('calendar section not found')
 
 
-def test_calendar_payload_carries_full_contract(tmp_path):
+def test_calendar_payload_carries_the_approved_contract(tmp_path):
     data = parse_file(_write(tmp_path))
     doc = build_report(data).to_dict()
     sec = _calendar_section(doc)
     p = sec['payload']
 
-    # legacy keys preserved (flat-fallback compatibility)
-    assert 'calendars' in p and 'holidays' in p
-
-    # full SLICE A passthrough present
-    for key in ('dashboard', 'monthly', 'holiday_dates', 'comparison', 'usage'):
-        assert key in p, f'missing calendar payload key: {key}'
-    assert p['monthly'], 'monthly grid should be populated'
-    assert p['comparison'], 'comparison table should be populated'
-    assert p['usage'], 'usage table should be populated'
+    # the approved section: 8.1 dashboard tiles, 8.2 one working / non-working timeline per
+    # assigned calendar, the dated holidays, and one working-hours card per calendar
+    assert set(p) == {'view', 'header', 'dashboard', 'calendars', 'holidays', 'hours_profiles'}
+    assert p['header'] == {'calendar_count': 1, 'activity_count': 2}
 
     # baseline start/finish are cover meta, NOT dashboard tiles
-    assert 'baseline_start' not in p['dashboard']
-    assert 'baseline_finish' not in p['dashboard']
+    assert 'baseline_start' not in p['dashboard'] and 'baseline_finish' not in p['dashboard']
+    assert p['dashboard']['total_working_days'] + p['dashboard']['total_nonworking_days'] \
+        == p['dashboard']['total_calendar_days']
 
-    # dated holidays carry a weekday name (01 Jan 2025 is a Wednesday)
-    hd = p['holiday_dates']
-    assert hd, 'holiday_dates should be populated'
-    row = next(r for r in hd if r['date'] == '2025-01-01')
-    assert row['weekday'] == 'Wednesday'
-    assert all('weekday' in r for r in hd)
+    cal = p['calendars'][0]
+    assert cal['name'] == '5 Days/Week' and cal['activity_count'] == 2
+    # the monthly grid: one row per month from the first activity (2 Jan 2025) to completion (Mar 2025)
+    assert cal['months'] == [m['label'] for m in cal['monthly']] == ['Jan 2025', 'Feb 2025', 'Mar 2025']
+    for m, wd, nwd in zip(cal['monthly'], cal['net_working_days'], cal['nonworking_days']):
+        assert m['working_days'] == wd and m['nonworking_days'] == nwd and wd > nwd > 0
+    assert cal['working_days'] == sum(cal['net_working_days'])
+    # January from the 2nd: 30 days, 9 of them Fridays / Saturdays, plus the holiday on the 8th
+    assert cal['monthly'][0] == {'label': 'Jan 2025', 'working_days': 20, 'nonworking_days': 10}
+
+    # the dated holiday (Wed 08 Jan 2025) is listed and counted
+    assert p['dashboard']['total_holidays'] == 1 and len(p['holidays']) == 1
+    assert '2025' in p['holidays'][0]['date'] and 'Jan' in p['holidays'][0]['date']
+
+    assert p['hours_profiles'] == [{'name': '5 Days/Week', 'hours': '08:00–16:00', 'sub': '5 days/week'}]
 
 
 def test_cover_meta_defaults(tmp_path):
@@ -104,10 +109,12 @@ def test_cover_meta_defaults(tmp_path):
     assert 'location' in meta and 'revision' in meta
 
 
-def test_renderer_draws_monthly_and_comparison(tmp_path):
+def test_renderer_draws_the_dashboard_timeline_holidays_and_hours(tmp_path):
     data = parse_file(_write(tmp_path))
     doc = build_report(data).to_dict()
     h = render_narrative_html(doc)
-    assert 'Working / non-working days by month' in h   # monthly table caption
-    assert 'Calendar comparison' in h                   # comparison table caption
-    assert 'Dated holidays' in h                        # holiday_dates table caption
+    assert '1 calendar assigned to activities' in h          # singular, not '1 calendars'
+    for caption in ('Executive Dashboard', 'Calendar Timeline', 'Working Hours Profile'):
+        assert caption in h, caption
+    assert 'Total Calendar Days' in h and 'Avg Work Days / Month' in h
+    assert 'Jan 2025' in h and 'Mar 2025' in h               # the timeline's months
