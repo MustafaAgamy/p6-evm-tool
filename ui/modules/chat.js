@@ -1565,11 +1565,18 @@ export function answerV2Html(a, opts) {
   const h = [];
   h.push(thinkingHtml(a.thinking));
 
-  if (focusItem) {
-    h.push(`<div class="pv2-focus pv2-rv" role="note"><div class="pv2-focus-q"><span class="k">You asked:</span> ${md(focusItem.q)}</div>`
+  // The exact library question the planner's words matched, with its own answer. With a brief
+  // the SHORT answer comes first and this sits right under it ("On your exact question");
+  // without one it opens the answer as before.
+  const hasBrief = !!briefOf(a);
+  const focusHtml = focusItem
+    ? `<div class="pv2-focus pv2-rv" role="note"><div class="pv2-focus-q"><span class="k">${hasBrief ? 'On your exact question:' : 'You asked:'}</span> ${md(focusItem.q)}</div>`
       + (focusItem.headline ? `<p class="pv2-focus-h">${md(focusItem.headline)}</p>` : '')
-      + arr(focusItem.body).filter(Boolean).map((p) => `<p>${md(p)}</p>`).join('')
-      + '</div>');
+      + (hasBrief ? '' : arr(focusItem.body).filter(Boolean).map((p) => `<p>${md(p)}</p>`).join(''))
+      + '</div>'
+    : '';
+  if (focusItem && !hasBrief) {
+    h.push(focusHtml);
     if (a.question) h.push(`<div class="pv2-divider pv2-rv"><span>The full answer — ${md(a.question)}</span></div>`);
   } else if (a.group || a.question) {
     const same = opts.asked && norm(opts.asked) === norm(a.question);
@@ -1622,10 +1629,10 @@ export function answerV2Html(a, opts) {
     ? `<div class="pv2-evi pv2-rv">${evidence.map((e) => `<span class="pv2-chip"><b>${md(e.k)}</b> ${md(e.v)}</span>`).join('')}</div>` : '';
 
   if (brief) {
-    h.push(briefHtml(brief), toolsHtml);
+    h.push(briefHtml(brief), focusHtml, toolsHtml);
     const full = [verdict, pillsHtml, coversHtml, secs.join(''), specHtml, measured, actionsHtml, evidenceHtml].join('');
     if (full) {
-      h.push(`<details class="pv2-more"${focusItem ? ' open' : ''}><summary><span>Show the full analysis</span>`
+      h.push(`<details class="pv2-more"><summary><span>Show the full analysis</span>`
         + `<span class="pv2-more-sub">the detailed tables, each question one by one, and how it is measured</span></summary>${full}</details>`);
     }
   } else {
