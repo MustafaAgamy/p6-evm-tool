@@ -438,6 +438,23 @@ def _continues_row(reg, b):
             and not any(abs(l.x0 - reg.col0) < 4 for l in b.lines))
 
 
+def _cell_line(reg, b):
+    """A heading-like line right under a table row that is really one of that table's CELL
+    lines: it starts on one of the table's column edges RIGHT of its first column and stays
+    inside the table. A heading sits at the left edge of the content, never inside a column.
+    E.g. the first line of a tall row's vertically centred cell ('Predecessor link …' - the
+    same text as a 'Fix these first' sub-line, so it was hinted as a heading) or a wrapped
+    WBS cell ending '… > Machine Tower': read as headings they broke every tall-row register
+    into 1-2 row 'tables' (STUDIO-RICH: 27 false table_split_few_rows on one GBT register)."""
+    if b.x0 <= reg.col0 + 8:
+        return False
+    cols = {round(l.x0) for r in reg.rows for l in r.lines if l.x0 > reg.col0 + 8}
+    if not any(abs(b.x0 - c) < 4 for c in cols):
+        return False
+    nxt = [c for c in cols if c > b.x0 + 4]          # ... and stays inside its column
+    return not nxt or b.x1 <= min(nxt) + 2
+
+
 def _row_clusters(bands):
     """Bands that overlap vertically are ONE table row (cells aligned top / middle / bottom,
     wrapped cells, a two-line header cell)."""
@@ -484,6 +501,10 @@ def _make_regions(P):
                 cur = _Region(b)
                 regs.append(cur)
             pend = []
+        elif (cur is not None and b.heading and _cell_line(cur, b)
+              and b.y0 - (pend[-1].y1 if pend else cur.y1) <= 14):
+            b.heading = False            # a cell's line that reads like a heading (see _cell_line)
+            pend.append(b)
         elif (cur is not None and len(pend) < 12
               and b.y0 - (pend[-1].y1 if pend else cur.y1) <= (6 if b.heading else 14)):
             pend.append(b)               # a wrapped cell line / a group row inside the table
