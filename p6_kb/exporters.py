@@ -200,6 +200,32 @@ def findings_excel_sections(report):
             }],
         })
 
+    # ── the rest of the on-screen review (owner comment 29) ──
+    review = [w for w in (report.get('wbs_review') or []) if isinstance(w, dict)]
+    if review:
+        words = {'ok': 'Present', 'missing': 'Missing'}
+        sheets.append({
+            'name': 'WBS Review',
+            'blocks': [{
+                'title': 'WBS Review (standard branches for the detected type)',
+                'headers': ['Standard WBS branch', 'Status', 'Note'],
+                'rows': [[w.get('name', ''), words.get(w.get('status'), w.get('status') or ''),
+                          w.get('note', '')] for w in review],
+            }],
+        })
+    by_wbs = [w for w in (report.get('issues_by_wbs') or []) if isinstance(w, dict)]
+    if by_wbs:
+        sheets[0]['blocks'].append({'title': 'Findings by Work Stage',
+                                    'headers': ['Work stage', 'Findings'],
+                                    'rows': [[w.get('name', ''), w.get('count', 0)] for w in by_wbs]})
+    fixes = [f for f in (report.get('priority_fixes') or []) if isinstance(f, dict)]
+    if fixes:
+        sheets[0]['blocks'].append({'title': 'Look at These First',
+                                    'headers': ['Severity', 'Activity', 'What to check'],
+                                    'rows': [[f.get('severity', ''), f.get('title', ''), f.get('detail', '')]
+                                             for f in fixes]})
+    # (the report's conclusion line quotes the score — left out: reference-first, no score here)
+
     return sheets
 
 

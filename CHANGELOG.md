@@ -7,6 +7,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Excel exports now carry all the data of each feature (comment 29)
+Every feature's Excel was compared, table by table, with what its screen and PDF show. Where the workbook had less, the missing parts were added as extra sheets — the existing first sheet of each workbook is unchanged.
+- **Baseline Narrative Report** — the Excel was a short status summary. It is now the whole report: one sheet per section (all 19 — overview, brief, milestones, key dates, contract value, scope of work, calendars, WBS, activity codes, sequence, activity IDs, resource loading, materials, productivity, volume of work, critical path and the appendices), every table with all its rows and every chart as its numbers. A new **Export Excel** button sits beside Word / PDF / HTML on the Narrative screen and follows the Report Contents selection.
+- **Schedule Health checks (all 13)** — besides the findings list, each workbook now has a **Summary** sheet (score, grade, how the score was worked out, all key figures, the severity rules), a **By WBS** sheet, the **Management View** for Float Analysis, and the schedule's own milestones for the Milestone Check.
+- **Calendar Audit** — added **Summary** (key figures, conclusions, working time and working-hours patterns per calendar), **Monthly Working Time** for every assigned calendar, the exceptions of the other calendars, and **Calendar Issues**.
+- **Critical Path Analyzer** — the Float migration sheet now lists every activity behind the four counts, with its total float before and now.
+- **Update vs Update** — added **S-Curve** (the monthly figures), **Progress by Code** (every activity code, not only the first), **Critical Path** (previous and current lists) and **What Moved** (the activities behind each count).
+- **Update Analysis** — scope weight for every activity code, not only the one shown first.
+- **Consultant Review** — the milestone table (baseline finish against update finish).
+- **Constructability** — the WBS review, findings by work stage and what to look at first.
+- Checked and already complete: EVM, Overview, WBS, Schedule (Gantt), Baseline Revision Comparison, Productivity, AI Copilot.
+
 ### Added — AI Chat: charts in the answers (comment 33)
 - **Each answer now shows the one or two charts that fit its question**, right under the short answer: where the project stands (SPI, progress, days late) and progress by discipline; milestones by working days late; the critical path by area; how total float is spread; what to fix in the schedule logic; value of work planned against done by package; design approvals planned against received; client items by working days late. 14 of the 15 questions get charts; the weather question has no figures in the P6 file to chart.
 - Every chart is drawn from the tool's own numbers — the same ones the answer quotes — and follows all six appearance modes. A chart whose figures are not in the file is left out, never drawn empty.

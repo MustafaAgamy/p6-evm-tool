@@ -732,6 +732,31 @@ def _migration_block(report):
             'rows': rows}
 
 
+_MOVE_WORDS = {'near_to_crit': 'Near-critical → CRITICAL', 'safe_to_near': 'Safe → near-critical',
+               'crit_to_recovered': 'Critical → recovered', 'held_crit': 'Held critical'}
+_BAND_WORDS = {'crit': 'Critical', 'near': 'Near-critical', 'safe': 'Safe'}
+_MOVE_ORDER = ('near_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
+
+
+def _migration_rows_block(report):
+    """The activities behind the float-migration counts — every one, worst move first (owner
+    comment 29: the workbook lists what the four tiles only count). None when there are none."""
+    rows = (report.get('float_migration') or {}).get('rows') or []
+    if not rows:
+        return None
+    base = 'previous update' if report.get('float_migration_base') == 'previous' else 'baseline'
+    order = {k: i for i, k in enumerate(_MOVE_ORDER)}
+    rows = sorted(rows, key=lambda r: (order.get(r.get('kind'), 9), str(r.get('id') or '')))
+    return {'title': 'Activities behind the float migration',
+            'note': f'{len(rows)} activities, matched by activity ID. Total float in working days.',
+            'headers': ['Activity ID', 'Activity Name', 'Move', f'Band in the {base}',
+                        'Band now', f'Total float in the {base} (d)', 'Total float now (d)'],
+            'rows': [[r.get('id') or '', r.get('name') or '', _MOVE_WORDS.get(r.get('kind'), r.get('kind') or ''),
+                      _BAND_WORDS.get(r.get('from'), r.get('from') or ''),
+                      _BAND_WORDS.get(r.get('to'), r.get('to') or ''),
+                      _num_cell(r.get('base_tf')), _num_cell(r.get('curr_tf'))] for r in rows]}
+
+
 def critpath_excel_sections(report):
     """(the report dict the client holds) → the `sheets` list for write_sections_xlsx.
 
@@ -749,7 +774,11 @@ def critpath_excel_sections(report):
         _driving_path_sheet(report),
     ]
     if report.get('float_migration'):
-        sheets.append({'name': 'Float migration', 'blocks': [_migration_block(report)]})
+        blocks = [_migration_block(report)]
+        moved = _migration_rows_block(report)
+        if moved:
+            blocks.append(moved)
+        sheets.append({'name': 'Float migration', 'blocks': blocks})
     return sheets
 
 

@@ -624,6 +624,23 @@ def report_excel_sections(report):
             })
         sheets.append({'name': 'Scope Weight', 'blocks': scope_blocks})
 
+    # The screen lets the planner switch the scope-weight breakdown to any activity code; the
+    # workbook carries every one of them, not only the one shown first (owner comment 29).
+    all_rows = []
+    for key, sc in (scope or {}).items():
+        ct = (sc or {}).get('code_type') or key
+        for r in (sc or {}).get('rows') or []:
+            all_rows.append([str(ct), r.get('value', ''), _pcts(r.get('weight_pct'), 1), _cost(r.get('bac')),
+                             _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1)])
+    if len(scope or {}) > 1 and all_rows:
+        sheets.append({'name': 'Scope Weight - All Codes', 'blocks': [{
+            'title': '5 - Scope Weight - by every activity code',
+            'note': "Each value's share of the cost-loaded scope (baseline budget), per activity code.",
+            'headers': ['Activity code', 'Code value', 'Weight (% of cost scope)',
+                        'Budget at Completion (BAC, cost)', 'Planned % (vs baseline)', 'Actual % (complete)'],
+            'rows': all_rows,
+        }]})
+
     if not sheets:
         sheets = [{'name': 'Update Analysis', 'blocks': [{
             'title': 'Update Analysis',

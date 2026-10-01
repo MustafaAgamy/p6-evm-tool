@@ -108,7 +108,9 @@ def test_findings_excel_sections_clean_has_only_summary(tmp_path):
     write_starter_xml(_BY['Steel Structures'], str(xml))
     rep = run_review(parse_file(str(xml)))
     sheets = findings_excel_sections(rep)
-    assert [s['name'] for s in sheets] == ['Summary']
+    # … plus the WBS review (every standard branch, all present) — owner comment 29
+    assert [s['name'] for s in sheets] == ['Summary', 'WBS Review']
+    assert all(r[1] == 'Present' for r in sheets[1]['blocks'][0]['rows'])
     fbt = next(b for b in sheets[0]['blocks'] if b['title'] == 'Findings by Type')
     assert all(r[1] == 0 for r in fbt['rows'])
     out = tmp_path / 'clean.xlsx'
