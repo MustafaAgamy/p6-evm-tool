@@ -160,6 +160,10 @@ def answer_merged(snapshot_id, qid, role='planning', focus=None, followup=None):
         pass
     a.update({'id': qid, 'question': e['q'], 'group': e['group'], 'covers': e['covers'],
               'focus': focus, 'followup': followup})
+    try:
+        a['covers'] = [plain(c) for c in (e['covers'] or [])]
+    except Exception:
+        pass
     return {'ok': True, 'v': 2, 'answer': a, 'matched': True}
 
 
