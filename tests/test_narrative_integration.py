@@ -5,6 +5,7 @@ import os
 from p6_evm.parser import parse_file
 from p6_narrative.html import page_html, render_narrative_html
 from p6_narrative.report import build_report
+from tests.test_narrative_report import SECTIONS
 
 FIX = os.path.join(os.path.dirname(__file__), 'fixtures', 'minimal.xml')
 
@@ -18,19 +19,19 @@ def test_handler_chain_parse_build_render():
     assert page.lstrip().lower().startswith('<!doctype html>')
     assert '</html>' in page
 
-    # the on-screen fragment carries the cover and every v5 section
+    # the on-screen fragment carries the cover, the contents list and every approved section
     frag = render_narrative_html(doc)
-    assert 'Baseline Schedule' in frag
-    for title in ('Project Overview', 'Major Milestones', 'Work Breakdown Structure',
-                  'Sequence of Work', 'Interfaces'):
-        assert title in frag
+    assert 'BASELINE' in frag and 'NARRATIVE REPORT' in frag
+    assert 'Test Project' in frag and 'Table of Contents' in frag
+    for _kind, title in SECTIONS:
+        assert title.replace('&', '&amp;') in frag, title
+    # one page-section per report section, keyed by its number (the Reporting Studio slices on it)
+    for n in range(1, len(SECTIONS) + 1):
+        assert 'data-section="%d"' % n in frag, n
 
 
-def test_report_sections_are_the_full_reconciled_set():
+def test_report_sections_are_the_full_approved_set():
     doc = build_report(parse_file(FIX))
-    kinds = [s.kind for s in doc.sections]
-    # reconciled to the Golden Reference: intelligence + content-breadth sections
-    for k in ('overview', 'wbs_tree', 'seq', 'interfaces'):
-        assert k in kinds
+    assert [(s.kind, s.title) for s in doc.sections] == SECTIONS
     # contiguously numbered 1..N
     assert [s.number for s in doc.sections] == [str(i) for i in range(1, len(doc.sections) + 1)]

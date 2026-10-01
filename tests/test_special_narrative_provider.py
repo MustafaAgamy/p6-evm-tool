@@ -30,6 +30,16 @@ _EXPECTED = [
     ('narrative:wbs',        'Work Breakdown Structure'),
     ('narrative:codes',      'Activity Codes'),
     ('narrative:sequence',   'Sequence of Work'),
+    # the sections added by the section-by-section review (§12–§19): the Studio offers every
+    # section the Narrative itself prints (owner comment 23 — it stopped at §11)
+    ('narrative:activity_ids', 'Activity IDs'),
+    ('narrative:resload',    'Resource Loading'),
+    ('narrative:materials',  'Material Resources'),
+    ('narrative:prodrate',   'Productivity Rates & Resources Assigned'),
+    ('narrative:volwork',    'Volume of Work'),
+    ('narrative:critpath',   'Appendix (Critical Path)'),
+    ('narrative:critpath_p6', 'Appendix (Critical Path From P6)'),
+    ('narrative:mapsheet',   'Appendix (Mapping Sheet)'),
 ]
 
 

@@ -373,7 +373,7 @@ def _keyvals(p, number, title, meta, cur):
     if not rows:
         rows = '<tr><td colspan="2" class="note">&mdash;</td></tr>'
     return ('<p>The key contractual and programme data for the project, as recorded in '
-            'the baseline schedule.</p><table class="kv">%s</table>' % rows)
+            'the baseline schedule.</p><table class="kv rpt-keep">%s</table>' % rows)
 
 
 # ── §4 / §5 milestone + key-date tables ───────────────────────────────────────
@@ -634,8 +634,9 @@ def _calendars(p, number, title, meta, cur):
     header = p.get('header') or {}
     ccount = header.get('calendar_count')
     acount = header.get('activity_count')
-    lead = ('<p style="font-size:11px;color:#5a6672">%s calendars assigned to activities '
-            '&middot; %s activities.</p>' % (_num(ccount), _num(acount)))
+    lead = ('<p style="font-size:11px;color:#5a6672">%s %s assigned to activities '
+            '&middot; %s %s.</p>' % (_num(ccount), 'calendar' if ccount == 1 else 'calendars',
+                                     _num(acount), 'activity' if acount == 1 else 'activities'))
 
     # 8.1 dashboard tiles (no shutdown-periods tile)
     dash = p.get('dashboard') or {}

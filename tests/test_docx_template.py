@@ -12,12 +12,23 @@ from docx.shared import Cm, Pt
 from p6_narrative import docx_template as dt
 
 
-# 1x1 transparent PNG as a data URL, for the logo header.
-_PNG = (
-    'data:image/png;base64,'
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
-    'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
-)
+def _png_data_url(w=4, h=4):
+    """A real (complete) w x h grey PNG as a data URL, for the logo header. Built here so it is
+    a valid file: the hand-pasted one this test used was cut short, python-docx refused it, and
+    the header test never actually checked a logo."""
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack('>I', len(data)) + body + struct.pack('>I', zlib.crc32(body) & 0xffffffff)
+    raw = b''.join(b'\x00' + b'\x80' * w for _ in range(h))             # filter 0 + grey pixels
+    png = (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0))
+           + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+    return 'data:image/png;base64,' + base64.b64encode(png).decode('ascii')
+
+
+_PNG = _png_data_url()
 
 
 def _sectPr(section):
@@ -93,10 +104,12 @@ def test_add_header_three_cells_with_logos_and_title():
     assert len(header.tables) == 1
     cells = header.tables[0].rows[0].cells
     assert len(cells) == 3
-    # Title band paragraph carries the project name and the quoted document title.
+    # Approved spec: the three party logos ONLY, over a thin rule — no title / kicker band
+    # (the title lives on the cover; a band on every page crowded the logos).
     header_text = '\n'.join(p.text for p in header.paragraphs)
-    assert 'Grand Museum' in header_text
-    assert '"Baseline Narrative"' in header_text
+    assert header_text.strip() == ''
+    assert header.part.element.xml.count('<pic:pic') == 3          # one picture per party
+    assert 'w:pBdr' in header.paragraphs[-1]._p.xml                # the rule under the logos
 
 
 def test_add_header_missing_logos_keep_three_cells():
@@ -130,14 +143,13 @@ def test_add_cover_full_and_graceful():
     dt.add_cover(doc, {
         'project_name': 'Grand Museum',
         'location': 'Cairo, Egypt',
-        'document_title': 'Baseline Narrative',
+        'data_date': '1 July 2024',
         'revision': '3',
     })
-    text = '\n'.join(p.text for p in doc.paragraphs)
-    assert 'Grand Museum' in text
-    assert 'Cairo, Egypt' in text
-    assert '"Baseline Narrative"' in text
-    assert 'REV. 3' in text
+    lines = [p.text for p in doc.paragraphs if p.text.strip()]
+    # approved cover: the navy kicker, the project, its location, then data date · revision
+    assert lines == ['BASELINE', 'NARRATIVE REPORT', 'Grand Museum', 'Cairo, Egypt',
+                     'Data date: 1 July 2024     ·     Rev. 3']
 
 
 def test_add_cover_blank_fields_degrade():
@@ -146,7 +158,7 @@ def test_add_cover_blank_fields_degrade():
     dt.add_cover(doc, {})
     text = '\n'.join(p.text for p in doc.paragraphs)
     assert 'Project' in text  # default project name
-    assert 'REV.' not in text  # no revision line when absent
+    assert 'Rev.' not in text and 'Data date' not in text   # no data-date / revision line when absent
 
 
 # ── toc ───────────────────────────────────────────────────────────────────────
@@ -166,8 +178,8 @@ def test_apply_base_styles_normal_and_headings():
     doc = Document()
     dt.apply_base_styles(doc)
     normal = doc.styles['Normal']
-    assert normal.font.name == 'Calibri'
-    assert normal.font.size == Pt(11)
+    assert normal.font.name == 'Times New Roman'       # approved body font (headings stay Calibri Light)
+    assert normal.font.size == Pt(dt._BODY_PT)
     h1 = doc.styles['Heading 1']
     assert h1.font.color.rgb == dt.NAVY
     # Navy is 1F4E79.

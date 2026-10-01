@@ -26,7 +26,10 @@ _NON_WORK = {'StartMilestone', 'FinishMilestone', 'LOE', 'WBSSummary'}
 
 # Code-dimension pickers for the per-trade x per-area prose. Substring hints, matched
 # case-insensitively against whatever the file happens to call its dimensions.
-_TRADE_HINTS = ('type of works', 'type of work', 'discipline', 'trade', 'craft')
+# A code actually NAMED 'Discipline' is the discipline: when a schedule carries both a Discipline
+# code and a 'Type of Works' code, the second is the work type under it (owner comment 23 - it
+# used to take 'Type of Works' as the discipline and ignore the Discipline code).
+_TRADE_HINTS = ('discipline', 'type of works', 'type of work', 'trade', 'craft')
 _AREA_HINTS = ('area', 'building', 'zone', 'location', 'unit', 'facility',
                'block', 'sector', 'silo', 'structure', 'system')
 _ELEMENT_HINTS = ('type of work', 'work type', 'worktype', 'element', 'scope',

@@ -56,6 +56,14 @@ SECS = [
     ('wbs',        'Work Breakdown Structure'),
     ('codes',      'Activity Codes'),
     ('sequence',   'Sequence of Work'),
+    ('activity_ids', 'Activity IDs'),
+    ('resload',    'Resource Loading'),
+    ('materials',  'Material Resources'),
+    ('prodrate',   'Productivity Rates & Resources Assigned'),
+    ('volwork',    'Volume of Work'),
+    ('critpath',   'Appendix (Critical Path)'),
+    ('critpath_p6', 'Appendix (Critical Path From P6)'),
+    ('mapsheet',   'Appendix (Mapping Sheet)'),
 ]
 _TITLE_BY_SLUG = dict(SECS)
 

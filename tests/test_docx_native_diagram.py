@@ -86,8 +86,13 @@ def test_org_chart_boxes_palette_and_connectors(tmp_path):
     assert '1F4E79' in body
     assert '2E75B6' in body
     assert '4472C4' in body
-    # elbow connectors drawn as native line shapes
-    assert 'prst="line"' in body
+    # elbow connectors are native shapes named 'Connector N'. They are thin FILLED RECTANGLES,
+    # never prst="line": Word silently does not draw a line whose box is zero-wide or
+    # zero-high, which is exactly what a vertical drop / horizontal bus is — the connectors
+    # used to vanish while the boxes stayed.
+    assert body.count('name="Connector ') >= 4            # 4 parent→child links in this tree
+    assert 'prst="line"' not in body
+    assert 'cx="0"' not in body and 'cy="0"' not in body  # no collapsed (invisible) segment
     # node labels are real editable text
     assert 'Foundations' in body
     assert 'Mechanical' in body
