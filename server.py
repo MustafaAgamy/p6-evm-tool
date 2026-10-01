@@ -4578,10 +4578,10 @@ def _starting_page_html():
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
         '<title>' + escape(APP_TITLE) + '</title>'
-        '<style>html,body{margin:0;height:100%;background:#eef3fb;color:#41506a;'
+        '<style>html,body{margin:0;height:100%;background:#06090f;color:#c3cde3;'
         'font:14px/1.5 "Segoe UI",system-ui,sans-serif}'
         '#w{height:100%;display:flex;align-items:center;justify-content:center;padding:16px;'
-        'box-sizing:border-box;text-align:center}#t{color:#0f1f3d;font-size:16px;font-weight:600}'
+        'box-sizing:border-box;text-align:center}#t{color:#fff;font-size:16px;font-weight:600}'
         '#cx-index-retry{display:none;margin:14px auto 0;background:#3b82f6;color:#fff;border:0;'
         'border-radius:8px;padding:8px 18px;font:600 13px/1 "Segoe UI",system-ui,sans-serif;'
         'cursor:pointer}</style>'

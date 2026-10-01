@@ -93,7 +93,7 @@ def test_no_literal_release_version_in_any_user_facing_source():
     files = _user_facing_sources()
     names = {os.path.relpath(f, ROOT).replace(os.sep, '/') for f in files}
     assert {'ui/index.html', 'ui/app.js', 'ui/modules/help.js', 'ui/modules/boot.js',
-            'server.py', 'app.py', 'packaging/splash.html'} <= names
+            'server.py', 'app.py'} <= names
     assert any(n.startswith('p6_export/') for n in names)
     hits = []
     for f in files:
