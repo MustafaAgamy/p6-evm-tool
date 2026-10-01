@@ -75,9 +75,19 @@ test('the answer opens with the brief; the long analysis is folded underneath', 
   assert.ok(outside.includes('data-v2tool="dashboard"') && outside.includes('data-v2ask="q05"'));
   assert.ok(!outside.includes('pv2-pills'));                                // the shorthand chips are not on top any more
 });
-test('a sub-question the planner clicked opens the full analysis for him', () => {
+test('a typed question: the short answer still comes FIRST, then the exact question it matched', () => {
   const h = answerV2Html({ ...ANSWER, focus: 's1' }, {});
-  assert.ok(h.includes('<details class="pv2-more" open>') && h.includes('You asked:'));
+  const iBrief = h.indexOf('class="pv2-brief"'), iFocus = h.indexOf('class="pv2-focus'), iMore = h.indexOf('<details class="pv2-more"');
+  assert.ok(iBrief > 0 && iFocus > iBrief && iMore > iFocus, [iBrief, iFocus, iMore].join());
+  assert.ok(h.includes('On your exact question:') && !h.includes('You asked:'));
+  // its one-line answer only — the long paragraphs stay in the full analysis, one click away
+  const focus = h.slice(iFocus, h.indexOf('</div></div>', iFocus));
+  assert.ok(focus.includes('Behind.') && !focus.includes('Earned 41%.'));
+  assert.ok(h.includes('<details class="pv2-more">') && !h.includes('<details class="pv2-more" open>'));
+  // without a brief the old layout is unchanged: the question and its full answer open the reply
+  const { brief, ...old } = ANSWER;
+  const o = answerV2Html({ ...old, focus: 's1' }, {});
+  assert.ok(o.includes('You asked:') && o.indexOf('pv2-focus') < o.indexOf('pv2-verdict') && o.includes('Earned 41%.'));
 });
 test('an answer without a brief reads exactly as before', () => {
   const { brief, ...old } = ANSWER;
