@@ -703,6 +703,9 @@ def _cp_chain(nodes):
         st = n.get('state')
         cls = 'enter' if st == 'enter' else 'leave' if st == 'leave' else ('crit' if (n.get('tf') or 0) <= 0 else '')
         tf = n.get('tf')
+        if isinstance(tf, float):          # as P6 shows it: whole when whole, else one decimal
+            tf = round(tf, 1)                # (was printed as 'TF 0.6666666666666666')
+            tf = int(tf) if tf == int(tf) else tf
         tf_txt = f'<br><span class="ntf">TF {tf}</span>' if tf is not None else ''
         parts.append(f'<span class="node {cls}">{_e(n.get("name"))}{tf_txt}</span>')
         if i < len(nodes) - 1:
@@ -2279,6 +2282,21 @@ td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .lanesub { color: var(--rpt-muted); font-size: 11px; }
 .lrepl { margin-top: 7px; font-size: 11px; color: var(--rpt-ink-soft); background: var(--rpt-surface-2); border-radius: 7px; padding: 5px 9px; }
 .lrepl b { color: var(--rpt-ink); } .lrepl.mut { color: var(--rpt-muted); }
+/* before / after comparison of one changed relationship: predecessor -> link -> successor on ONE row,
+   as on screen (.rc-chain2). These rules were missing from the report, so the boxes stacked one
+   under the other in a third of the page width and a finding took half a page (Key findings: ~1 100
+   pages for 900 changes). */
+.chain2 { display: flex; align-items: stretch; flex-wrap: nowrap; }
+.chain2 .cnode { flex: 1 1 0; width: auto; max-width: none; min-width: 0; padding: 6px 10px; }
+.chain2 .cnode .cn, .chain2 .cnode .cw { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+.clink2 { display: flex; flex: 0 0 96px; flex-direction: column; justify-content: center; align-items: center; padding: 0 6px; color: var(--rpt-muted); }
+.clink2 .clt { font-size: 9px; font-weight: 700; text-align: center; line-height: 1.15; }
+.clink2 .clt.none { font-style: italic; } .clink2 .clt.rem { color: var(--rpt-bad); text-decoration: line-through; }
+.clink2 .clt.add { color: var(--rpt-good); } .clink2 .clt.chg { color: var(--rpt-warn); }
+.clink2 .ar2 { font-size: 18px; line-height: 1; } .clink2 .ar2.add { color: var(--rpt-good); } .clink2 .ar2.chg { color: var(--rpt-warn); } .clink2 .ar2.rem { color: var(--rpt-bad); }
+.rev2lab { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-muted); margin: 6px 0 2px; }
+.rev2lab.r1 { color: var(--rpt-accent); }
+.node { break-inside: avoid; page-break-inside: avoid; }
 /* logic lane chain — one aligned row: fixed-width nodes, no wrap, long names truncate (change 2) */
 .chain.lanechain { flex-wrap: nowrap; overflow-x: auto; align-items: center; }
 .cnode { border: 1px solid var(--rpt-edge); border-radius: 9px; padding: 7px 12px; background: var(--rpt-surface); flex: 0 0 230px; width: 230px; max-width: 230px; overflow: hidden; }
