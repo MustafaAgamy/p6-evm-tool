@@ -1716,7 +1716,9 @@ function revealV2(card, anchor) {
   units.forEach((u) => {
     if (!isText(u)) return;
     const w = []; wrapWords(u, w);
-    w.forEach((x) => x.classList.add('pv2-wp'));
+    // its own class: wrapWords tags words 'pchat-w', which the AI-brain stream keeps at opacity 0
+    // until it adds '.on' — here that left every written paragraph invisible
+    w.forEach((x) => { x.className = 'pv2-w pv2-wp'; });
     wordsOf.set(u, w); totalWords += w.length;
   });
   const pace = revealPace(steps.length, totalWords, units.length - wordsOf.size);
