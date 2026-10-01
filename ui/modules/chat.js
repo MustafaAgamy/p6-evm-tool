@@ -549,6 +549,8 @@ function ensureDashCss() {
   .pdash .tl .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
   .pdash .tl .mk{position:absolute;top:-19px;transform:translateX(-50%);font-size:9.5px;color:var(--ink2);white-space:nowrap;text-align:center}
   .pdash .tl .mk::after{content:"";position:absolute;left:50%;top:17px;width:1px;height:14px;background:var(--line)}
+  .pdash .tl .mk.first{transform:none;text-align:left}.pdash .tl .mk.first::after{left:0}
+  .pdash .tl .mk.last{transform:translateX(-100%);text-align:right}.pdash .tl .mk.last::after{left:100%}
   .pdash .tl .now{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--bad)}
   .pdash .tstat{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2);margin-top:12px}
   .pdash .tstat b{color:var(--ink);font-weight:600}
@@ -584,6 +586,23 @@ function ensureDashCss() {
 // must not print one (it used to print a pound sign on every amount).
 function money(v) { return Math.abs(Number(v) || 0).toFixed(1) + 'M'; }
 
+// Which months get a label under the S-curve: the first, the last and the data date always;
+// then evenly spaced ones — but never one closer than `minPx` to a label already kept (the
+// data-date month used to print on top of its neighbour).
+export function scurveTicks(n, ddi, widthPx, minPx = 52) {
+  if (!(n > 0)) return [];
+  const pos = (i) => (n > 1 ? widthPx * (i / (n - 1)) : 0);
+  const kept = [];
+  const add = (i) => {
+    if (i < 0 || i >= n || kept.indexOf(i) >= 0) return;
+    if (kept.every((k) => Math.abs(pos(k) - pos(i)) >= minPx)) kept.push(i);
+  };
+  add(0); add(n - 1); if (ddi != null && ddi >= 0) add(ddi);
+  const step = Math.max(1, Math.round((n - 1) / 6));
+  for (let i = 0; i < n; i += step) add(i);
+  return kept.sort((a, b) => a - b);
+}
+
 function dashScurveSvg(sc) {
   const months = sc.months || [], plan = sc.plan || [], earn = sc.earn || [], fore = sc.fore || [];
   const n = months.length;
@@ -607,13 +626,13 @@ function dashScurveSvg(sc) {
   const lastIdx = (arr) => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return i; return -1; };
   let grid = '';
   for (let g = 0; g <= 100; g += 25) grid += `<line class="gl" x1="${L}" y1="${y(g)}" x2="${W - R}" y2="${y(g)}"/><text class="axt" x="${L - 4}" y="${y(g) + 3}" text-anchor="end">${g}</text>`;
-  // ~7 evenly-spaced x-labels, always including first, last and the data date
   const ddi = (sc.dd_index == null ? -1 : sc.dd_index);
-  const ticks = new Set([0, n - 1]); if (ddi >= 0) ticks.add(ddi);
-  const step = Math.max(1, Math.round((n - 1) / 6));
-  for (let i = 0; i < n; i += step) ticks.add(i);
   let xlab = '';
-  [...ticks].sort((a, b) => a - b).forEach((i) => { xlab += `<text class="axt" x="${x(i)}" y="${H - 8}" text-anchor="middle">${escapeHtml(String(months[i] || ''))}</text>`; });
+  scurveTicks(n, ddi, iw).forEach((i) => {
+    // the first label starts at the axis and the last ends at it, so neither is cut by the frame
+    const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    xlab += `<text class="axt" x="${x(i)}" y="${H - 8}" text-anchor="${anchor}">${escapeHtml(String(months[i] || ''))}</text>`;
+  });
   let ddMark = '';
   if (ddi >= 0) { const ddx = x(ddi); ddMark = `<line class="ddl" x1="${ddx}" y1="${T}" x2="${ddx}" y2="${T + ih}"/><text class="axt" x="${ddx + 3}" y="${T + 9}">data date</text>`; }
   const ei = lastIdx(earn), pi = lastIdx(plan);
@@ -818,9 +837,9 @@ function renderDashboard(p) {
         <div class="tl">
           <div class="fill" style="width:${el}%"></div>
           <div class="now" style="left:${el}%"></div>
-          <div class="mk" style="left:0%">Start${ts.start ? '<br>' + escapeHtml(ts.start) : ''}</div>
-          <div class="mk" style="left:${Math.max(6, Math.min(94, el))}%">Data date</div>
-          <div class="mk" style="left:100%">Finish${ts.finish ? '<br>' + escapeHtml(ts.finish) : ''}</div>
+          <div class="mk first" style="left:0%">Start${ts.start ? ' ' + escapeHtml(ts.start) : ''}</div>
+          <div class="mk" style="left:${Math.max(24, Math.min(76, el))}%">Data date</div>
+          <div class="mk last" style="left:100%">Finish${ts.finish ? ' ' + escapeHtml(ts.finish) : ''}</div>
         </div>
         <div class="tstat"><span><b>${Math.round(el)}%</b> of duration elapsed</span><span><b>${Math.round(ea)}%</b> value earned</span></div>
       </div>
@@ -1356,6 +1375,28 @@ function ensureV2Css() {
   .pv2-verdict{font-size:16px;font-weight:700;line-height:1.45;margin:0 0 2px;color:var(--text)}
   /* the short plain answer (comment 14): the problem · where it is · why · what to do */
   .pv2-brief{display:grid;gap:10px;margin:2px 0 4px}
+  /* charts in an answer (comment 33) — app tokens only, so every appearance mode themes them */
+  .pv2-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin:6px 0 4px}
+  .pv2-chart{border:1px solid var(--border);border-radius:10px;background:var(--card-bg);padding:11px 14px 10px;min-width:0}
+  .pv2-cht{font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:9px}
+  .pv2-chf{font-size:11px;color:var(--muted);margin-top:8px}
+  .pv2-ckpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+  .pv2-ckpi{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;background:var(--bg)}
+  .pv2-ckpi .k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .pv2-ckpi .v{font-size:19px;font-weight:800;color:var(--text);line-height:1.25}
+  .pv2-ckpi .h{font-size:11px;color:var(--ink-soft)}
+  .pv2-ckpi.bad{border-left-color:var(--danger)}.pv2-ckpi.bad .v{color:var(--danger)}
+  .pv2-ckpi.warn{border-left-color:var(--warning)}.pv2-ckpi.good{border-left-color:var(--success)}.pv2-ckpi.good .v{color:var(--success)}
+  .pv2-crow{display:grid;grid-template-columns:minmax(120px,42%) 1fr auto;gap:10px;align-items:center;margin:5px 0}
+  .pv2-crow .n{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pv2-crow .t{position:relative;height:12px;border-radius:6px;background:var(--bg);border:1px solid var(--border);overflow:hidden}
+  .pv2-crow .t i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;display:block}
+  .pv2-crow .t i.pl{background:var(--muted);opacity:.38}.pv2-crow .t i.ac{background:var(--accent)}
+  .pv2-crow .t i.hb.bad{background:var(--danger)}.pv2-crow .t i.hb.warn{background:var(--warning)}
+  .pv2-crow .t i.hb.good{background:var(--success)}.pv2-crow .t i.hb.info{background:var(--accent)}
+  .pv2-crow .t2{display:grid;gap:3px}.pv2-crow.pair .t{height:8px}
+  .pv2-crow .v{font-size:11.5px;font-weight:700;color:var(--text);font-family:ui-monospace,monospace;white-space:nowrap;text-align:right;min-width:74px}
+  .pv2-crow .v small{font-weight:500;color:var(--muted)}
   .pv2-b{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;background:var(--card-bg);padding:10px 14px}
   .pv2-b-problem{border-left-color:var(--danger)}
   .pv2-b-where{border-left-color:var(--accent)}
@@ -1534,6 +1575,54 @@ function specificHtml(spec, focusId) {
   return `<div class="pv2-spec pv2-rv"><div class="pv2-seclabel">Your questions, one by one — ${spec.length} from the library</div>${rows}</div>`;
 }
 
+// ── charts inside an answer (owner comment 33) ───────────────────────────────
+// Built by p6_chat/merged/_charts.py from the tool's own numbers; drawn here with the app's
+// colour tokens only, so they follow every appearance mode. Four kinds: kpi · bars · pairs · hbar.
+const CH_TONES = ['bad', 'warn', 'good', 'info'];
+const chTone = (t) => (CH_TONES.indexOf(t) >= 0 ? t : 'info');
+const chPct = (v, max) => (max > 0 ? Math.max(0, Math.min(100, (Number(v) || 0) / max * 100)) : 0).toFixed(1);
+export function chartHtml(c) {
+  if (!c || typeof c !== 'object') return '';
+  const items = arr(c.items).filter((x) => x && typeof x === 'object');
+  if (!items.length) return '';
+  const head = `<div class="pv2-cht">${md(c.title || '')}</div>`;
+  let body = '', foot = '';
+  if (c.type === 'kpi') {
+    body = `<div class="pv2-ckpis">${items.map((it) =>
+      `<div class="pv2-ckpi ${chTone(it.tone)}"><div class="k">${md(it.label)}</div><div class="v">${md(it.value)}</div><div class="h">${md(it.hint || '')}</div></div>`).join('')}</div>`;
+  } else if (c.type === 'bars') {
+    body = items.map((it) => {
+      const pl = chPct(it.planned, 100), ac = chPct(it.actual, 100);
+      return `<div class="pv2-crow"><div class="n" title="${escapeHtml(it.name)}">${md(it.name)}</div>`
+        + `<div class="t"><i class="pl" style="width:${pl}%"></i><i class="ac" style="width:${ac}%"></i></div>`
+        + `<div class="v">${Math.round(Number(it.actual) || 0)}% <small>of ${Math.round(Number(it.planned) || 0)}%</small></div></div>`;
+    }).join('');
+    foot = c.legend || '';
+  } else if (c.type === 'pairs') {
+    const max = items.reduce((m, it) => Math.max(m, Number(it.a) || 0, Number(it.b) || 0), 0);
+    const lg = arr(c.legend);
+    body = items.map((it) =>
+      `<div class="pv2-crow pair"><div class="n" title="${escapeHtml(it.name)}">${md(it.name)}</div>`
+        + `<div class="t2"><div class="t"><i class="pl" style="width:${chPct(it.a, max)}%"></i></div><div class="t"><i class="ac" style="width:${chPct(it.b, max)}%"></i></div></div>`
+        + `<div class="v">${md(it.lb)} <small>of ${md(it.la)}</small></div></div>`).join('');
+    foot = (lg.length === 2 ? `upper bar = ${lg[0]} · lower bar = ${lg[1]}` : '') + (c.unit ? ` · in ${c.unit}` : '');
+  } else if (c.type === 'hbar') {
+    const max = items.reduce((m, it) => Math.max(m, Math.abs(Number(it.value) || 0)), 0);
+    body = items.map((it) =>
+      `<div class="pv2-crow"><div class="n" title="${escapeHtml(it.name)}">${md(it.name)}</div>`
+        + `<div class="t"><i class="hb ${chTone(it.tone)}" style="width:${chPct(Math.abs(Number(it.value) || 0), max)}%"></i></div>`
+        + `<div class="v">${md(it.label != null ? it.label : it.value)}</div></div>`).join('');
+    foot = c.note || '';
+  } else {
+    return '';
+  }
+  return `<div class="pv2-chart pv2-rv" data-chart="${escapeHtml(c.type)}">${head}${body}${foot ? `<div class="pv2-chf">${md(foot)}</div>` : ''}</div>`;
+}
+export function chartsHtml(charts) {
+  const h = arr(charts).map(chartHtml).filter(Boolean);
+  return h.length ? `<div class="pv2-charts">${h.join('')}</div>` : '';
+}
+
 // ── the short plain answer that opens every answer (owner comment 14) ────────
 // {problem, where[], why[], do[]} from p6_chat/merged/_brief.py → a usable brief or null.
 export function briefOf(a) {
@@ -1629,14 +1718,14 @@ export function answerV2Html(a, opts) {
     ? `<div class="pv2-evi pv2-rv">${evidence.map((e) => `<span class="pv2-chip"><b>${md(e.k)}</b> ${md(e.v)}</span>`).join('')}</div>` : '';
 
   if (brief) {
-    h.push(briefHtml(brief), focusHtml, toolsHtml);
+    h.push(briefHtml(brief), focusHtml, chartsHtml(a.charts), toolsHtml);
     const full = [verdict, pillsHtml, coversHtml, secs.join(''), specHtml, measured, actionsHtml, evidenceHtml].join('');
     if (full) {
       h.push(`<details class="pv2-more"><summary><span>Show the full analysis</span>`
         + `<span class="pv2-more-sub">the detailed tables, each question one by one, and how it is measured</span></summary>${full}</details>`);
     }
   } else {
-    h.push(verdict, pillsHtml, coversHtml, secs.join(''), specHtml, toolsHtml, measured, actionsHtml, evidenceHtml);
+    h.push(verdict, pillsHtml, chartsHtml(a.charts), coversHtml, secs.join(''), specHtml, toolsHtml, measured, actionsHtml, evidenceHtml);
   }
 
   const drills = arr(a.drilldowns).filter((d) => d && d.to && d.text);

@@ -61,6 +61,8 @@ def build(qid, F, N, role='planning'):
         # the short, plain answer that opens it: the problem, where it is, why, what to do
         from . import _brief
         out['brief'] = _brief.build(qid, out, F, N)
+        from . import _charts
+        out['charts'] = _charts.build(qid, F, N)      # the charts that fit this question (comment 33)
         _brief.plain_answer(out)                 # no planner shorthand in the long analysis either
         return out
     except Exception as exc:
