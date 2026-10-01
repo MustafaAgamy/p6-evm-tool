@@ -170,8 +170,9 @@ def critical_path(data, path=None):
         floated = [a for a in acts_all if a.get('total_float_days') is not None]
         if not floated:
             return {'available': False,
-                    'note': 'The schedule carries no total-float values, so a critical '
-                            'path cannot be distilled from it.'}
+                    'note': 'The schedule carries no total-float values and no early / late dates '
+                            'to rebuild them from, so a critical path cannot be distilled from it. '
+                            'Schedule the project in P6 (F9), export it again and re-import it.'}
         min_float = min(a['total_float_days'] for a in floated)
         crit = [a for a in floated if a['total_float_days'] <= min_float + 0.5]
         crit_basis = 'min-float'

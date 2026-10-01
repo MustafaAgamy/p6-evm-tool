@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Baseline Narrative: critical path on a baseline exported without float (comment 17)
+- **The Narrative said "no critical path" on the Saint Gobain baseline.** That XER was exported with the Total Float column empty for every activity. The float is now rebuilt from each activity's own early and late dates, exactly as P6 computes it, so the Appendix (Critical Path) is drawn: 223 critical activities, 19 Dec 2024 to Project Completion 30 Aug 2025. Grain Bulk is unchanged (410 critical activities).
+- When a file carries neither float nor early / late dates, the report now says what to do: schedule the project in P6 (F9), export it again and re-import it.
 ### Fixed — Productivity & Resources: the settings now change the rate (comment 37)
 - **Project type, Location and Methodology did nothing** — the library holds one norm per work item and no factor for any of them, so changing a setting never moved a rate. Each setting now has a **"your factor ×" box**: type your own man-hour factor for that choice (1.20 = 20% more man-hours, slower; 0.85 = faster) and every rate, man-hour figure and duration follows it. The factor is remembered for that choice on this computer, so switching country switches the factor.
 - **A factor now also changes the output per day and the duration.** Before, a factor could only touch the man-hours, leaving the crew output and the duration unchanged.
