@@ -90,12 +90,18 @@ def plain(text):
     t = str(text or '')
     for pat, rep in (
             (r'(?<=\d)\s?wd\b', ' working days'), (r'\bwd\b', 'working days'),
+            (r'\bsingle chain\b', 'single line of activities'),
             (r'\bfinish chain\b', 'critical path'), (r'\bdriving chain\b', 'critical path'),
             (r'\bdriving path\b', 'critical path'), (r'\bthe chain\b', 'the critical path'),
             (r'(?<!supply )\bchain\b', 'critical path'), (r'\btrunk\b', 'main sequence'),
             (r'\bdanglers\b', 'activities with a missing link'), (r'\bTIA\b', 'time impact analysis'),
-            (r'\bEOT\b', 'extension of time'), (r'\bF9\b', 'a P6 reschedule (F9)')):
-        t = re.sub(pat, rep, t)
+            (r'\bEOT\b', 'extension of time')):
+        # the words are matched in any case ("Driving path" in a heading); the replacement keeps a
+        # leading capital. The abbreviations (wd / TIA / EOT) are matched as written.
+        if pat.isupper() or 'wd' in pat or 'TIA' in pat or 'EOT' in pat:
+            t = re.sub(pat, rep, t)
+        else:
+            t = re.sub(pat, lambda m, r=rep: (r[0].upper() + r[1:]) if m.group(0)[0].isupper() else r, t, flags=re.I)
     return t
 
 
@@ -432,7 +438,10 @@ def b08(a, F, N):          # cost & EVM
     gap = pv - ev
     grp = next((g for g in ((F.get('value_gap') or {}).get('groups') or []) if (_num(g.get('gap')) or 0) > 0), None)
     spi = F.get('spi')
-    if gap > 0:
+    if abs(gap) < 0.005 * pv:
+        gap = 0
+        prob = f"The value of the work done matches the plan at the data date (done {_money(ev)}, planned {_money(pv)})."
+    elif gap > 0:
         prob = (f"Work worth **{_money(gap)}** that was planned by the data date is not done yet "
                 f"(done {_money(ev)}, planned {_money(pv)}).")
     else:
@@ -459,6 +468,14 @@ def b08(a, F, N):          # cost & EVM
 def b09(a, F, N):          # manpower & resources
     d = _num(F.get('delay_days'))
     ch = _chain(N)
+    if d is not None and d <= 0:
+        return _mk("There is no delay to explain. Whether the manpower in the plan is realistic cannot be judged from the "
+                   "dates alone — it needs labour loaded on the activities.",
+                   [f_finish(F, N), f_path(N) or f_no_file(N)],
+                   ["A schedule without labour on its activities shows when work happens, not how many people it needs."],
+                   ["Load labour (trades and hours) on the activities in P6, then export again.",
+                    "Use **Productivity & Resources** to turn quantities into man-hours and crew sizes.",
+                    "Open **Baseline Narrative** for the resource loading and the peak manpower the schedule implies."])
     return _mk("This file cannot show whether manpower is the cause: the delay is on activities that have not started, "
                "and the schedule does not carry enough labour data to compare crews planned with crews on site.",
                [f_path(N) or f_no_file(N), f_head(N)],
@@ -604,6 +621,14 @@ _BUILDERS = {'q01': b01, 'q02': b02, 'q03': b03, 'q04': b04, 'q05': b05, 'q06': 
              'q09': b09, 'q10': b10, 'q11': b11, 'q12': b12, 'q13': b13, 'q14': b14, 'q15': b15}
 
 
+def plain_units(text):
+    """Only the unit shorthand ('60 wd' → '60 working days') — for table CELLS, which can hold an
+    activity name that must never be reworded (a 'Chain Link Fence' stays a chain link fence)."""
+    t = str(text if text is not None else '')
+    t = re.sub(r'(?<=\d)\s?wd\b', ' working days', t)
+    return re.sub(r'\bwd\b', 'working days', t)
+
+
 def plain_answer(a):
     """Planner shorthand → plain words across the long analysis too (verdict, pills, section text and
     table notes, actions, how it is measured). Activity names / IDs inside tables are not touched."""
@@ -626,6 +651,13 @@ def plain_answer(a):
             t['cols'] = [plain(c) for c in (t.get('cols') or [])]
             if t.get('note'):
                 t['note'] = plain(t['note'])
+            t['rows'] = [[plain_units(c) for c in (row or [])] for row in (t.get('rows') or [])]
+    for d_ in (a.get('drilldowns') or []):
+        if isinstance(d_, dict) and d_.get('text'):
+            d_['text'] = plain(d_['text'])
+    for e_ in (a.get('evidence') or []):
+        if isinstance(e_, dict):
+            e_['k'], e_['v'] = plain(e_.get('k')), plain(e_.get('v'))
     return a
 
 

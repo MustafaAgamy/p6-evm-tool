@@ -144,6 +144,20 @@ def answer_merged(snapshot_id, qid, role='planning', focus=None, followup=None):
     ctx['net_late_inputs'] = F.get('net_late_inputs') or []
     a['specific'] = [_original_answer(o, F, ctx, N) for o in e['originals']]
     a['thinking'] = _thinking(F, N, a.get('thinking'))
+    # no planner shorthand in the question-by-question answers or the thinking steps either
+    # (owner comment 14: every answer simple, clear and easy to understand)
+    try:
+        from p6_chat.merged._brief import plain
+        for sp in a['specific']:
+            if isinstance(sp, dict):
+                for k in ('headline', 'q'):
+                    if sp.get(k):
+                        sp[k] = plain(sp[k])
+                for k in ('body', 'advice'):
+                    sp[k] = [plain(x) for x in (sp.get(k) or [])]
+        a['thinking'] = [plain(x) for x in (a.get('thinking') or [])]
+    except Exception:
+        pass
     a.update({'id': qid, 'question': e['q'], 'group': e['group'], 'covers': e['covers'],
               'focus': focus, 'followup': followup})
     return {'ok': True, 'v': 2, 'answer': a, 'matched': True}
