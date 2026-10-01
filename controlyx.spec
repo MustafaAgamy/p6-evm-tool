@@ -200,8 +200,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 # ── Startup splash (startup DB-2) ─────────────────────────────────────────
 # The one-file exe unpacks ~1,000 files (~230 MB) into %TEMP%\_MEI* before Python even
 # starts; nothing was visible for those seconds, so the owner clicked again. The bootloader
-# shows this picture at once (its text line names each file being unpacked, then the start-up
-# stage) and app.py closes it as soon as the app window is on screen
+# shows this picture at once (a light picture that says 'Loading...'; no text line, so no file
+# names) and app.py closes it as soon as the app window is on screen
 # (app_startup.close_splash). Not always-on-top. Picture: packaging/splash.png (made from
 # packaging/splash.html; no product name baked in — the text comes from utils.APP_TITLE;
 # the picture is committed — .gitignore has '!packaging/*.png').
@@ -216,9 +216,10 @@ if sys.platform == 'win32':
         from utils import APP_TITLE as _SPLASH_TITLE
     except Exception:
         _SPLASH_TITLE = ''
-    _splash_kw = dict(text_pos=(22, 256), text_size=9, text_color='#8a99bd',
-                      text_default=('Starting %s...' % _SPLASH_TITLE).replace('  ', ' '),
-                      minify_script=True, always_on_top=False)
+    # NO text line (owner comment 40): with a text position the bootloader prints the name of
+    # every file it unpacks ('numpy.libs\libscipy_openblas64_...dll') on a dark window - the
+    # owner read that as a black screen. The picture is light and says 'Loading...' itself.
+    _splash_kw = dict(minify_script=True, always_on_top=False)
     for _drop in ((), ('always_on_top',)):          # older PyInstaller: no always_on_top
         try:
             _kw = {k: v for k, v in _splash_kw.items() if k not in _drop}
