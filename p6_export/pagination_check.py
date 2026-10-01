@@ -372,6 +372,10 @@ def _body_size(pages):
 
 
 def _mark_headings(pages, body, hints):
+    # a renderer's heading element read as ONE text, whatever the spacing between its inline
+    # parts: a title row with its figures at the right ('Phase D Mechanical Installation
+    # Completion' ... 'Baseline 12-Jan-2027 · Slip +32 d' - two lines far apart, one heading)
+    whole = {h.replace(' ', '') for h in hints}
     for P in pages:
         for b in P.bands:
             txt = b.text
@@ -381,13 +385,14 @@ def _mark_headings(pages, body, hints):
             alnum = re.sub(r'[^0-9a-z]', '', n)
             if sum(ch.isdigit() for ch in alnum) > 0.4 * len(alnum):
                 continue                      # a value ("247 WD", "4.2%"), not a title
-            if len(b.lines) > 2 or (len(b.lines) == 2 and b.lines[1].x0 - b.lines[0].x1 > 30):
+            exact = len(n) >= 8 and n.replace(' ', '') in whole
+            if (len(b.lines) > 2 or (len(b.lines) == 2 and b.lines[1].x0 - b.lines[0].x1 > 30)) and not exact:
                 continue                      # cells side by side, not a title
             styled = all((l.bold and l.size >= 0.8 * body) or l.size >= 1.25 * body for l in b.lines)
             hinted = bool(hints) and any(
                 n == h or (len(n) >= 8 and (h.startswith(n) or n.startswith(h[:max(12, len(h) // 2)])))
                 for h in hints)
-            b.heading = ((styled and not _card_value(P, b, body)) or hinted) and not _list_band(P, b)
+            b.heading = ((styled and not _card_value(P, b, body)) or hinted or exact) and not _list_band(P, b)
 
 
 def _list_band(P, b):
@@ -426,10 +431,11 @@ def _carded(P, row):
     as a table row. Each card is kept whole by the rules; the next row of cards on the next
     page is not a table continuing with 1 row (STUDIO-RICH-10). A table drawn inside ONE card
     has all of a row's lines in the same box and stays a table."""
-    if len(row.lines) < 2:
+    lines = [l for l in row.lines if re.search(r'[0-9A-Za-z]', l.t or '')]   # not the '▸' between cards
+    if len(lines) < 2:
         return False
     owners = set()
-    for l in row.lines:
+    for l in lines:
         box = None
         for k, d in enumerate(P.draws):
             if (d.curve and not d.thin and not d.img and d.w < 0.5 * P.W
@@ -984,7 +990,7 @@ def _analyze_pages(pages, hints=()):
             if (not tail and abs(b_reg.y0 - nxt.bands[0].y0) < 0.5
                     and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2
                     and not _opens_new_table(a_reg, nxt)
-                    and not (_boxed_rows(P, a_reg) and _boxed_rows(nxt, b_reg))):
+                    and not (_boxed_rows(P, a_reg) or _boxed_rows(nxt, b_reg))):
                 _table_split(P, nxt, a_reg, b_reg, area, flags)
         # a chart / diagram cut by the break
         cut = _figure_cut(P, nxt, area_top, area_bottom)

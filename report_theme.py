@@ -252,7 +252,9 @@ HEADING_SELECTORS = (
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'caption', '[role="heading"]', '[data-rpt-heading]',
     'div.sec', 'div.sub', '.sub2', '.subhd', '.subblue', '.subctr', '.ct', '.calname',
     'p.rescap', '.mgrid-t', '.sr-sec-h', '.seq-glabel', '.chart-h', '.chartt', '.chartlab',
-    '.lanehdr',     # a driving-path lane's title row over its chain of cards (STUDIO-RICH-10)
+    # Critical Path Analyzer: a milestone group's title row and a lane's title row, each over
+    # the lane's chain of cards (STUDIO-RICH-10)
+    '.mphdr', '.lanehdr',
     '.h3title', '.h3sub', '.scope-h', '.rr-h', '.defs-h', '.rc-calhead', '.rc-assignhead',
     '.pr-h', '.flagh', '.rf-h2',
 )
