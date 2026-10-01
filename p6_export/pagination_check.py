@@ -285,7 +285,14 @@ def _strip_running(pages):
             k = (round(b.y0 / 3), sig(b))
             if k not in seen:
                 seen.add(k)
-                occ[k].append((b, bands[j + 1] if j + 1 < len(bands) else None))
+                # the next row under it - past the 1-2 wrapped lines of its own header cells
+                # ('Start (before -> after)' wraps under a one-line 'Activity ID')
+                nx = None
+                for c in bands[j + 1:j + 4]:
+                    if len(c.lines) >= 3 or c.y0 - b.y1 > 14:
+                        nx = c
+                        break
+                occ[k].append((b, nx))
     need = max(3, 0.3 * n)
 
     def table_header(k):
@@ -359,7 +366,37 @@ def _mark_headings(pages, body, hints):
             hinted = bool(hints) and any(
                 n == h or (len(n) >= 8 and (h.startswith(n) or n.startswith(h[:max(12, len(h) // 2)])))
                 for h in hints)
-            b.heading = (styled and not _card_value(P, b, body)) or hinted
+            b.heading = ((styled and not _card_value(P, b, body)) or hinted) and not _list_band(P, b)
+
+
+def _list_band(P, b):
+    """A label inside one of a STACK of rounded boxes - a WBS tree band ('Approval', 'Remaining
+    Towers', a wrapped 'Traffic Study Approval From / Authorities' in the Baseline Revision WBS
+    comparison), a list of chips - is a list item, not a heading: its rounded box (1-2 lines
+    tall) has another rounded box with the same right edge right above or below it (<= 8 pt
+    apart). A group heading styled as a box stands apart from other boxes; table cells are
+    square (STUDIO-RICH-8)."""
+    lh = max(b.y1 - b.y0, 1.0)
+    for d in P.draws:
+        if (d.thin or d.img or not d.curve or d.h > max(lh + 26, 3.2 * lh)
+                or not (d.x0 - 1 <= b.x0 and b.x1 <= d.x1 + 1 and d.y0 - 1 <= b.y0 and b.y1 <= d.y1 + 1)):
+            continue
+        for o in P.draws:
+            if (o is not d and o.curve and not o.thin and not o.img and abs(o.x1 - d.x1) <= 2
+                    and 0.4 * d.h <= o.h <= 2.5 * d.h
+                    and (0 <= d.y0 - o.y1 <= 8 or 0 <= o.y0 - d.y1 <= 8)):
+                return True
+    return False
+
+
+def _boxed_rows(P, reg):
+    """Most of a region's rows are list bands side by side (two WBS trees in grid columns read
+    as a 'table'): its few-row / small-table rules do not apply - each column is a list that
+    continues on the next page, its branches kept with their first child by the renderer."""
+    def boxed(row):
+        return all(_list_band(P, _Band([l])) for l in row.lines)
+    rows = reg.rows
+    return bool(rows) and sum(1 for r in rows if boxed(r)) >= 0.8 * len(rows)
 
 
 def _card_value(P, b, body):
@@ -640,7 +677,18 @@ def _table_split(A, B, a_reg, b_reg, area, flags):
     body_a = len(a_reg.rows) - ha
     hb = 0
     sigs = [_sig(r) for r in a_reg.rows[:ha]]
-    while hb < len(b_reg.rows) and hb < 3 and b_reg.rows[hb].bold and _sig(b_reg.rows[hb]) in sigs:
+    # the header's words on A - its rows plus the wrapped lines of its cells sitting right above
+    # it ('Start' / '(before' over 'Activity ID ... Shift'): on B the same header may be laid
+    # out as ONE row of 8 cells, so a header repeated is also one whose words are all A's
+    words = lambda t: set(re.findall(r'[a-z]+', norm(t)))
+    hw = set()
+    for r in a_reg.rows[:ha]:
+        hw |= words(r.text)
+    for b in A.bands:
+        if b.bold and b.y1 <= a_reg.y0 + 1 and a_reg.y0 - b.y1 <= 20 and b.x0 >= a_reg.col0 - 4:
+            hw |= words(b.text)
+    while (hb < len(b_reg.rows) and hb < 3 and b_reg.rows[hb].bold
+           and (_sig(b_reg.rows[hb]) in sigs or (ha and words(b_reg.rows[hb].text) <= hw))):
         hb += 1
     if hb == len(b_reg.rows) and hb > 1:
         hb = 0
@@ -808,7 +856,8 @@ def _analyze_pages(pages, hints=()):
             tail = [it for it in _below(P, a_reg.y1 + 1) if it[2] != 'rule']
             if (not tail and abs(b_reg.y0 - nxt.bands[0].y0) < 0.5
                     and _col_match(a_reg.lines, b_reg.rows[0].lines) >= 2
-                    and not _opens_new_table(a_reg, nxt)):
+                    and not _opens_new_table(a_reg, nxt)
+                    and not (_boxed_rows(P, a_reg) and _boxed_rows(nxt, b_reg))):
                 _table_split(P, nxt, a_reg, b_reg, area, flags)
         # a chart / diagram cut by the break
         cut = _figure_cut(P, nxt, area_top, area_bottom)

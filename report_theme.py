@@ -264,6 +264,9 @@ KEEP_WHOLE_SELECTORS = (
     # one bar of a before / after bars list (label + Rev.00 bar + Rev.01 bar) and one row of
     # a diverging trade chart (name + resource id + bar) - never parted (STUDIO-RICH-4)
     '.barow', '.rc-trow',
+    # a WBS branch band with its first child (and grandchild ...) - a page never ends on a
+    # branch whose children start the next page (Baseline Revision WBS comparison; STUDIO-RICH-8)
+    '.p6chain',
 )
 
 # Measured by the print-time composer: kept whole when small (<= FIT of a page), let to
@@ -466,6 +469,11 @@ def pagination_script():
         # a renderer's sub-section group (heading + chart + caption + short totals table) is
         # kept whole up to KT of a page, so its table never opens a page alone (NARRFIX §13.2)
         "else if(hg<=H*KT&&el.classList.contains('rpt-group'))todo.push([el,'rpt-fit']);"
+        # a content card bigger than a third of a page (title + bars + a table) continues
+        # between its blocks instead of being pushed whole under a half-blank page; its chart /
+        # rows keep their own rules (STUDIO-RICH-8: 'Where the money moved' left 50 % blank)
+        "else if(hg<=flow&&el.classList.contains('card')&&el.children.length>1&&!inCell(el)"
+        "&&!sideBySide(el))todo.push([el,'rpt-flow']);"
         "if((el.tagName==='UL'||el.tagName==='OL')&&hg>fit&&hg<=flow&&!inCell(el)){"
         "todo.push([el,'rpt-flow']);for(var a2=el.parentElement,d2=0;a2&&a2!==document.body&&d2<3;"
         "d2++,a2=a2.parentElement){if(hOf(a2)>flow)break;todo.push([a2,'rpt-flow']);}}"

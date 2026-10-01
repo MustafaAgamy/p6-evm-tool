@@ -1953,7 +1953,19 @@ def _wbs_view(report):
             indent = int(nd.get('level', 0)) * 14
             out.append(f'<div class="p6band p6-l{lvl}{scls}" style="margin-left:{indent}px">'
                        f'{_e(nd.get("name"))}{badge}</div>')
-        return ''.join(out) or '<div class="mut">—</div>'
+        # print: a branch and its first child (and that child's first child ...) travel as ONE
+        # kept-whole group, so a page never ends on a branch whose children start the next page
+        # (the two trees are side-by-side grid columns, where Chrome ignores break-after:avoid
+        # between bands; a wrapper is honoured). No visual change: the wrapper has no box.
+        lv = [int(nd.get('level', 0)) for nd in nodes]
+        grouped, k = [], 0
+        while k < len(out):
+            j = k
+            while j + 1 < len(out) and lv[j + 1] > lv[j] and j - k < 5:
+                j += 1
+            grouped.append(out[k] if j == k else f'<div class="p6chain">{"".join(out[k:j + 1])}</div>')
+            k = j + 1
+        return ''.join(grouped) or '<div class="mut">—</div>'
 
     body = (f'<div class="split"><div><div class="clab">Rev.00 — original WBS</div>{bands(r0)}</div>'
             f'<div><div class="clab r1">Rev.01 — revised WBS</div>{bands(r1)}</div></div>')
