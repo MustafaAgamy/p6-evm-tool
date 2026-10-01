@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Opening the tool shows no dark window
+- **No more dark start-up window with file names.** The small picture shown while the program unpacks no longer lists internal file names; it is a light picture with the logo and "Loading…".
+- **Light from the first click to 100 %.** The window opens light (no black flash), and the loading screen that counts to 100 % is light too, as are the two "Retry" start-up messages.
+
+
 ### Changed — Reporting Studio lists the analysis features only
 - **The Overview group is no longer offered in the Reporting Studio** (Project snapshot, Key indicators, Progress by category). The list now starts at the analysis features, so you choose among their results. The Overview screen itself is unchanged and keeps its own Print.
 - A report you saved earlier that included Overview results still opens: those results are left out, the screen says how many, and the report exports as before. Saving it again stores it without them.

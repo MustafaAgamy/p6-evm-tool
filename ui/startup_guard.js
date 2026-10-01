@@ -144,7 +144,7 @@
       el.setAttribute('role', 'alertdialog');
       el.setAttribute('aria-live', 'assertive');
       el.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;' +
-        'align-items:center;justify-content:center;background:#06090f;color:#e6ecf8;' +
+        'align-items:center;justify-content:center;background:#eef3fb;color:#1e2b45;' +
         'font:14px/1.5 "Segoe UI",system-ui,sans-serif;padding:16px;';
       (doc.body || doc.documentElement).appendChild(el);
       return el;
@@ -161,11 +161,11 @@
     function render(title, message, detail, button) {
       var el = overlay();
       el.innerHTML =
-        '<div style="max-width:520px;width:100%;background:#111a2e;border:1px solid #2a3a5e;' +
-        'border-radius:12px;padding:22px 24px;box-shadow:0 12px 40px rgba(0,0,0,.5)">' +
-        '<div style="font-size:17px;font-weight:600;color:#fff;margin-bottom:6px">' + esc(title) + '</div>' +
-        '<div style="color:#c3cde3">' + esc(message) + '</div>' +
-        (detail ? '<div style="margin-top:10px;font:12px/1.4 Consolas,monospace;color:#8fa0c4;' +
+        '<div style="max-width:520px;width:100%;background:#ffffff;border:1px solid #cfd9ea;' +
+        'border-radius:12px;padding:22px 24px;box-shadow:0 12px 40px rgba(30,60,120,.16)">' +
+        '<div style="font-size:17px;font-weight:600;color:#0f1f3d;margin-bottom:6px">' + esc(title) + '</div>' +
+        '<div style="color:#41506a">' + esc(message) + '</div>' +
+        (detail ? '<div style="margin-top:10px;font:12px/1.4 Consolas,monospace;color:#6b7688;' +
           'word-break:break-all">' + esc(detail) + '</div>' : '') +
         (button ? '<div style="margin-top:16px"><button type="button" id="cx-startup-retry" ' +
           'style="background:#3b82f6;color:#fff;border:0;border-radius:8px;padding:8px 18px;' +

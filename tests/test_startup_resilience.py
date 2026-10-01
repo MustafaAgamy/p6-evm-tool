@@ -189,7 +189,7 @@ def test_locked_index_answers_a_self_retrying_starting_page(test_server, monkeyp
     assert status == 503 and headers.get('Retry-After') == '1'
     assert headers['Content-Type'] == 'text/html; charset=utf-8'
     assert int(headers['Content-Length']) == len(body)
-    assert '<meta charset="utf-8">' in html and 'background:#06090f' in html
+    assert '<meta charset="utf-8">' in html and 'background:#eef3fb' in html
     assert 'Starting ' + APP_NAME in html and 'id="cx-index-retry"' in html
     assert 'location.reload' in html and 'sessionStorage' in html
     for banned in ('alert(', 'confirm(', 'prompt('):
