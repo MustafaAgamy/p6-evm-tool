@@ -122,7 +122,7 @@ def test_critical_path_and_update_vs_update_reports(tmp_path):
 def test_reporting_studio_kpis_carry_the_mark(temp_db, tmp_path):
     import db
     from p6_special.context import SpecialContext
-    from p6_special.providers import overview, evm
+    from p6_special.providers import evm          # (the Overview group left the Studio - comment 35)
     out = {}
     for kind, fields in (('self', {'baseline_source': 'self', 'baseline_expected': True}),
                          ('embedded', {'baseline_source': 'embedded', 'baseline_expected': True})):
@@ -132,10 +132,10 @@ def test_reporting_studio_kpis_carry_the_mark(temp_db, tmp_path):
                                 'overall_planned_pct': 0.5, 'overall_actual_pct': 0.5, 'variance': 0.0})
         db.save_evm_extras(sid, {'baseline_finish': '2025-12-31', 'baseline_fields': fields})
         ctx = SpecialContext(pid, snapshot_id=sid)
-        labels = json.dumps([it.produce(ctx) for it in overview.provide(ctx) + evm.provide(ctx)],
+        labels = json.dumps([it.produce(ctx) for it in evm.provide(ctx)],
                             ensure_ascii=False, default=str)
         out[kind] = (ctx.baseline_ax(), labels)
     assert out['self'][0] == ' · approx' and out['embedded'][0] == ''
-    for lbl in ('Baseline finish · approx', 'Overall planned · approx', 'Planned Value (PV) · approx'):
+    for lbl in ('Baseline Finish · approx', 'Planned % · approx', 'Planned Value (PV) · approx', 'SPI · approx'):
         assert lbl in out['self'][1], lbl
     assert '· approx' not in out['embedded'][1]

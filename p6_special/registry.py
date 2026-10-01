@@ -11,6 +11,19 @@ import importlib
 import pkgutil
 
 _PROVIDERS = []      # list of provide() callables
+
+# Result groups that were taken OUT of the Reporting Studio. A report saved before the removal
+# may still list their ids: they are left out when it is opened (never an error, never a raw
+# id on screen) and the planner is told how many were dropped.
+RETIRED_PREFIXES = ('overview:',)
+
+
+def split_retired(item_ids):
+    """``(kept, retired)`` - the ids still offered, in order, and the retired ones."""
+    kept, retired = [], []
+    for iid in item_ids or []:
+        (retired if str(iid).startswith(RETIRED_PREFIXES) else kept).append(iid)
+    return kept, retired
 _LOADED = False
 
 
@@ -80,9 +93,12 @@ def clear_providers():
 
 def load_builtins():
     """Register the built-in feature providers explicitly."""
-    from p6_special.providers import (overview, evm, audit, calendar, update,
+    # No Overview group (owner comment 35): the Reporting Studio offers the real analysis
+    # features only - the planner chooses among them. The Project snapshot, Key indicators and
+    # Progress by category tiles belong to the Overview screen, which keeps its own print.
+    from p6_special.providers import (evm, audit, calendar, update,
                                        twofile, revcompare, narrative)
-    for mod in (overview, evm, audit, calendar, update, twofile,
+    for mod in (evm, audit, calendar, update, twofile,
                 revcompare, narrative):
         fn = getattr(mod, 'provide', None)
         if callable(fn):
