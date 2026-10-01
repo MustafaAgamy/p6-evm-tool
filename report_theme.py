@@ -267,6 +267,11 @@ KEEP_WHOLE_SELECTORS = (
     # a WBS branch band with its first child (and grandchild ...) - a page never ends on a
     # branch whose children start the next page (Baseline Revision WBS comparison; STUDIO-RICH-8)
     '.p6chain',
+    # small cards a page break must never part (STUDIO-RICH-10): a driving-path activity /
+    # milestone card (Update Analysis, Critical Path Analyzer - the milestone's title was left
+    # on one page, its dates on the next), the Float Health score card and its 'how the score
+    # is calculated' legend (the colour key was left alone on the next page)
+    '.chain > .box', '.chain > .msbox', '.fh', '.scorelegend',
 )
 
 # Measured by the print-time composer: kept whole when small (<= FIT of a page), let to

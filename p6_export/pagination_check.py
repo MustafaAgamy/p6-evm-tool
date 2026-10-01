@@ -104,6 +104,7 @@ DEFECT_TYPES = (
     'table_header_not_repeated', 'empty_repeated_header', 'graphic_cut', 'text_cut',
     'content_in_margin', 'large_blank_then_continuation',
     'stranded_fragment', 'empty_page', 'picture_truncated', 'picture_mostly_blank',
+    'block_split',
 )
 INFO_TYPES = ('section_break_blank',)
 
@@ -782,6 +783,51 @@ def _figure_cut(A, B, area_top, area_bottom):
     return len(ea), len(eb)
 
 
+def _block_split(A, B, area_top, area_bottom, area):
+    """A SMALL card / box split by the break between page A and page B (STUDIO-RICH-10).
+
+    Chrome paints each fragment of a split box as its own box: the part on A starts on A and
+    ends exactly on A's clip line, the part on B (same left / right edges) starts on B's clip
+    line and ends on B. A box that small (<= FIT of a page in all) is one the rules keep whole -
+    a driving-path milestone card with its title on A and its dates on B. ``_figure_cut``
+    leaves such a TEXT box alone (text at the break is how a long panel or a table row reads);
+    a long panel that flows across pages is taller than FIT and is not reported here.
+    A whole table row ending right on the break (its text sits a few points above its bottom
+    edge) followed by the next row (text right under its top edge) is not a split box."""
+    fa = [d for d in A.draws if not d.thin and not d.img]
+    fb = [d for d in B.draws if not d.thin and not d.img]
+    if not fa or not fb:
+        return None
+    clip_a = max(d.y1 for d in A.draws)
+    clip_b = min(d.y0 for d in B.draws)
+    # the area edges are measured on text boxes (a line's ascent reaches ~1 pt above the box
+    # its fragment is painted in)
+    if clip_a < area_bottom - 2 or clip_b > area_top + 2:
+        return None
+    wide = 0.85 * max(A.W, 1)
+    ea = [d for d in fa if abs(d.y1 - clip_a) < 0.35 and d.w < wide and d.y0 > area_top + 2]
+    eb = [d for d in fb if abs(d.y0 - clip_b) < 0.35 and d.w < wide and d.y1 < area_bottom - 2]
+
+    def text_in(d, bands, bottom):
+        inside = [b for b in bands if b.x0 < d.x1 and b.x1 > d.x0
+                  and b.y0 >= d.y0 - 1.5 and b.y1 <= d.y1 + 1.5]
+        if not inside:
+            return None
+        return (d.y1 - max(b.y1 for b in inside)) if bottom else (min(b.y0 for b in inside) - d.y0)
+    for a in ea:
+        for b in eb:
+            if abs(a.x0 - b.x0) > 1.5 or abs(a.x1 - b.x1) > 1.5:
+                continue
+            h = (a.y1 - a.y0) + (b.y1 - b.y0)
+            if h > FIT * area:
+                continue
+            ga, gb = text_in(a, A.bands, True), text_in(b, B.bands, False)
+            if ga is not None and gb is not None and ga <= 10 and gb <= 10:
+                continue                  # two whole rows meeting at the break
+            return a, b, h
+    return None
+
+
 def _analyze_pages(pages, hints=()):
     n = len(pages)
     _strip_running(pages)
@@ -865,6 +911,16 @@ def _analyze_pages(pages, hints=()):
             flags.append(_flag('graphic_cut', P.no, f'a chart / diagram is cut by the page break '
                                                    f'p{P.no}->p{nxt.no} ({cut[0]} part(s) end on the '
                                                    f'break, {cut[1]} continue at the top of p{nxt.no})'))
+        else:
+            split = _block_split(P, nxt, area_top, area_bottom, area)
+            if split:
+                a, b, h = split
+                words = lambda Q, d: ' '.join(x.text for x in Q.bands if x.x0 < d.x1 and x.x1 > d.x0
+                                              and x.y0 >= d.y0 - 1.5 and x.y1 <= d.y1 + 1.5)[:40]
+                flags.append(_flag('block_split', P.no,
+                                   f'a card / box ({h:.0f}pt = {h / area:.0%} of a page) is split '
+                                   f'p{P.no}->p{nxt.no}: {words(P, a)!r} on p{P.no}, '
+                                   f'{words(nxt, b)!r} on p{nxt.no}'))
         # a large blank area before the next page
         fill = (min(P.bottom, P.H) - T) / area
         if fill < 1 - BLANK:

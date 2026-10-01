@@ -43,6 +43,8 @@ page numbers, `counts`, `info`); exit 0 = clean, 1 = flags, 2 = error, 3 = skipp
 It flags: orphaned_heading, kpi_separated_from_heading, heading_separated_from_block,
 picture_separated_from_caption (Word), table_split_few_rows (< 3 body rows on a page),
 small_table_split (a table <= 35 % of a page split), table_header_not_repeated, graphic_cut,
+block_split (a card / box <= 35 % of a page split across the break - its CSS class belongs in
+`report_theme.KEEP_WHOLE_SELECTORS`),
 text_cut, content_in_margin, large_blank_then_continuation (> 40 % blank before a pushed block: a
 block of up to 35 % kept whole with its heading may leave up to ~40 % by design),
 stranded_fragment, empty_page, and for a .docx's own pictures picture_truncated (content runs into
