@@ -72,7 +72,8 @@ def test_studio_word_section_pictures_fall_back(broken_chrome):
     frag = '<div class="sec"><h3>Reused section</h3><p>' + 'Body text of the section. ' * 40 + '</p></div>'
     slices = dr._slice_section(frag, '', 'light', broken_chrome, 700.0, 700.0)
     assert slices, 'the Word section pictures must still be printed by the next Chromium'
-    assert all(png[:8] == b'\x89PNG\r\n\x1a\n' and h > 0 for png, h in slices)
+    # comment 41: a slice is the page's own drawing (native Word shapes); a PNG only as fallback
+    assert all(h > 0 and (vec or png[:8] == b'\x89PNG\r\n\x1a\n') for png, h, vec in slices)
     png = dr._rasterize_section(frag, '', 'light', broken_chrome)
     assert png and png[:8] == b'\x89PNG\r\n\x1a\n'
 

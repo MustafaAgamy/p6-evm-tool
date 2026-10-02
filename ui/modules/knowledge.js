@@ -85,6 +85,10 @@ export function showPlaybooks() {
   if (!_lib) { h.innerHTML = loading('Loading the Knowledge Base…'); load(); }
   else render();
 }
+// File ▸ Print / Export from the menu bar while the Knowledge Base page is open: the page's own
+// exports (the PDF preview carries the Word / HTML / Excel buttons).
+export function playbooksOpen() { const h = host(); return !!h && !h.classList.contains('hidden'); }
+export function playbookReport(kind) { if (kind === 'xls') exportExcel(); else exportPdf(); }
 export function exitPlaybooks() {
   host()?.classList.add('hidden');
   document.querySelector('.import-section')?.classList.remove('hidden');
@@ -473,7 +477,8 @@ function exportPdf() {
   if (!_pb) { showError('Open a project type first.'); return; }
   const secs = playbookSections(_pb);
   if (!secs.length) { showError('Nothing to export for this project type yet.'); return; }
-  printView({ module: 'kb', title: _pb.name, subtitle: `${_pb.sector_label || ''} · Construction Project Knowledge`, sections: secs });
+  printView({ module: 'kb', title: _pb.name, subtitle: `${_pb.sector_label || ''} · Construction Project Knowledge`, sections: secs,
+    exportName: 'knowledge_base', onExcel: () => exportExcel() });
 }
 async function exportExcel() {
   if (!_pb) { showError('Open a project type first.'); return; }

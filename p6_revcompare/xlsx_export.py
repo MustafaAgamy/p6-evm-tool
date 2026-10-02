@@ -102,7 +102,11 @@ def _delta(a, b, unit=''):
     """Signed Rev.00 → Rev.01 delta from two numeric per-revision values."""
     if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
         return '—'
-    return _sgn(b - a, unit)
+    d = b - a
+    if isinstance(d, float):
+        d = round(d, 2)                     # 1.66 - 1.72 is -0.06, not -0.06000000000000005
+        d = int(d) if d == int(d) else d
+    return _sgn(d, unit)
 
 
 def _pct_change(before, variance):

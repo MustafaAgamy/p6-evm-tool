@@ -159,11 +159,11 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
 
 def test_the_gantt_prints_with_pdf_word_and_html():
     app = _read('ui', 'app.js')
-    assert "schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html']" in app
+    assert "schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx']" in app      # + its own Excel (comment 2 follow-up)
     assert "import { renderSchedule, schedulePrint }" in app
     assert "if (e.target.closest('#sched-print-btn')) runReport('pdf');" in app
     pv = _read('ui', 'modules', 'printview.js')
-    assert 'export async function printView({ module, title, subtitle, sections, exports, exportName, meta })' in pv
+    assert 'export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel })' in pv
     assert 'html, body { height:auto !important; overflow:visible !important; }' in pv    # a report longer than one page
     g = _read('ui', 'modules', 'gantt.js')
     assert 'data-part="gantt.' in g and 'data-part="summary.counts"' in g

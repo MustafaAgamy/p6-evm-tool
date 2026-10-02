@@ -44,7 +44,8 @@ def test_every_report_offers_word_html_excel():
     for name in ('compare.js', 'revcompare.js', 'update.js', 'period.js', 'critpath.js'):
         src = _read(name)
         assert "exports: ['pdf', 'docx', 'html', 'xlsx']" in src and 'onExcel: () =>' in src, name
-    assert "exports: exports || ['pdf', 'docx', 'html']" in _read('printview.js')
+    assert "exports: exports || (onExcel ? ['pdf', 'docx', 'html', 'xlsx'] : ['pdf', 'docx', 'html']), onExcel," in _read('printview.js')
+    assert 'onExcel: () => exportCalendarExcel()' in api                 # Calendar: its complete workbook
 
 
 # ── F2: drag-to-reorder only where the new order reaches the outputs ─────────

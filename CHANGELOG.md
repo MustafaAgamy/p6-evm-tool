@@ -7,12 +7,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Word: charts are real, editable Word content, not pictures (comment 41)
+- **The Word file now matches the PDF as Word, not as a picture of it.** Every chart, gauge, ring, tile row and dashboard card is rebuilt in Word from the PDF's own drawing: each bar, track, ring segment and card border is a Word shape you can select, recolour, resize or delete, and each label and number is Word text you can click and retype — in the same font, size, colour and position as the PDF. There is no picture left in the file. Tables were already real Word tables.
+- This applies to every report saved from the print preview (Schedule Health checks and summary, Lag Report, Out of Sequence, Earned Value, Update Analysis, Update vs Update, Critical Path, Consultant Review, Baseline Revision, P6 Calendar Audit, Bad Weather, Overview, WBS, Gantt, Productivity, Knowledge Base) and to the Reporting Studio's Word file, where reused report sections used to be placed as page pictures; they are now Word shapes and text as well.
+- **Same fonts as the PDF.** Word now uses Segoe UI where the PDF does (some reports came out in Arial), including its Semibold and Black weights, so text has the same width and line breaks.
+- A chart taller than a page is continued on the next page between two rows of cards, never through a card.
+- The file opens quickly: the labels of one chart share a few transparent text layers instead of hundreds of separate text boxes.
+
+### Fixed — Schedule Health: the file's milestones after re-opening a project
+- After a project was re-opened from Recent Projects, **Step 1 · Enter your contract milestones** said "0 milestone activities found in the file" and offered no names to pick. The file's milestone activities are listed again (36 on the Grain Bulk baseline), exactly as after a fresh import.
+
 ### Changed — Every report saves as PDF, Word, HTML and Excel from the same preview (comment 2)
 - **The preview of every report now has four save buttons: PDF · Word · HTML · Excel** (plus Print). Before, only Earned Value, Calendar Audit and the Gantt offered Word and HTML. This covers the Schedule Health checks and summary, Lag Report, Out of Sequence, Update Analysis, Update vs Update, Critical Path, Consultant Review, Baseline Revision, Bad Weather, and the screen views printed with File ▸ Print (Overview, WBS, Productivity, Knowledge Base).
-- **Word looks like the PDF.** Charts, gauges, tile rows and dashboard cards go into Word as pictures of exactly what the PDF shows; tables stay real Word tables and text stays text. What you untick in the Report Contents list is left out of Word and HTML too.
+- **Word looks like the PDF.** Charts, gauges, tile rows and dashboard cards go into Word as editable Word shapes and text that look exactly like the PDF (see comment 41 above); tables stay real Word tables and text stays text. What you untick in the Report Contents list is left out of Word and HTML too.
 - **Excel from the preview is the feature's complete workbook** — every table with all its rows and every chart as its numbers (the workbooks completed under comment 29).
 - **Fixed:** the bars of the Lag Report charts were almost invisible (in the PDF as well); they now use the report's accent colour.
 - **Fixed:** in Update Analysis, "Planned vs Actual by count" was split into three oddly named parts in the Report Contents list; it is one item now.
+- **Overview, WBS and the Gantt** now have the Excel button in their print preview too (their own workbook), and the P6 Calendar Audit preview saves its complete workbook (Summary, monthly working time, calendar issues) instead of a shorter extract.
+- **Knowledge Base:** File ▸ Print / Export to PDF, Word, HTML and Excel now work on the Knowledge Base page (the menu said "This view has no report"); the page's Export ▸ PDF preview carries the Excel button too.
+- **Fixed:** small display flaws — the Gantt's first month label no longer prints under the next month when only a few days of it are shown; "Last period:" in Update vs Update has its space back; the Excel Summary sheets write "Lagged %" instead of "lagged pct".
+- **Lag Report Excel:** the Summary sheet no longer shows a score and grade (the Lag Report itself has none). **Baseline Revision Excel:** a difference such as −0.06 is no longer written as −0.06000000000000005.
+- **Reporting Studio:** a feature whose results are only partly available now reads "18 of 21 ready" instead of "No data" (the ready results could always be ticked; the badge was misleading).
 - **Fixed:** in Word, a narrow table column broke its values across lines (row number "10" as "1" over "0", an Activity ID after its last digit). Every column is now at least as wide as its longest word; the room comes from the wider columns.
 - Known limit: in the Baseline Revision report, the very long change lists (thousands of rows) go into Word as plain text lines, not as formatted tables.
 

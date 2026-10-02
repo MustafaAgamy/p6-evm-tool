@@ -73,7 +73,7 @@ export function renderPeriodPanel() {
 function _markPrevAssigned(name) {
   if (name) _prevName = name;
   const el = document.getElementById('per-prev-suggest');
-  if (el) el.innerHTML = `<b>Last period:</b> ${escapeHtml(_prevName || 'selected file')} <span class="cmp-pill good">ready</span>`;
+  if (el) el.innerHTML = `<b>Last period:</b>&nbsp;${escapeHtml(_prevName || 'selected file')} <span class="cmp-pill good">ready</span>`;
   const run = document.getElementById('per-run-compare');
   if (run) run.disabled = false;
 }

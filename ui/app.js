@@ -3,7 +3,7 @@ import { initTheme }                          from './modules/theme.js';
 import { importFile, loadProject, loadHistory, generatePdf, generateModulePdf, exportExcel, deleteProject, generateCalendarPdf, generateWeatherPdf, exportCalendarExcel, exportWeatherExcel, exportEvmExcel, exportDashboardExcel, exportNarrativeExcel, exportOverviewExcel, exportWbsExcel, exportScheduleExcel } from './modules/api.js';
 import { clearError, loadAnother, showError } from './modules/render.js';
 import { switchView, showChooser, renderAudit, renderOosPanel, renderLagPanel } from './modules/audit.js';
-import { showPlaybooks, exitPlaybooks }        from './modules/knowledge.js';
+import { showPlaybooks, exitPlaybooks, playbooksOpen, playbookReport } from './modules/knowledge.js';
 import { showProdIntel, exitProdIntel, prodintelPrint } from './modules/prodintel.js';
 import { showRecent, exitRecent }                   from './modules/recent.js';
 import { maybePromptBaseline, renderEvm }      from './modules/evm.js';
@@ -323,12 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // menu bar with a section picker; a new view only needs a print-sections provider.
   const PRINT_VIEW = {
     prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true },
-    overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint },
-    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint },
-    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html'], exportName: 'schedule_gantt' },
+    overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint, excel: exportOverviewExcel },
+    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel },
+    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
+    if (playbooksOpen()) { clearDocExport(); playbookReport(kind); return; }   // Knowledge Base page: its own exports
     if (DOC_KINDS[kind]) { runDocExport(kind); return; }
     clearDocExport();                                      // a fresh PDF / Excel command drops any pending Word / HTML
     openReport(kind);
@@ -399,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
-      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName,
+      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel,
         meta: { project: r.project_name, data_date: r.data_date ? String(r.data_date).slice(0, 10) : '' } });
       return true;
     }

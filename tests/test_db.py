@@ -433,3 +433,22 @@ def test_delete_project_clears_audit_modules(temp_db):
     conn = sqlite3.connect(temp_db / 'controlyx.db')
     assert conn.execute('SELECT COUNT(*) FROM audit_modules').fetchone()[0] == 0
     conn.close()
+
+
+def test_reopened_project_still_offers_the_files_milestones(temp_db):
+    # Schedule Health entry screen said "0 milestone activities found" (and suggested no names)
+    # after a project was re-opened from Recent Projects: the list was never stored.
+    pid = db.upsert_project('P1', 'Proj')
+    sid = db.insert_snapshot(pid, '2024-07-01', '/p.xml', '/c.xml', 'h', 5, 1)
+    mods = _modules_result()
+    mods['module_order'].append('hard_constraints')
+    mods['modules']['hard_constraints'] = {'module': 'hard_constraints', 'name': 'Milestone Check', 'score': None,
+                                           'grade': None, 'pct': None, 'kpis': {}, 'wbs_summary': [], 'findings': []}
+    db.insert_audit_modules(sid, mods)
+    db.save_snapshot_views(sid, {'activities': [
+        {'id': 'MS-2', 'name': 'Project Completion', 'finish': '2027-02-09', 'milestone': True},
+        {'id': 'A1', 'name': 'Excavation', 'finish': '2026-01-10', 'milestone': False},
+        {'id': 'MS-1', 'name': 'Mechanical Completion', 'finish': '2026-11-01', 'milestone': True}]})
+    hard = db.get_audit_modules_for_snapshot(sid)['modules']['hard_constraints']
+    assert [m['activity_id'] for m in hard['baseline_milestones']] == ['MS-1', 'MS-2']     # chronological
+    assert hard['baseline_milestones'][1]['name'] == 'Project Completion' and hard['needs_input'] is True

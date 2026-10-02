@@ -179,6 +179,7 @@ class Visual:
     kind: str = 'visual'
     png: bytes = None          # filled by a rasteriser
     slices: list = None        # [(png, w_px, h_px)] when the picture is taller than a page
+    vectors: list = None       # [(prims, w_pt, h_pt)] — the PDF's own drawing, for NATIVE Word shapes
 
 
 @dataclass
@@ -263,11 +264,18 @@ def _align(st):
 
 
 def _first_family(ff):
+    """The font the browser (and so the PDF) really uses for a CSS font-family list.  The
+    system keywords come first in most report stylesheets — ``system-ui, -apple-system, Arial``
+    — and on Windows they mean Segoe UI, so Word must use Segoe UI too, not the Arial that
+    happens to be the first NAMED family (comment 41: Word = PDF)."""
     for f in C._split_top(str(ff or '')):
         f = f.strip().strip('"\'')
-        if f and f.lower() not in ('sans-serif', 'serif', 'monospace', 'system-ui', 'inherit',
-                                   '-apple-system', 'blinkmacsystemfont', 'ui-sans-serif',
-                                   'cursive', 'fantasy', 'emoji'):
+        low = f.lower()
+        if low in ('system-ui', '-apple-system', 'blinkmacsystemfont', 'ui-sans-serif'):
+            return 'Segoe UI'
+        if low == 'ui-monospace':
+            return 'Consolas'
+        if f and low not in ('sans-serif', 'serif', 'monospace', 'inherit', 'cursive', 'fantasy', 'emoji'):
             return f
     return None
 

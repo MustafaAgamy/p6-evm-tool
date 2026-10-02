@@ -85,10 +85,10 @@ function harness(view, { result = true, missing = [], gantt = () => [{ key: 's',
     critpath: 'Critical Path Analyzer', period: 'Update vs Update', update: 'Update Analysis' };
   const sec = () => [{ key: 's', label: 'S', html: '<p>x</p>' }];
   const fn = new Function('state', 'document', 'CRUMB', 'showError', 'printView', 'prodintelPrint', 'overviewPrint',
-    'wbsPrint', 'schedulePrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage',
+    'wbsPrint', 'schedulePrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage', 'exportOverviewExcel', 'exportWbsExcel', 'exportScheduleExcel', 'playbooksOpen', 'playbookReport',
     appSrc.slice(a, b) + '\nreturn { runReport, REPORT_BTN };');
   const api = fn(state, document, CRUMB, (m) => log.errors.push(m), (o) => log.printed.push(o.module), sec, sec, sec,
-    gantt, () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage);
+    gantt, () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage, () => {}, () => {}, () => {}, () => false, () => {});
   return { ...api, log };
 }
 test('Earned Value: Ctrl+Shift+W opens the PDF preview and leaves a Word export for its bar', () => {
@@ -253,7 +253,8 @@ test('feature_needs lists Word / HTML for every feature that has a report (comme
     assert.match(read('ui', 'modules', `${m}.js`), /exports: \['pdf', 'docx', 'html', 'xlsx'\]/, m);
     assert.match(read('ui', 'modules', `${m}.js`), /onExcel: \(\) =>/, m + ' gives its own workbook');
   }
-  assert.match(read('ui', 'modules', 'printview.js'), /exports: exports \|\| \['pdf', 'docx', 'html'\]/);
+  assert.match(read('ui', 'modules', 'printview.js'), /exports: exports \|\| \(onExcel \? \['pdf', 'docx', 'html', 'xlsx'\] : \['pdf', 'docx', 'html'\]\), onExcel,/);
+  for (const fn of ['exportOverviewExcel', 'exportWbsExcel', 'exportScheduleExcel']) assert.ok(read('ui', 'app.js').includes('excel: ' + fn), fn);
   const none = ['home', 'recent', 'chat'];                           // no report
   const wordOnly = ['special'];                                      // the Studio: its own Word, no HTML
   for (const f of FEATURE_NEEDS) {
@@ -263,6 +264,13 @@ test('feature_needs lists Word / HTML for every feature that has a report (comme
     }
   }
   assert.ok(featureNeeds('evm').exports.includes('PDF') && featureNeeds('calendar').exports.includes('Excel'));
+});
+
+test('Knowledge Base page: File ▸ Print / Excel run the page\'s own exports', () => {
+  const app = read('ui', 'app.js'); const kb = read('ui', 'modules', 'knowledge.js');
+  assert.match(app, /if \(playbooksOpen\(\)\) \{ clearDocExport\(\); playbookReport\(kind\); return; \}/);
+  assert.match(kb, /export function playbookReport\(kind\) \{ if \(kind === 'xls'\) exportExcel\(\); else exportPdf\(\); \}/);
+  assert.match(kb, /onExcel: \(\) => exportExcel\(\)/);              // the preview carries the Excel button too
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
