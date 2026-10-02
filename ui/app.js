@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // update.js 'per-preview-overlay') rather than showReportPreview / showReportContentsPreview.
   // That overlay never reads a pending Word / HTML note, so File ▸ Export to Word / HTML says
   // "not yet" in the page for these instead of opening it (export_intent.js ownPreview).
-  const OWN_PREVIEW = new Set(['critpath', 'period', 'update']);
+  const OWN_PREVIEW = new Set();   // none left: Critical Path, Update vs Update and Update Analysis use the shared preview (comment 1)
   // Screen views (Overview, WBS, Narrative) print
   // through the shared printView() — File ▸ Print gives them the same PDF Preview +
   // Printing Selection picker as the analysis modules. Every feature prints from the

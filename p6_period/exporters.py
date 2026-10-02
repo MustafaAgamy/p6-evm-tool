@@ -491,7 +491,9 @@ def _critical_compare_html(report, style='chain', mode='leaf-parent'):
     body = (_cp_timeline_body(data, report) if style == 'timeline'
             else _cp_table_body(data) if style == 'table'
             else _cp_chain_body(data))
-    return concl + body
+    from p6_export.auto_parts import wrap_part as _part
+    return (_part('critical_compare.conclusion', 'Did the finish-driving path change — conclusion', concl)
+            + _part('critical_compare.paths', 'Critical path — previous vs current', body))
 
 
 def _whatmoved_html(report):
@@ -514,12 +516,14 @@ def _whatmoved_html(report):
             + row('Slipped', 0, slip, 'b', f'<b>{slip}</b> activities')
             + row('Stalled', 0, stal, 'w', f'<b>{stal}</b> activities')
             + row('Re-sequenced', 0, res, 'n', f'<b>{res}</b> activities'))
-    defs = ('<div class="defs"><div class="defs-h">What these mean</div>'
+    defs = ('<div class="defs" data-part="whatmoved.defs" data-part-label="What these mean (definitions)">'
+            '<div class="defs-h">What these mean</div>'
             '<div class="def"><b>Grey bar</b> = planned (due to finish/start this period), <b>coloured</b> = actual; the count on the right is always shown.</div>'
             '<div class="def"><b>Slipped</b> — the activity\'s finish moved <b>later</b> than the previous update showed.</div>'
             '<div class="def"><b>Stalled</b> — it was scheduled to be progressing but earned <b>0%</b> this period.</div>'
             '<div class="def"><b>Re-sequenced</b> — its logic / lag was <b>changed</b> vs last period.</div></div>')
-    return f'<div>{rows}</div>{defs}'
+    return (f'<div data-part="whatmoved.chart" data-part-label="What moved — planned vs actual bars">{rows}</div>'
+            f'{defs}')
 
 
 def _bycode_html(report):
@@ -606,10 +610,12 @@ def _watch_table_html(report):
         f'<td>{_e(r.get("reason"))}</td></tr>' for r in rows)
     intro = ('<p class="note" style="margin-top:0">The near-critical construction activities <b>most likely to drive the next reporting window</b> '
              '— not yet finished, with little spare time — tightest float first. Watch these to protect the finish date.</p>')
-    table = ('<table class="data"><thead><tr><th>Activity ID</th><th>Activity name</th>'
+    table = ('<table class="data" data-part="watch.table" data-part-label="Watch list — table">'
+             '<thead><tr><th>Activity ID</th><th>Activity name</th>'
              '<th class="num">Float</th><th class="num">Due to start</th><th>Why watch it</th></tr></thead><tbody>'
              + body + '</tbody></table>')
-    defs = ('<div class="defs"><div class="defs-h">Columns</div>'
+    defs = ('<div class="defs" data-part="watch.defs" data-part-label="Column notes">'
+            '<div class="defs-h">Columns</div>'
             '<div class="def"><b>Float</b> — spare working days before this activity would delay the project finish (0 = on the critical path; ≤ 10 wd = near-critical).</div>'
             '<div class="def"><b>Due to start</b> — the activity\'s forecast start date, from the current update.</div>'
             '<div class="def"><b>Why watch it</b> — why it\'s near-critical: on the critical path, a successor to something slipping, or newly near-critical.</div></div>')
@@ -743,9 +749,17 @@ def render_html(report, trend=None, sections=None, code_filter=None,
               f'<br>previous cutoff → current cutoff</div></div>')
     banner = (f'<div class="banner {level}"><span class="dot {level}"></span>'
               f'<div><div class="b1">{_e(head)}</div><div class="b2">{_e(detail)}</div></div></div>')
-    dashboard = _exec_dashboard_html(report) + _recovery_html(report) + _facts_html(report) + _defs_html()
-    milestones = (f'<div class="keep">{_milestone_table_html(report)}'
-                  f'<div class="chart" style="margin-top:8px">{_milestone_drift_svg(report)}</div></div>')
+    # the single parts of a section, named for the Report Contents picker (owner comment 1)
+    from p6_export.auto_parts import wrap_part as _part
+    dashboard = (_part('dashboard.exec', 'Execution dashboard — previous → current', _exec_dashboard_html(report))
+                 + _part('dashboard.recovery', 'Recovery outlook', _recovery_html(report))
+                 + _part('dashboard.facts', 'Key facts of the period', _facts_html(report))
+                 + _part('dashboard.defs', 'What these numbers mean', _defs_html()))
+    milestones = ('<div class="keep">'
+                  + _part('milestones.table', 'Project completion milestone — table', _milestone_table_html(report))
+                  + '<div class="chart" style="margin-top:8px" data-part="milestones.chart" '
+                    'data-part-label="All finish milestones — drift chart">'
+                  + f'{_milestone_drift_svg(report)}</div></div>')
     secs = [
         ('verdict', '', banner, False),
         ('progress', "Progress — where you are vs where you said you'd be", _progress_bar_html(report), False),

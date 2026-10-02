@@ -24,6 +24,10 @@
 //               ADOPTED feature (report annotated with data-sec / data-part, charts marked —
 //               docs/report-picker-adoption.md) passes ['pdf','docx','html','xlsx']; an
 //               unannotated report's CSS charts would reach Word / Excel as bare text.
+//   extras  — (host, { rerender }) => void: a feature's OWN report options (an activity-code
+//               filter, a chart style, which milestones to draw) rendered under the tree. The
+//               feature keeps their state and reads it in its onRerender; rerender() fetches the
+//               report again. So every feature uses this ONE preview — no private overlays.
 //   serverOrder — true when onRerender honours the ORDER of the keys it is given. Without it
 //               (and without [data-sec] wrappers the picker can reorder itself) drag-to-reorder
 //               is not offered, because the new order could not reach the outputs.
@@ -55,7 +59,7 @@ function _slug(s) {
 }
 
 export function showReportPreview({ title, subtitle, html, onSave, sections, selected, onRerender, storageKey,
-  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports, serverOrder }) {
+  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports, serverOrder, extras }) {
   let mode = initialMode || getSavedMode();
   const offered = EXPORTS.filter(e => exportKinds(exports).includes(e.kind));
   const featureName = feature || String(title || 'Report').replace(/\s+(report\s+)?preview$/i, '').replace(/^Report\s+—\s+/i, '');
@@ -82,6 +86,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
       <div class="rpv-sh">Report contents</div>
       <div class="rpv-tools"><a id="rpv-all" role="button" tabindex="0">Select all</a><i>·</i><a id="rpv-none" role="button" tabindex="0">Clear all</a></div>
       <ul class="rpv-tree" id="rpv-secs"></ul>
+      <div class="rpv-extras" id="rpv-extras"></div>
       <div class="rpv-note">Tick a whole section, or open it (▸) and tick single tables / charts.<span class="rpv-drag-hint"></span>
         <b>${['Preview', ...offered.map(e => e.label), 'Print'].join(' = ')}.</b></div>
     </div>` : '';
@@ -177,6 +182,21 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
     showFinal();
   };
 
+  // A feature option changed (extras): fetch the report again with the same ticks.
+  const rerender = async () => {
+    if (typeof onRerender !== 'function') return;
+    const keys = hasSel ? serverKeys(st) : undefined;
+    const ticket = ++busy;
+    try {
+      const newHtml = await onRerender(keys, mode);
+      if (ticket !== busy) return;
+      if (typeof newHtml === 'string' && newHtml) {
+        if (hasSel) { adopt(newHtml, keys); paintTree(); } else serverHtml = newHtml;
+      }
+    } catch { /* keep the current preview */ }
+    showFinal();
+  };
+
   // ── the two-level tree (sections ▸ parts) ──
   const listEl = overlay.querySelector('#rpv-secs');
   let dragKey = null;
@@ -239,6 +259,11 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
       listEl.appendChild(li);
     });
   }
+
+  const extrasHost = overlay.querySelector('#rpv-extras');
+  if (extrasHost && typeof extras === 'function') {
+    try { extras(extrasHost, { rerender }); } catch { extrasHost.remove(); }
+  } else if (extrasHost) extrasHost.remove();
 
   if (hasSel) {
     const all = overlay.querySelector('#rpv-all');

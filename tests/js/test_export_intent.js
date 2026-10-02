@@ -191,18 +191,19 @@ test('F6: File ▸ Print on Schedule (Gantt) opens its preview — never "run th
   assert.deepEqual(e.log.errors, ['Run this module’s analysis first, then File ▸ Print / Export to PDF.',
     'Run this module’s analysis first, then File ▸ Export to Excel.']);
 });
-test('Critical Path / Update vs Update / Update Analysis: message in the page, preview NOT opened, no note left', () => {
-  // Their ⬇ PDF opens the module's own overlay, which never reads the note — the note would
-  // otherwise linger 60 s and make the next report the planner opens save Word / HTML unasked.
-  for (const [view, name] of [['critpath', 'Critical Path Analyzer'], ['period', 'Update vs Update'], ['update', 'Update Analysis']]) {
+test('Critical Path / Update vs Update / Update Analysis: Word / HTML open the shared preview, which explains', () => {
+  // They use the shared preview now (comment 1), so they behave like every other report: the
+  // preview opens with the note and says in the page that Word / HTML is not offered yet.
+  for (const [view, name, btn] of [['critpath', 'Critical Path Analyzer', 'cpa-export-pdf'],
+    ['period', 'Update vs Update', 'per-export-pdf'], ['update', 'Update Analysis', 'ua-export-pdf']]) {
     for (const [kind, label] of [['docx', 'Word'], ['html', 'HTML']]) {
       EI.clearDocExport();
       const h = harness(view);
       h.runReport(kind);
-      assert.deepEqual(h.log.clicked, [], `${view} ${kind}: must not open its own PDF preview`);
-      assert.deepEqual(h.log.errors,
-        [`${name} has no ${label} export yet — use File ▸ Print / Export to PDF or File ▸ Export to Excel.`]);
-      assert.equal(EI.takeDocExport(), null, `${view} ${kind}: no pending note`);
+      assert.deepEqual(h.log.clicked, [btn], `${view} ${kind}: opens its PDF preview`);
+      assert.deepEqual(h.log.errors, []);
+      const plan = EI.pendingExportPlan(EI.takeDocExport(), ['pdf']);
+      assert.match(plan.message, new RegExp(`^${name} has no ${label} export yet`));
     }
   }
 });
@@ -232,13 +233,14 @@ test('moving to another feature drops a pending Word / HTML note (openView + set
   assert.match(ov.slice(0, ov.indexOf('\n  }\n')), /clearDocExport\(\)/);
   assert.match(appSrc, /const setCrumb = \(id\) => \{ clearDocExport\(\);/);
 });
-test('OWN_PREVIEW lists exactly the reports whose preview does not read the note', () => {
-  // If one of these adopts showReportPreview / takes the note, drop it from OWN_PREVIEW in app.js.
-  assert.match(appSrc, /const OWN_PREVIEW = new Set\(\['critpath', 'period', 'update'\]\);/);
+test('no report keeps a private preview: every one opens the shared picker (comment 1)', () => {
+  // Critical Path, Update vs Update and Update Analysis had their own overlay; they now use
+  // showReportPreview, so the Word / HTML note is read like in every other report.
+  assert.match(appSrc, /const OWN_PREVIEW = new Set\(\);/);
   for (const m of ['critpath', 'period', 'update']) {
     const src = read('ui', 'modules', `${m}.js`);
-    assert.ok(!/takeDocExport|showReportPreview|showReportContentsPreview/.test(src), `${m}.js now reads the note`);
-    assert.match(src, /per-preview-overlay/);
+    assert.match(src, /showReportPreview\(\{/, `${m}.js opens the shared preview`);
+    assert.ok(!/per-preview-overlay/.test(src), `${m}.js still builds its own overlay`);
   }
 });
 test('feature_needs lists Word / HTML exactly where they exist', () => {

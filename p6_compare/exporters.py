@@ -603,12 +603,19 @@ def render_html(report, impact=None, theme='light', sections=None, layout='lands
             f'<p class="recon">Activities with driving-logic / lag changes: <b>{dboard.get("logic_changed", 0)}</b> '
             f'— of the {dboard.get("changed_activities", 0)} total changed (the other '
             f'{dboard.get("duration_only", 0)} changed in duration only).</p>'
-            f'<div>{pills}</div>'
-            f'{_logic_table_html(report, stacked=(layout == "portrait"))}')
+            f'<div data-part="logic.summary" data-part-label="Change summary — by type">{pills}</div>'
+            '<div data-part="logic.table" data-part-label="Driving logic &amp; lag changes — table">'
+            f'{_logic_table_html(report, stacked=(layout == "portrait"))}</div>')
     duration_section = ''
     if inc('duration'):
         duration_section = f'<h2>Duration &amp; remaining changes vs baseline</h2>{_duration_table_html(report)}'
     impact_section = _impact_html(impact) if inc('impact') else ''
+    # each section in [data-sec=<key>] so the Report Contents picker can list and remove the
+    # single tables / charts inside it (owner comment 1); keys = COMPARE_SECTIONS
+    from p6_export.auto_parts import wrap_section as _sec
+    dash, charts = _sec('dashboard', dash), _sec('charts', charts)
+    logic_section, duration_section = _sec('logic', logic_section), _sec('duration', duration_section)
+    impact_section = _sec('impact', impact_section)
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
       @page {{ size: A4 landscape; margin: 12mm; }}
       * {{ box-sizing: border-box; }}

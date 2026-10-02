@@ -6,7 +6,8 @@
 // milestone comparison, float migration and the effect/recommendation.
 import { state }      from './state.js';
 import { showError }  from './render.js';
-import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { getSavedMode } from './appearance.js';
+import { showReportPreview } from './preview.js';
 import { escapeHtml } from './format.js';
 import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
 import { attachedBaselineSlot, ATTACHED_BASELINE_TAG } from './baseline.js';
@@ -218,105 +219,45 @@ function _renderReport(report) {
 
 // ── Export: PDF preview (Report Contents picker) + Excel ─────────────────────
 
+// Export PDF opens the ONE shared preview (preview.js): tick whole sections or single charts /
+// tables inside them (each milestone's path is its own part), reorder, then Print or Save
+// (owner comment 1). Which milestone paths are drawn is this report's own option, under the tree.
 async function _openPreview() {
   if (!_shownReport) return;
-  // Milestone paths available for inclusion; the governing one is checked by default.
   const msPaths = _shownReport.milestone_paths || [];
-  const defaultMsIds = msPaths.filter(p => p.is_governing).map(p => p.id);
-  let cpaMode = getSavedMode();                 // appearance mode for this preview + its PDF
-  let html = '';
-  try {
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: defaultMsIds, theme: cpaMode }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { showError(data.error || 'Could not build the preview.'); return; }
-    html = data.html;
-  } catch { showError('Could not reach the local server for the preview.'); return; }
-
-  const ex = document.getElementById('cpa-preview-overlay'); if (ex) ex.remove();
-  const ov = document.createElement('div');
-  ov.id = 'cpa-preview-overlay';
-  ov.className = 'per-preview-overlay';
-  const msPicks = msPaths.map((p, i) =>
-    `<label class="per-pick cpa-ms-pick"><input type="checkbox" class="cpa-ms-cb" value="${i}"${p.is_governing ? ' checked' : ''}> ${escapeHtml(p.name || '')}${p.is_governing ? ' <span class="cpa-ms-gov">◆ governing</span>' : ''}</label>`).join('');
-  const picks = CP_SECTIONS.map(([k, l]) => {
-    const cb = `<label class="per-pick"><input type="checkbox" class="cpa-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`;
-    // Nest the per-milestone chooser directly under the driving-path section.
-    return (k === 'driving_path' && msPicks) ? cb + `<div class="cpa-ms-picks">${msPicks}</div>` : cb;
-  }).join('');
-  ov.innerHTML = `<div class="per-preview-box">
-      <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
-        <span class="per-preview-actions">
-          <button class="btn-secondary" id="cpa-preview-close">Close</button>
-          <button class="btn-secondary" id="cpa-preview-print">🖨 Print…</button>
-          <button class="btn-primary" id="cpa-preview-save">Save as PDF</button></span></div>
-      <div class="per-preview-body">
-        <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
-          <div class="per-pick-controls"><button class="btn-mini" id="cpa-pick-all">All</button><button class="btn-mini" id="cpa-pick-none">None</button></div>
-        </div>
-        <iframe class="per-preview-frame" id="cpa-preview-frame" title="Report preview"></iframe>
-      </div>
-    </div>`;
-  document.body.appendChild(ov);
-  const frame = document.getElementById('cpa-preview-frame');
-  const close = () => ov.remove();
-  ov.addEventListener('click', e => { if (e.target === ov) close(); });
-  document.getElementById('cpa-preview-close').addEventListener('click', close);
-
-  const cbs = () => Array.from(ov.querySelectorAll('.cpa-sec-cb'));
-  const selected = () => cbs().filter(c => c.checked).map(c => c.value);
-  // Checkbox value is the index into msPaths, so the original id type is preserved.
-  const selectedMs = () => Array.from(ov.querySelectorAll('.cpa-ms-cb'))
-    .filter(c => c.checked).map(c => msPaths[+c.value].id);
-  const applyToFrame = () => {
-    const doc = frame.contentDocument;
-    if (!doc) return;
-    const on = new Set(selected());
-    doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
-  };
-  frame.onload = applyToFrame;
-  frame.srcdoc = html;
-  cbs().forEach(c => c.addEventListener('change', applyToFrame));
-  document.getElementById('cpa-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
-  document.getElementById('cpa-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); applyToFrame(); });
-  // Appearance picker — themes this preview and the exported PDF (and the whole app, via setAppMode).
-  frame.style.background = backdropColor(cpaMode);
-  ov.querySelector('.per-preview-pick').appendChild(buildAppearancePicker({
-    current: cpaMode, compact: false,
-    onChange: async (m) => {
-      cpaMode = m;
-      frame.style.background = backdropColor(m);
-      try {
-        const r = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: selectedMs(), theme: m }),
-        });
-        const d = await r.json();
-        if (d.ok) { frame.onload = applyToFrame; frame.srcdoc = d.html; }
-      } catch { /* keep the current preview on a failed re-render */ }
-    },
-  }));
-  document.getElementById('cpa-preview-print').addEventListener('click', () => {
-    applyToFrame();
-    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); }
-  });
-  document.getElementById('cpa-preview-save').addEventListener('click', async () => {
-    const outputPath = await window.pywebview.api.choose_save_path('critical_path_analyzer.pdf', 'pdf');
-    if (!outputPath) return;
-    const btn = document.getElementById('cpa-preview-save');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  let msIds = msPaths.filter(p => p.is_governing).map(p => p.id);     // the governing one by default
+  let cpaMode = getSavedMode();
+  const fetchPreview = async (keys, theme) => {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), milestone_ids: selectedMs(), theme: cpaMode }),
+        body: JSON.stringify({ report: _shownReport, preview: true, milestone_ids: msIds, theme: theme || cpaMode }),
       });
       const data = await resp.json();
-      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
-      else close();
-    } catch { showError('Could not reach the local server to export the PDF.'); }
-    finally { if (btn) { btn.disabled = false; btn.textContent = 'Save as PDF'; } }
+      if (!data.ok) { showError(data.error || 'Could not build the preview.'); return null; }
+      return data.html || null;
+    } catch { showError('Could not reach the local server for the preview.'); return null; }
+  };
+  const html = await fetchPreview(null, cpaMode);
+  if (!html) return;
+  const sections = CP_SECTIONS.map(([key, label]) => ({ key, label }));
+  showReportPreview({
+    title: 'Critical Path Analyzer preview', subtitle: _shownReport.project_name || '', html,
+    sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_critpath', initialMode: cpaMode,
+    feature: 'Critical Path Analyzer', exportName: 'critical_path_analyzer',
+    meta: { project: _shownReport.project_name || '' },
+    onRerender:    (keys, theme) => fetchPreview(keys, theme),
+    onThemeChange: (theme, keys) => { cpaMode = theme; return fetchPreview(keys, theme); },
+    extras: msPaths.length ? (host, { rerender }) => {
+      host.innerHTML = '<div class="rpv-xh">Milestone paths to draw</div>' + msPaths.map((p, i) =>
+        `<label class="rpv-xcheck"><input type="checkbox" class="cpa-ms-cb" value="${i}"${p.is_governing ? ' checked' : ''}>`
+        + `<span>${escapeHtml(p.name || '')}${p.is_governing ? ' <span class="cpa-ms-gov">◆ governing</span>' : ''}</span></label>`).join('');
+      host.querySelectorAll('.cpa-ms-cb').forEach(cb => cb.addEventListener('change', () => {
+        // the checkbox value is the index into msPaths, so the original id type is preserved
+        msIds = Array.from(host.querySelectorAll('.cpa-ms-cb')).filter(c => c.checked).map(c => msPaths[+c.value].id);
+        rerender();
+      }));
+    } : undefined,
   });
 }
 

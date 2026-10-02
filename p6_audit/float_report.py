@@ -181,7 +181,11 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
     def on(key):
         return want is None or key in want
 
-    exec_html = f'<h2 class="sec">Executive Dashboard</h2>{_gauge(mgmt)}{_legend(mgmt)}' if on('executive') else ''
+    from p6_export.auto_parts import wrap_part as _part       # the picker's second level (comment 1)
+    exec_html = ('<h2 class="sec">Executive Dashboard</h2>'
+                 + _part('executive.gauge', 'Float health score', _gauge(mgmt))
+                 + _part('executive.method', 'How the float health score is calculated', _legend(mgmt))
+                 ) if on('executive') else ''
     stats_html = (f'<div class="subhd">Schedule Statistics <span>— whole schedule</span></div>'
                   f'<div class="tiles g5">{_stats_tiles(mgmt)}</div>') if on('statistics') else ''
     ind_html = (f'<div class="subhd">Float Indicators <span>— Construction scope only '
@@ -204,6 +208,12 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
                 f'Construction KPIs, <span class="tag non">Excl.</span> is shown for context only.</div>') if on('wbs') else ''
     concl_html = (f'<h2 class="sec">Executive Conclusion</h2>'
                   f'<div class="concl">{_esc(conclusion)}</div>') if on('conclusion') else ''
+    # each section in [data-sec=<key>] so the Report Contents picker can list and remove the
+    # single tables / tile groups inside it (owner comment 1)
+    from p6_export.auto_parts import wrap_section as _sec
+    exec_html, stats_html = _sec('executive', exec_html), _sec('statistics', stats_html)
+    ind_html, wbs_html = _sec('indicators', ind_html), _sec('wbs', wbs_html)
+    concl_html = _sec('conclusion', concl_html)
     body = exec_html + stats_html + ind_html + wbs_html + concl_html
     return f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{_esc(name)} — {_esc(meta.get('project_name', ''))}</title>

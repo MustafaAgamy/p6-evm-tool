@@ -97,13 +97,15 @@ def _timestatus_html(report):
         verdicts += (f'<div class="vrow"><span class="vtag {tag}">Behind clock · {abs(v)}</span>'
                      f'<span><b>{ep:.1f}%</b> of the baseline time is used up, but only <b>{_pct2(ap)}</b> '
                      f'of the work is done — {abs(v):.2f} points {"less" if v > 0 else "more"} work than time spent.</span></div>')
-    cost = (f'<div class="cost">'
+    # parts of this section for the Report Contents picker (owner comment 1)
+    cost = (f'<div class="cost" data-part="time.values" data-part-label="Planned Value / Earned Value / Variance">'
             f'<div class="costcard"><div class="cl">Planned Value (PV)</div><div class="cv">{_num(ts.get("pv"))}</div></div>'
             f'<div class="costcard"><div class="cl">Earned Value (EV)</div><div class="cv">{_num(ts.get("ev"))}</div></div>'
             f'<div class="costcard"><div class="cl">Variance = EV − PV</div>'
             f'<div class="cv {"neg" if (ts.get("cost_variance") or 0) < 0 else ""}">{_num(ts.get("cost_variance"))}</div></div>'
             f'</div>')
-    return (f'<div class="ts"><div>{_donut(ep, pp, ap)}</div>'
+    return (f'<div class="ts" data-part="time.status" data-part-label="Time status — elapsed vs earned (gauge and reading)">'
+            f'<div>{_donut(ep, pp, ap)}</div>'
             f'<div class="ts-body"><div class="ts-sentence">{sentence}</div>'
             f'<div class="verdicts">{verdicts}</div></div></div>{cost}')
 
@@ -142,8 +144,9 @@ def _bycode_html(report, code_filter=None):
     if not types:
         types = [next(iter(by))]
     blocks = []
-    for t in types:
-        blocks.append(f'<div class="chart2"><h3>{_e(t)}</h3>{_bars_for(by[t])}</div>')
+    for i, t in enumerate(types, 1):
+        blocks.append(f'<div class="chart2" data-part="bycode.c{i}" data-part-label="Planned vs Actual — {_e(t)}">'
+                      f'<h3>{_e(t)}</h3>{_bars_for(by[t])}</div>')
     return ''.join(blocks)
 
 
@@ -171,7 +174,7 @@ def _driving_html(report):
     out = []
     if cp.get('headline'):
         out.append(f'<div class="dphead">{_e(cp["headline"])}</div>')
-    for chart in cp['charts']:
+    for ci, chart in enumerate(cp['charts'], 1):
         ms = chart.get('milestone', {}) or {}
         sm = chart.get('start_milestone') or {}
         parts = []
@@ -189,7 +192,9 @@ def _driving_html(report):
                      f'<div class="r"><span>Baseline Finish</span><b class="mono">{_fdate(ms.get("baseline_finish"))}</b></div>'
                      f'<div class="r"><span>Expected Finish</span><b class="mono">{_fdate(ms.get("expected_finish"))}</b></div>'
                      f'<div class="r"><span>Delay</span><b class="neg">{_svar(ms.get("slip_days"))} d</b></div></div>')
-        out.append(f'<div class="chain">{"".join(parts)}</div>')
+        out.append(f'<div class="chain" data-part="driving.c{ci}" '
+                   f'data-part-label="Driving path to {_e(ms.get("name") or "the completion milestone")}">'
+                   f'{"".join(parts)}</div>')
     return ''.join(out)
 
 
@@ -224,9 +229,11 @@ def _scope_html(report, code_type=None):
            f'<span><i style="background:{_PLAN}"></i>Planned</span>'
            f'<span><i style="background:{_ACT}"></i>Actual</span></div>')
     recs = ''.join(f'<p><span class="star">★</span> {_e(t)}</p>' for t in s.get('recommendation', []))
-    rec = f'<div class="rec"><h4>◆ Recommendation — by weight</h4>{recs}</div>' if recs else ''
+    rec = (f'<div class="rec" data-part="scope.recommendation" data-part-label="Recommendation — by weight">'
+           f'<h4>◆ Recommendation — by weight</h4>{recs}</div>') if recs else ''
     return (f'<div class="scope-h">Weighting by <b>{_e(ct)}</b> · share of the cost-loaded scope</div>'
-            + ''.join(bars) + leg + rec)
+            + f'<div data-part="scope.bars" data-part-label="Scope weight by {_e(ct)} — bars">'
+            + ''.join(bars) + leg + '</div>' + rec)
 
 
 # ── Section 4 · Planned vs Actual by activity count ─────────────────────────

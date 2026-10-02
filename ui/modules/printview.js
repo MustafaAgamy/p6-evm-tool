@@ -24,6 +24,18 @@ async function paginationHead() {
   return _pgCache;
 }
 
+// The picker's second level for a screen view: the server marks each table / chart / tile group
+// inside every section as a tickable PART (p6_export.auto_parts — the same pass every report
+// route runs). On any failure the document is used as composed (sections only).
+async function withParts(html) {
+  try {
+    const d = await fetch(`http://localhost:${state.serverPort}/api/report/annotate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html }),
+    }).then((r) => r.json());
+    return (d && d.ok && typeof d.html === 'string' && d.html) ? d.html : html;
+  } catch { return html; }
+}
+
 let _cssCache = null;
 async function appCss() {
   if (_cssCache != null) return _cssCache;
@@ -95,12 +107,12 @@ export async function printView({ module, title, subtitle, sections, exports, ex
   showReportPreview({
     title: title || 'Report',
     subtitle,
-    html: doc(selected),
+    html: await withParts(doc(selected)),
     sections: secMeta,
     selected,
     storageKey,
     ...(exports ? { exports, feature: title, exportName: exportName || `${module}_report`, meta: meta || {} } : {}),
-    onRerender: (sel) => doc(sel),
+    onRerender: (sel) => withParts(doc(sel)),
     onSave: async (mode, sel) => {
       const outputPath = await window.pywebview.api.choose_save_path(`${module}_report.pdf`, 'pdf');
       if (!outputPath) return false;

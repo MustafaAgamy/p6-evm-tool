@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Every report: pick any sub-feature, or any single table / chart inside it (comment 1)
+The print preview's **Report Contents** list has two levels: tick a whole section, or open it (▸) and tick single parts. Until now only Earned Value and Calendar Audit had the second level.
+- **All reports now list their parts.** Inside each section the single tables, charts and tile groups are found automatically and named (for example "Lags by relationship type", "Table — Activity ID · Activity Name"). Unticking one removes just that piece from the preview, the PDF and the print-out. This covers the Schedule Health checks and summary, Lag Report, Out of Sequence, Float, Consultant Review, Baseline Revision, Bad Weather, and the screen views printed with File ▸ Print (Overview, WBS, Gantt, Productivity, Knowledge Base).
+- **Update Analysis, Update vs Update and Critical Path** now open the same preview as every other report (they had their own older one with whole sections only). Their parts are named — e.g. each milestone's path, each dashboard chart, "Recovery outlook", "Scope weight bars" — and sections can be dragged to reorder. Their own options stay in the preview, under the list: the activity-code filter and critical-path style (Update vs Update), and which milestone paths to draw (Critical Path).
+- The Schedule Health summary keeps its cards whole: each card is one tick.
+- Nothing changes when everything is ticked — the reports look and paginate as before.
+
 ### Added — Knowledge Base: 48 more project types, with every infrastructure network (comment 38)
 The library grows from 77 to 125 project types. Each new type is a full page — plain-language brief, scope, key terms, what must be got right, components, sequence of work by trade, suggested WBS, basis of planning with long-lead items — and each downloads as a detailed baseline (about 1,200 activities) and as Excel.
 - **New shelf: Infrastructure Networks (17 types).** Every network is now its own project type: Potable Water Supply · Sewerage (gravity sewers & rising mains) · Stormwater Drainage · Irrigation & TSE · Fire Water Ring Main & Hydrants · Overhead Transmission Line · Underground Power Cables (HV / MV) · Power Distribution (MV / LV) · Street Lighting · Telecom / Fibre · Gas Distribution · Cross-Country Pipeline · District Cooling Network · Traffic Signals & ITS · Common Utility Tunnel · and **Site Infrastructure — Roads & All Utility Networks**, which explains how the networks are sequenced together (deepest first, tested before being covered, road crossings before road base).

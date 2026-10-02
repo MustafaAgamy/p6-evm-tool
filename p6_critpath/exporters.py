@@ -238,7 +238,8 @@ def _dashboard(report):
                          f'<div class="kv">{val}{unit} <span class="kcur">current</span></div>'
                          f'<div class="kd">{prev_txt}</div></div>')
     factors = ''.join(f'<li>{_e(f)}</li>' for f in d.get('factors', []))
-    dash = (f'<div class="dash"><div class="health"><div class="hgauge">{_cpli(d.get("cpli"))}<span>CPLI</span></div>'
+    dash = (f'<div class="dash" data-part="dashboard.health" data-part-label="Critical path health (CPLI) and key figures">'
+            f'<div class="health"><div class="hgauge">{_cpli(d.get("cpli"))}<span>CPLI</span></div>'
             f'<div><div class="htitle">Critical Path Health</div>'
             f'<div class="hverdict">{_e(d.get("verdict"))}</div><ul class="hfactors">{factors}</ul></div></div>'
             f'<div class="kpis">{"".join(kpi_cells)}</div></div>')
@@ -252,11 +253,14 @@ def _dashboard(report):
         mv = _chart_ms_variance(charts.get('ms_variance', []) or [])
         charts_html = (
             '<div class="charts">'
-            f'<div class="chartcard"><div class="chartt">Critical &amp; near by schedule</div>{cn}'
+            '<div class="chartcard" data-part="dashboard.crit_near" data-part-label="Chart — critical &amp; near-critical by schedule">'
+            f'<div class="chartt">Critical &amp; near by schedule</div>{cn}'
             f'<div class="chartlegend"><i style="background:{_BAD}"></i>Critical '
             f'<i style="background:{_WARN}"></i>Near-critical</div></div>'
-            f'<div class="chartcard"><div class="chartt">CPLI trend</div>{ct}</div>'
-            f'<div class="chartcard"><div class="chartt">Milestone slip vs baseline</div>{mv}</div>'
+            '<div class="chartcard" data-part="dashboard.cpli_trend" data-part-label="Chart — CPLI trend">'
+            f'<div class="chartt">CPLI trend</div>{ct}</div>'
+            '<div class="chartcard" data-part="dashboard.ms_slip" data-part-label="Chart — milestone slip vs baseline">'
+            f'<div class="chartt">Milestone slip vs baseline</div>{mv}</div>'
             '</div>')
     return dash + charts_html
 
@@ -313,14 +317,15 @@ def _lanes(report, milestone_ids=None):
               f'<i style="background:{_BG};border:1px solid {_EDGE}"></i>Stayed '
               f'<i style="background:{_BG};border:1px solid {_GOOD}"></i>Complete</div>')
     out = []
-    for b in sorted(blocks, key=lambda x: 0 if x.get('is_governing') else 1):
+    for bi, b in enumerate(sorted(blocks, key=lambda x: 0 if x.get('is_governing') else 1), 1):
         flag = '◆ ' if b.get('is_governing') else ''
         hdr = (f'<div class="mpkeep"><div class="mphdr"><span class="mpname">{flag}{_e(b.get("name"))}</span>'
                f'<span class="mpfin">Baseline {_e(b.get("baseline_finish")) or "—"} '
                f'· Current {_e(b.get("current_finish")) or "—"} '
                f'· Slip {_sd(b.get("slip_days"))}</span></div></div>')
         lanes_html = ''.join(_lane(l, report.get('baseline_approx')) for l in b.get('lanes', []))
-        out.append(f'<div class="mpblock">{hdr}{lanes_html}</div>')
+        out.append(f'<div class="mpblock" data-part="driving_path.m{bi}" '
+                   f'data-part-label="Path to {_e(b.get("name") or "milestone")}">{hdr}{lanes_html}</div>')
     return ''.join(out) + legend
 
 
@@ -453,8 +458,10 @@ def _migration(report):
 
 def _recommendation(report):
     rec = ''.join(f'<li>{_e(r)}</li>' for r in report.get('recommendation', []))
-    return (f'<div class="effect">{_e(report.get("effect"))}</div>'
-            f'<div class="recoh">Recommendation</div><ol class="reco">{rec}</ol>')
+    return (f'<div class="effect" data-part="recommendation.effect" data-part-label="Effect on completion">'
+            f'{_e(report.get("effect"))}</div>'
+            f'<div data-part="recommendation.list" data-part-label="Recommendation">'
+            f'<div class="recoh">Recommendation</div><ol class="reco">{rec}</ol></div>')
 
 
 def render_html(report, sections=None, milestone_ids=None, theme='light'):
