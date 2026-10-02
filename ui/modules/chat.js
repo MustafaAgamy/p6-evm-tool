@@ -502,6 +502,7 @@ function ensureDashCss() {
   .pdash .dtools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
   .pdash .dpdf{border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:12px;font-weight:700;padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap}
   .pdash .dpdf:disabled{opacity:.6;cursor:default}
+  .pdash .dpdf.dxlsx{background:transparent;color:var(--accent)}
   .pdash[data-style="blueprint"] .dpdf,.pdash[data-style="midnight"] .dpdf{color:#04121f}
   .pdash .dpdf-note{font-size:11px;color:var(--ink2);max-width:260px;text-align:right;min-height:14px}
   .pdash .dprint-head{display:none}
@@ -712,6 +713,34 @@ html, body { margin: 0 !important; padding: 0 !important; background: ${bg} !imp
     `<div class="dprint-head"><span>${escapeHtml(brand || 'Controlyx')} · Professional Dashboard</span><span>Generated ${escapeHtml(generated || '')}</span></div>`)}</div></div></body></html>`;
 }
 
+// ── Download Excel — the dashboard's figures as a workbook (comments 2 / 29) ───────────────
+// The payload this dashboard was drawn from goes to the server as is, so the workbook's
+// numbers are the screen's (p6_chat/dashboard_excel.py).
+export function dashXlsxName(project) {
+  return dashPdfName(project).replace(/\.pdf$/, '.xlsx');
+}
+
+async function downloadDashboardExcel(dash, payload) {
+  const btn = dash.querySelector('[data-dxlsx]'), note = dash.querySelector('.dpdf-note');
+  const say = (t) => { if (note) note.textContent = t || ''; };
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || typeof api.choose_save_path !== 'function') { say('Saving to Excel is available in the desktop app.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    const outputPath = await api.choose_save_path(dashXlsxName(payload && payload.meta && payload.meta.project), 'xlsx');
+    if (!outputPath) { say(''); return; }
+    say('Saving the Excel…');
+    const res = await postJSON('/api/chat/dashboard/excel',
+      { dashboard: payload, output_path: outputPath, snapshot_id: state.currentSnapshotId || null });
+    say(res && res.ok ? 'Excel saved — ' + String(outputPath).split(/[\\/]/).pop()
+      : 'The Excel could not be saved: ' + ((res && res.error) || 'unknown error'));
+  } catch (e) {
+    say('The Excel could not be saved: ' + String((e && e.message) || e));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function downloadDashboardPdf(dash, meta) {
   const btn = dash.querySelector('[data-dpdf]'), note = dash.querySelector('.dpdf-note');
   const say = (t) => { if (note) note.textContent = t || ''; };
@@ -805,6 +834,7 @@ function renderDashboard(p) {
           <button data-dstyle="blueprint">Blueprint</button>
         </div>
         <button class="dpdf" data-dpdf="1" title="Save this dashboard as a one-page PDF, in the format shown">⬇ Download PDF</button>
+        <button class="dpdf dxlsx" data-dxlsx="1" title="Save this dashboard's figures as an Excel workbook">⬇ Download Excel</button>
         <div class="dpdf-note" aria-live="polite"></div>
       </div>
     </div>
@@ -859,7 +889,7 @@ function renderDashboard(p) {
       </div>
     </div>
 
-    <div class="dfoot">Every figure is read from your imported schedule — <span class="off">offline · nothing invented</span>. <span data-screen-only="1">Use <b>Download PDF</b> above to save this page in the format shown, or open the Reporting Studio to add it to a formal report.</span></div>
+    <div class="dfoot">Every figure is read from your imported schedule — <span class="off">offline · nothing invented</span>. <span data-screen-only="1">Use <b>Download PDF</b> above to save this page in the format shown, <b>Download Excel</b> for its figures, or open the Reporting Studio to add it to a formal report.</span></div>
   </div>`;
 
   // style switcher — delegated to this dashboard only (multiple can coexist in the thread)
@@ -867,6 +897,8 @@ function renderDashboard(p) {
   const dash = wrap.querySelector('.pdash');
   const pdfBtn = wrap.querySelector('[data-dpdf]');
   if (pdfBtn) pdfBtn.addEventListener('click', () => downloadDashboardPdf(dash, meta));
+  const xlsxBtn = wrap.querySelector('[data-dxlsx]');
+  if (xlsxBtn) xlsxBtn.addEventListener('click', () => downloadDashboardExcel(dash, p));
   seg.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-dstyle]'); if (!b) return;
     dash.setAttribute('data-style', b.dataset.dstyle);

@@ -632,6 +632,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_chat_settings(body)
         elif self.path == '/api/chat/dashboard':
             self._handle_chat_dashboard(body)
+        elif self.path == '/api/chat/dashboard/excel':
+            self._handle_chat_dashboard_excel(body)
         elif self.path == '/api/chat/qa':
             self._handle_chat_qa(body)
         elif self.path == '/api/chat/qa2':
@@ -1504,6 +1506,30 @@ class Handler(BaseHTTPRequestHandler):
             write_sections_xlsx(os.path.abspath(output_path), sheets,
                                 meta=_excel_meta('Professional Dashboard', dashboard))
             self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_chat_dashboard_excel(self, body):
+        """The AI Chat Professional Dashboard to .xlsx — from the payload the page is showing
+        (``p6_chat.dashboard.build``), so the workbook's figures are the screen's."""
+        dashboard = body.get('dashboard') or {}
+        output_path = body.get('output_path', '')
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not isinstance(dashboard, dict) or not dashboard.get('ok'):
+            self._json(200, {'ok': False, 'error': 'Build the dashboard first, then save it to Excel.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_chat.dashboard_excel import sheets
+            from p6_evm.xlsx_writer import write_sections_xlsx
+            m = dashboard.get('meta') or {}
+            write_sections_xlsx(os.path.abspath(output_path), sheets(dashboard),
+                                meta=_excel_meta('Professional Dashboard',
+                                                 {'project_name': m.get('project'), 'data_date': m.get('data_date')},
+                                                 snapshot_id=body.get('snapshot_id')))
+            self._json(200, {'ok': True, 'path': output_path})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
