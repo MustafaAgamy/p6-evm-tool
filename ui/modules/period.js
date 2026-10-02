@@ -7,7 +7,8 @@
 import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
-import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { getSavedMode } from './appearance.js';
+import { showReportPreview } from './preview.js';
 import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
 
 let _shownReport = null;   // the report currently on screen (exports read this)
@@ -829,24 +830,6 @@ async function _withBtn(id, idle, fn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = idle; } }
 }
 
-// Export PDF now PREVIEWS the report first (renders the exact HTML the PDF uses), then
-// offers Save. Addresses "no preview during export".
-export async function exportPeriodPdf() {
-  if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
-  await _withBtn('per-export-pdf', 'Export PDF', async () => {
-    try {
-      _perTheme = getSavedMode();
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, critical_style: _cpStyle, critical_mode: _cpMode, theme: _perTheme }),
-      });
-      const data = await resp.json();
-      if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
-      _showPdfPreview(data.html);
-    } catch { showError('Could not reach the local server for the preview.'); }
-  });
-}
-
 const PER_SECTIONS = [
   ['verdict', 'Status verdict'], ['progress', 'Progress chart'], ['dashboard', 'Execution Dashboard'],
   ['recommendation', 'Management recommendation'], ['critical_compare', 'Critical-path comparison'],
@@ -855,116 +838,66 @@ const PER_SECTIONS = [
   ['bycode', 'Progress by activity code'], ['milestones', 'Milestones (table + chart)'], ['conclusions', 'Conclusions'],
 ];
 
-function _showPdfPreview(reportHtml) {
-  const existing = document.getElementById('per-preview-overlay');
-  if (existing) existing.remove();
-  const ov = document.createElement('div');
-  ov.id = 'per-preview-overlay';
-  ov.className = 'per-preview-overlay';
-  const picks = PER_SECTIONS.map(([k, l]) =>
-    `<label class="per-pick"><input type="checkbox" class="per-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`).join('');
-  const codeTypes = _shownReport.code_types || [];
-  const fltUi = codeTypes.length ? `<div class="per-pick-h" style="margin-top:14px">Filter by activity code</div>
-      <select id="per-flt-type" style="width:100%;margin-bottom:6px"><option value="">— none (all activities) —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
-      <select id="per-flt-val" style="width:100%" disabled></select>` : '';
-  const cpOpt = (v, l) => `<option value="${v}"${_cpStyle === v ? ' selected' : ''}>${l}</option>`;
-  const cpStyleUi = `<div class="per-pick-h" style="margin-top:14px">Critical-path style</div>
-      <select id="per-pdf-cp-style" style="width:100%">${cpOpt('chain', 'Connected chain')}${cpOpt('timeline', 'Date-axis timeline')}${cpOpt('table', 'Compact table')}</select>`;
-  ov.innerHTML = `<div class="per-preview-box">
-      <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
-        <span class="per-preview-actions">
-          <button class="btn-secondary" id="per-preview-close">Close</button>
-          <button class="btn-secondary" id="per-preview-print">🖨 Print…</button>
-          <button class="btn-primary" id="per-preview-save">Save as PDF</button></span></div>
-      <div class="per-preview-body">
-        <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
-          <div class="per-pick-controls"><button class="btn-mini" id="per-pick-all">All</button><button class="btn-mini" id="per-pick-none">None</button></div>
-          ${fltUi}${cpStyleUi}<div id="per-appearance-pick" style="margin-top:14px"></div></div>
-        <iframe class="per-preview-frame" id="per-preview-frame" title="Report preview"></iframe>
-      </div>
-    </div>`;
-  document.body.appendChild(ov);
-  const frame = document.getElementById('per-preview-frame');
-  const close = () => ov.remove();
-  ov.addEventListener('click', e => { if (e.target === ov) close(); });
-  document.getElementById('per-preview-close').addEventListener('click', close);
-
-  const cbs = () => Array.from(ov.querySelectorAll('.per-sec-cb'));
-  const selected = () => cbs().filter(c => c.checked).map(c => c.value);
-  const typeSel = document.getElementById('per-flt-type');
-  const valSel = document.getElementById('per-flt-val');
-  const codeFilter = () => (typeSel && typeSel.value && valSel && valSel.value) ? { type: typeSel.value, value: valSel.value } : null;
-  const cpStyleSel = document.getElementById('per-pdf-cp-style');
-  const cpStyle = () => cpStyleSel ? cpStyleSel.value : _cpStyle;
-  const applyToFrame = () => {
-    const doc = frame.contentDocument;
-    if (!doc) return;
-    const on = new Set(selected());
-    doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; });
-  };
-  // Re-render server-side when the activity-code filter, critical-path style, or report
-  // appearance changes (so preview == PDF).
-  const refresh = async () => {
-    try {
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
-      });
-      const data = await resp.json();
-      if (data.ok) { frame.onload = applyToFrame; frame.srcdoc = data.html; }
-    } catch { showError('Could not refresh the preview.'); }
-  };
-  frame.onload = applyToFrame;
-  frame.srcdoc = reportHtml;
-  frame.style.background = backdropColor(_perTheme);
-
-  const appearanceBox = document.getElementById('per-appearance-pick');
-  if (appearanceBox) {
-    const picker = buildAppearancePicker({
-      current: _perTheme,
-      compact: false,
-      onChange: (mode) => {
-        _perTheme = mode;
-        frame.style.background = backdropColor(_perTheme);
-        refresh();
+// Export PDF opens the ONE shared preview (preview.js): tick whole sections or single tables /
+// charts inside them, reorder, then Print or Save (owner comment 1). This report's own options
+// — the activity-code filter and the critical-path style — sit under the contents tree.
+export async function exportPeriodPdf() {
+  if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
+  await _withBtn('per-export-pdf', 'Export PDF', async () => {
+    _perTheme = getSavedMode();
+    let codeFilter = null;                                   // { type, value } picked in the preview
+    const fetchPreview = async (keys, theme) => {
+      try {
+        const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter,
+            critical_style: _cpStyle, critical_mode: _cpMode, theme: theme || _perTheme }),
+        });
+        const data = await resp.json();
+        if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return null; }
+        return data.html || null;
+      } catch { showError('Could not reach the local server for the preview.'); return null; }
+    };
+    const html = await fetchPreview(null, _perTheme);
+    if (!html) return;
+    const sections = PER_SECTIONS.map(([key, label]) => ({ key, label }));
+    const codeTypes = _shownReport.code_types || [];
+    showReportPreview({
+      title: 'Update vs Update preview', subtitle: _shownReport.update_file || _shownReport.project_name || '', html,
+      sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_period', initialMode: _perTheme,
+      feature: 'Update vs Update', exportName: 'update_vs_update',
+      meta: { project: _shownReport.project_name || '', data_date: _shownReport.data_date_now || '' },
+      onRerender:    (keys, theme) => fetchPreview(keys, theme),
+      onThemeChange: (theme, keys) => { _perTheme = theme; return fetchPreview(keys, theme); },
+      extras: (host, { rerender }) => {
+        const cpOpt = (v, l) => `<option value="${v}"${_cpStyle === v ? ' selected' : ''}>${l}</option>`;
+        host.innerHTML = (codeTypes.length ? `<div class="rpv-xh">Filter by activity code</div>
+            <select id="per-flt-type"><option value="">— none (all activities) —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+            <select id="per-flt-val" disabled></select>` : '')
+          + `<div class="rpv-xh">Critical-path style</div>
+            <select id="per-pdf-cp-style">${cpOpt('chain', 'Connected chain')}${cpOpt('timeline', 'Date-axis timeline')}${cpOpt('table', 'Compact table')}</select>`;
+        const typeSel = host.querySelector('#per-flt-type');
+        const valSel = host.querySelector('#per-flt-val');
+        const styleSel = host.querySelector('#per-pdf-cp-style');
+        const setFilter = () => {
+          codeFilter = (typeSel && typeSel.value && valSel && valSel.value) ? { type: typeSel.value, value: valSel.value } : null;
+          rerender();
+        };
+        if (typeSel) typeSel.addEventListener('change', () => {
+          const t = typeSel.value;
+          const vals = t ? Array.from(new Set(((_shownReport.progress || {}).rows || []).map(r => (r.codes || {})[t]).filter(Boolean))).sort() : [];
+          valSel.innerHTML = vals.map(v => `<option>${escapeHtml(v)}</option>`).join('');
+          valSel.disabled = !vals.length;
+          setFilter();
+        });
+        if (valSel) valSel.addEventListener('change', setFilter);
+        if (styleSel) styleSel.addEventListener('change', () => {
+          _cpStyle = styleSel.value;
+          try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ }
+          rerender();
+        });
       },
     });
-    appearanceBox.appendChild(picker);
-  }
-
-  cbs().forEach(c => c.addEventListener('change', applyToFrame));
-  document.getElementById('per-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); applyToFrame(); });
-  document.getElementById('per-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); applyToFrame(); });
-  if (typeSel) typeSel.addEventListener('change', () => {
-    const t = typeSel.value;
-    if (!t) { valSel.innerHTML = ''; valSel.disabled = true; refresh(); return; }
-    const vals = Array.from(new Set(((_shownReport.progress || {}).rows || []).map(r => (r.codes || {})[t]).filter(Boolean))).sort();
-    valSel.innerHTML = vals.map(v => `<option>${escapeHtml(v)}</option>`).join('');
-    valSel.disabled = !vals.length;
-    refresh();
-  });
-  if (valSel) valSel.addEventListener('change', refresh);
-  if (cpStyleSel) cpStyleSel.addEventListener('change', () => { _cpStyle = cpStyleSel.value; try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ } refresh(); });
-
-  document.getElementById('per-preview-print').addEventListener('click', () => {
-    applyToFrame();
-    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); }
-  });
-  document.getElementById('per-preview-save').addEventListener('click', async () => {
-    const outputPath = await window.pywebview.api.choose_save_path('update_vs_update.pdf', 'pdf');
-    if (!outputPath) return;
-    const btn = document.getElementById('per-preview-save');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-    try {
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, sections: selected(), code_filter: codeFilter(), critical_style: cpStyle(), critical_mode: _cpMode, theme: _perTheme }),
-      });
-      const data = await resp.json();
-      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`);
-      else close();
-    } catch { showError('Could not reach the local server to export the PDF.'); }
-    finally { if (btn) { btn.disabled = false; btn.textContent = 'Save as PDF'; } }
   });
 }
 

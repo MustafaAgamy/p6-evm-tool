@@ -33,6 +33,19 @@ def _fmt_meta_date(v):
     return s
 
 
+def _with_parts(html):
+    """A report's PREVIEW HTML with the picker's second level filled in (owner comment 1): inside
+    every section the renderer marks (data-sec), each table / chart / tile group / sub-headed
+    block becomes a tickable part — unless the renderer marked its own parts. Only attributes
+    are added, so the report looks the same; on any doubt the HTML comes back unchanged."""
+    try:
+        sys.path.insert(0, resource_path('.'))
+        from p6_export.auto_parts import annotate
+        return annotate(html)
+    except Exception:
+        return html
+
+
 def _excel_meta(title, src=None, snapshot_id=None, **extra):
     """The uniform Excel header/context block passed to the shared writer.
 
@@ -511,6 +524,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_project_load(body)
         elif self.path == '/api/project/delete':
             self._handle_project_delete(body)
+        elif self.path == '/api/report/annotate':
+            self._json(200, {'ok': True, 'html': _with_parts(body.get('html') or '')})
         elif self.path == '/api/export/excel':
             self._handle_export_excel(body)
         elif self.path == '/api/report/module':
@@ -1612,7 +1627,7 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_html(report, sections, code_filter, scope_code,
                                        theme=report_theme.normalize(body.get('theme')))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -1801,7 +1816,7 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_html(report, sections, milestone_ids,
                                        theme=report_theme.normalize(body.get('theme')))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -1892,7 +1907,7 @@ class Handler(BaseHTTPRequestHandler):
                                        theme=report_theme.normalize(body.get('theme')),
                                        filters=body.get('filters'))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -2425,7 +2440,7 @@ class Handler(BaseHTTPRequestHandler):
             html_content = build_document(spec, report, selected_ids, order,
                                           theme=report_theme.normalize(body.get('theme')))
             if not output_path:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             self._html_to_pdf(html_content, output_path)
             self._json(200, {'ok': True})
@@ -2465,7 +2480,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_kb.exporters import render_html
             html_content = render_html(report, theme=report_theme.normalize(body.get('theme')))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -2684,7 +2699,7 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_html(report, impact, theme=report_theme.normalize(body.get('theme')),
                                         sections=body.get('sections'))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -2849,7 +2864,7 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode,
                                        theme=report_theme.normalize(body.get('theme')))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -3105,7 +3120,7 @@ class Handler(BaseHTTPRequestHandler):
                             if is_summary else render_module_report(m, meta_in, sections=body.get('sections'), theme=_theme,
                                                                      lag_caption=body.get('lag_filter_caption')))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -3444,7 +3459,7 @@ class Handler(BaseHTTPRequestHandler):
                                              theme=report_theme.normalize(body.get('theme')),
                                              sections=body.get('sections'))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)
@@ -3482,7 +3497,7 @@ class Handler(BaseHTTPRequestHandler):
                                                   theme=report_theme.normalize(body.get('theme')),
                                                   feature=body.get('feature', 'calendar'))
             if preview:
-                self._json(200, {'ok': True, 'html': html_content})
+                self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
             with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp:
                 tmp.write(html_content)

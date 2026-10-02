@@ -4010,3 +4010,12 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .kbp-std{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);padding:5px 0;border-bottom:1px dashed var(--hair)}
 .kbp-std:last-child{border-bottom:none}
 .kbp-std .sc{font-weight:800;color:var(--accent-dark);font-size:10px;background:var(--accent-soft);border-radius:5px;padding:1px 6px;flex:none}
+
+/* Report preview — a feature's own report options under the contents tree (comment 1) */
+.rpv-extras { margin: 10px 0 2px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; }
+.rpv-extras:empty { display: none; }
+.rpv-extras .rpv-xh { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin: 8px 0 5px; }
+.rpv-extras .rpv-xh:first-child { margin-top: 0; }
+.rpv-extras select { width: 100%; margin-bottom: 6px; }
+.rpv-extras label.rpv-xcheck { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; line-height: 1.35; cursor: pointer; }
+.rpv-extras label.rpv-xcheck input { margin-top: 2px; }

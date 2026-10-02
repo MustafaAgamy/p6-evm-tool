@@ -671,47 +671,49 @@ def _sections(m, sections=None, lag_caption=None):
     def on(key):
         return want is None or key in want
 
+    # Every section is wrapped in [data-sec=<key>] so the Report Contents picker can list the
+    # single tables / charts inside it and remove just those (owner comment 1). The keys are
+    # the same ones the UI ticks and this function filters by.
+    from p6_export.auto_parts import wrap_section as sec
+
     mod = m.get('module')
     if mod == 'out_of_sequence':
         parts = []
         if on('executive'):
-            parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}')
+            parts.append(sec('executive', f'<h2 class="sec">Executive Dashboard</h2>{_oos_dashboard(m)}'))
         if on('wbs'):
-            parts.append(_oos_wbs(m))
+            parts.append(sec('wbs', _oos_wbs(m)))
         if on('findings'):
-            parts.append(_oos_review_log(m))
+            parts.append(sec('findings', _oos_review_log(m)))
         if on('cpi'):
-            parts.append(_oos_cpi(m))
+            parts.append(sec('cpi', _oos_cpi(m)))
         if on('conclusion'):
-            parts.append(_oos_conclusion(m))
+            parts.append(sec('conclusion', _oos_conclusion(m)))
         return ''.join(parts)
     if mod == 'lag_lead':
         parts = []
         if on('summary'):
-            parts.append(_lag_summary(m))
+            parts.append(sec('summary', _lag_summary(m)))
         if on('charts'):
-            parts.append(_lag_charts(m))
+            parts.append(sec('charts', _lag_charts(m)))
         if on('findings'):
-            parts.append(_lag_register(m, caption=lag_caption))
+            parts.append(sec('findings', _lag_register(m, caption=lag_caption)))
         return ''.join(parts)
 
     parts = []
     if on('executive'):
-        parts.append(f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}')
-        if mod == 'cpli':
-            parts.append(_cpli_context_note(m))
+        parts.append(sec('executive', f'<h2 class="sec">Executive Dashboard</h2>{_presentation_dashboard(m)}'
+                         + (_cpli_context_note(m) if mod == 'cpli' else '')))
     if on('scoring'):
-        parts.append(_scoring_legend(m))
+        parts.append(sec('scoring', _scoring_legend(m)))
     if on('severity'):
-        parts.append(_severity_legend(m))
+        parts.append(sec('severity', _severity_legend(m)))
     if on('findings'):
-        parts.append(_wbs_summary(m))
-        if mod == 'cpli':
-            parts.append(_cpli_driving_chart(m))     # the bar chart IS the driving path (all activities) — no separate table
-        else:
-            parts.append(_presentation_table(m))
+        # the bar chart IS the driving path for CPLI (all activities) — no separate table
+        parts.append(sec('findings', _wbs_summary(m)
+                         + (_cpli_driving_chart(m) if mod == 'cpli' else _presentation_table(m))))
     if on('recommendations'):
-        parts.append(_recommendations_section(m))
+        parts.append(sec('recommendations', _recommendations_section(m)))
     return ''.join(parts)
 
 
@@ -753,12 +755,12 @@ def _column(head, rows, fallback, first):
 def _problems_fixes_grid(problems, fixes):
     """``problems`` / ``fixes`` = (heading html, row htmls, fallback html) or None when
     the part is unticked in the Report Contents picker."""
-    cells = []
+    cells = []                       # each column carries its section key for the picker
     if problems:
-        cells.append(_column(*problems, first=3))
+        cells.append(('problems', _column(*problems, first=3)))
     if fixes:
-        cells.append(_column(*fixes, first=_FIX_KEEP_MAX))
-    return (f'<div class="grid2">{"".join(f"<div>{c}</div>" for c in cells)}</div>'
+        cells.append(('fixes', _column(*fixes, first=_FIX_KEEP_MAX)))
+    return ('<div class="grid2">' + ''.join(f'<div data-sec="{k}" data-parts="none">{c}</div>' for k, c in cells) + '</div>'
             if cells else '')
 
 
@@ -881,7 +883,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 
     top_cards = []
     if on('overview'):
-        top_cards.append(f'''<div class="card3 gauge">
+        top_cards.append(f'''<div class="card3 gauge" data-sec="overview" data-parts="none">
       <div style="text-align:center">
         <div class="score-num" style="color:{color}">{score_txt}</div>
         <div class="score-den">/ 100 · {_esc(grade)}</div>
@@ -892,14 +894,14 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
       </div>
     </div>''')
     if on('checks'):
-        top_cards.append(f'''<div class="card3 mid">
+        top_cards.append(f'''<div class="card3 mid" data-sec="checks" data-parts="none">
       <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
       <div style="display:flex;gap:14px;align-items:center">{donut}<div style="flex:1">{donut_legend}</div></div>
       <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
       <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
     </div>''')
     if on('headline'):
-        top_cards.append(f'''<div class="card3 head3">
+        top_cards.append(f'''<div class="card3 head3" data-sec="headline" data-parts="none">
       <div class="ct">Headline</div>
       {headline}
     </div>''')
@@ -907,14 +909,14 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
 
     composition_html = ''
     if on('composition'):
-        composition_html = (
+        composition_html = '<div data-sec="composition" data-parts="none">' + (
             '<h2 class="sec">Sub-feature scores &times; your weights (worst first)</h2>'
             # rpt-keep: the ~11-row score list prints whole (a div grid cannot repeat its
             # header row, and a split stranded the total row on the next page)
             f'<div class="comp rpt-keep">{comp}{comp_total}</div>'
             f'<div class="dcma">Overall Schedule Health = &Sigma; (score &times; weight) over the '
             f'{_pnum(weight_covered)} weight covered = <b>{score_txt}</b>. '
-            'Amber rows are the sub-features to review before submission.</div>')
+            'Amber rows are the sub-features to review before submission.</div>') + '</div>'
 
     grid_html = _problems_fixes_grid(
         ('<h2 class="sec">Where the problems are '
@@ -925,7 +927,8 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
          '<div class="empty2">Every check is at target — nothing to fix first.</div>')
         if on('fixes') else None)
 
-    conclusion_html = (f'<h2 class="sec">Conclusion</h2><div class="concl">{_esc(statement)}</div>'
+    conclusion_html = (f'<div data-sec="conclusion"><h2 class="sec">Conclusion</h2>'
+                       f'<div class="concl">{_esc(statement)}</div></div>'
                        if on('conclusion') else '')
 
     return f'''<!DOCTYPE html>

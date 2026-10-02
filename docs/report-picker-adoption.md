@@ -1,6 +1,14 @@
 # Report Contents picker + one-document exports — adoption recipe
 Every feature's File ▸ Print / "Generate … PDF" opens ONE picker: showReportPreview in ui/modules/preview.js. It has two levels, sections (sub-features) ▸ parts (each table / chart / KPI group / findings list), and ONE export bar: Print · PDF · Word · HTML · Excel. All five come from the final HTML the preview shows: feature render → unticked parts removed → sections in the user's order → appearance mode. Pilots to copy: p6_evm/evm_report.py and p6_calendar/report.py (see their _part() / _sec() helpers).
 
+## 0. What every report gets without any work (owner comment 1)
+- **Sections are required, parts are automatic.** A renderer must wrap each section in `data-sec` (`p6_export.auto_parts.wrap_section(key, html)`). Every preview route then runs `server._with_parts(html)` → `p6_export.auto_parts.annotate`: inside each section that has no hand-marked part, every distinct block — a sub-heading with what follows it, a table, a chart, a row of tiles — becomes a tickable part with a readable label. Only attributes are added (a sub-heading group gets a `display:contents` wrapper), so the report looks and paginates the same.
+- **Name the parts by hand when the automatic label is poor** (`wrap_part('<sec>.<part>', 'Readable name', html)`, or put `data-part` / `data-part-label` on the existing element). A section with any hand-marked part is left exactly as written. Update Analysis, Update vs Update, Critical Path, the Float report and Consultant Review's logic section do this.
+- **A section that is one designed block** (a dashboard card, a column of a grid) opts out with `wrap_section(key, html, whole=True)` (`data-parts="none"`): it is ticked whole.
+- **A report's own options** (activity-code filter, chart style, which milestones to draw) go in the preview's `extras: (host, { rerender }) => {…}` slot — render the controls into `host`, keep their state in the caller, read it in `onRerender`, call `rerender()` on change. No feature builds its own preview overlay.
+- **Screen views** printed with File ▸ Print (`printView`) get their parts from `POST /api/report/annotate` (the same pass).
+- Word / HTML / Excel from the picker are still opt-in per report (`exports: ADOPTED_EXPORTS`) — see sections 1 and 4 for what a report must mark first.
+
 ## 1. Annotate the report HTML (Python renderer)
 1. Wrap every top-level section in `<div data-sec="<key>">…</div>`, with the section's `<h2>` INSIDE. The keys are the UI `sections` list and the renderer's `sections=` filter.
 2. Wrap each distinct part the screen shows in `<div data-part="<key>.<part>" data-part-label="Readable name">…</div>`: each table, chart, KPI/tile group and findings list. A part's own sub-heading goes INSIDE the part so it disappears with it.

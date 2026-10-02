@@ -10,7 +10,8 @@ import { state }      from './state.js';
 import { showError }  from './render.js';
 import { escapeHtml } from './format.js';
 import { revealStage } from './featurereveal.js';
-import { getSavedMode, buildAppearancePicker, backdropColor } from './appearance.js';
+import { getSavedMode } from './appearance.js';
+import { showReportPreview } from './preview.js';
 import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same advice Help ▸ Feature guide gives
 import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
 
@@ -508,90 +509,33 @@ const UA_SECTIONS = [
 
 function _codeFilter() { return _pickedTypes.length ? { types: _pickedTypes.slice() } : null; }
 
+// Export PDF opens the ONE shared preview (preview.js): tick whole sections or single tables /
+// charts inside them, reorder, then Print or Save (owner comment 1). The report is rendered
+// with the activity codes and the scope-weight code picked on screen.
 async function _exportPdf() {
   if (!_shownReport) { showError('Analyze the update first, then export.'); return; }
-  try {
-    _uaTheme = getSavedMode();
-    const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
-    });
-    const data = await resp.json();
-    if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return; }
-    _showPdfPreview(data.html);
-  } catch { showError('Could not reach the local server for the preview.'); }
-}
-
-function _showPdfPreview(reportHtml) {
-  const ex = document.getElementById('per-preview-overlay'); if (ex) ex.remove();
-  const ov = document.createElement('div');
-  ov.id = 'per-preview-overlay'; ov.className = 'per-preview-overlay';
-  const picks = UA_SECTIONS.map(([k, l]) => `<label class="per-pick"><input type="checkbox" class="ua-sec-cb" value="${k}" checked> ${escapeHtml(l)}</label>`).join('');
-  ov.innerHTML = `<div class="per-preview-box">
-      <div class="per-preview-bar"><span class="per-preview-title">Report preview — choose what to include, then print or save</span>
-        <span class="per-preview-actions">
-          <button class="btn-secondary" id="ua-preview-close">Close</button>
-          <button class="btn-secondary" id="ua-preview-print">🖨 Print…</button>
-          <button class="btn-primary" id="ua-preview-save">Save as PDF</button></span></div>
-      <div class="per-preview-body">
-        <div class="per-preview-pick"><div class="per-pick-h">Include sections</div>${picks}
-          <div class="per-pick-controls"><button class="btn-mini" id="ua-pick-all">All</button><button class="btn-mini" id="ua-pick-none">None</button></div>
-          <div id="ua-appearance-pick" style="margin-top:14px"></div></div>
-        <iframe class="per-preview-frame" id="ua-preview-frame" title="Report preview"></iframe>
-      </div></div>`;
-  document.body.appendChild(ov);
-  const frame = document.getElementById('ua-preview-frame');
-  const close = () => ov.remove();
-  ov.addEventListener('click', e => { if (e.target === ov) close(); });
-  document.getElementById('ua-preview-close').addEventListener('click', close);
-  const cbs = () => Array.from(ov.querySelectorAll('.ua-sec-cb'));
-  const selected = () => cbs().filter(c => c.checked).map(c => c.value);
-  const apply = () => { const doc = frame.contentDocument; if (!doc) return; const on = new Set(selected()); doc.querySelectorAll('[data-sec]').forEach(el => { el.style.display = on.has(el.getAttribute('data-sec')) ? '' : 'none'; }); };
-  frame.onload = apply; frame.srcdoc = reportHtml;
-  frame.style.background = backdropColor(_uaTheme);
-
-  // Re-render server-side when the report appearance changes, so preview == PDF.
-  const refreshAppearance = async () => {
+  _uaTheme = getSavedMode();
+  const fetchPreview = async (keys, theme) => {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
+        body: JSON.stringify({ report: _shownReport, preview: true, code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: theme || _uaTheme }),
       });
       const data = await resp.json();
-      if (data.ok) { frame.onload = apply; frame.srcdoc = data.html; }
-    } catch { showError('Could not refresh the preview.'); }
+      if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return null; }
+      return data.html || null;
+    } catch { showError('Could not reach the local server for the preview.'); return null; }
   };
-  const appearanceBox = document.getElementById('ua-appearance-pick');
-  if (appearanceBox) {
-    const picker = buildAppearancePicker({
-      current: _uaTheme,
-      compact: false,
-      onChange: (mode) => {
-        _uaTheme = mode;
-        frame.style.background = backdropColor(_uaTheme);
-        refreshAppearance();
-      },
-    });
-    appearanceBox.appendChild(picker);
-  }
-
-  cbs().forEach(c => c.addEventListener('change', apply));
-  document.getElementById('ua-pick-all').addEventListener('click', () => { cbs().forEach(c => { c.checked = true; }); apply(); });
-  document.getElementById('ua-pick-none').addEventListener('click', () => { cbs().forEach(c => { c.checked = false; }); apply(); });
-  document.getElementById('ua-preview-print').addEventListener('click', () => { apply(); try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { showError('Could not open the print dialog.'); } });
-  document.getElementById('ua-preview-save').addEventListener('click', async () => {
-    const outputPath = await window.pywebview.api.choose_save_path('update_analysis.pdf', 'pdf');
-    if (!outputPath) return;
-    const btn = document.getElementById('ua-preview-save'); if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-    try {
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/update/report`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, output_path: outputPath, sections: selected(), code_filter: _codeFilter(), scope_code: _scopePicked[0] || '', theme: _uaTheme }),
-      });
-      const data = await resp.json();
-      if (!data.ok) showError(`PDF export failed: ${data.error || 'unknown error'}`); else close();
-    } catch { showError('Could not reach the local server to export the PDF.'); }
-    finally { if (btn) { btn.disabled = false; btn.textContent = 'Save as PDF'; } }
+  const html = await fetchPreview(null, _uaTheme);
+  if (!html) return;
+  const sections = UA_SECTIONS.map(([key, label]) => ({ key, label }));
+  showReportPreview({
+    title: 'Update Analysis preview', subtitle: _shownReport.file || _shownReport.project_name || '', html,
+    sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_update', initialMode: _uaTheme,
+    feature: 'Update Analysis', exportName: 'update_analysis',
+    meta: { project: _shownReport.project_name || '', data_date: _shownReport.data_date ? String(_shownReport.data_date).slice(0, 10) : '' },
+    onRerender:    (keys, theme) => fetchPreview(keys, theme),
+    onThemeChange: (theme, keys) => { _uaTheme = theme; return fetchPreview(keys, theme); },
   });
 }
 
