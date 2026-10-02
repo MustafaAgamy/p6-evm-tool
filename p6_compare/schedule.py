@@ -62,6 +62,22 @@ def _snap(cal, t):
     return t
 
 
+def _snap_back(cal, t):
+    """The last working moment at or before ``t`` — a finish that lands outside working time
+    (e.g. an FF lag ending at the next morning's start) is the close of the last work period
+    before it: P6 shows 16:00 the day before, not 08:00 (comment 44, Grain Bulk / MAFI)."""
+    if cal is None or t is None:
+        return t
+    d = t.date()
+    for _ in range(_MAX_DAYS):
+        for a, b in reversed(_intervals(cal, d)):
+            if a < t:                         # a period's opening moment holds no work yet
+                return min(b, t)
+        d -= timedelta(days=1)
+        t = min(t, datetime(d.year, d.month, d.day) + timedelta(days=1))
+    return t
+
+
 def _at_work(cal, t):
     """True when ``t`` lies in a work period of ``cal`` or exactly at its close."""
     if cal is None or t is None:
@@ -150,13 +166,17 @@ _SNET = ('Start On', 'Start On or After', 'Mandatory Start')        # forward pa
 _FNET = ('Finish On', 'Finish On or After', 'Mandatory Finish')     # forward pass: finish no earlier than
 
 
-def forward_pass(data, data_date=None):
+def forward_pass(data, data_date=None, keep=None):
     """{oid: early_finish} for every activity — retained logic, in WORKING TIME as P6 schedules:
     remaining work starts at the first working moment after the data date / its predecessors,
     durations and lags are counted in working hours on the activity's calendar and the lag on
     the relationship's lag calendar (the project's 'Calendar for scheduling Relationship Lag'),
     FF / SF links also hold the start back, start / finish constraints are honoured.  Forward-
-    passing an already-F9'd update reproduces P6's early finishes (final P6 test, comment 44)."""
+    passing an already-F9'd update reproduces P6's early finishes (final P6 test, comment 44).
+
+    ``keep``: activities (ObjectIds) whose dates are P6's own, as the file holds them — the ones
+    a but-for change does not reach. P6 may have set them by resource leveling or before a later
+    calendar edit; either way they are what P6 shows, so they are kept, not recomputed."""
     graph = ScheduleGraph(data)
     acts, cals = graph.activities, graph.calendars
     dd = data_date or (getattr(data, 'project', None) or {}).get('data_date')
@@ -172,6 +192,11 @@ def forward_pass(data, data_date=None):
     for oid in _topo_order(graph, no_drive):
         act = acts.get(oid) or {}
         cal = cals.get(act.get('calendar_id'))
+        if keep and oid in keep and (act.get('actual_finish') or act.get('remaining_early_finish')):
+            es[oid] = act.get('actual_start') or act.get('remaining_early_start') or act.get('planned_start')
+            rs[oid] = act.get('remaining_early_start') or es[oid]
+            ef[oid] = act.get('actual_finish') or act.get('remaining_early_finish')
+            continue
         af = act.get('actual_finish')
         if af:                                    # completed — dates are actuals
             es[oid] = rs[oid] = act.get('actual_start') or af
@@ -232,16 +257,19 @@ def forward_pass(data, data_date=None):
             s = _snap(cal, s)
         e = _add(cal, s, rem_h)
         if finish_c is not None and (e is None or finish_c > e):
-            e = finish_c if (not finish_ms or _at_work(cal, finish_c)) else _snap(cal, finish_c)
+            if finish_ms:
+                e = finish_c if _at_work(cal, finish_c) else _snap(cal, finish_c)
+            else:
+                e = max(e, _snap_back(cal, finish_c)) if e is not None else _snap_back(cal, finish_c)
         es[oid] = a_start or _minute(s)
         rs[oid] = _minute(s)
         ef[oid] = _minute(e)
     return ef
 
 
-def project_finish(data, data_date=None):
+def project_finish(data, data_date=None, keep=None):
     """Forward-pass project finish datetime (latest early finish). None if undatable."""
-    ef = forward_pass(data, data_date)
+    ef = forward_pass(data, data_date, keep)
     finishes = [v for v in ef.values() if v is not None]
     return max(finishes) if finishes else None
 
@@ -305,4 +333,34 @@ def but_for_finish(update, ops):
     corrected = _copy.copy(update)
     corrected.activities = acts
     corrected.relationships = out_rels
-    return project_finish(corrected)
+    return project_finish(corrected, keep=unreached(corrected, ops, update.relationships))
+
+
+def unreached(data, ops, old_relationships=()):
+    """ObjectIds the revert ``ops`` cannot move: everything except the activities an op names
+    (a reverted duration, the successor of a reverted link) and all their successors, through
+    the corrected logic and the update's own. Those keep P6's dates as the file holds them, so
+    with no change applied the but-for finish IS P6's finish (comment 44); a Level of Effort
+    whose span touches a reached activity is reached too (it stretches between its neighbours)."""
+    acts = data.activities
+    by_code = {}
+    for oid, a in acts.items():
+        by_code.setdefault(a.get('id'), []).append(oid)
+    seeds = set()
+    for op in ops or []:
+        code = op.get('activity_id') if op.get('kind') == 'set_duration' else op.get('succ_code')
+        seeds.update(by_code.get(code, []))
+    succs, preds_of = {}, {}
+    for r in list(getattr(data, 'relationships', None) or []) + list(old_relationships or []):
+        succs.setdefault(r.get('pred_id'), set()).add(r.get('succ_id'))
+        preds_of.setdefault(r.get('succ_id'), set()).add(r.get('pred_id'))
+    reached, stack = set(seeds), list(seeds)
+    while stack:
+        for n in succs.get(stack.pop(), ()):
+            if n not in reached:
+                reached.add(n)
+                stack.append(n)
+    for oid, a in acts.items():
+        if a.get('task_type') in _NO_DRIVE and (succs.get(oid, set()) | preds_of.get(oid, set())) & reached:
+            reached.add(oid)
+    return set(acts) - reached

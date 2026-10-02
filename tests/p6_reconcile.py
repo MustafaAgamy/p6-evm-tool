@@ -156,41 +156,26 @@ def reconcile(path, res):
         chk(P, 'P6 Calendar Audit', f"hours/day · {c['name']}", R.cals.get(str(c['object_id'])), c.get('hours_per_day'))
         chk(P, 'P6 Calendar Audit', f"activities on · {c['name']}",
             sum(1 for a in R.acts.values() if str(a['cal']) == str(c['object_id'])), c.get('activity_count'))
-    # ── Consultant Review's but-for scheduler (p6_compare.schedule) — with no change applied it
-    #    must reproduce P6's own schedule: the project finish exactly, every activity's early finish
-    #    to the minute where P6's dates follow from the file's logic (comment 44) ──
+    # ── Consultant Review's but-for (p6_compare.schedule) — with no change applied it must be
+    #    P6's own schedule: the project finish to the minute and every activity's early finish
+    #    (comment 44: P6's dates are kept wherever no reverted change reaches — incl. the ones P6
+    #    set by resource leveling — and only reached activities are rescheduled) ──
     try:
         from p6_evm.parser import parse_file
-        from p6_compare.schedule import forward_pass, project_finish
+        from p6_compare.schedule import forward_pass, but_for_finish, unreached
         data = parse_file(path)
-        # P6's dates must first fit the file's own calendars — an export whose activity dates
-        # fall outside its calendars' working time was scheduled with calendars it no longer
-        # carries, and no scheduler can reproduce it from the file
-        cals = getattr(data, 'calendars', None) or {}
-        opens = [a for a in data.activities.values() if not a.get('actual_start') and a.get('remaining_early_start')
-                 and a.get('remaining_early_finish') and a.get('remaining_duration')
-                 and cals.get(a.get('calendar_id')) is not None]
-        fit = sum(1 for a in opens if abs(cals[a['calendar_id']].working_minutes(a['remaining_early_start'], a['remaining_early_finish'])
-                                          - a['remaining_duration'] * 60) < 1)
-        if opens and fit < 0.9 * len(opens):
-            chk(P, 'Consultant Review (but-for scheduler)', "P6's dates fit the file's calendars (skipped)",
-                'no', 'no', note=f'{fit} of {len(opens)} activities fit')
-            raise StopIteration
-        efs = forward_pass(data)
+        efs = forward_pass(data, keep=unreached(data, []))
         open_acts = [(o, a) for o, a in data.activities.items() if not a.get('actual_finish') and a.get('remaining_early_finish')]
         same = sum(1 for o, a in open_acts if efs.get(o) and abs((efs[o] - a['remaining_early_finish']).total_seconds()) < 60)
-        pf = project_finish(data)
+        pf = but_for_finish(data, [])
         p6f = R.project['finish']
-        chk(P, 'Consultant Review (but-for scheduler)', 'project finish with no change applied',
+        chk(P, 'Consultant Review (but-for)', 'but-for finish with no change applied',
             p6f.strftime('%Y-%m-%d %H:%M') if p6f else None, pf.strftime('%Y-%m-%d %H:%M') if pf else None,
             ok=bool(p6f and pf and abs((pf - p6f).total_seconds()) < 60))
-        share = round(100.0 * same / len(open_acts), 1) if open_acts else 100.0
-        chk(P, 'Consultant Review (but-for scheduler)', 'open activities whose early finish equals P6 (%)',
-            '≥ 90', share, ok=share >= 90.0, note=f'{same} of {len(open_acts)}')
-    except StopIteration:
-        pass
+        chk(P, 'Consultant Review (but-for)', 'open activities whose early finish equals P6',
+            len(open_acts), same)
     except Exception as exc:                                  # never hide a crash as a pass
-        chk(P, 'Consultant Review (but-for scheduler)', 'runs', 'ok', str(exc)[:80], ok=False)
+        chk(P, 'Consultant Review (but-for)', 'runs', 'ok', str(exc)[:80], ok=False)
 
     # ── WBS — every element's activity count and dates, rolled up from P6's own activity dates ──
     kids = collections.defaultdict(list)

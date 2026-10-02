@@ -111,3 +111,39 @@ def test_finish_to_finish_holds_the_start_back_and_a_finish_milestone_keeps_the_
 def test_a_start_constraint_and_whole_minutes():
     acts = [_act('A', 10.0 / 60.0, constraint_type='Start On or After', constraint_date=datetime(2026, 3, 10, 8))]
     assert forward_pass(_data(acts, []))['A'] == datetime(2026, 3, 10, 8, 10)
+
+
+def test_an_ff_landing_at_the_next_mornings_start_finishes_at_the_close_of_the_day_before():
+    """Grain Bulk: an FF + 24 h lag on a 24-hour lag calendar puts the finish at 08:00 next
+    morning; P6 shows the close of the working day before (16:00), not 08:00."""
+    always = Calendar(object_id='H', name='24h', nonworking_days=set(), day_hours=24.0,
+                      work_intervals={d: [(0, 1440)] for d in ('Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                                                               'Friday', 'Saturday', 'Sunday')})
+    acts = [_act('A', 24, calendar_id='H'), _act('B', 8)]
+    ef = forward_pass(_data(acts, [('A', 'B', 'FF', {'lag_hours': 24.0, 'lag_calendar_id': 'H'})],
+                            cals={'C': _cal(), 'H': always}))
+    # A: Sun 1 Mar 16:00 + 24 h = Mon 2 Mar 16:00; +24 h lag = Tue 3 Mar 16:00 -> B finishes then
+    assert ef['B'] == datetime(2026, 3, 3, 16, 0)
+    ef = forward_pass(_data(acts, [('A', 'B', 'FF', {'lag_hours': 16.0, 'lag_calendar_id': 'H'})],
+                            cals={'C': _cal(), 'H': always}))
+    # +16 h = Tue 3 Mar 08:00, the opening moment of Tuesday: P6 shows Mon 2 Mar 16:00
+    assert ef['B'] == datetime(2026, 3, 2, 16, 0)
+
+
+def test_the_but_for_keeps_p6s_dates_where_no_change_reaches():
+    """P6 may set dates the logic alone does not give (resource leveling, a calendar edited after
+    the last F9). The but-for keeps them for every activity a reverted change cannot reach, so with
+    no change applied it is P6's own schedule; a reached activity is rescheduled."""
+    from p6_compare.schedule import but_for_finish, unreached
+    leveled = datetime(2026, 3, 20, 16, 0)                  # P6 pushed C by leveling
+    acts = [_act('A', 8, remaining_early_finish=datetime(2026, 3, 2, 16, 0)),
+            _act('B', 8, remaining_early_finish=datetime(2026, 3, 3, 16, 0)),
+            _act('C', 8, remaining_early_start=datetime(2026, 3, 19, 8, 0), remaining_early_finish=leveled)]
+    d = _data(acts, [('A', 'B', 'FS', {}), ('A', 'C', 'FS', {})])
+    assert unreached(d, []) == {'A', 'B', 'C'}
+    assert but_for_finish(d, []) == leveled
+    assert forward_pass(d, keep=unreached(d, []))['C'] == leveled
+    # reverting the A -> C link to an SS reaches C (and only C): it is rescheduled from A
+    ops = [{'kind': 'set_rel', 'pred_code': 'A', 'succ_code': 'C', 'type': 'SS', 'lag_hours': 0.0}]
+    assert unreached(d, ops) == {'A', 'B'}
+    assert but_for_finish(d, ops) == datetime(2026, 3, 3, 16, 0)
