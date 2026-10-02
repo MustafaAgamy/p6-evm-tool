@@ -1,0 +1,32 @@
+{
+    "categories": [
+        {"name": "Design Phase I", "weight": 0.015, "wbs_match": "Phase I Design"},
+        {"name": "Engineering Phase I", "weight": 0.015, "wbs_match": "Phase I Engineering"},
+        {"name": "Phase II Design", "weight": 0.02, "wbs_match": "Phase II Design"},
+        {"name": "Construction", "weight": 0.95, "wbs_match": "Phase I Construction Works"}
+    ],
+    "audit": {
+        "float_threshold_days": 44,
+        "near_critical_days": 10,
+        "long_lag_days": 14,
+        "float_health": {
+            "high_target_pct": 5, "high_max_pct": 20, "high_max_penalty": 60,
+            "neg_target_pct": 0, "neg_max_pct": 5, "neg_max_penalty": 40
+        },
+        "default_severity": "Medium",
+        "category_severity": {
+            "Construction": "High"
+        },
+        "severity_penalties": {
+            "Critical": 40,
+            "High": 18,
+            "Medium": 8,
+            "Low": 3
+        },
+        "category_weights": {
+            "Schedule Logic": 0.5,
+            "Float Analysis": 0.5
+        },
+        "total_review_areas": 5
+    }
+}
