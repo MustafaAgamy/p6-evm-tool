@@ -1,0 +1,653 @@
+{
+  "archetype": "csp_solar_plant",
+  "schema": 2,
+  "context": "solar field + thermal storage + steam power block; mass assembly in the field, salt melting at start-up",
+  "brief": {
+    "intro": "New to this project type? A concentrated solar power plant uses mirrors to make heat, stores the heat, and then makes electricity with an ordinary steam turbine — so it can generate after sunset. In a tower plant, thousands of sun-tracking mirrors (heliostats) aim sunlight at a receiver on top of a tall tower; in a trough plant, long rows of curved mirrors heat oil in a pipe along their focus. The heat goes into molten salt held in two huge insulated tanks, hot and cold, and a steam generator uses it to drive the turbine. It is two projects in one: a solar field built by mass production — the same assembly repeated tens of thousands of times over square kilometres — and a compact, demanding thermal plant. The step newcomers don't expect is melting thousands of tonnes of salt and keeping every salt pipe hot so it never freezes.",
+    "scope": [
+      {
+        "name": "Site grading & drainage",
+        "desc": "Levelling a very large area to tight tolerances for the solar field."
+      },
+      {
+        "name": "Solar field foundations",
+        "desc": "Thousands of piles or pedestals for heliostats or trough collectors."
+      },
+      {
+        "name": "Collector assembly & installation",
+        "desc": "On-site assembly building, then installation and alignment of mirrors and drives."
+      },
+      {
+        "name": "Receiver tower / heat-transfer loop",
+        "desc": "Concrete tower and receiver (tower plants) or the oil header piping (trough plants)."
+      },
+      {
+        "name": "Thermal energy storage",
+        "desc": "Hot and cold molten-salt tanks, foundations, pumps and heat tracing."
+      },
+      {
+        "name": "Steam generation system",
+        "desc": "Salt-to-steam heat exchangers."
+      },
+      {
+        "name": "Power block",
+        "desc": "Steam turbine-generator, condenser (usually air-cooled) and feedwater plant."
+      },
+      {
+        "name": "Balance of plant",
+        "desc": "Water treatment, auxiliary boiler, compressed air and fire protection."
+      },
+      {
+        "name": "Electrical & grid connection",
+        "desc": "Field power and control network, substation and transmission line."
+      },
+      {
+        "name": "Salt melting & commissioning",
+        "desc": "Melting and filling the salt, receiver start-up, steam blowing, synchronisation."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Heliostat",
+        "plain": "a mirror on a two-axis drive that follows the sun and aims its reflection at the receiver."
+      },
+      {
+        "term": "Parabolic trough",
+        "plain": "a long curved mirror that focuses sunlight on a pipe running along it."
+      },
+      {
+        "term": "Receiver",
+        "plain": "the heat exchanger at the top of the tower that absorbs the concentrated sunlight."
+      },
+      {
+        "term": "HTF",
+        "plain": "heat-transfer fluid — the oil or salt that carries the heat."
+      },
+      {
+        "term": "Molten salt",
+        "plain": "a salt mixture that is liquid above about 240 °C, used to store heat."
+      },
+      {
+        "term": "Heat tracing",
+        "plain": "electric heating cables on salt pipes that keep them above freezing point."
+      },
+      {
+        "term": "Solar multiple",
+        "plain": "how much bigger the solar field is than the turbine needs, to charge the storage."
+      },
+      {
+        "term": "Salt melting",
+        "plain": "the one-off campaign of melting the solid salt and pumping it into the tanks."
+      },
+      {
+        "term": "Canting / alignment",
+        "plain": "adjusting each mirror so its reflection lands exactly on the receiver."
+      }
+    ],
+    "must_get_right": [
+      "Plan the solar field as a factory: assembly-line output per day, installation crews and alignment, tracked in units — it is the largest quantity and the easiest to underestimate.",
+      "The receiver tower (slip-formed concrete), the receiver itself and the salt tanks are the long single items; the tank foundations with their cooling pipes are specialised work.",
+      "Salt melting is a campaign of weeks needing a temporary melting plant, gas and the cold tank ready; heat tracing must be complete and tested first, or the salt freezes in the pipes.",
+      "The power block is a conventional steam plant with its own long-lead turbine and its own commissioning chain (steam blowing, synchronisation) that must meet the solar side at the right time."
+    ]
+  },
+  "components": [
+    {
+      "name": "Solar Field Civil",
+      "desc": "Grading, drainage and collector foundations",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Solar Collectors",
+      "desc": "Heliostats or troughs, drives and control",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Receiver Tower / HTF System",
+      "desc": "Tower and receiver, or oil loop",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Thermal Storage",
+      "desc": "Molten-salt tanks, pumps, piping and heat tracing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Power Block",
+      "desc": "Steam generator, turbine, condenser and auxiliaries",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Electrical & Control",
+      "desc": "Field network, substation, DCS",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Commissioning",
+      "desc": "Salt melting, receiver start-up, synchronisation, performance test",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Solar Field",
+      "items": [
+        "Heliostats / trough collectors",
+        "Drives & field control network",
+        "Receiver or HTF headers & expansion system"
+      ]
+    },
+    {
+      "discipline": "Thermal Storage",
+      "items": [
+        "Hot & cold salt tanks",
+        "Salt pumps & piping",
+        "Heat tracing & insulation"
+      ]
+    },
+    {
+      "discipline": "Power Block",
+      "items": [
+        "Steam generator train",
+        "Steam turbine-generator",
+        "Air-cooled condenser",
+        "Feedwater & water treatment"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & grid connection",
+        "Field power distribution",
+        "DCS & heliostat-field control"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Site Grading & Foundations",
+    "Collector Assembly & Installation",
+    "Tower, Receiver & Salt Tanks",
+    "Power Block Erection",
+    "Piping, Heat Tracing & Insulation",
+    "Salt Melting & Cold Commissioning",
+    "Solar Start-up, Synchronisation & Performance Test"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Solar field",
+      "Tower/TES",
+      "Power block",
+      "Salt melt",
+      "Start-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Grading & Collector Foundations",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 44,
+        "label": "Grade → drain → piles / pedestals",
+        "holds": []
+      },
+      {
+        "trade": "Mechanical — Collector Assembly & Installation",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 22,
+        "width": 50,
+        "label": "Assembly line → install → align",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Structural — Receiver Tower & Receiver",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 20,
+        "width": 46,
+        "label": "Slip-form → lift receiver → riser piping",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Mechanical — Molten-Salt Tanks & Piping",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 44,
+        "label": "Tanks → pumps → piping → heat trace → insulate",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Mechanical — Power Block",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 42,
+        "label": "Steam generator → turbine → condenser",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Electrical — Field Network, Substation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 44,
+        "label": "Field cabling → substation → DCS",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — Salt Melting, Start-up & Performance Test",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 76,
+        "width": 24,
+        "label": "Melt salt → heat up → steam → sync → test",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Grading & Collector Foundations",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [],
+      "steps": [
+        "Mass grading & drainage",
+        "Roads & assembly-building pad",
+        "Collector piles / pedestals to survey tolerance",
+        "Power-block & tank foundations (with tank cooling pipes)",
+        "Cable trenches"
+      ]
+    },
+    {
+      "name": "Mechanical — Collector Assembly & Installation",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Set up the on-site assembly line",
+        "Receive mirrors, structures & drives",
+        "Assemble collectors to the daily rate",
+        "Install on foundations & connect drives",
+        "Canting / optical alignment & tracking test by zone"
+      ]
+    },
+    {
+      "name": "Structural — Receiver Tower & Receiver",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Tower foundation",
+        "Slip-form the concrete tower",
+        "Receive receiver panels",
+        "Lift & install the receiver",
+        "Riser / downcomer piping & tower services"
+      ]
+    },
+    {
+      "name": "Mechanical — Molten-Salt Tanks & Piping",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Erect hot & cold salt tanks",
+        "Tank hydrotest & drying",
+        "Install salt pumps & piping",
+        "Heat tracing installed & tested before insulation",
+        "Insulation & cladding"
+      ]
+    },
+    {
+      "name": "Mechanical — Power Block",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Erect steam generator train",
+        "Receive steam turbine-generator",
+        "Set turbine-generator & align",
+        "Air-cooled condenser & feedwater plant",
+        "High-pressure piping & balance of plant"
+      ]
+    },
+    {
+      "name": "Electrical — Field Network, Substation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Field power & communication cabling",
+        "Substation & main transformer",
+        "DCS & heliostat-field control system",
+        "Back-energisation",
+        "Loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Salt Melting, Start-up & Performance Test",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Balance-of-plant commissioning",
+        "Salt melting & tank filling",
+        "Salt circulation & receiver / field start-up",
+        "Steam blowing",
+        "First synchronisation",
+        "Storage charge / discharge tests",
+        "Performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "CSP",
+      "name": "Concentrated Solar Power (CSP) Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "CSP.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "CSP.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "CSP.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "CSP.03.10",
+      "name": "Mirrors, structures & drives",
+      "level": 3
+    },
+    {
+      "code": "CSP.03.20",
+      "name": "Receiver / HTF equipment",
+      "level": 3
+    },
+    {
+      "code": "CSP.03.30",
+      "name": "Salt, tanks & pumps",
+      "level": 3
+    },
+    {
+      "code": "CSP.03.40",
+      "name": "Steam turbine-generator",
+      "level": 3
+    },
+    {
+      "code": "CSP.04",
+      "name": "Civil Works — Grading & Foundations",
+      "level": 2
+    },
+    {
+      "code": "CSP.04.10",
+      "name": "Site grading & drainage",
+      "level": 3
+    },
+    {
+      "code": "CSP.04.20",
+      "name": "Collector foundations",
+      "level": 3
+    },
+    {
+      "code": "CSP.04.30",
+      "name": "Power-block & tank foundations",
+      "level": 3
+    },
+    {
+      "code": "CSP.05",
+      "name": "Solar Field — Collector Assembly & Installation (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "CSP.05.10",
+      "name": "Assembly line",
+      "level": 3
+    },
+    {
+      "code": "CSP.05.20",
+      "name": "Field installation",
+      "level": 3
+    },
+    {
+      "code": "CSP.05.30",
+      "name": "Alignment & tracking tests",
+      "level": 3
+    },
+    {
+      "code": "CSP.06",
+      "name": "Receiver Tower & Receiver (Structure)",
+      "level": 2
+    },
+    {
+      "code": "CSP.06.10",
+      "name": "Tower",
+      "level": 3
+    },
+    {
+      "code": "CSP.06.20",
+      "name": "Receiver",
+      "level": 3
+    },
+    {
+      "code": "CSP.07",
+      "name": "Thermal Storage — Molten-Salt Tanks & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "CSP.07.10",
+      "name": "Tanks",
+      "level": 3
+    },
+    {
+      "code": "CSP.07.20",
+      "name": "Salt pumps & piping",
+      "level": 3
+    },
+    {
+      "code": "CSP.07.30",
+      "name": "Heat tracing & insulation",
+      "level": 3
+    },
+    {
+      "code": "CSP.08",
+      "name": "Power Block (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "CSP.08.10",
+      "name": "Steam generator",
+      "level": 3
+    },
+    {
+      "code": "CSP.08.20",
+      "name": "Turbine-generator",
+      "level": 3
+    },
+    {
+      "code": "CSP.08.30",
+      "name": "Condenser & balance of plant",
+      "level": 3
+    },
+    {
+      "code": "CSP.09",
+      "name": "Electrical — Field Network, Substation & Control",
+      "level": 2
+    },
+    {
+      "code": "CSP.10",
+      "name": "Commissioning — Salt Melting, Start-up & Performance Test",
+      "level": 2
+    },
+    {
+      "code": "CSP.10.10",
+      "name": "Salt melting",
+      "level": 3
+    },
+    {
+      "code": "CSP.10.20",
+      "name": "Solar & steam start-up",
+      "level": 3
+    },
+    {
+      "code": "CSP.10.30",
+      "name": "Synchronisation & performance test",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. The solar field is organised by zone and planned by production rate; the tower, storage and power block are organised by area and system."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; high-wind days stop mirror installation and tower lifts, and are allowed for. Salt melting runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Grading → foundations → collector assembly and installation by zone → alignment. In parallel: tower → receiver; tanks → salt piping → heat tracing → insulation; power block → steam piping. Then salt melting → salt circulation → receiver start-up → steam blowing → synchronisation → storage tests → performance test. The critical path runs through the turbine, the tower and receiver, or the salt system."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The grid connection is ready for back-energisation; gas or fuel is available for salt melting and the auxiliary boiler; mirror supply sustains the assembly rate."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Steam turbine-generator",
+              "18–24 months",
+              "Before power-block erection"
+            ],
+            [
+              "Receiver (tower plants)",
+              "14–20 months",
+              "Before tower top-out lift"
+            ],
+            [
+              "Molten salt (thousands of tonnes) & salt pumps",
+              "10–14 months",
+              "Before salt melting"
+            ],
+            [
+              "Mirrors, drives & collector structures",
+              "8–12 months, then continuous",
+              "To the assembly-line rate"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Very large site with long travel distances; wind limits; mirror breakage and dust; work at height on the tower; hot-salt safety rules after melting."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: solar-field productivity, wind delays, heat-tracing defects causing salt freezing, tank foundation or tank leaks, late turbine or receiver, and performance below guarantee. Contingency is held before salt melting and before the performance test."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by solar-field zone, area and system; expanded to Level 4–5 lookahead for the assembly, installation and piping crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

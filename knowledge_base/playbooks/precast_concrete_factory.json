@@ -1,0 +1,721 @@
+{
+  "archetype": "precast_concrete_factory",
+  "schema": 2,
+  "context": "factory · batching plant, casting beds / carousel, curing and gantry-crane yard",
+  "brief": {
+    "intro": "New to this project type? A precast factory makes concrete elements — hollow-core slabs, wall panels, beams, columns, stairs — under a roof, then stores them in a yard and ships them to site. Inside the hall there is a concrete batching plant, a way of carrying fresh concrete to the moulds (bucket conveyor or flying bucket), the moulds themselves — long steel beds for prestressed products or a circulating pallet carousel for walls — a reinforcement workshop, and curing. Outside, a large stockyard is served by gantry cranes. The building is simple; the things that drive the programme are the heavy, very flat and accurately levelled foundations for the casting beds and prestressing abutments, the delivery of the production machinery, and the cranes without which nothing can be lifted out of a mould.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Aggregate storage & batching plant",
+        "desc": "Bins, cement silos, mixer and controls that produce the concrete."
+      },
+      {
+        "name": "Concrete distribution",
+        "desc": "Bucket conveyor or flying bucket that carries concrete from the mixer to the moulds."
+      },
+      {
+        "name": "Casting beds & prestressing",
+        "desc": "Long steel beds with stressing abutments for hollow-core and prestressed products."
+      },
+      {
+        "name": "Pallet carousel & moulds",
+        "desc": "Circulating steel pallets, shuttering robot and tilting tables for wall and floor panels."
+      },
+      {
+        "name": "Reinforcement workshop",
+        "desc": "Mesh welding, bar cutting and bending, cage assembly."
+      },
+      {
+        "name": "Curing & finishing",
+        "desc": "Curing chambers or covered beds, saws, finishing and repair area."
+      },
+      {
+        "name": "Stockyard & dispatch",
+        "desc": "Gantry cranes, storage racks and truck loading."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Compressed air, Steam / hot water for curing, Process water & recycling, Fire water — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Trial mixes, first casts on each bed and line, strength results, then product certification."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Hollow-core slab",
+        "plain": "a prestressed floor slab with continuous holes along its length, made on a long bed by a machine."
+      },
+      {
+        "term": "Casting bed",
+        "plain": "a long, flat steel bed (often 100 m or more) on which products are cast."
+      },
+      {
+        "term": "Prestressing",
+        "plain": "stretching steel strands before the concrete is poured, so the finished element is squeezed and stronger."
+      },
+      {
+        "term": "Abutment",
+        "plain": "the heavy block at each end of a bed that resists the pull of the stressed strands."
+      },
+      {
+        "term": "Extruder / slipformer",
+        "plain": "the machine that travels along the bed forming the hollow-core slab."
+      },
+      {
+        "term": "Pallet carousel",
+        "plain": "a production line where steel pallets carrying the moulds move from station to station."
+      },
+      {
+        "term": "Curing chamber",
+        "plain": "a warm, humid store where fresh elements harden quickly."
+      },
+      {
+        "term": "Stripping strength",
+        "plain": "the concrete strength at which an element may be lifted out of the mould."
+      }
+    ],
+    "must_get_right": [
+      "Bed and abutment foundations are heavy and must be flat and level to millimetres; they need the machinery supplier's drawings and take longer than the building footings.",
+      "Order the production machinery at the start — beds, carousel and batching plant are made to order and set the installation date.",
+      "Cranes come before production: the hall cranes and yard gantries must be load-tested before the first element can be lifted.",
+      "Allow time for trial mixes, strength results (days of curing) and product certification before the factory can sell."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Production Machinery",
+      "desc": "Batching plant, casting machines, beds, carousel and moulds",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Stockyard Gantry Cranes",
+      "desc": "Rails → cranes → load test",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Compressed air, Steam / hot water for curing, Process water & recycling, Fire water",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Production Machinery",
+      "items": [
+        "Aggregate storage & batching plant",
+        "Concrete distribution",
+        "Casting beds & prestressing",
+        "Pallet carousel & moulds",
+        "Reinforcement workshop",
+        "Curing & finishing",
+        "Stockyard & dispatch"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Compressed air",
+        "Steam / hot water for curing",
+        "Process water & recycling",
+        "Fire water"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Production Machinery",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Batching plant → beds / carousel → saws",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Structural — Stockyard Gantry Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 50,
+        "width": 30,
+        "label": "Rails → cranes → load test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Dry run → trial mix → first cast → certify",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Production Machinery",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production machinery (factory test done)",
+        "Erect batching plant, silos & mixer",
+        "Install concrete distribution (bucket track)",
+        "Install casting beds, abutments & extruder / slipformer",
+        "Install pallet carousel, tilting tables & curing chamber",
+        "Install saws, mesh welder & bar machines"
+      ]
+    },
+    {
+      "name": "Structural — Stockyard Gantry Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Crane-rail foundations & rails to tolerance",
+        "Erect gantry cranes",
+        "Load test & certification",
+        "Storage racks & yard paving"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: compressed air, steam / hot water for curing, process water & recycling",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Dry run of each machine",
+        "Batching plant calibration & trial mixes",
+        "First cast on beds & carousel",
+        "Stressing & de-tensioning trial",
+        "Cube strength results & product approval",
+        "Ramp-up & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "PCF",
+      "name": "Precast Concrete Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "PCF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "PCF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "PCF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "PCF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "PCF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "PCF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "PCF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "PCF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "PCF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "PCF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PCF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "PCF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "PCF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "PCF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "PCF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "PCF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "PCF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "PCF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "PCF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "PCF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "PCF.06.10",
+      "name": "Aggregate storage & batching plant",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.20",
+      "name": "Concrete distribution",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.30",
+      "name": "Casting beds & prestressing",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.40",
+      "name": "Pallet carousel & moulds",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.50",
+      "name": "Reinforcement workshop",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.60",
+      "name": "Curing & finishing",
+      "level": 3
+    },
+    {
+      "code": "PCF.06.70",
+      "name": "Stockyard & dispatch",
+      "level": 3
+    },
+    {
+      "code": "PCF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "PCF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PCF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "PCF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "PCF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "PCF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "PCF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "PCF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "PCF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "PCF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "PCF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "PCF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "PCF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Vendor drawings → bed, abutment and machine foundations → steel building → roof → floor → cranes → machinery installation → power and utilities → dry runs → trial mixes → first casts → certification. The critical path normally runs through the machinery order and the bed foundations."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Casting machines, beds & pallet carousel",
+              "24–36 weeks",
+              "Before equipment installation"
+            ],
+            [
+              "Batching plant & concrete distribution",
+              "16–24 weeks",
+              "Before equipment installation"
+            ],
+            [
+              "Hall cranes & yard gantry cranes",
+              "16–22 weeks",
+              "Before first casts"
+            ],
+            [
+              "Mesh welding & bar processing machines",
+              "14–20 weeks",
+              "Before reinforcement workshop set-up"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late vendor drawings delaying foundations, bed levels out of tolerance, late machinery, crane certification, and slow strength gain delaying product approval. Contingency is held before first cast."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

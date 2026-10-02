@@ -1,0 +1,680 @@
+{
+  "archetype": "offshore_platform",
+  "schema": 2,
+  "context": "fabricate onshore, install offshore · load-out, sail-away and the weather window fix the dates",
+  "brief": {
+    "intro": "New to this project type? An offshore platform is built on land and finished at sea. In a fabrication yard, the steel support structure (the jacket) and the deck with all its process equipment (the topsides) are built as large modules, fitted out and tested as far as possible, because every hour of work offshore costs many times more than the same hour onshore. The finished structures are skidded onto barges (load-out), towed to the field (sail-away) and installed by a heavy-lift vessel in a short season when the sea is calm enough. Then the modules are connected, pipelines and risers tied in, and the systems commissioned offshore. The installation vessel is booked years ahead for a fixed window, so the whole project is planned backwards from that date. A floating production unit (FPSO) follows the same idea with a ship hull instead of a jacket.",
+    "scope": [
+      {
+        "name": "Engineering & weight control",
+        "desc": "Design, with the weight and centre of gravity of every module tracked throughout."
+      },
+      {
+        "name": "Procurement",
+        "desc": "Long-lead process packages, compressors, generators and structural steel."
+      },
+      {
+        "name": "Jacket fabrication",
+        "desc": "Rolling tubulars, node welding, assembly and anodes."
+      },
+      {
+        "name": "Topsides fabrication",
+        "desc": "Deck structure, equipment installation, piping, electrical and instrumentation."
+      },
+      {
+        "name": "Onshore commissioning",
+        "desc": "Testing as many systems as possible in the yard."
+      },
+      {
+        "name": "Load-out & sea-fastening",
+        "desc": "Moving the structures onto barges and securing them for the voyage."
+      },
+      {
+        "name": "Transport & installation",
+        "desc": "Tow, jacket launch or lift, piling, and topsides lift or float-over."
+      },
+      {
+        "name": "Subsea & pipelines",
+        "desc": "Pipelines, risers, umbilicals and subsea tie-ins."
+      },
+      {
+        "name": "Hook-up",
+        "desc": "Offshore connection of modules, piping, cables and systems."
+      },
+      {
+        "name": "Offshore commissioning & first oil",
+        "desc": "Leak tests, system commissioning, well start-up and first production."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Jacket",
+        "plain": "the steel lattice structure standing on the seabed that carries the deck."
+      },
+      {
+        "term": "Topsides",
+        "plain": "the deck modules with all the process, power and living-quarters equipment."
+      },
+      {
+        "term": "Load-out",
+        "plain": "moving a finished structure from the yard onto a barge."
+      },
+      {
+        "term": "Sail-away",
+        "plain": "the date the barge leaves the yard for the field."
+      },
+      {
+        "term": "Heavy-lift vessel (HLV)",
+        "plain": "the crane vessel that installs the jacket and topsides."
+      },
+      {
+        "term": "Float-over",
+        "plain": "installing a topsides by floating a barge between the jacket legs and lowering the deck onto them."
+      },
+      {
+        "term": "Hook-up",
+        "plain": "the offshore work of connecting everything after installation."
+      },
+      {
+        "term": "Carry-over work",
+        "plain": "work not finished in the yard that must be done offshore — expensive, to be minimised."
+      },
+      {
+        "term": "Weather window",
+        "plain": "the season when sea conditions allow installation."
+      },
+      {
+        "term": "First oil / first gas",
+        "plain": "the first production — the milestone the whole project aims at."
+      }
+    ],
+    "must_get_right": [
+      "Plan backwards from the installation window: the heavy-lift vessel is booked for fixed dates, and missing them can cost a year.",
+      "Finish and test in the yard. Every incomplete system at sail-away becomes carry-over work offshore; track onshore completion by system, not by percentage.",
+      "Control weight from the first day — a module that grows too heavy for the crane or the barge is a schedule problem as much as a design one.",
+      "Offshore work is limited by beds and by weather: plan hook-up in man-hours against the accommodation available, with weather downtime included."
+    ]
+  },
+  "components": [
+    {
+      "name": "Jacket & Piles",
+      "desc": "Tubular structure, piles and anodes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Topsides Structure",
+      "desc": "Deck modules, living quarters and helideck",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Process & Mechanical Equipment",
+      "desc": "Separators, compressors, generators and packages",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Piping",
+      "desc": "Process and utility piping on the modules",
+      "disc": "Piping",
+      "primary": true
+    },
+    {
+      "name": "Electrical, Instrumentation & Telecom",
+      "desc": "Power, control, safety and telecom systems",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Marine Installation",
+      "desc": "Load-out, transport and offshore installation",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Subsea & Pipelines",
+      "desc": "Pipelines, risers and tie-ins",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Hook-up & Commissioning",
+      "desc": "Offshore completion, commissioning and first oil",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Process",
+      "items": [
+        "Separation & oil treatment",
+        "Gas compression & dehydration",
+        "Water injection & produced-water treatment",
+        "Flare & relief"
+      ]
+    },
+    {
+      "discipline": "Utilities & Power",
+      "items": [
+        "Gas-turbine generators",
+        "Seawater, firewater & HVAC",
+        "Instrument air & nitrogen"
+      ]
+    },
+    {
+      "discipline": "Safety",
+      "items": [
+        "Fire & gas detection",
+        "Emergency shutdown & blowdown",
+        "Lifeboats & life-saving equipment"
+      ]
+    },
+    {
+      "discipline": "Control & Telecom",
+      "items": [
+        "Integrated control & safety system",
+        "Telecom & subsea control"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Jacket & Deck Fabrication",
+    "Equipment Installation & Outfitting",
+    "Onshore Commissioning",
+    "Load-out & Sail-away",
+    "Offshore Installation",
+    "Hook-up",
+    "Offshore Commissioning & First Oil"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Fabricate",
+      "Outfit",
+      "Onshore test",
+      "Load-out",
+      "Install",
+      "Hook-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Structural — Jacket Fabrication",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 10,
+        "width": 40,
+        "label": "Roll → nodes → frames → roll-up",
+        "holds": [
+          50
+        ]
+      },
+      {
+        "trade": "Structural — Topsides Deck Structure",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 12,
+        "width": 38,
+        "label": "Panels → deck stacking → modules",
+        "holds": [
+          50
+        ]
+      },
+      {
+        "trade": "Mechanical — Equipment Installation",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 32,
+        "label": "Receive → set → align",
+        "holds": [
+          62
+        ]
+      },
+      {
+        "trade": "Piping — Fabrication & Installation",
+        "disc": "Piping",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 28,
+        "width": 40,
+        "label": "Spools → install → test → reinstate",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Electrical — Electrical, Instrumentation & Telecom",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 34,
+        "width": 38,
+        "label": "Trays → cables → terminate → loops",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Civil — Load-out, Transport & Installation",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 62,
+        "width": 22,
+        "label": "Load-out → sea-fasten → tow → install",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Hook-up & Offshore Commissioning",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Hook-up → leak test → commission → first oil",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Structural — Jacket Fabrication",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive structural steel",
+        "Roll tubulars & fabricate nodes",
+        "Assemble frames & roll-up",
+        "Weld NDT & dimensional control",
+        "Install anodes, risers guides & appurtenances",
+        "Fabricate piles"
+      ]
+    },
+    {
+      "name": "Structural — Topsides Deck Structure",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Fabricate deck panels & trusses",
+        "Stack decks & weld out",
+        "Living quarters & helideck",
+        "Weight report & dimensional control at each stage",
+        "Blasting & painting"
+      ]
+    },
+    {
+      "name": "Mechanical — Equipment Installation",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive process packages, compressors & generators",
+        "Set equipment & skids on the decks",
+        "Align rotating equipment",
+        "Install cranes, lifeboats & HVAC"
+      ]
+    },
+    {
+      "name": "Piping — Fabrication & Installation",
+      "disc": "Piping",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Prefabricate spools",
+        "Install piping & supports",
+        "NDT & hydrotest by test pack",
+        "Reinstatement, flushing & chemical cleaning",
+        "Insulation & painting"
+      ]
+    },
+    {
+      "name": "Electrical — Electrical, Instrumentation & Telecom",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Cable trays & supports",
+        "Cable pulling & termination",
+        "Field instruments & fire and gas detectors",
+        "Switchboards, control & safety systems",
+        "Loop checks & function tests in the yard"
+      ]
+    },
+    {
+      "name": "Civil — Load-out, Transport & Installation",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Onshore commissioning complete; carry-over list agreed",
+        "Load-out onto barges & sea-fastening",
+        "Tow to field",
+        "Jacket installation & piling within the weather window",
+        "Topsides lift or float-over"
+      ]
+    },
+    {
+      "name": "Commissioning — Hook-up & Offshore Commissioning",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        4
+      ],
+      "steps": [
+        "Offshore hook-up of structure, piping & cables",
+        "Pipeline, riser & subsea tie-ins",
+        "Leak tests & system commissioning",
+        "Safety systems proven & regulator consent",
+        "First oil / first gas",
+        "Performance test & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "OFP",
+      "name": "Offshore Platform / FPSO — Project",
+      "level": 1
+    },
+    {
+      "code": "OFP.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "OFP.02",
+      "name": "Engineering & Weight Control",
+      "level": 2
+    },
+    {
+      "code": "OFP.02.10",
+      "name": "Detailed engineering",
+      "level": 3
+    },
+    {
+      "code": "OFP.02.20",
+      "name": "Installation engineering",
+      "level": 3
+    },
+    {
+      "code": "OFP.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "OFP.03.10",
+      "name": "Process packages & rotating equipment",
+      "level": 3
+    },
+    {
+      "code": "OFP.03.20",
+      "name": "Structural steel",
+      "level": 3
+    },
+    {
+      "code": "OFP.03.30",
+      "name": "Bulk piping, electrical & instruments",
+      "level": 3
+    },
+    {
+      "code": "OFP.04",
+      "name": "Jacket Fabrication (Steel Structure)",
+      "level": 2
+    },
+    {
+      "code": "OFP.04.10",
+      "name": "Tubulars & nodes",
+      "level": 3
+    },
+    {
+      "code": "OFP.04.20",
+      "name": "Assembly & roll-up",
+      "level": 3
+    },
+    {
+      "code": "OFP.04.30",
+      "name": "Piles & appurtenances",
+      "level": 3
+    },
+    {
+      "code": "OFP.05",
+      "name": "Topsides Deck Structure (Steel)",
+      "level": 2
+    },
+    {
+      "code": "OFP.05.10",
+      "name": "Deck fabrication",
+      "level": 3
+    },
+    {
+      "code": "OFP.05.20",
+      "name": "Living quarters & helideck",
+      "level": 3
+    },
+    {
+      "code": "OFP.05.30",
+      "name": "Painting",
+      "level": 3
+    },
+    {
+      "code": "OFP.06",
+      "name": "Mechanical Equipment Installation",
+      "level": 2
+    },
+    {
+      "code": "OFP.07",
+      "name": "Piping — Fabrication & Installation",
+      "level": 2
+    },
+    {
+      "code": "OFP.07.10",
+      "name": "Prefabrication",
+      "level": 3
+    },
+    {
+      "code": "OFP.07.20",
+      "name": "Installation",
+      "level": 3
+    },
+    {
+      "code": "OFP.07.30",
+      "name": "Testing & reinstatement",
+      "level": 3
+    },
+    {
+      "code": "OFP.08",
+      "name": "Electrical, Instrumentation & Telecom",
+      "level": 2
+    },
+    {
+      "code": "OFP.09",
+      "name": "Onshore Commissioning",
+      "level": 2
+    },
+    {
+      "code": "OFP.10",
+      "name": "Marine — Load-out, Transport & Installation",
+      "level": 2
+    },
+    {
+      "code": "OFP.10.10",
+      "name": "Load-out & sea-fastening",
+      "level": 3
+    },
+    {
+      "code": "OFP.10.20",
+      "name": "Transport",
+      "level": 3
+    },
+    {
+      "code": "OFP.10.30",
+      "name": "Jacket installation & piling",
+      "level": 3
+    },
+    {
+      "code": "OFP.10.40",
+      "name": "Topsides installation",
+      "level": 3
+    },
+    {
+      "code": "OFP.11",
+      "name": "Subsea, Pipelines & Risers (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "OFP.12",
+      "name": "Hook-up & Offshore Commissioning",
+      "level": 2
+    },
+    {
+      "code": "OFP.12.10",
+      "name": "Hook-up",
+      "level": 3
+    },
+    {
+      "code": "OFP.12.20",
+      "name": "Commissioning",
+      "level": 3
+    },
+    {
+      "code": "OFP.12.30",
+      "name": "First oil & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Fabrication is organised by structure and module; completion and commissioning are organised by system, onshore and offshore; the installation campaign is a fixed-date block."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Yard calendar with extended shifts; offshore calendar of 12-hour shifts, seven days, with weather downtime allowances by season."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Engineering → steel and equipment delivery → fabrication → equipment, piping, electrical → onshore commissioning by system → load-out → sail-away → installation in the weather window → hook-up → offshore commissioning → first oil. The critical path runs through long-lead equipment into topsides completion before sail-away, then the installation window."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The installation vessel arrives on its contracted dates; weather follows the seasonal statistics; wells and pipelines are ready for start-up at the planned time."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Gas compressors & turbine generators",
+              "18–26 months",
+              "Before equipment installation in the yard"
+            ],
+            [
+              "Process packages (separation, dehydration, water injection)",
+              "14–20 months",
+              "Before equipment installation"
+            ],
+            [
+              "Heavy-lift vessel booking",
+              "24–36 months ahead",
+              "On the installation window"
+            ],
+            [
+              "Structural steel (special grades)",
+              "6–10 months",
+              "Before jacket and deck fabrication"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Weight and space limits on every module; simultaneous trades inside dense modules; offshore beds limit manpower; simultaneous operations with drilling."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: weight growth, late equipment forcing carry-over work, missing the weather window, installation damage, and offshore productivity. Contingency is held before sail-away and inside the installation window."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by module, then system; expanded to Level 4–5 lookahead for the yard disciplines and the offshore hook-up crew — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "API RP 2A — planning, designing and constructing fixed offshore platforms"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

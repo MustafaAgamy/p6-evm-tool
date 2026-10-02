@@ -1,0 +1,679 @@
+{
+  "archetype": "pipe_factory",
+  "schema": 2,
+  "context": "factory · long production lines; forming and welding or extrusion, testing and coating",
+  "brief": {
+    "intro": "New to this project type? A pipe factory is a long hall with one or more straight production lines. A steel pipe line uncoils strip or plate, forms it into a tube (spirally, or lengthwise), welds the seam, cuts the pipe to length, tests every pipe with water pressure and ultrasound or X-ray, and often coats it inside and out. A plastic (HDPE or PVC) pipe line melts pellets in an extruder, pushes them through a die, sizes and cools the pipe in long vacuum and water tanks, pulls it, cuts it and coils or stacks it. The buildings are simple; the lines are long, need accurate floors and foundations, a lot of power and cooling water, and outdoor space as large as the hall to store pipe.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Raw material storage",
+        "desc": "Coil / plate yard, or resin silos and blending."
+      },
+      {
+        "name": "Forming & welding / extrusion",
+        "desc": "Uncoiler, forming and seam welding; or extruder, die and calibration."
+      },
+      {
+        "name": "Cut-off & finishing",
+        "desc": "Travelling cut-off, end bevelling or socketing."
+      },
+      {
+        "name": "Testing & inspection",
+        "desc": "Hydrostatic tester, ultrasonic / X-ray, laboratory."
+      },
+      {
+        "name": "Coating plant",
+        "desc": "Blasting, external 3-layer coating and internal lining (steel)."
+      },
+      {
+        "name": "Pipe yard & dispatch",
+        "desc": "Racks, cranes or vacuum lifters and truck loading."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Chilled & cooling water, Compressed air, Natural gas (coating ovens), Dust & fume extraction — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Line trials, first pipes, qualification tests and third-party product certification for each size range."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "SAW / ERW",
+        "plain": "two ways of welding steel pipe seams: submerged-arc welding, or electric-resistance welding."
+      },
+      {
+        "term": "Spiral pipe",
+        "plain": "pipe formed by winding steel strip in a spiral and welding the seam."
+      },
+      {
+        "term": "Extruder",
+        "plain": "the machine that melts plastic pellets and pushes the melt through a die to form pipe."
+      },
+      {
+        "term": "Calibration tank",
+        "plain": "the vacuum tank that sizes the hot plastic pipe to its exact diameter."
+      },
+      {
+        "term": "Haul-off",
+        "plain": "the caterpillar unit that pulls the pipe through the line at a steady speed."
+      },
+      {
+        "term": "Hydrotester",
+        "plain": "the machine that fills each pipe with water and holds it at test pressure."
+      },
+      {
+        "term": "3LPE / FBE",
+        "plain": "factory-applied external coatings that protect steel pipe from corrosion."
+      },
+      {
+        "term": "Qualification",
+        "plain": "the formal tests that prove the product meets its standard before it can be sold."
+      }
+    ],
+    "must_get_right": [
+      "Layout first: line length, crane coverage and material flow decide the building; get the line supplier's general arrangement before designing the hall.",
+      "Cooling water and power are large — size and schedule the chillers, cooling towers and transformers with the lines, not after.",
+      "The pipe yard is part of the factory: paving, racks and lifting equipment must be ready for first production.",
+      "Product qualification and third-party certification come after the first pipes and can take weeks; sales cannot start before them."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Pipe Production Lines",
+      "desc": "Forming / welding or extrusion lines, testing and coating",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Chilled & cooling water, Compressed air, Natural gas (coating ovens), Dust & fume extraction",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Pipe Production Lines",
+      "items": [
+        "Raw material storage",
+        "Forming & welding / extrusion",
+        "Cut-off & finishing",
+        "Testing & inspection",
+        "Coating plant",
+        "Pipe yard & dispatch"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Chilled & cooling water",
+        "Compressed air",
+        "Natural gas (coating ovens)",
+        "Dust & fume extraction"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Pipe Production Lines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Material → form / extrude → cut → test → coat",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Dry run → first pipe → qualification → certify",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Pipe Production Lines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production lines",
+        "Install uncoiler / resin feeding",
+        "Install forming & welding mill or extruder, die & cooling tanks",
+        "Install cut-off, bevelling & handling conveyors",
+        "Install hydrotester & NDT stations",
+        "Install coating plant (blast, ovens, applicators)",
+        "Align each line over its full length"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: chilled & cooling water, compressed air, natural gas (coating ovens)",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        5
+      ],
+      "steps": [
+        "Dry run of each line",
+        "Welding / extrusion trials & parameter set-up",
+        "First pipes & dimensional checks",
+        "Hydrotest & NDT system calibration",
+        "Coating trials",
+        "Product qualification & third-party certification",
+        "Ramp-up & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "PIP",
+      "name": "Pipe Factory (Steel & HDPE) — Project",
+      "level": 1
+    },
+    {
+      "code": "PIP.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "PIP.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "PIP.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "PIP.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "PIP.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "PIP.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "PIP.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "PIP.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "PIP.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "PIP.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PIP.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "PIP.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "PIP.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "PIP.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "PIP.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "PIP.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "PIP.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "PIP.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "PIP.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "PIP.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "PIP.06.10",
+      "name": "Raw material storage",
+      "level": 3
+    },
+    {
+      "code": "PIP.06.20",
+      "name": "Forming & welding / extrusion",
+      "level": 3
+    },
+    {
+      "code": "PIP.06.30",
+      "name": "Cut-off & finishing",
+      "level": 3
+    },
+    {
+      "code": "PIP.06.40",
+      "name": "Testing & inspection",
+      "level": 3
+    },
+    {
+      "code": "PIP.06.50",
+      "name": "Coating plant",
+      "level": 3
+    },
+    {
+      "code": "PIP.06.60",
+      "name": "Pipe yard & dispatch",
+      "level": 3
+    },
+    {
+      "code": "PIP.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "PIP.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PIP.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "PIP.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "PIP.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "PIP.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "PIP.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "PIP.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "PIP.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "PIP.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "PIP.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "PIP.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "PIP.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Supplier layout → foundations and long line floors → building and cranes → line installation and alignment → cooling water, power and air → dry runs → first pipes → qualification and certification. The critical path runs through the production-line delivery, then certification."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Pipe mill / extrusion lines",
+              "26–40 weeks",
+              "Before line installation"
+            ],
+            [
+              "Coating plant",
+              "24–32 weeks",
+              "Before coating trials"
+            ],
+            [
+              "Hydrotester & NDT systems",
+              "20–28 weeks",
+              "Before qualification"
+            ],
+            [
+              "Chillers & cooling towers",
+              "14–20 weeks",
+              "Before line trials"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late line delivery, floor and foundation tolerances, insufficient cooling or power at start-up, and failed qualification tests. Contingency is held before first certified production."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

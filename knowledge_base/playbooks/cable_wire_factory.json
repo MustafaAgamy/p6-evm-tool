@@ -1,0 +1,724 @@
+{
+  "archetype": "cable_wire_factory",
+  "schema": 2,
+  "context": "factory · drawing, stranding and extrusion lines; a tall CV tower or long CCV line for MV / HV cable",
+  "brief": {
+    "intro": "New to this project type? A cable factory starts with copper or aluminium rod, draws it down to wire, twists (strands) the wires into a conductor, covers the conductor with insulation in an extrusion line, assembles the insulated cores together, and adds screens, armour and an outer sheath. Every finished cable is electrically tested. For low-voltage cable these are compact machines in an ordinary hall. For medium and high voltage, the insulation is applied and cured in a CV line — either a long, sloping tube (catenary) or a tower 60–150 m tall — followed by days of degassing in heated rooms and testing in a screened high-voltage laboratory. That line, its tower and the test laboratory dominate both the building and the programme.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Rod breakdown & wire drawing",
+        "desc": "Drawing machines with annealers."
+      },
+      {
+        "name": "Stranding & compacting",
+        "desc": "Bunchers and stranders that form the conductor."
+      },
+      {
+        "name": "Insulation extrusion (LV)",
+        "desc": "PVC / XLPE extrusion lines with cooling troughs."
+      },
+      {
+        "name": "CV line (MV / HV)",
+        "desc": "Triple-extrusion head and curing tube — catenary or vertical tower."
+      },
+      {
+        "name": "Degassing",
+        "desc": "Heated rooms where MV / HV cores rest for days."
+      },
+      {
+        "name": "Laying-up, screening, armouring & sheathing",
+        "desc": "Assembly of cores, copper tape / wire screens, armour and outer sheath."
+      },
+      {
+        "name": "Test laboratory & drum handling",
+        "desc": "Routine and HV test bays, rewinding, drum yard."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Chilled & cooling water, Compressed air, Nitrogen (CV line), Steam / hot air (degassing) — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Line trials, first cables, routine tests, then type tests and customer / utility approvals for each cable family."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Wire drawing",
+        "plain": "pulling rod through a series of dies to make it thinner."
+      },
+      {
+        "term": "Stranding",
+        "plain": "twisting several wires together to form a flexible conductor."
+      },
+      {
+        "term": "XLPE",
+        "plain": "cross-linked polyethylene — the usual insulation for MV and HV cable."
+      },
+      {
+        "term": "CV line",
+        "plain": "continuous vulcanisation line where the insulation is applied and cured under heat and pressure."
+      },
+      {
+        "term": "CCV / VCV",
+        "plain": "catenary (sloping tube) and vertical (tower) forms of the CV line."
+      },
+      {
+        "term": "Degassing",
+        "plain": "holding the insulated core in a warm room so by-products of curing escape."
+      },
+      {
+        "term": "Partial discharge test",
+        "plain": "a sensitive test that finds tiny defects in the insulation."
+      },
+      {
+        "term": "Type test",
+        "plain": "the full set of tests that qualify a cable design; required before utilities will buy it."
+      }
+    ],
+    "must_get_right": [
+      "Decide the voltage range first: an MV / HV plant needs a CV line with a tower or long catenary building, degassing rooms and an HV laboratory — a different project from an LV plant.",
+      "The CV tower is a tall structure with heavy equipment at the top; its construction method and crane plan belong in the schedule.",
+      "Clean conditions around the insulation extruder are essential; the clean room must be finished before the CV line is assembled.",
+      "Sales depend on type tests and utility approvals, which follow the first good production by months — include them."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Cable Production Lines",
+      "desc": "Drawing, stranding, extrusion, CV line and sheathing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "High-Voltage Test Laboratory",
+      "desc": "Screened room → test set → calibration",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Chilled & cooling water, Compressed air, Nitrogen (CV line), Steam / hot air (degassing)",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Cable Production Lines",
+      "items": [
+        "Rod breakdown & wire drawing",
+        "Stranding & compacting",
+        "Insulation extrusion (LV)",
+        "CV line (MV / HV)",
+        "Degassing",
+        "Laying-up, screening, armouring & sheathing",
+        "Test laboratory & drum handling"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Chilled & cooling water",
+        "Compressed air",
+        "Nitrogen (CV line)",
+        "Steam / hot air (degassing)"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Cable Production Lines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Draw → strand → insulate → lay-up → sheath → test",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Electrical — High-Voltage Test Laboratory",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 54,
+        "width": 28,
+        "label": "Screened room → test set → calibration",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Dry run → first cable → routine test → type test",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Cable Production Lines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production lines",
+        "Install wire-drawing machines & annealers",
+        "Install stranders & bunchers",
+        "Install extrusion & sheathing lines with cooling troughs",
+        "Erect CV line (curing tube, tower equipment, nitrogen system)",
+        "Install laying-up, screening & armouring machines",
+        "Install take-ups, pay-offs & drum handling"
+      ]
+    },
+    {
+      "name": "Electrical — High-Voltage Test Laboratory",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Shielded (Faraday) test hall & earthing grid",
+        "Install HV test transformer / resonant set",
+        "Partial-discharge measuring system",
+        "Calibration & accreditation of the laboratory"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: chilled & cooling water, compressed air, nitrogen (cv line)",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        4,
+        5
+      ],
+      "steps": [
+        "Dry run of each machine",
+        "Drawing & stranding trials",
+        "Extrusion trials (dimensions, concentricity)",
+        "CV line start-up & first MV core",
+        "Routine tests in the HV laboratory",
+        "Type tests & utility approval",
+        "Ramp-up & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "CWF",
+      "name": "Cable & Wire Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "CWF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "CWF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "CWF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "CWF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "CWF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "CWF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "CWF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "CWF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "CWF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "CWF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "CWF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "CWF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "CWF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "CWF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "CWF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "CWF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "CWF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "CWF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "CWF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "CWF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "CWF.06.10",
+      "name": "Rod breakdown & wire drawing",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.20",
+      "name": "Stranding & compacting",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.30",
+      "name": "Insulation extrusion (LV)",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.40",
+      "name": "CV line (MV / HV)",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.50",
+      "name": "Degassing",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.60",
+      "name": "Laying-up, screening, armouring & sheathing",
+      "level": 3
+    },
+    {
+      "code": "CWF.06.70",
+      "name": "Test laboratory & drum handling",
+      "level": 3
+    },
+    {
+      "code": "CWF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "CWF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "CWF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "CWF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "CWF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "CWF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "CWF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "CWF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "CWF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "CWF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "CWF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "CWF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "CWF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Supplier layouts → foundations and tower / catenary structure → halls and clean room → machine installation in process order → cooling water, nitrogen and power → dry runs → first cables → HV laboratory accredited → routine tests → type tests and approvals. The critical path runs through the CV line and its structure."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "CV line (triple extrusion, curing tube, controls)",
+              "40–56 weeks",
+              "Before CV installation"
+            ],
+            [
+              "HV test equipment",
+              "30–40 weeks",
+              "Before routine and type tests"
+            ],
+            [
+              "Drawing, stranding & sheathing lines",
+              "26–36 weeks",
+              "Before line installation"
+            ],
+            [
+              "Chillers, nitrogen plant & compressors",
+              "16–22 weeks",
+              "Before line trials"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late CV line, tower construction, cleanliness problems causing test failures, late HV laboratory, and type-test failures. Contingency is held before type testing."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

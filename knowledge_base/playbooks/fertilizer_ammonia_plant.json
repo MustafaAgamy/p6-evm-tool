@@ -1,0 +1,679 @@
+{
+  "archetype": "fertilizer_ammonia_plant",
+  "schema": 2,
+  "context": "process EPC · reformer, compressors and high-pressure loops; system-by-system commissioning",
+  "brief": {
+    "intro": "New to this project type? A nitrogen fertilizer complex turns natural gas, air and water into ammonia, and ammonia and carbon dioxide into urea granules. The ammonia plant reforms gas into hydrogen in a large fired furnace (the reformer), cleans it, and reacts it with nitrogen at high pressure and temperature in the synthesis loop, driven by very large compressors. The urea plant reacts ammonia with CO2 at high pressure in special corrosion-resistant equipment, concentrates the solution and forms it into granules or prills, which go to a large storage shed and ship loaders. Around these sit utilities as big as a power plant — steam, cooling water, demineralised water — plus ammonia storage tanks. It is a classic process-plant job: heavy foundations, tall structures, kilometres of piping in exotic materials, and a long commissioning that brings systems into service in a fixed order.",
+    "scope": [
+      {
+        "name": "Engineering & licensor packages",
+        "desc": "Process design from the technology licensors, detailed engineering and HAZOP."
+      },
+      {
+        "name": "Site preparation & piling",
+        "desc": "Grading, piling and heavy foundations for compressors, reformer and columns."
+      },
+      {
+        "name": "Ammonia plant",
+        "desc": "Desulphurisation, primary and secondary reformer, shift, CO2 removal, methanation, synthesis loop and refrigeration."
+      },
+      {
+        "name": "Urea plant",
+        "desc": "High-pressure synthesis (reactor, stripper, condenser), evaporation and granulation or prilling."
+      },
+      {
+        "name": "Compressors & turbines",
+        "desc": "Synthesis-gas, process-air, CO2 and refrigeration compressors with steam-turbine drivers."
+      },
+      {
+        "name": "Utilities",
+        "desc": "Steam system and boilers, cooling towers, water treatment, instrument air, nitrogen and power generation."
+      },
+      {
+        "name": "Storage & handling",
+        "desc": "Refrigerated ammonia tanks, urea bulk storage, conveyors, bagging and ship loading."
+      },
+      {
+        "name": "Piping",
+        "desc": "Prefabrication and erection of carbon, alloy and stainless piping, with stress-relief and testing."
+      },
+      {
+        "name": "Electrical & instrumentation",
+        "desc": "Substations, motors, DCS, emergency shutdown and analysers."
+      },
+      {
+        "name": "Insulation, refractory & painting",
+        "desc": "Reformer refractory, hot and cold insulation."
+      },
+      {
+        "name": "Pre-commissioning & start-up",
+        "desc": "Flushing, blowing, catalyst loading, reformer dry-out, first ammonia, first urea and the performance test."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Reformer",
+        "plain": "the fired furnace with hundreds of catalyst tubes where natural gas and steam become hydrogen."
+      },
+      {
+        "term": "Synthesis loop",
+        "plain": "the high-pressure circuit in which hydrogen and nitrogen react to form ammonia."
+      },
+      {
+        "term": "Licensor",
+        "plain": "the company that owns the process technology and guarantees its performance."
+      },
+      {
+        "term": "Syngas compressor",
+        "plain": "the very large machine that raises the gas to synthesis pressure; the heart of the plant."
+      },
+      {
+        "term": "Catalyst loading",
+        "plain": "filling reactors and reformer tubes with catalyst — a careful, late activity."
+      },
+      {
+        "term": "Steam blowing",
+        "plain": "cleaning steam lines by blowing them through until a target plate shows no marks."
+      },
+      {
+        "term": "Mechanical completion",
+        "plain": "the point where a system is built, tested and handed to commissioning."
+      },
+      {
+        "term": "Dry-out",
+        "plain": "slowly heating new refractory to remove moisture."
+      },
+      {
+        "term": "Performance test",
+        "plain": "the guaranteed-capacity test run that ends the contractor's main obligations."
+      }
+    ],
+    "must_get_right": [
+      "Compressors, the reformer, high-pressure urea equipment and the synthesis converter are ordered first; their vendor data also releases the foundation design.",
+      "Piping is the bulk of the man-hours: prefabrication rate, erection, stress-relief, NDT and hydrotest must be planned by system and tracked by weld count.",
+      "Utilities must be running months before the process units — steam, cooling water, air and power are needed to commission everything else.",
+      "Switch from area-based construction to system-based completion early; the start-up order (utilities → reformer → ammonia → urea) fixes which systems must be finished first."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Structures",
+      "desc": "Piling, heavy foundations, pipe racks and structures",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Ammonia Plant Equipment",
+      "desc": "Reformer, reactors, columns and exchangers",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Urea Plant Equipment",
+      "desc": "HP synthesis equipment, evaporation and granulation",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Compressors & Turbines",
+      "desc": "Syngas, air, CO2 and refrigeration trains",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Piping",
+      "desc": "Prefabrication, erection, testing and insulation",
+      "disc": "Piping",
+      "primary": true
+    },
+    {
+      "name": "Utilities & Offsites",
+      "desc": "Steam, cooling water, water treatment, storage and handling",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Electrical & Instrumentation",
+      "desc": "Substations, DCS, ESD and analysers",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Pre-commissioning & Start-up",
+      "desc": "Flushing, blowing, catalyst, start-up and performance test",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Ammonia Process",
+      "items": [
+        "Primary & secondary reformer",
+        "Shift converters, CO2 removal & methanator",
+        "Ammonia converter & synthesis loop",
+        "Refrigeration & ammonia storage"
+      ]
+    },
+    {
+      "discipline": "Urea Process",
+      "items": [
+        "HP reactor, stripper & carbamate condenser",
+        "Evaporation & granulation / prilling tower",
+        "Bulk storage, conveying & ship loader"
+      ]
+    },
+    {
+      "discipline": "Rotating Equipment",
+      "items": [
+        "Synthesis-gas compressor",
+        "Process-air & CO2 compressors",
+        "Steam turbines & boiler-feed pumps"
+      ]
+    },
+    {
+      "discipline": "Utilities",
+      "items": [
+        "Boilers & steam system",
+        "Cooling towers & water treatment",
+        "Instrument air, nitrogen & power generation"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Piling & Foundations",
+    "Structures & Equipment Setting",
+    "Piping Prefabrication & Erection",
+    "Electrical, Instrumentation & Insulation",
+    "Mechanical Completion by System",
+    "Pre-commissioning & Utilities Start-up",
+    "First Ammonia, First Urea & Performance Test"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Equipment",
+      "Piping",
+      "E&I",
+      "Pre-comm",
+      "Start-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Piling, Foundations & Structures",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 42,
+        "label": "Piles → foundations → pipe racks → structures",
+        "holds": [
+          48
+        ]
+      },
+      {
+        "trade": "Mechanical — Static Equipment & Reformer",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 26,
+        "width": 40,
+        "label": "Heavy lifts → reformer → internals",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Mechanical — Compressors & Turbines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 38,
+        "label": "Set → grout → align → oil flush",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Piping — Prefabrication, Erection & Testing",
+        "disc": "Piping",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 28,
+        "width": 48,
+        "label": "Spools → erect → NDT → hydrotest",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities & Offsites",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 22,
+        "width": 50,
+        "label": "Boilers → cooling → water → storage",
+        "holds": []
+      },
+      {
+        "trade": "Electrical — Power, Instrumentation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 34,
+        "width": 46,
+        "label": "Substations → cabling → DCS → loops",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — Pre-commissioning & Start-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 74,
+        "width": 26,
+        "label": "Utilities → blow → catalyst → ammonia → urea",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Piling, Foundations & Structures",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Site grading & piling",
+        "Compressor & reformer foundations to vendor data",
+        "Equipment & column foundations",
+        "Pipe racks & steel structures",
+        "Buildings, paving & underground services"
+      ]
+    },
+    {
+      "name": "Mechanical — Static Equipment & Reformer",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        5
+      ],
+      "steps": [
+        "Receive reactors, columns & HP urea equipment",
+        "Heavy lifts: converter, urea reactor, columns",
+        "Erect reformer radiant box, tubes & convection section",
+        "Set exchangers, vessels & fired heaters",
+        "Install internals & trays",
+        "Reformer refractory & dry-out"
+      ]
+    },
+    {
+      "name": "Mechanical — Compressors & Turbines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive compressor trains",
+        "Set & grout compressors and turbines",
+        "Alignment & piping strain check",
+        "Lube-oil flushing",
+        "Solo runs of turbines"
+      ]
+    },
+    {
+      "name": "Piping — Prefabrication, Erection & Testing",
+      "disc": "Piping",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2,
+        3
+      ],
+      "steps": [
+        "Prefabricate spools (carbon, alloy, stainless)",
+        "Erect piping on racks & around equipment",
+        "Welding, stress-relief & NDT",
+        "Hydrotest by test pack",
+        "Reinstatement, insulation & painting"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities & Offsites",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Boilers & steam system",
+        "Cooling towers & cooling-water pumps",
+        "Water treatment, air & nitrogen",
+        "Ammonia storage tanks",
+        "Urea storage, conveyors & ship loader"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Instrumentation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4,
+        5
+      ],
+      "steps": [
+        "Substations & switchgear",
+        "Cable trays, cabling & motor terminations",
+        "Field instruments & analysers",
+        "DCS / ESD installation",
+        "Energisation",
+        "Loop checks & ESD function tests"
+      ]
+    },
+    {
+      "name": "Commissioning — Pre-commissioning & Start-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2,
+        4,
+        5
+      ],
+      "steps": [
+        "Utilities start-up",
+        "Flushing, steam blowing & chemical cleaning",
+        "Catalyst loading & leak tests",
+        "Reformer start-up & catalyst reduction",
+        "First ammonia",
+        "First urea",
+        "Performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "FRT",
+      "name": "Fertilizer / Ammonia-Urea Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "FRT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "FRT.02",
+      "name": "Engineering & Licensor Packages",
+      "level": 2
+    },
+    {
+      "code": "FRT.02.10",
+      "name": "Process & detailed engineering",
+      "level": 3
+    },
+    {
+      "code": "FRT.02.20",
+      "name": "HAZOP & permits",
+      "level": 3
+    },
+    {
+      "code": "FRT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "FRT.03.10",
+      "name": "Compressors & turbines",
+      "level": 3
+    },
+    {
+      "code": "FRT.03.20",
+      "name": "Reformer & HP equipment",
+      "level": 3
+    },
+    {
+      "code": "FRT.03.30",
+      "name": "Bulk piping & valves",
+      "level": 3
+    },
+    {
+      "code": "FRT.03.40",
+      "name": "Electrical & instrumentation",
+      "level": 3
+    },
+    {
+      "code": "FRT.04",
+      "name": "Civil Works — Piling, Foundations & Structures",
+      "level": 2
+    },
+    {
+      "code": "FRT.04.10",
+      "name": "Piling",
+      "level": 3
+    },
+    {
+      "code": "FRT.04.20",
+      "name": "Foundations",
+      "level": 3
+    },
+    {
+      "code": "FRT.04.30",
+      "name": "Pipe racks & structures",
+      "level": 3
+    },
+    {
+      "code": "FRT.04.40",
+      "name": "Buildings & paving",
+      "level": 3
+    },
+    {
+      "code": "FRT.05",
+      "name": "Ammonia Plant — Static Equipment & Reformer (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FRT.05.10",
+      "name": "Reformer",
+      "level": 3
+    },
+    {
+      "code": "FRT.05.20",
+      "name": "Reactors, columns & exchangers",
+      "level": 3
+    },
+    {
+      "code": "FRT.05.30",
+      "name": "Synthesis loop & refrigeration",
+      "level": 3
+    },
+    {
+      "code": "FRT.06",
+      "name": "Urea Plant — Equipment (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FRT.06.10",
+      "name": "HP synthesis equipment",
+      "level": 3
+    },
+    {
+      "code": "FRT.06.20",
+      "name": "Evaporation & granulation",
+      "level": 3
+    },
+    {
+      "code": "FRT.07",
+      "name": "Compressors & Turbines (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FRT.08",
+      "name": "Piping — Prefabrication, Erection & Testing",
+      "level": 2
+    },
+    {
+      "code": "FRT.08.10",
+      "name": "Prefabrication",
+      "level": 3
+    },
+    {
+      "code": "FRT.08.20",
+      "name": "Erection",
+      "level": 3
+    },
+    {
+      "code": "FRT.08.30",
+      "name": "Testing & reinstatement",
+      "level": 3
+    },
+    {
+      "code": "FRT.09",
+      "name": "Utilities & Offsites (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FRT.09.10",
+      "name": "Steam & cooling water",
+      "level": 3
+    },
+    {
+      "code": "FRT.09.20",
+      "name": "Water treatment, air & nitrogen",
+      "level": 3
+    },
+    {
+      "code": "FRT.09.30",
+      "name": "Ammonia & urea storage and handling",
+      "level": 3
+    },
+    {
+      "code": "FRT.10",
+      "name": "Electrical Power, Instrumentation & Control",
+      "level": 2
+    },
+    {
+      "code": "FRT.11",
+      "name": "Insulation, Refractory & Painting",
+      "level": 2
+    },
+    {
+      "code": "FRT.12",
+      "name": "Pre-commissioning, Start-up & Performance Test",
+      "level": 2
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Construction is organised by unit and area; from mechanical completion onward the schedule is organised by system and test pack, in the start-up order."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Site calendar with extended shifts in peak piping months; commissioning and start-up run around the clock."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Engineering and vendor data → piling and foundations → structures and equipment → piping → electrical, instruments, insulation → mechanical completion by system → pre-commissioning. Start-up order: utilities → reformer and front end → synthesis loop (first ammonia) → urea plant (first urea) → performance test. The critical path runs through the compressors or the HP equipment, then the piping of the last system in the start-up order."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Licensor packages and vendor data arrive on the agreed dates; natural gas, power and water are available for commissioning; heavy-lift cranes and transport routes are secured for the delivery windows."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Synthesis-gas & process-air compressor trains",
+              "18–24 months",
+              "Before compressor-house installation"
+            ],
+            [
+              "Reformer tubes, catalyst & convection modules",
+              "14–18 months",
+              "Before reformer erection"
+            ],
+            [
+              "HP urea equipment (reactor, stripper, condenser)",
+              "16–22 months",
+              "Before urea heavy lifts"
+            ],
+            [
+              "Ammonia converter & HP exchangers",
+              "16–20 months",
+              "Before synthesis-loop erection"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Congested plot with simultaneous heavy lifts and piping; hot work near live gas after the first systems are commissioned; specialist welders for alloy and stainless materials."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late vendor data, long-lead equipment delivery, piping productivity and weld repair rate, compressor commissioning problems, and catalyst or leak issues at start-up. Contingency is held before mechanical completion and before first ammonia."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by unit / area, then system; expanded to Level 4–5 lookahead for the piping, mechanical and commissioning teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

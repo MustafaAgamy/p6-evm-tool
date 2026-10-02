@@ -1,0 +1,248 @@
+{
+  "category": "Infrastructure",
+  "type": "Power Distribution Network (MV / LV)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "rmu",
+    "ring main unit",
+    "distribution transformer",
+    "feeder pillar",
+    "mv cable",
+    "lv cable",
+    "lv feeder",
+    "11kv",
+    "22kv",
+    "33kv",
+    "package substation",
+    "kiosk substation",
+    "distribution substation",
+    "service connection",
+    "energisation",
+    "energization",
+    "cable trench"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "load schedule",
+        "single line"
+      ]
+    },
+    {
+      "name": "Substation Civil",
+      "keywords": [
+        "plinth",
+        "substation room",
+        "substation civil"
+      ]
+    },
+    {
+      "name": "Cable Trenches & Ducts",
+      "keywords": [
+        "cable trench",
+        "trench",
+        "duct",
+        "road crossing"
+      ]
+    },
+    {
+      "name": "Substation Equipment",
+      "keywords": [
+        "rmu",
+        "ring main unit",
+        "transformer",
+        "lv panel",
+        "package substation"
+      ]
+    },
+    {
+      "name": "MV Cables",
+      "keywords": [
+        "mv cable",
+        "11kv cable",
+        "33kv cable",
+        "mv jointing"
+      ]
+    },
+    {
+      "name": "LV Network",
+      "keywords": [
+        "lv cable",
+        "lv feeder",
+        "feeder pillar",
+        "service connection"
+      ]
+    },
+    {
+      "name": "Earthing",
+      "keywords": [
+        "earthing",
+        "earth pit",
+        "grounding"
+      ]
+    },
+    {
+      "name": "Testing & Energisation",
+      "keywords": [
+        "testing",
+        "inspection",
+        "energisation",
+        "energization",
+        "commissioning"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Transformer & RMU Procurement",
+      "keywords": [
+        "transformer",
+        "rmu",
+        "procure"
+      ],
+      "wbs": "Substation Equipment",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Equipment Installation",
+      "duration_days": 160,
+      "why": "Transformers and RMUs are ordered only after authority approval and are the longest lead items."
+    },
+    {
+      "name": "Substation Plinths / Rooms",
+      "keywords": [
+        "plinth",
+        "substation room"
+      ],
+      "wbs": "Substation Civil",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Substation Equipment",
+      "duration_days": 40,
+      "why": "Equipment cannot be set until the plinth or room is complete."
+    },
+    {
+      "name": "MV Cable Laying & Jointing",
+      "keywords": [
+        "mv cable",
+        "cable laying",
+        "jointing"
+      ],
+      "wbs": "MV Cables",
+      "typical_pred": "Cable Trenches & Ducts",
+      "typical_succ": "Testing & Energisation",
+      "duration_days": 50,
+      "why": "The MV ring links the substations; it follows the trenches and road ducts."
+    },
+    {
+      "name": "LV Feeders & Feeder Pillars",
+      "keywords": [
+        "lv cable",
+        "feeder pillar"
+      ],
+      "wbs": "LV Network",
+      "typical_pred": "Cable Trenches & Ducts",
+      "typical_succ": "Testing & Energisation",
+      "duration_days": 45,
+      "why": "LV distribution follows each substation and serves the plots."
+    },
+    {
+      "name": "Authority Inspection & Energisation",
+      "keywords": [
+        "inspection",
+        "energisation",
+        "energization"
+      ],
+      "wbs": "Testing & Energisation",
+      "typical_pred": "MV Cables",
+      "typical_succ": "Handover",
+      "duration_days": 20,
+      "why": "Only the authority energises; each ring needs tests, inspection and snag clearance first."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "duct",
+        "road crossing"
+      ],
+      "after_keywords": [
+        "road base",
+        "sub-base",
+        "asphalt"
+      ],
+      "reason": "Road layers follow the cable ducts under the road.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "plinth",
+        "substation room"
+      ],
+      "after_keywords": [
+        "rmu",
+        "transformer",
+        "lv panel"
+      ],
+      "reason": "Equipment is installed on a completed plinth or in a completed room.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "cable trench",
+        "trench",
+        "duct"
+      ],
+      "after_keywords": [
+        "mv cable",
+        "lv cable",
+        "cable laying"
+      ],
+      "reason": "Cables follow the trenches and ducts.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "rmu",
+        "transformer",
+        "mv cable",
+        "jointing"
+      ],
+      "after_keywords": [
+        "testing",
+        "inspection"
+      ],
+      "reason": "Testing and inspection follow installation and cabling.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "testing",
+        "inspection"
+      ],
+      "after_keywords": [
+        "energisation",
+        "energization"
+      ],
+      "reason": "Energisation follows passed tests and the authority inspection.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Design Approved by Authority",
+    "Transformers Delivered",
+    "Substations Installed",
+    "MV Ring Complete",
+    "Authority Inspection Passed",
+    "First Ring Energised",
+    "Network Handed Over"
+  ],
+  "common_issues": [
+    "Equipment ordered before authority approval",
+    "No authority inspection / energisation activities",
+    "Road-crossing ducts missing before road works",
+    "Transformer lead time underestimated",
+    "Upstream supply readiness not tracked"
+  ]
+}

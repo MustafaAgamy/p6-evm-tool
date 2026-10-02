@@ -1,0 +1,732 @@
+{
+  "archetype": "sugar_factory",
+  "schema": 2,
+  "context": "seasonal process plant · mills, boilers and turbines; must be ready for the crushing season",
+  "brief": {
+    "intro": "New to this project type? A sugar factory squeezes juice out of cane (or extracts it from beet), cleans it, boils off the water in a chain of evaporators, grows sugar crystals in vacuum pans, spins them out in centrifuges and dries them. A cane factory also runs its own power station: the leftover fibre (bagasse) is burned in high-pressure boilers that drive turbine-generators, and the exhaust steam does the evaporation. So it is a process plant and a power plant together, full of large vessels, pipework and rotating machinery, much of it outdoors or in open steel structures. And it is seasonal — the cane is harvested in a fixed campaign each year. Miss the start of the season and the plant earns nothing until the next one, so the start date is as hard as any contract date.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Cane yard & preparation",
+        "desc": "Weighbridge, cane tables, knives and shredder (beet: washing and slicing)."
+      },
+      {
+        "name": "Milling tandem / diffuser",
+        "desc": "Mills with turbine or electric drives that extract the juice."
+      },
+      {
+        "name": "Juice clarification",
+        "desc": "Heaters, liming, clarifier and filters."
+      },
+      {
+        "name": "Evaporation",
+        "desc": "Multiple-effect evaporator station."
+      },
+      {
+        "name": "Pan boiling & crystallisation",
+        "desc": "Vacuum pans, crystallisers and receivers."
+      },
+      {
+        "name": "Centrifugals, drying & bagging",
+        "desc": "Centrifuges, dryer, grader, silo and bagging."
+      },
+      {
+        "name": "Boilers & power house",
+        "desc": "Bagasse-fired boilers, turbine-generators and steam distribution."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Steam & condensate, Cooling water (spray pond / towers), Compressed air, Effluent treatment — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Water trials, steam trials, then first crush at the start of the season and stabilisation over the first weeks."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Crushing season (campaign)",
+        "plain": "the months each year when cane or beet is harvested and the factory runs."
+      },
+      {
+        "term": "Mill tandem",
+        "plain": "a row of heavy roller mills that squeeze the juice from the cane."
+      },
+      {
+        "term": "Bagasse",
+        "plain": "the fibre left after crushing; burned as fuel in the boilers."
+      },
+      {
+        "term": "Clarification",
+        "plain": "heating and liming the juice so impurities settle out."
+      },
+      {
+        "term": "Multiple-effect evaporator",
+        "plain": "a chain of vessels that boils water off the juice, each using the vapour of the one before."
+      },
+      {
+        "term": "Vacuum pan",
+        "plain": "the vessel in which sugar crystals are grown."
+      },
+      {
+        "term": "Centrifugal",
+        "plain": "a spinning basket that separates crystals from syrup."
+      },
+      {
+        "term": "Cogeneration",
+        "plain": "making electricity and process steam from the same fuel."
+      },
+      {
+        "term": "Steam blowing",
+        "plain": "blasting steam through new pipes to clean them before it is admitted to the turbine."
+      }
+    ],
+    "must_get_right": [
+      "Work backwards from the first day of the crushing season — it is the one date that cannot move.",
+      "Boilers and turbine-generators are the longest-lead and longest-erection items; the process house cannot be steam-tested without them.",
+      "Heavy vessels are lifted into open structures in a set order; steelwork, vessel delivery and crane availability must be planned together.",
+      "Water and steam trials need weeks before first crush; do not let them be squeezed by late erection."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Process House Equipment",
+      "desc": "Mills, clarifier, evaporators, pans, centrifugals and dryer",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Boilers & Turbine-Generators",
+      "desc": "Boiler pressure parts → turbine → steam piping",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Steam & condensate, Cooling water (spray pond / towers), Compressed air, Effluent treatment",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Process House Equipment",
+      "items": [
+        "Cane yard & preparation",
+        "Milling tandem / diffuser",
+        "Juice clarification",
+        "Evaporation",
+        "Pan boiling & crystallisation",
+        "Centrifugals, drying & bagging",
+        "Boilers & power house"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Steam & condensate",
+        "Cooling water (spray pond / towers)",
+        "Compressed air",
+        "Effluent treatment"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Process House Equipment",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Mills → clarify → evaporate → boil → centrifuge → dry",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Boilers & Turbine-Generators",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 48,
+        "label": "Boiler pressure parts → turbine → steam piping",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Water trial → steam trial → first crush",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Process House Equipment",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive process equipment",
+        "Erect mill tandem, drives & cane-handling conveyors",
+        "Erect clarifier, juice heaters & filters",
+        "Erect evaporator bodies & condensers",
+        "Erect vacuum pans, crystallisers & centrifugals",
+        "Install dryer, sugar handling & bagging",
+        "Process piping, pumps & insulation"
+      ]
+    },
+    {
+      "name": "Mechanical — Boilers & Turbine-Generators",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2,
+        6
+      ],
+      "steps": [
+        "Boiler foundations & structure",
+        "Erect pressure parts & bagasse feeding",
+        "Boiler hydrostatic test",
+        "Refractory, insulation & ducting",
+        "Set turbine-generators & condensers",
+        "High-pressure steam piping",
+        "Steam blowing & boiler commissioning"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: steam & condensate, cooling water (spray pond / towers), compressed air",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2,
+        5
+      ],
+      "steps": [
+        "No-load run of mills & conveyors",
+        "Water trials of the process house",
+        "Boiler light-up, steam blowing & safety-valve setting",
+        "Turbine-generator run & synchronisation",
+        "Steam trials of evaporators & pans",
+        "First crush",
+        "Stabilisation & performance test over the season"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "SGR",
+      "name": "Sugar Factory / Mill — Project",
+      "level": 1
+    },
+    {
+      "code": "SGR.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "SGR.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "SGR.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "SGR.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "SGR.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "SGR.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "SGR.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "SGR.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "SGR.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "SGR.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "SGR.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "SGR.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "SGR.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "SGR.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "SGR.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "SGR.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "SGR.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "SGR.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "SGR.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "SGR.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "SGR.06.10",
+      "name": "Cane yard & preparation",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.20",
+      "name": "Milling tandem / diffuser",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.30",
+      "name": "Juice clarification",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.40",
+      "name": "Evaporation",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.50",
+      "name": "Pan boiling & crystallisation",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.60",
+      "name": "Centrifugals, drying & bagging",
+      "level": 3
+    },
+    {
+      "code": "SGR.06.70",
+      "name": "Boilers & power house",
+      "level": 3
+    },
+    {
+      "code": "SGR.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "SGR.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "SGR.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "SGR.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "SGR.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "SGR.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "SGR.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "SGR.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "SGR.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "SGR.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "SGR.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "SGR.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "SGR.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar with the rainy season marked; the crushing-season start is a fixed constraint. Erection commonly runs extended shifts in the months before it."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Foundations → structures → vessels and mills erected in lift sequence → piping → insulation → electrics. Boilers and turbines run as a parallel long chain to steam blowing. Then water trials → steam trials → first crush at the season start. The critical path runs through the boilers or the mill tandem."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Boilers (pressure parts)",
+              "12–16 months",
+              "Before boiler erection"
+            ],
+            [
+              "Turbine-generators",
+              "12–16 months",
+              "Before power-house erection"
+            ],
+            [
+              "Mill tandem & drives",
+              "10–14 months",
+              "Before mill-house erection"
+            ],
+            [
+              "Evaporators, pans & centrifugals",
+              "9–12 months",
+              "Before process-house erection"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late boilers or turbines, heavy-lift sequence clashes, piping volume underestimated, late grid interconnection, and trials squeezed before the season. Contingency is held before the season start."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -195,7 +195,9 @@ CASES = [
         'Ductwork to Retail Units', 'Fire Fighting Sprinkler Network', 'Electrical Busbar Risers',
         'BMS Integration and Testing']),
 
-    ('rail depot', {'rail_metro', 'railway_track_systems', 'metro_station'}, [
+    # light_rail_tram (added with comment 38) is the same rail family — it has a depot, overhead
+    # line, traction substations and rolling stock — so it is an acceptable answer here too
+    ('rail depot', {'rail_metro', 'railway_track_systems', 'metro_station', 'light_rail_tram'}, [
         'Depot Site Preparation and Earthworks', 'Stabling Yard Formation and Ballast',
         'Ballasted Track Laying - Stabling Roads', 'Turnout and Switch Installation',
         'Maintenance Workshop Building Structure', 'Inspection Pit Road Construction',

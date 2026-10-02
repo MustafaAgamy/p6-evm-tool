@@ -1,0 +1,672 @@
+{
+  "archetype": "utility_tunnel",
+  "schema": 2,
+  "context": "linear structure · cut-and-cover box section by section, then tunnel MEP, then each utility moves in",
+  "brief": {
+    "intro": "New to this project type? A common utility tunnel is a walk-through concrete box under the road that houses many utilities together — power cables, water and chilled-water pipes, telecom, sometimes gas in a separate cell — on racks and supports, so they can be maintained and added to without digging up the street. Building it is like building a long basement: excavate, waterproof, cast the box section by section, backfill. Then the tunnel gets its own services (ventilation, lighting, drainage sumps, fire detection, access control), and only after that do the utility companies install their pipes and cables inside. It has to be finished before the road above, and it involves many owners whose approvals and installation slots all need to be scheduled.",
+    "scope": [
+      {
+        "name": "Route design & utility owner agreements",
+        "desc": "Cross-section, cell arrangement and space allocation agreed with every utility."
+      },
+      {
+        "name": "Excavation & support",
+        "desc": "Deep excavation with shoring and dewatering along the route."
+      },
+      {
+        "name": "Tunnel structure",
+        "desc": "Blinding, base slab, walls and top slab cast in sections, or precast segments."
+      },
+      {
+        "name": "Waterproofing & joints",
+        "desc": "Membrane, water-stops and movement joints."
+      },
+      {
+        "name": "Access & ventilation shafts",
+        "desc": "Entry points, equipment hatches and ventilation structures at intervals."
+      },
+      {
+        "name": "Branch chambers",
+        "desc": "Chambers where utilities leave the tunnel to serve plots and side roads."
+      },
+      {
+        "name": "Racks & supports",
+        "desc": "Cable racks, pipe supports and anchors fixed to cast-in channels."
+      },
+      {
+        "name": "Tunnel MEP",
+        "desc": "Ventilation, lighting, power, drainage sumps and pumps."
+      },
+      {
+        "name": "Safety & monitoring systems",
+        "desc": "Fire detection, gas detection, CCTV, access control and SCADA."
+      },
+      {
+        "name": "Utility installation",
+        "desc": "Each utility owner's pipes and cables installed inside the tunnel."
+      },
+      {
+        "name": "Backfill & road above",
+        "desc": "Backfill over the tunnel and hand-over of the surface to the road works."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Cut-and-cover",
+        "plain": "building the tunnel in an open excavation and then backfilling over it."
+      },
+      {
+        "term": "Cell / compartment",
+        "plain": "a separate chamber of the tunnel, e.g. one for power and one for water."
+      },
+      {
+        "term": "Water-stop",
+        "plain": "a strip cast into a concrete joint to stop water passing through it."
+      },
+      {
+        "term": "Cast-in channel",
+        "plain": "a steel channel set in the concrete so supports can be bolted on later without drilling."
+      },
+      {
+        "term": "Ventilation shaft",
+        "plain": "a structure that brings fresh air in and lets warm air out of the tunnel."
+      },
+      {
+        "term": "Sump",
+        "plain": "a low pit that collects any water in the tunnel, with a pump to remove it."
+      },
+      {
+        "term": "Fire compartment",
+        "plain": "a length of tunnel closed by fire doors so a fire cannot spread along it."
+      },
+      {
+        "term": "Utility owner",
+        "plain": "the authority or company that installs and operates one of the services in the tunnel."
+      }
+    ],
+    "must_get_right": [
+      "Freeze the cross-section and each utility's space with all the owners first; a late change by one utility changes the concrete.",
+      "Treat it as a repetitive structure: plan bays in a cycle (excavate → blind → base → walls → top slab → waterproof → backfill) and count bays per week.",
+      "Cast-in channels, sleeves and openings must be in the formwork — coordinate the supports and penetrations before each pour.",
+      "Sequence the utilities inside: big pipes first while there is room, cables last; each owner needs a slot, an access and a handover date."
+    ]
+  },
+  "components": [
+    {
+      "name": "Excavation & Support",
+      "desc": "Excavation, shoring, dewatering and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Tunnel Structure",
+      "desc": "Base slab, walls, top slab and waterproofing",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Shafts & Branch Chambers",
+      "desc": "Access, ventilation and branch structures",
+      "disc": "Structural",
+      "primary": false
+    },
+    {
+      "name": "Racks & Supports",
+      "desc": "Cable racks, pipe supports and anchors",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Tunnel MEP",
+      "desc": "Ventilation, drainage, lighting and power",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Safety & Monitoring Systems",
+      "desc": "Fire and gas detection, CCTV, access control, SCADA",
+      "disc": "ELV",
+      "primary": false
+    },
+    {
+      "name": "Utility Installation",
+      "desc": "Pipes and cables by each utility owner",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Testing & Handover",
+      "desc": "Systems commissioning and handover to the operator",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Tunnel Mechanical",
+      "items": [
+        "Ventilation fans & dampers",
+        "Drainage sumps & pumps",
+        "Fire-fighting (where specified)"
+      ]
+    },
+    {
+      "discipline": "Tunnel Electrical",
+      "items": [
+        "Lighting & emergency lighting",
+        "Power distribution & small power",
+        "Earthing & bonding of racks"
+      ]
+    },
+    {
+      "discipline": "Safety & Control",
+      "items": [
+        "Fire & gas detection",
+        "CCTV & access control",
+        "Tunnel SCADA / monitoring"
+      ]
+    },
+    {
+      "discipline": "Utilities Housed",
+      "items": [
+        "Power cables (HV / MV / LV)",
+        "Water & chilled-water pipes",
+        "Telecom ducts & cables"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Utility Agreements",
+    "Excavation & Dewatering",
+    "Tunnel Structure by Bay",
+    "Waterproofing & Backfill",
+    "Shafts & Chambers",
+    "Racks & Tunnel MEP",
+    "Utility Installation",
+    "Testing & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Excavate",
+      "Structure",
+      "Backfill",
+      "MEP",
+      "Utilities",
+      "Handover"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Excavation, Support & Backfill",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 58,
+        "label": "Shore → dewater → excavate → backfill",
+        "holds": [
+          64
+        ]
+      },
+      {
+        "trade": "Structural — Tunnel Box",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 12,
+        "width": 54,
+        "label": "Base → walls → top slab, bay by bay",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Civil — Waterproofing & Joints",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 20,
+        "width": 50,
+        "label": "Membrane → protection → joint seal",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Mechanical — Racks, Supports & Tunnel MEP",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 46,
+        "width": 34,
+        "label": "Supports → ventilation → drainage",
+        "holds": []
+      },
+      {
+        "trade": "Electrical — Tunnel Power & Lighting",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 52,
+        "width": 30,
+        "label": "Containment → cabling → lighting → earth",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "ELV — Safety & Monitoring Systems",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 58,
+        "width": 28,
+        "label": "Detection → CCTV → access → SCADA",
+        "holds": [
+          86
+        ]
+      },
+      {
+        "trade": "Mechanical — Utility Installation by Owners",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 64,
+        "width": 30,
+        "label": "Large pipes first → cables last",
+        "holds": [
+          94
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 88,
+        "width": 12,
+        "label": "Systems test → operator handover",
+        "holds": []
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Excavation, Support & Backfill",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Divert or protect existing services",
+        "Install shoring & dewatering",
+        "Excavate to formation",
+        "Blinding concrete",
+        "Backfill & compact over the completed tunnel"
+      ]
+    },
+    {
+      "name": "Structural — Tunnel Box",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Base slab reinforcement & concrete",
+        "Fix cast-in channels, sleeves & water-stops before each pour",
+        "Walls: formwork, reinforcement & concrete",
+        "Top slab",
+        "Cure, strike & repair"
+      ]
+    },
+    {
+      "name": "Civil — Waterproofing & Joints",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Surface preparation",
+        "Apply membrane to walls & top slab",
+        "Protection board",
+        "Inspect waterproofing before backfill",
+        "Seal movement joints"
+      ]
+    },
+    {
+      "name": "Mechanical — Racks, Supports & Tunnel MEP",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Install cable racks & pipe supports on cast-in channels",
+        "Ventilation fans, dampers & ducting",
+        "Sump pumps & drainage pipework",
+        "Fire-fighting pipework (where specified)"
+      ]
+    },
+    {
+      "name": "Electrical — Tunnel Power & Lighting",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Containment & cabling",
+        "Lighting & emergency lighting",
+        "Distribution boards & small power",
+        "Earthing & bonding of all metalwork",
+        "Power-on of tunnel services"
+      ]
+    },
+    {
+      "name": "ELV — Safety & Monitoring Systems",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Fire & gas detection",
+        "CCTV & access control",
+        "Tunnel SCADA & communications",
+        "Cause-and-effect test (alarm → ventilation → doors)"
+      ]
+    },
+    {
+      "name": "Mechanical — Utility Installation by Owners",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Tunnel section handed over to the utility owners",
+        "Install water / chilled-water pipes",
+        "Install power cables & joints",
+        "Install telecom ducts & cables",
+        "Each utility tests its own service"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [],
+      "steps": [
+        "Ventilation, drainage & lighting commissioning",
+        "Integrated safety-system test",
+        "As-built records of every utility position",
+        "Operator training & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "UTT",
+      "name": "Common Utility Tunnel / Service Corridor — Project",
+      "level": 1
+    },
+    {
+      "code": "UTT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "UTT.02",
+      "name": "Design & Utility Owner Agreements",
+      "level": 2
+    },
+    {
+      "code": "UTT.02.10",
+      "name": "Cross-section & space allocation",
+      "level": 3
+    },
+    {
+      "code": "UTT.02.20",
+      "name": "Structural & MEP design",
+      "level": 3
+    },
+    {
+      "code": "UTT.02.30",
+      "name": "Permits & existing-services diversion",
+      "level": 3
+    },
+    {
+      "code": "UTT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "UTT.03.10",
+      "name": "Reinforcement, cast-in channels & waterproofing",
+      "level": 3
+    },
+    {
+      "code": "UTT.03.20",
+      "name": "Racks & supports",
+      "level": 3
+    },
+    {
+      "code": "UTT.03.30",
+      "name": "Tunnel MEP & safety systems",
+      "level": 3
+    },
+    {
+      "code": "UTT.04",
+      "name": "Civil Works — Excavation & Backfill",
+      "level": 2
+    },
+    {
+      "code": "UTT.04.10",
+      "name": "Shoring & dewatering",
+      "level": 3
+    },
+    {
+      "code": "UTT.04.20",
+      "name": "Excavation & blinding",
+      "level": 3
+    },
+    {
+      "code": "UTT.04.30",
+      "name": "Backfill",
+      "level": 3
+    },
+    {
+      "code": "UTT.05",
+      "name": "Tunnel Structure (Concrete)",
+      "level": 2
+    },
+    {
+      "code": "UTT.05.10",
+      "name": "Base slab",
+      "level": 3
+    },
+    {
+      "code": "UTT.05.20",
+      "name": "Walls",
+      "level": 3
+    },
+    {
+      "code": "UTT.05.30",
+      "name": "Top slab",
+      "level": 3
+    },
+    {
+      "code": "UTT.05.40",
+      "name": "Waterproofing & joints",
+      "level": 3
+    },
+    {
+      "code": "UTT.06",
+      "name": "Shafts & Branch Chambers (Structure)",
+      "level": 2
+    },
+    {
+      "code": "UTT.06.10",
+      "name": "Access & equipment shafts",
+      "level": 3
+    },
+    {
+      "code": "UTT.06.20",
+      "name": "Ventilation shafts",
+      "level": 3
+    },
+    {
+      "code": "UTT.06.30",
+      "name": "Branch chambers",
+      "level": 3
+    },
+    {
+      "code": "UTT.07",
+      "name": "Racks, Supports & Tunnel Mechanical Services",
+      "level": 2
+    },
+    {
+      "code": "UTT.07.10",
+      "name": "Racks & pipe supports",
+      "level": 3
+    },
+    {
+      "code": "UTT.07.20",
+      "name": "Ventilation",
+      "level": 3
+    },
+    {
+      "code": "UTT.07.30",
+      "name": "Drainage & sump pumps",
+      "level": 3
+    },
+    {
+      "code": "UTT.08",
+      "name": "Tunnel Electrical Power & Lighting",
+      "level": 2
+    },
+    {
+      "code": "UTT.09",
+      "name": "Safety, Security & Control Systems",
+      "level": 2
+    },
+    {
+      "code": "UTT.10",
+      "name": "Utility Installation by Owners (Pipes & Cables)",
+      "level": 2
+    },
+    {
+      "code": "UTT.11",
+      "name": "Testing, Commissioning & Handover",
+      "level": 2
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by tunnel bay (between movement joints) for the structure, and by tunnel section (between shafts) for MEP and utility installation."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; dewatering runs continuously. Concrete in hot weather is planned for night pours."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per bay: excavate → blind → base → walls → top slab → cure → waterproof → inspect → backfill. Per section: structure complete → racks and tunnel MEP → power-on → handover to utility owners → utilities installed → integrated test. The road above follows the backfill. The critical path normally runs through the structure cycle, then the utility owners' installation slots."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Utility owners agree the space allocation before design freeze and install in their agreed slots; existing services are diverted ahead of excavation; the road contractor follows the backfill."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Ventilation fans & dampers",
+              "14–20 weeks",
+              "Before tunnel MEP installation"
+            ],
+            [
+              "Cast-in channels & water-stops",
+              "6–10 weeks",
+              "Before the first base-slab pour"
+            ],
+            [
+              "Cable racks & pipe supports (galvanised)",
+              "10–14 weeks",
+              "Before rack installation"
+            ],
+            [
+              "Fire / gas detection & SCADA",
+              "12–16 weeks",
+              "Before systems installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "A long open excavation in a road corridor; limited access points for materials once the top slab is cast; confined-space rules inside the tunnel."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late agreement between utility owners, groundwater and leaks at joints, clashes at branch chambers, and owners installing late. Contingency is held before handover of the surface to the road works and before final handover."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by tunnel bay and section; expanded to Level 4–5 lookahead for the structure cycle crews and each utility owner — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

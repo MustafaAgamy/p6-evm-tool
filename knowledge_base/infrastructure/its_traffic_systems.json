@@ -1,0 +1,248 @@
+{
+  "category": "Infrastructure",
+  "type": "Traffic Signals & ITS Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "traffic signal",
+    "its",
+    "signal head",
+    "controller",
+    "loop detector",
+    "vms",
+    "variable message",
+    "cctv",
+    "gantry",
+    "mast arm",
+    "traffic control",
+    "atms",
+    "enforcement",
+    "red light",
+    "junction",
+    "sat",
+    "switch-on"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "junction design"
+      ]
+    },
+    {
+      "name": "Ducts & Chambers",
+      "keywords": [
+        "duct",
+        "chamber",
+        "road crossing"
+      ]
+    },
+    {
+      "name": "Foundations",
+      "keywords": [
+        "foundation",
+        "gantry foundation",
+        "pole foundation"
+      ]
+    },
+    {
+      "name": "Poles & Gantries",
+      "keywords": [
+        "pole",
+        "gantry",
+        "mast arm"
+      ]
+    },
+    {
+      "name": "Cabling & Fibre",
+      "keywords": [
+        "cable",
+        "cabling",
+        "fibre",
+        "fiber"
+      ]
+    },
+    {
+      "name": "Field Equipment",
+      "keywords": [
+        "controller",
+        "signal head",
+        "detector",
+        "cctv",
+        "vms",
+        "enforcement"
+      ]
+    },
+    {
+      "name": "Power Supply",
+      "keywords": [
+        "power supply",
+        "feeder",
+        "earthing"
+      ]
+    },
+    {
+      "name": "Integration & Switch-on",
+      "keywords": [
+        "sat",
+        "integration",
+        "switch-on",
+        "switch on",
+        "commissioning"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Ducts & Foundations",
+      "keywords": [
+        "duct",
+        "foundation"
+      ],
+      "wbs": "Ducts & Chambers",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Poles & Gantries",
+      "duration_days": 40,
+      "why": "Ducts and foundations are built into the road works before paving."
+    },
+    {
+      "name": "Equipment Procurement & FAT",
+      "keywords": [
+        "procure",
+        "fat",
+        "factory acceptance"
+      ],
+      "wbs": "Field Equipment",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Field Equipment",
+      "duration_days": 120,
+      "why": "Controllers, VMS and cameras are made and factory-tested after design approval."
+    },
+    {
+      "name": "Poles & Gantry Erection",
+      "keywords": [
+        "pole",
+        "gantry"
+      ],
+      "wbs": "Poles & Gantries",
+      "typical_pred": "Foundations",
+      "typical_succ": "Cabling & Fibre",
+      "duration_days": 20,
+      "why": "Structures are erected on cured foundations, gantries under road closure."
+    },
+    {
+      "name": "Field Equipment Installation",
+      "keywords": [
+        "controller",
+        "signal head",
+        "cctv",
+        "vms"
+      ],
+      "wbs": "Field Equipment",
+      "typical_pred": "Cabling & Fibre",
+      "typical_succ": "Integration & Switch-on",
+      "duration_days": 30,
+      "why": "Equipment is installed after poles, cabling and delivery."
+    },
+    {
+      "name": "SAT, Integration & Switch-on",
+      "keywords": [
+        "sat",
+        "integration",
+        "switch-on"
+      ],
+      "wbs": "Integration & Switch-on",
+      "typical_pred": "Field Equipment",
+      "typical_succ": "Road Opening",
+      "duration_days": 25,
+      "why": "Each junction is tested, integrated with the control centre and switched on under witness."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "duct",
+        "road crossing"
+      ],
+      "after_keywords": [
+        "road base",
+        "asphalt",
+        "paving"
+      ],
+      "reason": "Road layers follow the ITS ducts.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "foundation"
+      ],
+      "after_keywords": [
+        "pole",
+        "gantry",
+        "mast arm"
+      ],
+      "reason": "Poles and gantries are erected on completed foundations.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "asphalt",
+        "wearing course"
+      ],
+      "after_keywords": [
+        "loop detector",
+        "loop cutting"
+      ],
+      "reason": "Loops are cut after the final asphalt layer.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pole",
+        "cabling",
+        "cable"
+      ],
+      "after_keywords": [
+        "controller",
+        "signal head",
+        "cctv",
+        "vms"
+      ],
+      "reason": "Equipment follows structures and cabling.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "controller",
+        "signal head",
+        "power supply",
+        "fibre"
+      ],
+      "after_keywords": [
+        "sat",
+        "integration",
+        "switch-on"
+      ],
+      "reason": "Testing and switch-on follow installation, power and communications.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Design Approved",
+    "FAT Passed",
+    "Civil Works Complete",
+    "Equipment Installed",
+    "Power & Communications Available",
+    "SAT Passed",
+    "Junctions Switched On"
+  ],
+  "common_issues": [
+    "Integration and SAT durations too short",
+    "Loops planned before final asphalt",
+    "Power to cabinets not in the schedule",
+    "Gantry foundations not in the road sequence",
+    "No authority witness activities"
+  ]
+}

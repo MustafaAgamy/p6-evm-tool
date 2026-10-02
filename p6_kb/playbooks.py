@@ -50,6 +50,7 @@ SECTORS = [
     ('oil_gas_process', 'Oil, Gas & Process'),
     ('power_energy', 'Power & Energy'),
     ('water', 'Water'),
+    ('networks', 'Infrastructure Networks'),
     ('industrial', 'Industrial & Manufacturing'),
     ('buildings', 'Buildings'),
     ('residential', 'Residential'),
@@ -66,7 +67,7 @@ _SECTOR_BY_ID = {
     'power_utility_plant': 'power_energy', 'solar_pv_plant': 'power_energy',
     'wind_farm': 'power_energy', 'substation_switchyard': 'power_energy',
     'district_cooling_plant': 'power_energy', 'waste_to_energy': 'power_energy',
-    'utilities_network': 'power_energy',
+    'utilities_network': 'networks',
     'water_wastewater': 'water', 'desalination_plant': 'water',
     'pumping_station': 'water', 'dam_hydraulic': 'water',
     'data_center': 'critical', 'hospital_healthcare': 'critical',
@@ -103,6 +104,9 @@ _SECTOR_BY_CATEGORY = {
     'marine_ports': 'transport_marine', 'aviation': 'transport_marine',
     'infrastructure_civil': 'transport_marine', 'water_infrastructure': 'water',
     'water': 'water', 'utility_infrastructure': 'power_energy',
+    # every buried / linear utility network is its own type on the Infrastructure Networks shelf
+    'network_wet': 'networks', 'network_power': 'networks', 'network_telecom': 'networks',
+    'network_gas': 'networks', 'network_multi': 'networks',
     'critical_facility': 'critical', 'building_vertical': 'buildings',
     'buildings': 'buildings', 'energy': 'power_energy', 'residential': 'residential',
 }
@@ -198,7 +202,10 @@ def _legacy_by_slug(kb_entries=None):
 
 
 def _entry_for(a, legacy):
-    return legacy.get(_slug(a.get('archetype'))) or legacy.get(_slug(a.get('name')))
+    """The legacy curated entry (WBS + starter baseline) behind a project type: by its id, its
+    name, or — when the two are worded differently — the type named in its ``kb_type``."""
+    return (legacy.get(_slug(a.get('archetype'))) or legacy.get(_slug(a.get('name')))
+            or legacy.get(_slug(a.get('kb_type'))))
 
 
 def _coverage(prim, sec, entry):

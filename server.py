@@ -2076,8 +2076,23 @@ class Handler(BaseHTTPRequestHandler):
             if cur.get('trades'):
                 seq = [[t.get('name'), i + 1, s, 'hold' if i in (t.get('holds') or []) else '']
                        for t in cur['trades'] for i, s in enumerate(t.get('steps') or [])]
-                sheets.append({'name': 'Sequence by trade', 'blocks': [{'title': 'Typical sequence of work',
-                              'headers': ['Trade', 'Step', 'Activity', 'Hold'], 'rows': seq}]})
+                seq_blocks = []
+                # the two overview pictures of the page, as their figures (owner comments 29 / 38)
+                if cur.get('overview_phases'):
+                    seq_blocks.append({'title': 'Sequence of work — overview', 'headers': ['Phase', 'Name'],
+                                       'rows': [[i, ph] for i, ph in enumerate(cur['overview_phases'], 1)]})
+                lanes = (cur.get('sequence_chart') or {}).get('lanes') or []
+                if lanes:
+                    seq_blocks.append({
+                        'title': 'Sequence of work — chart by trade',
+                        'note': 'Start and finish are positions along the programme (0 % = start, 100 % = finish) — '
+                                'logic order, not dates.',
+                        'headers': ['Trade', 'Discipline', 'Starts at (%)', 'Finishes at (%)', 'What happens'],
+                        'rows': [[ln.get('trade'), ln.get('disc'), ln.get('start'),
+                                  (ln.get('start') or 0) + (ln.get('width') or 0), ln.get('label')] for ln in lanes]})
+                seq_blocks.append({'title': 'Typical sequence of work',
+                                   'headers': ['Trade', 'Step', 'Activity', 'Hold'], 'rows': seq})
+                sheets.append({'name': 'Sequence by trade', 'blocks': seq_blocks})
             if cur.get('wbs'):
                 sheets.append({'name': 'WBS', 'blocks': [{'title': 'Suggested WBS (Primavera P6)',
                               'headers': ['WBS Code', 'WBS Name', 'Level'],
@@ -2091,8 +2106,13 @@ class Handler(BaseHTTPRequestHandler):
                     tbl = s.get('table')
                     if tbl and tbl.get('rows'):
                         blocks.append({'title': s.get('heading'), 'headers': tbl.get('columns') or [], 'rows': tbl['rows']})
+                if cur.get('standards'):
+                    blocks.append({'title': 'Standards used', 'headers': ['Use', 'Standard'],
+                                   'rows': [[st.get('code'), st.get('text')] for st in cur['standards']]})
                 sheets.append({'name': 'Basis of Planning', 'blocks': blocks})
-            write_sections_xlsx(os.path.abspath(output_path), sheets)
+            write_sections_xlsx(os.path.abspath(output_path), sheets,
+                                meta=_excel_meta('Knowledge Base — ' + (pb.get('name') or archetype),
+                                                 sector=pb.get('sector_label') or None))
             self._json(200, {'ok': True, 'path': output_path, 'sheets': len(sheets)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

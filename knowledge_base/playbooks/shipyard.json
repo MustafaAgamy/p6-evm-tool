@@ -1,0 +1,677 @@
+{
+  "archetype": "shipyard",
+  "schema": 2,
+  "context": "marine + industrial · dry dock or ship lift, quays, giant cranes and fabrication halls",
+  "brief": {
+    "intro": "New to this project type? Building a shipyard combines heavy marine works with a large factory. On the water side there is a dry dock (a huge concrete basin with a gate that can be pumped dry) or a ship lift with transfer rails, plus quay walls where ships are fitted out afloat, all needing dredging. On the land side there are steel stockyards, cutting and panel lines, block-assembly halls, blasting and painting cells, outfitting workshops, and very heavy paved areas over which blocks weighing hundreds of tonnes are moved. Above everything stand the cranes — a goliath gantry crane spanning the dock and jib cranes along the quays. The dry dock is the longest and riskiest item (deep excavation below sea level, dewatering, a thick floor and the dock gate); the goliath crane is the longest-lead purchase.",
+    "scope": [
+      {
+        "name": "Dredging & reclamation",
+        "desc": "Dredging the basin and approach, reclaiming land for the yard."
+      },
+      {
+        "name": "Dry dock",
+        "desc": "Cofferdam, excavation, dewatering, dock floor and walls, pump house and dock gate."
+      },
+      {
+        "name": "Ship lift & transfer system",
+        "desc": "Platform, hoists, rails and transfer carriages (alternative or addition to a dock)."
+      },
+      {
+        "name": "Quays & jetties",
+        "desc": "Outfitting quays with fenders, bollards and service tunnels."
+      },
+      {
+        "name": "Steel stockyard & preparation",
+        "desc": "Plate and profile storage, shot-blast and primer line, cutting machines."
+      },
+      {
+        "name": "Panel line & block assembly halls",
+        "desc": "Welding lines, assembly halls with heavy overhead cranes."
+      },
+      {
+        "name": "Blasting & painting cells",
+        "desc": "Enclosed, ventilated cells for coating blocks."
+      },
+      {
+        "name": "Outfitting workshops",
+        "desc": "Pipe, machining, electrical and joinery shops."
+      },
+      {
+        "name": "Cranes",
+        "desc": "Goliath gantry crane, quay jib cranes and hall cranes."
+      },
+      {
+        "name": "Yard utilities & heavy paving",
+        "desc": "Power, gases, compressed air, water; pavements for block transporters."
+      },
+      {
+        "name": "Commissioning",
+        "desc": "Dock flooding and gate tests, crane load tests, production trials."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Dry dock",
+        "plain": "a basin that can be flooded to float a ship in or out, and pumped dry to work on it."
+      },
+      {
+        "term": "Dock gate (caisson)",
+        "plain": "the floating or hinged gate that closes the dock entrance."
+      },
+      {
+        "term": "Ship lift",
+        "plain": "a platform that raises a ship out of the water so it can be moved onto land on rails."
+      },
+      {
+        "term": "Block",
+        "plain": "a large pre-assembled section of a ship's hull."
+      },
+      {
+        "term": "Goliath crane",
+        "plain": "a very large gantry crane that spans the dock and lifts blocks into place."
+      },
+      {
+        "term": "Outfitting quay",
+        "plain": "the quay where a floating ship is completed."
+      },
+      {
+        "term": "Panel line",
+        "plain": "a production line that welds plates and stiffeners into flat panels."
+      },
+      {
+        "term": "Self-propelled transporter (SPMT)",
+        "plain": "a multi-wheeled vehicle that carries blocks around the yard."
+      },
+      {
+        "term": "Cofferdam",
+        "plain": "a temporary wall that keeps the sea out during construction of the dock."
+      }
+    ],
+    "must_get_right": [
+      "Start the dry dock first: cofferdam, deep excavation, dewatering, floor and walls, gate and pump house form the longest chain, and ground conditions are its main risk.",
+      "Order the goliath crane and the dock gate early — both are bespoke, take over a year, and the crane's rails and foundations must be built to its exact loads.",
+      "Marine works (dredging, quay walls) depend on permits, marine plant and weather; sequence them so the cofferdam can be removed and the dock flooded when the gate is ready.",
+      "The halls follow the production flow of steel (stockyard → cutting → panels → blocks → paint → dock); build and commission them in that order so trial production can start before the dock is finished."
+    ]
+  },
+  "components": [
+    {
+      "name": "Dredging & Marine Works",
+      "desc": "Dredging, reclamation, quay walls and cofferdam",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Dry Dock / Ship Lift",
+      "desc": "Dock structure, gate, pump house or ship lift",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Fabrication Halls",
+      "desc": "Steel preparation, panel and block halls, paint cells",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Cranes",
+      "desc": "Goliath, quay and hall cranes",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Production Equipment",
+      "desc": "Cutting, welding, blasting and painting lines",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Yard Utilities",
+      "desc": "Power, gases, air, water and service tunnels",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Heavy Paving & Roads",
+      "desc": "Block-transport routes and storage areas",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Testing & Commissioning",
+      "desc": "Dock and gate tests, crane load tests, trials",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Dock & Marine Systems",
+      "items": [
+        "Dock pumps & valves",
+        "Dock gate & its machinery",
+        "Ship lift hoists & transfer system",
+        "Capstans, fenders & bollards"
+      ]
+    },
+    {
+      "discipline": "Cranes",
+      "items": [
+        "Goliath gantry crane",
+        "Level-luffing quay cranes",
+        "Overhead cranes in the halls"
+      ]
+    },
+    {
+      "discipline": "Production Equipment",
+      "items": [
+        "Shot-blast & primer line",
+        "Plasma / laser cutting",
+        "Panel & profile welding lines",
+        "Blast & paint cells with ventilation"
+      ]
+    },
+    {
+      "discipline": "Yard Utilities",
+      "items": [
+        "Substations & shore power",
+        "Oxygen, gas & compressed air networks",
+        "Fresh, sea and fire water"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Marine Permits",
+    "Dredging, Reclamation & Cofferdam",
+    "Dry Dock Structure",
+    "Quays & Heavy Paving",
+    "Halls & Workshops",
+    "Cranes & Production Equipment",
+    "Utilities & Dock Systems",
+    "Dock Flooding, Crane Tests & Production Trials"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Marine",
+      "Dock",
+      "Quays",
+      "Halls",
+      "Cranes",
+      "Commission"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Dredging, Reclamation & Quay Walls",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 46,
+        "label": "Dredge → reclaim → quay wall → fenders",
+        "holds": [
+          52
+        ]
+      },
+      {
+        "trade": "Civil — Dry Dock Structure",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 10,
+        "width": 54,
+        "label": "Cofferdam → excavate → floor → walls → gate sill",
+        "holds": [
+          64
+        ]
+      },
+      {
+        "trade": "Structural — Fabrication Halls & Workshops",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 24,
+        "width": 44,
+        "label": "Foundations → steel → cladding → cranes",
+        "holds": []
+      },
+      {
+        "trade": "Mechanical — Cranes",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 40,
+        "label": "Rails → erect → commission → load test",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Mechanical — Dock Systems & Production Equipment",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 34,
+        "label": "Pumps → gate → lines",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Electrical — Yard Utilities & Power",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Substations → networks → shore power",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — Dock Flooding, Tests & Trials",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 82,
+        "width": 18,
+        "label": "Remove cofferdam → flood → gate test → trials",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Dredging, Reclamation & Quay Walls",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Marine permits & environmental approval",
+        "Dredging of basin & approach channel",
+        "Reclamation & ground improvement",
+        "Quay walls (sheet pile / caisson / blockwork)",
+        "Fenders, bollards & service tunnels"
+      ]
+    },
+    {
+      "name": "Civil — Dry Dock Structure",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        5
+      ],
+      "steps": [
+        "Cofferdam & dewatering system",
+        "Deep excavation & ground anchors / piles",
+        "Dock floor with drainage & under-drain system",
+        "Dock walls, galleries & crane-rail beams",
+        "Pump house & intake culverts",
+        "Gate sill & seals to tolerance"
+      ]
+    },
+    {
+      "name": "Structural — Fabrication Halls & Workshops",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [],
+      "steps": [
+        "Hall foundations & heavy floors",
+        "Erect steel structure with crane beams",
+        "Roof & wall cladding",
+        "Blast & paint cell enclosures",
+        "Workshops, offices & stores"
+      ]
+    },
+    {
+      "name": "Mechanical — Cranes",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Crane rails & foundations surveyed",
+        "Receive goliath & quay crane components",
+        "Erect goliath crane (main-girder lift)",
+        "Erect quay & hall cranes",
+        "Load tests & certification"
+      ]
+    },
+    {
+      "name": "Mechanical — Dock Systems & Production Equipment",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Install dock pumps, valves & controls",
+        "Receive & install the dock gate",
+        "Install blasting, cutting & welding lines",
+        "Paint-cell ventilation & dehumidification",
+        "Ship lift & transfer system (where used)"
+      ]
+    },
+    {
+      "name": "Electrical — Yard Utilities & Power",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Substations & HV distribution",
+        "Crane power supply & shore-power points",
+        "Gas, oxygen & compressed-air networks",
+        "Yard lighting & earthing",
+        "Energisation"
+      ]
+    },
+    {
+      "name": "Commissioning — Dock Flooding, Tests & Trials",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Dock pump & gate dry tests",
+        "Remove cofferdam & first flooding of the dock",
+        "Gate operation & leakage test",
+        "Production-line trials (first steel cut, first panel, first block)",
+        "Handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "SHY",
+      "name": "Shipyard / Ship-Building Facility — Project",
+      "level": 1
+    },
+    {
+      "code": "SHY.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "SHY.02",
+      "name": "Design, Permits & Investigations",
+      "level": 2
+    },
+    {
+      "code": "SHY.02.10",
+      "name": "Marine & geotechnical investigations",
+      "level": 3
+    },
+    {
+      "code": "SHY.02.20",
+      "name": "Design",
+      "level": 3
+    },
+    {
+      "code": "SHY.02.30",
+      "name": "Marine & environmental permits",
+      "level": 3
+    },
+    {
+      "code": "SHY.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "SHY.03.10",
+      "name": "Goliath & quay cranes",
+      "level": 3
+    },
+    {
+      "code": "SHY.03.20",
+      "name": "Dock gate & pumps",
+      "level": 3
+    },
+    {
+      "code": "SHY.03.30",
+      "name": "Production equipment",
+      "level": 3
+    },
+    {
+      "code": "SHY.04",
+      "name": "Civil Works — Dredging, Reclamation & Quay Walls",
+      "level": 2
+    },
+    {
+      "code": "SHY.04.10",
+      "name": "Dredging",
+      "level": 3
+    },
+    {
+      "code": "SHY.04.20",
+      "name": "Reclamation & ground improvement",
+      "level": 3
+    },
+    {
+      "code": "SHY.04.30",
+      "name": "Quay walls & jetties",
+      "level": 3
+    },
+    {
+      "code": "SHY.05",
+      "name": "Civil Works — Dry Dock Structure",
+      "level": 2
+    },
+    {
+      "code": "SHY.05.10",
+      "name": "Cofferdam & dewatering",
+      "level": 3
+    },
+    {
+      "code": "SHY.05.20",
+      "name": "Excavation",
+      "level": 3
+    },
+    {
+      "code": "SHY.05.20.10",
+      "name": "Ground anchors & piles",
+      "level": 4
+    },
+    {
+      "code": "SHY.05.30",
+      "name": "Dock floor & walls",
+      "level": 3
+    },
+    {
+      "code": "SHY.05.40",
+      "name": "Pump house & gate sill",
+      "level": 3
+    },
+    {
+      "code": "SHY.06",
+      "name": "Fabrication Halls & Workshops (Structure)",
+      "level": 2
+    },
+    {
+      "code": "SHY.06.10",
+      "name": "Steel preparation & panel halls",
+      "level": 3
+    },
+    {
+      "code": "SHY.06.20",
+      "name": "Block-assembly halls",
+      "level": 3
+    },
+    {
+      "code": "SHY.06.30",
+      "name": "Blast & paint cells",
+      "level": 3
+    },
+    {
+      "code": "SHY.06.40",
+      "name": "Outfitting workshops",
+      "level": 3
+    },
+    {
+      "code": "SHY.07",
+      "name": "Mechanical — Cranes",
+      "level": 2
+    },
+    {
+      "code": "SHY.07.10",
+      "name": "Goliath crane",
+      "level": 3
+    },
+    {
+      "code": "SHY.07.20",
+      "name": "Quay & hall cranes",
+      "level": 3
+    },
+    {
+      "code": "SHY.08",
+      "name": "Mechanical — Dock Systems & Production Equipment",
+      "level": 2
+    },
+    {
+      "code": "SHY.09",
+      "name": "Electrical — Yard Utilities & Power",
+      "level": 2
+    },
+    {
+      "code": "SHY.10",
+      "name": "Civil Works — Heavy Paving, Roads & Drainage",
+      "level": 2
+    },
+    {
+      "code": "SHY.11",
+      "name": "Testing & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "SHY.11.10",
+      "name": "Dock flooding & gate tests",
+      "level": 3
+    },
+    {
+      "code": "SHY.11.20",
+      "name": "Crane load tests",
+      "level": 3
+    },
+    {
+      "code": "SHY.11.30",
+      "name": "Production trials",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by facility (dock, quays, each hall, cranes, utilities) following the yard's production flow."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; marine works depend on tide, sea state and season; dewatering runs continuously."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Permits → dredging and reclamation → cofferdam → dock excavation → floor and walls → gate sill → dock systems and gate → cofferdam removal → flooding. In parallel: quay walls; halls in production-flow order; crane rails → crane erection → load tests; utilities. The critical path runs through the dry dock, or the goliath crane."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Marine permits are granted on the assumed date; ground and groundwater are as investigated; the grid can supply the yard's demand."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Goliath gantry crane",
+              "16–24 months",
+              "Before block erection in the dock"
+            ],
+            [
+              "Dock gate & dock pumps",
+              "12–18 months",
+              "Before cofferdam removal"
+            ],
+            [
+              "Level-luffing quay cranes",
+              "12–16 months",
+              "Before quay commissioning"
+            ],
+            [
+              "Panel line, cutting & blasting equipment",
+              "10–14 months",
+              "Before production trials"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Work below sea level behind a cofferdam; heavy-lift erection of the goliath crane needs a wind-free window and clear ground; marine plant availability."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: ground conditions and seepage in the dock excavation, cofferdam stability, late crane or gate, settlement of reclaimed land under heavy paving, and marine weather. Contingency is held before dock flooding."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by facility and structure; expanded to Level 4–5 lookahead for the marine, structural and crane-erection crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

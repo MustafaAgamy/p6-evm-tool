@@ -1,0 +1,624 @@
+{
+  "archetype": "stormwater_drainage_network",
+  "schema": 2,
+  "context": "linear network · large pipes & box culverts, outfall first, finished before the road surface",
+  "brief": {
+    "intro": "New to this project type? A stormwater network takes rain off roads and plots and carries it to a safe discharge — a wadi, a canal, the sea, a detention pond or a soakaway. It looks like a sewer network but the pipes are much bigger (often box culverts), the flows arrive in sudden peaks, and the system starts at road gullies that can only be finished with the kerb and asphalt. Like sewers it works by gravity and is built from the outfall upstream. Two things drive the programme: the heavy civil work of large pipes and culverts, and the season — an open, unfinished drain in the rainy season floods the site, so the main lines and the outfall should be working before the rains.",
+    "scope": [
+      {
+        "name": "Survey, catchment & outfall design",
+        "desc": "Levels, existing drains and the approved discharge point."
+      },
+      {
+        "name": "Outfall structure",
+        "desc": "Headwall, apron, flap valve or energy dissipator where the network discharges."
+      },
+      {
+        "name": "Trunk drains & box culverts",
+        "desc": "Large-diameter concrete / GRP pipes and precast or in-situ box culverts."
+      },
+      {
+        "name": "Lateral drains",
+        "desc": "Smaller pipes connecting gullies and catch basins to the trunk drain."
+      },
+      {
+        "name": "Manholes & junction chambers",
+        "desc": "Access and junction structures along the drains."
+      },
+      {
+        "name": "Road gullies & catch basins",
+        "desc": "Inlets at the kerb line that take water off the road."
+      },
+      {
+        "name": "Open channels & swales",
+        "desc": "Lined or unlined channels where a pipe is not needed."
+      },
+      {
+        "name": "Detention ponds & soakaways",
+        "desc": "Storage that holds the peak flow and releases it slowly."
+      },
+      {
+        "name": "Stormwater pumping station",
+        "desc": "Needed where the outfall is higher than the drain or the sea level backs up."
+      },
+      {
+        "name": "Testing, cleaning & CCTV",
+        "desc": "Cleaning, inspection and survey of the finished lines."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Catchment",
+        "plain": "the area whose rain runs to one drain."
+      },
+      {
+        "term": "Outfall",
+        "plain": "the point where the network discharges to a watercourse, pond or the sea."
+      },
+      {
+        "term": "Box culvert",
+        "plain": "a rectangular concrete conduit used where a round pipe would be too large."
+      },
+      {
+        "term": "Gully / catch basin",
+        "plain": "the grated inlet at the kerb that collects road water."
+      },
+      {
+        "term": "Headwall",
+        "plain": "the concrete wall at the end of a pipe or culvert that retains the embankment."
+      },
+      {
+        "term": "Detention pond",
+        "plain": "a basin that stores the storm peak and lets it out slowly."
+      },
+      {
+        "term": "Soakaway",
+        "plain": "a pit or trench that lets collected water soak into the ground."
+      },
+      {
+        "term": "Design storm / return period",
+        "plain": "the size of storm the network is designed to carry, e.g. a 1-in-10-year storm."
+      },
+      {
+        "term": "Flap valve",
+        "plain": "a one-way gate on the outfall that stops the sea or river flowing back up the drain."
+      }
+    ],
+    "must_get_right": [
+      "Build the outfall and the trunk drain first and work upstream, so every finished length can actually drain.",
+      "Aim to have the trunk lines and outfall working before the rainy season; show the season in the calendar and check which open excavations it catches.",
+      "Gullies and their connections can only be completed with kerbs and before the final asphalt layer — tie them to the road programme, not to the drain crew.",
+      "Box culverts are structures, not pipe laying: formwork, reinforcement, concrete and curing (or precast delivery and cranes) need their own durations."
+    ]
+  },
+  "components": [
+    {
+      "name": "Excavation & Bedding",
+      "desc": "Wide trenches, bedding and backfill for large pipes",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Trunk Drains & Box Culverts",
+      "desc": "Large pipes and precast / in-situ culverts",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Lateral Drains & Gullies",
+      "desc": "Smaller pipes, road gullies and catch basins",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Manholes & Junction Chambers",
+      "desc": "Access and junction structures",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Outfall, Ponds & Channels",
+      "desc": "Headwalls, detention ponds, swales and soakaways",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Stormwater Pumping Station",
+      "desc": "Pumps, screens, power and control",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Testing & Handover",
+      "desc": "Cleaning, CCTV and as-built levels",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Drainage Piping",
+      "items": [
+        "Trunk drains (concrete / GRP)",
+        "Lateral drains & gully connections",
+        "Sub-soil drains"
+      ]
+    },
+    {
+      "discipline": "Pumping Station (where required)",
+      "items": [
+        "Axial / submersible storm pumps",
+        "Screens & penstocks",
+        "Valves & discharge pipework"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Power supply & MCC",
+        "Level control",
+        "Telemetry / flood alarm"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Design & Permits",
+    "Outfall Structure",
+    "Trunk Drains & Culverts",
+    "Lateral Drains & Manholes",
+    "Ponds, Channels & Pumping Station",
+    "Gullies with the Road Works",
+    "Cleaning, CCTV & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey",
+      "Outfall",
+      "Trunk",
+      "Laterals",
+      "Ponds/PS",
+      "Gullies",
+      "Handover"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Excavation & Backfill",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 60,
+        "label": "Excavate → bed → backfill, outfall upstream",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Trunk Drains & Box Culverts",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 10,
+        "width": 54,
+        "label": "Blinding → culvert / pipe → joints → waterproofing",
+        "holds": [
+          64
+        ]
+      },
+      {
+        "trade": "Lateral Drains, Manholes & Gullies",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 26,
+        "width": 56,
+        "label": "Laterals → manholes → gullies with the kerbs",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Outfall, Ponds & Channels",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 44,
+        "label": "Outfall first · ponds and channels in parallel",
+        "holds": []
+      },
+      {
+        "trade": "Stormwater Pumping Station",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 44,
+        "label": "Sump → pumps → screens → pipework",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Electrical Power & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 54,
+        "width": 26,
+        "label": "Power → MCC → level control",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Cleaning, CCTV & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 82,
+        "width": 18,
+        "label": "Clean → inspect → survey → hand over",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Excavation & Backfill",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Set out levels & confirm existing services",
+        "Excavate trench & support sides",
+        "Dewatering where needed",
+        "Bedding for pipes & culverts",
+        "Backfill & compact in layers"
+      ]
+    },
+    {
+      "name": "Trunk Drains & Box Culverts",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Blinding concrete",
+        "Place precast units or cast in-situ culvert (base, walls, top slab)",
+        "Cure in-situ concrete before backfill",
+        "Joint sealing & waterproofing",
+        "Lay & joint large-diameter pipes"
+      ]
+    },
+    {
+      "name": "Lateral Drains, Manholes & Gullies",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Lay lateral drains to gradient",
+        "Build manholes & junction chambers",
+        "Install gully pots & connections",
+        "Set gully gratings to final road level with kerbs",
+        "Covers & frames to finished level"
+      ]
+    },
+    {
+      "name": "Outfall, Ponds & Channels",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [],
+      "steps": [
+        "Outfall headwall, apron & flap valve",
+        "Excavate & shape detention pond",
+        "Pond lining, inlet & outlet structures",
+        "Open channels / swales & erosion protection"
+      ]
+    },
+    {
+      "name": "Stormwater Pumping Station",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Pump sump & screen chamber structure",
+        "Receive pumps, screens & penstocks",
+        "Install pumps, screens & discharge pipework",
+        "Valves, flap valves & lifting equipment"
+      ]
+    },
+    {
+      "name": "Electrical Power & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Power-supply connection",
+        "Install MCC & standby generator",
+        "Cabling & level instruments",
+        "Pump control test"
+      ]
+    },
+    {
+      "name": "Cleaning, CCTV & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Jetting & removal of silt and debris",
+        "CCTV / walk-through inspection",
+        "Pumping-station wet test",
+        "As-built levels & handover to the municipality"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "STW",
+      "name": "Stormwater Drainage Network — Project",
+      "level": 1
+    },
+    {
+      "code": "STW.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "STW.02",
+      "name": "Survey, Design & Permits",
+      "level": 2
+    },
+    {
+      "code": "STW.02.10",
+      "name": "Level survey & existing drains",
+      "level": 3
+    },
+    {
+      "code": "STW.02.20",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "STW.02.30",
+      "name": "Permits & outfall approval",
+      "level": 3
+    },
+    {
+      "code": "STW.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "STW.03.10",
+      "name": "Pipes & precast culvert units",
+      "level": 3
+    },
+    {
+      "code": "STW.03.20",
+      "name": "Gullies, covers & gratings",
+      "level": 3
+    },
+    {
+      "code": "STW.03.30",
+      "name": "Pumps, screens & MCC",
+      "level": 3
+    },
+    {
+      "code": "STW.04",
+      "name": "Civil Works — Excavation & Backfill",
+      "level": 2
+    },
+    {
+      "code": "STW.04.10",
+      "name": "Excavation & dewatering",
+      "level": 3
+    },
+    {
+      "code": "STW.04.20",
+      "name": "Bedding & backfill",
+      "level": 3
+    },
+    {
+      "code": "STW.05",
+      "name": "Trunk Drains & Culverts (Structures)",
+      "level": 2
+    },
+    {
+      "code": "STW.05.10",
+      "name": "Box culverts",
+      "level": 3
+    },
+    {
+      "code": "STW.05.10.10",
+      "name": "Blinding, base & walls",
+      "level": 4
+    },
+    {
+      "code": "STW.05.10.20",
+      "name": "Top slab & waterproofing",
+      "level": 4
+    },
+    {
+      "code": "STW.05.20",
+      "name": "Large-diameter pipes",
+      "level": 3
+    },
+    {
+      "code": "STW.06",
+      "name": "Lateral Drains, Manholes & Gullies (Road Drainage)",
+      "level": 2
+    },
+    {
+      "code": "STW.06.10",
+      "name": "Lateral drains",
+      "level": 3
+    },
+    {
+      "code": "STW.06.20",
+      "name": "Manholes & junction chambers",
+      "level": 3
+    },
+    {
+      "code": "STW.06.30",
+      "name": "Gullies & connections",
+      "level": 3
+    },
+    {
+      "code": "STW.07",
+      "name": "Outfall, Ponds & Channels (Earthworks)",
+      "level": 2
+    },
+    {
+      "code": "STW.07.10",
+      "name": "Outfall structure",
+      "level": 3
+    },
+    {
+      "code": "STW.07.20",
+      "name": "Detention ponds & soakaways",
+      "level": 3
+    },
+    {
+      "code": "STW.07.30",
+      "name": "Open channels & swales",
+      "level": 3
+    },
+    {
+      "code": "STW.08",
+      "name": "Stormwater Pumping Station (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "STW.09",
+      "name": "Electrical Power & Control",
+      "level": 2
+    },
+    {
+      "code": "STW.10",
+      "name": "Cleaning, Testing & Handover",
+      "level": 2
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by drain line (outfall, trunk, laterals) and by road, in construction order from the outfall upstream, with the gullies tied to the road-works programme."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar, with the rainy season marked: excavation and concrete in low areas are planned outside it where possible, and reduced productivity is assumed inside it."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Outfall → trunk drain / culvert upstream → laterals → manholes, each length excavate → structure / pipe → cure → backfill. Gullies are linked to kerbs and to the last asphalt layer. Ponds and the pumping station run in parallel and must be ready before the network is declared operational."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The discharge point is approved; the road-works contractor follows the drain crew in the agreed order; groundwater is as in the soil report; precast units are delivered to the planned call-off."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Precast box-culvert units & large concrete / GRP pipe",
+              "10–16 weeks",
+              "Before the trunk-drain crew starts"
+            ],
+            [
+              "Storm pumps, screens & penstocks",
+              "18–26 weeks",
+              "Before pumping-station installation"
+            ],
+            [
+              "MCC & standby generator",
+              "14–20 weeks",
+              "Before pumping-station power-on"
+            ],
+            [
+              "Ductile-iron gullies, covers & gratings",
+              "8–12 weeks",
+              "Before kerb and asphalt works"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Large pipes and culverts need wide trenches, cranes and road closures. The outfall may be in a watercourse or at the shoreline with its own environmental and tidal limits."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: rain flooding open works, late precast or pump delivery, clashes with existing utilities at the large trench width, and gullies finished out of sequence with the road. Contingency is held before the rainy season date and before road surfacing."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by drain line and road; expanded to Level 4–5 lookahead for the excavation, culvert and gully crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "EN 1610 — construction and testing of drains and sewers"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

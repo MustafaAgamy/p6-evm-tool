@@ -1,0 +1,231 @@
+{
+  "category": "Infrastructure",
+  "type": "Gas Distribution Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "gas main",
+    "gas network",
+    "natural gas",
+    "pe pipe",
+    "polyethylene",
+    "butt fusion",
+    "electrofusion",
+    "prs",
+    "pressure reducing",
+    "regulator",
+    "gas meter",
+    "service line",
+    "riser",
+    "purging",
+    "gas-in",
+    "tightness test",
+    "district regulating"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "gas company"
+      ]
+    },
+    {
+      "name": "Trenching",
+      "keywords": [
+        "trench",
+        "excavation",
+        "sand bedding"
+      ]
+    },
+    {
+      "name": "Pressure-Reducing Station",
+      "keywords": [
+        "prs",
+        "pressure reducing",
+        "regulating station",
+        "skid"
+      ]
+    },
+    {
+      "name": "Steel Mains",
+      "keywords": [
+        "steel main",
+        "welding",
+        "ndt",
+        "coating"
+      ]
+    },
+    {
+      "name": "PE Mains",
+      "keywords": [
+        "pe main",
+        "pe pipe",
+        "fusion",
+        "polyethylene"
+      ]
+    },
+    {
+      "name": "Service Lines & Meters",
+      "keywords": [
+        "service line",
+        "riser",
+        "regulator",
+        "gas meter"
+      ]
+    },
+    {
+      "name": "Pressure Testing",
+      "keywords": [
+        "pressure test",
+        "tightness test",
+        "strength test"
+      ]
+    },
+    {
+      "name": "Purging & Gas-in",
+      "keywords": [
+        "purging",
+        "gas-in",
+        "commissioning",
+        "handover"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "PRS Skid Procurement & Delivery",
+      "keywords": [
+        "prs",
+        "skid",
+        "procure"
+      ],
+      "wbs": "Pressure-Reducing Station",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "PRS Installation",
+      "duration_days": 200,
+      "why": "The pressure-reducing skid is the longest lead item; no gas can enter the network without it."
+    },
+    {
+      "name": "PE Main Laying & Fusion",
+      "keywords": [
+        "pe main",
+        "fusion",
+        "pe pipe"
+      ],
+      "wbs": "PE Mains",
+      "typical_pred": "Trenching",
+      "typical_succ": "Pressure Testing",
+      "duration_days": 60,
+      "why": "PE mains are the bulk of the network; output is set by qualified fusion teams."
+    },
+    {
+      "name": "Service Lines & Meters",
+      "keywords": [
+        "service line",
+        "riser",
+        "gas meter"
+      ],
+      "wbs": "Service Lines & Meters",
+      "typical_pred": "PE Mains",
+      "typical_succ": "Pressure Testing",
+      "duration_days": 45,
+      "why": "Services branch from the completed mains to each building."
+    },
+    {
+      "name": "Pressure Test",
+      "keywords": [
+        "pressure test",
+        "tightness test"
+      ],
+      "wbs": "Pressure Testing",
+      "typical_pred": "PE Mains",
+      "typical_succ": "Purging & Gas-in",
+      "duration_days": 10,
+      "why": "Every section is proven tight, witnessed, before gas is admitted."
+    },
+    {
+      "name": "Purging & Gas-in",
+      "keywords": [
+        "purging",
+        "gas-in"
+      ],
+      "wbs": "Purging & Gas-in",
+      "typical_pred": "Pressure Testing",
+      "typical_succ": "Handover",
+      "duration_days": 5,
+      "why": "Gas-in is carried out by the gas company after its inspection."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "trench",
+        "sand bedding"
+      ],
+      "after_keywords": [
+        "pe main",
+        "pe pipe",
+        "steel main",
+        "pipe laying"
+      ],
+      "reason": "Pipe is laid in a prepared trench.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "welding"
+      ],
+      "after_keywords": [
+        "ndt",
+        "coating"
+      ],
+      "reason": "Weld inspection and coating follow welding.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pe main",
+        "steel main",
+        "service line",
+        "fusion"
+      ],
+      "after_keywords": [
+        "pressure test",
+        "tightness test"
+      ],
+      "reason": "Pressure testing follows completion of the section.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "pressure test",
+        "tightness test",
+        "prs"
+      ],
+      "after_keywords": [
+        "purging",
+        "gas-in"
+      ],
+      "reason": "Gas-in follows a passed test and a commissioned PRS.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Design Approved by Gas Company",
+    "PRS Skid Delivered",
+    "Feeder Main Complete",
+    "PE Mains Complete",
+    "Pressure Tests Passed",
+    "Gas-in",
+    "Handover"
+  ],
+  "common_issues": [
+    "Gas-in planned before PRS commissioning",
+    "No gas company inspection activity",
+    "PRS lead time underestimated",
+    "Backfill before joint inspection",
+    "Separation from power cables not coordinated"
+  ]
+}

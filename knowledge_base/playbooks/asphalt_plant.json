@@ -1,0 +1,682 @@
+{
+  "archetype": "asphalt_plant",
+  "schema": 2,
+  "context": "small plant · burner, dryer and bitumen system; emissions permit and mix approval govern",
+  "brief": {
+    "intro": "New to this project type? An asphalt plant dries and heats aggregates in a rotating drum fired by a burner, screens and weighs them, and mixes them with hot bitumen to make the asphalt laid on roads. Around the drum are cold-feed bins, a tall mixing tower, heated bitumen tanks, a filler silo, a bag-house filter that cleans the exhaust, and hot storage silos that load trucks. Like a concrete plant it arrives in modules and is erected in weeks. The programme is set by the environmental permit (it has a chimney and a burner), the fuel and bitumen supply arrangements, the foundations, and — at the end — burner tuning, emission tests and approval of the asphalt mixes by the road authority.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Cold-feed bins & conveyors",
+        "desc": "Bins that meter each aggregate size onto a collecting belt."
+      },
+      {
+        "name": "Dryer drum & burner",
+        "desc": "Rotating drum where aggregates are dried and heated."
+      },
+      {
+        "name": "Bag-house filter & chimney",
+        "desc": "Dust collection from the dryer exhaust and return of filler."
+      },
+      {
+        "name": "Mixing tower",
+        "desc": "Hot elevator, screen, hot bins, weigh hoppers and pug-mill mixer."
+      },
+      {
+        "name": "Bitumen tanks & heating",
+        "desc": "Heated storage tanks, pumps and thermal-oil heater."
+      },
+      {
+        "name": "Filler & additive systems",
+        "desc": "Filler silo, fibre and recycled-asphalt feeding."
+      },
+      {
+        "name": "Hot storage & truck loading",
+        "desc": "Insulated silos and loading point with weighbridge."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Fuel (gas / diesel / heavy oil) system, Thermal-oil heating, Compressed air, Fire water — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Burner tuning, emission test, trial mixes and approval of each asphalt mix by the road authority."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Hot-mix asphalt",
+        "plain": "aggregate coated with hot bitumen, laid and compacted while hot."
+      },
+      {
+        "term": "Dryer drum",
+        "plain": "the rotating, flame-heated drum that dries and heats the aggregate."
+      },
+      {
+        "term": "Bag-house",
+        "plain": "a filter with fabric bags that removes dust from the exhaust."
+      },
+      {
+        "term": "Pug mill",
+        "plain": "the twin-shaft mixer where aggregate, filler and bitumen are mixed."
+      },
+      {
+        "term": "Batch plant / drum-mix plant",
+        "plain": "a batch plant weighs and mixes each load; a drum-mix plant mixes continuously in the drum."
+      },
+      {
+        "term": "Thermal oil",
+        "plain": "hot oil circulated to keep bitumen tanks and pipes at temperature."
+      },
+      {
+        "term": "RAP",
+        "plain": "reclaimed asphalt pavement — old road material recycled into new mix."
+      },
+      {
+        "term": "Job-mix formula",
+        "plain": "the approved recipe for an asphalt mix."
+      }
+    ],
+    "must_get_right": [
+      "The environmental permit (emissions, noise, distance from housing) is the first activity and can decide the site itself.",
+      "Bitumen and fuel storage need bunds, heating and fire protection — design and approve them with the civil works.",
+      "Heat-up is slow: bitumen tanks and thermal oil need days to reach temperature before any hot test.",
+      "The plant earns nothing until the road authority approves the job-mix formula; plan trial mixes and laboratory tests as real activities."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Asphalt Plant Erection",
+      "desc": "Dryer, tower, bag-house, bitumen tanks and silos",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Fuel (gas / diesel / heavy oil) system, Thermal-oil heating, Compressed air, Fire water",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Asphalt Plant Erection",
+      "items": [
+        "Cold-feed bins & conveyors",
+        "Dryer drum & burner",
+        "Bag-house filter & chimney",
+        "Mixing tower",
+        "Bitumen tanks & heating",
+        "Filler & additive systems",
+        "Hot storage & truck loading"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Fuel (gas / diesel / heavy oil) system",
+        "Thermal-oil heating",
+        "Compressed air",
+        "Fire water"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Asphalt Plant Erection",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Dryer → tower → filter → tanks → silos",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Cold run → burner → hot run → trial mixes",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Asphalt Plant Erection",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive plant modules",
+        "Set dryer drum & burner",
+        "Erect mixing tower, screen & hot elevator",
+        "Erect bag-house filter, ducting & chimney",
+        "Install bitumen tanks, thermal-oil heater & heated piping",
+        "Erect hot-storage silos & cold-feed bins"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: fuel (gas / diesel / heavy oil) system, thermal-oil heating, compressed air",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2,
+        5
+      ],
+      "steps": [
+        "Cold run of drives, conveyors & screen",
+        "Thermal-oil system heat-up & bitumen circulation",
+        "Burner ignition & tuning",
+        "Scale calibration",
+        "Hot run & trial mixes",
+        "Emission test & mix approval"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "ASP",
+      "name": "Asphalt / Hot-Mix Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "ASP.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "ASP.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "ASP.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "ASP.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "ASP.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "ASP.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "ASP.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "ASP.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "ASP.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "ASP.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "ASP.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "ASP.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "ASP.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "ASP.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "ASP.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "ASP.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "ASP.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "ASP.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "ASP.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "ASP.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "ASP.06.10",
+      "name": "Cold-feed bins & conveyors",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.20",
+      "name": "Dryer drum & burner",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.30",
+      "name": "Bag-house filter & chimney",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.40",
+      "name": "Mixing tower",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.50",
+      "name": "Bitumen tanks & heating",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.60",
+      "name": "Filler & additive systems",
+      "level": 3
+    },
+    {
+      "code": "ASP.06.70",
+      "name": "Hot storage & truck loading",
+      "level": 3
+    },
+    {
+      "code": "ASP.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "ASP.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "ASP.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "ASP.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "ASP.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "ASP.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "ASP.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "ASP.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "ASP.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "ASP.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "ASP.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "ASP.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "ASP.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Permit and supplier drawings → foundations, bunds and yard → plant erection → fuel, power and air → cold run → heat-up → burner tuning → trial mixes → emission test and mix approval. The critical path runs through the permit and plant delivery, then the approvals."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Asphalt plant (dryer, tower, bag-house, controls)",
+              "16–24 weeks",
+              "Before erection"
+            ],
+            [
+              "Bitumen tanks & thermal-oil heater",
+              "12–18 weeks",
+              "Before heat-up"
+            ],
+            [
+              "Weighbridge & laboratory equipment",
+              "8–12 weeks",
+              "Before trial mixes"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: permit refusal or conditions, fuel-supply connection, burner and emission problems, and mix approval. Contingency is held before the first paving contract date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

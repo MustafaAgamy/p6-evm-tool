@@ -1,0 +1,259 @@
+{
+  "category": "Infrastructure",
+  "type": "Potable Water Supply Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "water main",
+    "potable",
+    "transmission main",
+    "distribution main",
+    "ductile iron",
+    "hdpe",
+    "grp",
+    "thrust block",
+    "air valve",
+    "washout",
+    "hydrant",
+    "house connection",
+    "water meter",
+    "pressure test",
+    "disinfection",
+    "chlorination",
+    "flushing",
+    "valve chamber"
+  ],
+  "wbs": [
+    {
+      "name": "Survey & Permits",
+      "keywords": [
+        "survey",
+        "trial pit",
+        "permit",
+        "noc",
+        "setting out"
+      ]
+    },
+    {
+      "name": "Trenching & Bedding",
+      "keywords": [
+        "trench",
+        "excavation",
+        "bedding",
+        "dewatering",
+        "shoring"
+      ]
+    },
+    {
+      "name": "Pipe Laying",
+      "keywords": [
+        "pipe laying",
+        "laying",
+        "jointing",
+        "transmission main",
+        "distribution main",
+        "water main"
+      ]
+    },
+    {
+      "name": "Valves, Hydrants & Chambers",
+      "keywords": [
+        "valve",
+        "hydrant",
+        "chamber",
+        "air valve",
+        "washout"
+      ]
+    },
+    {
+      "name": "Thrust Blocks & Crossings",
+      "keywords": [
+        "thrust block",
+        "crossing",
+        "sleeve",
+        "pipe jacking"
+      ]
+    },
+    {
+      "name": "House Connections & Meters",
+      "keywords": [
+        "house connection",
+        "service connection",
+        "meter"
+      ]
+    },
+    {
+      "name": "Pressure Testing",
+      "keywords": [
+        "pressure test",
+        "hydrostatic",
+        "hydro test"
+      ]
+    },
+    {
+      "name": "Backfill & Reinstatement",
+      "keywords": [
+        "backfill",
+        "compaction",
+        "reinstatement",
+        "asphalt"
+      ]
+    },
+    {
+      "name": "Disinfection & Commissioning",
+      "keywords": [
+        "disinfection",
+        "chlorination",
+        "flushing",
+        "sampling",
+        "tie-in",
+        "handover"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Pipe Laying & Jointing",
+      "keywords": [
+        "pipe laying",
+        "laying",
+        "jointing"
+      ],
+      "wbs": "Pipe Laying",
+      "typical_pred": "Trenching & Bedding",
+      "typical_succ": "Pressure Testing",
+      "duration_days": 60,
+      "why": "Pipe laying is the production activity that sets the length of the programme; it needs trench and pipe ahead of it."
+    },
+    {
+      "name": "Thrust Blocks Cast & Cured",
+      "keywords": [
+        "thrust block"
+      ],
+      "wbs": "Thrust Blocks & Crossings",
+      "typical_pred": "Pipe Laying",
+      "typical_succ": "Pressure Testing",
+      "duration_days": 14,
+      "why": "Bends and tees must be anchored and the concrete cured before the main is put under test pressure."
+    },
+    {
+      "name": "Hydrostatic Pressure Test",
+      "keywords": [
+        "pressure test",
+        "hydrostatic"
+      ],
+      "wbs": "Pressure Testing",
+      "typical_pred": "Pipe Laying",
+      "typical_succ": "Backfill & Reinstatement",
+      "duration_days": 10,
+      "why": "Each section is proven leak-tight before final backfill and reinstatement hide the joints."
+    },
+    {
+      "name": "Disinfection & Sampling",
+      "keywords": [
+        "disinfection",
+        "chlorination",
+        "sampling"
+      ],
+      "wbs": "Disinfection & Commissioning",
+      "typical_pred": "Pressure Testing",
+      "typical_succ": "Tie-in",
+      "duration_days": 12,
+      "why": "A new main may not carry drinking water until chlorinated, flushed and passed by laboratory samples."
+    },
+    {
+      "name": "Tie-in to Existing Network",
+      "keywords": [
+        "tie-in",
+        "connection to existing",
+        "shutdown"
+      ],
+      "wbs": "Disinfection & Commissioning",
+      "typical_pred": "Disinfection & Sampling",
+      "typical_succ": "Handover",
+      "duration_days": 3,
+      "why": "The live connection needs an authority shutdown and comes only after the new main has passed its samples."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "trench",
+        "excavation",
+        "bedding"
+      ],
+      "after_keywords": [
+        "pipe laying",
+        "laying",
+        "jointing"
+      ],
+      "reason": "Pipe is laid only after the trench is excavated and bedded.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "pipe laying",
+        "jointing",
+        "thrust block"
+      ],
+      "after_keywords": [
+        "pressure test",
+        "hydrostatic"
+      ],
+      "reason": "The pressure test follows pipe laying and cured thrust blocks.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "pressure test",
+        "hydrostatic"
+      ],
+      "after_keywords": [
+        "reinstatement",
+        "asphalt"
+      ],
+      "reason": "Final reinstatement follows a passed pressure test.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pressure test",
+        "flushing"
+      ],
+      "after_keywords": [
+        "disinfection",
+        "chlorination"
+      ],
+      "reason": "Disinfection follows a passed pressure test and flushing.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "disinfection",
+        "sampling"
+      ],
+      "after_keywords": [
+        "tie-in",
+        "handover"
+      ],
+      "reason": "The live tie-in and handover follow passed disinfection samples.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Permits Issued",
+    "Pipe Delivered",
+    "Pipe Laying Complete",
+    "Pressure Tests Passed",
+    "Disinfection Passed",
+    "Tie-in Complete",
+    "Handover to Authority"
+  ],
+  "common_issues": [
+    "Reinstatement planned before the pressure test",
+    "No time for disinfection and laboratory samples",
+    "Thrust blocks not cured before testing",
+    "Tie-in shutdown not planned as a milestone",
+    "Valve and fitting delivery not linked to pipe laying"
+  ]
+}

@@ -1,0 +1,582 @@
+{
+  "archetype": "ev_charging_infrastructure",
+  "schema": 2,
+  "context": "multi-site roll-out · short site work; grid connection per site and charger supply govern",
+  "brief": {
+    "intro": "New to this project type? An EV charging project installs charging points — from a few wall boxes in a car park to a hub of high-power chargers on a motorway, or a depot charging a bus fleet overnight. Each site is small: a new or upgraded power supply (often its own transformer), a switchboard, cable ducts to the bays, plinths, the chargers, protection bollards, signs, and a data connection so the chargers can be monitored and take payment. On site, that is a few weeks of work. The project is long because there are many sites, and every one needs its own lease or permission and its own grid connection from the distribution company — which has its own queue. So the programme is really a pipeline: many sites, each moving through the same stages at its own pace.",
+    "scope": [
+      {
+        "name": "Site selection & agreements",
+        "desc": "Surveys, leases, landlord and planning permissions for each site."
+      },
+      {
+        "name": "Grid connection applications",
+        "desc": "Capacity request, design and quotation by the distribution company for each site."
+      },
+      {
+        "name": "Design",
+        "desc": "Electrical design, layout of bays, accessibility and fire-safety checks."
+      },
+      {
+        "name": "Power supply",
+        "desc": "New transformer or kiosk substation, or an upgrade of the existing supply."
+      },
+      {
+        "name": "Switchboards & protection",
+        "desc": "Distribution boards, metering and load-management equipment."
+      },
+      {
+        "name": "Civil works",
+        "desc": "Trenches, ducts, charger plinths, bollards, kerbs and resurfacing."
+      },
+      {
+        "name": "Chargers",
+        "desc": "AC and DC chargers, power cabinets and dispensers."
+      },
+      {
+        "name": "Communications & back-office",
+        "desc": "Network connection, charge-point management system and payment."
+      },
+      {
+        "name": "Signs, marking & lighting",
+        "desc": "Bay marking, way-finding, canopies and lighting."
+      },
+      {
+        "name": "Testing & commissioning",
+        "desc": "Electrical tests, charger commissioning with the manufacturer, payment and network tests."
+      },
+      {
+        "name": "Energisation & go-live",
+        "desc": "Meter installation and energisation by the distribution company, then public opening."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "AC charger",
+        "plain": "a slower charger (up to 22 kW); the car's own on-board charger does the conversion."
+      },
+      {
+        "term": "DC fast charger",
+        "plain": "a high-power charger (50–350 kW) that supplies the battery directly."
+      },
+      {
+        "term": "Power cabinet / dispenser",
+        "plain": "in large hubs, the power electronics sit in a cabinet and feed several slim dispensers at the bays."
+      },
+      {
+        "term": "Connection capacity",
+        "plain": "the power the grid can supply at that point; it limits how many chargers a site can have."
+      },
+      {
+        "term": "Load management",
+        "plain": "software that shares the available power between chargers so the supply is never overloaded."
+      },
+      {
+        "term": "OCPP",
+        "plain": "the common communication language between chargers and the management system."
+      },
+      {
+        "term": "CPMS",
+        "plain": "charge-point management system — the back-office that monitors, controls and bills."
+      },
+      {
+        "term": "DNO / DSO",
+        "plain": "the distribution network operator — the company that owns the local grid and makes the connection."
+      },
+      {
+        "term": "Go-live",
+        "plain": "the day the site opens to users."
+      }
+    ],
+    "must_get_right": [
+      "The grid connection is the critical path of almost every site: apply as early as possible and track application, offer, acceptance, the operator's works and energisation as milestones per site.",
+      "Run the programme as a pipeline of sites through fixed stages (agreement → connection → design → build → commission → go-live) and report how many sites sit in each stage.",
+      "Chargers and transformers have long lead times; order against the pipeline, not site by site, and keep the civil work back until deliveries and the connection date are firm.",
+      "Go-live needs more than electricity: the data connection, payment system and the operator's meter must all work on the day."
+    ]
+  },
+  "components": [
+    {
+      "name": "Site Agreements & Grid Connection",
+      "desc": "Leases, permissions and connection per site",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Civil Works",
+      "desc": "Trenches, ducts, plinths, bollards and surfacing",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Power Supply",
+      "desc": "Transformer / kiosk, switchboards and metering",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Chargers",
+      "desc": "AC / DC chargers, cabinets and dispensers",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Cabling & Earthing",
+      "desc": "Supply and charger cabling, earthing",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Communications & Back-office",
+      "desc": "Network, management system and payment",
+      "disc": "ELV",
+      "primary": false
+    },
+    {
+      "name": "Commissioning & Go-live",
+      "desc": "Tests, energisation and opening",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Power Supply",
+      "items": [
+        "Kiosk substation / transformer",
+        "LV switchboard & metering",
+        "Load-management controller"
+      ]
+    },
+    {
+      "discipline": "Charging Equipment",
+      "items": [
+        "AC charge points",
+        "DC fast chargers & power cabinets",
+        "Cable-management & dispensers"
+      ]
+    },
+    {
+      "discipline": "Communications",
+      "items": [
+        "Cellular / fibre connection",
+        "Charge-point management system",
+        "Payment terminals"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Site Selection & Agreements",
+    "Grid Connection Applications",
+    "Design & Permits",
+    "Procurement",
+    "Civil Works",
+    "Electrical Installation",
+    "Commissioning",
+    "Energisation & Go-live"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Sites",
+      "Grid apply",
+      "Design",
+      "Civil",
+      "Install",
+      "Commission",
+      "Go-live"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trenches, Plinths & Surfacing",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 40,
+        "width": 28,
+        "label": "Trench → ducts → plinths → reinstate",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Electrical — Power Supply & Switchboards",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 40,
+        "label": "Transformer → switchboard → metering",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Electrical — Chargers & Cabling",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 52,
+        "width": 28,
+        "label": "Pull cables → set chargers → terminate",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "ELV — Communications & Back-office",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 56,
+        "width": 26,
+        "label": "Network → CPMS → payment",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Commissioning — Charger Commissioning & Go-live",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Commission → test charge → open",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trenches, Plinths & Surfacing",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Site agreement & permits in place",
+        "Trenching & ducts",
+        "Charger & transformer plinths",
+        "Bollards, kerbs & drainage",
+        "Resurfacing, bay marking & signs"
+      ]
+    },
+    {
+      "name": "Electrical — Power Supply & Switchboards",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0,
+        4
+      ],
+      "steps": [
+        "Grid connection offer accepted",
+        "Install kiosk substation / transformer",
+        "Install LV switchboard & load-management",
+        "Distribution company's connection works",
+        "Meter installed & supply energised"
+      ]
+    },
+    {
+      "name": "Electrical — Chargers & Cabling",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive chargers & power cabinets",
+        "Pull supply & charger cables",
+        "Set chargers & dispensers on plinths",
+        "Terminate, earth & bond",
+        "Electrical tests (insulation, earth, RCD)"
+      ]
+    },
+    {
+      "name": "ELV — Communications & Back-office",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install network connection (cellular / fibre)",
+        "Register chargers in the management system",
+        "Configure tariffs & payment",
+        "End-to-end communication test"
+      ]
+    },
+    {
+      "name": "Commissioning — Charger Commissioning & Go-live",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Charger commissioning with the manufacturer",
+        "Test charging sessions with vehicles",
+        "Load-management test",
+        "Safety inspection & handover documents",
+        "Go-live & monitoring period"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "EVC",
+      "name": "EV Charging Infrastructure — Project",
+      "level": 1
+    },
+    {
+      "code": "EVC.01",
+      "name": "Programme Management",
+      "level": 2
+    },
+    {
+      "code": "EVC.02",
+      "name": "Site Selection, Agreements & Permits",
+      "level": 2
+    },
+    {
+      "code": "EVC.02.10",
+      "name": "Site surveys",
+      "level": 3
+    },
+    {
+      "code": "EVC.02.20",
+      "name": "Leases & landlord approvals",
+      "level": 3
+    },
+    {
+      "code": "EVC.02.30",
+      "name": "Planning permissions",
+      "level": 3
+    },
+    {
+      "code": "EVC.03",
+      "name": "Grid Connection Applications & Approvals",
+      "level": 2
+    },
+    {
+      "code": "EVC.03.10",
+      "name": "Applications",
+      "level": 3
+    },
+    {
+      "code": "EVC.03.20",
+      "name": "Offers & acceptance",
+      "level": 3
+    },
+    {
+      "code": "EVC.04",
+      "name": "Design",
+      "level": 2
+    },
+    {
+      "code": "EVC.05",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "EVC.05.10",
+      "name": "Chargers & power cabinets",
+      "level": 3
+    },
+    {
+      "code": "EVC.05.20",
+      "name": "Transformers & switchboards",
+      "level": 3
+    },
+    {
+      "code": "EVC.06",
+      "name": "Civil Works — Trenches, Plinths & Surfacing",
+      "level": 2
+    },
+    {
+      "code": "EVC.06.10",
+      "name": "Trenching & ducts",
+      "level": 3
+    },
+    {
+      "code": "EVC.06.20",
+      "name": "Plinths & bollards",
+      "level": 3
+    },
+    {
+      "code": "EVC.06.30",
+      "name": "Surfacing, marking & signs",
+      "level": 3
+    },
+    {
+      "code": "EVC.07",
+      "name": "Electrical — Power Supply & Switchboards",
+      "level": 2
+    },
+    {
+      "code": "EVC.07.10",
+      "name": "Transformer / kiosk",
+      "level": 3
+    },
+    {
+      "code": "EVC.07.20",
+      "name": "Switchboard & metering",
+      "level": 3
+    },
+    {
+      "code": "EVC.07.30",
+      "name": "Distribution-company connection works",
+      "level": 3
+    },
+    {
+      "code": "EVC.08",
+      "name": "Electrical — Chargers & Cabling",
+      "level": 2
+    },
+    {
+      "code": "EVC.08.10",
+      "name": "Cabling & earthing",
+      "level": 3
+    },
+    {
+      "code": "EVC.08.20",
+      "name": "Charger installation",
+      "level": 3
+    },
+    {
+      "code": "EVC.08.30",
+      "name": "Electrical tests",
+      "level": 3
+    },
+    {
+      "code": "EVC.09",
+      "name": "Communications, Back-office & Payment (Telecom)",
+      "level": 2
+    },
+    {
+      "code": "EVC.10",
+      "name": "Commissioning & Go-live",
+      "level": 2
+    },
+    {
+      "code": "EVC.10.10",
+      "name": "Charger commissioning",
+      "level": 3
+    },
+    {
+      "code": "EVC.10.20",
+      "name": "Energisation",
+      "level": 3
+    },
+    {
+      "code": "EVC.10.30",
+      "name": "Go-live & monitoring",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by site (grouped by region or wave), each site carrying the same stage chain, so the pipeline can be reported by stage."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard working calendar; work in public car parks and forecourts may be limited to off-peak hours or done bay by bay to keep the site open."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per site: agreement → grid application → offer and acceptance → design and permits → civil works → electrical installation → distribution company's works and meter → commissioning → go-live. Procurement runs for the whole pipeline. The critical path of each site runs through its grid connection."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Landlords and authorities respond in the assumed time; the distribution company delivers each connection to its offer date; charger supply follows the pipeline forecast."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "DC fast chargers & power cabinets",
+              "5–9 months",
+              "Before charger installation"
+            ],
+            [
+              "Kiosk substations / transformers",
+              "6–10 months",
+              "Before power-supply installation"
+            ],
+            [
+              "Grid connection by the distribution company",
+              "6–18 months per site",
+              "Before energisation"
+            ],
+            [
+              "LV switchboards & load-management",
+              "3–5 months",
+              "Before electrical installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Sites stay open to the public during the works; space for plant is limited; each distribution company and landlord has different rules."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: grid capacity not available or expensive reinforcement, slow leases and permits, charger delivery, and communication or payment faults at go-live. Contingency is held per site before go-live and across the programme for sites that drop out."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by site and stage; expanded to Level 4–5 lookahead for the civil and electrical site teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 61851 — electric vehicle conductive charging system"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

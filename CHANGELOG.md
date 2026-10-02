@@ -7,6 +7,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — Knowledge Base: 48 more project types, with every infrastructure network (comment 38)
+The library grows from 77 to 125 project types. Each new type is a full page — plain-language brief, scope, key terms, what must be got right, components, sequence of work by trade, suggested WBS, basis of planning with long-lead items — and each downloads as a detailed baseline (about 1,200 activities) and as Excel.
+- **New shelf: Infrastructure Networks (17 types).** Every network is now its own project type: Potable Water Supply · Sewerage (gravity sewers & rising mains) · Stormwater Drainage · Irrigation & TSE · Fire Water Ring Main & Hydrants · Overhead Transmission Line · Underground Power Cables (HV / MV) · Power Distribution (MV / LV) · Street Lighting · Telecom / Fibre · Gas Distribution · Cross-Country Pipeline · District Cooling Network · Traffic Signals & ITS · Common Utility Tunnel · and **Site Infrastructure — Roads & All Utility Networks**, which explains how the networks are sequenced together (deepest first, tested before being covered, road crossings before road base).
+- **Industrial & Manufacturing (22 more):** Precast Concrete · Ready-Mix Batching Plant · Asphalt Plant · Brick & Block · Ceramic & Tile · Gypsum Board · MDF / Wood Panel · Rebar Rolling Mill · Pipe Factory · Cable & Wire · Automotive · Battery Cell (Gigafactory) · Semiconductor Fab · Textile · Sugar · Tyre · Plastics · Paint & Coatings · Furniture · Aluminium Smelter · Shipyard · Steel Structures (fabrication & erection).
+- **Power & Energy (6 more):** Battery Energy Storage (BESS) · Green Hydrogen · Hydropower · Nuclear · Concentrated Solar Power · EV Charging Infrastructure. **Oil, Gas & Process (2 more):** Fertilizer / Ammonia-Urea · Offshore Platform / FPSO. Also **Light Rail / Tram** and **Irrigation Canals**.
+- 13 of the networks also get a starter baseline entry, so the tool can recognise those schedule types.
+
+### Changed — Knowledge Base baseline files and Excel
+- **Detailed baseline (XER): each trade's activities now sit under their own WBS branch.** Before, all the trades of one discipline were placed under the first branch of that discipline (for example, pipe laying under "Fire Water Tank"), and some under Procurement. Now a trade goes to the branch that carries its name. This also corrects the 77 existing types.
+- **Knowledge Base Excel** now includes the sequence overview, the chart-by-trade figures and the list of standards, and opens with a title line.
+
 ### Changed — Excel exports now carry all the data of each feature (comment 29)
 Every feature's Excel was compared, table by table, with what its screen and PDF show. Where the workbook had less, the missing parts were added as extra sheets — the existing first sheet of each workbook is unchanged.
 - **Baseline Narrative Report** — the Excel was a short status summary. It is now the whole report: one sheet per section (all 19 — overview, brief, milestones, key dates, contract value, scope of work, calendars, WBS, activity codes, sequence, activity IDs, resource loading, materials, productivity, volume of work, critical path and the appendices), every table with all its rows and every chart as its numbers. A new **Export Excel** button sits beside Word / PDF / HTML on the Narrative screen and follows the Report Contents selection.

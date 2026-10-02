@@ -1,0 +1,650 @@
+{
+  "archetype": "gas_distribution_network",
+  "schema": 2,
+  "context": "area network · PE mains and services; pressure test, purging and gas-in by the licensed operator",
+  "brief": {
+    "intro": "New to this project type? A gas distribution network brings natural gas from a pressure-reducing station to buildings through buried mains — polyethylene (PE) pipe in the streets, steel for the higher-pressure feeders — with a service pipe, a regulator and a meter at each customer. The pipe laying is quick: PE comes in coils or long lengths and is fused together. What sets this network apart is safety. Only qualified welders and fusion operators may make joints, every joint is recorded, the network is pressure-tested, and the moment gas is let in (gas-in) is done by the licensed gas company under its own procedure, after it has inspected everything. Gas keeps its distance from other utilities, especially power cables.",
+    "scope": [
+      {
+        "name": "Network design & gas company approval",
+        "desc": "Pressure tiers, pipe sizes, routes and safety distances approved."
+      },
+      {
+        "name": "Pressure-reducing station (PRS / DRS)",
+        "desc": "Skid with filters, regulators, safety shut-off and metering, in a fenced compound."
+      },
+      {
+        "name": "Steel feeder mains",
+        "desc": "Welded, coated steel mains at higher pressure, with cathodic protection."
+      },
+      {
+        "name": "PE distribution mains",
+        "desc": "Polyethylene mains in the streets joined by butt-fusion or electrofusion."
+      },
+      {
+        "name": "Valves & valve pits",
+        "desc": "Sectional isolation valves along the mains."
+      },
+      {
+        "name": "Service lines",
+        "desc": "Service pipes from the main to each building, with riser, regulator and meter."
+      },
+      {
+        "name": "Crossings & protection",
+        "desc": "Sleeves and trenchless crossings under roads; marker tape, slabs and marker posts."
+      },
+      {
+        "name": "Pressure testing",
+        "desc": "Strength and tightness tests of each section."
+      },
+      {
+        "name": "Purging & gas-in",
+        "desc": "Replacing the air with gas and commissioning, by the gas company."
+      },
+      {
+        "name": "Customer installation & conversion",
+        "desc": "Internal piping checks and appliance connection, where in scope."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "PRS / DRS",
+        "plain": "pressure-reducing (or district regulating) station — where gas pressure is lowered for the area network."
+      },
+      {
+        "term": "PE pipe",
+        "plain": "polyethylene gas pipe, yellow or black with yellow stripes; flexible and corrosion-free."
+      },
+      {
+        "term": "Butt fusion / electrofusion",
+        "plain": "two ways of welding PE pipe: heating the pipe ends, or using a fitting with a built-in heating coil."
+      },
+      {
+        "term": "Service line",
+        "plain": "the small pipe from the street main to one building."
+      },
+      {
+        "term": "Riser & regulator",
+        "plain": "the pipe coming out of the ground at the building and the device that drops the pressure for the appliances."
+      },
+      {
+        "term": "Cathodic protection",
+        "plain": "electrical protection that stops buried steel pipe from rusting."
+      },
+      {
+        "term": "Tightness test",
+        "plain": "holding the pipe at pressure for a set time and checking that the pressure does not fall."
+      },
+      {
+        "term": "Purging",
+        "plain": "safely pushing the air out of the pipe with gas (or nitrogen first) before use."
+      },
+      {
+        "term": "Gas-in",
+        "plain": "the first admission of gas into the new network."
+      }
+    ],
+    "must_get_right": [
+      "Qualified fusion operators and welders are the controlling resource; every joint is traceable. Plan output per fusion team, not per excavator.",
+      "Respect the separation from power cables and other utilities when the corridor is coordinated — gas cannot simply be squeezed into the space left over.",
+      "The pressure-reducing station (skid, civil works, upstream connection) is the long-lead item; no section can receive gas before it is commissioned.",
+      "Gas-in is done by the gas company after its inspection and a passed test; show the inspection, the test witness and gas-in as dated milestones."
+    ]
+  },
+  "components": [
+    {
+      "name": "Pressure-Reducing Station",
+      "desc": "Regulating / metering skid and compound",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Steel Feeder Mains",
+      "desc": "Welded steel mains with coating and cathodic protection",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "PE Distribution Mains",
+      "desc": "Fused PE mains and valves",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Service Lines & Meters",
+      "desc": "Services, risers, regulators and meters",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Trenching & Crossings",
+      "desc": "Trench, sand, protection, crossings and reinstatement",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Cathodic Protection & Telemetry",
+      "desc": "CP system and station telemetry",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Testing, Purging & Gas-in",
+      "desc": "Pressure tests, purging and commissioning",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Gas Piping",
+      "items": [
+        "Steel feeder mains (welded, coated)",
+        "PE distribution mains",
+        "Service lines, risers & meters"
+      ]
+    },
+    {
+      "discipline": "Pressure Regulation",
+      "items": [
+        "Filters & regulators (duty / standby)",
+        "Safety shut-off & relief valves",
+        "Metering & odorisation (where required)"
+      ]
+    },
+    {
+      "discipline": "Protection & Monitoring",
+      "items": [
+        "Cathodic protection for steel",
+        "Telemetry of pressures & flows",
+        "Marker posts & warning tape"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Gas Company Approval",
+    "Procurement of Pipe & PRS Skid",
+    "PRS Civil & Installation",
+    "Steel Feeder Mains",
+    "PE Mains by Sector",
+    "Service Lines & Meters",
+    "Pressure Testing",
+    "Purging, Gas-in & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "PRS",
+      "Steel main",
+      "PE mains",
+      "Services",
+      "Test",
+      "Gas-in"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trenching, Protection & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 60,
+        "label": "Trench → sand → tape / slabs → backfill",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Mechanical — Pressure-Reducing Station",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 10,
+        "width": 48,
+        "label": "Compound → skid → piping → instruments",
+        "holds": [
+          58
+        ]
+      },
+      {
+        "trade": "Mechanical — Steel Feeder Mains",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 16,
+        "width": 40,
+        "label": "Weld → NDT → coat → lower",
+        "holds": [
+          56
+        ]
+      },
+      {
+        "trade": "Mechanical — PE Distribution Mains",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 28,
+        "width": 46,
+        "label": "Fuse → lay → valves",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Mechanical — Service Lines & Meters",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 48,
+        "width": 34,
+        "label": "Tap → service → riser → meter",
+        "holds": []
+      },
+      {
+        "trade": "Instrumentation — Cathodic Protection & Telemetry",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 54,
+        "width": 28,
+        "label": "CP → telemetry → checks",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing, Purging & Gas-in",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 82,
+        "width": 18,
+        "label": "Test → inspect → purge → gas-in",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trenching, Protection & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Trial pits & check of separation from other utilities",
+        "Trench excavation",
+        "Sand bedding & surround",
+        "Warning tape, protection slabs & backfill",
+        "Reinstatement & marker posts"
+      ]
+    },
+    {
+      "name": "Mechanical — Pressure-Reducing Station",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Compound civil works & foundations",
+        "Receive PRS skid (FAT done)",
+        "Install skid & inlet / outlet piping",
+        "Instruments, vent stacks & earthing",
+        "Upstream connection to the transmission line"
+      ]
+    },
+    {
+      "name": "Mechanical — Steel Feeder Mains",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "String & weld pipe (qualified welders)",
+        "NDT of welds",
+        "Field-joint coating & holiday test",
+        "Lower, backfill & install CP test posts"
+      ]
+    },
+    {
+      "name": "Mechanical — PE Distribution Mains",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive PE pipe & fittings with batch certificates",
+        "Butt-fusion / electrofusion jointing (qualified operators)",
+        "Lay pipe & install valves",
+        "Record every joint on the as-built"
+      ]
+    },
+    {
+      "name": "Mechanical — Service Lines & Meters",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Tapping tee on the main",
+        "Lay service pipe to the building",
+        "Riser, regulator & meter box",
+        "Test the service"
+      ]
+    },
+    {
+      "name": "Instrumentation — Cathodic Protection & Telemetry",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install CP anodes / rectifier",
+        "CP commissioning survey",
+        "Station telemetry & alarms",
+        "Loop checks with the control room"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing, Purging & Gas-in",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Strength & tightness test of each section (witnessed)",
+        "Gas company inspection & documentation review",
+        "PRS commissioning",
+        "Purging & gas-in by the gas company",
+        "Leak survey & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "GDN",
+      "name": "Gas Distribution Network — Project",
+      "level": 1
+    },
+    {
+      "code": "GDN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "GDN.02",
+      "name": "Design, Approvals & Permits",
+      "level": 2
+    },
+    {
+      "code": "GDN.02.10",
+      "name": "Network design & hydraulic analysis",
+      "level": 3
+    },
+    {
+      "code": "GDN.02.20",
+      "name": "Gas company approval",
+      "level": 3
+    },
+    {
+      "code": "GDN.02.30",
+      "name": "Road-opening permits",
+      "level": 3
+    },
+    {
+      "code": "GDN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "GDN.03.10",
+      "name": "PRS skid",
+      "level": 3
+    },
+    {
+      "code": "GDN.03.20",
+      "name": "Steel pipe & coating",
+      "level": 3
+    },
+    {
+      "code": "GDN.03.30",
+      "name": "PE pipe, fittings & valves",
+      "level": 3
+    },
+    {
+      "code": "GDN.03.40",
+      "name": "Regulators & meters",
+      "level": 3
+    },
+    {
+      "code": "GDN.04",
+      "name": "Civil Works — Trenching & Reinstatement",
+      "level": 2
+    },
+    {
+      "code": "GDN.04.10",
+      "name": "Trench excavation",
+      "level": 3
+    },
+    {
+      "code": "GDN.04.20",
+      "name": "Sand bedding & protection",
+      "level": 3
+    },
+    {
+      "code": "GDN.04.30",
+      "name": "Crossings & sleeves",
+      "level": 3
+    },
+    {
+      "code": "GDN.04.40",
+      "name": "Reinstatement",
+      "level": 3
+    },
+    {
+      "code": "GDN.05",
+      "name": "Pressure-Reducing Station (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "GDN.05.10",
+      "name": "Compound civil works",
+      "level": 3
+    },
+    {
+      "code": "GDN.05.20",
+      "name": "Skid installation & piping",
+      "level": 3
+    },
+    {
+      "code": "GDN.05.30",
+      "name": "Upstream connection",
+      "level": 3
+    },
+    {
+      "code": "GDN.06",
+      "name": "Steel Feeder Mains (Piping)",
+      "level": 2
+    },
+    {
+      "code": "GDN.06.10",
+      "name": "Welding & NDT",
+      "level": 3
+    },
+    {
+      "code": "GDN.06.20",
+      "name": "Coating & lowering",
+      "level": 3
+    },
+    {
+      "code": "GDN.07",
+      "name": "PE Distribution Mains (Piping)",
+      "level": 2
+    },
+    {
+      "code": "GDN.07.10",
+      "name": "Fusion jointing & laying",
+      "level": 3
+    },
+    {
+      "code": "GDN.07.20",
+      "name": "Valves & valve pits",
+      "level": 3
+    },
+    {
+      "code": "GDN.08",
+      "name": "Service Lines & Meters (Piping)",
+      "level": 2
+    },
+    {
+      "code": "GDN.09",
+      "name": "Cathodic Protection, Instrumentation & Telemetry",
+      "level": 2
+    },
+    {
+      "code": "GDN.10",
+      "name": "Testing, Purging & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "GDN.10.10",
+      "name": "Pressure tests",
+      "level": 3
+    },
+    {
+      "code": "GDN.10.20",
+      "name": "Gas company inspection",
+      "level": 3
+    },
+    {
+      "code": "GDN.10.30",
+      "name": "Purging & gas-in",
+      "level": 3
+    },
+    {
+      "code": "GDN.10.40",
+      "name": "Leak survey & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by network sector (a valved section that can be tested and gassed on its own) with the PRS and feeder main as common works."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Witnessed tests, inspections and gas-in are dated activities on the gas company's calendar."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "PRS and feeder main → PE mains by sector → services. Each sector: trench → fuse and lay → pressure test → inspection → purge and gas-in. No sector can be gassed before the PRS is commissioned and the upstream connection is made."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The gas company approves the design and attends tests within the assumed notice; the upstream transmission connection is available; road sections are released in the planned order."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Pressure-reducing / metering skid",
+              "24–36 weeks",
+              "Before PRS installation"
+            ],
+            [
+              "Steel line pipe with factory coating",
+              "14–22 weeks",
+              "Before feeder-main welding"
+            ],
+            [
+              "PE pipe, fittings & valves",
+              "8–12 weeks",
+              "Before PE main laying"
+            ],
+            [
+              "Regulators & gas meters",
+              "12–16 weeks",
+              "Before service-line installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Mandatory separation from power and other services; hot work (steel welding) needs permits; fusion needs clean, dry, wind-protected conditions."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late PRS skid, late upstream connection, failed tightness test, shortage of qualified fusion operators, and third-party damage after testing. Contingency is held before the first gas-in."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by network sector; expanded to Level 4–5 lookahead for the trenching and fusion teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "ASME B31.8 — gas transmission and distribution piping systems"
+    },
+    {
+      "code": "STD",
+      "text": "ISO 4437 — polyethylene piping systems for gaseous fuels"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

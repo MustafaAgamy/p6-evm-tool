@@ -1,0 +1,232 @@
+{
+  "category": "Infrastructure",
+  "type": "Underground Power Cable Circuits (HV / MV)",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "cable laying",
+    "cable pulling",
+    "duct bank",
+    "joint bay",
+    "jointing",
+    "termination",
+    "xlpe",
+    "132kv",
+    "220kv",
+    "33kv",
+    "11kv",
+    "link box",
+    "cross bonding",
+    "hv test",
+    "sheath test",
+    "hdd",
+    "thermal backfill",
+    "cable trench"
+  ],
+  "wbs": [
+    {
+      "name": "Survey & Permits",
+      "keywords": [
+        "survey",
+        "trial pit",
+        "permit",
+        "noc"
+      ]
+    },
+    {
+      "name": "Trench & Duct Bank",
+      "keywords": [
+        "trench",
+        "duct bank",
+        "duct",
+        "excavation"
+      ]
+    },
+    {
+      "name": "Joint Bays",
+      "keywords": [
+        "joint bay",
+        "link box pit"
+      ]
+    },
+    {
+      "name": "Crossings",
+      "keywords": [
+        "hdd",
+        "crossing",
+        "pipe jacking",
+        "directional drilling"
+      ]
+    },
+    {
+      "name": "Cable Pulling",
+      "keywords": [
+        "cable pulling",
+        "cable laying",
+        "cable installation"
+      ]
+    },
+    {
+      "name": "Jointing & Terminations",
+      "keywords": [
+        "jointing",
+        "joint",
+        "termination",
+        "sealing end",
+        "link box"
+      ]
+    },
+    {
+      "name": "Backfill & Reinstatement",
+      "keywords": [
+        "backfill",
+        "thermal backfill",
+        "reinstatement"
+      ]
+    },
+    {
+      "name": "Testing & Energisation",
+      "keywords": [
+        "hv test",
+        "sheath test",
+        "pd test",
+        "energisation",
+        "energization",
+        "commissioning"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Cable Manufacture & Delivery",
+      "keywords": [
+        "cable manufacture",
+        "cable delivery",
+        "procure"
+      ],
+      "wbs": "Cable Pulling",
+      "typical_pred": "Survey & Permits",
+      "typical_succ": "Cable Pulling",
+      "duration_days": 180,
+      "why": "HV cable is made to the drum schedule after the route is frozen; it is the longest lead item."
+    },
+    {
+      "name": "Duct Bank Construction",
+      "keywords": [
+        "duct bank",
+        "duct"
+      ],
+      "wbs": "Trench & Duct Bank",
+      "typical_pred": "Survey & Permits",
+      "typical_succ": "Cable Pulling",
+      "duration_days": 90,
+      "why": "The civil route is the bulk of the site duration and must be complete and proved before pulling."
+    },
+    {
+      "name": "Cable Pulling",
+      "keywords": [
+        "cable pulling",
+        "cable laying"
+      ],
+      "wbs": "Cable Pulling",
+      "typical_pred": "Trench & Duct Bank",
+      "typical_succ": "Jointing & Terminations",
+      "duration_days": 30,
+      "why": "Each drum is pulled into a completed, mandrel-proved section."
+    },
+    {
+      "name": "Jointing & Terminations",
+      "keywords": [
+        "jointing",
+        "termination"
+      ],
+      "wbs": "Jointing & Terminations",
+      "typical_pred": "Cable Pulling",
+      "typical_succ": "Testing & Energisation",
+      "duration_days": 45,
+      "why": "Certified jointers are the scarce resource; each HV joint takes days."
+    },
+    {
+      "name": "HV Test & Energisation",
+      "keywords": [
+        "hv test",
+        "energisation",
+        "energization"
+      ],
+      "wbs": "Testing & Energisation",
+      "typical_pred": "Jointing & Terminations",
+      "typical_succ": "Handover",
+      "duration_days": 10,
+      "why": "The circuit is proved by an HV AC test before it is connected during the outage."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "trench",
+        "duct bank",
+        "duct",
+        "joint bay"
+      ],
+      "after_keywords": [
+        "cable pulling",
+        "cable laying"
+      ],
+      "reason": "Cable is pulled only into completed and proved ducts.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "cable pulling",
+        "cable laying"
+      ],
+      "after_keywords": [
+        "jointing",
+        "termination"
+      ],
+      "reason": "Jointing follows cable pulling on both sides of the joint.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "jointing",
+        "termination"
+      ],
+      "after_keywords": [
+        "hv test",
+        "pd test"
+      ],
+      "reason": "The HV test follows completion of all joints and terminations.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "hv test",
+        "sheath test"
+      ],
+      "after_keywords": [
+        "energisation",
+        "energization",
+        "handover"
+      ],
+      "reason": "Energisation follows passed tests.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Route Frozen",
+    "Permits Issued",
+    "Cable Delivered",
+    "Civil Works Complete",
+    "Cable Pulling Complete",
+    "HV Test Passed",
+    "Circuit Energised"
+  ],
+  "common_issues": [
+    "Cable ordered before the route is frozen",
+    "Jointing durations too short",
+    "No duct proving before pulling",
+    "HV test and outage not planned as dated milestones",
+    "Reinstatement before sheath test"
+  ]
+}

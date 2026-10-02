@@ -1,0 +1,646 @@
+{
+  "archetype": "steel_structure_project",
+  "schema": 2,
+  "context": "supply chain · shop drawings → fabrication → coating → delivery by erection sequence → erection",
+  "brief": {
+    "intro": "New to this project type? A steel-structure package — an industrial building, a pipe rack, a hangar, a stadium roof — is a supply chain more than a site job. The engineer's design is turned into shop drawings that show every piece and every bolt hole; the fabricator orders the steel, cuts, drills and welds it into members, blasts and paints or galvanises them, and trucks them to site in exactly the order the erector needs. On site the members are sorted, lifted, bolted, plumbed and tightened; then decking, cladding and fire protection follow. Erection is fast and very visible, so people watch it — but the schedule is decided earlier: by approval of the shop drawings, by steel procurement, and by the fabrication shop's throughput. And erection cannot start until the foundations and anchor bolts are finished, surveyed and handed over.",
+    "scope": [
+      {
+        "name": "Connection design & shop drawings",
+        "desc": "3D model, connection calculations, fabrication and erection drawings, and their approval."
+      },
+      {
+        "name": "Material procurement",
+        "desc": "Sections, plates, bolts and coatings ordered against the material take-off."
+      },
+      {
+        "name": "Fabrication",
+        "desc": "Cutting, drilling, fitting and welding of members and assemblies."
+      },
+      {
+        "name": "Inspection & trial assembly",
+        "desc": "Weld NDT, dimensional checks and trial fit of complex parts."
+      },
+      {
+        "name": "Surface treatment",
+        "desc": "Blasting and painting, or hot-dip galvanising."
+      },
+      {
+        "name": "Delivery",
+        "desc": "Packing, marking and transport in erection sequence."
+      },
+      {
+        "name": "Anchor bolts & base plates",
+        "desc": "Setting and survey of anchor bolts in the foundations before erection."
+      },
+      {
+        "name": "Erection",
+        "desc": "Lifting, bolting, plumbing and aligning the structure, with temporary bracing."
+      },
+      {
+        "name": "Bolting & site welding",
+        "desc": "Final tightening of bolts and any site welds, with inspection."
+      },
+      {
+        "name": "Decking, cladding & secondary steel",
+        "desc": "Metal deck, purlins, roof and wall sheets, stairs and handrails."
+      },
+      {
+        "name": "Fire protection & touch-up",
+        "desc": "Intumescent paint or board protection and repair of coating damage."
+      },
+      {
+        "name": "Survey & handover",
+        "desc": "As-built survey of the structure and handover to following trades."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Shop drawing",
+        "plain": "the fabricator's detailed drawing of each individual steel piece."
+      },
+      {
+        "term": "Mill order",
+        "plain": "the order placed with the steel mill or stockist for raw sections and plates."
+      },
+      {
+        "term": "Piece mark",
+        "plain": "the unique number stamped on each member, matching the erection drawing."
+      },
+      {
+        "term": "Erection sequence",
+        "plain": "the planned order of lifting, which the fabrication and delivery order must follow."
+      },
+      {
+        "term": "Anchor bolts",
+        "plain": "bolts cast into the foundation that hold the column base."
+      },
+      {
+        "term": "Plumbing & alignment",
+        "plain": "adjusting the frame so columns are vertical and beams level before final bolting."
+      },
+      {
+        "term": "Torque / tension control",
+        "plain": "the method of proving high-strength bolts are fully tightened."
+      },
+      {
+        "term": "Intumescent paint",
+        "plain": "a coating that swells in a fire and insulates the steel."
+      },
+      {
+        "term": "Temporary bracing",
+        "plain": "bracing that keeps the part-built frame stable until it is complete."
+      }
+    ],
+    "must_get_right": [
+      "Shop-drawing approval is the first critical activity: nothing can be ordered or cut until drawings are approved, and late design changes go straight to the critical path.",
+      "Fabricate and deliver in erection sequence. Steel made in the wrong order fills the laydown area with pieces that cannot be lifted while the crane waits for the ones it needs.",
+      "Foundations and anchor bolts must be complete, surveyed and handed over before the first lift — agree that handover date with the civil contractor and protect it.",
+      "Plan the cranes with the erection sequence: crane positions, reach and the heaviest lift decide the method and the durations."
+    ]
+  },
+  "components": [
+    {
+      "name": "Shop Drawings & Engineering",
+      "desc": "Model, connection design, drawings and approvals",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Material Procurement",
+      "desc": "Sections, plates, bolts and coatings",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Fabrication & Coating",
+      "desc": "Cutting, welding, inspection, painting or galvanising",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Delivery & Laydown",
+      "desc": "Transport in sequence and site storage",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Erection",
+      "desc": "Lifting, bolting, alignment and bracing",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Decking & Cladding",
+      "desc": "Metal deck, purlins, roof and wall sheets",
+      "disc": "Structural",
+      "primary": false
+    },
+    {
+      "name": "Fire Protection & Handover",
+      "desc": "Fire protection, touch-up and as-built survey",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Primary Steel",
+      "items": [
+        "Columns & base plates",
+        "Rafters, beams & trusses",
+        "Bracing & crane beams"
+      ]
+    },
+    {
+      "discipline": "Secondary Steel",
+      "items": [
+        "Purlins & side rails",
+        "Stairs, platforms & handrails",
+        "Metal decking"
+      ]
+    },
+    {
+      "discipline": "Envelope & Protection",
+      "items": [
+        "Roof & wall cladding",
+        "Gutters & flashings",
+        "Intumescent / board fire protection"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Shop Drawings & Approval",
+    "Material Procurement",
+    "Fabrication",
+    "Blasting, Painting / Galvanising",
+    "Delivery in Erection Sequence",
+    "Erection & Alignment",
+    "Decking & Cladding",
+    "Fire Protection, Survey & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Drawings",
+      "Material",
+      "Fabricate",
+      "Coat",
+      "Deliver",
+      "Erect",
+      "Clad"
+    ],
+    "lanes": [
+      {
+        "trade": "Structural — Shop Drawings & Approval",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 2,
+        "width": 26,
+        "label": "Model → connections → drawings → approval",
+        "holds": [
+          28
+        ]
+      },
+      {
+        "trade": "Structural — Material Procurement & Fabrication",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 16,
+        "width": 44,
+        "label": "Order → cut → fit → weld → inspect",
+        "holds": [
+          60
+        ]
+      },
+      {
+        "trade": "Structural — Surface Treatment & Delivery",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 30,
+        "width": 40,
+        "label": "Blast → coat → mark → ship in sequence",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Civil — Anchor Bolts, Access & Crane Pads",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 24,
+        "width": 24,
+        "label": "Bolts → survey → handover",
+        "holds": [
+          48
+        ]
+      },
+      {
+        "trade": "Structural — Erection & Alignment",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 48,
+        "width": 36,
+        "label": "Lift → bolt → plumb → tighten",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Structural — Decking, Cladding & Secondary Steel",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 62,
+        "width": 28,
+        "label": "Purlins → deck → roof → walls",
+        "holds": []
+      },
+      {
+        "trade": "Commissioning — Fire Protection, Survey & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 84,
+        "width": 16,
+        "label": "Fire protection → touch-up → survey",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Structural — Shop Drawings & Approval",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Build the 3D model from the design",
+        "Connection design & calculations",
+        "Issue shop & erection drawings by zone",
+        "Consultant approval of shop drawings",
+        "Issue material lists & CNC data"
+      ]
+    },
+    {
+      "name": "Structural — Material Procurement & Fabrication",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive steel with mill certificates",
+        "Cut, drill & prepare",
+        "Fit-up & welding of members",
+        "Weld NDT & dimensional inspection",
+        "Trial assembly of complex nodes / trusses"
+      ]
+    },
+    {
+      "name": "Structural — Surface Treatment & Delivery",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Shot blasting",
+        "Painting system or hot-dip galvanising",
+        "Coating thickness inspection",
+        "Marking, bundling & loading in erection sequence",
+        "Transport to site & unloading to laydown"
+      ]
+    },
+    {
+      "name": "Civil — Anchor Bolts, Access & Crane Pads",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Set anchor bolts with templates",
+        "Cast & cure foundations",
+        "As-built survey of anchor bolts & handover to the erector",
+        "Crane pads, access roads & laydown area"
+      ]
+    },
+    {
+      "name": "Structural — Erection & Alignment",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Erect columns & first braced bay",
+        "Erect beams, rafters, trusses & bracing",
+        "Plumb, level & align each zone",
+        "Final bolt tightening & inspection",
+        "Site welding & NDT (where required)",
+        "Grout base plates"
+      ]
+    },
+    {
+      "name": "Structural — Decking, Cladding & Secondary Steel",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [],
+      "steps": [
+        "Purlins & side rails",
+        "Metal decking & shear studs",
+        "Roof sheeting, gutters & flashings",
+        "Wall cladding",
+        "Stairs, platforms & handrails"
+      ]
+    },
+    {
+      "name": "Commissioning — Fire Protection, Survey & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Intumescent / board fire protection",
+        "Coating touch-up",
+        "As-built survey of the structure",
+        "Handover to following trades & final documents"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "STS",
+      "name": "Steel Structures (Fabrication & Erection) — Project",
+      "level": 1
+    },
+    {
+      "code": "STS.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "STS.02",
+      "name": "Shop Drawings & Connection Detailing",
+      "level": 2
+    },
+    {
+      "code": "STS.02.10",
+      "name": "3D model & connection design",
+      "level": 3
+    },
+    {
+      "code": "STS.02.20",
+      "name": "Shop & erection drawings",
+      "level": 3
+    },
+    {
+      "code": "STS.02.30",
+      "name": "Approvals",
+      "level": 3
+    },
+    {
+      "code": "STS.03",
+      "name": "Material Procurement",
+      "level": 2
+    },
+    {
+      "code": "STS.03.10",
+      "name": "Sections & plates",
+      "level": 3
+    },
+    {
+      "code": "STS.03.20",
+      "name": "Bolts & accessories",
+      "level": 3
+    },
+    {
+      "code": "STS.03.30",
+      "name": "Cladding & decking materials",
+      "level": 3
+    },
+    {
+      "code": "STS.04",
+      "name": "Fabrication (Steel Structure)",
+      "level": 2
+    },
+    {
+      "code": "STS.04.10",
+      "name": "Cutting & drilling",
+      "level": 3
+    },
+    {
+      "code": "STS.04.20",
+      "name": "Fit-up & welding",
+      "level": 3
+    },
+    {
+      "code": "STS.04.30",
+      "name": "Inspection & trial assembly",
+      "level": 3
+    },
+    {
+      "code": "STS.05",
+      "name": "Surface Treatment & Delivery (Steel)",
+      "level": 2
+    },
+    {
+      "code": "STS.05.10",
+      "name": "Blasting & painting / galvanising",
+      "level": 3
+    },
+    {
+      "code": "STS.05.20",
+      "name": "Packing & transport",
+      "level": 3
+    },
+    {
+      "code": "STS.06",
+      "name": "Civil Works — Anchor Bolts, Access & Crane Pads",
+      "level": 2
+    },
+    {
+      "code": "STS.07",
+      "name": "Erection & Alignment (Steel Structure)",
+      "level": 2
+    },
+    {
+      "code": "STS.07.10",
+      "name": "Columns & bracing",
+      "level": 3
+    },
+    {
+      "code": "STS.07.20",
+      "name": "Beams, rafters & trusses",
+      "level": 3
+    },
+    {
+      "code": "STS.07.30",
+      "name": "Alignment & bolt tightening",
+      "level": 3
+    },
+    {
+      "code": "STS.07.40",
+      "name": "Base-plate grouting",
+      "level": 3
+    },
+    {
+      "code": "STS.08",
+      "name": "Decking, Cladding & Secondary Steel",
+      "level": 2
+    },
+    {
+      "code": "STS.08.10",
+      "name": "Purlins & decking",
+      "level": 3
+    },
+    {
+      "code": "STS.08.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "STS.08.30",
+      "name": "Stairs, platforms & handrails",
+      "level": 3
+    },
+    {
+      "code": "STS.09",
+      "name": "Fire Protection, As-built & Handover (Testing)",
+      "level": 2
+    },
+    {
+      "code": "STS.09.10",
+      "name": "Fire protection",
+      "level": 3
+    },
+    {
+      "code": "STS.09.20",
+      "name": "As-built survey & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by erection zone, and every zone carries the same chain — drawings, material, fabrication, coating, delivery, erection — so the supply chain can be read zone by zone."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Shop calendar for fabrication (often two shifts); standard site calendar for erection with wind-day allowances for lifting."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per zone: shop drawings → approval → material → fabrication → inspection → coating → delivery → erection → alignment → bolting → decking and cladding → fire protection. Zones follow each other in erection sequence; foundations with surveyed anchor bolts must precede erection in each zone. The critical path runs through shop-drawing approval and fabrication of the first zones, then through the crane sequence."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The structural design is frozen when detailing starts; approvals are returned within the agreed period; foundations are handed over in erection sequence; laydown space and crane access are available."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Structural sections & plates (mill order)",
+              "8–16 weeks",
+              "Before fabrication of each zone"
+            ],
+            [
+              "High-strength bolts & anchor bolts",
+              "6–10 weeks",
+              "Anchor bolts before foundations; bolts before erection"
+            ],
+            [
+              "Roof & wall cladding, decking",
+              "8–12 weeks",
+              "Before cladding of each zone"
+            ],
+            [
+              "Crawler / tower crane mobilisation",
+              "4–8 weeks",
+              "Before first lift"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Shop capacity (tonnes per week); transport dimensions of large pieces; crane reach and capacity; wind limits for lifting; limited laydown area."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: design changes after detailing, slow approvals, steel delivery, fabrication errors found at site, anchor-bolt misalignment, and wind. Contingency is held before the handover of the structure to the following trades."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by erection zone; expanded to Level 4–5 lookahead for the fabrication shop and the erection gangs — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "AISC 303 — code of standard practice for steel buildings and bridges"
+    },
+    {
+      "code": "STD",
+      "text": "AWS D1.1 — structural welding code, steel"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,638 @@
+{
+  "archetype": "irrigation_canals",
+  "schema": 2,
+  "context": "linear earthworks · excavation and lining by reach; structures in the dry; watering season fixes the dates",
+  "brief": {
+    "intro": "New to this project type? A canal project moves water across land by gravity through an excavated and lined channel, with structures along it that control and distribute the flow: head regulators, cross regulators, intakes to branch canals, siphons and aqueducts where the canal crosses a road, a drain or a river, and bridges for the roads that cross the canal. Most of the quantity is earthwork and lining, done reach by reach with a train of excavators, trimmers and lining crews. The structures are ordinary reinforced concrete, but they must be built 'in the dry', and when the work is on an existing canal that is only possible during the yearly closure when the water is shut off. Farmers need the water on a fixed date — the irrigation season, not the contractor, sets the deadline.",
+    "scope": [
+      {
+        "name": "Survey & setting out",
+        "desc": "Canal alignment, bed levels and cross-sections along the whole length."
+      },
+      {
+        "name": "Excavation & embankment",
+        "desc": "Cutting the canal prism and building the banks to profile."
+      },
+      {
+        "name": "Trimming & sub-grade preparation",
+        "desc": "Accurate trimming of bed and side slopes before lining."
+      },
+      {
+        "name": "Canal lining",
+        "desc": "Concrete, shotcrete, geomembrane or masonry lining with joints."
+      },
+      {
+        "name": "Head & cross regulators",
+        "desc": "Gated structures that control level and flow."
+      },
+      {
+        "name": "Intakes & turnouts",
+        "desc": "Structures that deliver water to branch canals and fields."
+      },
+      {
+        "name": "Siphons, aqueducts & culverts",
+        "desc": "Crossings under or over roads, drains and rivers."
+      },
+      {
+        "name": "Bridges",
+        "desc": "Road and foot bridges over the canal."
+      },
+      {
+        "name": "Gates & hoists",
+        "desc": "Steel gates, lifting gear and, often, remote operation."
+      },
+      {
+        "name": "Service roads & drainage",
+        "desc": "Roads on the banks and drains alongside the canal."
+      },
+      {
+        "name": "Watering test & handover",
+        "desc": "Filling the canal reach by reach, checking seepage and operating the gates."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Reach",
+        "plain": "a length of canal between two structures; the unit in which the work is planned."
+      },
+      {
+        "term": "Canal prism",
+        "plain": "the excavated cross-section of the canal."
+      },
+      {
+        "term": "Lining",
+        "plain": "the concrete or membrane surface that stops water seeping away and protects the banks."
+      },
+      {
+        "term": "Regulator",
+        "plain": "a gated structure across the canal that holds the water level up or passes it on."
+      },
+      {
+        "term": "Turnout / offtake",
+        "plain": "a small gated outlet from the canal to a branch or a field channel."
+      },
+      {
+        "term": "Siphon",
+        "plain": "a pipe or box that carries the canal under an obstacle and up again on the other side."
+      },
+      {
+        "term": "Aqueduct",
+        "plain": "a bridge that carries the canal over an obstacle."
+      },
+      {
+        "term": "Winter closure",
+        "plain": "the yearly period when an existing canal is shut and dry, used for maintenance and construction."
+      },
+      {
+        "term": "Command area",
+        "plain": "the farmland supplied by the canal."
+      }
+    ],
+    "must_get_right": [
+      "Fix the dates of the watering season and the canal closure first — they are the deadlines. Work that needs a dry canal must fit entirely inside the closure.",
+      "Plan earthworks and lining as a production train per reach, with cubic metres and square metres per day, and balance cut against fill to limit haulage.",
+      "Structures control the reach: a reach cannot be watered until every regulator, siphon and turnout in it is complete and its gates are installed.",
+      "Gates and hoists are fabricated items with long lead; order them when the structure drawings are approved, not when the concrete is finished."
+    ]
+  },
+  "components": [
+    {
+      "name": "Earthworks",
+      "desc": "Excavation, embankment and trimming of the canal prism",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Canal Lining",
+      "desc": "Concrete / membrane lining and joints",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Regulators & Intakes",
+      "desc": "Head and cross regulators, turnouts",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Crossing Structures",
+      "desc": "Siphons, aqueducts, culverts and bridges",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Gates & Hoists",
+      "desc": "Steel gates, hoists and stop-logs",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Control & Telemetry",
+      "desc": "Gate automation, level sensors and SCADA",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Watering & Handover",
+      "desc": "Reach-by-reach filling, seepage check and gate tests",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Hydro-mechanical",
+      "items": [
+        "Radial / vertical-lift gates",
+        "Hoists & lifting gear",
+        "Stop-logs & trash racks"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Power supply to regulators",
+        "Gate actuators & local control",
+        "Level / flow measurement & telemetry"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Design & Land Access",
+    "Mobilization & Haul Roads",
+    "Canal Excavation & Embankment",
+    "Structures in the Dry",
+    "Trimming & Lining",
+    "Gates & Hoists",
+    "Service Roads & Drainage",
+    "Watering Test & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey",
+      "Earthworks",
+      "Structures",
+      "Lining",
+      "Gates",
+      "Roads",
+      "Watering"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Canal Earthworks",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 54,
+        "label": "Excavate → bank → compact, reach by reach",
+        "holds": [
+          60
+        ]
+      },
+      {
+        "trade": "Civil — Trimming & Lining",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 26,
+        "width": 50,
+        "label": "Trim → sub-grade → line → joint → cure",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Structural — Regulators & Intakes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 14,
+        "width": 52,
+        "label": "Excavate → base → walls / piers → deck",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Structural — Siphons, Aqueducts & Bridges",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 50,
+        "label": "Built in the dry or in the closure",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Mechanical — Gates & Hoists",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 34,
+        "label": "Fabricate → deliver → install → test",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Instrumentation — Control & Telemetry",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 60,
+        "width": 24,
+        "label": "Power → actuators → sensors → SCADA",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Watering & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 82,
+        "width": 18,
+        "label": "Fill reach by reach → observe → hand over",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Canal Earthworks",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Land access & setting out of the reach",
+        "Excavate the canal prism",
+        "Build & compact embankments",
+        "Haul surplus / borrow fill",
+        "Rough trim to profile"
+      ]
+    },
+    {
+      "name": "Civil — Trimming & Lining",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Fine trimming of bed & slopes",
+        "Sub-grade inspection before lining",
+        "Place lining (paver / panels / membrane)",
+        "Form & seal joints",
+        "Curing"
+      ]
+    },
+    {
+      "name": "Structural — Regulators & Intakes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Structure excavation & dewatering",
+        "Blinding & base slab",
+        "Walls, piers & gate grooves",
+        "Embed gate guides & check alignment",
+        "Deck / operating platform"
+      ]
+    },
+    {
+      "name": "Structural — Siphons, Aqueducts & Bridges",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Diversion or canal closure in place",
+        "Foundations",
+        "Barrel / box / piers",
+        "Deck or top slab",
+        "Transitions, wing walls & backfill"
+      ]
+    },
+    {
+      "name": "Mechanical — Gates & Hoists",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive gates & hoists (shop inspection done)",
+        "Install gates in the grooves",
+        "Install hoists & seals",
+        "Dry operation test of each gate"
+      ]
+    },
+    {
+      "name": "Instrumentation — Control & Telemetry",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Power supply to regulators",
+        "Gate actuators & local panels",
+        "Level & flow sensors",
+        "Remote operation test"
+      ]
+    },
+    {
+      "name": "Commissioning — Watering & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "All structures & gates of the reach complete",
+        "Fill the reach in stages",
+        "Observe seepage & bank stability",
+        "Wet test of gates & regulators",
+        "As-built survey & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "ICN",
+      "name": "Irrigation Canals & Hydraulic Structures — Project",
+      "level": 1
+    },
+    {
+      "code": "ICN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "ICN.02",
+      "name": "Survey, Design & Land Access",
+      "level": 2
+    },
+    {
+      "code": "ICN.02.10",
+      "name": "Alignment & cross-section survey",
+      "level": 3
+    },
+    {
+      "code": "ICN.02.20",
+      "name": "Design approvals",
+      "level": 3
+    },
+    {
+      "code": "ICN.02.30",
+      "name": "Land access & closure agreement",
+      "level": 3
+    },
+    {
+      "code": "ICN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "ICN.03.10",
+      "name": "Gates, hoists & embedded parts",
+      "level": 3
+    },
+    {
+      "code": "ICN.03.20",
+      "name": "Lining materials",
+      "level": 3
+    },
+    {
+      "code": "ICN.04",
+      "name": "Civil Works — Canal Earthworks",
+      "level": 2
+    },
+    {
+      "code": "ICN.04.10",
+      "name": "Excavation",
+      "level": 3
+    },
+    {
+      "code": "ICN.04.20",
+      "name": "Embankment",
+      "level": 3
+    },
+    {
+      "code": "ICN.04.30",
+      "name": "Haulage & borrow",
+      "level": 3
+    },
+    {
+      "code": "ICN.05",
+      "name": "Civil Works — Canal Lining",
+      "level": 2
+    },
+    {
+      "code": "ICN.05.10",
+      "name": "Trimming & sub-grade",
+      "level": 3
+    },
+    {
+      "code": "ICN.05.20",
+      "name": "Lining",
+      "level": 3
+    },
+    {
+      "code": "ICN.05.30",
+      "name": "Joints & curing",
+      "level": 3
+    },
+    {
+      "code": "ICN.06",
+      "name": "Structures — Regulators & Intakes",
+      "level": 2
+    },
+    {
+      "code": "ICN.06.10",
+      "name": "Head regulator",
+      "level": 3
+    },
+    {
+      "code": "ICN.06.20",
+      "name": "Cross regulators",
+      "level": 3
+    },
+    {
+      "code": "ICN.06.30",
+      "name": "Turnouts",
+      "level": 3
+    },
+    {
+      "code": "ICN.07",
+      "name": "Structures — Siphons, Aqueducts & Bridges",
+      "level": 2
+    },
+    {
+      "code": "ICN.07.10",
+      "name": "Siphons & culverts",
+      "level": 3
+    },
+    {
+      "code": "ICN.07.20",
+      "name": "Aqueducts",
+      "level": 3
+    },
+    {
+      "code": "ICN.07.30",
+      "name": "Bridges",
+      "level": 3
+    },
+    {
+      "code": "ICN.08",
+      "name": "Hydro-mechanical Equipment — Gates & Hoists",
+      "level": 2
+    },
+    {
+      "code": "ICN.09",
+      "name": "Electrical, Control & Telemetry",
+      "level": 2
+    },
+    {
+      "code": "ICN.10",
+      "name": "Civil Works — Service Roads & Drainage",
+      "level": 2
+    },
+    {
+      "code": "ICN.11",
+      "name": "Testing & Handover",
+      "level": 2
+    },
+    {
+      "code": "ICN.11.10",
+      "name": "Dry tests of gates",
+      "level": 3
+    },
+    {
+      "code": "ICN.11.20",
+      "name": "Watering by reach",
+      "level": 3
+    },
+    {
+      "code": "ICN.11.30",
+      "name": "Handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by canal reach (between structures) for earthworks and lining, and structure by structure, so each reach shows whether it can be watered."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar with the canal closure period and the irrigation season marked; earthworks productivity is reduced in the wet months."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per reach: excavation and banks → trimming → lining; structures in the reach in parallel, built in the dry; gates after structures. A reach is watered when lining, structures and gates are all complete. On existing canals, in-canal work is tied to the closure start and finish."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Land is available along the alignment; the closure is granted on the published dates; borrow and disposal areas are approved; power is available at the regulators."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Steel gates, hoists & embedded parts",
+              "20–30 weeks",
+              "Embedded parts before second-stage concrete; gates before watering"
+            ],
+            [
+              "Lining paver / trimmer mobilisation",
+              "8–12 weeks",
+              "Before lining of the first reach"
+            ],
+            [
+              "Geomembrane / joint sealant",
+              "6–10 weeks",
+              "Before lining"
+            ],
+            [
+              "Gate actuators & telemetry",
+              "12–16 weeks",
+              "Before remote operation tests"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Long, narrow site with access only along the banks; high groundwater in the canal bed; work inside an existing canal limited to the closure."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late land access, groundwater and soft ground, flooding of the works, late gates, and missing the closure window. Contingency is held before the watering date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by canal reach and structure; expanded to Level 4–5 lookahead for the earthworks, lining and structure crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

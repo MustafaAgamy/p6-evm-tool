@@ -1,0 +1,668 @@
+{
+  "archetype": "light_rail_tram",
+  "schema": 2,
+  "context": "linear in live streets · utility diversions first, then track slab, overhead line, systems and trial running",
+  "brief": {
+    "intro": "New to this project type? A tram or light-rail line is a railway built in the middle of a working city street. Before any track can be laid, every pipe and cable under the future track must be moved out of the way — utility diversion is usually the longest and least predictable part of the job. Then the street is rebuilt in stages, keeping traffic moving: track slab and embedded rails, stops, the overhead contact line and its traction substations, signalling and priority at road junctions, and the depot where the trams are stabled and maintained. The trams themselves are ordered years ahead. The last months are testing: each system alone, then all together, then trial running without passengers, before the safety authority allows opening.",
+    "scope": [
+      {
+        "name": "Utility diversions",
+        "desc": "Moving water, sewer, power, gas and telecom out of the track zone."
+      },
+      {
+        "name": "Traffic management & staging",
+        "desc": "Phased road closures and temporary roads so the city keeps moving."
+      },
+      {
+        "name": "Track bed & track slab",
+        "desc": "Excavation, sub-base and concrete track slab along the route."
+      },
+      {
+        "name": "Rails & embedded track",
+        "desc": "Grooved rail, fastenings, welding and encapsulation in the street surface."
+      },
+      {
+        "name": "Stops & platforms",
+        "desc": "Platforms, shelters, ticketing, passenger information."
+      },
+      {
+        "name": "Structures",
+        "desc": "Bridges, underpasses and retaining walls where the line leaves the street."
+      },
+      {
+        "name": "Overhead contact line (OCS)",
+        "desc": "Poles, building fixings and contact wire supplying the trams."
+      },
+      {
+        "name": "Traction power substations",
+        "desc": "Rectifier substations feeding the overhead line."
+      },
+      {
+        "name": "Signalling, junction priority & telecom",
+        "desc": "Tram signals, priority at traffic signals, radio, CCTV and control centre."
+      },
+      {
+        "name": "Depot & workshop",
+        "desc": "Stabling tracks, maintenance workshop, wash plant and control room."
+      },
+      {
+        "name": "Rolling stock",
+        "desc": "Manufacture, delivery and testing of the trams."
+      },
+      {
+        "name": "Testing, trial running & safety approval",
+        "desc": "System tests, integration, trial running and the authority's approval to open."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Utility diversion",
+        "plain": "relocating buried services so they are not under the track and can be maintained without closing the line."
+      },
+      {
+        "term": "Grooved rail",
+        "plain": "the rail used in streets, with a groove for the wheel flange so road vehicles can cross it."
+      },
+      {
+        "term": "Embedded track",
+        "plain": "rail encapsulated in the road surface, with elastic material that reduces noise and stray current."
+      },
+      {
+        "term": "OCS / catenary",
+        "plain": "the overhead wire the tram takes its power from."
+      },
+      {
+        "term": "Traction substation",
+        "plain": "the substation that converts grid power to the DC voltage of the tram line."
+      },
+      {
+        "term": "Stray current",
+        "plain": "current leaking from the rails into the ground, which corrodes buried pipes; the track is insulated to prevent it."
+      },
+      {
+        "term": "Junction priority",
+        "plain": "traffic signals that give the tram a green as it approaches."
+      },
+      {
+        "term": "Trial running",
+        "plain": "running trams to the full timetable without passengers to prove the system and train the staff."
+      },
+      {
+        "term": "Dynamic testing",
+        "plain": "testing the line with a tram actually moving on it."
+      }
+    ],
+    "must_get_right": [
+      "Put the utility diversions at the front of the schedule with realistic durations and each utility owner's approvals — track work cannot start in a street section until they are finished.",
+      "Plan by street section and traffic stage: the city authority limits how many sections can be closed at once, and that limit is the real resource.",
+      "Rolling stock, traction substations and signalling are long-lead; the first tram must arrive in time for dynamic testing, and the depot must be ready to receive it.",
+      "Reserve several months for system integration tests, trial running and the safety authority's approval — they cannot be compressed at the end."
+    ]
+  },
+  "components": [
+    {
+      "name": "Utility Diversions & Road Works",
+      "desc": "Diversions, staging and street reconstruction",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Track",
+      "desc": "Track slab, rails, welding and embedding",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Stops & Structures",
+      "desc": "Platforms, shelters, bridges and walls",
+      "disc": "Structural",
+      "primary": false
+    },
+    {
+      "name": "Traction Power & OCS",
+      "desc": "Substations, feeder cables and overhead line",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Signalling & Telecom",
+      "desc": "Signals, junction priority, radio, CCTV, control centre",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Depot & Workshop",
+      "desc": "Stabling, workshop and equipment",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Rolling Stock",
+      "desc": "Trams — manufacture, delivery and testing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Testing & Trial Running",
+      "desc": "Integration tests, trial running and approval",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Traction Power",
+      "items": [
+        "Traction substations (transformer-rectifiers)",
+        "DC feeder & return cables",
+        "Overhead contact system",
+        "Stray-current monitoring"
+      ]
+    },
+    {
+      "discipline": "Systems",
+      "items": [
+        "Tram signalling & point machines",
+        "Junction priority at traffic signals",
+        "Radio, CCTV & passenger information",
+        "Operations control centre"
+      ]
+    },
+    {
+      "discipline": "Depot Equipment",
+      "items": [
+        "Lifting jacks & wheel lathe",
+        "Wash plant & sanding",
+        "Workshop services"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Approvals",
+    "Utility Diversions",
+    "Track Bed & Track",
+    "Stops & Structures",
+    "Traction Power & OCS",
+    "Signalling & Telecom",
+    "Depot & Rolling Stock Delivery",
+    "System Testing, Trial Running & Opening"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Diversions",
+      "Track",
+      "OCS/Power",
+      "Systems",
+      "Depot",
+      "Trial run"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Utility Diversions & Road Works",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 4,
+        "width": 50,
+        "label": "Divert → stage → rebuild street",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Civil — Track Bed, Slab & Rails",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 24,
+        "width": 46,
+        "label": "Excavate → slab → rail → weld → embed",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Structural — Stops, Structures & Depot",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 20,
+        "width": 54,
+        "label": "Platforms · bridges · depot buildings",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Electrical — Traction Power & OCS",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 40,
+        "width": 38,
+        "label": "Substations → feeders → poles → wire",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "ELV — Signalling, Telecom & Control Centre",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 48,
+        "width": 36,
+        "label": "Ducts → equipment → priority → OCC",
+        "holds": []
+      },
+      {
+        "trade": "Mechanical — Rolling Stock",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 54,
+        "label": "Manufacture → deliver → test",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing, Trial Running & Opening",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "System tests → integration → trial run → approval",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Utility Diversions & Road Works",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Utility owner approvals & traffic-stage permit",
+        "Divert wet & dry utilities out of the track zone",
+        "Temporary traffic arrangement",
+        "Road reconstruction beside the track",
+        "Final surfacing, kerbs & marking"
+      ]
+    },
+    {
+      "name": "Civil — Track Bed, Slab & Rails",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Street section released after diversions",
+        "Excavate track bed & sub-base",
+        "Cast track slab",
+        "Lay rails, fastenings & turnouts",
+        "Weld rails & stress",
+        "Encapsulate rails & finish surface"
+      ]
+    },
+    {
+      "name": "Structural — Stops, Structures & Depot",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Stop platforms & shelter foundations",
+        "Bridges / underpasses / retaining walls",
+        "Depot earthworks & track",
+        "Workshop & control building",
+        "Depot ready to receive the first tram"
+      ]
+    },
+    {
+      "name": "Electrical — Traction Power & OCS",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Traction substation buildings & equipment",
+        "DC feeder & return cables",
+        "OCS pole foundations & poles",
+        "Run contact wire & register",
+        "Section-by-section energisation"
+      ]
+    },
+    {
+      "name": "ELV — Signalling, Telecom & Control Centre",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [],
+      "steps": [
+        "Cable ducts & cabling along the route",
+        "Signals, point machines & detection",
+        "Junction priority with the traffic authority",
+        "Radio, CCTV, PIS & ticketing",
+        "Operations control centre"
+      ]
+    },
+    {
+      "name": "Mechanical — Rolling Stock",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Tram design freeze & manufacture",
+        "Factory tests",
+        "Deliver first tram to the depot",
+        "Static & dynamic tests on the test track",
+        "Fleet delivery"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing, Trial Running & Opening",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Individual system tests",
+        "System integration tests",
+        "Dynamic testing with trams",
+        "Trial running & staff training",
+        "Safety authority approval & opening"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "LRT",
+      "name": "Light Rail / Tram — Project",
+      "level": 1
+    },
+    {
+      "code": "LRT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "LRT.02",
+      "name": "Design, Approvals & Permits",
+      "level": 2
+    },
+    {
+      "code": "LRT.02.10",
+      "name": "Design & safety case",
+      "level": 3
+    },
+    {
+      "code": "LRT.02.20",
+      "name": "Utility owner & traffic approvals",
+      "level": 3
+    },
+    {
+      "code": "LRT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "LRT.03.10",
+      "name": "Rolling stock",
+      "level": 3
+    },
+    {
+      "code": "LRT.03.20",
+      "name": "Rails, turnouts & fastenings",
+      "level": 3
+    },
+    {
+      "code": "LRT.03.30",
+      "name": "Traction power & OCS equipment",
+      "level": 3
+    },
+    {
+      "code": "LRT.03.40",
+      "name": "Signalling & telecom equipment",
+      "level": 3
+    },
+    {
+      "code": "LRT.04",
+      "name": "Civil Works — Utility Diversions & Roads",
+      "level": 2
+    },
+    {
+      "code": "LRT.04.10",
+      "name": "Wet utility diversions",
+      "level": 3
+    },
+    {
+      "code": "LRT.04.20",
+      "name": "Dry utility diversions",
+      "level": 3
+    },
+    {
+      "code": "LRT.04.30",
+      "name": "Road reconstruction",
+      "level": 3
+    },
+    {
+      "code": "LRT.05",
+      "name": "Track (Civil)",
+      "level": 2
+    },
+    {
+      "code": "LRT.05.10",
+      "name": "Track bed & slab",
+      "level": 3
+    },
+    {
+      "code": "LRT.05.20",
+      "name": "Rails & turnouts",
+      "level": 3
+    },
+    {
+      "code": "LRT.05.30",
+      "name": "Welding & embedding",
+      "level": 3
+    },
+    {
+      "code": "LRT.06",
+      "name": "Stops & Structures",
+      "level": 2
+    },
+    {
+      "code": "LRT.06.10",
+      "name": "Stops & platforms",
+      "level": 3
+    },
+    {
+      "code": "LRT.06.20",
+      "name": "Bridges & retaining walls",
+      "level": 3
+    },
+    {
+      "code": "LRT.07",
+      "name": "Depot & Workshop (Structure)",
+      "level": 2
+    },
+    {
+      "code": "LRT.07.10",
+      "name": "Depot track",
+      "level": 3
+    },
+    {
+      "code": "LRT.07.20",
+      "name": "Workshop & buildings",
+      "level": 3
+    },
+    {
+      "code": "LRT.07.30",
+      "name": "Depot equipment",
+      "level": 3
+    },
+    {
+      "code": "LRT.08",
+      "name": "Electrical — Traction Power & Overhead Contact System",
+      "level": 2
+    },
+    {
+      "code": "LRT.08.10",
+      "name": "Traction substations",
+      "level": 3
+    },
+    {
+      "code": "LRT.08.20",
+      "name": "Overhead contact system",
+      "level": 3
+    },
+    {
+      "code": "LRT.09",
+      "name": "Signalling, Telecom & Control Systems",
+      "level": 2
+    },
+    {
+      "code": "LRT.10",
+      "name": "Rolling Stock (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "LRT.11",
+      "name": "Testing, Commissioning & Trial Running",
+      "level": 2
+    },
+    {
+      "code": "LRT.11.10",
+      "name": "System tests",
+      "level": 3
+    },
+    {
+      "code": "LRT.11.20",
+      "name": "Integration tests",
+      "level": 3
+    },
+    {
+      "code": "LRT.11.30",
+      "name": "Trial running & opening",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by street section and traffic stage for civil and track, and by system for the line-wide works, with the depot and rolling stock as separate branches."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar with city restrictions (events, holidays, night work near homes). Junction closures are weekend or night possessions."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per section: approvals → utility diversions → track bed and slab → rails → embedding → road reinstatement. Line-wide: substations and OCS → energisation → signalling and telecom → system tests. Depot ready → first tram delivered → dynamic tests → integration → trial running → approval. The critical path usually runs through utility diversions in the hardest section, or through rolling stock."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Utility owners approve and attend diversions in the assumed time; the traffic authority grants the planned stages; the grid connection for traction substations is available; rolling stock is delivered to the contract dates."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Rolling stock (trams)",
+              "24–36 months",
+              "First tram before dynamic testing"
+            ],
+            [
+              "Traction substation equipment",
+              "10–14 months",
+              "Before OCS energisation"
+            ],
+            [
+              "Grooved rail & turnouts",
+              "6–9 months",
+              "Before track laying in the first section"
+            ],
+            [
+              "Signalling & control-centre systems",
+              "10–14 months",
+              "Before system tests"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "A live city: limited road closures, access for residents and shops, noise limits, archaeology in old centres."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: unknown or badly recorded utilities, traffic-stage refusals, late rolling stock, integration problems between systems, and conditions set by the safety authority. Contingency is held before the start of trial running."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by street section and system; expanded to Level 4–5 lookahead for the diversion, track and systems crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

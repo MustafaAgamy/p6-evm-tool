@@ -1,0 +1,646 @@
+{
+  "archetype": "fire_water_network",
+  "schema": 2,
+  "context": "site network · fire pumps & tank are long-lead; ring main in service before fuel or occupancy",
+  "brief": {
+    "intro": "New to this project type? A fire water network is the buried ring of pressure pipe that feeds hydrants, monitors and the sprinkler and deluge systems of a plant, a compound or a district. A dedicated tank and a set of fire pumps (usually electric and diesel, plus a small jockey pump that keeps the ring pressurised) stand behind it. The pipe laying is ordinary underground pipe work; what makes the job special is that it is a life-safety system. It must be built to the fire code, witnessed and accepted by the civil defence authority or the insurer, and it must be in service before fuel, hydrocarbons or people arrive — so its completion date is fixed by other milestones, not by its own length.",
+    "scope": [
+      {
+        "name": "Fire water storage tank",
+        "desc": "Dedicated tank sized for the required flow and duration."
+      },
+      {
+        "name": "Fire pump house",
+        "desc": "Electric, diesel and jockey pumps with controllers, fuel tank and test line."
+      },
+      {
+        "name": "Ring main",
+        "desc": "Buried HDPE / DI / GRE main looped around the protected area."
+      },
+      {
+        "name": "Sectional isolation valves",
+        "desc": "Post-indicator valves that let a damaged section be isolated while the rest stays live."
+      },
+      {
+        "name": "Hydrants & monitors",
+        "desc": "Pillar hydrants, hose cabinets and fixed monitors at the required spacing."
+      },
+      {
+        "name": "Branch connections",
+        "desc": "Feeds to building sprinkler risers, deluge skids and foam systems."
+      },
+      {
+        "name": "Thrust restraint",
+        "desc": "Thrust blocks or restrained joints at every change of direction."
+      },
+      {
+        "name": "Power, control & alarms",
+        "desc": "Pump power supplies, controllers and signals to the fire alarm panel."
+      },
+      {
+        "name": "Flushing & pressure testing",
+        "desc": "High-velocity flushing and a hydrostatic test, witnessed."
+      },
+      {
+        "name": "Pump acceptance & authority approval",
+        "desc": "Pump performance test, flow test at the hydrants and the authority inspection."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Ring main",
+        "plain": "a looped main, so any hydrant can be fed from two directions."
+      },
+      {
+        "term": "Jockey pump",
+        "plain": "a small pump that keeps the ring at pressure and covers small leaks, so the main pumps do not start needlessly."
+      },
+      {
+        "term": "Diesel fire pump",
+        "plain": "the pump that still runs when the power fails; it has its own fuel tank and batteries."
+      },
+      {
+        "term": "Post-indicator valve (PIV)",
+        "plain": "a buried isolation valve with a post above ground showing OPEN or SHUT."
+      },
+      {
+        "term": "Monitor",
+        "plain": "a fixed water cannon for cooling or fighting a fire from a distance."
+      },
+      {
+        "term": "Deluge system",
+        "plain": "open nozzles that drench a piece of equipment when a valve opens."
+      },
+      {
+        "term": "Hydrostatic test",
+        "plain": "holding the main at a set test pressure for a set time to prove it is tight."
+      },
+      {
+        "term": "Flushing",
+        "plain": "running water through the main at high velocity to remove debris before it is connected to sprinklers."
+      },
+      {
+        "term": "Pump acceptance test",
+        "plain": "running each fire pump at no flow, rated flow and 150 % flow to prove its performance curve."
+      }
+    ],
+    "must_get_right": [
+      "Find the date when fuel, hydrocarbons or occupants first arrive, and set fire-water 'in service' before it as a contract milestone — then plan backwards.",
+      "Order the fire pumps, controllers and diesel engine at the start: they are listed / approved equipment with long delivery, and they need a finished pump house.",
+      "Flush before connecting the building and deluge systems, and test before backfilling the joints where the code requires them exposed.",
+      "Book the authority or insurer witness for the pressure test and the pump acceptance test; their availability is part of the schedule."
+    ]
+  },
+  "components": [
+    {
+      "name": "Fire Water Tank",
+      "desc": "Storage tank with fill, suction and test-return connections",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Fire Pump House",
+      "desc": "Electric, diesel and jockey pumps with controllers",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Ring Main",
+      "desc": "Buried looped main with thrust restraint",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Hydrants, Monitors & Valves",
+      "desc": "Hydrants, monitors and post-indicator valves",
+      "disc": "Fire",
+      "primary": true
+    },
+    {
+      "name": "Trenching & Thrust Blocks",
+      "desc": "Excavation, bedding, blocks and backfill",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Power, Control & Alarm Interface",
+      "desc": "Pump power, controllers and fire-alarm signals",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Testing & Authority Acceptance",
+      "desc": "Flushing, pressure test, pump test and approval",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Fire Water Piping",
+      "items": [
+        "Buried ring main (HDPE / DI / GRE)",
+        "Above-ground pump-house pipework",
+        "Branch feeds to risers & deluge skids"
+      ]
+    },
+    {
+      "discipline": "Fire Pumps",
+      "items": [
+        "Electric fire pump & controller",
+        "Diesel fire pump, fuel tank & batteries",
+        "Jockey pump",
+        "Test line & flow meter"
+      ]
+    },
+    {
+      "discipline": "Hydrants & Valves",
+      "items": [
+        "Pillar hydrants & hose cabinets",
+        "Fixed monitors",
+        "Post-indicator & sectional valves"
+      ]
+    },
+    {
+      "discipline": "Electrical & Alarm",
+      "items": [
+        "Dedicated power feeds",
+        "Pump-running / fault signals to the fire alarm panel",
+        "Tank level & valve tamper switches"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Authority Approval",
+    "Procurement of Pumps & Pipe",
+    "Tank & Pump House",
+    "Ring Main Laying",
+    "Hydrants, Monitors & Valves",
+    "Pump Installation & Power",
+    "Flushing & Pressure Test",
+    "Pump Acceptance & Authority Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Tank/PH",
+      "Ring main",
+      "Hydrants",
+      "Pumps",
+      "Test",
+      "Accept"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trenching, Thrust Blocks & Backfill",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 10,
+        "width": 52,
+        "label": "Trench → bed → blocks → backfill",
+        "holds": [
+          62
+        ]
+      },
+      {
+        "trade": "Fire Water Tank & Pump House",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 6,
+        "width": 50,
+        "label": "Foundation → tank → pump house",
+        "holds": []
+      },
+      {
+        "trade": "Ring Main — Pipe Laying",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 16,
+        "width": 46,
+        "label": "Lay → joint → restrain",
+        "holds": [
+          62
+        ]
+      },
+      {
+        "trade": "Fire Hydrants & Monitors",
+        "disc": "Fire",
+        "kind": [
+          "fire"
+        ],
+        "start": 34,
+        "width": 40,
+        "label": "Hydrants → monitors → cabinets → signage",
+        "holds": []
+      },
+      {
+        "trade": "Fire Pumps Installation",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 30,
+        "label": "Set → align → pipe → controllers",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Electrical Power, Control & Alarms",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 54,
+        "width": 26,
+        "label": "Feeds → controllers → signals",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Testing & Authority Acceptance",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 76,
+        "width": 24,
+        "label": "Flush → pressure test → pump test → approval",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trenching, Thrust Blocks & Backfill",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Trench excavation along the ring route",
+        "Bedding",
+        "Cast thrust blocks at bends & tees",
+        "Cure thrust blocks before testing",
+        "Backfill & compaction after test"
+      ]
+    },
+    {
+      "name": "Fire Water Tank & Pump House",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Tank foundation / ring beam",
+        "Erect tank (bolted / welded / concrete)",
+        "Tank leak test & coating",
+        "Pump-house structure & plinths",
+        "Fill, suction & test-return pipework"
+      ]
+    },
+    {
+      "name": "Ring Main — Pipe Laying",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive & inspect listed pipe, fittings & valves",
+        "Lay & joint pipe (butt-fusion / restrained joints)",
+        "Install sectional & post-indicator valves",
+        "Branch connections to buildings & deluge skids"
+      ]
+    },
+    {
+      "name": "Fire Hydrants & Monitors",
+      "disc": "Fire",
+      "kind": [
+        "fire"
+      ],
+      "holds": [],
+      "steps": [
+        "Install pillar hydrants at approved spacing",
+        "Install fixed monitors",
+        "Hose cabinets & equipment",
+        "Signage, guards & painting"
+      ]
+    },
+    {
+      "name": "Fire Pumps Installation",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive listed fire pumps & controllers",
+        "Set & align pumps on plinths",
+        "Diesel engine, fuel tank, exhaust & batteries",
+        "Suction / discharge pipework & test line"
+      ]
+    },
+    {
+      "name": "Electrical Power, Control & Alarms",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Dedicated power feeds to the pump controllers",
+        "Control wiring, pressure switches & tank level",
+        "Signals to the fire alarm panel",
+        "Controller functional test (auto start on pressure drop)"
+      ]
+    },
+    {
+      "name": "Testing & Authority Acceptance",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        0,
+        1,
+        4
+      ],
+      "steps": [
+        "High-velocity flushing of the ring main",
+        "Witnessed hydrostatic test",
+        "Fire pump acceptance test (churn / rated / 150 %)",
+        "Hydrant flow & pressure test at the furthest point",
+        "Authority / insurer inspection & certificate"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "FWN",
+      "name": "Fire Water Ring Main & Hydrant Network — Project",
+      "level": 1
+    },
+    {
+      "code": "FWN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "FWN.02",
+      "name": "Design & Authority Approval",
+      "level": 2
+    },
+    {
+      "code": "FWN.02.10",
+      "name": "Hydraulic calculations & shop drawings",
+      "level": 3
+    },
+    {
+      "code": "FWN.02.20",
+      "name": "Civil defence / insurer approval",
+      "level": 3
+    },
+    {
+      "code": "FWN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "FWN.03.10",
+      "name": "Fire pumps & controllers",
+      "level": 3
+    },
+    {
+      "code": "FWN.03.20",
+      "name": "Pipe, fittings & valves",
+      "level": 3
+    },
+    {
+      "code": "FWN.03.30",
+      "name": "Hydrants & monitors",
+      "level": 3
+    },
+    {
+      "code": "FWN.04",
+      "name": "Civil Works — Trenching & Thrust Blocks",
+      "level": 2
+    },
+    {
+      "code": "FWN.04.10",
+      "name": "Trench excavation & bedding",
+      "level": 3
+    },
+    {
+      "code": "FWN.04.20",
+      "name": "Thrust blocks",
+      "level": 3
+    },
+    {
+      "code": "FWN.04.30",
+      "name": "Backfill",
+      "level": 3
+    },
+    {
+      "code": "FWN.05",
+      "name": "Fire Water Tank (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FWN.05.10",
+      "name": "Foundation",
+      "level": 3
+    },
+    {
+      "code": "FWN.05.20",
+      "name": "Tank erection & testing",
+      "level": 3
+    },
+    {
+      "code": "FWN.06",
+      "name": "Fire Pump House (Pump Equipment)",
+      "level": 2
+    },
+    {
+      "code": "FWN.06.10",
+      "name": "Building & plinths",
+      "level": 3
+    },
+    {
+      "code": "FWN.06.20",
+      "name": "Pumps & diesel engine",
+      "level": 3
+    },
+    {
+      "code": "FWN.06.30",
+      "name": "Pump-house pipework & test line",
+      "level": 3
+    },
+    {
+      "code": "FWN.07",
+      "name": "Ring Main (Piping)",
+      "level": 2
+    },
+    {
+      "code": "FWN.07.10",
+      "name": "Pipe laying & jointing",
+      "level": 3
+    },
+    {
+      "code": "FWN.07.20",
+      "name": "Sectional valves",
+      "level": 3
+    },
+    {
+      "code": "FWN.07.30",
+      "name": "Branch connections",
+      "level": 3
+    },
+    {
+      "code": "FWN.08",
+      "name": "Fire Hydrants & Monitors",
+      "level": 2
+    },
+    {
+      "code": "FWN.09",
+      "name": "Electrical Power, Control & Alarm Interface",
+      "level": 2
+    },
+    {
+      "code": "FWN.10",
+      "name": "Testing, Commissioning & Authority Acceptance",
+      "level": 2
+    },
+    {
+      "code": "FWN.10.10",
+      "name": "Flushing",
+      "level": 3
+    },
+    {
+      "code": "FWN.10.20",
+      "name": "Hydrostatic test",
+      "level": 3
+    },
+    {
+      "code": "FWN.10.30",
+      "name": "Pump acceptance test",
+      "level": 3
+    },
+    {
+      "code": "FWN.10.40",
+      "name": "Authority inspection & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by ring section (between sectional valves) with the tank and pump house as a separate branch, so partial rings can be put in service area by area."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Witnessed tests are fixed-date activities agreed with the authority or insurer."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Two chains meet at commissioning: (1) trench → ring main → thrust blocks cured → flushing → hydrostatic test → backfill; (2) tank and pump house → pumps and controllers → power → pump acceptance test. Authority acceptance needs both, and must precede the first fuel / hydrocarbon / occupancy milestone."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The fire-protection design is approved by the authority before procurement; permanent or approved temporary power is available for the pump test; water is available to fill the tank and flush."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Listed fire pumps, diesel engine & controllers",
+              "20–30 weeks",
+              "Before pump-house mechanical installation"
+            ],
+            [
+              "Fire water tank (bolted steel / GRP panels)",
+              "12–18 weeks",
+              "Before tank erection"
+            ],
+            [
+              "Listed valves, hydrants & monitors",
+              "12–16 weeks",
+              "Before the ring main is closed for testing"
+            ],
+            [
+              "HDPE / GRE pipe & fittings",
+              "8–12 weeks",
+              "Before ring-main laying"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "The ring shares corridors with other buried services and must be coordinated with roads and foundations. Listed equipment cannot be substituted without re-approval."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late approval of the design, late fire pumps, a failed pressure test under completed paving, and authority comments at the final inspection. Contingency is held before the in-service milestone."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by ring section and system; expanded to Level 4–5 lookahead for the pipe-laying and pump-installation crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "NFPA 24 — private fire service mains"
+    },
+    {
+      "code": "STD",
+      "text": "NFPA 20 — stationary fire pumps"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

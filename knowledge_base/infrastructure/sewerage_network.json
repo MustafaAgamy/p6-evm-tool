@@ -1,0 +1,260 @@
+{
+  "category": "Infrastructure",
+  "type": "Sewerage Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "sewer",
+    "sewerage",
+    "gravity sewer",
+    "manhole",
+    "rising main",
+    "force main",
+    "lift station",
+    "pumping station",
+    "wet well",
+    "invert",
+    "house connection",
+    "cctv",
+    "air test",
+    "dewatering",
+    "micro-tunnelling",
+    "pipe jacking",
+    "benching"
+  ],
+  "wbs": [
+    {
+      "name": "Survey & Permits",
+      "keywords": [
+        "survey",
+        "level",
+        "permit",
+        "noc",
+        "trial pit"
+      ]
+    },
+    {
+      "name": "Excavation & Dewatering",
+      "keywords": [
+        "excavation",
+        "trench",
+        "dewatering",
+        "shoring"
+      ]
+    },
+    {
+      "name": "Sewer Pipe Laying",
+      "keywords": [
+        "sewer",
+        "pipe laying",
+        "laying",
+        "gravity",
+        "trunk",
+        "lateral"
+      ]
+    },
+    {
+      "name": "Manholes & Chambers",
+      "keywords": [
+        "manhole",
+        "chamber",
+        "benching",
+        "cover"
+      ]
+    },
+    {
+      "name": "Pumping Station",
+      "keywords": [
+        "pumping station",
+        "lift station",
+        "wet well",
+        "pump",
+        "mcc"
+      ]
+    },
+    {
+      "name": "Rising Main",
+      "keywords": [
+        "rising main",
+        "force main",
+        "pressure main"
+      ]
+    },
+    {
+      "name": "Testing & CCTV",
+      "keywords": [
+        "air test",
+        "water test",
+        "cctv",
+        "mandrel",
+        "leakage test"
+      ]
+    },
+    {
+      "name": "Backfill & Reinstatement",
+      "keywords": [
+        "backfill",
+        "compaction",
+        "reinstatement",
+        "asphalt"
+      ]
+    },
+    {
+      "name": "Commissioning & Handover",
+      "keywords": [
+        "commissioning",
+        "connection to existing",
+        "handover",
+        "flow diversion"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Trunk Sewer Laying (downstream → upstream)",
+      "keywords": [
+        "trunk sewer",
+        "sewer laying",
+        "pipe laying"
+      ],
+      "wbs": "Sewer Pipe Laying",
+      "typical_pred": "Excavation & Dewatering",
+      "typical_succ": "Testing & CCTV",
+      "duration_days": 70,
+      "why": "The trunk sewer is the deepest, slowest run and everything upstream drains into it — it normally carries the critical path."
+    },
+    {
+      "name": "Manhole Construction",
+      "keywords": [
+        "manhole"
+      ],
+      "wbs": "Manholes & Chambers",
+      "typical_pred": "Excavation & Dewatering",
+      "typical_succ": "Testing & CCTV",
+      "duration_days": 45,
+      "why": "Manholes close each run; a run cannot be tested until the manholes at both ends are built."
+    },
+    {
+      "name": "Pumping Station Wet Well",
+      "keywords": [
+        "wet well",
+        "pumping station",
+        "lift station"
+      ],
+      "wbs": "Pumping Station",
+      "typical_pred": "Excavation & Dewatering",
+      "typical_succ": "Pump Installation",
+      "duration_days": 60,
+      "why": "The deep wet-well structure is a long activity and must be ready before pumps arrive."
+    },
+    {
+      "name": "Leakage Test & CCTV Survey",
+      "keywords": [
+        "air test",
+        "cctv",
+        "leakage"
+      ],
+      "wbs": "Testing & CCTV",
+      "typical_pred": "Sewer Pipe Laying",
+      "typical_succ": "Backfill & Reinstatement",
+      "duration_days": 15,
+      "why": "Each run is tested and filmed before the road is reinstated over it."
+    },
+    {
+      "name": "Pump Station Commissioning",
+      "keywords": [
+        "commissioning",
+        "pump test"
+      ],
+      "wbs": "Commissioning & Handover",
+      "typical_pred": "Pumping Station",
+      "typical_succ": "Handover",
+      "duration_days": 14,
+      "why": "The network can take flow only when the station is powered, tested and controlled."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "dewatering",
+        "excavation",
+        "shoring"
+      ],
+      "after_keywords": [
+        "pipe laying",
+        "sewer laying",
+        "manhole"
+      ],
+      "reason": "Pipes and manholes follow excavation in a dewatered, supported trench.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "pipe laying",
+        "sewer laying",
+        "manhole"
+      ],
+      "after_keywords": [
+        "air test",
+        "water test",
+        "cctv"
+      ],
+      "reason": "A run is tested after its pipes and both manholes are complete.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "air test",
+        "water test",
+        "cctv"
+      ],
+      "after_keywords": [
+        "reinstatement",
+        "asphalt"
+      ],
+      "reason": "Reinstatement follows passed tests and CCTV.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "wet well",
+        "pump installation",
+        "mcc"
+      ],
+      "after_keywords": [
+        "commissioning",
+        "pump test"
+      ],
+      "reason": "Station commissioning follows structure, pumps and power.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "cctv",
+        "commissioning"
+      ],
+      "after_keywords": [
+        "connection to existing",
+        "handover"
+      ],
+      "reason": "Connection to the live system follows acceptance of sewers and station.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Permits Issued",
+    "Outfall / Station Structure Complete",
+    "Trunk Sewer Complete",
+    "Pumps Delivered",
+    "Tests & CCTV Accepted",
+    "Station Commissioned",
+    "Handover to Authority"
+  ],
+  "common_issues": [
+    "Sewers not sequenced from downstream to upstream",
+    "Other utilities planned before the sewer in the same road",
+    "No dewatering activity or duration",
+    "Pumping-station power supply not in the schedule",
+    "CCTV and leakage tests missing before reinstatement"
+  ]
+}
