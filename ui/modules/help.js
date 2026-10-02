@@ -1,3 +1,4 @@
+import { dateText } from './format.js';
 // Help Center — a self-contained, full-window overlay that opens ABOVE the running app.
 // Ports the APPROVED Help-menu mockup into a real module: six sections (Getting Started,
 // Feature Guide with per-feature required-input chips + live search, Keyboard Shortcuts,
@@ -486,7 +487,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 function wnDate(iso) {                         // '2026-09-26' → '26 Sep 2026'
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
-  return m && MONTHS[+m[2] - 1] ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : '';
+  return m && MONTHS[+m[2] - 1] ? `${m[3]}-${MONTHS[+m[2] - 1]}.${m[1]}` : '';
 }
 
 function wnItem(raw) {
@@ -643,7 +644,7 @@ export function wireLogFolder(root, win) {
 // Plain words only; never alert/confirm (no-ops in the app's WebView2).
 export function graphicsStatusText(st) {
   if (!st || !st.ok) return (st && st.error) || 'Could not read the graphics setting.';
-  const since = st.since ? ` since ${String(st.since).slice(0, 10)}` : '';
+  const since = st.since ? ` since ${dateText(String(st.since).slice(0, 10)) || String(st.since).slice(0, 10)}` : '';
   let t = st.saved ? `On${since}` : 'Off (normal graphics)';
   if (st.saved && st.reason && st.reason !== 'turned on in Help') t += ` — turned on automatically (${st.reason})`;
   if (st.forced) t += ` — note: the ${st.forced === '1' ? 'on' : 'off'} setting in this computer's CONTROLYX_SAFE_GRAPHICS variable wins`;

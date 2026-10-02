@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — One date style everywhere: 03-Dec.2026 (comment 46)
+Every date in every feature's results now reads **03-Dec.2026** — on screen, in the PDF, Word, HTML and Excel exports, in the chat answers and the Narrative report. Before, the same date showed as 03-Dec-2026, 03 Dec 2026, 3 December 2026 or 2026-12-03 depending on the feature (the Critical Path chain, the Calendar Audit key dates, the Update vs Update tables and the Narrative were the main ones). Excel date cells use the same style (`dd-mmm.yyyy`) and stay real dates. Dates written in the older styles — a contract date typed as 9-Feb-2027, a saved report — are still read. Month-only labels on chart axes (Dec-26) are unchanged.
+
 ### Added — Baseline Narrative: put the activity codes in the order you want (comment 45)
 - **Sequence of Work (§11) — ⇄ swaps the two codes of an analysis.** Pick "Type of Works" then "Type of Civil Works", press ⇄, and "Type of Civil Works" becomes the 1st code and "Type of Works" the 2nd — the section then groups the sequence by Type of Civil Works instead of by Type of Works. Checked on Grain Bulk ("Type of Works" ⇄ "Type of Civil Work").
 - **▲ ▼ move a whole sequence analysis up or down**, so the analyses print in the order you choose.

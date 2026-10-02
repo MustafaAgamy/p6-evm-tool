@@ -9,7 +9,7 @@ export function fmtCalDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d)) return '—';
-  return `${String(d.getUTCDate()).padStart(2, '0')} ${_MON[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${String(d.getUTCDate()).padStart(2, '0')}-${_MON[d.getUTCMonth()]}.${d.getUTCFullYear()}`;
 }
 
 export function statusClass(status) {

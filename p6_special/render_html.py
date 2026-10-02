@@ -10,6 +10,7 @@ import html as _html
 
 import report_theme
 from p6_special import payloads as P
+from utils import date_text as _date_text
 
 # semantic tone -> theme token
 _TONE_INK = {'neutral': 'rpt-ink', 'accent': 'rpt-accent',
@@ -35,6 +36,7 @@ _SR_NAVY = {
 
 
 def _esc(s):
+    s = _date_text(s)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape('' if s is None else str(s))
 
 

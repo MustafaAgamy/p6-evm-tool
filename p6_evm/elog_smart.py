@@ -224,9 +224,9 @@ def _disp(v):
     if v is None:
         return ''
     if isinstance(v, datetime):
-        return v.strftime('%d-%b-%Y')
+        return v.strftime('%d-%b.%Y')
     if isinstance(v, date):
-        return v.strftime('%d-%b-%Y')
+        return v.strftime('%d-%b.%Y')
     if isinstance(v, float) and v.is_integer():
         return str(int(v))
     return ' '.join(str(v).split())

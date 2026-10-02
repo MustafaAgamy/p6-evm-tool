@@ -35,10 +35,10 @@ def _date(v):
     if v in (None, ''):
         return None
     if isinstance(v, (datetime, date)):
-        return v.strftime('%d %b %Y')
+        return v.strftime('%d-%b.%Y')
     s = str(v)
     try:
-        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d %b %Y')
+        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d-%b.%Y')
     except ValueError:
         return s
 

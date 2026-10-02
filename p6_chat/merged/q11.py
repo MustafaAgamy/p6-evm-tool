@@ -13,6 +13,7 @@ import re
 from datetime import datetime, timedelta
 
 from . import _kit2 as K
+from utils import parse_date_text as _parse_date_text   # 03-Dec.2026 or older styles
 
 _ROMAN = {'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'}
 _GENERIC = {'phase', 'stage', 'package', 'design', 'engineering', 'engineer', 'procurement', 'and', 'of', 'the',
@@ -91,7 +92,7 @@ def _sg(n):
 
 def _date(s):
     try:
-        return datetime.strptime(s, '%d-%b-%Y')
+        return _parse_date_text(s)
     except (TypeError, ValueError):
         return None
 
@@ -609,8 +610,8 @@ def build(F, N, role):
             desc = []
             for t in wt:
                 fs = sorted(_date(x['finish']) for x in win if _trade(x) == t)
-                desc.append(f"{simple.get(t, t)} ({fs[0].strftime('%d-%b')} → {fs[-1].strftime('%d-%b-%Y')})"
-                            if fs[0] != fs[-1] else f"{simple.get(t, t)} ({fs[0].strftime('%d-%b-%Y')})")
+                desc.append(f"{simple.get(t, t)} ({fs[0].strftime('%d-%b')} → {fs[-1].strftime('%d-%b.%Y')})"
+                            if fs[0] != fs[-1] else f"{simple.get(t, t)} ({fs[0].strftime('%d-%b.%Y')})")
             wa = []
             for x in win:
                 a = _area(x)
@@ -624,11 +625,11 @@ def build(F, N, role):
             sl = [x['slip_wd'] for x in win if x.get('slip_wd') is not None]
             if bls and sl:
                 if max(sl) - min(sl) <= 3:
-                    t += (f" They were stacked the same way in the baseline ({min(bls).strftime('%d-%b-%Y')} → "
-                          f"{max(bls).strftime('%d-%b-%Y')}); the slip moved the whole stack intact.")
+                    t += (f" They were stacked the same way in the baseline ({min(bls).strftime('%d-%b.%Y')} → "
+                          f"{max(bls).strftime('%d-%b.%Y')}); the slip moved the whole stack intact.")
                 else:
-                    t += (f" In the baseline the same work ran {min(bls).strftime('%d-%b-%Y')} → "
-                          f"{max(bls).strftime('%d-%b-%Y')}; the slips differ by up to {max(sl) - min(sl)} wd, so the stack "
+                    t += (f" In the baseline the same work ran {min(bls).strftime('%d-%b.%Y')} → "
+                          f"{max(bls).strftime('%d-%b.%Y')}; the slips differ by up to {max(sl) - min(sl)} wd, so the stack "
                           "has been reshaped, not just moved.")
             t += ((f" Any recovery that compresses the {simple.get(lead, lead)} front squeezes those {len(wt)} crews into the "
                    "same area even harder" if lead in wt else
@@ -1032,7 +1033,7 @@ def build(F, N, role):
         ms_ = sorted(_date(x['finish']) for x in win)
         actions.append(f"Before committing to a recovery on the {simple.get(lead, lead)} front, walk the area plan with site: "
                        f"{len({_trade(x) for x in win})} trades converge there between {ms_[0].strftime('%d-%b')} and "
-                       f"{ms_[-1].strftime('%d-%b-%Y')}.")
+                       f"{ms_[-1].strftime('%d-%b.%Y')}.")
     if late_open and behind:
         actions.append(f"Log the late client inputs in the delay record now, and run a TIA / Consultant Review before stating "
                        f"how many of the {round(d)} days they caused.")

@@ -220,7 +220,7 @@ def _mfull(y, m):
 
 
 def _day_label(d):
-    return '%d %s %d' % (d.day, _MON[d.month - 1], d.year)
+    return '%02d-%s.%d' % (d.day, _MON[d.month - 1], d.year)
 
 
 def _month_span(a, b):

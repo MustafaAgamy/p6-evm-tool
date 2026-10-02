@@ -52,9 +52,9 @@ def test_why_delayed_management_is_plain_and_points_at_the_driver():
 def test_management_answer_is_anchored_to_the_update_date_and_finish_dates():
     a = answer('why_delayed', build_context(RESULT), 'management')
     t = _text(a)
-    assert '03-Mar-2025' in a['headline']        # anchored to the update/cutoff date
-    assert '15-Jan-2027' in t and '12-Mar-2027' in t   # planned finish -> forecast finish
-    assert any(e['value'] == '03-Mar-2025' for e in a['evidence'])
+    assert '03-Mar.2025' in a['headline']        # anchored to the update/cutoff date
+    assert '15-Jan.2027' in t and '12-Mar.2027' in t   # planned finish -> forecast finish
+    assert any(e['value'] == '03-Mar.2025' for e in a['evidence'])
 
 
 def test_management_answers_carry_no_p6_jargon():
@@ -94,7 +94,7 @@ def test_manager_report_is_manager_first_and_plain():
     r = build_manager_report(ctx)
     assert r['status'] == 'Behind'
     assert 'about 2 months' in r['one_line'] and 'MEP' in r['one_line']   # plain time, the driver
-    assert r['finish']['promised'] == '15-Jan-2027' and r['finish']['forecast'] == '12-Mar-2027'
+    assert r['finish']['promised'] == '15-Jan.2027' and r['finish']['forecast'] == '12-Mar.2027'
     assert r['trend']['dir'] == 'worse'
     assert r['money'] and r['actions']              # money + what-I-need-from-you present
     txt = ' '.join([r['one_line'], r['money'] or '', r['fault'] or '', *r['actions']])
@@ -104,7 +104,7 @@ def test_manager_report_is_manager_first_and_plain():
 def test_manager_report_html_renders_and_is_jargon_free():
     h = render_manager_report_html(build_manager_report(build_context(RESULT, prev_delay=30)), {})
     assert '<html' in h.lower() and 'Manager Report' in h
-    assert 'Metro L3' in h and '03-Mar-2025' in h
+    assert 'Metro L3' in h and '03-Mar.2025' in h
     low = h.lower()
     for term in ('spi', 'critical path', ' float', 'fragnet'):
         assert term not in low, f'report leaked jargon: {term}'

@@ -15,7 +15,7 @@ function test(name, fn) {
 }
 
 console.log('\nfmtCalDate');
-test('formats an ISO date',        () => assert.equal(fmtCalDate('2025-01-05'), '05 Jan 2025'));
+test('formats an ISO date',        () => assert.equal(fmtCalDate('2025-01-05'), '05-Jan.2025'));
 test('null -> dash',               () => assert.equal(fmtCalDate(null), '—'));
 test('garbage -> dash',            () => assert.equal(fmtCalDate('not-a-date'), '—'));
 

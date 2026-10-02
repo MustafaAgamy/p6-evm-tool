@@ -154,7 +154,7 @@ def run_dangling(graph, config):
     findings.sort(key=lambda f: (order.get(f['severity'], 9), f['activity_id']))
 
     dd = getattr(graph, 'data_date', None)
-    data_date_str = dd.strftime('%d-%b-%Y') if hasattr(dd, 'strftime') else ''
+    data_date_str = dd.strftime('%d-%b.%Y') if hasattr(dd, 'strftime') else ''
 
     return {
         'module': MODULE,

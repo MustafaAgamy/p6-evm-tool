@@ -19,7 +19,7 @@ try:                                    # the same words the network read uses t
 except Exception:                       # pragma: no cover - analysis always ships with the chat
     CLIENT_WORDS = ('client', 'employer', 'owner', 'free issue', 'free-issue', 'furnished by', 'by client')
 
-FMT = '%d-%b-%Y'
+FMT = '%d-%b.%Y'
 HANDOVER_WORDS = ('handover', 'hand over', 'hand-over', 'taking over', 'take over', 'practical completion',
                   'substantial completion')
 # words too common in activity / WBS names to link two things on their own
@@ -840,7 +840,7 @@ def build(F, N, role):
                          '; '.join(f"{clean(x['name'])} ({x['id']}), forecast {x.get('finish')}, float {sg(x.get('tf'))}" for x in nxt),
                          "Start on these now — they're the next deep-float items to reach the front."))
         on_chain_in = [c for c in chain if wk(dt(c.get('finish'))) and dt(c['finish']) > d0]
-        lp = f"The window is {d0:%d-%b} to {end:%d-%b-%Y}."
+        lp = f"The window is {d0:%d-%b} to {end:%d-%b.%Y}."
         if head and not on_chain_in:
             lp += (f" No activity on the finish chain finishes inside it — its head, {clean(head['name'])} ({head['id']}), "
                    f"finishes {head.get('finish')}" + (", so this look-ahead is short on construction and heavy on client inputs."

@@ -106,7 +106,7 @@ export function oosBulkOutcome(touchedIds, freshAfter) {
 // ── DOM rendering + wiring (browser only) ─────────────────────────────────
 
 import { state } from './state.js';
-import { escapeHtml } from './format.js';
+import { escapeHtml, dateText } from './format.js';
 import { revealAndRun, revealStage } from './featurereveal.js';
 
 const SEV_ORDER = ['Critical', 'High', 'Medium', 'Low'];
@@ -261,12 +261,12 @@ export function selectModule(key) {
 const num = v => (Number(v) || 0).toLocaleString();
 const pctv = v => `${v ?? 0}%`;
 const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
-const isoDate = v => v ? String(v).slice(0, 10) : '—';
+const isoDate = v => v ? (dateText(v) || String(v).slice(0, 10)) : '—';   // 03-Dec.2026 (comment 46)
 const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
   if (!v) return '—';
   const p = String(v).slice(0, 10).split('-');
-  return (p.length === 3 && +p[1]) ? `${+p[2]}-${MON3[+p[1]]}-${p[0]}` : String(v);
+  return (p.length === 3 && +p[1]) ? `${p[2].padStart(2, '0')}-${MON3[+p[1]]}.${p[0]}` : String(v);
 };
 const td = v => `<td>${escapeHtml(v ?? '')}</td>`;
 const tdNum = v => `<td class="num">${escapeHtml(String(v ?? ''))}</td>`;
@@ -1956,7 +1956,7 @@ export function msGateRows(mc) {
     return m.contract_milestones.map((s) => ({ name: (s && s.name) || '', date: (s && s.date) || '' }));
   }
   return (m.milestones || []).filter((e) => e && e.contract_name).map((e) => {
-    const g = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(e.contract_date || ''));
+    const g = /^(\d{1,2})-([A-Za-z]{3})[-.](\d{4})$/.exec(String(e.contract_date || ''));
     const mo = g && _MS_MON[g[2].charAt(0).toUpperCase() + g[2].slice(1).toLowerCase()];
     const date = mo ? `${g[3]}-${String(mo).padStart(2, '0')}-${g[1].padStart(2, '0')}` : '';
     return { name: e.contract_name, date };

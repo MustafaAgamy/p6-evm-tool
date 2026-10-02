@@ -261,7 +261,7 @@ def _date_exceptions(a, b, win=None):
         else:
             change = f'{h0:g}h → {h1:g}h'
         s, e = g['start'], g['end']
-        label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
+        label = s.strftime('%d-%b.%Y') if s == e else f"{s.strftime('%d-%b.%Y')} – {e.strftime('%d-%b.%Y')}"
         out.append({'date': label, 'iso': s.isoformat(), 'iso_end': e.isoformat(),
                     'rev0': _hlabel(h0, std0), 'rev1': _hlabel(h1, std1), 'change': change})
     out.sort(key=lambda x: (x['change'] == 'unchanged', x['iso']))
@@ -300,7 +300,7 @@ def _nonworking_dates(cal, win=None):
     out = []
     for g in groups:
         s, e = g['start'], g['end']
-        label = s.strftime('%d %b %Y') if s == e else f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}"
+        label = s.strftime('%d-%b.%Y') if s == e else f"{s.strftime('%d-%b.%Y')} – {e.strftime('%d-%b.%Y')}"
         out.append({'date': label, 'iso': s.isoformat(), 'status': _hlabel(g['h'], day_h)})
     return out
 
@@ -571,5 +571,5 @@ def diff_constraints(matched):
 def _fmt_constraint(t, d):
     if not t:
         return '—'
-    ds = d.strftime('%d %b %Y') if hasattr(d, 'strftime') else ''
+    ds = d.strftime('%d-%b.%Y') if hasattr(d, 'strftime') else ''
     return f'{t}{" " + ds if ds else ""}'

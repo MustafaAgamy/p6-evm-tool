@@ -35,7 +35,7 @@ def _parse_date(iso):
     try:
         return datetime.fromisoformat(s.replace('Z', '').replace('T', ' ').strip())
     except ValueError:
-        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
+        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
             try:
                 return datetime.strptime(s[:10] if fmt == '%Y-%m-%d' else s, fmt)
             except ValueError:
@@ -48,7 +48,7 @@ def _fmt_date(iso):
     d = _parse_date(iso)
     if not d:
         return '—'
-    return f'{d.day:02d} {_MONTHS[d.month - 1]} {d.year}'
+    return f'{d.day:02d}-{_MONTHS[d.month - 1]}.{d.year}'
 
 
 def _pct2(frac):

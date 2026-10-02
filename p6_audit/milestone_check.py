@@ -51,7 +51,7 @@ def _parse_date(v):
     if not v:
         return None
     s = str(v)
-    for fmt in ('%Y-%m-%d', '%d-%b-%Y', '%d-%b-%y', '%d/%m/%Y', '%m/%d/%Y'):
+    for fmt in ('%Y-%m-%d', '%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%d/%m/%Y', '%m/%d/%Y'):
         try:
             return datetime.strptime(s[:len(fmt) + 4], fmt)
         except ValueError:
@@ -70,10 +70,10 @@ _MON = ('', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'
 
 
 def _fmt(dt):
-    """Display a date as 9-Feb-2027 (P6 style), not ISO."""
+    """Display a date as 09-Feb.2027 (the one date style, comment 46), not ISO."""
     if not isinstance(dt, datetime):
         return None
-    return f'{dt.day}-{_MON[dt.month]}-{dt.year}'
+    return f'{dt.day:02d}-{_MON[dt.month]}.{dt.year}'
 
 
 def _match(graph, name):
@@ -222,7 +222,8 @@ def _status_counts(evals):
 
 
 def _mcell(text, cls=''):
-    c = {'text': '' if text is None else str(text)}
+    from utils import date_text
+    c = {'text': '' if text is None else str(date_text(text))}
     if cls:
         c['cls'] = cls
     return c

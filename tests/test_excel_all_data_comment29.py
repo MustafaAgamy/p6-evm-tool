@@ -59,7 +59,7 @@ def test_narrative_workbook_has_one_sheet_per_report_section(tmp_path):
     write_sections_xlsx(str(out), sheets)
     text = '\n'.join(_book(str(out)).values())
     # the schedule's own content reaches the workbook: the WBS, the critical path's zones and dates
-    for needle in ('Batch House', 'Mixer Building', 'Piling / excavation', '3 Mar 2025', '21 Mar 2025'):
+    for needle in ('Batch House', 'Mixer Building', 'Piling / excavation', '03-Mar.2025', '21-Mar.2025'):
         assert needle in text, needle
 
 
@@ -197,8 +197,8 @@ def _calendar_audit():
                       'normal_hours': '08:00–16:00'},
         'project': {}, 'primary_calendar_id': 'A',
         'assigned_calendars': [{'object_id': 'A', 'name': 'Main 6-Day'}, {'object_id': 'B', 'name': 'Night Shift'}],
-        'by_calendar': {'A': cal('A', 'Main 6-Day', [{'description': '23 Jul 2026', 'days': 1, 'reason': 'Eid'}]),
-                        'B': cal('B', 'Night Shift', [{'description': '6 Oct 2026', 'days': 1, 'reason': 'National day'}])},
+        'by_calendar': {'A': cal('A', 'Main 6-Day', [{'description': '23-Jul.2026', 'days': 1, 'reason': 'Eid'}]),
+                        'B': cal('B', 'Night Shift', [{'description': '06-Oct.2026', 'days': 1, 'reason': 'National day'}])},
         'comparison': [], 'usage': [],
         'conflicts': [{'type': 'mixed_wbs', 'severity': 'High', 'title': 'Mixed calendars inside "Piles"',
                        'detail': 'Activities split across 2 calendars.'}],
@@ -217,8 +217,8 @@ def test_calendar_workbook_carries_summary_monthly_figures_and_issues(tmp_path):
     assert 'Consistency: 98.1% of activities run on one calendar.' in book['Summary']
     assert '08:00–16:00' in book['Summary']
     assert 'Jul 2026' in book['Monthly Working Time'] and 'Night Shift' in book['Monthly Working Time']
-    assert '6 Oct 2026' in book['Other Calendars Exceptions'] and 'National day' in book['Other Calendars Exceptions']
-    assert '23 Jul 2026' not in book['Other Calendars Exceptions']    # the main calendar stays on Exceptions
+    assert '06-Oct.2026' in book['Other Calendars Exceptions'] and 'National day' in book['Other Calendars Exceptions']
+    assert '23-Jul.2026' not in book['Other Calendars Exceptions']    # the main calendar stays on Exceptions
     assert 'Mixed calendars inside "Piles"' in book['Calendar Issues'].replace('&quot;', '"')
 
 
@@ -265,9 +265,9 @@ def test_float_migration_rows_carry_the_name_and_both_floats():
 def test_consultant_review_workbook_has_the_milestone_table():
     from p6_compare.exporters import logic_excel_sections
     sheets = logic_excel_sections({'milestones': [
-        {'activity_id': 'KD-1', 'name': 'Handover', 'baseline_finish': '09-Feb-2027', 'update_finish': '02-May-2027'}]})
+        {'activity_id': 'KD-1', 'name': 'Handover', 'baseline_finish': '09-Feb.2027', 'update_finish': '02-May.2027'}]})
     ms = next(s for s in sheets if s['name'] == 'Milestones')
-    assert ms['blocks'][0]['rows'] == [['KD-1', 'Handover', '09-Feb-2027', '02-May-2027']]
+    assert ms['blocks'][0]['rows'] == [['KD-1', 'Handover', '09-Feb.2027', '02-May.2027']]
     assert not any(s['name'] == 'Milestones' for s in logic_excel_sections({}))
 
 

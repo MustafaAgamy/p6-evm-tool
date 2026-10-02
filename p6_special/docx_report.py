@@ -405,10 +405,10 @@ def full_date(v):
     if v in (None, ''):
         return ''
     if isinstance(v, datetime):
-        return '%d %s %d' % (v.day, v.strftime('%B'), v.year)
+        return v.strftime('%d-%b.%Y')                   # 03-Dec.2026 (comment 46)
     try:
         dt = datetime.strptime(str(v)[:10], '%Y-%m-%d')
-        return '%d %s %d' % (dt.day, dt.strftime('%B'), dt.year)
+        return dt.strftime('%d-%b.%Y')
     except (ValueError, TypeError):
         return str(v)
 

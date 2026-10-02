@@ -5,7 +5,7 @@ BLANK, so the reader had no float for any activity and the Appendix (Critical Pa
 "The schedule carries no total-float values". The XER reader now rebuilds a blank float from
 the activity's own early / late dates, exactly as P6 computes it (and as the XML reader does),
 so the Narrative finds the critical path. Checked on the real file: 223 critical activities,
-19 Dec 2024 → Project Completion 30 Aug 2025.
+19-Dec.2024 → Project Completion 30-Aug.2025.
 
 This locks the whole chain: blank float in the XER → float rebuilt → Narrative critical path.
 """
@@ -63,7 +63,7 @@ def test_narrative_finds_the_critical_path_when_the_float_column_is_blank(tmp_pa
     assert cp['available'] is True and cp['crit_basis'] == 'tf<=0'
     kpis = {label: value for value, label in cp['kpis']}
     assert kpis['Critical activities'] == '3'
-    assert kpis['Critical path start'] == '3 Mar 2025' and kpis['Critical path finish'] == '21 Mar 2025'
+    assert kpis['Critical path start'] == '03-Mar.2025' and kpis['Critical path finish'] == '21-Mar.2025'
     # … and the report section carries it (never the 'no total-float values' note)
     sec = next(s for s in build_report(data, path=path, setup=None).to_dict()['sections'] if s.get('kind') == 'critpath')
     assert sec['payload']['available'] is True

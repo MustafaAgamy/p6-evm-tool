@@ -532,7 +532,7 @@ def _conclusion(oos_count, distribution, critical_oos, near_oos):
 def run_out_of_sequence(graph, config):
     near_days = config.get('audit', {}).get('near_critical_days', 10)
     dd = getattr(graph, 'data_date', None)
-    data_date_str = dd.strftime('%d-%b-%Y') if hasattr(dd, 'strftime') else ''
+    data_date_str = dd.strftime('%d-%b.%Y') if hasattr(dd, 'strftime') else ''
     real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
     total = len(real)
     commencement = _find_commencement(graph)   # project commencement (id, name, oid) or (None,)*3

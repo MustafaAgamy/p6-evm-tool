@@ -58,7 +58,7 @@ def _word(n):
 def _date(s):
     if not s:
         return None
-    for fmt in ('%d-%b-%Y', '%Y-%m-%d'):
+    for fmt in ('%d-%b.%Y', '%d-%b-%Y', '%Y-%m-%d'):
         try:
             return datetime.strptime(str(s).strip()[:11], fmt)
         except ValueError:
@@ -67,7 +67,7 @@ def _date(s):
 
 
 def _fmt(dt):
-    return dt.strftime('%d-%b-%Y') if dt else None
+    return dt.strftime('%d-%b.%Y') if dt else None
 
 
 def _sg(n):

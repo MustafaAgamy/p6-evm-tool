@@ -8,6 +8,7 @@ import html as _html
 
 from p6_audit.presentation import build_presentation
 import report_theme
+from utils import date_text as _date_text
 
 _SEV = {'Critical': report_theme.var('rpt-bad'), 'High': report_theme.var('rpt-warn'),
         'Medium': report_theme.var('rpt-warn'), 'Low': report_theme.var('rpt-muted')}
@@ -29,6 +30,7 @@ def short_wbs(path, n=3):
 
 
 def _esc(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape('' if v is None else str(v))
 
 

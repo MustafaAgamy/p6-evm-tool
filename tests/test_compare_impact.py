@@ -29,13 +29,13 @@ def test_before_after_manufactured_forecast_milestones_recommendation():
     update = _sched(datetime(2027, 2, 22), datetime(2027, 2, 22))      # after changes (reported)
     r = before_after(baseline, update, corrected, delay_after=18, delay_before=4)
     assert (r['delay_after'], r['delay_before'], r['manufactured_days']) == (18, 4, 14)
-    assert r['forecast'] == {'baseline': '09-Feb-2027', 'before': '15-Feb-2027', 'after': '22-Feb-2027'}
+    assert r['forecast'] == {'baseline': '09-Feb.2027', 'before': '15-Feb.2027', 'after': '22-Feb.2027'}
     m = r['milestones'][0]
     assert m['activity_id'] == 'M900'
     assert (m['baseline_finish'], m['before_finish'], m['after_finish']) == \
-           ('09-Feb-2027', '15-Feb-2027', '22-Feb-2027')
+           ('09-Feb.2027', '15-Feb.2027', '22-Feb.2027')
     assert '18 working days' in r['recommendation'] and '4 working days' in r['recommendation']
-    assert 'About 14' in r['recommendation'] and '15-Feb-2027' in r['recommendation']
+    assert 'About 14' in r['recommendation'] and '15-Feb.2027' in r['recommendation']
 
 
 def test_before_after_genuine_when_delay_unchanged():
@@ -127,5 +127,5 @@ def test_before_after_from_paths_date_based_delay(tmp_path):
     assert r['delay_after'] == 66      # reported delay, finish variance vs baseline
     assert r['delay_before'] == 22     # but-for delay (baseline logic rescheduled)
     assert r['manufactured_days'] == 44                                # 66 − 22, added by the edits
-    assert r['forecast']['after'] == '24-Dec-2026'
-    assert r['forecast']['before'] == '10-Nov-2026'
+    assert r['forecast']['after'] == '24-Dec.2026'
+    assert r['forecast']['before'] == '10-Nov.2026'

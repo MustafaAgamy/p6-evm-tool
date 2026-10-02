@@ -207,7 +207,7 @@ def _fmt_date(v):
     s = str(v).split('T')[0].split(' ')[0]
     try:
         from datetime import datetime
-        return datetime.strptime(s, '%Y-%m-%d').strftime('%d %b %Y')
+        return datetime.strptime(s, '%Y-%m-%d').strftime('%d-%b.%Y')
     except Exception:
         return s
 

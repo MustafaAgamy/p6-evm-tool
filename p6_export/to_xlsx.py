@@ -23,7 +23,7 @@ from . import html_model as HM
 
 _NUM_RE = re.compile(r'^([+\-−]?)(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?$')
 _PCT_RE = re.compile(r'^([+\-−]?)(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s?%$')
-_DATE_FORMS = (('%d-%b-%Y', 'dd-mmm-yyyy'), ('%d %b %Y', 'dd mmm yyyy'),
+_DATE_FORMS = (('%d-%b.%Y', 'dd-mmm-yyyy'), ('%d-%b-%Y', 'dd-mmm-yyyy'), ('%d %b %Y', 'dd mmm yyyy'),
                ('%Y-%m-%d', 'yyyy-mm-dd'))
 _EPOCH = datetime(1899, 12, 30)
 
@@ -246,7 +246,7 @@ def build_meta(rep, app_name='', feature='', project='', data_date='', generated
            ('Data date', data_date or meta.get('data_date', '')),
            ('Schedule file', meta.get('source_file', '')),
            ('Baseline', meta.get('baseline', '')),
-           ('Generated', generated or datetime.now().strftime('%d-%b-%Y %H:%M'))]
+           ('Generated', generated or datetime.now().strftime('%d-%b.%Y %H:%M'))]
     return {'app': app_name or None, 'title': feature or rep.title or 'Report',
             'context': [(k, v) for k, v in ctx if v]}
 

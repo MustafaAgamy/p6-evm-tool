@@ -46,7 +46,7 @@ test('off, this window normal', () => {
   assert.equal(graphicsStatusText(OFF), 'Off (normal graphics).');
 });
 test('switched on in Help: applies from the next launch', () => {
-  assert.equal(graphicsStatusText(ON), 'On since 2026-09-30. Takes effect the next time you open the app.');
+  assert.equal(graphicsStatusText(ON), 'On since 30-Sep.2026. Takes effect the next time you open the app.');
 });
 test('switched on automatically after a black start: says why; relaunched window uses it now', () => {
   const t = graphicsStatusText({ ...ON, reason: 'WebView2 never showed the page', this_launch: 'safe' });
@@ -86,7 +86,7 @@ test('reads the saved choice, then saves a change and shows the new status', asy
   assert.equal(calls[1][1], 'POST');
   assert.deepEqual(JSON.parse(calls[1][2]), { safe: true });
   assert.equal(r.box.checked, true);
-  assert.ok(r.out.textContent.startsWith('On since 2026-09-30'));
+  assert.ok(r.out.textContent.startsWith('On since 30-Sep.2026'));
   assert.equal(r.out.classList.contains('err'), false);
 });
 test('a refused save puts the tick back and says why beside the switch', async () => {

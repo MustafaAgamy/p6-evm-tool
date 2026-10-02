@@ -19,15 +19,15 @@ def _fmt_meta_date(v):
     if v in (None, ''):
         return None
     if isinstance(v, (datetime, date)):
-        return v.strftime('%d %b %Y')
+        return v.strftime('%d-%b.%Y')
     s = str(v).strip()
     try:
-        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d %b %Y')
+        return datetime.fromisoformat(s.replace('Z', '+00:00')).strftime('%d-%b.%Y')
     except ValueError:
         pass
-    for fmt in ('%Y-%m-%d', '%d %b %Y', '%d-%b-%Y', '%m/%d/%Y', '%d/%m/%Y'):
+    for fmt in ('%Y-%m-%d', '%d-%b.%Y', '%d-%b.%Y', '%m/%d/%Y', '%d/%m/%Y'):
         try:
-            return datetime.strptime(s, fmt).strftime('%d %b %Y')
+            return datetime.strptime(s, fmt).strftime('%d-%b.%Y')
         except ValueError:
             continue
     return s
@@ -92,7 +92,7 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
     for k, v in extra.items():
         if v not in (None, ''):
             ctx.append((k.replace('_', ' ').capitalize(), str(v)))
-    ctx.append(('Generated', datetime.now().strftime('%d %b %Y')))
+    ctx.append(('Generated', datetime.now().strftime('%d-%b.%Y')))
     return {'app': APP_NAME, 'title': title, 'context': ctx}
 
 

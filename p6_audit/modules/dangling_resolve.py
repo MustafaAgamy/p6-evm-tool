@@ -54,7 +54,7 @@ def _parse_date(v):
     if not v:
         return None
     s = str(v).strip()
-    for fmt in ('%d-%b-%Y', '%d-%b-%y', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y'):
+    for fmt in ('%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y'):
         try:
             return datetime.strptime(s[:len(fmt) + 4], fmt)
         except ValueError:

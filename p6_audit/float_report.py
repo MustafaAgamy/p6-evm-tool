@@ -11,12 +11,14 @@ HTML here, then to PDF by the caller (Chrome headless).
 import html as _html
 
 import report_theme
+from utils import date_text as _date_text
 
 _RED, _AMBER, _GREEN = (report_theme.var('rpt-bad'), report_theme.var('rpt-warn'),
                          report_theme.var('rpt-good'))
 
 
 def _esc(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape('' if v is None else str(v))
 
 

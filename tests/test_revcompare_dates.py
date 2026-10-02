@@ -65,7 +65,7 @@ def test_date_shifts_id_is_canonical_and_zero_shift_dropped():
     assert 'A1000' not in ids      # unchanged dates → 0 shift → dropped
     # short date format on a mover
     a1300 = next(r for r in rows if r['id'] == 'A1300')
-    assert a1300['finish0'] == '20 May 2025' and a1300['finish1'] == '01 May 2025'
+    assert a1300['finish0'] == '20-May.2025' and a1300['finish1'] == '01-May.2025'
     assert a1300['shift_wd'] == -19
 
 

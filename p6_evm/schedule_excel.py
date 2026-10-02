@@ -37,19 +37,19 @@ def _fmt_date(iso):
     if not iso:
         return '—'
     if hasattr(iso, 'strftime'):
-        return iso.strftime('%d %b %Y')
+        return iso.strftime('%d-%b.%Y')
     s = str(iso).strip()
     parsed = None
     try:
         parsed = datetime.fromisoformat(s.replace('Z', '').replace('T', ' ').strip())
     except ValueError:
-        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
+        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
             try:
                 parsed = datetime.strptime(s[:10] if fmt == '%Y-%m-%d' else s, fmt)
                 break
             except ValueError:
                 continue
-    return parsed.strftime('%d %b %Y') if parsed else s[:11]
+    return parsed.strftime('%d-%b.%Y') if parsed else s[:11]
 
 
 _HEADERS = ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Start', 'Finish',

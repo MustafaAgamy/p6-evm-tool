@@ -18,7 +18,7 @@ def _pct100(v):
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if d else '—'
+    return d.strftime('%d-%b.%Y') if d else '—'
 
 
 def _project_finish(data):

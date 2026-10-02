@@ -44,8 +44,8 @@ def test_milestones_table_rows_and_variance():
                 ('M2', 'Zone A', datetime(2026, 10, 28), datetime(2026, 11, 5), 4.0)])
     rows = milestones_table({'previous': prev, 'current': curr})
     m1 = next(r for r in rows if r['id'] == 'M1')
-    assert m1['finishes']['current'] == '23-Jan-2027'
-    assert m1['finishes']['previous'] == '05-Jan-2027'
+    assert m1['finishes']['current'] == '23-Jan.2027'
+    assert m1['finishes']['previous'] == '05-Jan.2027'
     assert m1['var_vs_baseline_d'] is not None and m1['var_vs_baseline_d'] > 0   # behind baseline
     assert m1['var_this_period_d'] is not None and m1['var_this_period_d'] > 0   # slipped this period
     assert m1['cpli'] is not None
@@ -70,4 +70,4 @@ def test_this_period_zero_for_same_date_different_time():
         d.activities['M1']['calendar_id'] = 'C1'
     rows = milestones_table({'previous': prev, 'current': curr})
     m1 = next(r for r in rows if r['id'] == 'M1')
-    assert m1['var_this_period_d'] == 0        # 31-Dec-2025 is a Wednesday (a working day)
+    assert m1['var_this_period_d'] == 0        # 31-Dec.2025 is a Wednesday (a working day)

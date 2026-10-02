@@ -55,10 +55,10 @@ def _fmt_date(v):
     if v is None:
         return '—'
     if isinstance(v, (datetime, date)):
-        return v.strftime('%d %b %Y')
+        return v.strftime('%d-%b.%Y')
     s = str(v)[:10]
     try:
-        return datetime.strptime(s, '%Y-%m-%d').strftime('%d %b %Y')
+        return datetime.strptime(s, '%Y-%m-%d').strftime('%d-%b.%Y')
     except ValueError:
         return s or '—'
 

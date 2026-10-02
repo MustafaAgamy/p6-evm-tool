@@ -251,8 +251,8 @@ def test_exceptions_hide_dates_before_data_date(tmp_path):
     ''')
     p = tmp_path / "s.xml"; p.write_text(content, encoding='utf-8')
     dates = [h['description'] for h in calendar_audit(parse_file(str(p)), {}, {})['exceptions']['holidays']]
-    assert any('10 Mar' in d for d in dates)          # after the data date → shown
-    assert not any('15 Jan' in d for d in dates)      # before the data date → hidden
+    assert any('10-Mar' in d for d in dates)          # after the data date → shown
+    assert not any('15-Jan' in d for d in dates)      # before the data date → hidden
 
 
 def test_hours_note_saved_and_attached(tmp_path):

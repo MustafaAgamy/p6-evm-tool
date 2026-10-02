@@ -17,6 +17,42 @@ APP_TITLE = f'{APP_NAME} {APP_EDITION}'    # full display name, e.g. "Controlyx 
 _RELEASE_HEADING = re.compile(r'## \[v(\d+\.\d+\.\d+)\]')
 
 
+# ONE date style in every feature's result — screen, PDF, Word and Excel (comment 46): 03-Dec.2026
+DATE_FORMAT = '%d-%b.%Y'
+_ISO_DATE = re.compile(r'^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$')
+
+
+def date_text(v):
+    """A date / datetime, or an ISO 'YYYY-MM-DD[THH:MM[:SS]]' string, as 03-Dec.2026; any other
+    value is returned unchanged (so a cell builder can pass every value through it)."""
+    if v is None or isinstance(v, bool):
+        return v
+    if hasattr(v, 'strftime') and hasattr(v, 'year'):
+        return v.strftime(DATE_FORMAT)
+    if isinstance(v, str):
+        m = _ISO_DATE.match(v.strip())
+        if m:
+            from datetime import date as _date
+            try:
+                return _date(int(m.group(1)), int(m.group(2)), int(m.group(3))).strftime(DATE_FORMAT)
+            except ValueError:
+                return v
+    return v
+
+
+def parse_date_text(s):
+    """Read a date written as 03-Dec.2026 — or in an older style (03-Dec-2026, 03 Dec 2026, ISO) —
+    as a datetime. Raises ValueError like datetime.strptime when it is not a date."""
+    from datetime import datetime as _dt
+    t = str(s).strip()
+    for fmt in (DATE_FORMAT, '%d-%b-%Y', '%d %b %Y', '%Y-%m-%d'):
+        try:
+            return _dt.strptime(t, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f'not a date: {s!r}')
+
+
 def release_version(changelog_path=None):
     """Newest released version ("X.Y.Z") read from CHANGELOG.md — the ONE version source.
 

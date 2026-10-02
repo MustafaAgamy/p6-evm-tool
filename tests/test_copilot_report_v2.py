@@ -50,7 +50,7 @@ def test_report_html_includes_chart_recovery_and_drivers():
     assert '<svg' in html and 'Progress —' in html
     assert 'Recovery opportunity' in html and '10 working days' in html
     assert 'Structural Steel Erection' in html and '18 wd late' in html
-    assert '31-Oct-2027' in html                   # new finish date, formatted
+    assert '31-Oct.2027' in html                   # new finish date, formatted
 
 
 def test_report_still_renders_cleanly_without_the_new_parts():

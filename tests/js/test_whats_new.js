@@ -34,7 +34,7 @@ const versions = html => [...html.matchAll(/\bv?(\d+\.\d+\.\d+)\b/g)].map(m => m
 test("heading and lead name the app's own version and release date", () => {
   const html = whatsNewHtml(NOTES, '2.8.0', 'Controlyx 2026');
   assert.match(html, /<h2>What's new in v2\.8\.0<\/h2>/);
-  assert.match(html, /The headline changes in Controlyx 2026 v2\.8\.0, released 26 Sep 2026\./);
+  assert.match(html, /The headline changes in Controlyx 2026 v2\.8\.0, released 26-Sep.2026\./);
 });
 
 test('no other version than the app version appears anywhere (c25)', () => {

@@ -24,7 +24,7 @@ def _finish(act):
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if d else '—'
+    return d.strftime('%d-%b.%Y') if d else '—'
 
 
 def _wd(cal, d1, d2):

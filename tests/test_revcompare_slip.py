@@ -73,8 +73,8 @@ def test_finish_strings_present():
     match, rev1c, matched, cal, gov0, gov1 = _prep(rev0, rev1)
     cp = {'rev1': [{'code': 'B'}, {'code': 'MS'}]}
     slip = build_slip(rev0, rev1c, matched, match, cp, cal, gov0, gov1)
-    assert slip['rev0_finish'] == '28 Mar 2025'
-    assert slip['rev1_finish'] == '25 Apr 2025'
+    assert slip['rev0_finish'] == '28-Mar.2025'
+    assert slip['rev1_finish'] == '25-Apr.2025'
     assert isinstance(slip['total_wd'], int) and slip['total_wd'] > 0
 
 

@@ -27,7 +27,7 @@ def _ca():
         ],
         'by_calendar': {
             'C1': {'monthly_stats': m, 'exceptions': {
-                'holidays': [{'description': '25 Feb 2025', 'days': 1, 'reason': '25 Jan Revolution', 'key': 'k'}],
+                'holidays': [{'description': '25-Feb.2025', 'days': 1, 'reason': '25 Jan Revolution', 'key': 'k'}],
                 'special': [], 'shutdowns': []}},
             'C2': {'monthly_stats': m, 'exceptions': {'holidays': [], 'special': [], 'shutdowns': []}},
         },
@@ -122,14 +122,14 @@ def test_meta_header_block_on_first_sheet(tmp_path):
     """The standard report header/context block (app — feature / Project / Data date /
     Generated) is prepended to the first sheet, matching every other export."""
     meta = {'app': 'Controlyx', 'title': 'Calendar Audit',
-            'context': [('Project', 'Metro Pkg 3'), ('Data date', '09 Feb 2026'),
-                        ('Generated', '15 Sep 2026')]}
+            'context': [('Project', 'Metro Pkg 3'), ('Data date', '09-Feb.2026'),
+                        ('Generated', '15-Sep.2026')]}
     p = tmp_path / 'cal.xlsx'
     write_calendar_xlsx(str(p), _ca(), weather=_weather(), meta=meta)
     with zipfile.ZipFile(p) as z:
         s1 = z.read('xl/worksheets/sheet1.xml').decode()
     assert 'Controlyx — Calendar Audit' in s1          # report title (style 11)
-    assert 'Metro Pkg 3' in s1 and 'Data date: 09 Feb 2026' in s1   # context line (style 12)
+    assert 'Metro Pkg 3' in s1 and 'Data date: 09-Feb.2026' in s1   # context line (style 12)
     assert 's="11"' in s1 and 's="12"' in s1               # the two new report-block styles
     assert 'Calendar Timeline' in s1                        # the per-calendar title still follows
     _all_wellformed(p)
@@ -245,7 +245,7 @@ def test_weather_workbook_carries_the_dashboard_histogram_and_limits(tmp_path):
         assert title in flat, title
     assert ['Schedule slip (calendar days)', '+10 d'] in vals
     assert ['Weather adds (working days)', '+4 wd'] in vals
-    assert ['Bad-weather Completion', '17 Sep 2025'] in vals
+    assert ['Bad-weather Completion', '17-Sep.2025'] in vals
     assert ['Aug 25', 20, 3, 8] in vals
     assert ['Dust', 'PM10 ≥ 300', 'Lifting (not counted)'] in vals
     assert ['Heat', 'on', '≥ 42 °C', 5, '46 °C'] in vals

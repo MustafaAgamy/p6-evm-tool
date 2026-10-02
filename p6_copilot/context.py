@@ -26,7 +26,7 @@ def _fmt_date(v):
         except ValueError:
             return v
     if isinstance(v, (datetime, date)):
-        return v.strftime('%d-%b-%Y')
+        return v.strftime('%d-%b.%Y')
     return str(v)
 
 

@@ -9,7 +9,7 @@
 
 import { state } from './state.js';
 import { showError, clearError } from './render.js';
-import { escapeHtml } from './format.js';
+import { escapeHtml, dateText } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
 import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
@@ -1787,7 +1787,7 @@ export async function openRevcompareReport() {
   const mode = getSavedMode();
   const meta = {
     rev0_file: r.rev0.file, rev1_file: r.rev1.file,
-    report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    report_date: dateText(new Date()),
   };
   // Which sections have data (drives the "no data" disabled pick in the picker).
   const c = r.curves || {};

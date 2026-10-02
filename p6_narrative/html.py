@@ -39,6 +39,7 @@ contract_value, data_date, revision, logos{owner,consultant,contractor}.
 """
 import html as _h
 import math
+from utils import date_text as _date_text
 
 _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
@@ -63,6 +64,7 @@ def _disc_color(name, i):
 
 
 def _esc(x):
+    x = _date_text(x)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _h.escape('' if x is None else str(x))
 
 

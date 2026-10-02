@@ -16,7 +16,7 @@ from p6_evm.parser import parse_file
 from p6_narrative import docx_calendar
 from p6_narrative.report import build_report
 
-# 5-day-week default calendar (Fri+Sat off) with one holiday (Wed 08 Jan 2025)
+# 5-day-week default calendar (Fri+Sat off) with one holiday (Wed 08-Jan.2025)
 # and two activities spanning Jan–Mar 2025 — same shape as the SLICE A payload fixture.
 _XML = textwrap.dedent('''\
 <?xml version="1.0"?>
@@ -107,7 +107,7 @@ def test_dashboard_tiles_without_baseline_start_finish(tmp_path):
     assert 'Baseline Start' not in text and 'Baseline Finish' not in text
     assert 'Shutdown' not in text                              # no shutdown-periods tile
     tiles = dict(reversed(c.split('\n', 1)) for c in _table_texts(doc.tables[0]))
-    # 2 Jan → 31 Mar 2025 = 89 days: 26 Fridays / Saturdays + the holiday = 27 non-working
+    # 2 Jan → 31-Mar.2025 = 89 days: 26 Fridays / Saturdays + the holiday = 27 non-working
     assert tiles == {'Total Calendar Days': '89', 'Working Days': '62', 'Non-Working Days': '27',
                      'Holidays': '1', 'Avg Work Days / Month': '20.7', 'Avg Work Hours / Day': '8.0 hrs'}
 
@@ -124,7 +124,7 @@ def test_holidays_table_lists_the_dated_holiday(tmp_path):
     hol = next((t for t in doc.tables
                 if [c.text for c in t.rows[0].cells] == ['Date', 'Description']), None)
     assert hol is not None, 'holidays table not found'
-    assert [row.cells[0].text for row in hol.rows[1:]] == ['08 Jan 2025']
+    assert [row.cells[0].text for row in hol.rows[1:]] == ['08-Jan.2025']
 
 
 def test_no_holiday_in_the_window_means_no_holidays_block(tmp_path, monkeypatch):

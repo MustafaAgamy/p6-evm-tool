@@ -43,7 +43,7 @@ def _as_dt(v):
 def _fmt_day(v):
     """datetime/date/ISO → 'DD Mon YYYY' (e.g. '01 Jul 2024'), or None."""
     d = _as_dt(v)
-    return '%02d %s %d' % (d.day, _MON[d.month - 1], d.year) if d else None
+    return '%02d-%s.%d' % (d.day, _MON[d.month - 1], d.year) if d else None
 
 
 def _num(v):

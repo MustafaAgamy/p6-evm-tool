@@ -727,7 +727,7 @@ def build(F, N, role):
         closes = [_dt(x) + timedelta(days=28) for x in due]
         passed = sum(1 for c in closes if c < _dt(dd))
         note10 += (f" Counting 28 days from each due date, the notice windows for the late inputs closed between "
-                   f"{min(closes).strftime('%d-%b-%Y')} and {max(closes).strftime('%d-%b-%Y')}"
+                   f"{min(closes).strftime('%d-%b.%Y')} and {max(closes).strftime('%d-%b.%Y')}"
                    + (f" — all before the {dd} data date" if passed == len(closes) else f" — {passed} of {len(closes)} before the data date")
                    + ", so check the notice log first: a missed notice is the first defence you'll face (both editions "
                      "count from when you became aware, or should have). For events still open, keep serving interim "

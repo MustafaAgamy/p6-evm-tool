@@ -19,7 +19,7 @@ from p6_compare.scurve import three_way_scurve
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if hasattr(d, 'strftime') else None
+    return d.strftime('%d-%b.%Y') if hasattr(d, 'strftime') else None
 
 
 def _project_finish(data):

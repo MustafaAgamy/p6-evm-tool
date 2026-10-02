@@ -54,7 +54,7 @@ def test_build_report_orders_by_data_date_regardless_of_load_order():
     lm = {'overall_actual_pct': 0.41, 'delay_days': 30}
     # Load the LATER update as "prev" and the EARLIER as "curr" — the tool must flip them.
     r = build_report_from_data(late, early, lm, em)
-    assert r['data_date_prev'] == '07-Aug-2025' and r['data_date_now'] == '22-Aug-2025'
+    assert r['data_date_prev'] == '07-Aug.2025' and r['data_date_now'] == '22-Aug.2025'
     assert r['summary']['actual_prev'] == 34.0 and r['summary']['actual_now'] == 41.0
     assert r['summary']['period_earned'] == 7.0        # +7, not −7
 
