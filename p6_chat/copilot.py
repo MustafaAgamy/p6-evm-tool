@@ -498,6 +498,23 @@ def impact(xml_path, rescheduled_path):
 
 # ── the plain-English Manager Report (preview HTML or a written PDF) ──────────
 
+def _briefing_charts(snapshot_id):
+    """The AI Chat answer charts for the briefing (comment 33: the charts were on screen only,
+    not in the Manager's briefing or its PDF) — from the same grounded facts.  [] on any doubt."""
+    try:
+        from p6_chat.facts import build_facts, add_network
+        from p6_chat import analysis
+        from p6_chat.merged import _charts
+        F = build_facts(snapshot_id)
+        if not F.get('ok'):
+            return []
+        N = analysis.network(snapshot_id)
+        add_network(F, N)
+        return _charts.for_briefing(F, N)
+    except Exception:
+        return []
+
+
 def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, meta=None):
     """Build the plain-English Manager Report. ``preview`` returns the report dict + HTML;
     otherwise a PDF is written to ``output_path`` via headless Chrome. When behind and the
@@ -535,6 +552,7 @@ def manager_report(snapshot_id, xml_path=None, preview=True, output_path=None, m
             ctx['net_late_inputs'] = []
         report = fix_report(chat_wording(build_manager_report(engine_view(ctx)), (ctx.get('delay_days') or 0) > 0,
                                          ctx['net_late_inputs']), ctx)
+        report['charts'] = _briefing_charts(snapshot_id)
         html_content = render_manager_report_html(report, meta or {})
         if (report.get('finish') or {}).get('later'):
             import html as _h

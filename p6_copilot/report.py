@@ -257,6 +257,16 @@ def render_manager_report_html(report, meta=None):
                       f'<div class="tv">{e(r["trend"]["text"].split(" — ")[0])}</div>'
                       f'<div class="tn">{e(r["trend"]["text"])}</div></div>')
 
+    # the AI Chat answer charts (comment 33) — the same rows as the screen, print-safe
+    qcharts_html, qchart_css = '', ''
+    if r.get('charts'):
+        try:
+            from p6_chat.merged import _charts as QC
+            qcharts_html = ''.join(QC.chart_html(c) for c in r['charts'])
+            qchart_css = QC.CHART_CSS if qcharts_html else ''
+        except Exception:
+            qcharts_html = ''
+
     money_html = f'<div class="band money"><b>Money &amp; exposure:</b> {e(r["money"])}</div>' if r.get('money') else ''
 
     # NEW · the progress S-curve (leads the where/how detail)
@@ -327,6 +337,7 @@ def render_manager_report_html(report, meta=None):
     .drivers li{{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-top:1px solid #eef2f7}}
     .drivers li:first-child{{border-top:none}} .drivers .dn{{color:#334155}} .drivers .dd{{color:#dc2626;font-weight:600}}
     .nwtag{{display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#1d4ed8;border-radius:4px;padding:1px 5px;margin-left:6px;text-transform:uppercase;letter-spacing:.4px;vertical-align:middle}}
+    {qchart_css}
     </style>{_pagination_tag()}</head><body>
     <h1>Manager Report — {e(r.get('project_name') or 'Project')}</h1>
     <div class="sub">Plain-English management summary · from the update of {e(r.get('data_date') or '—')}</div>
@@ -335,6 +346,6 @@ def render_manager_report_html(report, meta=None):
       <div class="tile"><div class="tl">Status</div><div class="tv status">{e(r.get('status') or '')}</div></div>
       {finish_html}{trend_html}
     </div>
-    {chart_html}{money_html}{recovery_html}{fault_html}{actions_html}{detail_html}
+    {chart_html}{qcharts_html}{money_html}{recovery_html}{fault_html}{actions_html}{detail_html}
     <div class="foot">Every figure is from your P6 update · plain English, no jargon · a management summary, not legal advice.</div>
     </body></html>'''

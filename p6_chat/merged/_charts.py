@@ -218,3 +218,97 @@ def build(qid, F, N):
         if c and c.get('items'):
             out.append(c)
     return out[:2]
+
+
+# ── the same charts as print-safe HTML (the Manager's briefing and its PDF) ─────────────────
+# The screen draws a chart from these dicts with the app's colour tokens (ui/modules/chat.js
+# chartHtml).  A briefing printed to PDF has no app stylesheet, so it gets the same layout with
+# fixed light colours here — the same rows, values and labels as the screen.
+_TONE_HEX = {'bad': '#dc2626', 'warn': '#d97706', 'good': '#16a34a', 'info': '#1d4ed8'}
+
+CHART_CSS = (
+    '.qc{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px 8px;margin-bottom:12px;'
+    'break-inside:avoid}'
+    '.qc-h{font-size:12px;font-weight:700;color:#334155;margin-bottom:6px}'
+    '.qc-r{display:flex;align-items:center;gap:10px;font-size:11.5px;padding:2px 0}'
+    '.qc-n{flex:0 0 38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#334155}'
+    '.qc-t{position:relative;flex:1;height:10px;background:#f1f5f9;border-radius:3px;overflow:hidden}'
+    '.qc-t2{flex:1;display:flex;flex-direction:column;gap:2px}'
+    '.qc-t i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}'
+    '.qc-t i.pl{background:#bfdbfe}.qc-t i.ac{background:#1d4ed8}'
+    '.qc-v{flex:0 0 auto;min-width:74px;text-align:right;font-weight:600;color:#1e293b}'
+    '.qc-v small{font-weight:400;color:#64748b}'
+    '.qc-f{font-size:10.5px;color:#64748b;margin-top:4px}'
+    '.qc-k{display:flex;gap:8px;flex-wrap:wrap}'
+    '.qc-ki{flex:1;min-width:120px;border:1px solid #e2e8f0;border-left:3px solid;border-radius:6px;padding:6px 9px}'
+    '.qc-ki .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;font-weight:700}'
+    '.qc-ki .v{font-size:14px;font-weight:700}.qc-ki .h{font-size:10.5px;color:#64748b}'
+    '.qc-t i, .qc-ki{-webkit-print-color-adjust:exact;print-color-adjust:exact}')
+
+
+def _pc(v, mx):
+    v = _num(v) or 0.0
+    return '%.1f' % (max(0.0, min(100.0, v / mx * 100.0)) if mx and mx > 0 else 0.0)
+
+
+def chart_html(c):
+    """One chart dict (see the module docstring) → print-safe HTML ('' when it has no rows)."""
+    import html as _h
+    e = lambda v: _h.escape('' if v is None else str(v))
+    if not isinstance(c, dict):
+        return ''
+    items = [x for x in (c.get('items') or []) if isinstance(x, dict)]
+    if not items:
+        return ''
+    t = c.get('type')
+    row = lambda n, track, v: (f'<div class="qc-r"><div class="qc-n" title="{e(n)}">{e(n)}</div>{track}'
+                               f'<div class="qc-v">{v}</div></div>')
+    foot = ''
+    if t == 'kpi':
+        body = '<div class="qc-k">' + ''.join(
+            f'<div class="qc-ki" style="border-left-color:{_TONE_HEX.get(x.get("tone"), _TONE_HEX["info"])}">'
+            f'<div class="k">{e(x.get("label"))}</div>'
+            f'<div class="v" style="color:{_TONE_HEX.get(x.get("tone"), "#1e293b")}">{e(x.get("value"))}</div>'
+            f'<div class="h">{e(x.get("hint") or "")}</div></div>' for x in items) + '</div>'
+    elif t == 'bars':
+        body = ''.join(row(x.get('name'),
+                           f'<div class="qc-t"><i class="pl" style="width:{_pc(x.get("planned"), 100)}%"></i>'
+                           f'<i class="ac" style="width:{_pc(x.get("actual"), 100)}%"></i></div>',
+                           f'{round(_num(x.get("actual")) or 0)}% <small>of {round(_num(x.get("planned")) or 0)}%</small>')
+                       for x in items)
+        foot = c.get('legend') or ''
+    elif t == 'pairs':
+        mx = max([_num(x.get('a')) or 0 for x in items] + [_num(x.get('b')) or 0 for x in items] + [0])
+        body = ''.join(row(x.get('name'),
+                           f'<div class="qc-t2"><div class="qc-t"><i class="pl" style="width:{_pc(x.get("a"), mx)}%"></i></div>'
+                           f'<div class="qc-t"><i class="ac" style="width:{_pc(x.get("b"), mx)}%"></i></div></div>',
+                           f'{e(x.get("lb"))} <small>of {e(x.get("la"))}</small>') for x in items)
+        lg = c.get('legend') or []
+        foot = ((f'upper bar = {lg[0]} · lower bar = {lg[1]}' if len(lg) == 2 else '')
+                + (f' · in {c["unit"]}' if c.get('unit') else ''))
+    elif t == 'hbar':
+        mx = max([abs(_num(x.get('value')) or 0) for x in items] + [0])
+        body = ''.join(row(x.get('name'),
+                           f'<div class="qc-t"><i style="width:{_pc(abs(_num(x.get("value")) or 0), mx)}%;'
+                           f'background:{_TONE_HEX.get(x.get("tone"), _TONE_HEX["info"])}"></i></div>',
+                           e(x.get('label') if x.get('label') is not None else x.get('value'))) for x in items)
+        foot = c.get('note') or ''
+    else:
+        return ''
+    return (f'<div class="qc" data-chart="{e(t)}"><div class="qc-h">{e(c.get("title") or "")}</div>{body}'
+            + (f'<div class="qc-f">{e(foot)}</div>' if foot else '') + '</div>')
+
+
+def for_briefing(F, N):
+    """The charts a manager's briefing carries under its S-curve: progress by discipline, then
+    the milestones running late (or, when none are, the client items overdue).  [] when the
+    facts are not there.  Never raises."""
+    out = []
+    for fn in (lambda: c_disciplines(F), lambda: c_late_milestones(N) or c_client_inputs(N)):
+        try:
+            c = fn()
+        except Exception:
+            c = None
+        if c and c.get('items'):
+            out.append(c)
+    return out
