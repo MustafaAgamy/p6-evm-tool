@@ -16,6 +16,8 @@ Renderer hints (all optional — see docs/report-picker-adoption.md):
   data-export="image"       a visual (CSS/div chart) → picture in Word, data in Excel
   data-export="kpis"        force a KPI tile group        data-export="tile" one tile
   data-export="skip"        screen-only chrome — left out of every export
+  data-export="table"       a designed list too long to draw (hundreds of lanes) → a real table
+                            from its data-chart-headers / data-chart-data (Word and Excel)
   data-export="bar"         a Gantt time-line cell (a <th> of positioned month labels, or a
                             <td> holding a track with a bar / milestone and the data-date line,
                             all placed with left/width %) → native bar shapes in Word, left
@@ -570,6 +572,9 @@ class _Walker:
             return [Section(key=sec, title=el.get('data-sec-label') or '', blocks=inner)]
         if el.get('data-export') == 'image':
             return [self.visual(el, part)]
+        if el.get('data-export') == 'table':
+            t = self.data_table(el, part)
+            return [t] if t else self.children_blocks(el, part)
         if tag == 'svg':
             if self._is_icon_svg(el):
                 return []
@@ -748,6 +753,25 @@ class _Walker:
                         break
         return Table(rows=rows, header_rows=header_rows, col_weights=weights, caption=caption,
                      border_color=border, size_pt=_pt(st.font_px()), part=part)
+
+    def data_table(self, el, part):
+        """``data-export="table"``: a long designed list (too many rows to draw) → a real table
+        built from its ``data-chart-headers`` / ``data-chart-data``.  None when it has no data."""
+        heads = _json_attr(el, 'data-chart-headers') or []
+        data = _json_attr(el, 'data-chart-data') or []
+        if not heads or not data:
+            return None
+        txt = lambda v: [Run(text='' if v is None else str(v))]
+        rows = [[Cell(runs=txt(h), header=True, bold=True) for h in heads]]
+        rows += [[Cell(runs=txt(v)) for v in r] for r in data]
+        n = len(heads)
+        est = [3.5] * n
+        for r in rows:
+            for i, c in enumerate(r[:n]):
+                est[i] = max(est[i], min(42.0, len(c.text) + 1.0))
+        return Table(rows=rows, header_rows=1, col_weights=self._norm(est),
+                     caption=el.get('data-part-label') or None,
+                     size_pt=_pt(self.r.style(el).font_px()), part=part)
 
     def cell(self, c, tr, is_header):
         st = self.r.style(c)
