@@ -389,14 +389,14 @@ def styled_table(document, headers, rows, widths=None, bold_last_row=False):
 
 # ── dates ─────────────────────────────────────────────────────────────────────
 def full_date(v):
-    """Render a date as 'DD Month YYYY' (e.g. '29 May 2026'); unparseable/blank input
+    """Render a date as 03-Dec.2026 (the one date style, comment 46); unparseable/blank input
     is passed through unchanged (blank -> '')."""
     if v in (None, ''):
         return ''
     if isinstance(v, datetime):
-        return '%d %s %d' % (v.day, v.strftime('%B'), v.year)
+        return v.strftime('%d-%b.%Y')
     try:
         dt = datetime.strptime(str(v)[:10], '%Y-%m-%d')
-        return '%d %s %d' % (dt.day, dt.strftime('%B'), dt.year)
+        return dt.strftime('%d-%b.%Y')
     except (ValueError, TypeError):
         return str(v)

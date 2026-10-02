@@ -6,7 +6,7 @@
 // what-moved buckets, the milestone trend and exports are added by later sections.
 import { state }      from './state.js';
 import { showError }  from './render.js';
-import { escapeHtml } from './format.js';
+import { escapeHtml, dateText } from './format.js';
 import { getSavedMode } from './appearance.js';
 import { showReportPreview } from './preview.js';
 import { revealAndRun, revealStage, followRunStages } from './featurereveal.js';
@@ -32,7 +32,7 @@ function _signPct(v) {
 
 function _shortDate(s) {
   if (!s) return '—';
-  return String(s).slice(0, 10);   // YYYY-MM-DD from a DB timestamp
+  return dateText(String(s).slice(0, 10)) || String(s).slice(0, 10);   // 03-Dec.2026 from a DB timestamp
 }
 
 // ── Panel entry: input flow ─────────────────────────────────────────────────

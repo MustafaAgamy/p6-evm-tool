@@ -83,7 +83,7 @@ def _date(s):
     if not s:
         return None
     s = str(s)
-    for fmt, cut in (('%d-%b-%Y', None), ('%Y-%m-%d %H:%M:%S', 19), ('%Y-%m-%d', 10)):
+    for fmt, cut in (('%d-%b.%Y', None), ('%d-%b-%Y', None), ('%Y-%m-%d %H:%M:%S', 19), ('%Y-%m-%d', 10)):
         try:
             return datetime.strptime(s[:cut] if cut else s, fmt)
         except ValueError:
@@ -92,7 +92,7 @@ def _date(s):
 
 
 def _fmt(dt):
-    return dt.strftime('%d-%b-%Y') if dt else None
+    return dt.strftime('%d-%b.%Y') if dt else None
 
 
 def _nm(s, limit=64):

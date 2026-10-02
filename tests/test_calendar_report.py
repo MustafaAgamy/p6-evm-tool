@@ -6,7 +6,7 @@ from p6_calendar import calendar_audit
 from p6_calendar.report import render_calendar_report
 
 META = {'project_name': 'Test', 'data_date': '2025-02-01',
-        'report_date': '07 Aug 2026', 'source_file': 's.xml'}
+        'report_date': '07-Aug.2026', 'source_file': 's.xml'}
 
 
 def _result(tmp_path):
@@ -60,7 +60,7 @@ def test_report_has_sections_in_order(tmp_path):
 
 
 def _result_with_holiday(tmp_path):
-    """Fixture with an in-window single-day holiday (10 Mar 2025) so §3 (holidays only) renders."""
+    """Fixture with an in-window single-day holiday (10-Mar.2025) so §3 (holidays only) renders."""
     content = textwrap.dedent('''\
     <?xml version="1.0"?>
     <APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">
@@ -268,7 +268,7 @@ def test_report_nonworking_is_holidays_only(tmp_path):
     # A fixture WITH an in-window holiday renders the holidays-only table with the weekday.
     html2 = render_calendar_report(_result_with_holiday(tmp_path), META)
     assert '3 · Calendar Non-working days' in html2 and 'holidays only' in html2
-    assert '10 Mar 2025' in html2 and 'Monday' in html2   # date + weekday
+    assert '10-Mar.2025' in html2 and 'Monday' in html2   # date + weekday
     assert 'Total holidays: <b>1</b>' in html2
 
 

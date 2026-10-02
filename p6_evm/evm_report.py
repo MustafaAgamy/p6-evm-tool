@@ -10,9 +10,11 @@ import json
 from datetime import datetime
 
 import report_theme
+from utils import date_text as _date_text
 
 
 def _esc(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape('' if v is None else str(v))
 
 
@@ -91,7 +93,7 @@ def _fmt_date(d):
         try:
             parsed = datetime.fromisoformat(s.replace('Z', '').replace('T', ' ').strip())
         except ValueError:
-            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
                 try:
                     parsed = datetime.strptime(s[:10] if fmt == '%Y-%m-%d' else s, fmt)
                     break

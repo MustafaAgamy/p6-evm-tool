@@ -123,4 +123,4 @@ def three_way_scurve(baseline, update, corrected):
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if hasattr(d, 'strftime') else None
+    return d.strftime('%d-%b.%Y') if hasattr(d, 'strftime') else None

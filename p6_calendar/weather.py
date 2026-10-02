@@ -481,7 +481,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
 
 def _fmt_long(d):
     d = _to_date(d)
-    return f'{d.day:02d} {_MON[d.month]} {d.year}' if d else '—'
+    return f'{d.day:02d}-{_MON[d.month]}.{d.year}' if d else '—'
 
 
 def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones):

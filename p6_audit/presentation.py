@@ -58,19 +58,19 @@ def _days(v):
 
 
 def _iso(v):
-    return str(v)[:10] if v else '—'
+    return _fmt_date(v) if v else '—'                      # 03-Dec.2026 (comment 46)
 
 
 _MON = ('', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
 
 
 def _fmt_date(v):
-    """ISO 'YYYY-MM-DD' -> '9-Feb-2027' (P6 style), matching the screen."""
+    """ISO 'YYYY-MM-DD' -> '09-Feb.2027' (the one date style, comment 46), matching the screen."""
     if not v:
         return '—'
     p = str(v)[:10].split('-')
     if len(p) == 3 and p[1].isdigit() and p[2].isdigit():
-        return f"{int(p[2])}-{_MON[int(p[1])]}-{p[0]}"
+        return f"{int(p[2]):02d}-{_MON[int(p[1])]}.{p[0]}"
     return str(v)
 
 
@@ -86,8 +86,13 @@ def _chain(v):
 
 
 # ── cell builder ──────────────────────────────────────────────────────────
+def _date_text(v):
+    from utils import date_text          # an ISO date shows as 03-Dec.2026 (comment 46)
+    return date_text(v)
+
+
 def _cell(text='', cls='', title=None, badge=None):
-    c = {'text': '' if text is None else str(text)}
+    c = {'text': '' if text is None else str(_date_text(text))}
     if cls:
         c['cls'] = cls
     if title:

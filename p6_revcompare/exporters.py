@@ -26,11 +26,13 @@ Each key is optional; a missing key (or ``val`` == 'All' / absent) means no filt
 import html as _html
 from datetime import date as _date
 import report_theme
+from utils import date_text as _date_text
 
 
 # ── tiny formatting helpers ───────────────────────────────────────────────────
 
 def _e(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape(str(v)) if v is not None else ''
 
 

@@ -12,6 +12,7 @@ after the baseline finish (positive = later than baseline).
 import json
 import os
 import threading
+from utils import parse_date_text as _parse_date_text   # 03-Dec.2026 or older styles
 
 _CACHE = {}
 _LOCK = threading.Lock()
@@ -24,7 +25,7 @@ CAP = 60                # never ship more than this many rows per list
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if d else None
+    return d.strftime('%d-%b.%Y') if d else None
 
 
 def _analyse(path, attached=None):
@@ -75,7 +76,7 @@ def _analyse(path, attached=None):
     # finish milestone = the latest-finishing Finish Milestone (same rule as metrics.compute)
     fms = [x for x in rows if x['type'] == 'FinishMilestone' and x['finish']]
     from datetime import datetime
-    key = lambda x: datetime.strptime(x['finish'], '%d-%b-%Y')
+    key = lambda x: _parse_date_text(x['finish'])
     project_end = ('scope completion', 'project completion', 'practical completion', 'handover', 'taking over',
                    'substantial completion', 'project finish')
     # latest finish wins; on a tie prefer the milestone that names the project's own completion

@@ -33,7 +33,7 @@ def _to_date(v):
         return datetime.fromisoformat(s).date()
     except ValueError:
         pass
-    for fmt in ('%d-%b-%Y', '%d-%b.%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+    for fmt in ('%d-%b.%Y', '%d-%b-%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
@@ -43,7 +43,7 @@ def _to_date(v):
 
 def _fmt_d(v):
     d = _to_date(v)
-    return d.strftime('%d-%b-%Y') if d else None
+    return d.strftime('%d-%b.%Y') if d else None
 
 
 def _pct100(v):

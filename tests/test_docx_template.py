@@ -143,13 +143,13 @@ def test_add_cover_full_and_graceful():
     dt.add_cover(doc, {
         'project_name': 'Grand Museum',
         'location': 'Cairo, Egypt',
-        'data_date': '1 July 2024',
+        'data_date': '01-Jul.2024',
         'revision': '3',
     })
     lines = [p.text for p in doc.paragraphs if p.text.strip()]
     # approved cover: the navy kicker, the project, its location, then data date · revision
     assert lines == ['BASELINE', 'NARRATIVE REPORT', 'Grand Museum', 'Cairo, Egypt',
-                     'Data date: 1 July 2024     ·     Rev. 3']
+                     'Data date: 01-Jul.2024     ·     Rev. 3']
 
 
 def test_add_cover_blank_fields_degrade():
@@ -232,6 +232,6 @@ def test_styled_table_bold_last_row():
 
 # ── dates ─────────────────────────────────────────────────────────────────────
 def test_full_date():
-    assert dt.full_date('2026-05-29') == '29 May 2026'
+    assert dt.full_date('2026-05-29') == '29-May.2026'
     assert dt.full_date('') == ''
     assert dt.full_date('not a date') == 'not a date'

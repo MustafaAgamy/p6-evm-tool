@@ -263,7 +263,7 @@ def critical_path(data, path=None):
     dur_months = len(months)
 
     def _fd(d):
-        return '%d %s %d' % (d.day, _MONTHS[d.month - 1], d.year)
+        return '%02d-%s.%d' % (d.day, _MONTHS[d.month - 1], d.year)
 
     # These span the CRITICAL path only (min/max over the critical activities), which need not
     # equal the contract window when the earliest activities carry float — so they are labelled as

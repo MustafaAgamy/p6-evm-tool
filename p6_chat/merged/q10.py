@@ -14,6 +14,7 @@ import re
 from datetime import datetime
 
 from . import _kit2 as K
+from utils import parse_date_text as _parse_date_text   # 03-Dec.2026 or older styles
 
 _ENG = ('design', 'engineer', 'ifc', 'drawing', 'detailing')
 _PROC = ('procure', 'purchas', 'supply', 'vendor', 'long lead', 'long-lead', 'material', 'fabricat', 'manufactur')
@@ -64,7 +65,7 @@ def _sg(n):
 
 def _date(s):
     try:
-        return datetime.strptime(s, '%d-%b-%Y')
+        return _parse_date_text(s)
     except (TypeError, ValueError):
         return None
 

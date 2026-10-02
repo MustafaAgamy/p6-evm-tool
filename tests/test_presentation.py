@@ -66,9 +66,9 @@ def test_cpli_tiles_use_module_score_and_dates():
     assert 'DCMA Target' not in labels
     assert {'label': 'Critical Activities', 'value': '30'} in p['tiles']
     assert {'label': 'CPLI', 'value': '100%'} in p['tiles']  # ratio kept as context, not the score
-    assert {'label': 'Finish Milestone', 'value': '12-Jun-2028'} in p['tiles']   # date, not the id
+    assert {'label': 'Finish Milestone', 'value': '12-Jun.2028'} in p['tiles']   # date, not the id
     start_idx = [c['label'] for c in p['columns']].index('Start')
-    assert p['rows'][0][start_idx] == {'text': '2026-02-09', 'cls': 'mut'}
+    assert p['rows'][0][start_idx] == {'text': '09-Feb.2026', 'cls': 'mut'}
     assert '30% of activities are on the critical path' in p['verdict']
 
 

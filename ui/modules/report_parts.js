@@ -320,7 +320,7 @@ export function fmtDataDate(v) {
   if (v == null || v === '') return '';
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(String(v).trim());
   if (!m || +m[2] < 1 || +m[2] > 12) return String(v);
-  return `${m[3]}-${_MON3[+m[2] - 1]}-${m[1]}`;
+  return `${m[3]}-${_MON3[+m[2] - 1]}.${m[1]}`;
 }
 
 export function countTicked(state, tree) {

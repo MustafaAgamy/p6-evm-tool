@@ -92,7 +92,7 @@ def test_calendar_level_added_and_modified():
 
 def test_calendar_date_exceptions_flip():
     """A specific date that flips working status between revisions is reported (comment: e.g.
-    07 Jan 2026 non-working in Rev.00 → working in Rev.01)."""
+    07-Jan.2026 non-working in Rev.00 → working in Rev.01)."""
     c0 = Calendar(object_id='c1', name='6 Day', nonworking_days={'Friday'},
                   holidays={date(2026, 1, 7)}, added_work_days=set(), day_hours=8.0,
                   work_intervals={}, exception_intervals={})
@@ -104,11 +104,11 @@ def test_calendar_date_exceptions_flip():
     d = diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))
     pat = next(p for p in d['patterns'] if p['name'] == '6 Day')
     ex = {e['date']: e for e in pat['date_exceptions']}
-    assert ex['07 Jan 2026']['change'] == 'now working'
+    assert ex['07-Jan.2026']['change'] == 'now working'
     # rev0/rev1 now report status-or-hours: a full working day reads its hours ('8h/day').
-    assert ex['07 Jan 2026']['rev0'] == 'Non-working' and ex['07 Jan 2026']['rev1'] == '8h/day'
-    assert ex['23 Sep 2026']['change'] == 'now non-working'
-    assert ex['23 Sep 2026']['rev0'] == '8h/day' and ex['23 Sep 2026']['rev1'] == 'Non-working'
+    assert ex['07-Jan.2026']['rev0'] == 'Non-working' and ex['07-Jan.2026']['rev1'] == '8h/day'
+    assert ex['23-Sep.2026']['change'] == 'now non-working'
+    assert ex['23-Sep.2026']['rev0'] == '8h/day' and ex['23-Sep.2026']['rev1'] == 'Non-working'
 
 
 def test_calendar_lists_shared_nonworking_dates():
@@ -125,8 +125,8 @@ def test_calendar_lists_shared_nonworking_dates():
     rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '6 Day')
     ex = {e['date']: e for e in pat['date_exceptions']}
-    assert ex['07 Jan 2026']['change'] == 'now working'          # removed holiday → now working
-    assert ex['25 Dec 2026']['change'] == 'unchanged'            # shared holiday still listed
+    assert ex['07-Jan.2026']['change'] == 'now working'          # removed holiday → now working
+    assert ex['25-Dec.2026']['change'] == 'unchanged'            # shared holiday still listed
     assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 1}
 
 
@@ -145,7 +145,7 @@ def test_added_calendar_lists_its_own_nonworking_dates():
                if p['name'] == 'Marine Works')
     assert pat['change'] == 'added'
     nd = {d['date']: d['status'] for d in pat['nonworking_dates']}
-    assert nd == {'01 Jan 2026': 'Non-working', '25 Apr 2026': 'Non-working'}
+    assert nd == {'01-Jan.2026': 'Non-working', '25-Apr.2026': 'Non-working'}
 
 
 def test_inboth_calendar_has_no_nonworking_dates_list():
@@ -173,7 +173,7 @@ def test_reduced_hours_flagged_against_standard_day():
     rev0 = _sched([_act('A1', 'x', calid='c1')], cals=[c0])
     rev1 = _sched([_act('A1', 'x', calid='c1')], cals=[c1])
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns'] if p['name'] == '24h')
-    e = {x['date']: x for x in pat['date_exceptions']}['23 Mar 2026']
+    e = {x['date']: x for x in pat['date_exceptions']}['23-Mar.2026']
     assert e['rev0'] == 'Non-working' and e['rev1'] == '8h/day (reduced from 24h)' and e['change'] == 'now working'
 
 
@@ -239,9 +239,9 @@ def test_calendar_same_name_compared_from_xer_clndr_blobs():
     pat = next(p for p in diff_calendars(rev0, rev1, MatchedSchedules(rev0, rev1))['patterns']
                if p['name'] == '6 Day Workweek')
     ex = {e['date']: e for e in pat['date_exceptions']}
-    assert ex['07 Jan 2026']['change'] == 'now working'          # holiday removed → now a working day
-    assert ex['23 Sep 2026']['change'] == 'now non-working'      # holiday added
-    assert ex['25 Dec 2026']['change'] == 'unchanged'            # shared holiday still listed
+    assert ex['07-Jan.2026']['change'] == 'now working'          # holiday removed → now a working day
+    assert ex['23-Sep.2026']['change'] == 'now non-working'      # holiday added
+    assert ex['25-Dec.2026']['change'] == 'unchanged'            # shared holiday still listed
     assert pat['nonworking_count'] == {'rev0': 2, 'rev1': 2}
 
 
@@ -260,7 +260,7 @@ def test_calendar_rename_still_compares_nonworking_dates():
     pats = [p for p in d['patterns'] if p.get('renamed_to') == 'Site Standard']
     assert len(pats) == 1 and pats[0]['name'] == 'Standard' and pats[0]['change'] == 'renamed'
     ex = {e['date']: e for e in pats[0]['date_exceptions']}
-    assert ex['07 Jan 2026']['change'] == 'now working'      # date change survives the rename
+    assert ex['07-Jan.2026']['change'] == 'now working'      # date change survives the rename
     # the rename is not also double-reported as a mass activity reassignment
     assert all(not (r['from'] == 'Standard' and r['to'] == 'Site Standard') for r in d['reassignments'])
 

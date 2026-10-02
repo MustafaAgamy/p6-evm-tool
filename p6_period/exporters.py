@@ -10,6 +10,7 @@ import html
 from datetime import datetime
 
 import report_theme
+from utils import date_text as _date_text
 
 _BLUE = report_theme.var('rpt-accent')
 _AMBER = report_theme.var('rpt-warn')
@@ -21,6 +22,7 @@ _PALETTE = [report_theme.var('rpt-bad'), report_theme.var('rpt-good'), report_th
 
 
 def _e(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return html.escape(str(v if v is not None else ''))
 
 

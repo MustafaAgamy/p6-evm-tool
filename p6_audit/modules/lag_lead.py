@@ -134,7 +134,7 @@ def run_lag_lead(graph, config):
     near_days = audit_cfg.get('near_critical_days', 10)
     long_days = audit_cfg.get('long_lag_days', 14)
     dd = getattr(graph, 'data_date', None)
-    data_date_str = dd.strftime('%d-%b-%Y') if hasattr(dd, 'strftime') else ''
+    data_date_str = dd.strftime('%d-%b.%Y') if hasattr(dd, 'strftime') else ''
 
     total_rels = 0
     findings = []

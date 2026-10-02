@@ -67,7 +67,7 @@ def test_three_way_marks_baseline_and_update_finishes():
     update = _sched([(datetime(2026, 1, 1), datetime(2026, 6, 1), 100)]); update.project = {'scheduled_finish': datetime(2026, 6, 1)}
     corrected = _sched([(datetime(2026, 1, 1), datetime(2026, 4, 1), 100)]); corrected.project = {'scheduled_finish': datetime(2026, 4, 1)}
     m = three_way_scurve(baseline, update, corrected)['markers']
-    assert m['baseline_label'] == '01-Mar-2026' and m['update_label'] == '01-Jun-2026'
+    assert m['baseline_label'] == '01-Mar.2026' and m['update_label'] == '01-Jun.2026'
     assert m['update_idx'] > m['baseline_idx']            # update finishes later → its marker is to the right
 
 

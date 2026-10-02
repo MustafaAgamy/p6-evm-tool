@@ -15,11 +15,22 @@ export function fmtEGP(n) {
   return `EGP ${Math.round(n).toLocaleString()}`;
 }
 
+// ONE date style in every feature's result (comment 46): 03-Dec.2026 (fixed English month
+// names, never the browser's locale). ISO dates are read by their digits, so no time-zone shift.
+const _MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function dateText(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    return `${String(v.getDate()).padStart(2, '0')}-${_MON[v.getMonth()]}.${v.getFullYear()}`;
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(String(v).trim());
+  if (m && +m[2] >= 1 && +m[2] <= 12) return `${m[3]}-${_MON[+m[2] - 1]}.${m[1]}`;
+  return '';
+}
 export function fmtDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dateText(iso) || String(iso);
 }
 
 export function kpiColor(val, type) {

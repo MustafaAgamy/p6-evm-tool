@@ -47,7 +47,7 @@ def _parse_date(iso):
     try:
         return datetime.fromisoformat(s.replace('Z', '').replace('T', ' ').strip()).date()
     except ValueError:
-        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
+        for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d-%b.%Y', '%d-%b-%Y', '%d-%b-%y', '%m/%d/%Y'):
             try:
                 return datetime.strptime(s[:10] if fmt == '%Y-%m-%d' else s, fmt).date()
             except ValueError:
@@ -58,7 +58,7 @@ def _parse_date(iso):
 def _fmt_date(iso):
     """ISO → '09 Feb 2026' (matches the screen's fmtShort en-GB day/short-month/year)."""
     d = _parse_date(iso)
-    return d.strftime('%d %b %Y') if d else '—'
+    return d.strftime('%d-%b.%Y') if d else '—'
 
 
 def _delay_days(node):

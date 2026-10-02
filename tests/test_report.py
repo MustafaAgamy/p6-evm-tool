@@ -83,7 +83,7 @@ def test_render_html_contains_project_name():
 
 def test_render_html_contains_data_date():
     out = render_html(make_result(), make_meta())
-    assert '01-Jul-2024' in out
+    assert '01-Jul.2024' in out
 
 def test_render_html_contains_spi():
     out = render_html(make_result(), make_meta())

@@ -20,7 +20,7 @@ _MILESTONES = ('StartMilestone', 'FinishMilestone')
 
 
 def _iso(d):
-    return d.strftime('%d-%b-%Y') if isinstance(d, datetime) else None
+    return d.strftime('%d-%b.%Y') if isinstance(d, datetime) else None
 
 
 def _forecast_finish(act):

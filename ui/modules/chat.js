@@ -16,7 +16,7 @@
 // app's appearance tokens (--card-bg / --border / --text / --accent / --muted),
 // so it themes correctly in all six looks with no edits to style.css.
 import { state } from './state.js';
-import { escapeHtml, fmtDate } from './format.js';
+import { escapeHtml, fmtDate, dateText } from './format.js';
 import { importFile } from './api.js';
 
 let LIB2 = null;        // the 15 merged questions {groups, questions[{id,group,q,covers,originals}], counts}
@@ -760,7 +760,7 @@ async function downloadDashboardPdf(dash, meta) {
     const cs = getComputedStyle(dash);
     const ground = (cs.getPropertyValue('--ground') || '').trim() || cs.backgroundColor || '#fff';
     const now = new Date();
-    const generated = `${String(now.getDate()).padStart(2, '0')} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.getMonth()]} ${now.getFullYear()}`;
+    const generated = dateText(now);
     // + the print head line the screen does not show, − the tools row height it does not print
     const h = r.height + 30;
     const html = dashPdfDoc({ css, dashHtml: clone.outerHTML, w: r.width, h, zoom: dashPdfZoom(r.width, h),

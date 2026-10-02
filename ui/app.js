@@ -19,7 +19,7 @@ import { renderChat }                             from './modules/chat.js';
 import { printView }                              from './modules/printview.js';
 import { renderSchedule, schedulePrint }        from './modules/gantt.js';
 import { renderCalendar, renderWeatherView }    from './modules/calendar.js';
-import { escapeHtml }                            from './modules/format.js';
+import { escapeHtml, dateText }                  from './modules/format.js';
 import { initTooltips }                        from './modules/tooltip.js';
 import { installExternalLinks }                 from './modules/external_links.js';
 import { initReportAppearanceControl }         from './modules/appearance.js';
@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const r = state.currentResult;
-      const subtitle = [r.project_name, r.data_date ? 'data date ' + String(r.data_date).slice(0, 10) : ''].filter(Boolean).join(' · ');
+      const subtitle = [r.project_name, r.data_date ? 'data date ' + dateText(String(r.data_date).slice(0, 10)) : ''].filter(Boolean).join(' · ');
       printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel,
         meta: { project: r.project_name, data_date: r.data_date ? String(r.data_date).slice(0, 10) : '' } });
       return true;

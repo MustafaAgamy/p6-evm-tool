@@ -15,6 +15,7 @@ import re
 from datetime import datetime
 
 from . import _kit2 as K
+from utils import parse_date_text as _parse_date_text   # 03-Dec.2026 or older styles
 
 MINUS = '−'
 
@@ -54,7 +55,7 @@ def _sg(v):
 
 def _dt(s):
     try:
-        return datetime.strptime(s, '%d-%b-%Y')
+        return _parse_date_text(s)
     except (TypeError, ValueError):
         return None
 

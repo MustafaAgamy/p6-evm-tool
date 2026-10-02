@@ -100,7 +100,7 @@ def test_excel_follows_the_same_groups_and_dates():
     head = blocks[1]['headers']
     assert head[:8] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Start', 'Finish', 'Planned Start', 'Planned Finish']
     a1 = blocks[1]['rows'][0]
-    assert a1[0] == 'A1' and a1[3] == 'Completed' and a1[4] == '03 Feb 2025' and a1[6] == '01 Jan 2025'
+    assert a1[0] == 'A1' and a1[3] == 'Completed' and a1[4] == '03-Feb.2025' and a1[6] == '01-Jan.2025'
     con = {r[0]: r for r in blocks[2]['rows']}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
     assert con['A2'][head.index('Total Float (d)')] == -12.3

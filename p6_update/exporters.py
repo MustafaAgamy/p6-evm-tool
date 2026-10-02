@@ -10,6 +10,7 @@ import html
 from datetime import datetime
 
 import report_theme
+from utils import date_text as _date_text
 
 _BLUE = report_theme.var('rpt-accent')
 _PLAN = report_theme.var('rpt-series-3')
@@ -18,6 +19,7 @@ _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct',
 
 
 def _e(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return html.escape(str(v if v is not None else ''))
 
 
@@ -440,7 +442,7 @@ def _xdate(iso):
     if not iso:
         return '—'
     try:
-        return datetime.strptime(str(iso)[:10], '%Y-%m-%d').strftime('%d %b %Y')
+        return datetime.strptime(str(iso)[:10], '%Y-%m-%d').strftime('%d-%b.%Y')
     except Exception:
         return str(iso)
 

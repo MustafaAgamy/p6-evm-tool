@@ -22,11 +22,11 @@ from p6_revcompare import severity as SEV
 # ── date / duration helpers ─────────────────────────────────────────────────
 
 def _long(d):
-    return d.strftime('%d %B %Y') if isinstance(d, datetime) else None
+    return d.strftime('%d-%b.%Y') if isinstance(d, datetime) else None
 
 
 def _short(d):
-    return d.strftime('%d %b %Y') if isinstance(d, datetime) else None
+    return d.strftime('%d-%b.%Y') if isinstance(d, datetime) else None
 
 
 def _d0(d):

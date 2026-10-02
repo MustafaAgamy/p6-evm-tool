@@ -53,11 +53,9 @@ def _group_runs(dates):
 
 
 def _fmt_range(s, e):
-    if s == e:
-        return f'{s.day:02d} {_MONTH_ABBR[s.month]} {s.year}'
-    if (s.month, s.year) == (e.month, e.year):
-        return f'{s.day:02d}–{e.day:02d} {_MONTH_ABBR[s.month]} {s.year}'
-    return f'{s.day:02d} {_MONTH_ABBR[s.month]} {s.year} – {e.day:02d} {_MONTH_ABBR[e.month]} {e.year}'
+    """A run of dates in the one date style (comment 46): 03-Dec.2026, or 21-Mar.2026 – 26-Mar.2026."""
+    one = lambda d: f'{d.day:02d}-{_MONTH_ABBR[d.month]}.{d.year}'
+    return one(s) if s == e else f'{one(s)} – {one(e)}'
 
 
 def _month_iter(start, finish):

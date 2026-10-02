@@ -125,8 +125,8 @@ def render_html(result, meta, audit=None, theme='light'):
         delay_row = f'''
           <tr>
             <td>{html.escape(fm['activity']['name'] or fm['activity']['id'] or '')}</td>
-            <td>{bl_finish.strftime('%d-%b-%Y') if bl_finish else 'n/a'}</td>
-            <td>{cur_finish.strftime('%d-%b-%Y') if cur_finish else 'n/a'}</td>
+            <td>{bl_finish.strftime('%d-%b.%Y') if bl_finish else 'n/a'}</td>
+            <td>{cur_finish.strftime('%d-%b.%Y') if cur_finish else 'n/a'}</td>
             <td class="num">{delay}</td>
           </tr>
         '''
@@ -171,7 +171,7 @@ def render_html(result, meta, audit=None, theme='light'):
     <body>
       <h1>{html.escape(meta.get('project_name', 'Weekly Report'))}</h1>
       <table class="meta-table">
-        <tr><td class="label">Data Date</td><td>{result['data_date'].strftime('%d-%b-%Y')}</td></tr>
+        <tr><td class="label">Data Date</td><td>{result['data_date'].strftime('%d-%b.%Y')}</td></tr>
         <tr><td class="label">Project Id</td><td>{html.escape(meta.get('project_id', ''))}</td></tr>
         <tr><td class="label">Source File</td><td>{html.escape(meta.get('source_file', ''))}</td></tr>
       </table>

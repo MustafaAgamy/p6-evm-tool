@@ -4,7 +4,7 @@
 // started / finished, remaining early dates otherwise — P6's Start / Finish columns) with %
 // complete, critical highlighting, month gridlines and a data-date line, grouped by top-level
 // WBS. schedulePrint() hands the same rows to File ▸ Print / PDF / Word / HTML.
-import { escapeHtml } from './format.js';
+import { escapeHtml, dateText } from './format.js';
 
 const DAY = 86400000;
 const ROW_H = 30, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
@@ -16,7 +16,7 @@ const attr = (v) => escapeHtml(String(v == null ? '' : v)).replace(/"/g, '&quot;
 // '09 Feb 2026' — the same text the Excel export writes (fixed month names, not the browser's 'Sept')
 export function gDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
-  return m ? `${m[3]} ${MON[+m[2] - 1]} ${m[1]}` : '—';
+  return m ? dateText(iso) : '—';
 }
 const gShort = (iso) => { const t = gDate(iso); return t === '—' ? t : `${t.slice(0, 7)}${t.slice(9)}`; };   // 09 Feb 26
 const tfText = (a) => (a.tf == null ? '—' : `${a.tf} d`);

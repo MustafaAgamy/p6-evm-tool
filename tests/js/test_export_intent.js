@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dateText } from '../../ui/modules/format.js';
 import * as EI from '../../ui/modules/export_intent.js';
 import { FEATURE_NEEDS, featureNeeds } from '../../ui/modules/feature_needs.js';
 
@@ -85,10 +86,10 @@ function harness(view, { result = true, missing = [], gantt = () => [{ key: 's',
     critpath: 'Critical Path Analyzer', period: 'Update vs Update', update: 'Update Analysis' };
   const sec = () => [{ key: 's', label: 'S', html: '<p>x</p>' }];
   const fn = new Function('state', 'document', 'CRUMB', 'showError', 'printView', 'prodintelPrint', 'overviewPrint',
-    'wbsPrint', 'schedulePrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage', 'exportOverviewExcel', 'exportWbsExcel', 'exportScheduleExcel', 'playbooksOpen', 'playbookReport',
+    'wbsPrint', 'schedulePrint', 'narrativePrint', 'DOC_KINDS', 'docExportRoute', 'requestDocExport', 'clearDocExport', 'noDocExportMessage', 'exportOverviewExcel', 'exportWbsExcel', 'exportScheduleExcel', 'playbooksOpen', 'playbookReport', 'dateText',
     appSrc.slice(a, b) + '\nreturn { runReport, REPORT_BTN };');
   const api = fn(state, document, CRUMB, (m) => log.errors.push(m), (o) => log.printed.push(o.module), sec, sec, sec,
-    gantt, () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage, () => {}, () => {}, () => {}, () => false, () => {});
+    gantt, () => null, EI.DOC_KINDS, EI.docExportRoute, EI.requestDocExport, EI.clearDocExport, EI.noDocExportMessage, () => {}, () => {}, () => {}, () => false, () => {}, dateText);
   return { ...api, log };
 }
 test('Earned Value: Ctrl+Shift+W opens the PDF preview and leaves a Word export for its bar', () => {

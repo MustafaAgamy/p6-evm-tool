@@ -4,7 +4,7 @@
 // hierarchy on a calendar — the user picks a main branch (e.g. Engineering /
 // Construction) and every WBS beneath it is shown, expanded to the level that
 // holds activities, with weighted planned/actual % and a start→finish bar.
-import { fmtEGP, fmtDate } from './format.js';
+import { fmtEGP, fmtDate, dateText } from './format.js';
 import { state } from './state.js';
 import { baselineApprox, baselineApproxLine } from './baseline.js';
 
@@ -105,7 +105,7 @@ let wbsCols = null;               // Set of shown column keys (localStorage-back
 let wbsColMenuOpen = false;       // Columns dropdown open state (kept across re-renders)
 
 const toMs = (s) => { if (!s) return NaN; const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s); const t = d.getTime(); return Number.isNaN(t) ? NaN : t; };
-const fmtShort = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+const fmtShort = (ms) => dateText(new Date(ms));           // 03-Dec.2026 (comment 46)
 const pctVal = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);   // backend already gives 0–100
 
 function wbsShownCols() {

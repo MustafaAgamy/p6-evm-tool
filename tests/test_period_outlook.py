@@ -43,7 +43,7 @@ def test_recovery_outlook_projects_and_flags_infeasible():
     r = recovery_outlook(prev, curr, summary)
     assert r['work_remaining'] == 59.0
     assert r['projected_finish'] is not None                    # at 7%/period it lands somewhere
-    assert r['baseline_finish'] == '01-Mar-2027'
+    assert r['baseline_finish'] == '01-Mar.2027'
     assert r['required_rate'] is not None and r['required_rate'] > r['current_rate']
     assert r['feasible'] is False                               # 7%/period < required
 
@@ -69,4 +69,4 @@ def test_watch_list_near_critical_sorted_and_filtered():
     rows = watch_list(curr)['rows']
     assert [r['activity_id'] for r in rows] == ['W1', 'W2']    # tightest float first
     assert rows[0]['reason'].startswith('On the critical path')
-    assert rows[1]['float_days'] == 5.0 and rows[1]['due_to_start'] == '10-Aug-2026'
+    assert rows[1]['float_days'] == 5.0 and rows[1]['due_to_start'] == '10-Aug.2026'

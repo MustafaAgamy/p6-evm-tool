@@ -42,7 +42,7 @@ _ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <numFmts count="6"><numFmt numFmtId="164" formatCode="#,##0.0"/><numFmt numFmtId="165" formatCode="0.0%"/>
-<numFmt numFmtId="166" formatCode="dd-mmm-yyyy"/><numFmt numFmtId="167" formatCode="dd mmm yyyy"/>
+<numFmt numFmtId="166" formatCode="dd\-mmm\.yyyy"/><numFmt numFmtId="167" formatCode="dd\-mmm\.yyyy"/>
 <numFmt numFmtId="168" formatCode="yyyy-mm-dd"/><numFmt numFmtId="169" formatCode="0.0"/></numFmts>
 <fonts count="10">
 <font><sz val="11"/><name val="Calibri"/></font>
@@ -86,7 +86,7 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 # Number / date formats (appended xfs 11-22, used through Styled values — see Styled):
 #   11 #,##0 · 12 #,##0.0 · 13 #,##0.00 · 14 0% · 15 0.0% · 16 0.00% · 17 dd-mmm-yyyy
-#   18 dd mmm yyyy · 19 yyyy-mm-dd · 20 0.0 · 21 0.00 · 22 bold (a total row's label)
+#   18 dd mmm yyyy (both show a date as 03-Dec.2026 — comment 46) · 19 yyyy-mm-dd · 20 0.0 · 21 0.00 · 22 bold (a total row's label)
 NUMFMT_STYLE = {'#,##0': 11, '#,##0.0': 12, '#,##0.00': 13, '0%': 14, '0.0%': 15, '0.00%': 16,
                 'dd-mmm-yyyy': 17, 'dd mmm yyyy': 18, 'yyyy-mm-dd': 19, '0.0': 20, '0.00': 21,
                 'bold': 22}
@@ -205,6 +205,7 @@ def _cell(col, row, value, style=None):
         value = str(value)
     if isinstance(value, (int, float)):
         return f'<c r="{ref}"{s_attr}><v>{value}</v></c>'
+    value = _date_text(value)                 # an ISO date / datetime shows as 03-Dec.2026 (comment 46)
     return (f'<c r="{ref}"{s_attr} t="inlineStr"><is>'
             f'<t xml:space="preserve">{escape(str(value))}</t></is></c>')
 
@@ -222,8 +223,16 @@ def _text_len(v):
     return max((len(line) for line in s.split('\n')), default=0)
 
 
+def _date_text(v):
+    try:
+        from utils import date_text
+    except Exception:
+        return v
+    return date_text(v)
+
+
 def _human_date(v):
-    """ISO 'YYYY-MM-DD' (optionally with a time part) → '09 Feb 2026'; anything else unchanged."""
+    """ISO 'YYYY-MM-DD' (optionally with a time part) → '09-Feb.2026'; anything else unchanged."""
     if not v:
         return v
     s = str(v)
@@ -231,7 +240,7 @@ def _human_date(v):
             and s[:4].isdigit() and s[5:7].isdigit() and s[8:10].isdigit()):
         try:
             from datetime import date as _date
-            return _date(int(s[:4]), int(s[5:7]), int(s[8:10])).strftime('%d %b %Y')
+            return _date(int(s[:4]), int(s[5:7]), int(s[8:10])).strftime('%d-%b.%Y')
         except ValueError:
             return v
     return v
@@ -726,7 +735,7 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
     assigned = ca.get('assigned_calendars') or []
     proj = ca.get('project', {}) or {}
     hidden = proj.get('hidden_months') or 0
-    subtitle = (f'Timeline from data date {proj.get("timeline_start") or "start"} to finish'
+    subtitle = (f'Timeline from data date {_date_text(proj.get("timeline_start")) or "start"} to finish'
                 + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
     hdr = _cal_header_lines(meta)                          # header block, first sheet only
 

@@ -5,7 +5,7 @@ import { showReportPreview }                                     from './preview
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
-import { fmtDate, escapeHtml }                                   from './format.js';
+import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
 
 async function apiFetch(path, options) {
@@ -189,7 +189,7 @@ function moduleMeta() {
     project_name: r.project_name || 'Schedule',
     data_date:    r.data_date || '',
     source_file:  file,
-    report_date:  new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    report_date:  dateText(new Date()),
   };
 }
 
@@ -366,7 +366,7 @@ function _evmReportBody() {
   }
   const meta = {
     project_name: r.project_name || 'Schedule', data_date: (r.data_date || '').slice(0, 10),
-    report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    report_date: dateText(new Date()),
     source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
     baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
   };
@@ -626,7 +626,7 @@ export async function exportEvmExcel() {
       meta: {
         project_name: r.project_name || 'Schedule',
         data_date: (r.data_date || '').slice(0, 10),
-        report_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        report_date: dateText(new Date()),
         source_file: (state.currentXmlPath || '').split(/[\\/]/).pop(),
         baseline_finish: r.baseline_finish, expected_finish: r.expected_finish,
       },

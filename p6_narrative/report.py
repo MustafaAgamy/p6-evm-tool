@@ -73,11 +73,11 @@ def _leaf(label):
 
 
 def _full_date(v):
-    """Format any date-ish value as 'DD Month YYYY' (e.g. '15 January 2026'), or None."""
+    """Format any date-ish value as 03-Dec.2026 — the one date style (comment 46) — or None."""
     d = as_date(v)
     if d is None:
         return None if v in (None, '') else str(v)
-    return '%d %s %d' % (d.day, d.strftime('%B'), d.year)
+    return d.strftime('%d-%b.%Y')
 
 
 def _phase_rank(name):

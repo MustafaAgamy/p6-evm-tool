@@ -8,6 +8,7 @@ renders in every appearance mode — see report_theme.py.
 """
 
 import report_theme
+from utils import date_text as _date_text
 
 # Module colour constants, resolved at render time via the injected `--rpt-*` custom
 # properties (see report_theme.py). Verified usage before mapping:
@@ -43,6 +44,7 @@ _STATUS_HEX = {'good': (_GOOD, report_theme.var('rpt-good-bg')), 'warn': (_WARN,
 
 
 def _e(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     if v is None:
         return ''
     return (str(v).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))

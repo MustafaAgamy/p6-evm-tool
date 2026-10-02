@@ -26,7 +26,7 @@ _DUR_LABEL = {'extended': 'duration extended', 'not_burning': 'not burning down'
 
 
 def _fmt(d):
-    return d.strftime('%d-%b-%Y') if hasattr(d, 'strftime') else None
+    return d.strftime('%d-%b.%Y') if hasattr(d, 'strftime') else None
 
 
 def _project_finish(data):

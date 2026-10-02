@@ -231,11 +231,11 @@ test('needsRerender: an unwrapped report refetches when the set changes', () => 
 });
 
 console.log('\ndata date');
-test('fmtDataDate: ISO date / datetime → 11-Dec-2025; other text unchanged', () => {
-  assert.equal(fmtDataDate('2025-12-11 08:00:00'), '11-Dec-2025');
-  assert.equal(fmtDataDate('2025-12-11T08:00:00'), '11-Dec-2025');
-  assert.equal(fmtDataDate('2025-01-05'), '05-Jan-2025');
-  assert.equal(fmtDataDate('11-Dec-2025'), '11-Dec-2025');
+test('fmtDataDate: ISO date / datetime → 11-Dec.2025; other text unchanged', () => {
+  assert.equal(fmtDataDate('2025-12-11 08:00:00'), '11-Dec.2025');
+  assert.equal(fmtDataDate('2025-12-11T08:00:00'), '11-Dec.2025');
+  assert.equal(fmtDataDate('2025-01-05'), '05-Jan.2025');
+  assert.equal(fmtDataDate('11-Dec.2025'), '11-Dec.2025');
   assert.equal(fmtDataDate(''), '');
   assert.equal(fmtDataDate(null), '');
   assert.equal(fmtDataDate('2025-13-01'), '2025-13-01');

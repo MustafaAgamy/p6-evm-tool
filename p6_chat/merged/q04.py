@@ -12,6 +12,7 @@ import re
 from datetime import datetime
 
 from . import _kit2 as K
+from utils import parse_date_text as _parse_date_text   # 03-Dec.2026 or older styles
 
 MINUS = '−'
 DONOR_TF = 20            # wd of float before a sectional front counts as a place crews can come from
@@ -62,7 +63,7 @@ def n0(x):
 
 def date(s):
     try:
-        return datetime.strptime(s, '%d-%b-%Y')
+        return _parse_date_text(s)
     except (TypeError, ValueError):
         return None
 

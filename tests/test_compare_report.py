@@ -51,7 +51,7 @@ def _update():
 def test_report_shape_and_wiring():
     r = build_report_from_data(_baseline(), _update())
     assert r['project_name'] == 'Riyadh Metro'
-    assert r['data_date'] == '09-Feb-2026'
+    assert r['data_date'] == '09-Feb.2026'
     assert r['matched_activities'] == 4   # A050, A100, A200, M900 line up by code
     # logic: the A050→A100 lag change now shows on BOTH ends (all relationships per activity)
     assert r['logic']['summary']['changed_activities'] == 2
@@ -66,8 +66,8 @@ def test_report_shape_and_wiring():
     assert r['dashboard']['logic_changed'] == 2
     assert r['dashboard']['duration_only'] == 1
     assert r['dashboard']['logic_changed'] + r['dashboard']['duration_only'] == r['dashboard']['changed_activities']
-    # finish slip feeds the dashboard chart: update finish 22-Feb-2027 is 13 days later
-    # than the baseline finish 09-Feb-2027 (positive = slipped later).
+    # finish slip feeds the dashboard chart: update finish 22-Feb.2027 is 13 days later
+    # than the baseline finish 09-Feb.2027 (positive = slipped later).
     assert r['dashboard']['finish_slip_days'] == 13
     # date-based delay (#04): the honest delay is the finish variance vs baseline in working
     # days (no calendar in this fixture → falls back to the 13 calendar days).
@@ -80,7 +80,7 @@ def test_report_shape_and_wiring():
     assert groups.get('lag') == 'logic' and groups.get('extended') == 'duration'
     # milestones compare baseline vs update finish
     m = next(x for x in r['milestones'] if x['activity_id'] == 'M900')
-    assert m['baseline_finish'] == '09-Feb-2027' and m['update_finish'] == '22-Feb-2027'
+    assert m['baseline_finish'] == '09-Feb.2027' and m['update_finish'] == '22-Feb.2027'
 
 
 def test_baseline_finish_falls_back_to_latest_activity_finish():
@@ -93,8 +93,8 @@ def test_baseline_finish_falls_back_to_latest_activity_finish():
     u.activities = {'1': {'id': 'A1', 'name': 'x', 'task_type': 'Task', 'calendar_id': None,
                           'planned_finish': datetime(2027, 3, 9)}}
     r = build_report_from_data(b, u)
-    assert r['baseline_finish'] == '05-Jan-2027'
-    assert r['update_finish'] == '09-Mar-2027'
+    assert r['baseline_finish'] == '05-Jan.2027'
+    assert r['update_finish'] == '09-Mar.2027'
 
 
 def test_construction_codes_keep_construction_drop_engineering_and_milestones():

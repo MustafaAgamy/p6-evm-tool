@@ -74,7 +74,7 @@ def _months(a, b):
 
 
 def _fmt(dt):
-    return dt.strftime('%d-%b-%Y') if dt else '—'
+    return dt.strftime('%d-%b.%Y') if dt else '—'
 
 
 def _pos(d):

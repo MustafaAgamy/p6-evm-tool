@@ -252,12 +252,12 @@ def test_finish_dates_ready_and_formatted(temp_db, xml_path):
     assert bf.availability(ctx) == 'ready'
     bkpi = bf.produce(ctx)
     assert bkpi['kind'] == 'kpi_group'
-    assert bkpi['items'][0]['value'] == '31 Dec 2027'
+    assert bkpi['items'][0]['value'] == '31-Dec.2027'
     assert bkpi['items'][0]['label'] == 'Baseline Finish'
 
     ef = items['evm:expected_finish']
     assert ef.availability(ctx) == 'ready'
-    assert ef.produce(ctx)['items'][0]['value'] == '15 Mar 2028'
+    assert ef.produce(ctx)['items'][0]['value'] == '15-Mar.2028'
 
 
 def test_finish_dates_no_data_when_only_the_other_present(temp_db, xml_path):

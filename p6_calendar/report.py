@@ -8,6 +8,7 @@ import html as _html
 import json
 
 import report_theme
+from utils import date_text as _date_text
 
 # Day-status swatch colours — 'work' reads as good, 'weekend' as a neutral non-working
 # grey, 'holiday'/'shutdown' as bad (a full day lost), 'special' (modified hours) as accent.
@@ -20,6 +21,7 @@ _MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 
 
 def _esc(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape('' if v is None else str(v))
 
 
@@ -29,7 +31,7 @@ def _fmt(iso):
     s = str(iso)[:10]
     try:
         y, m, d = s.split('-')
-        return f'{int(d):02d} {_MON[int(m)]} {y}'
+        return f'{int(d):02d}-{_MON[int(m)]}.{y}'          # 03-Dec.2026 (comment 46)
     except (ValueError, IndexError):
         return s
 

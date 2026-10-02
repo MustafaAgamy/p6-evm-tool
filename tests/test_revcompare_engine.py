@@ -95,7 +95,7 @@ def test_milestone_slip_delayed():
     r = build_report_from_data(*_pair(), config={})
     pc = next(m for m in r['milestones'] if m['name'] == 'Practical Completion')
     assert pc['kind'] == 'delayed' and pc['change_days'] > 0
-    assert r['rev1']['finish'] == '04 Feb 2027'
+    assert r['rev1']['finish'] == '04-Feb.2027'
 
 
 def test_critical_path_entered_includes_added_and_promoted():
@@ -136,7 +136,7 @@ def test_report_carries_slice2_keys():
 
 def test_report_html_renders_all_sections():
     r = build_report_from_data(*_pair(), config={})
-    html = render_html(r, meta={'report_date': '02 Sep 2026'}, theme='light')
+    html = render_html(r, meta={'report_date': '02-Sep.2026'}, theme='light')
     for key in ('summary', 'findings', 'critical', 'register', 'ms', 'cal', 'cost', 'resource', 'manpower', 'scope'):
         assert f'data-sec="{key}"' in html
     assert '<!doctype html>' in html.lower()

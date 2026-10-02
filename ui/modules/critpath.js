@@ -632,7 +632,7 @@ function _migrationHtml(report) {
 function _fdate(s) {
   if (!s) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (m) return `${+m[3]}-${_MON[+m[2] - 1]}-${m[1]}`;
+  if (m) return `${m[3]}-${_MON[+m[2] - 1]}.${m[1]}`;
   return s;
 }
 // A day count as P6 shows it: whole when whole, else one decimal (a float carried from hours

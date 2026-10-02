@@ -257,7 +257,9 @@ test('Previous update inherits the current update’s baseline, inside the XML o
   const h = serverSrc.slice(serverSrc.indexOf('def _handle_period_compare'), serverSrc.indexOf('def _handle_period_previous'));
   assert.match(h, /inherit_baseline\(data, curr\)/);
   const c = serverSrc.slice(serverSrc.indexOf('def _handle_critpath_analyze'), serverSrc.indexOf('def _handle_critpath_report'));
-  assert.match(c, /inherit_baseline\(schedules\[role\], schedules\['current'\]\)/);
+  // the previous update inherits the current one's baseline inside use_picked_baseline (comment 44)
+  assert.match(c, /use_picked_baseline\(schedules, paths\.get\('baseline'\)\)/);
+  assert.match(read('p6_evm', 'baseline.py'), /def use_picked_baseline[\s\S]*?inherit_baseline\(schedules\['previous'\], cur\)/);
   assert.match(read('p6_special', 'context.py'), /inherit_baseline\(prev, self\.parsed\(\)\)/);
   for (const id of ['period', 'critpath']) {
     const f = featureNeeds(id).files.find(x => /Previous update/.test(x.role));

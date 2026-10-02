@@ -9,6 +9,7 @@ Nothing here computes a number — it only lays out what the engine already prod
 import html
 
 import report_theme
+from utils import date_text as _date_text
 
 # Module colour constants, now theme tokens (resolved at render time via the injected
 # `--rpt-*` custom properties — see report_theme.py). Verified usage before mapping:
@@ -27,6 +28,7 @@ _PDF_ROW_CAP = 50
 
 
 def _e(v):
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return html.escape(str(v if v is not None else ''))
 
 

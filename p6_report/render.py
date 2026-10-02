@@ -16,11 +16,13 @@ from typing import List, Optional
 
 import report_theme
 from p6_report.registry import ReportSpec
+from utils import date_text as _date_text
 
 _NO_DATA = ('summary', 'chart', 'table', 'text', 'findings', 'recommendations')
 
 
 def _e(v) -> str:
+    v = _date_text(v)                     # an ISO date shows as 03-Dec.2026 (comment 46)
     return _html.escape(str(v if v is not None else ''))
 
 
