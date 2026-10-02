@@ -268,9 +268,23 @@ test('feature_needs lists Word / HTML for every feature that has a report (comme
 
 test('Knowledge Base page: File ▸ Print / Excel run the page\'s own exports', () => {
   const app = read('ui', 'app.js'); const kb = read('ui', 'modules', 'knowledge.js');
-  assert.match(app, /if \(playbooksOpen\(\)\) \{ clearDocExport\(\); playbookReport\(kind\); return; \}/);
+  assert.ok(app.includes("if (DOC_KINDS[kind]) requestDocExport(kind, { what: 'Knowledge Base', hasExcel: true });"));   // Word / HTML: its preview presses them (comment 43)
+  assert.ok(app.includes("playbookReport(kind === 'xls' ? 'xls' : 'pdf');"));
   assert.match(kb, /export function playbookReport\(kind\) \{ if \(kind === 'xls'\) exportExcel\(\); else exportPdf\(\); \}/);
   assert.match(kb, /onExcel: \(\) => exportExcel\(\)/);              // the preview carries the Excel button too
+});
+
+test('Excel can wait for the preview too: Ctrl+E on a view whose Excel lives in its preview (comment 43)', () => {
+  assert.deepEqual(Object.keys(EI.PENDING_KINDS).sort(), ['docx', 'html', 'xlsx']);
+  assert.ok(!('xlsx' in EI.DOC_KINDS), 'Ctrl+E is not routed as a Word / HTML command');
+  EI.requestDocExport('xlsx', { what: 'Earned Value', hasExcel: true }, 1000);
+  assert.deepEqual(EI.pendingExportPlan(EI.takeDocExport(1001), ['pdf', 'docx', 'html', 'xlsx'], 'EVM'), { click: 'xlsx' });
+  EI.requestDocExport('xlsx', { what: 'X' }, 1000);
+  assert.match(EI.pendingExportPlan(EI.takeDocExport(1001), ['pdf'], 'X').message, /has no Excel export yet/);
+  const app = read('ui', 'app.js');
+  assert.ok(app.includes("if (pv && pv.excel) { pv.excel(); return true; }"));
+  assert.ok(app.includes("requestDocExport('xlsx', { what: CRUMB[state.currentView] || 'This view', hasExcel: true });"));
+  assert.ok(app.includes("if (kind === 'xls' && pvSolo.excel) { pvSolo.excel(); return true; }"));
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

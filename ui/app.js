@@ -7,8 +7,8 @@ import { showPlaybooks, exitPlaybooks, playbooksOpen, playbookReport } from './m
 import { showProdIntel, exitProdIntel, prodintelPrint } from './modules/prodintel.js';
 import { showRecent, exitRecent }                   from './modules/recent.js';
 import { maybePromptBaseline, renderEvm }      from './modules/evm.js';
-import { renderComparePanel }                  from './modules/compare.js';
-import { renderRevComparePanel }               from './modules/revcompare.js';
+import { renderComparePanel, runConsultantReview } from './modules/compare.js';
+import { renderRevComparePanel, rerunRevCompare } from './modules/revcompare.js';
 import { renderPeriodPanel }                   from './modules/period.js';
 import { renderCritPathPanel }                 from './modules/critpath.js';
 import { renderUpdatePanel }                   from './modules/update.js';
@@ -322,14 +322,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Printing Selection picker as the analysis modules. Every feature prints from the
   // menu bar with a section picker; a new view only needs a print-sections provider.
   const PRINT_VIEW = {
-    prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true },
+    prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true,
+                 excel: () => { const b = document.getElementById('pi-exp-xls'); if (b) b.click(); else showError('Open a work item first, then export.'); } },
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint, excel: exportOverviewExcel },
     wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel },
     schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
-    if (playbooksOpen()) { clearDocExport(); playbookReport(kind); return; }   // Knowledge Base page: its own exports
+    if (playbooksOpen()) {                                // Knowledge Base page: its own exports
+      clearDocExport();
+      // Word / HTML: its PDF preview presses its own ⬇ Word / ⬇ HTML (comment 43 — they did nothing)
+      if (DOC_KINDS[kind]) requestDocExport(kind, { what: 'Knowledge Base', hasExcel: true });
+      playbookReport(kind === 'xls' ? 'xls' : 'pdf');
+      return;
+    }
     if (DOC_KINDS[kind]) { runDocExport(kind); return; }
     clearDocExport();                                      // a fresh PDF / Excel command drops any pending Word / HTML
     openReport(kind);
@@ -364,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Standalone library views (no imported schedule required) print through the shared path too.
     const pvSolo = PRINT_VIEW[state.currentView];
     if (pvSolo && pvSolo.standalone) {
+      if (kind === 'xls' && pvSolo.excel) { pvSolo.excel(); return true; }
       if (kind !== 'pdf') { showError('This view exports to PDF — use File ▸ Print / Export to PDF.'); return; }
       const sections = pvSolo.get && pvSolo.get();
       if (!sections || !sections.length) { showError('Open a work item first, then File ▸ Print / Export to PDF.'); return; }
@@ -377,6 +385,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el) { el.click(); return true; }                 // opens the module's Preview + Printing Selection
     }
     const pv = PRINT_VIEW[state.currentView];
+    if (kind === 'xls') {
+      // Ctrl+E / File ▸ Export to Excel where the view has no Excel button on screen any more
+      // (its Excel moved into the preview bar, comment 2): the view's own workbook when it has
+      // one, else the SAME preview as Print with its ⬇ Excel pressed (comment 43).
+      if (pv && pv.excel) { pv.excel(); return true; }
+      if ((map && map.pdf && document.getElementById(map.pdf)) || pv) {
+        requestDocExport('xlsx', { what: CRUMB[state.currentView] || 'This view', hasExcel: true });
+        if (openReport('pdf')) return true;
+        clearDocExport();
+      }
+    }
     if (map && !pv) {                                      // registered here only — no screen-print fallback
       if (!map[kind]) {                                    // the view has no such export at all (a view that is Excel-only)
         const alt = kind === 'pdf' ? (map.xls && 'File ▸ Export to Excel') : (map.pdf && 'File ▸ Print / Export to PDF');
@@ -568,6 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const PANEL_RUN = { compare: ['cmp-run-review'], revcompare: ['rc-run'], period: ['per-run-compare'], critpath: ['cpa-run'],
     weather: ['thr-apply'], audit: ['ms-run'], narrative: ['bn-gen', 'bn-continue'], special: ['sr-preview'] };
   // Library pages have nothing to run: say so instead of doing nothing.
+  // What a disabled Run waits for, when it is not input files.
+  const RUN_BLOCKED = { weather: 'Set the project location first (type a place or drop the pin on the map), then Calculate.' };
   const NOTHING_TO_RUN = { kb: 'The Knowledge Base has nothing to run — pick a project type and read it.',
     prodintel: 'Productivity & Resources updates as you type — there is nothing to run.' };
   // Views whose render RESETS the planner's own work, so a generic re-render would throw it away:
@@ -577,6 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const NO_GENERIC_RERUN = {
     narrative: 'Run again (Ctrl+R) does not rebuild the Baseline Narrative — that would clear the report and your setup answers. To rebuild it, use ⚙ Edit setup, then Generate.',
   };
+  const BUILT_ON_IMPORT = new Set(['overview', 'wbs', 'schedule']);
   function runCurrentFeature(again) {
     const gate = document.getElementById('feature-gate');
     const gateRun = gate && !gate.classList.contains('hidden') ? gate.querySelector('.fg-run') : null;
@@ -585,13 +607,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const onResults = !!state.currentResult && !document.getElementById('results-section')?.classList.contains('hidden');
     const btn = (PANEL_RUN[view] || []).map(id => document.getElementById(id)).find(b => b && b.offsetParent !== null) || null;
     if (onResults && btn && btn.offsetParent !== null) {
-      if (btn.disabled || btn.classList.contains('disabled')) showError('Assign this feature’s input files first, then run it.');
+      if (btn.disabled || btn.classList.contains('disabled')) showError(RUN_BLOCKED[view] || 'Assign this feature’s input files first, then run it.');
       else btn.click();
       return;
     }
+    // Ctrl+↵ / Ctrl+R on a comparison feature showing its result: run it again with the same files
+    // (its Run button is hidden behind the result, comment 43).
+    if (onResults && SELF_GATING.has(view)) {
+      const hidden = (PANEL_RUN[view] || []).map(id => document.getElementById(id))
+        .find(b => b && !b.disabled && !b.classList.contains('disabled'));
+      if (hidden) { hidden.click(); return; }
+      // the result replaced the Run button: run the feature's own run again, same files
+      const again2 = { compare: () => state.compareBaselinePath && runConsultantReview(),
+                       revcompare: () => state.revcompareRev0 && state.revcompareRev1 && rerunRevCompare() }[view];
+      if (again2 && again2()) return;                     // a Promise = it is running again
+    }
     const libPage = playbooksOpen() ? 'kb' : (state.currentView === 'prodintel' && !document.getElementById('prodintel-section')?.classList.contains('hidden') ? 'prodintel' : '');
     if (libPage) { showError(NOTHING_TO_RUN[libPage]); return; }
-    if (!again) return;
+    // Views built when the schedule is imported have no Run of their own: say so instead of a
+    // silent key (comment 43 — every shortcut answers on every feature).
+    if (onResults && BUILT_ON_IMPORT.has(view)) {
+      showError(`${CRUMB[view] || 'This view'} is built when the schedule is imported — it is already up to date, there is nothing to run.`);
+      return;
+    }
+    // Nothing waiting to be run on screen: Ctrl+↵ runs the feature on screen again (as Ctrl+R),
+    // so the key always does something or says why it cannot (comment 43).
     if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
     if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) {
       // Same shared Run bar as the gate's Run (RUNUX-R4) — never a bare re-render.
