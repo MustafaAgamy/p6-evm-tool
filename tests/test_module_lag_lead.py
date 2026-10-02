@@ -60,10 +60,13 @@ def test_zero_lag_not_listed_but_counted():
     assert r['kpis']['lagged_pct'] == 0.0
 
 
-def test_sub_day_lag_rounds_to_zero_excluded():
+def test_sub_day_lag_is_a_lag_as_in_p6():
+    # was excluded (it rounds to 0 whole days); P6 lists it as a 0.3 d lag and the DCMA lag
+    # metric counts any non-zero lag — the final P6 test (comment 5) found one on Saint Gobain
     g = _g({'p': _act('p'), 's': _act('s')},
            [{'pred_id': 'p', 'succ_id': 's', 'type': 'FS', 'lag_days': 0.3}])
-    assert run_lag_lead(g, CONFIG)['findings'] == []
+    f = run_lag_lead(g, CONFIG)['findings']
+    assert len(f) == 1 and f[0]['lag_days'] == 0.3 and f[0]['pred_rel'] == 'FS+0.3'
 
 
 def test_lead_is_flagged_and_signs_verdict():

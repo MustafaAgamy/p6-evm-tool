@@ -144,7 +144,12 @@ def run_lag_lead(graph, config):
             if succ is None:
                 continue
             total_rels += 1
-            lag_wd = int(round(link.get('lag_days') or 0))
+            raw_lag = link.get('lag_days') or 0
+            lag_wd = int(round(raw_lag))
+            if lag_wd == 0 and abs(raw_lag) >= 0.005:
+                # a part-day lag is still a lag in P6 (e.g. 0.12 h shows as 0.01 d): it was dropped
+                # because it rounds to 0 whole days (final P6 test, comment 5: Saint Gobain 182 vs 183)
+                lag_wd = round(raw_lag, 2)
             if lag_wd == 0:
                 continue
             rel_type = link.get('type', 'FS')

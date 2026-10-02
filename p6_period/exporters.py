@@ -81,7 +81,7 @@ def _verdict(report):
         ach = s.get('forecast_achievement')
         bits.append(f'earned {_signpct(earned)}' + (f' ({round(ach * 100)}% of plan)' if ach is not None else ''))
     if spv is not None:
-        bits.append(f'SPI {_spi_var_disp(spv)}')
+        bits.append(f'SPI change {_spi_var_disp(spv)}')
     if slip:
         bits.append(f'finish {"slipped" if slip > 0 else "pulled in"} {abs(slip)} d')
     return level, head, ('; '.join(bits) + '.' if bits else '')

@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
-## [Unreleased]
+## [v2.10.0] - 2026-10-02
 
 ### Fixed — Results checked against Primavera P6, feature by feature (final test)
 The values P6 itself stores in the export file — every activity's Start, Finish, status, % complete and total float, every relationship's type and lag, the calendars' hours and the budgeted and actual costs — were read independently of the tool and compared with what each feature reports, on Grain Bulk (three baselines), Saint Gobain (two baselines, two updates) and Alstom: about 380 checks. They agree, except for three differences, now fixed:
@@ -18,6 +18,12 @@ The values P6 itself stores in the export file — every activity's Start, Finis
 - **AI Chat — the Manager's briefing now has the answer charts (comment 33, the part left open).** The charts added to the chat answers were on screen only. The one-page Manager's briefing, and the PDF saved from it, now show under its S-curve the same charts as the chat: progress by discipline (done against planned), then the milestones running late in working days (or, when none are, the client items overdue). Every bar is the tool's own number.
 - **Baseline Revision — a long list of logic changes in Word.** Above 60 changed links, Logic & sequence changes reached Word as thousands of loose text lines. Word now gets them as one table, one row per changed link (#, change, Rev.00 link, Rev.01 link, predecessor, successor, on critical path, WBS). Up to 60 links Word still draws each lane as the PDF shows it. The screen, the PDF and the HTML file are unchanged.
 - **Bad Weather — Excel now has the whole report.** The workbook carried only the day list, causes, milestone impact and recovery. Its Weather Detail sheet now starts with the same figures as the PDF: the Execution Dashboard (Baseline Finish, schedule slip, Forecast Completion, what weather adds, Bad-weather Completion, expected bad-weather days), the days per month (net working / bad-weather / non-working), the Stop-Work Criteria table with the limits in use, and how each limit performed (limit, days flagged, highest value seen).
+
+**Final P6 test completed on MAFI (comment 5).** MAFI (the revised schedule, 6,005 activities, 15,304 relationships, XML), Grain Bulk, Saint Gobain and Alstom were each imported and every figure the tool shows was compared with the value P6 wrote into the file, read by a separate reader that does not use the tool: 183 checks, all equal to P6. On MAFI, whose XML stores no total float, P6's float was rebuilt from P6's own remaining early / late finish dates and calendars, and the tool's float and critical flag equal it for all 3,215 open activities. Every feature was also run end to end on all four projects — run, preview, PDF, Word, HTML and Excel: 128 of 128 steps each; two-schedule features run on a schedule against itself report exactly no change. Fixed by this test:
+- **Schedule Health — Resource Dependent activities are checked.** Only Task Dependent activities were counted, so every Resource Dependent activity was left out of all 13 checks (Grain Bulk: 1,466 where P6 has 1,467). P6 and DCMA count both as tasks.
+- **Lag Report — a part-day lag is a lag.** A lag shorter than half a day was dropped because it rounds to 0 whole days (Saint Gobain: 182 lags where P6 holds 183 — one of 0.12 hours). It is now listed with its value in days (e.g. FS+0.01).
+- **Update vs Update — the verdict line names the SPI change.** It read "SPI 0.0" on screen and "SPI 0%" in the PDF when the SPI did not move (the SPI itself was 0.99); it now reads "SPI change 0%", in whole percent like the screen's SPI.
+- The check can be re-run on your PC at any time: `CONTROLYX_P6_FILES=<folder of schedules> pytest tests/test_p6_reconciliation_files.py`.
 
 ### Changed — Keyboard shortcuts: every feature has one, and all of them work (comment 42)
 - **Removed: Previous feature (Ctrl+[) and Next feature (Ctrl+]).** They are gone from the keyboard, from the View menu and from the Help list.

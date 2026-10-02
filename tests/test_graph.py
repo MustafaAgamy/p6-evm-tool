@@ -24,7 +24,7 @@ def test_successors_and_predecessors():
     assert g.succs_of('b') == []
 
 
-def test_is_real_activity_excludes_milestones():
+def test_is_real_activity_excludes_milestones():  # (Resource Dependent counts: test_p6_final_fixes_comment5)
     g = ScheduleGraph(_data())
     assert g.is_real_activity('a') is True
     assert g.is_real_activity('m') is False
