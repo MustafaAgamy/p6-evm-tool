@@ -54,13 +54,15 @@ class Raw:
         self.project = {'id': t(prj, 'Id'), 'name': t(prj, 'Name'), 'data_date': _dt(t(prj, 'DataDate')),
                         'finish': _dt(t(prj, 'ScheduledFinishDate')),
                         'default_cal': t(prj, 'ActivityDefaultCalendarObjectId')}
+        self.wbs = {w.findtext(ns + 'ObjectId'): w.findtext(ns + 'ParentObjectId') for w in prj.findall(ns + 'WBS')}
         oid2code = {}
         for a in prj.findall(ns + 'Activity'):
             code = t(a, 'Id')
             oid2code[t(a, 'ObjectId')] = code
             cost = lambda *ks: sum(_f(t(a, k)) or 0.0 for k in ks)
             self.acts[code] = {
-                'name': t(a, 'Name'), 'type': t(a, 'Type'), 'status': t(a, 'Status'),
+                'name': t(a, 'Name'), 'type': t(a, 'Type'), 'status': t(a, 'Status'), 'wbs': t(a, 'WBSObjectId'),
+                'pl_start': _dt(t(a, 'PlannedStartDate')), 'pl_finish': _dt(t(a, 'PlannedFinishDate')),
                 'start': _dt(t(a, 'StartDate')), 'finish': _dt(t(a, 'FinishDate')),
                 'act_start': _dt(t(a, 'ActualStartDate')), 'act_finish': _dt(t(a, 'ActualFinishDate')),
                 'pct': _f(t(a, 'PercentComplete')), 'tf_h': _f(t(a, 'TotalFloat')),
@@ -72,13 +74,30 @@ class Raw:
                 'at_compl_cost': cost('AtCompletionLaborCost', 'AtCompletionNonLaborCost',
                                       'AtCompletionMaterialCost', 'AtCompletionExpenseCost'),
             }
+        C = self.calendars = XmlCalendars(self.path)
         if not any(a['tf_h'] is not None for a in self.acts.values()):
-            C = XmlCalendars(self.path)                     # the file carries no TotalFloat → derive it
+            # the file carries no TotalFloat → derive it
             for a in self.acts.values():
                 if a['status'] != 'Completed' and a['ref'] and a['rlf']:
                     m = C.work_minutes(a['cal'], a['ref'], a['rlf'])
                     a['tf_h'] = m / 60.0
                     a['tf_derived'] = True
+        # costs: an XML may carry them on the resource assignments instead of the activity
+        oid_cost = {}
+        for ra in prj.findall(ns + 'ResourceAssignment'):
+            c = oid_cost.setdefault(t(ra, 'ActivityObjectId'), [0.0, 0.0, 0.0, []])
+            c[0] += _f(t(ra, 'ActualCost')) or 0.0
+            c[1] += _f(t(ra, 'AtCompletionCost')) or 0.0
+            c[2] += _f(t(ra, 'PlannedCost')) or 0.0
+            c[3].append((_dt(t(ra, 'PlannedStartDate')), _dt(t(ra, 'PlannedFinishDate')), _f(t(ra, 'PlannedCost')) or 0.0))
+        for oid, (act_c, atc, plc, spans) in oid_cost.items():
+            code = oid2code.get(oid)
+            if code:
+                a = self.acts[code]
+                a['actual_cost'] += act_c
+                a['at_compl_cost'] += atc
+                a['planned_cost'] = a.get('planned_cost', 0.0) + plc
+                a['cost_spans'] = spans
         for r in prj.findall(ns + 'Relationship'):
             p, s = oid2code.get(t(r, 'PredecessorActivityObjectId')), oid2code.get(t(r, 'SuccessorActivityObjectId'))
             if p and s:
@@ -107,14 +126,17 @@ class Raw:
         name = next((w['wbs_name'] for w in tables.get('PROJWBS', []) if w['proj_id'] == pid and w.get('proj_node_flag') == 'Y'), '')
         self.project = {'id': pr.get('proj_short_name'), 'name': name, 'data_date': _dt(pr.get('last_recalc_date')),
                         'finish': _dt(pr.get('scd_end_date')), 'default_cal': pr.get('clndr_id')}
+        self.wbs = {w['wbs_id']: w.get('parent_wbs_id') for w in tables.get('PROJWBS', []) if w['proj_id'] == pid}
         tid2code = {}
         cost_by_task = {}
         for r in tables.get('TASKRSRC', []):
-            c = cost_by_task.setdefault(r['task_id'], [0.0, 0.0])
+            c = cost_by_task.setdefault(r['task_id'], [0.0, 0.0, 0.0])
+            c[2] += _f(r.get('target_cost')) or 0
             c[0] += (_f(r.get('act_reg_cost')) or 0) + (_f(r.get('act_ot_cost')) or 0)
             c[1] += (_f(r.get('act_reg_cost')) or 0) + (_f(r.get('act_ot_cost')) or 0) + (_f(r.get('remain_cost')) or 0)
         for r in tables.get('PROJCOST', []):
-            c = cost_by_task.setdefault(r['task_id'], [0.0, 0.0])
+            c = cost_by_task.setdefault(r['task_id'], [0.0, 0.0, 0.0])
+            c[2] += _f(r.get('target_cost')) or 0
             c[0] += _f(r.get('act_cost')) or 0
             c[1] += (_f(r.get('act_cost')) or 0) + (_f(r.get('remain_cost')) or 0)
         for x in tables.get('TASK', []):
@@ -132,9 +154,11 @@ class Raw:
                 od, rd = _f(x.get('target_drtn_hr_cnt')) or 0, _f(x.get('remain_drtn_hr_cnt')) or 0
                 pct = (100.0 if st == 'Completed' else (max(0.0, (od - rd) / od * 100) if od else 0.0)) if ct == 'CP_Drtn' \
                     else _f(x.get('phys_complete_pct'))
-            cst = cost_by_task.get(x['task_id'], [0.0, 0.0])
+            cst = cost_by_task.get(x['task_id'], [0.0, 0.0, 0.0])
             self.acts[code] = {
                 'name': x['task_name'], 'type': TYPES.get(x['task_type'], x['task_type']), 'status': st,
+                'wbs': x.get('wbs_id'), 'planned_cost': cst[2],
+                'pl_start': _dt(x.get('target_start_date')), 'pl_finish': _dt(x.get('target_end_date')),
                 'start': start, 'finish': finish, 'act_start': act_s, 'act_finish': act_f,
                 'pct': (pct or 0.0) / 100.0, 'pct_type': ct,
                 'tf_h': _f(x.get('total_float_hr_cnt')), 'od_h': _f(x.get('target_drtn_hr_cnt')),

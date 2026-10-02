@@ -156,6 +156,106 @@ def reconcile(path, res):
         chk(P, 'P6 Calendar Audit', f"hours/day · {c['name']}", R.cals.get(str(c['object_id'])), c.get('hours_per_day'))
         chk(P, 'P6 Calendar Audit', f"activities on · {c['name']}",
             sum(1 for a in R.acts.values() if str(a['cal']) == str(c['object_id'])), c.get('activity_count'))
+    # ── Consultant Review's but-for scheduler (p6_compare.schedule) — with no change applied it
+    #    must reproduce P6's own schedule: the project finish exactly, every activity's early finish
+    #    to the minute where P6's dates follow from the file's logic (comment 44) ──
+    try:
+        from p6_evm.parser import parse_file
+        from p6_compare.schedule import forward_pass, project_finish
+        data = parse_file(path)
+        efs = forward_pass(data)
+        open_acts = [(o, a) for o, a in data.activities.items() if not a.get('actual_finish') and a.get('remaining_early_finish')]
+        same = sum(1 for o, a in open_acts if efs.get(o) and abs((efs[o] - a['remaining_early_finish']).total_seconds()) < 60)
+        pf = project_finish(data)
+        p6f = R.project['finish']
+        chk(P, 'Consultant Review (but-for scheduler)', 'project finish with no change applied',
+            p6f.strftime('%Y-%m-%d %H:%M') if p6f else None, pf.strftime('%Y-%m-%d %H:%M') if pf else None,
+            ok=bool(p6f and pf and abs((pf - p6f).total_seconds()) < 60))
+        share = round(100.0 * same / len(open_acts), 1) if open_acts else 100.0
+        chk(P, 'Consultant Review (but-for scheduler)', 'open activities whose early finish equals P6 (%)',
+            '≥ 90', share, ok=share >= 90.0, note=f'{same} of {len(open_acts)}')
+    except Exception as exc:                                  # never hide a crash as a pass
+        chk(P, 'Consultant Review (but-for scheduler)', 'runs', 'ok', str(exc)[:80], ok=False)
+
+    # ── WBS — every element's activity count and dates, rolled up from P6's own activity dates ──
+    kids = collections.defaultdict(list)
+    for w, parent in R.wbs.items():
+        kids[parent].append(w)
+    under = {}
+
+    def collect(w):
+        if w in under:
+            return under[w]
+        acts = [c for c, a in R.acts.items() if a.get('wbs') == w]
+        for k in kids.get(w, []):
+            acts += collect(k)
+        under[w] = acts
+        return acts
+    bad_n = bad_s = bad_f = 0
+    ex = ''
+    for node in res.get('wbs_summary') or []:
+        acts = collect(str(node['id']))
+        if not acts:
+            continue
+        starts = [R.acts[c]['start'] for c in acts if R.acts[c]['start']]
+        fins = [R.acts[c]['finish'] for c in acts if R.acts[c]['finish']]
+        if len(acts) != node.get('activities'):
+            bad_n += 1; ex = ex or f"{node['name']}: P6 {len(acts)} / tool {node.get('activities')}"
+        if starts and day(min(starts)) != node.get('start'):
+            bad_s += 1; ex = ex or f"{node['name']} start: P6 {day(min(starts))} / tool {node.get('start')}"
+        if fins and day(max(fins)) != node.get('finish'):
+            bad_f += 1; ex = ex or f"{node['name']} finish: P6 {day(max(fins))} / tool {node.get('finish')}"
+    nodes = len([n for n in res.get('wbs_summary') or [] if collect(str(n['id']))])
+    chk(P, 'WBS', f'elements checked', nodes, nodes, ok=nodes > 0)
+    for k, v in (('activity count', bad_n), ('start', bad_s), ('finish', bad_f)):
+        chk(P, 'WBS', f'per-element {k} (mismatches)', 0, v, note=ex)
+
+    # ── Earned Value — P6's own formulas ('Activity percent complete' earned value):
+    #    BAC = budgeted (planned) cost · EV = BAC × % complete · AC = actual cost ·
+    #    PV = BAC × schedule % complete (data date within each activity's planned dates, working time)
+    bac = sum(a.get('planned_cost') or 0 for a in R.acts.values())
+    if bac:
+        tol = lambda x, y: abs(x - (y or 0)) <= max(1.0, abs(x) * 1e-6)
+        ev = sum((a.get('planned_cost') or 0) * (a['pct'] or 0) for a in R.acts.values())
+        cat_bac = sum(c.get('bac') or 0 for c in (res.get('categories') or {}).values())
+        chk(P, 'Earned Value', 'budget at completion (BAC)', round(bac), round(cat_bac), ok=tol(bac, cat_bac))
+        chk(P, 'Earned Value', 'earned value (EV = BAC × % complete)', round(ev), round(res['ev'] or 0), ok=tol(ev, res['ev']))
+        ac_ = sum(a['actual_cost'] for a in R.acts.values())
+        chk(P, 'Earned Value', 'actual cost (AC)', round(ac_), round(res['ac'] or 0), ok=tol(ac_, res['ac']))
+        if ac_ and res.get('cpi') is not None:
+            chk(P, 'Earned Value', 'CPI = EV / AC', round(ev / ac_, 4), round(res['cpi'], 4))
+        if getattr(R, 'calendars', None):
+            dd = R.project['data_date']
+            pv = 0.0
+            for a in R.acts.values():
+                c, s0, f0 = a.get('planned_cost') or 0, a.get('pl_start'), a.get('pl_finish')
+                if not c or not s0 or not f0:
+                    continue
+                if dd >= f0:
+                    pv += c
+                elif dd > s0:
+                    tot = R.calendars.work_minutes(a['cal'], s0, f0)
+                    pv += c * (R.calendars.work_minutes(a['cal'], s0, dd) / tot if tot else 1.0)
+            chk(P, 'Earned Value', 'planned value (PV = BAC × schedule % complete)', round(pv), round(res['pv'] or 0),
+                ok=tol(pv, res['pv']))
+
+    # ── P6 Calendar Audit — working days per month on the main calendar (from P6's calendar) ──
+    if getattr(R, 'calendars', None):
+        ca = res['calendar_audit']
+        pc = str(ca.get('primary_calendar_id'))
+        months = ((ca.get('by_calendar') or {}).get(pc) or {}).get('monthly_stats') or []
+        bad, ex = 0, ''
+        import datetime as _d
+        for m in months:
+            days = [x['d'] for x in m.get('days') or []]
+            if not days:
+                continue
+            wd = sum(1 for d0 in days if R.calendars.work_minutes(pc, _d.datetime(m['year'], m['month'], d0),
+                                                                  _d.datetime(m['year'], m['month'], d0) + _d.timedelta(days=1)) > 0)
+            if wd != m.get('working_days'):
+                bad += 1; ex = ex or f"{m['label']}: P6 {wd} / tool {m.get('working_days')}"
+        chk(P, 'P6 Calendar Audit', f'working days per month ({len(months)} months, main calendar)', 0, bad, note=ex)
+
     # ── Earned Value ──
     ac = sum(a['actual_cost'] for a in R.acts.values())
     if ac:

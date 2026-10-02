@@ -445,6 +445,9 @@ def _parse_xml(path) -> ScheduleData:
         # 'Calendar for scheduling Relationship Lag' + the project default calendar it may name,
         # so lag_days is counted on the calendar P6 uses (finding P16) - same keys in xer.py.
         'lag_calendar': lag_calendar_basis(_schedule_option(project_el, 'RelationshipLagCalendar')),
+        # 'Calculate start-to-start lag from': early start (P6's default) or actual start — a started
+        # predecessor's SS lag then runs from its remaining early start (final P6 test, comment 44)
+        'ss_lag_from_early_start': (_schedule_option(project_el, 'StartToStartLagCalculationType') or '1').strip() not in ('0', 'false', 'False'),
         'default_calendar_id': text(project_el, 'ActivityDefaultCalendarObjectId'),
     }
 

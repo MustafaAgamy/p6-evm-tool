@@ -9,7 +9,7 @@ own scheduled dates (forward-passing an already-F9'd update must reproduce its f
 Durations/lags are counted in whole working days on the activity's calendar — enough for a
 finish-date estimate within a day or two of Primavera. Nothing here changes an EVM number.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 from collections import deque
 from p6_audit.graph import ScheduleGraph
 
@@ -27,22 +27,86 @@ def _later(a, b):
     return a if a >= b else b
 
 
-def _advance(cal, start, days):
-    """`start` advanced by `days` working days (fractional rounded to whole days); negative
-    goes backward. Calendar days when there is no calendar."""
+def _intervals(cal, d):
+    """[(start_dt, end_dt)] of working time on date ``d`` — the calendar's intraday work times
+    (holidays / exceptions included); a whole-day calendar without intervals works 08:00 + day_hours."""
+    base = datetime(d.year, d.month, d.day)
+    if cal.has_intraday():
+        return [(base + timedelta(minutes=sm), base + timedelta(minutes=em)) for sm, em in cal._intervals_for(d)]
+    if not cal.is_working_day(d):
+        return []
+    return [(base + timedelta(hours=8), base + timedelta(hours=8 + _day_hours(cal)))]
+
+
+_MAX_DAYS = 3660                                  # never walk more than ~10 years for one step
+
+
+def _minute(t):
+    """P6 keeps times to the minute — drop the seconds that hour arithmetic leaves behind."""
+    if t is None:
+        return None
+    return (t + timedelta(seconds=30)).replace(second=0, microsecond=0)
+
+
+def _snap(cal, t):
+    """The first working moment at or after ``t`` (P6 starts remaining work there)."""
+    if cal is None or t is None:
+        return t
+    d = t.date()
+    for _ in range(_MAX_DAYS):
+        for a, b in _intervals(cal, d):
+            if t < b:
+                return max(a, t)
+        d += timedelta(days=1)
+        t = max(t, datetime(d.year, d.month, d.day))
+    return t
+
+
+def _add(cal, start, hours):
+    """``start`` moved by ``hours`` of WORKING time on ``cal`` (negative = backward). A move that
+    ends exactly at the end of a work period stays there (P6 finishes at 16:00, not next 08:00).
+    No calendar: calendar time, 8 working hours = 1 day (the hand-computable test schedules)."""
     if start is None:
         return None
-    n = int(round(days))
-    if n == 0:
-        return start
     if cal is None:
-        return start + timedelta(days=n)
-    d, step, cnt = start, (1 if n > 0 else -1), 0
-    while cnt < abs(n):
-        d += timedelta(days=step)
-        if cal.is_working_day(d.date()):
-            cnt += 1
-    return d
+        return start + timedelta(days=(hours or 0.0) / 8.0)
+    mins = round((hours or 0.0) * 60.0, 6)
+    if mins == 0:
+        return start
+    t = start
+    if mins > 0:
+        d = t.date()
+        for _ in range(_MAX_DAYS):
+            for a, b in _intervals(cal, d):
+                if b <= t:
+                    continue
+                lo = max(a, t)
+                room = (b - lo).total_seconds() / 60.0
+                if mins <= room + 1e-9:
+                    return lo + timedelta(minutes=mins)
+                mins -= room
+                t = b
+            d += timedelta(days=1)
+        return t
+    mins = -mins
+    d = t.date()
+    for _ in range(_MAX_DAYS):
+        for a, b in reversed(_intervals(cal, d)):
+            if a >= t:
+                continue
+            hi = min(b, t)
+            room = (hi - a).total_seconds() / 60.0
+            if mins <= room + 1e-9:
+                return hi - timedelta(minutes=mins)
+            mins -= room
+            t = a
+        d -= timedelta(days=1)
+    return t
+
+
+def _advance(cal, start, days):
+    """`start` advanced by `days` working days (kept for callers outside the forward pass)."""
+    return _add(cal, start, (days or 0.0) * _day_hours(cal))
 
 
 def _topo_order(graph):
@@ -68,44 +132,84 @@ def _topo_order(graph):
     return order
 
 
+_NO_DRIVE = ('LOE', 'WBSSummary')                                    # never drive their successors in P6
+_SNET = ('Start On', 'Start On or After', 'Mandatory Start')        # forward pass: start no earlier than
+_FNET = ('Finish On', 'Finish On or After', 'Mandatory Finish')     # forward pass: finish no earlier than
+
+
 def forward_pass(data, data_date=None):
-    """{oid: early_finish} for every activity (retained logic). Also usable for the finish."""
+    """{oid: early_finish} for every activity — retained logic, in WORKING TIME as P6 schedules:
+    remaining work starts at the first working moment after the data date / its predecessors,
+    durations and lags are counted in working hours on the activity's calendar and the lag on
+    the relationship's lag calendar (the project's 'Calendar for scheduling Relationship Lag'),
+    FF / SF links also hold the start back, start / finish constraints are honoured.  Forward-
+    passing an already-F9'd update reproduces P6's early finishes (final P6 test, comment 44)."""
     graph = ScheduleGraph(data)
     acts, cals = graph.activities, graph.calendars
     dd = data_date or (getattr(data, 'project', None) or {}).get('data_date')
-    es, ef = {}, {}
+    preds = {}
+    for r in getattr(data, 'relationships', None) or []:
+        if r.get('pred_id') in acts and r.get('succ_id') in acts:
+            preds.setdefault(r['succ_id'], []).append(r)
+    proj = getattr(data, 'project', None) or {}
+    twenty_four = (proj.get('lag_calendar') == '24h')
+    ss_from_early = proj.get('ss_lag_from_early_start', True)
+    es, ef, rs = {}, {}, {}                    # rs = remaining early start (where remaining work begins)
     for oid in _topo_order(graph):
         act = acts.get(oid) or {}
         cal = cals.get(act.get('calendar_id'))
         af = act.get('actual_finish')
         if af:                                    # completed — dates are actuals
-            es[oid] = act.get('actual_start') or af
+            es[oid] = rs[oid] = act.get('actual_start') or af
             ef[oid] = af
             continue
-        rem_days = (act.get('remaining_duration') or 0.0) / _day_hours(cal)
-        start_c, ef_c = dd, None
-        for link in graph.preds_of(oid):
-            p = link['other']
-            if p not in ef:
-                continue
-            t, lag = link.get('type', 'FS'), (link.get('lag_days', 0.0) or 0.0)
-            if t == 'FS':
-                start_c = _later(start_c, _advance(cal, ef[p], lag))
-            elif t == 'SS':
-                start_c = _later(start_c, _advance(cal, es[p], lag))
-            elif t == 'FF':
-                ef_c = _later(ef_c, _advance(cal, ef[p], lag))
-            elif t == 'SF':
-                ef_c = _later(ef_c, _advance(cal, es[p], lag))
+        rem_h = act.get('remaining_duration') or 0.0
         a_start = act.get('actual_start')
+        start_c, finish_c = dd, None
+        for r in preds.get(oid, []):
+            p = r['pred_id']
+            if p not in ef or acts[p].get('task_type') in _NO_DRIVE:
+                continue                          # a Level of Effort / WBS summary never drives (as P6)
+            t = r.get('type', 'FS')
+            lag_h = r.get('lag_hours')
+            if lag_h is None:
+                lag_h = (r.get('lag_days', 0.0) or 0.0) * 8.0
+            lcal = None if twenty_four else (cals.get(r.get('lag_calendar_id')) or
+                                             cals.get(acts[p].get('calendar_id')) or cal)
+            if twenty_four:
+                lagged = lambda x: x + timedelta(hours=lag_h) if x else x
+            else:
+                lagged = lambda x: _add(lcal, x, lag_h)
+            if t == 'FS':
+                start_c = _later(start_c, lagged(ef[p]))
+            elif t == 'SS':                       # a started predecessor: from its remaining early start
+                # a started successor has met a start link to a STARTED predecessor; ahead of a
+                # predecessor that has not started (out of sequence), retained logic still holds it
+                if not a_start or not acts[p].get('actual_start'):
+                    start_c = _later(start_c, lagged(rs[p] if ss_from_early else es[p]))
+            elif t == 'FF':
+                finish_c = _later(finish_c, lagged(ef[p]))
+            elif t == 'SF':
+                finish_c = _later(finish_c, lagged(rs[p] if ss_from_early else es[p]))
+        ctype, cdate = act.get('constraint_type'), act.get('constraint_date')
+        if not a_start and cdate and ctype in _SNET:
+            start_c = _later(start_c, cdate)
+        if cdate and ctype in _FNET:
+            finish_c = _later(finish_c, cdate)
         s = _later(dd, start_c) if a_start else (start_c or dd)
         if s is None:
             s = act.get('remaining_early_start') or act.get('planned_start')
-        e = _advance(cal, s, rem_days)
-        if ef_c and (e is None or ef_c > e):     # FF/SF pushes the finish
-            e = ef_c
-        es[oid] = a_start or s
-        ef[oid] = e
+        finish_ms = act.get('task_type') == 'FinishMilestone'
+        if not finish_ms:                         # remaining work begins at the next working moment
+            s = _snap(cal, s)
+        if finish_c is not None:                  # FF / SF / finish constraint holds the start back
+            s = _later(s, _add(cal, finish_c, -rem_h))
+        e = _add(cal, s, rem_h)
+        if finish_c is not None and (e is None or finish_c > e):
+            e = finish_c
+        es[oid] = a_start or _minute(s)
+        rs[oid] = _minute(s)
+        ef[oid] = _minute(e)
     return ef
 
 

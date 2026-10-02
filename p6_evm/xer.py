@@ -169,6 +169,7 @@ def _parse_xer(path):
         # rcal_Predecessor / ...) + the project default calendar (PROJECT.clndr_id = the XML's
         # <ActivityDefaultCalendarObjectId>) - lag_days is counted on it (finding P16).
         'lag_calendar': lag_calendar_basis(sched_opts.get('sched_calendar_on_relationship_lag')),
+        'ss_lag_from_early_start': (sched_opts.get('sched_lag_early_start_flag') or 'Y').strip().upper() != 'N',
         'default_calendar_id': proj.get('clndr_id') or None,
     }
 
