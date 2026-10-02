@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Excel from the preview is the feature's complete workbook** — every table with all its rows and every chart as its numbers (the workbooks completed under comment 29).
 - **Fixed:** the bars of the Lag Report charts were almost invisible (in the PDF as well); they now use the report's accent colour.
 - **Fixed:** in Update Analysis, "Planned vs Actual by count" was split into three oddly named parts in the Report Contents list; it is one item now.
+- **Fixed:** in Word, a narrow table column broke its values across lines (row number "10" as "1" over "0", an Activity ID after its last digit). Every column is now at least as wide as its longest word; the room comes from the wider columns.
 - Known limit: in the Baseline Revision report, the very long change lists (thousands of rows) go into Word as plain text lines, not as formatted tables.
 
 ### Changed — Every report: pick any sub-feature, or any single table / chart inside it (comment 1)

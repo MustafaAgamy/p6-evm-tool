@@ -285,6 +285,28 @@ def _normalize_order(root):
 
 
 # ── the writer ─────────────────────────────────────────────────────────────────
+def _fit_widths(widths, mins):
+    """Column widths with every column at least ``mins`` wide, the total unchanged.  The extra is
+    taken from the columns that are wider than they need, in proportion to their spare room.  When
+    the needs do not fit the page, every column gives up the same share of its need."""
+    total = sum(widths)
+    if not widths:
+        return widths
+    if sum(mins) > total:                       # not enough room for all: share the shortage
+        k = total / float(sum(mins))
+        mins = [int(m * k) for m in mins]
+    need = sum(max(0, m - w) for w, m in zip(widths, mins))
+    spare = sum(max(0, w - m) for w, m in zip(widths, mins))
+    if need <= 0 or spare <= 0:
+        return widths
+    out = []
+    for w, m in zip(widths, mins):
+        out.append(m if w < m else w - int((w - m) * need / spare))
+    spare_at = max(range(len(out)), key=lambda i: out[i] - mins[i])     # rounding goes where there is room
+    out[spare_at] += total - sum(out)
+    return out
+
+
 class _Writer:
     def __init__(self, rep, app_name='', feature='', project=''):
         self.rep = rep
@@ -563,6 +585,22 @@ class _Writer:
             weights = [1.0] * ncols
         total = sum(weights)
         widths = [int(self.content_emu * w / total) for w in weights]
+        base = t.size_pt or self.base_pt
+        # a column is never narrower than its longest single word: "10" must not wrap to "1 / 0",
+        # nor an Activity ID onto two lines (the room is taken from the columns that have spare)
+        longest = [0.0] * ncols
+        for ri, ci, rs, cs, cell in placed:
+            if cs != 1:
+                continue
+            for r in cell.runs:
+                if r.br:
+                    continue
+                pt = r.size_pt or cell.size_pt or base or 9
+                mono = any(k in (r.font or '').lower() for k in ('mono', 'consol', 'courier'))
+                per = 0.61 if mono else (0.56 if (cell.header or cell.bold or r.bold) else 0.5)
+                for word in _clean(r.text or '').split():
+                    longest[ci] = max(longest[ci], min(len(word), 40) * pt * per)
+        widths = _fit_widths(widths, [int(w * 12700) + 101600 + 25400 for w in longest])
         hair = _hex(t.border_color) or self.hair
         tblPr = table._tbl.tblPr
         tblPr.append(_borders('w:tblBorders', {
@@ -578,7 +616,6 @@ class _Writer:
         for ri in range(nrows):
             for ci in range(ncols):
                 _cell_width(cells_by_row[ri][ci], widths[ci])
-        base = t.size_pt or self.base_pt
         for ri, ci, rs, cs, cell in placed:
             dcell = cells_by_row[ri][ci]
             if rs > 1 or cs > 1:
