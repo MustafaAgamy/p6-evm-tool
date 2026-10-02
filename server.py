@@ -1798,7 +1798,7 @@ class Handler(BaseHTTPRequestHandler):
             # embedded baseline, else the one attached for it); the previous update its own, else
             # the CURRENT update's baseline — inside the XML or attached, the same (R4).
             # The Run bar names each real read in the caller's role order (current first) — RUNUX.
-            from p6_evm.baseline import inherit_baseline
+            from p6_evm.baseline import use_picked_baseline
             roles = list(paths)
             stages.enter(roles.index('current'))
             schedules = {'current': _schedule_for(current_path, body)}
@@ -1809,7 +1809,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif role == 'previous':
                     stages.enter(i)
                     schedules[role] = _schedule_for(p, {})
-                    inherit_baseline(schedules[role], schedules['current'])
+            # an update with no baseline of its own is measured against the picked baseline;
+            # the previous update inherits the current one's (R4, comment 44)
+            use_picked_baseline(schedules, paths.get('baseline'))
             schedules = {role: schedules[role] for role in paths}   # keep the caller's role order
             stages.enter(len(paths))
             report = build_report(schedules, mode,

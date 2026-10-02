@@ -356,6 +356,7 @@ def _parse_xer(path):
             'actual_units': (_num(ra.get('act_reg_qty'), 0.0) or 0.0) + (_num(ra.get('act_ot_qty'), 0.0) or 0.0),
             'budget_cost': bac,
             'rate': _num(ra.get('cost_per_qty'), None),
+            'rate_derived': False,                  # TASKRSRC.cost_per_qty is P6's own price
         })
 
     if bl_proj_id:

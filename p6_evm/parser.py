@@ -613,6 +613,10 @@ def _parse_xml(path) -> ScheduleData:
             'actual_units': parse_float(text(ra_el, 'ActualUnits')),
             'budget_cost': planned_cost,
             'rate': assignment_rate(ra_el),
+            # True when the export states no price (P6 19.x XML): the rate above is worked out
+            # from cost / units or the resource's rate table, not the price P6 holds - compare
+            # such an assignment by its effective cost per unit, never its stated price
+            'rate_derived': parse_float(text(ra_el, 'PricePerUnit'), None) is None,
         })
 
     # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics

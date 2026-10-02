@@ -242,30 +242,41 @@ def _rel_index(rels, key_is_succ):
 def _diff_rel_side(base_side, upd_side, name_key):
     """Diff one side (preds or succs), each {other_code: link}. Returns
     (baseline_list, update_list, changed). Entries: {code, name, type, lag_days, status,
-    driving}; changed update entries also carry change_kind ('type'|'lag')."""
+    driving}; changed update entries also carry change_kind ('type'|'lag'). One entry per P6
+    LINK — a pair holding an SS and an FF lists both, so a change to either shows (comment 44)."""
+    from p6_compare.model import pair_links, link_changes
     base_codes, upd_codes = set(base_side), set(upd_side)
     blist, ulist, changed = [], [], False
     for code in sorted(base_codes):
         b = base_side[code]
-        status = 'same' if code in upd_codes else 'removed'
-        if status == 'removed':
-            changed = True
-        blist.append({'code': code, 'name': b.get(name_key, ''), 'type': b.get('type', 'FS'),
-                      'lag_days': b.get('lag_days', 0.0), 'status': status, 'driving': False})
+        lb = pair_links(b)
+        kept = set()
+        if code in upd_codes:
+            tmap = link_changes(b, upd_side[code])['type_map']
+            kept = {t for t in lb if t in tmap.values()}
+        for t, (_h, d) in sorted(lb.items()):
+            status = 'same' if t in kept else 'removed'
+            if status == 'removed':
+                changed = True
+            blist.append({'code': code, 'name': b.get(name_key, ''), 'type': t,
+                          'lag_days': d, 'status': status, 'driving': False})
     for code in sorted(upd_codes):
         u = upd_side[code]
-        entry = {'code': code, 'name': u.get(name_key, ''), 'type': u.get('type', 'FS'),
-                 'lag_days': u.get('lag_days', 0.0), 'status': 'same', 'driving': False}
-        if code not in base_codes:
-            entry['status'] = 'added'
-            changed = True
-        else:
-            b = base_side[code]
-            if b.get('type') != u.get('type'):
+        lu = pair_links(u)
+        lb = pair_links(base_side[code]) if code in base_codes else {}
+        tmap = link_changes(base_side[code], u)['type_map'] if code in base_codes else {}
+        for t, (_h, d) in sorted(lu.items()):
+            entry = {'code': code, 'name': u.get(name_key, ''), 'type': t,
+                     'lag_days': d, 'status': 'same', 'driving': False}
+            bt = tmap.get(t)
+            if bt is None:
+                entry['status'] = 'added'
+                changed = True
+            elif bt != t:
                 entry['status'], entry['change_kind'], changed = 'changed', 'type', True
-            elif abs((b.get('lag_days') or 0.0) - (u.get('lag_days') or 0.0)) > 1e-9:
+            elif abs((lb[bt][1] or 0.0) - (d or 0.0)) > 1e-9:
                 entry['status'], entry['change_kind'], changed = 'changed', 'lag', True
-        ulist.append(entry)
+            ulist.append(entry)
     return blist, ulist, changed
 
 

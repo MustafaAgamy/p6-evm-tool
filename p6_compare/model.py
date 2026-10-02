@@ -49,10 +49,44 @@ def _rels_by_pair(data):
             # to ANY of them is seen as a change).
             'links': (prev['links'] if prev else 0) + 1,
             'all_links': (prev['all_links'] if prev else ()) + (this,),
+            'link_days': (prev['link_days'] if prev else ()) + ((this[0], rel.get('lag_days', 0.0) or 0.0),),
         }
     for v in out.values():
         v['multi'] = ' + '.join('%s%+g' % (t, h) for t, h in sorted(v['all_links'])) if v['links'] > 1 else ''
     return out
+
+
+def pair_links(v):
+    """{type: (lag_hours, lag_days)} — every P6 link of one pred → succ pair. P6 holds at most
+    one link of each type between two activities, so the type identifies the link (copies of a
+    duplicated activity collapse onto it)."""
+    hours = v.get('all_links') or ((v.get('type', 'FS'), v.get('lag_hours', 0.0) or 0.0),)
+    days = v.get('link_days') or ((v.get('type', 'FS'), v.get('lag_days', 0.0) or 0.0),)
+    out = {}
+    for (t, h), (_t, d) in zip(hours, days):
+        out.setdefault(t, (h or 0.0, d or 0.0))
+    return out
+
+
+def link_changes(b, u):
+    """Link-level comparison of a pair present in both revisions (comment 44 — an SS + FF pair
+    whose two lags changed is two lag changes, not one 'type change'):
+    {'type', 'lag', 'added', 'removed', 'type_map'}. A link whose type is gone pairs with a new
+    type (a type change); type_map maps each update type to the baseline link it reverts to."""
+    lb, lu = pair_links(b), pair_links(u)
+    lag = sum(1 for t in lb if t in lu and abs(lb[t][0] - lu[t][0]) > 1e-6)
+    only_b = [t for t in lb if t not in lu]
+    only_u = [t for t in lu if t not in lb]
+    n = min(len(only_b), len(only_u))
+    type_map = {t: t for t in lu if t in lb}
+    type_map.update({t: (only_b[i] if i < n else None) for i, t in enumerate(only_u)})
+    return {'type': n, 'lag': lag, 'added': len(only_u) - n, 'removed': len(only_b) - n,
+            'type_map': type_map}
+
+
+def links_differ(b, u):
+    c = link_changes(b, u)
+    return bool(c['type'] or c['lag'] or c['added'] or c['removed'])
 
 
 def rel_count(rels):

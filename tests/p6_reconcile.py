@@ -38,7 +38,7 @@ def reconcile(path, res):
 
     # ── Overview / import ──
     chk(P, 'Overview', 'Activities', len(R.acts), res['activity_count'])
-    chk(P, 'Overview', 'Calendars', len(R.cals), res['calendar_count'])
+    chk(P, 'Overview', 'Calendars', R.project_calendars or len(R.cals), res['calendar_count'])
     chk(P, 'Overview', 'Data date', day(R.project['data_date']), (res['data_date'] or '')[:10])
     chk(P, 'Overview', 'Project name', R.project['name'], res['project_name'])
 
@@ -163,6 +163,19 @@ def reconcile(path, res):
         from p6_evm.parser import parse_file
         from p6_compare.schedule import forward_pass, project_finish
         data = parse_file(path)
+        # P6's dates must first fit the file's own calendars — an export whose activity dates
+        # fall outside its calendars' working time was scheduled with calendars it no longer
+        # carries, and no scheduler can reproduce it from the file
+        cals = getattr(data, 'calendars', None) or {}
+        opens = [a for a in data.activities.values() if not a.get('actual_start') and a.get('remaining_early_start')
+                 and a.get('remaining_early_finish') and a.get('remaining_duration')
+                 and cals.get(a.get('calendar_id')) is not None]
+        fit = sum(1 for a in opens if abs(cals[a['calendar_id']].working_minutes(a['remaining_early_start'], a['remaining_early_finish'])
+                                          - a['remaining_duration'] * 60) < 1)
+        if opens and fit < 0.9 * len(opens):
+            chk(P, 'Consultant Review (but-for scheduler)', "P6's dates fit the file's calendars (skipped)",
+                'no', 'no', note=f'{fit} of {len(opens)} activities fit')
+            raise StopIteration
         efs = forward_pass(data)
         open_acts = [(o, a) for o, a in data.activities.items() if not a.get('actual_finish') and a.get('remaining_early_finish')]
         same = sum(1 for o, a in open_acts if efs.get(o) and abs((efs[o] - a['remaining_early_finish']).total_seconds()) < 60)
@@ -174,6 +187,8 @@ def reconcile(path, res):
         share = round(100.0 * same / len(open_acts), 1) if open_acts else 100.0
         chk(P, 'Consultant Review (but-for scheduler)', 'open activities whose early finish equals P6 (%)',
             '≥ 90', share, ok=share >= 90.0, note=f'{same} of {len(open_acts)}')
+    except StopIteration:
+        pass
     except Exception as exc:                                  # never hide a crash as a pass
         chk(P, 'Consultant Review (but-for scheduler)', 'runs', 'ok', str(exc)[:80], ok=False)
 
@@ -213,10 +228,14 @@ def reconcile(path, res):
     # ── Earned Value — P6's own formulas ('Activity percent complete' earned value):
     #    BAC = budgeted (planned) cost · EV = BAC × % complete · AC = actual cost ·
     #    PV = BAC × schedule % complete (data date within each activity's planned dates, working time)
-    bac = sum(a.get('planned_cost') or 0 for a in R.acts.values())
+    # with an embedded project baseline, P6 earns against the BASELINE budget and dates
+    use_bl = bool(getattr(R, 'baseline', None))
+    src = lambda code, a: (R.baseline.get(code) or {}) if use_bl else a
+    budget = lambda code, a: src(code, a).get('planned_cost') or 0
+    bac = sum(budget(c, a) for c, a in R.acts.items())
     if bac:
         tol = lambda x, y: abs(x - (y or 0)) <= max(1.0, abs(x) * 1e-6)
-        ev = sum((a.get('planned_cost') or 0) * (a['pct'] or 0) for a in R.acts.values())
+        ev = sum(budget(c, a) * (a['pct'] or 0) for c, a in R.acts.items())
         cat_bac = sum(c.get('bac') or 0 for c in (res.get('categories') or {}).values())
         chk(P, 'Earned Value', 'budget at completion (BAC)', round(bac), round(cat_bac), ok=tol(bac, cat_bac))
         chk(P, 'Earned Value', 'earned value (EV = BAC × % complete)', round(ev), round(res['ev'] or 0), ok=tol(ev, res['ev']))
@@ -227,15 +246,16 @@ def reconcile(path, res):
         if getattr(R, 'calendars', None):
             dd = R.project['data_date']
             pv = 0.0
-            for a in R.acts.values():
-                c, s0, f0 = a.get('planned_cost') or 0, a.get('pl_start'), a.get('pl_finish')
+            for code, a in R.acts.items():
+                b = src(code, a)
+                c, s0, f0, cal = budget(code, a), b.get('pl_start'), b.get('pl_finish'), b.get('cal') or a['cal']
                 if not c or not s0 or not f0:
                     continue
                 if dd >= f0:
                     pv += c
                 elif dd > s0:
-                    tot = R.calendars.work_minutes(a['cal'], s0, f0)
-                    pv += c * (R.calendars.work_minutes(a['cal'], s0, dd) / tot if tot else 1.0)
+                    tot = R.calendars.work_minutes(cal, s0, f0)
+                    pv += c * (R.calendars.work_minutes(cal, s0, dd) / tot if tot else 1.0)
             chk(P, 'Earned Value', 'planned value (PV = BAC × schedule % complete)', round(pv), round(res['pv'] or 0),
                 ok=tol(pv, res['pv']))
 

@@ -62,6 +62,13 @@ def _snap(cal, t):
     return t
 
 
+def _at_work(cal, t):
+    """True when ``t`` lies in a work period of ``cal`` or exactly at its close."""
+    if cal is None or t is None:
+        return True
+    return any(a <= t <= b for a, b in _intervals(cal, t.date()))
+
+
 def _add(cal, start, hours):
     """``start`` moved by ``hours`` of WORKING time on ``cal`` (negative = backward). A move that
     ends exactly at the end of a work period stays there (P6 finishes at 16:00, not next 08:00).
@@ -109,18 +116,24 @@ def _advance(cal, start, days):
     return _add(cal, start, (days or 0.0) * _day_hours(cal))
 
 
-def _topo_order(graph):
-    """Kahn topological order; any activities trapped in a cycle are appended at the end."""
+def _topo_order(graph, skip_from=None):
+    """Kahn topological order; any activities trapped in a cycle are appended at the end.
+    ``skip_from``: predecessors whose links do not drive (Level of Effort / WBS summary) — their
+    links are left out of the order too, so a 'loop' that only closes through an LOE (P6 does
+    not schedule it as one) never puts a predecessor after its successor (Alstom update)."""
+    skip_from = skip_from or set()
     indeg = {oid: 0 for oid in graph.activities}
     for oid in graph.activities:
         for link in graph.preds_of(oid):
-            if link['other'] in indeg:
+            if link['other'] in indeg and link['other'] not in skip_from:
                 indeg[oid] += 1
     q = deque(oid for oid, d in indeg.items() if d == 0)
     order, seen = [], set()
     while q:
         oid = q.popleft()
         order.append(oid); seen.add(oid)
+        if oid in skip_from:
+            continue
         for link in graph.succs_of(oid):
             s = link['other']
             if s in indeg:
@@ -155,7 +168,8 @@ def forward_pass(data, data_date=None):
     twenty_four = (proj.get('lag_calendar') == '24h')
     ss_from_early = proj.get('ss_lag_from_early_start', True)
     es, ef, rs = {}, {}, {}                    # rs = remaining early start (where remaining work begins)
-    for oid in _topo_order(graph):
+    no_drive = {oid for oid, a in acts.items() if a.get('task_type') in _NO_DRIVE}
+    for oid in _topo_order(graph, no_drive):
         act = acts.get(oid) or {}
         cal = cals.get(act.get('calendar_id'))
         af = act.get('actual_finish')
@@ -180,17 +194,26 @@ def forward_pass(data, data_date=None):
                 lagged = lambda x: x + timedelta(hours=lag_h) if x else x
             else:
                 lagged = lambda x: _add(lcal, x, lag_h)
+            # A start link (SS / SF) from a predecessor that has started — P6 with 'SS lag from early
+            # start' (seen on MAFI, Alstom, Grain Bulk and Saint Gobain, baselines and updates):
+            p_as, p_af = acts[p].get('actual_start'), acts[p].get('actual_finish')
+            if t in ('SS', 'SF') and p_as and p_af:
+                start_anchor = lagged(p_as)                     # finished: the full lag from its start
+            elif t in ('SS', 'SF') and p_as and ss_from_early and not twenty_four and lcal is not None and dd:
+                # in progress: the lag already elapsed at the data date is used up; the rest runs
+                # from the predecessor's remaining early start
+                used = lcal.working_minutes(p_as, dd) / 60.0 if lcal.has_intraday() else 0.0
+                start_anchor = _add(lcal, rs[p], max(0.0, lag_h - used))
+            elif t in ('SS', 'SF'):
+                start_anchor = lagged(rs[p] if ss_from_early else es[p])
             if t == 'FS':
                 start_c = _later(start_c, lagged(ef[p]))
-            elif t == 'SS':                       # a started predecessor: from its remaining early start
-                # a started successor has met a start link to a STARTED predecessor; ahead of a
-                # predecessor that has not started (out of sequence), retained logic still holds it
-                if not a_start or not acts[p].get('actual_start'):
-                    start_c = _later(start_c, lagged(rs[p] if ss_from_early else es[p]))
+            elif t == 'SS':
+                start_c = _later(start_c, start_anchor)
             elif t == 'FF':
                 finish_c = _later(finish_c, lagged(ef[p]))
             elif t == 'SF':
-                finish_c = _later(finish_c, lagged(rs[p] if ss_from_early else es[p]))
+                finish_c = _later(finish_c, start_anchor)
         ctype, cdate = act.get('constraint_type'), act.get('constraint_date')
         if not a_start and cdate and ctype in _SNET:
             start_c = _later(start_c, cdate)
@@ -200,13 +223,16 @@ def forward_pass(data, data_date=None):
         if s is None:
             s = act.get('remaining_early_start') or act.get('planned_start')
         finish_ms = act.get('task_type') == 'FinishMilestone'
-        if not finish_ms:                         # remaining work begins at the next working moment
-            s = _snap(cal, s)
+        # remaining work begins at the next working moment; a finish milestone keeps its
+        # predecessor's finish time when that is working time (or a day's close) on its OWN
+        # calendar, else it too moves to the next working moment (Alstom: a holiday on its calendar)
         if finish_c is not None:                  # FF / SF / finish constraint holds the start back
             s = _later(s, _add(cal, finish_c, -rem_h))
+        if not finish_ms or not _at_work(cal, s):
+            s = _snap(cal, s)
         e = _add(cal, s, rem_h)
         if finish_c is not None and (e is None or finish_c > e):
-            e = finish_c
+            e = finish_c if (not finish_ms or _at_work(cal, finish_c)) else _snap(cal, finish_c)
         es[oid] = a_start or _minute(s)
         rs[oid] = _minute(s)
         ef[oid] = _minute(e)
@@ -239,27 +265,42 @@ def but_for_finish(update, ops):
                 acts[oid]['planned_duration'] = op['planned_hours']
                 acts[oid]['remaining_duration'] = op['remaining_hours']
 
+    from p6_compare.revert import relink
     op_by_pair = {(op['pred_code'], op['succ_code']): op for op in ops
                   if op.get('kind') in ('set_rel', 'remove_rel', 'add_rel')}
-    out_rels, present = [], set()
+    rel_pair = lambda r: (oid_code.get(r.get('pred_id')), oid_code.get(r.get('succ_id')))
+    types_of = {}
     for r in update.relationships:
-        pair = (oid_code.get(r.get('pred_id')), oid_code.get(r.get('succ_id')))
+        types_of.setdefault(rel_pair(r), []).append(r.get('type', 'FS'))
+    relinked = {pair: relink(op, types_of.get(pair, [])) for pair, op in op_by_pair.items()
+                if op['kind'] == 'set_rel'}
+    out_rels, present, first = [], set(), {}
+    for r in update.relationships:
+        pair = rel_pair(r)
         op = op_by_pair.get(pair)
         if op and op['kind'] == 'remove_rel':
             continue                             # drop every copy of an added link
         nr = dict(r)
-        if op and op['kind'] == 'set_rel':       # revert type/lag on every copy
-            nr['type'] = op['type']
-            nr['lag_hours'] = op['lag_hours']
-            nr['lag_days'] = op['lag_hours'] / 8.0
+        if op and op['kind'] == 'set_rel':       # each link back to its baseline type / lag
+            m = relinked[pair][0].get(r.get('type', 'FS'))
+            if m is None:
+                continue
+            nr['type'], nr['lag_hours'] = m[0], m[1]
+            nr['lag_days'] = m[1] / 8.0
         out_rels.append(nr)
         present.add(pair)
+        first.setdefault(pair, r)
+    for pair, (_m, missing) in relinked.items():  # a baseline link of the pair the update dropped
+        for t, h in missing:
+            if pair in first:
+                out_rels.append(dict(first[pair], type=t, lag_hours=h, lag_days=h / 8.0))
     for op in ops:                               # restore removed baseline links
         if op['kind'] == 'add_rel' and (op['pred_code'], op['succ_code']) not in present:
             po, so = code_to_oids.get(op['pred_code']), code_to_oids.get(op['succ_code'])
             if po and so:
-                out_rels.append({'pred_id': po[0], 'succ_id': so[0], 'type': op['type'],
-                                 'lag_hours': op['lag_hours'], 'lag_days': op['lag_hours'] / 8.0})
+                for t, h in (op.get('links') or [(op['type'], op['lag_hours'])]):
+                    out_rels.append({'pred_id': po[0], 'succ_id': so[0], 'type': t,
+                                     'lag_hours': h, 'lag_days': h / 8.0})
 
     corrected = _copy.copy(update)
     corrected.activities = acts

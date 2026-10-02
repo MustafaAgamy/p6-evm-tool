@@ -62,14 +62,38 @@ def test_a_level_of_effort_never_drives_its_successor():
     assert forward_pass(_data(acts, [('L', 'B', 'FF', {})]))['B'] == datetime(2026, 3, 2, 16, 0)
 
 
-def test_start_to_start_from_a_started_predecessor_runs_from_its_remaining_early_start():
+def test_start_to_start_from_a_started_predecessor():
+    # lag already elapsed at the data date → used up: B starts with A's remaining work (2 Mar 08:00)
     acts = [_act('A', 16, actual_start=datetime(2026, 2, 1, 8)), _act('B', 8)]
-    ef = forward_pass(_data(acts, [('A', 'B', 'SS', {'lag_hours': 8.0, 'lag_calendar_id': 'C'})]))
-    # A's remaining work starts 2 Mar 08:00 → B after 8 h of lag: 3 Mar 08:00 → finish 3 Mar 16:00
-    assert ef['B'] == datetime(2026, 3, 3, 16, 0)
-    ef = forward_pass(_data(acts, [('A', 'B', 'SS', {'lag_hours': 8.0, 'lag_calendar_id': 'C'})],
-                            ss_lag_from_early_start=False))
-    assert ef['B'] == datetime(2026, 3, 2, 16, 0)       # from the actual start (long past)
+    rel = [('A', 'B', 'SS', {'lag_hours': 8.0, 'lag_calendar_id': 'C'})]
+    assert forward_pass(_data(acts, rel))['B'] == datetime(2026, 3, 2, 16, 0)
+    # started on the data date: 8 of the 16 h lag elapsed → the other 8 h after A's remaining start
+    acts = [_act('A', 16, actual_start=datetime(2026, 3, 1, 8)), _act('B', 8)]
+    rel = [('A', 'B', 'SS', {'lag_hours': 16.0, 'lag_calendar_id': 'C'})]
+    assert forward_pass(_data(acts, rel))['B'] == datetime(2026, 3, 3, 16, 0)
+
+
+def test_start_to_start_from_a_finished_predecessor_takes_the_full_lag_from_its_start():
+    acts = [_act('A', 0, actual_start=datetime(2026, 2, 26, 8), actual_finish=datetime(2026, 2, 26, 16)),
+            _act('B', 8)]
+    rel = [('A', 'B', 'SS', {'lag_hours': 48.0, 'lag_calendar_id': 'C'})]
+    # 26 Feb 08:00 + 48 h (Thu 26, Sat 28, Sun 1, Mon 2, Tue 3, Wed 4) = Wed 4 Mar 16:00 → B Thu 5 Mar
+    assert forward_pass(_data(acts, rel))['B'] == datetime(2026, 3, 5, 16, 0)
+
+
+def test_a_loop_that_only_closes_through_a_level_of_effort_is_no_loop():
+    acts = [_act('A', 8), _act('B', 8), _act('L', 80, 'LOE')]
+    rels = [('A', 'B', 'FS', {}), ('B', 'L', 'SS', {}), ('L', 'A', 'FF', {})]
+    ef = forward_pass(_data(acts, rels))
+    assert ef['A'] == datetime(2026, 3, 2, 16, 0) and ef['B'] == datetime(2026, 3, 3, 16, 0)
+
+
+def test_a_finish_milestone_on_a_holiday_of_its_own_calendar_moves_to_the_next_working_moment():
+    other = _cal('O')
+    other.holidays = {datetime(2026, 3, 2).date()}
+    acts = [_act('A', 8), _act('M', 0, 'FinishMilestone', calendar_id='O')]
+    ef = forward_pass(_data(acts, [('A', 'M', 'FF', {})], cals={'C': _cal(), 'O': other}))
+    assert ef['A'] == datetime(2026, 3, 2, 16, 0) and ef['M'] == datetime(2026, 3, 3, 8, 0)
 
 
 def test_a_started_successor_has_met_its_start_link_to_a_started_predecessor():
