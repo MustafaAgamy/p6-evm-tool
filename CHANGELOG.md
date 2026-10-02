@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Fixed — Every keyboard shortcut works on every feature (comment 43)
+Every shortcut was pressed in the running app, on every feature, with a schedule imported: the 20 feature jumps (Alt+1 … Alt+0, Alt+Shift+1 … Alt+Shift+0), and on each of the 18 features Ctrl+↵, Ctrl+P, Ctrl+S, Ctrl+E, Ctrl+Shift+E, Ctrl+Shift+W, Ctrl+Shift+H and Ctrl+R, plus Ctrl+K, Ctrl+Shift+R, Ctrl+B, Ctrl+D, Ctrl+Shift+A, F1, Ctrl+/, Ctrl+F, ?, Esc and Ctrl+O. Every feature has its own jump and every jump opens it. What did not act, now fixed:
+- **Ctrl+E (Export to Excel) on Overview, WBS, Earned Value and Productivity & Resources** saved nothing — it said "This view exports to PDF" or "Run this module's analysis first", although the views have Excel. It now saves the view's own workbook, or opens the preview and presses its ⬇ Excel.
+- **Ctrl+Shift+W / Ctrl+Shift+H on the Knowledge Base** opened the preview but saved nothing. They now save Word / HTML.
+- **Ctrl+R and Ctrl+↵ on a Consultant Review or Baseline Revision result** said "use this feature's own Run button". They now run the comparison again with the same files.
+- **Ctrl+↵ on Bad Weather** said "assign this feature's input files" — it now says what it needs: the project location.
+- **Schedule Health before its run:** the export shortcuts said "Open a schedule and pick a module first" while a schedule was open; they now say to enter the contract milestones and run the review (Ctrl+↵).
+- **Ctrl+↵ / Ctrl+R on Overview, WBS and the Gantt** say they are built when the schedule is imported and already up to date, instead of doing nothing.
+- A browser test now presses these shortcuts in the real page on every build (tests/test_shortcuts_browser_comment43.py).
+
 ## [v2.10.0] - 2026-10-02
 
 ### Fixed — Results checked against Primavera P6, feature by feature (final test)

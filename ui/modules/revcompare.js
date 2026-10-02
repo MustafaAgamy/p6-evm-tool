@@ -141,6 +141,9 @@ async function assignFile(kind) {
   renderInputs(document.getElementById('revcompare-body'));
 }
 
+// Ctrl+R on the comparison result: run it again with the same two revisions (comment 43).
+export function rerunRevCompare() { return runComparison(); }
+
 async function runComparison() {
   if (!state.revcompareRev0 || !state.revcompareRev1) { showError('Assign both baseline revisions first.'); return; }
   const body = document.getElementById('revcompare-body');

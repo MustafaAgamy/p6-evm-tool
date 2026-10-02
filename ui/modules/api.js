@@ -193,8 +193,18 @@ function moduleMeta() {
   };
 }
 
+// Why a Schedule Health export cannot run yet — a schedule IS open on the milestone step, so
+// "open a schedule" misled (comment 43).
+function noModuleMessage() {
+  if (!state.currentSnapshotId) return 'Open a schedule and pick a module first.';
+  if (state.currentView === 'audit') {
+    return 'Run Schedule Health first — enter your contract milestones and press Run Schedule Health Review (Ctrl+↵), then export.';
+  }
+  return 'Run this check first, then export.';
+}
+
 export async function exportExcel(btnId = 'excel-btn') {
-  if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
+  if (!state.currentSnapshotId || !state.currentModule) { showError(noModuleMessage()); return; }
   const _el = document.getElementById(btnId);
   const btn = new ButtonState(_el, _el ? _el.textContent : 'Export to Excel');
   btn.loading('Exporting…');
@@ -228,7 +238,7 @@ export async function exportExcel(btnId = 'excel-btn') {
 }
 
 export async function generateModulePdf(btnId = 'pdf-btn-audit') {
-  if (!state.currentSnapshotId || !state.currentModule) { showError('Open a schedule and pick a module first.'); return; }
+  if (!state.currentSnapshotId || !state.currentModule) { showError(noModuleMessage()); return; }
   const _el = document.getElementById(btnId);
   const btn = new ButtonState(_el, _el ? _el.textContent : 'Generate PDF');
   btn.loading('Preparing preview…');

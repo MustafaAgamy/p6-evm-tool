@@ -372,7 +372,7 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   // no Word / HTML export yet.
   const plan = pendingExportPlan(takeDocExport(), offered.map(e => e.kind), featureName);
   if (plan && plan.click) {
-    toast(`Saving as ${plan.click === 'docx' ? 'Word' : 'HTML'} — choose where to save it.`);
+    toast(`Saving as ${({ docx: 'Word', html: 'HTML', xlsx: 'Excel' })[plan.click] || plan.click} — choose where to save it.`);
     Promise.resolve(firstPaint).catch(() => {}).then(() => {
       const b = overlay.isConnected && overlay.querySelector(`#rpv-save-${plan.click}`);
       if (b && !b.disabled) b.click();

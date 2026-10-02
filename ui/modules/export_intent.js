@@ -11,6 +11,9 @@
 // Pure (no DOM) — tests/js/test_export_intent.js.
 
 export const DOC_KINDS = { docx: 'Word', html: 'HTML' };
+// What a preview may be asked to press once it opens: Word / HTML (Ctrl+Shift+W / H) and Excel —
+// File ▸ Export to Excel (Ctrl+E) on a view whose Excel lives in its preview bar (comment 43).
+export const PENDING_KINDS = { ...DOC_KINDS, xlsx: 'Excel' };
 
 // Long enough for a slow report render; short enough that a preview the user opens by hand
 // later never saves a file they did not ask for.
@@ -18,7 +21,7 @@ export const PENDING_TTL_MS = 60000;
 
 // The friendly "not yet" line. hasPdf / hasExcel: what the view CAN save instead.
 export function noDocExportMessage(kind, what, { hasPdf = true, hasExcel = false, inPreview = false } = {}) {
-  const label = DOC_KINDS[kind] || String(kind || '').toUpperCase();
+  const label = PENDING_KINDS[kind] || String(kind || '').toUpperCase();
   const alt = [];
   if (hasPdf) alt.push(inPreview ? '⬇ PDF in this preview' : 'File ▸ Print / Export to PDF');
   if (hasExcel) alt.push('File ▸ Export to Excel');
@@ -50,7 +53,7 @@ export function docExportRoute({ kind, map, printView = false, standalone = fals
 let _pending = null;
 
 export function requestDocExport(kind, { what = '', hasExcel = false } = {}, now = Date.now()) {
-  _pending = DOC_KINDS[kind] ? { kind, what, hasExcel, until: now + PENDING_TTL_MS } : null;
+  _pending = PENDING_KINDS[kind] ? { kind, what, hasExcel, until: now + PENDING_TTL_MS } : null;
   return _pending;
 }
 
@@ -67,7 +70,7 @@ export function clearDocExport() { _pending = null; }
 //   offered — the export kinds its bar offers (e.g. ['pdf'] or ['pdf','docx','html','xlsx'])
 // → null (nothing pending) | {click: kind} | {message}
 export function pendingExportPlan(pending, offered, featureName = '') {
-  if (!pending || !DOC_KINDS[pending.kind]) return null;
+  if (!pending || !PENDING_KINDS[pending.kind]) return null;
   const kinds = Array.isArray(offered) ? offered : [];
   if (kinds.includes(pending.kind)) return { click: pending.kind };
   return {
