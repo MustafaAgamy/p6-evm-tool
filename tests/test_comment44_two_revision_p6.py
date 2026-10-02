@@ -94,7 +94,7 @@ def test_but_for_scheduler_keeps_the_ff_an_ff():
     seen = {}
     orig = schedule.project_finish
 
-    def spy(data):
+    def spy(data, **kw):
         seen['rels'] = sorted((r['type'], r['lag_hours']) for r in data.relationships)
         return None
     schedule.project_finish = spy
