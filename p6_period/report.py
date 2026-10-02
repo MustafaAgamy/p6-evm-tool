@@ -126,7 +126,9 @@ def _verdict(summary, recovery):
         ach = s.get('forecast_achievement')
         bits.append(f'earned {_sign_pct(earned)}' + (f' ({round(ach * 100)}% of plan)' if ach is not None else ''))
     if spv is not None:
-        bits.append(f'SPI {"+" if spv > 0 else ""}{spv}')
+        # the CHANGE in SPI, as a whole percentage like the screen's SPI (99%) — 'SPI 0.0' read as
+        # if the SPI itself were zero (final P6 test, comment 5)
+        bits.append(f'SPI change {"+" if spv > 0 else ""}{round(spv * 100)}%')
     if slip:
         bits.append(f'finish {"slipped" if slip > 0 else "pulled in"} {abs(slip)} d')
     return {'level': level, 'headline': head, 'detail': ('; '.join(bits) + '.' if bits else '')}

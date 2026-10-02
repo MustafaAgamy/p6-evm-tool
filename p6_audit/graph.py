@@ -26,7 +26,10 @@ class ScheduleGraph:
 
     def is_real_activity(self, oid):
         act = self.activities.get(oid)
-        return bool(act) and act.get('task_type') == 'Task'
+        # real work = Task Dependent AND Resource Dependent (P6 and DCMA count both as tasks;
+        # milestones, LOE and WBS summaries are not).  Resource Dependent used to be left out of
+        # every Schedule Health check (final P6 test, comment 5: Grain Bulk 1,466 vs P6 1,467).
+        return bool(act) and act.get('task_type') in ('Task', 'ResourceDependent')
 
     def wbs_path(self, oid):
         act = self.activities.get(oid, {})
