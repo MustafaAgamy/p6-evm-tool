@@ -659,6 +659,37 @@ def _logic_lane(l, idx, added_by_succ=None):
             f'<div class="rev2lab r1">Rev.01 — after</div>{_chain2(l, after_link)}{repl_html}</div>')
 
 
+def _lanes_table_attrs(rows):
+    """More lanes than the Word export draws (p6_export.auto_visuals.MAX_ITEMS) → the same
+    changes as a real Word / Excel table, one row per changed link, instead of loose text lines
+    (final sweep, comment 3).  Fewer → '' : Word draws the lanes as the PDF shows them.  The
+    attribute only steers the exports; the screen, the PDF and the HTML file are unchanged."""
+    try:
+        from p6_export.auto_visuals import MAX_ITEMS
+    except Exception:
+        MAX_ITEMS = 60
+    if len(rows) <= MAX_ITEMS:
+        return ''
+    import json
+
+    def act(code, name):
+        return f'{code} · {name}' if code and name else (code or name or '')
+    heads = ['#', 'Change', 'Rev.00 link', 'Rev.01 link', 'Predecessor', 'Successor',
+             'On critical path', 'WBS']
+    data = []
+    for i, r in enumerate(rows, 1):
+        low = str(r.get('change') or '').lower()
+        data.append([i, r.get('change') or '',
+                     'not linked' if 'added' in low else (r.get('before') or ''),
+                     'removed' if 'removed' in low else (r.get('after') or ''),
+                     act(r.get('pred_id'), r.get('pred_name')), act(r.get('succ_id'), r.get('succ_name')),
+                     'Yes' if r.get('on_cp') else '',
+                     ' > '.join(str(r.get('succ_wbs') or r.get('pred_wbs') or '').split(' > ')[1:3])])
+    enc = lambda v: _html.escape(json.dumps(v, ensure_ascii=False), quote=True)
+    return (f' data-export="table" data-part-label="Logic &amp; sequence changes"'
+            f' data-chart-headers="{enc(heads)}" data-chart-data="{enc(data)}"')
+
+
 def _logic_changes(report, filters):
     """Change 2 — Logic & Sequence Changes: every changed predecessor → successor link as a
     numbered lane laid out in a 2-up grid (no overflow scroll), each shown as two chains —
@@ -685,7 +716,7 @@ def _logic_changes(report, filters):
         if 'added' in str(r.get('change') or '').lower():
             added_by_succ.setdefault(r.get('succ_id'), []).append(r)
     lanes = ''.join(_logic_lane(r, i + 1, added_by_succ) for i, r in enumerate(frows))
-    body = _filter_heading(dim, val) + intro + f'<div class="lanes">{lanes}</div>'
+    body = _filter_heading(dim, val) + intro + f'<div class="lanes"{_lanes_table_attrs(frows)}>{lanes}</div>'
     return _card('Logic & sequence changes', 'before → after · by activity code', body)
 
 

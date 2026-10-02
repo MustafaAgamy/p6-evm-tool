@@ -141,8 +141,9 @@ def mark_visuals(html):
                 continue
             for d in _walk(sec):
                 seen.add(id(d))                         # a nested [data-sec] is handled by its parent
-            if re.search(r'\bdata-export\s*=', s[sec.tag_end:sec.inner_end]):
+            if re.search(r'\bdata-export\s*=\s*(?!["\']?table\b)', s[sec.tag_end:sec.inner_end]):
                 continue                                # the renderer marked its own exports
+                                                        # (a long list given as a table does not count)
             if (sec.attr('data-parts') or '').lower() == 'none' and not _has(s, sec, r'<table'):
                 _mark(s, sec, edits)                    # one designed block (a card): a picture as a whole
                 continue

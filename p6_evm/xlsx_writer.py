@@ -891,7 +891,54 @@ def write_weather_xlsx(path, ca, weather, meta=None):
         pct = (round(cnt / total * 100) if (total and not off) else 0)
         cause_rows.append([c.get('label', ''), 'off' if off else cnt,
                            '' if off else (f'{pct}%' if total else '')])
-    wx_blocks = [
+    # §1–§3 of the report: the dashboard figures, the monthly histogram, the stop-work limits
+    # and how each limit performed — the workbook had only §4–§7 (final sweep, comment 3)
+    d = ca.get('dashboard') or {}
+    try:
+        from p6_calendar.report import _days_between
+        slip = _days_between(d.get('baseline_finish'), d.get('project_finish'))
+    except Exception:
+        slip = ''
+    wx_add = w.get('net_finish_delay', 0) or 0
+    dash_rows = [
+        ['Baseline Finish' + (' (approx)' if d.get('baseline_approx') else ''), _human_date(d.get('baseline_finish'))],
+        ['Schedule slip (calendar days)', (f'+{slip} d' if isinstance(slip, int) and slip > 0 else f'{slip} d')
+         if slip != '' else ''],
+        ['Forecast Completion', _human_date(d.get('project_finish'))],
+        ['Weather adds (working days)', f'+{wx_add} wd'],
+        ['Bad-weather Completion', _human_date(w.get('weather_adjusted_finish'))],
+        ['Expected bad-weather days (data date to finish)', total],
+    ]
+    dash_rows = [r for r in dash_rows if r[1] not in (None, '', '—')]
+    hist_rows = [[h.get('label', ''), h.get('net', 0), h.get('bad', 0), h.get('nonworking', 0)]
+                 for h in (w.get('histogram') or [])]
+    crit = w.get('criteria') or []
+    site = (w.get('site_type_label')
+            or ('Custom limits' if w.get('site_type') == 'custom' else 'Default limits (Desert / inland)'))
+    crit_rows = [[c.get('label', ''), c.get('value', ''),
+                  (c.get('explain', '') or '') + ('' if c.get('on', True) else ' (not counted)')] for c in crit]
+
+    def _perf(pf):
+        unit = f' {pf["unit"]}' if pf.get('unit') else ''
+        peak = f'{pf["peak"]}{unit}' if pf.get('peak') is not None else ''
+        if not pf.get('on'):
+            return ['off (not counted)', '', '', peak]
+        lim = f'≥ {pf["limit"]}{unit}' if pf.get('limit') is not None else ''
+        return ['on', lim, pf.get('flagged', 0), peak]
+    perf_rows = [[pf.get('label', '')] + _perf(pf) for pf in (w.get('limit_performance') or [])]
+    head_blocks = [
+        {'title': 'Execution Dashboard — estimate, not a P6 figure', 'headers': ['Figure', 'Value'],
+         'rows': dash_rows},
+        {'title': 'Calendar Timeline & Statistics — days per month', 'headers':
+            ['Month', 'Net working days', 'Bad-weather days (expected)', 'Non-working days'],
+         'rows': hist_rows},
+        {'title': f'Stop-Work Criteria — {site}', 'headers': ['Limit', 'Value', 'What work it stops'],
+         'rows': crit_rows},
+        {'title': 'Why This Result — How Each Limit Performed', 'headers':
+            ['Limit', 'Status', 'Limit value', 'Days flagged', 'Highest seen'],
+         'rows': perf_rows},
+    ]
+    wx_blocks = [b for b in head_blocks if b['rows']] + [
         {'title': 'Upcoming Bad-Weather Days', 'headers':
             ['#', 'Date', 'Day', 'Why it is a lost day (measured)', 'Confidence', 'Affected work (by WBS)'],
          'rows': [[i, _human_date(d['date']), d.get('day_name', ''), d.get('condition', ''),

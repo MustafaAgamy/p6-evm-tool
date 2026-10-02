@@ -132,7 +132,9 @@ def build_quality(rev0, rev1, matched, cal=None):
         new_leads.append({'pred_id': pc, 'succ_id': sc, 'lag': round(leads1[(pc, sc)], 1)})
 
     # ── relationship density ─────────────────────────────────────────────────
-    n_rels0, n_rels1 = len(rels0), len(rels1)
+    # relationships as P6 counts them: two links between the same pair are two relationships
+    n_rels0 = sum((v.get('links') or 1) for v in rels0.values())
+    n_rels1 = sum((v.get('links') or 1) for v in rels1.values())
     n_act0, n_act1 = len(by0), len(by1)
 
     # ── negative float ───────────────────────────────────────────────────────

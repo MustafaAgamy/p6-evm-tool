@@ -35,14 +35,29 @@ def _rels_by_pair(data):
         pc, sc = pred.get('id'), succ.get('id')
         if not pc or not sc:
             continue
+        this = (rel.get('type', 'FS'), rel.get('lag_hours', 0.0) or 0.0)
+        prev = out.get((pc, sc))
         out[(pc, sc)] = {
             'type': rel.get('type', 'FS'),
             'lag_days': rel.get('lag_days', 0.0) or 0.0,
             'lag_hours': rel.get('lag_hours', 0.0) or 0.0,
             'pred_name': pred.get('name', ''),
             'succ_name': succ.get('name', ''),
+            # P6 allows several links between the same two activities (e.g. SS and FF).  The
+            # pair keeps one entry, but it remembers every link: 'links' is how many P6 holds
+            # (so relationship totals equal P6's) and 'multi' is their signature (so a change
+            # to ANY of them is seen as a change).
+            'links': (prev['links'] if prev else 0) + 1,
+            'all_links': (prev['all_links'] if prev else ()) + (this,),
         }
+    for v in out.values():
+        v['multi'] = ' + '.join('%s%+g' % (t, h) for t, h in sorted(v['all_links'])) if v['links'] > 1 else ''
     return out
+
+
+def rel_count(rels):
+    """How many relationships P6 holds in a ``_rels_by_pair`` map (a pair may carry several)."""
+    return sum((v.get('links') or 1) for v in (rels or {}).values())
 
 
 class MatchedSchedules:

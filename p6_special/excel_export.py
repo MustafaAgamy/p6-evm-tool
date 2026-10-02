@@ -24,9 +24,48 @@ from p6_evm.xlsx_writer import (
     _safe_sheet_name, _uniq,
 )
 
-# What an opaque reused feature-report section (kind 'html') gets — honest, we do
-# not try to parse the feature's own report markup back into a table.
+# A reused feature-report section (kind 'html') is read back into its tables and figures
+# (owner comment 29: Excel carries all the data).  The notice below is only what is left
+# when a section holds nothing tabular at all.
 _HTML_NOTICE = 'This section is a detailed report section — see the PDF / Word report.'
+
+
+def _plain(v):
+    """A to_xlsx cell value → a plain value for the Studio sheet writer."""
+    if isinstance(v, (int, float)) or v is None:
+        return v
+    for attr in ('value', 'text'):
+        if hasattr(v, attr):
+            return getattr(v, attr)
+    if isinstance(v, dict):
+        return v.get('value', v.get('text', ''))
+    return str(v)
+
+
+def _html_blocks(pl):
+    """The tables, key figures and chart numbers of a reused report section, as stacked-sheet
+    blocks ``[{title, headers, rows}]`` — the same reading the report's own Excel export uses
+    (:mod:`p6_export.to_xlsx`).  [] when nothing could be read."""
+    try:
+        from p6_export import html_model as HM, to_xlsx as TX
+        from p6_export.auto_visuals import mark_visuals
+        frag = str(pl.get('html') or '')
+        if not frag.strip():
+            return []
+        doc = ('<html><head><style>%s</style></head><body><div data-sec="section">%s</div></body></html>'
+               % (pl.get('css') or '', frag))
+        rep = HM.parse_report(mark_visuals(doc))
+        out = []
+        for sheet in TX.build_sheets(rep):
+            for b in sheet.get('blocks') or []:
+                rows = [[_plain(c) for c in r] for r in (b.get('rows') or [])]
+                if not rows:
+                    continue
+                out.append({'title': b.get('title') or 'Section', 'headers': [_plain(h) for h in (b.get('headers') or [])],
+                            'rows': rows})
+        return out
+    except Exception:
+        return []
 
 # A friendly heading per payload kind, used for the sub-heading of each block when a
 # ``group`` payload is flattened onto one stacked sheet.
@@ -148,6 +187,11 @@ def _group_blocks(pl):
         if b.get('kind') == 'group':
             blocks.extend(_group_blocks(b))
             continue
+        if b.get('kind') == 'html':
+            got = _html_blocks(b)
+            if got:
+                blocks.extend(got)
+                continue
         t = _kind_to_table(b)
         if not t:
             continue
@@ -170,6 +214,10 @@ def _result_sheet_xml(pl):
         return _stacked_sheet(blocks, col_widths={0: 30, 1: 22, 2: 22, 3: 18})
     if kind in (None, 'no_data'):
         return None
+    if kind == 'html':
+        blocks = _html_blocks(pl)
+        if blocks:
+            return _stacked_sheet(blocks, col_widths={0: 34, 1: 22, 2: 22, 3: 18})
     t = _kind_to_table(pl)
     if not t:
         return None

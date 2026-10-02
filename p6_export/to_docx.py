@@ -671,7 +671,63 @@ class _Writer:
                     self._run(p, r, cell.size_pt or base,
                               force_bold=cell.bold or cell.header or None,
                               force_color=None if r.color else cell.color)
+            if cell.bar:
+                width = sum(widths[ci:ci + cs]) - 2 * 80 * 635          # less the cell margins
+                self._bar(p, cell.bar, width / 12700.0)
         self._space(c, 4)
+
+    def _bar(self, p, bar, w_pt):
+        """A Gantt time-line cell as native Word shapes the width of its column: the track,
+        the bar with its % complete fill (or the milestone diamond) and the data-date line —
+        or, in the header, the month labels with their tick marks.  As the PDF draws them."""
+        from . import vector_shapes as VS
+        w_pt -= VS.RIGHT_PAD                       # group_drawing_xml adds this room back
+        if w_pt < 12:
+            return
+        x = lambda pct: w_pt * max(0.0, min(100.0, pct)) / 100.0
+
+        def rect(x0, y0, x1, y1, fill):
+            return {'k': 'path', 'segs': [], 'fill': fill, 'stroke': None, 'width': 0, 'rect': True,
+                    'bbox': (x0, y0, max(x1, x0 + 0.75), y1)}
+        prims = []
+        if 'scale' in bar:
+            h = 9.0
+            for left, label, col in bar['scale']:
+                x0 = x(left)
+                prims.append(rect(x0, 0, x0 + 0.75, h, self.hair))
+                size = 6.4
+                prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
+                              'bold': False, 'italic': False, 'font': 'Consolas', 'vert': False,
+                              'base': 7.2, 'bbox': (x0 + 1.5, 0.5, x0 + 1.5 + len(label) * size * 0.6, h)})
+        else:
+            h = 9.0
+            prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F1F4F8'))
+            if bar.get('bar'):
+                left, width, col = bar['bar']
+                x0, x1 = x(left), x(min(100.0, left + width))
+                prims.append(rect(x0, 1.5, max(x1, x0 + 1.5), 7.5, _hex(col) or 'D6E4F5'))
+                f = bar.get('fill')
+                if f and f[0] > 0:
+                    prims.append(rect(x0, 1.5, x0 + (max(x1, x0 + 1.5) - x0) * f[0] / 100.0, 7.5,
+                                      _hex(f[1]) or self.accent))
+            if bar.get('ms'):
+                cx, col = x(bar['ms'][0]), _hex(bar['ms'][1]) or self.ink
+                r = 4.0
+                prims.append({'k': 'path', 'fill': col, 'stroke': None, 'width': 0, 'rect': False,
+                              'segs': [('M', (cx, 4.5 - r)), ('L', (cx + r, 4.5)), ('L', (cx, 4.5 + r)),
+                                       ('L', (cx - r, 4.5)), ('Z',)],
+                              'bbox': (cx - r, 4.5 - r, cx + r, 4.5 + r)})
+            if bar.get('dd'):
+                dx = x(bar['dd'][0])
+                prims.append(rect(dx - 0.375, 0, dx + 0.375, h, _hex(bar['dd'][1]) or self.accent))
+        try:
+            ids = self.__dict__.setdefault('_shape_ids', [50000])
+            xml = VS.group_drawing_xml(prims, w_pt, h, ids, name='Gantt bar')
+            if xml:
+                p.add_run()._r.append(parse_xml(xml))
+        except Exception:
+            if os.environ.get('CX_EXPORT_DEBUG'):
+                raise
 
     def kpis(self, g, c):
         tiles = [t for t in g.tiles if (t.label or t.value or t.note)]

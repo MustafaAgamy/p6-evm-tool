@@ -181,7 +181,7 @@ function printSections(result, acts, groups, counts, sp, note) {
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
   const head = `<thead><tr><th>Activity ID</th><th>Activity name</th><th>Start</th><th>Finish</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
-    + `<th class="gp-tl" data-export="skip"><div class="gp-scale">${scale}</div></th></tr></thead>`;
+    + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
     const l = pos(sMs), w = Math.max(0.6, pos(fMs) - l);
@@ -190,7 +190,7 @@ function printSections(result, acts, groups, counts, sp, note) {
       : `<b class="gp-bar${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${Math.max(0, Math.min(100, a.pct))}%"></s></b>`;
     return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td><td>${escapeHtml(a.name)}</td>`
       + `<td class="gp-d">${gShort(a.start)}</td><td class="gp-d">${gShort(a.finish)}</td><td class="gp-n">${a.pct}</td>`
-      + `<td class="gp-n">${a.tf == null ? '—' : a.tf}</td><td class="gp-tl" data-export="skip"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
+      + `<td class="gp-n">${a.tf == null ? '—' : a.tf}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
 
   const parts = groups.map((g) => {
