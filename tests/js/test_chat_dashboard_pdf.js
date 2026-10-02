@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dashPdfZoom, dashPdfName, dashPdfDoc, stripNarrowMedia, DASH_PDF_PAGE } from '../../ui/modules/chat.js';
+import { dashPdfZoom, dashPdfName, dashXlsxName, dashPdfDoc, stripNarrowMedia, DASH_PDF_PAGE } from '../../ui/modules/chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(__dirname, '..', '..', 'ui', 'modules', 'chat.js'), 'utf8');
@@ -72,6 +72,14 @@ test('the button is on the dashboard, messages are in the page, controls stay of
 test('amounts carry no invented currency symbol', () => {
   assert.ok(!src.includes('£'));
   assert.ok(src.includes("function money(v) { return Math.abs(Number(v) || 0).toFixed(1) + 'M'; }"));
+});
+
+test('Download Excel sits beside Download PDF and saves the figures shown (final sweep)', () => {
+  assert.equal(dashXlsxName('Grain Bulk — Rev.01'), 'dashboard_Grain_Bulk_Rev_01.xlsx');
+  assert.equal(dashXlsxName(''), 'dashboard_project.xlsx');
+  assert.ok(src.includes('data-dxlsx="1"') && src.includes("'/api/chat/dashboard/excel'"));
+  const tools = src.slice(src.indexOf('<div class="dtools" data-screen-only="1">'), src.indexOf('<div class="dpdf-note"'));
+  assert.ok(tools.includes('data-dpdf') && tools.includes('data-dxlsx'), 'both buttons in the screen-only tools row');
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
