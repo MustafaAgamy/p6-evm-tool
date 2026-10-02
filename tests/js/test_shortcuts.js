@@ -145,23 +145,35 @@ test('Ctrl+R re-runs the current feature (and guards the reload)', () => {
   assert.equal(s.id, 'rerun'); assert.equal(s.guard, true);
 });
 test('Ctrl+Shift+R opens Recent Projects', () => assert.equal(matchShortcut(ev('R', { ctrl: true, shift: true })).id, 'recent'));
-test('Ctrl+[ / Ctrl+] previous / next feature (by physical key)', () => {
-  assert.equal(matchShortcut(ev('[', { ctrl: true, code: 'BracketLeft' })).id, 'prevFeature');
-  assert.equal(matchShortcut(ev(']', { ctrl: true, code: 'BracketRight' })).id, 'nextFeature');
+test('Previous / Next feature are gone (owner comment 42)', () => {
+  assert.equal(matchShortcut(ev('[', { ctrl: true, code: 'BracketLeft' })), null);
+  assert.equal(matchShortcut(ev(']', { ctrl: true, code: 'BracketRight' })), null);
+  assert.ok(!SHORTCUTS.some(x => /prev|next/i.test(x.id) || /Previous feature|Next feature/.test(x.label)));
 });
 test('Ctrl+Shift+A opens the Appearance picker', () => assert.equal(matchShortcut(ev('A', { ctrl: true, shift: true })).id, 'appearance'));
 test('? (Shift+/) shows the shortcuts list', () => assert.equal(matchShortcut(ev('?', { shift: true })).id, 'keys'));
 test('Ctrl+/ still opens Help on layouts where "/" needs Shift', () => assert.equal(matchShortcut(ev('/', { ctrl: true, shift: true })).id, 'help'));
-test('Alt+1…Alt+9 and Alt+0 jump to the planned features', () => {
-  const want = { Digit1: 'evm', Digit2: 'audit', Digit3: 'update', Digit4: 'critpath', Digit5: 'revcompare',
-    Digit6: 'calendar', Digit7: 'special', Digit8: 'chat', Digit9: 'recent', Digit0: 'home' };
-  for (const [code, nav] of Object.entries(want)) {
-    const s = matchShortcut(ev(code.slice(-1), { alt: true, code }));
-    assert.ok(s, `no Alt+${code}`); assert.equal(s.id, 'goto'); assert.equal(s.nav, nav, `Alt+${code}`);
-  }
+test('EVERY feature has its own jump shortcut, in navigator order (owner comment 42)', () => {
+  const first = ['overview', 'wbs', 'schedule', 'audit', 'narrative', 'lag', 'evm', 'oos', 'update', 'critpath'];
+  const second = ['period', 'compare', 'revcompare', 'calendar', 'weather', 'special', 'prodintel', 'kb', 'chat', 'home'];
+  const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  first.forEach((nav, i) => {
+    const s = matchShortcut(ev(digits[i], { alt: true, code: 'Digit' + digits[i] }));
+    assert.ok(s, `no Alt+${digits[i]}`); assert.equal(s.id, 'goto'); assert.equal(s.nav, nav, `Alt+${digits[i]}`);
+  });
+  second.forEach((nav, i) => {
+    const s = matchShortcut(ev(digits[i], { alt: true, shift: true, code: 'Digit' + digits[i] }));
+    assert.ok(s, `no Alt+Shift+${digits[i]}`); assert.equal(s.nav, nav, `Alt+Shift+${digits[i]}`);
+  });
+  // …and the navigator in app.js has no feature without one
+  const app = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ui', 'app.js'), 'utf8');
+  const nav = app.slice(app.indexOf('const NAV = ['), app.indexOf('const CRUMB'));
+  const ids = [...nav.matchAll(/\['([a-z]+)','[^']+'/g)].map(m => m[1]);
+  assert.ok(ids.length >= 18, 'navigator items found: ' + ids.length);
+  for (const id of ids) assert.ok(shortcutForNav(id) || shortcutForCmd(id), `navigator item "${id}" has no shortcut`);
 });
 test('Alt+digit matches by physical key even when the layout changes e.key (AZERTY "&")', () => {
-  assert.equal(matchShortcut(ev('&', { alt: true, code: 'Digit1' })).nav, 'evm');
+  assert.equal(matchShortcut(ev('&', { alt: true, code: 'Digit1' })).nav, 'overview');
 });
 test('AltGr (Ctrl+Alt) + digit never triggers a jump', () => {
   assert.equal(matchShortcut(ev('@', { ctrl: true, alt: true, code: 'Digit2' })), null);
@@ -227,7 +239,7 @@ test('runs the action with the matched entry and prevents the default', () => {
   let got = null; let focused = el('BODY');
   const h = createShortcutHandler({ goto: s => { got = s.nav; } }, () => focused);
   const e = ev('3', { alt: true, code: 'Digit3' }); h(e);
-  assert.equal(got, 'update'); assert.equal(e._prevented, true);
+  assert.equal(got, 'schedule'); assert.equal(e._prevented, true);
 });
 test('unregistered keys are untouched', () => {
   let ran = false;
@@ -264,7 +276,7 @@ console.log('\nHelp Center is closed before a screen action (SHELL-4)');
 test('only Help / guide / shortcuts list / Esc / Ctrl+D keep Help open', () => {
   assert.deepEqual([...KEEPS_HELP_OPEN].sort(), ['close', 'cycleAppearance', 'guide', 'help', 'keys']);
   for (const id of ['pdf', 'excel', 'word', 'html', 'run', 'rerun', 'appearance', 'import', 'toggleNav',
-                    'goto', 'palette', 'prevFeature', 'nextFeature', 'recent']) {
+                    'goto', 'palette', 'recent']) {
     assert.equal(closesHelpFirst(id), true, id);
   }
   // every registry id is decided one way or the other
@@ -315,8 +327,33 @@ test('shortcutForCmd: the first entry per menu command wins', () => {
   assert.equal(shortcutForCmd('no-such-cmd'), null);
 });
 test('shortcutForNav finds the Alt+number for a feature', () => {
-  assert.deepEqual(shortcutForNav('evm').keys, ['Alt', '1']);
-  assert.equal(shortcutForNav('lag'), null);
+  assert.deepEqual(shortcutForNav('evm').keys, ['Alt', '7']);
+  assert.deepEqual(shortcutForNav('lag').keys, ['Alt', '6']);
+  assert.deepEqual(shortcutForNav('kb').keys, ['Alt', 'Shift', '8']);
+  assert.equal(shortcutForNav('nope'), null);
+});
+
+test('the Feature Guide names the same shortcut the registry fires (owner comment 42)', () => {
+  const fn = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ui', 'modules', 'feature_needs.js'), 'utf8');
+  let cur = null, checked = 0;
+  for (const line of fn.split(/\r?\n/)) {
+    const m = line.match(/id: '([a-z]+)'/); if (m) cur = m[1];
+    const st = line.match(/^\s*start: '(.*)',\s*$/);
+    if (!st || !cur) continue;
+    const sc = shortcutForNav(cur);
+    if (sc && cur !== 'home' && cur !== 'recent') { assert.ok(st[1].includes(sc.keys.join('+')), `${cur}: "${st[1]}" should name ${sc.keys.join('+')}`); checked += 1; }
+    assert.ok(!/Ctrl\+\[|Ctrl\+\]/.test(st[1]));
+  }
+  assert.ok(checked >= 18, 'features checked: ' + checked);
+});
+test('Ctrl+Enter has a Run for every feature that runs (owner comment 42)', () => {
+  const app = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ui', 'app.js'), 'utf8');
+  const run = app.slice(app.indexOf('const PANEL_RUN = {'), app.indexOf('function runCurrentFeature'));
+  for (const id of ['cmp-run-review', 'rc-run', 'per-run-compare', 'cpa-run', 'thr-apply', 'ms-run', 'bn-gen', 'bn-continue', 'sr-preview']) {
+    assert.ok(run.includes(`'${id}'`), id);
+  }
+  assert.ok(/NOTHING_TO_RUN = \{ kb: /.test(run));          // library pages say so instead of doing nothing
+  assert.ok(!/stepFeature|prev-feature|next-feature/.test(app));
 });
 
 // ── #7 Static guards: help.js + app.js stay wired to the registry ──────────

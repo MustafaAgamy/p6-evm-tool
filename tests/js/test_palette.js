@@ -48,11 +48,11 @@ test('feature rows carry the group and the "Needs:" line from FEATURE_NEEDS', ()
   assert.match(rc.sub, /^Compare & Claims · Needs: 2 baselines/);
 });
 test('key hints come from the SHORTCUTS registry', () => {
-  assert.equal(items.find(i => i.id === 'evm').keys, 'Alt+1');
+  assert.equal(items.find(i => i.id === 'evm').keys, 'Alt+7');
   assert.equal(items.find(i => i.cmd === 'export-excel').keys, 'Ctrl+E');
   assert.equal(items.find(i => i.cmd === 'export-word').keys, 'Ctrl+Shift+W');
   assert.equal(items.find(i => i.cmd === 'import').keys, 'Ctrl+O');
-  assert.equal(items.find(i => i.id === 'update').keys, 'Alt+3');
+  assert.equal(items.find(i => i.id === 'update').keys, 'Alt+9');
 });
 test('command rows name their menu', () => assert.equal(items.find(i => i.cmd === 'help-keys').sub, 'Help'));
 test('duplicate ids / commands appear once', () => {

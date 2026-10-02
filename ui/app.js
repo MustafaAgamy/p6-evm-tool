@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Menu bar — the single home for global commands ──────────────────────────
   const MENUS = {
     file:    [['Import XML / XER…','import'], ['sep'], ['Print / Export to PDF…','print'], ['Export to Excel…','export-excel'], ['Export to Word…','export-word'], ['Export to HTML…','export-html'], ['sep'], ['Back to import screen','load-another'], ['sep'], ['Recent projects','recent'], ['sep'], ['Exit','exit']],
-    view:    [['Command palette…','palette'], ['sep'], ['Previous feature','prev-feature'], ['Next feature','next-feature'], ['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance…','appearance'], ['Cycle appearance mode','cycle-appearance']],
+    view:    [['Command palette…','palette'], ['sep'], ['Show / hide navigator','nav-toggle'], ['sep'], ['Appearance…','appearance'], ['Cycle appearance mode','cycle-appearance']],
     analysis:[['Choose module…','showchooser'], ['Run the current feature again','rerun'], ['Back to import','load-another']],
     tools:   [['Knowledge Base','kb'], ['Productivity & Resources','prodintel']],
     help:    [['Getting started','help-start'], ['Feature guide — what each needs','help-features'], ['Keyboard shortcuts','help-keys'], ["What's new",'help-news'], ['sep'], ['Contact & support','help-contact'], ['About ' + (window.__APP_NAME__ || 'Controlyx'),'help-about']],
@@ -415,8 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (cmd === 'export-html')  runReport('html');
     else if (cmd === 'rerun')        runCurrentFeature(true);
     else if (cmd === 'palette')      showPalette();
-    else if (cmd === 'prev-feature') stepFeature(-1);
-    else if (cmd === 'next-feature') stepFeature(1);
     else if (cmd === 'cycle-appearance') cycleAppearance();
     else if (cmd === 'appearance')   openAppearancePicker();
     else if (cmd === 'load-another'){ loadAnother(); loadHistory(); setCrumb('home'); }
@@ -510,8 +508,6 @@ document.addEventListener('DOMContentLoaded', () => {
     run:    () => runCurrentFeature(false),                               // Run the selected feature
     rerun:  () => runCurrentFeature(true),                                // Run the current feature again
     palette: () => showPalette(),                                         // Ctrl+K command palette
-    prevFeature: () => stepFeature(-1),                                   // Ctrl+[ previous navigator item
-    nextFeature: () => stepFeature(1),                                    // Ctrl+] next navigator item
     recent: () => { closeHelp(); runMenuCmd('recent'); },                 // Open Recent Projects
     toggleNav: () => toggleNav(),                                        // Show / hide the Project Navigator (Ctrl+B)
     goto:   (s) => gotoNav(s.nav),                                        // Alt+1…Alt+0 jump to a feature
@@ -557,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('focus', grabKeyFocus);
 
   // ── Shortcut actions (keyboard, menus and the Ctrl+K palette all call these) ───
-  // Alt+number / palette / Ctrl+[ ] — open a navigator item exactly as a click on it would
+  // Alt+number / Alt+Shift+number / palette — open a navigator item exactly as a click on it would
   // (same import gate, same Run gate); the AI Chat lives on the menu bar.
   function gotoNav(id) {
     closeHelp();                     // a jump from inside Help lands on the feature, not behind the overlay
@@ -565,20 +561,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = navTree.querySelector(`.tnode[data-nav="${id}"]`);
     if (btn) btn.click();
   }
-  // Ctrl+[ / Ctrl+] — previous / next feature in navigator order (wrapping). Before a schedule
-  // is imported only the library pages open, so the step stays among those.
-  const NAV_ORDER = NAV.flatMap(sec => sec.items ? sec.items.map(it => it[0]) : []);
-  const OPENS_WITHOUT_IMPORT = new Set(['prodintel', 'kb', 'recent']);
-  function stepFeature(delta) {
-    const order = state.currentResult ? NAV_ORDER : NAV_ORDER.filter(id => OPENS_WITHOUT_IMPORT.has(id));
-    if (!order.length) return;
-    let i = order.indexOf(navCursor || state.currentView);
-    i = i < 0 ? (delta > 0 ? 0 : order.length - 1) : (i + delta + order.length) % order.length;
-    gotoNav(order[i]);
-  }
   // Ctrl+↵ runs what is on screen; Ctrl+R runs the current feature again. The Run button is
   // the feature's own: the generic Run gate, or the Run of a multi-file feature's panel.
-  const PANEL_RUN = { compare: 'cmp-run-review', revcompare: 'rc-run', period: 'per-run-compare', critpath: 'cpa-run', weather: 'thr-apply' };
+  // Every feature answers Ctrl+↵ (owner comment 42): the first of these buttons that is on screen
+  // is pressed — Schedule Health's milestone step, the Narrative's setup / Generate, the Studio's Preview.
+  const PANEL_RUN = { compare: ['cmp-run-review'], revcompare: ['rc-run'], period: ['per-run-compare'], critpath: ['cpa-run'],
+    weather: ['thr-apply'], audit: ['ms-run'], narrative: ['bn-gen', 'bn-continue'], special: ['sr-preview'] };
+  // Library pages have nothing to run: say so instead of doing nothing.
+  const NOTHING_TO_RUN = { kb: 'The Knowledge Base has nothing to run — pick a project type and read it.',
+    prodintel: 'Productivity & Resources updates as you type — there is nothing to run.' };
   // Views whose render RESETS the planner's own work, so a generic re-render would throw it away:
   // the Baseline Narrative's render drops the generated report, its Printing Selection and the
   // setup answers (narrative.js renderNarrativePanel). Ctrl+R there explains the view's own
@@ -592,12 +583,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (gateRun) { gateRun.click(); return; }
     const view = state.currentView;
     const onResults = !!state.currentResult && !document.getElementById('results-section')?.classList.contains('hidden');
-    const btn = PANEL_RUN[view] ? document.getElementById(PANEL_RUN[view]) : null;
+    const btn = (PANEL_RUN[view] || []).map(id => document.getElementById(id)).find(b => b && b.offsetParent !== null) || null;
     if (onResults && btn && btn.offsetParent !== null) {
       if (btn.disabled || btn.classList.contains('disabled')) showError('Assign this feature’s input files first, then run it.');
       else btn.click();
       return;
     }
+    const libPage = playbooksOpen() ? 'kb' : (state.currentView === 'prodintel' && !document.getElementById('prodintel-section')?.classList.contains('hidden') ? 'prodintel' : '');
+    if (libPage) { showError(NOTHING_TO_RUN[libPage]); return; }
     if (!again) return;
     if (onResults && NO_GENERIC_RERUN[view]) { showError(NO_GENERIC_RERUN[view]); return; }
     if (onResults && view && !SELF_GATING.has(view) && state.ranFeatures && state.ranFeatures.has(view)) {

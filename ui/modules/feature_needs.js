@@ -76,7 +76,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'Progress snapshot with category planned vs actual %.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Project Overview ▸ Overview',
+    start: 'Navigator ▸ Project Overview ▸ Overview (Alt+1)',
   },
   {
     id: 'wbs', name: 'WBS', group: 'Project Overview',
@@ -86,7 +86,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'WBS tree rolled up to the activity level — planned / actual %, start / finish, timeline.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Project Overview ▸ WBS',
+    start: 'Navigator ▸ Project Overview ▸ WBS (Alt+2)',
   },
   {
     id: 'schedule', name: 'Schedule (Gantt)', group: 'Project Overview',
@@ -96,7 +96,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'Gantt chart of every activity on its current dates, grouped by top-level WBS.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],   // File ▸ Print preview (printView) + its own Excel
-    start: 'Navigator ▸ Project Overview ▸ Schedule (Gantt)',
+    start: 'Navigator ▸ Project Overview ▸ Schedule (Gantt) (Alt+3)',
   },
 
   // ── Schedule Quality ────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ export const FEATURE_NEEDS = [
     ],
     produces: 'Health score and every check with its findings; Resolve & Correct for dangling activities.',
     exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
-    start: 'Navigator ▸ Schedule Quality ▸ Schedule Health',
+    start: 'Navigator ▸ Schedule Quality ▸ Schedule Health (Alt+4)',
   },
   {
     id: 'narrative', name: 'Baseline Narrative', group: 'Schedule Quality',
@@ -121,7 +121,7 @@ export const FEATURE_NEEDS = [
     other: ['Guided setup — answer a few short questions before Generate.'],
     produces: 'A full narrative document with tables and charts, section by section.',
     exports: ['Word', 'PDF', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Schedule Quality ▸ Baseline Narrative',
+    start: 'Navigator ▸ Schedule Quality ▸ Baseline Narrative (Alt+5)',
   },
   {
     id: 'lag', name: 'Lag Report', group: 'Schedule Quality',
@@ -131,7 +131,7 @@ export const FEATURE_NEEDS = [
     other: ['Optional: a written justification against each lag (typed in the register, saved per project).'],
     produces: 'Lag / lead register with the justification column.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Schedule Quality ▸ Lag Report',
+    start: 'Navigator ▸ Schedule Quality ▸ Lag Report (Alt+6)',
   },
 
   // ── Progress & Performance ──────────────────────────────────────────────────
@@ -151,7 +151,7 @@ export const FEATURE_NEEDS = [
     recommend: 'XML exported from P6 with its baseline project included — one file, exact Planned Value. An update + its attached baseline gives the same numbers.',
     produces: 'PV, EV, AC, SPI, CPI, delay in days and category progress.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],   // the preview's export bar (report adopted: docs/report-picker-adoption.md)
-    start: 'Navigator ▸ Progress & Performance ▸ Earned Value (Alt+1)',
+    start: 'Navigator ▸ Progress & Performance ▸ Earned Value (Alt+7)',
   },
   {
     id: 'oos', name: 'Out of Sequence', group: 'Progress & Performance',
@@ -161,7 +161,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'Out-of-sequence register by WBS, root causes and the effect on the critical path; Resolve & Correct per finding.',
     exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
-    start: 'Navigator ▸ Progress & Performance ▸ Out of Sequence',
+    start: 'Navigator ▸ Progress & Performance ▸ Out of Sequence (Alt+8)',
   },
   {
     id: 'update', name: 'Update Analysis', group: 'Progress & Performance',
@@ -177,7 +177,7 @@ export const FEATURE_NEEDS = [
     recommend: 'XML exported from P6 with its baseline — one file. An XER (or an XML without it) + its attached baseline gives the same result.',
     produces: 'Time status, planned vs actual by activity code, activity counts, scope weights and the critical path.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Progress & Performance ▸ Update Analysis (Alt+3)',
+    start: 'Navigator ▸ Progress & Performance ▸ Update Analysis (Alt+9)',
   },
   {
     id: 'critpath', name: 'Critical Path', group: 'Progress & Performance',
@@ -194,7 +194,7 @@ export const FEATURE_NEEDS = [
     other: ['Choose the comparison mode: Two updates · Update vs Baseline · Two updates + Baseline.'],
     produces: 'Critical-path census, path lanes, milestones and float migration between the schedules.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Progress & Performance ▸ Critical Path (Alt+4)',
+    start: 'Navigator ▸ Progress & Performance ▸ Critical Path (Alt+0)',
   },
 
   // ── Compare & Claims ────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ export const FEATURE_NEEDS = [
     other: ['The milestone slip trend uses every update of this project you have imported.'],
     produces: 'Progress vs last period’s forecast, % variance, critical-path movement and the period S-curve.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Compare & Claims ▸ Update vs Update',
+    start: 'Navigator ▸ Compare & Claims ▸ Update vs Update (Alt+Shift+1)',
   },
   {
     id: 'compare', name: 'Consultant Review', group: 'Compare & Claims',
@@ -227,7 +227,7 @@ export const FEATURE_NEEDS = [
     recommend: 'XML for the update — required to write the corrected but-for file.',
     produces: 'Driving-logic, lag and duration changes vs the baseline; reported vs but-for delay and a recommendation.',
     exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected but-for XML'],
-    start: 'Navigator ▸ Compare & Claims ▸ Consultant Review',
+    start: 'Navigator ▸ Compare & Claims ▸ Consultant Review (Alt+Shift+2)',
   },
   {
     id: 'revcompare', name: 'Baseline Revision', group: 'Compare & Claims',
@@ -241,7 +241,7 @@ export const FEATURE_NEEDS = [
     recommend: 'Either format — each revision is read the same way, and the two may differ.',
     produces: 'Executive summary, change register, critical path & sequence, milestones, calendars and manpower changes.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Compare & Claims ▸ Baseline Revision (Alt+5)',
+    start: 'Navigator ▸ Compare & Claims ▸ Baseline Revision (Alt+Shift+3)',
   },
 
   // ── Calendars & Weather ─────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export const FEATURE_NEEDS = [
     other: ['Optional: a note against each reduced-hours working period (saved with the project, printed in the PDF).'],
     produces: 'Calendar register, net-working-days histogram and a side-by-side calendar comparison.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],   // the preview's export bar (report adopted: docs/report-picker-adoption.md)
-    start: 'Navigator ▸ Calendars & Weather ▸ P6 Calendar Audit (Alt+6)',
+    start: 'Navigator ▸ Calendars & Weather ▸ P6 Calendar Audit (Alt+Shift+4)',
   },
   {
     id: 'weather', name: 'Bad Weather', group: 'Calendars & Weather',
@@ -267,7 +267,7 @@ export const FEATURE_NEEDS = [
     ],
     produces: 'Weather effect on the forecast finish — waterfall and a three-colour day histogram.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Calendars & Weather ▸ Bad Weather',
+    start: 'Navigator ▸ Calendars & Weather ▸ Bad Weather (Alt+Shift+5)',
   },
 
   // ── Reports ─────────────────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'One composed report from the results you pick, in the order you choose.',
     exports: ['Word', 'PDF', 'Excel'],
-    start: 'Navigator ▸ Reports ▸ Reporting Studio (Alt+7)',
+    start: 'Navigator ▸ Reports ▸ Reporting Studio (Alt+Shift+6)',
   },
 
   // ── Library ─────────────────────────────────────────────────────────────────
@@ -295,7 +295,7 @@ export const FEATURE_NEEDS = [
     other: ['Pick a work item, enter the quantity and the project context (project type, location, method, shift hours).'],
     produces: 'Man-hours, crew and duration with the basis of estimate and P6 resource guidance.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],
-    start: 'Navigator ▸ Library ▸ Productivity & Resources (or Tools ▸ Productivity & Resources)',
+    start: 'Navigator ▸ Library ▸ Productivity & Resources (or Tools ▸ Productivity & Resources, Alt+Shift+7)',
   },
   {
     id: 'kb', name: 'Knowledge Base', group: 'Library',
@@ -312,7 +312,7 @@ export const FEATURE_NEEDS = [
       'Detailed baseline (XER · 1000+ activities)',
       'Skeleton baseline (XER)',
     ],
-    start: 'Navigator ▸ Library ▸ Knowledge Base (or Tools ▸ Knowledge Base)',
+    start: 'Navigator ▸ Library ▸ Knowledge Base (or Tools ▸ Knowledge Base, Alt+Shift+8)',
   },
   {
     id: 'recent', name: 'Recent Projects', group: 'Library',
@@ -322,7 +322,7 @@ export const FEATURE_NEEDS = [
     other: [],
     produces: 'List of imported projects with their latest import; re-open the stored results; remove a project’s history.',
     exports: [],
-    start: 'Navigator ▸ Library ▸ Recent Projects (File ▸ Recent projects, Alt+9)',
+    start: 'Navigator ▸ Library ▸ Recent Projects (File ▸ Recent projects, Ctrl+Shift+R)',
   },
 
   // ── Menu bar ────────────────────────────────────────────────────────────────
@@ -334,7 +334,7 @@ export const FEATURE_NEEDS = [
     other: ['Works offline — no internet and no cloud AI.'],
     produces: 'Answers with tables and charts, a time-impact analysis, what-if scenarios and a manager’s briefing.',
     exports: ['What-if scenario (P6 XML)'],
-    start: 'Menu bar ▸ AI Chat (Alt+8)',
+    start: 'Menu bar ▸ AI Chat (Alt+Shift+9)',
   },
 ];
 
