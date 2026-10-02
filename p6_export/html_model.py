@@ -16,6 +16,10 @@ Renderer hints (all optional — see docs/report-picker-adoption.md):
   data-export="image"       a visual (CSS/div chart) → picture in Word, data in Excel
   data-export="kpis"        force a KPI tile group        data-export="tile" one tile
   data-export="skip"        screen-only chrome — left out of every export
+  data-export="bar"         a Gantt time-line cell (a <th> of positioned month labels, or a
+                            <td> holding a track with a bar / milestone and the data-date line,
+                            all placed with left/width %) → native bar shapes in Word, left
+                            out of Excel (the dates are in the other columns)
   data-chart-headers='[…]'  + data-chart-data='[[…],…]'  the numbers behind a visual (Excel,
                             and the Word fallback when a picture cannot be produced)
 """
@@ -108,6 +112,7 @@ class Cell:
     rowspan: int = 1
     header: bool = False
     size_pt: float = None
+    bar: dict = None               # a Gantt bar cell (data-export="bar") — drawn, not written
 
     @property
     def text(self):
@@ -764,9 +769,49 @@ class _Walker:
             rowspan = max(1, int(c.get('rowspan') or 1))
         except ValueError:
             rowspan = 1
-        return Cell(runs=runs, bg=bg, color=self.color_hex(c), bold=st.is_bold(),
+        bar = self.bar_of(c) if c.get('data-export') == 'bar' else None
+        return Cell(runs=[] if bar else runs, bg=bg, color=self.color_hex(c), bold=st.is_bold(),
                     italic=st.is_italic(), align=_align(st), colspan=colspan, rowspan=rowspan,
-                    header=is_header or C.tag_of(c) == 'th', size_pt=_pt(st.font_px()))
+                    header=is_header or C.tag_of(c) == 'th', size_pt=_pt(st.font_px()), bar=bar)
+
+    @staticmethod
+    def _pct(el, prop):
+        m = re.search(r'(?:^|;)\s*' + prop + r'\s*:\s*(-?[\d.]+)%', el.get('style') or '')
+        return max(0.0, min(100.0, float(m.group(1)))) if m else None
+
+    def bar_of(self, c):
+        """A Gantt time-line cell → {'scale': [(left %, label, hex)]} for the header, or
+        {'track', 'bar': (left %, width %, hex), 'fill': (width % of the bar, hex),
+         'ms': (left %, hex), 'dd': (left %, hex)} for a row.  Colours come from the report's
+        own CSS, so Word draws what the PDF prints.  Never raises."""
+        out = {}
+        try:
+            if C.tag_of(c) == 'th' or c.find('.//span') is not None and c.find('.//b') is None:
+                out['scale'] = [(self._pct(s, 'left') or 0.0, _norm_ws(s.text_content()).strip(),
+                                 self.color_hex(s)) for s in c.iter('span')
+                                if C.is_element(s) and (s.text_content() or '').strip()]
+                return out
+            for el in c.iter():
+                if not C.is_element(el):
+                    continue
+                tag = C.tag_of(el)
+                if tag == 'div' and 'track' not in out and self.r.style(el).background() is not None:
+                    out['track'] = self.own_bg_hex(el)
+                elif tag == 'u':
+                    b = self.border(el, 'left')
+                    out['dd'] = (self._pct(el, 'left') or 0.0, b[1] if b else self.color_hex(el))
+                elif tag == 'b':
+                    left = self._pct(el, 'left') or 0.0
+                    width = self._pct(el, 'width')
+                    if width is None:
+                        out['ms'] = (left, self.own_bg_hex(el) or self.color_hex(el))
+                    else:
+                        out['bar'] = (left, width, self.own_bg_hex(el))
+                elif tag == 's':
+                    out['fill'] = (self._pct(el, 'width') or 0.0, self.own_bg_hex(el))
+        except Exception:
+            return out or {}
+        return out
 
     def _col_weights(self, el, rows):
         n = max((sum(c.colspan for c in r) for r in rows), default=0)
@@ -794,6 +839,18 @@ class _Walker:
                         est[ci] = max(est[ci], min(42.0, len(t) + 1.0))
                 ci += cell.colspan
         est = [max(3.5, e) for e in est]
+        bar_cols = set()
+        for r in rows:
+            ci = 0
+            for cell in r:
+                if cell.bar is not None and cell.colspan == 1 and ci < n:
+                    bar_cols.add(ci)
+                ci += cell.colspan
+        if bar_cols and len(bar_cols) < n:
+            # the bars need width: about a third of the table, as in the printed Gantt
+            others = sum(e for i, e in enumerate(est) if i not in bar_cols)
+            for i in bar_cols:
+                est[i] = max(est[i], others * 0.5 / len(bar_cols))
         return self._norm(est)
 
     @staticmethod

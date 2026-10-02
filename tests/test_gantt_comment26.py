@@ -167,7 +167,7 @@ def test_the_gantt_prints_with_pdf_word_and_html():
     assert 'html, body { height:auto !important; overflow:visible !important; }' in pv    # a report longer than one page
     g = _read('ui', 'modules', 'gantt.js')
     assert 'data-part="gantt.' in g and 'data-part="summary.counts"' in g
-    assert 'data-export="skip"' in g                      # the bar column is a picture of the dates: Word gets the dates
+    assert 'data-export="bar"' in g                       # Word draws the bar column; Excel gets the dates (test_gantt_word_bars)
     assert 'id="sched-print-btn"' in g and g.count('id="sched-excel-btn"') == 2   # Excel button also in the empty state
     assert 'Re-import this schedule to build the Gantt' not in g
     css = _read('ui', 'style.css')

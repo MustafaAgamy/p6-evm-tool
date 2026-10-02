@@ -216,3 +216,39 @@ def test_write_xlsx_still_works(tmp_path):
         s = z.read('xl/worksheets/sheet1.xml').decode()
     assert 'autoFilter' in s
     minidom.parseString(s)
+
+
+def test_weather_workbook_carries_the_dashboard_histogram_and_limits(tmp_path):
+    """Final sweep (comment 3): the Bad Weather workbook had only report sections 4–7. It now
+    also carries §1 the Execution Dashboard figures, §2 the days per month, the Stop-Work
+    Criteria table and §3 how each limit performed — the same figures as the PDF."""
+    from p6_evm.xlsx_writer import write_weather_xlsx
+    ca = dict(_ca(), dashboard={'baseline_finish': '2025-09-01', 'project_finish': '2025-09-11'})
+    w = dict(_weather(), expected_bad_days_total=7, net_finish_delay=4,
+             weather_adjusted_finish='2025-09-17',
+             histogram=[{'label': 'Aug 25', 'net': 20, 'bad': 3, 'nonworking': 8}],
+             site_type_label='Coastal',
+             criteria=[{'icon': '', 'label': 'Heat', 'value': '≥ 42 °C', 'explain': 'Concrete pours', 'on': True},
+                       {'icon': '', 'label': 'Dust', 'value': 'PM10 ≥ 300', 'explain': 'Lifting', 'on': False}],
+             limit_performance=[{'label': 'Heat', 'on': True, 'limit': 42, 'unit': '°C', 'flagged': 5, 'peak': 46},
+                                {'label': 'Wind', 'on': False, 'unit': 'km/h', 'peak': 38}])
+    p = tmp_path / 'wx.xlsx'
+    write_weather_xlsx(str(p), ca, w)
+    _all_wellformed(p)
+    import openpyxl
+    ws = openpyxl.load_workbook(p)['Weather Detail']
+    vals = [[c for c in r if c is not None] for r in ws.iter_rows(values_only=True)]
+    flat = [str(x) for r in vals for x in r]
+    for title in ('Execution Dashboard — estimate, not a P6 figure',
+                  'Calendar Timeline & Statistics — days per month', 'Stop-Work Criteria — Coastal',
+                  'Why This Result — How Each Limit Performed', 'Upcoming Bad-Weather Days'):
+        assert title in flat, title
+    assert ['Schedule slip (calendar days)', '+10 d'] in vals
+    assert ['Weather adds (working days)', '+4 wd'] in vals
+    assert ['Bad-weather Completion', '17 Sep 2025'] in vals
+    assert ['Aug 25', 20, 3, 8] in vals
+    assert ['Dust', 'PM10 ≥ 300', 'Lifting (not counted)'] in vals
+    assert ['Heat', 'on', '≥ 42 °C', 5, '46 °C'] in vals
+    assert [x for x in next(r for r in vals if r and r[0] == 'Wind') if x != ''] == ['Wind', 'off (not counted)', '38 km/h']
+    # the dashboard comes first, the day list after the limits — the report's order
+    assert flat.index('Execution Dashboard — estimate, not a P6 figure') < flat.index('Upcoming Bad-Weather Days')

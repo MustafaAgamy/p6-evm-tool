@@ -71,10 +71,12 @@ def typed(text):
 
 
 def _table_block(t, title, note=None):
-    rows = [r for r in t.rows if r]
+    # a Gantt time-line column is a drawing, not data (its dates are in the other columns)
+    rows = [[c for c in r if getattr(c, 'bar', None) is None] for r in t.rows if r]
+    rows = [r for r in rows if r]
     if not rows:
         return None
-    ncols = max(1, t.ncols)
+    ncols = max(1, max(sum(max(1, c.colspan) for c in r) for r in rows))
     hdr_n = t.header_rows if t.header_rows and t.header_rows < len(rows) else 0
     # headers: the LAST header row (the column captions), spans expanded
     headers = []
