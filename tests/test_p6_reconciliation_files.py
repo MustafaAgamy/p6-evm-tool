@@ -6,8 +6,10 @@ folder holding them (MAFI XML, Grain Bulk / Saint Gobain / Alstom XER …) to ru
 
     CONTROLYX_P6_FILES="D:\\Controlyx 2026 Course\\Baseline" pytest tests/test_p6_reconciliation_files.py
 
-Without the folder the test is skipped.  2 Oct 2026: 183 checks on MAFI, Grain Bulk, Saint
-Gobain and Alstom — all equal to P6.
+Without the folder the test is skipped.  2 Oct 2026: 619 checks on the 11 baseline and update
+files (MAFI, Grain Bulk, Saint Gobain, Alstom; XER and XML) — all equal to P6. The but-for
+scheduler check is skipped (with a row saying so) for an export whose P6 dates do not fit its
+own calendars (Saint Gobain 7-Aug: 43 of 541 activities fit).
 """
 import glob
 import http.client

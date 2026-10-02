@@ -33,15 +33,18 @@ def test_two_links_between_the_same_pair_are_two_relationships():
 
 def test_a_change_to_the_second_link_of_a_pair_is_a_change():
     from p6_revcompare.compare import _logic_stats
-    base = {('A', 'B'): {'type': 'SS', 'lag_days': 0, 'multi': 'FF+0 + SS+0'}}
-    same = {('A', 'B'): {'type': 'SS', 'lag_days': 0, 'multi': 'FF+0 + SS+0'}}
-    moved = {('A', 'B'): {'type': 'SS', 'lag_days': 0, 'multi': 'FF+16 + SS+0'}}     # the FF got a 2-day lag
+    pair = lambda ff_h: {('A', 'B'): {'type': 'SS', 'lag_days': 0, 'lag_hours': 0, 'links': 2,
+                                      'all_links': (('FF', ff_h), ('SS', 0.0)),
+                                      'link_days': (('FF', ff_h / 8.0), ('SS', 0.0))}}
+    base, same, moved = pair(0.0), pair(0.0), pair(16.0)       # moved: the FF got a 2-day lag
 
     class M:
         def __init__(self, b, u):
             self.baseline_rels, self.update_rels = b, u
     assert _logic_stats(M(base, same))['total'] == 0
-    assert _logic_stats(M(base, moved))['type'] == 1
+    # counted per P6 link (comment 44): the FF's lag changed — one lag change, not a type change
+    st = _logic_stats(M(base, moved))
+    assert (st['lag'], st['type'], st['total']) == (1, 0, 1)
 
 
 def test_baseline_revision_quality_counts_relationships_as_p6_does():

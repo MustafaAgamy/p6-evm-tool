@@ -35,6 +35,10 @@ def _fmt(rel):
     """'Finish-to-Start (FS) · +0 d' — full type name and signed whole-day lag."""
     if not rel:
         return _NO_LINK
+    from p6_compare.model import pair_links
+    links = pair_links(rel)
+    if len(links) > 1:                            # an SS + FF pair: show every link
+        return ' + '.join(f"{t} {int(round(d)):+d} d" for t, (_h, d) in sorted(links.items()))
     t = rel.get('type') or 'FS'
     label = _TYPE_FULL.get(t, t)
     lag = int(round(_lag_days(rel)))
@@ -128,13 +132,19 @@ def build_logic_register(matched, crit1):
         emit(pc, sc, _fmt(b), _LINK_REMOVED, 'Link removed', None)
 
     # Links present in both — type change wins over lag change (mirrors _logic_stats).
+    from p6_compare.model import link_changes
     for key in (k0 & k1):
         b, u = e0[key], e1[key]
         pc, sc = key
-        if (b.get('type') or 'FS') != (u.get('type') or 'FS') or (b.get('multi') or '') != (u.get('multi') or ''):
+        c = link_changes(b, u)                    # per P6 link (an SS + FF pair is two)
+        if c['type']:
             emit(pc, sc, _fmt(b), _fmt(u), 'Type changed', u)
-        elif abs(_lag_days(b) - _lag_days(u)) > 1e-9:
+        elif c['lag']:
             emit(pc, sc, _fmt(b), _fmt(u), 'Lag changed', u)
+        elif c['added']:
+            emit(pc, sc, _fmt(b), _fmt(u), 'Link added', u)
+        elif c['removed']:
+            emit(pc, sc, _fmt(b), _fmt(u), 'Link removed', u)
 
     # Changed-on-critical-path first; then stable, deterministic ordering.
     rows.sort(key=lambda r: (not r['on_cp'], r['pred_id'], r['succ_id']))

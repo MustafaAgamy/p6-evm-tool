@@ -51,6 +51,8 @@ def _assign_by_code(data):
                 slot['id'] = disp_id
             if not slot.get('type'):
                 slot['type'] = a.get('resource_type')
+            if a.get('rate_derived'):
+                slot['rate_derived'] = True
     return out
 
 
@@ -186,7 +188,7 @@ def diff_resources(rev0, rev1, matched):
                     if abs((s0['units'] or 0) - (s1['units'] or 0)) > 0.5:
                         units_changed += 1
                         assignment_changes.append(_arow(code, name, 'units', rname, _units(s0), _units(s1), rid))
-                    elif _rate(s0) != _rate(s1) and (s0.get('rate') is not None or s1.get('rate') is not None):
+                    elif _rate_changed(s0, s1):
                         assignment_changes.append(_arow(code, name, 'rate', rname, _rate(s0), _rate(s1), rid))
 
     resource_totals = _resource_totals(a0, a1) if resource_available else []
@@ -218,6 +220,19 @@ def _units(slot):
 def _rate(slot):
     r = slot.get('rate')
     return f'{round(r, 2)}/u' if r is not None else '—'
+
+
+def _rate_changed(s0, s1):
+    """Did the price per unit change? Compared on P6's stated price when both revisions carry
+    it; when either one's price is derived (a P6 19.x XML writes none) the stated price cannot be
+    compared - an XER holds the rate captured when the assignment was costed, the XML only
+    cost / units - so compare the effective cost per unit instead (comment 44: an XER baseline
+    against an XML update reported 441 'rate changes' P6 does not show)."""
+    if s0.get('rate_derived') or s1.get('rate_derived'):
+        eff = lambda s: round(s['cost'] / s['units'], 2) if s.get('units') else None
+        e0, e1 = eff(s0), eff(s1)
+        return e0 is not None and e1 is not None and e0 != e1
+    return _rate(s0) != _rate(s1) and (s0.get('rate') is not None or s1.get('rate') is not None)
 
 
 def _arow(code, name, kind, resource, rev0, rev1, resource_id=''):

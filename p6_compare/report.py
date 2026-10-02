@@ -123,7 +123,10 @@ def build_report_from_data(baseline, update, config=None):
     # (positive = the update finishes later than the baseline). Raw dates kept so
     # baseline_finish / update_finish below format the same value.
     bf_date, uf_date = _project_finish(baseline), _project_finish(update)
-    finish_slip_days = (uf_date - bf_date).days if (bf_date and uf_date) else None
+    # counted between the two finish DATES as shown (a 17:00 → 08:00 finish 14 dates apart is
+    # 14 days, not the 13 whole 24-hour spans between the two times — comment 44)
+    _date = lambda d: d.date() if hasattr(d, 'date') else d
+    finish_slip_days = (_date(uf_date) - _date(bf_date)).days if (bf_date and uf_date) else None
     delay_working_days = _finish_delay_working_days(update, bf_date, uf_date)
 
     # Instant but-for delay (NO F9): forward-pass the update with the revert plan applied in

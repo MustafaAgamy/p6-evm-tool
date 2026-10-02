@@ -132,18 +132,20 @@ def _path_length_wd(data):
 # ── logic (relationship) stats — edge level, precise counts ──────────────────
 
 def _logic_stats(matched):
-    """Edge-level relationship changes over matched codes: added/removed/type/lag counts."""
+    """Relationship changes over matched codes, counted per P6 LINK (a pair may hold an SS and
+    an FF): added/removed/type/lag counts."""
+    from p6_compare.model import pair_links, link_changes
     e0, e1 = matched.baseline_rels, matched.update_rels
     k0, k1 = set(e0), set(e1)
-    added = len(k1 - k0)
-    removed = len(k0 - k1)
+    added = sum(len(pair_links(e1[k])) for k in k1 - k0)
+    removed = sum(len(pair_links(e0[k])) for k in k0 - k1)
     type_ch = lag_ch = 0
     for k in (k0 & k1):
-        a, b = e0[k], e1[k]
-        if a.get('type') != b.get('type') or (a.get('multi') or '') != (b.get('multi') or ''):
-            type_ch += 1
-        elif abs((a.get('lag_days') or 0.0) - (b.get('lag_days') or 0.0)) > 1e-9:
-            lag_ch += 1
+        c = link_changes(e0[k], e1[k])
+        type_ch += c['type']
+        lag_ch += c['lag']
+        added += c['added']
+        removed += c['removed']
     return {'total': added + removed + type_ch + lag_ch,
             'added': added, 'removed': removed, 'type': type_ch, 'lag': lag_ch}
 

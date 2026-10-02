@@ -38,6 +38,7 @@ class Raw:
     def __init__(self, path):
         self.path = path
         self.acts, self.rels, self.cals, self.project = {}, [], {}, {}
+        self.baseline, self.project_calendars = {}, None
         if path.lower().endswith('.xer'):
             self._xer()
         else:
@@ -51,6 +52,11 @@ class Raw:
         for c in root.iter(ns + 'Calendar'):
             self.cals[t(c, 'ObjectId')] = _f(t(c, 'HoursPerDay'))
         prj = root.find(ns + 'Project')
+        pid = t(prj, 'ObjectId')
+        # the project's own calendars: global / resource ones plus its project calendars — an
+        # embedded baseline brings its own project calendars, which are not the update's
+        self.project_calendars = sum(1 for c in root.iter(ns + 'Calendar')
+                                     if t(c, 'Type') != 'Project' or t(c, 'ProjectObjectId') == pid)
         self.project = {'id': t(prj, 'Id'), 'name': t(prj, 'Name'), 'data_date': _dt(t(prj, 'DataDate')),
                         'finish': _dt(t(prj, 'ScheduledFinishDate')),
                         'default_cal': t(prj, 'ActivityDefaultCalendarObjectId')}
@@ -98,6 +104,21 @@ class Raw:
                 a['at_compl_cost'] += atc
                 a['planned_cost'] = a.get('planned_cost', 0.0) + plc
                 a['cost_spans'] = spans
+        # earned value against the project baseline (P6 'Use project baseline for earned value'):
+        # the baseline's budget, planned dates and calendar per Activity ID
+        self.baseline = {}
+        bl = root.find(ns + 'BaselineProject')
+        if bl is not None and (t(prj, 'UseProjectBaselineForEarnedValue') or '1') in ('1', 'true'):
+            boid = {}
+            for a in bl.findall(ns + 'Activity'):
+                boid[t(a, 'ObjectId')] = t(a, 'Id')
+                self.baseline[t(a, 'Id')] = {'pl_start': _dt(t(a, 'PlannedStartDate')),
+                                             'pl_finish': _dt(t(a, 'PlannedFinishDate')),
+                                             'cal': t(a, 'CalendarObjectId'), 'planned_cost': 0.0}
+            for ra in bl.findall(ns + 'ResourceAssignment'):
+                code = boid.get(t(ra, 'ActivityObjectId'))
+                if code:
+                    self.baseline[code]['planned_cost'] += _f(t(ra, 'PlannedCost')) or 0.0
         for r in prj.findall(ns + 'Relationship'):
             p, s = oid2code.get(t(r, 'PredecessorActivityObjectId')), oid2code.get(t(r, 'SuccessorActivityObjectId'))
             if p and s:
@@ -156,7 +177,8 @@ class Raw:
                     else _f(x.get('phys_complete_pct'))
             cst = cost_by_task.get(x['task_id'], [0.0, 0.0, 0.0])
             self.acts[code] = {
-                'name': x['task_name'], 'type': TYPES.get(x['task_type'], x['task_type']), 'status': st,
+                # P6 writes a line break inside a name as 0x7F 0x7F in an XER
+                'name': x['task_name'].replace('\x7f\x7f', '\n').replace('\x7f', '\n'), 'type': TYPES.get(x['task_type'], x['task_type']), 'status': st,
                 'wbs': x.get('wbs_id'), 'planned_cost': cst[2],
                 'pl_start': _dt(x.get('target_start_date')), 'pl_finish': _dt(x.get('target_end_date')),
                 'start': start, 'finish': finish, 'act_start': act_s, 'act_finish': act_f,
@@ -165,8 +187,16 @@ class Raw:
                 'rd_h': _f(x.get('remain_drtn_hr_cnt')), 'cal': x.get('clndr_id'),
                 'cons': x.get('cstr_type') or None, 'cons2': x.get('cstr_type2') or None,
                 'early_end': _dt(x.get('early_end_date')), 'late_end': _dt(x.get('late_end_date')),
+                'ref': _dt(x.get('reend_date')), 'rlf': _dt(x.get('rem_late_end_date')),
                 'actual_cost': cst[0], 'at_compl_cost': cst[1],
             }
+        if not any(a['tf_h'] is not None for a in self.acts.values()):
+            # P6 left total_float_hr_cnt blank: without a calendar engine only the SIGN of the
+            # float is known — critical (float <= 0) when the late finish is not after the early
+            # finish (P6 writes both at the close of a working period)
+            for a in self.acts.values():
+                if a['status'] != 'Completed' and a['ref'] and a['rlf']:
+                    a['tf_sign'] = 0.0 if a['rlf'] <= a['ref'] else 1.0
         for r in tables.get('TASKPRED', []):
             p, s = tid2code.get(r['pred_task_id']), tid2code.get(r['task_id'])
             if p and s:

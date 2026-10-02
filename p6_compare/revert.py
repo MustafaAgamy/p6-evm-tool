@@ -14,6 +14,8 @@ import copy
 import re
 import xml.etree.ElementTree as ET
 
+from p6_compare.model import pair_links, links_differ
+
 # EVM/other modules must not change how a number is derived — this module only
 # writes P6 input fields (Type, Lag, PlannedDuration, RemainingDuration).
 
@@ -28,9 +30,35 @@ def _lag_label(type_, lag_days):
 
 
 def _differs(a, b):
-    if a.get('type') != b.get('type'):
-        return True
-    return abs((a.get('lag_hours', 0.0) or 0.0) - (b.get('lag_hours', 0.0) or 0.0)) > 1e-6
+    """Any of the pair's P6 links changed (an SS + FF pair is two links — comment 44)."""
+    return links_differ(a, b)
+
+
+def _pair_label(rel):
+    links = pair_links(rel)
+    if len(links) > 1:
+        return ' + '.join(_lag_label(t, d) for t, (_h, d) in sorted(links.items()))
+    return _lag_label(rel['type'], rel['lag_days'])
+
+
+def relink(op, update_types):
+    """How a set_rel op puts one pair back to the baseline: ({update type: (type, lag_hours) or
+    None to drop}, [(type, lag_hours) baseline links to add]). Every baseline link is restored
+    by its type — an SS + FF pair gets its SS and its FF back, never both set to one type."""
+    base = [tuple(x) for x in (op.get('links') or [(op['type'], op.get('lag_hours', 0.0) or 0.0)])]
+    lag_of = {t: h for t, h in base}
+    free = [t for t, _h in base if t not in update_types]
+    mapping = {}
+    for t in dict.fromkeys(update_types):        # each type once (duplicate copies share it)
+        if t in lag_of:
+            mapping[t] = (t, lag_of[t])
+        elif free:
+            nt = free.pop(0)
+            mapping[t] = (nt, lag_of[nt])
+        else:
+            mapping[t] = None
+    covered = {m[0] for m in mapping.values() if m}
+    return mapping, [(t, h) for t, h in base if t not in covered]
 
 
 def _remaining_target_hours(base_planned, upd_planned, upd_remaining):
@@ -73,9 +101,10 @@ def revert_operations(matched, logic, durations):
                     'id': f'rel:{pred}:{succ}', 'kind': 'set_rel',
                     'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
                     'type': b['type'], 'lag_hours': b.get('lag_hours', 0.0) or 0.0,
+                    # every baseline link of the pair (an SS + FF pair holds two)
+                    'links': [[t, h] for t, (h, _d) in sorted(pair_links(b).items())],
                     'label': f'{succ}: revert link from {pred}',
-                    'detail': (f"{_lag_label(u['type'], u['lag_days'])} → "
-                               f"{_lag_label(b['type'], b['lag_days'])}  ({pn} → {sn})"),
+                    'detail': (f"{_pair_label(u)} → {_pair_label(b)}  ({pn} → {sn})"),
                 })
         elif u and not b:
             ops.append({
@@ -89,8 +118,9 @@ def revert_operations(matched, logic, durations):
                 'id': f'rel:{pred}:{succ}', 'kind': 'add_rel',
                 'activity_id': succ, 'pred_code': pred, 'succ_code': succ,
                 'type': b['type'], 'lag_hours': b.get('lag_hours', 0.0) or 0.0,
+                'links': [[t, h] for t, (h, _d) in sorted(pair_links(b).items())],
                 'label': f'{succ}: restore removed link from {pred}',
-                'detail': f"restore {_lag_label(b['type'], b['lag_days'])} ({pn} → {sn})",
+                'detail': f"restore {_pair_label(b)} ({pn} → {sn})",
             })
 
     for r in durations.get('rows', []):
@@ -208,11 +238,29 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
         pair = (op['pred_code'], op['succ_code'])
         if kind == 'set_rel':
             els = rels_by_codes.get(pair, [])
-            for el in els:   # revert type/lag on every copy of the link
-                set_child(el, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
-                set_child(el, 'Lag', _fmt_hours(op['lag_hours']))
-            if els:
-                applied += 1
+            if not els:
+                continue
+            xml_type = {v: k for k, v in _REL_TYPE_XML.items()}
+            mapping, missing = relink(op, [xml_type.get(ctext(el, 'Type'), 'FS') for el in els])
+            keep = []
+            for el in els:   # revert type/lag on every copy of each link, by its type
+                m = mapping.get(xml_type.get(ctext(el, 'Type'), 'FS'))
+                if m is None:
+                    project.remove(el)
+                    continue
+                set_child(el, 'Type', _REL_TYPE_XML.get(m[0], 'Finish to Start'))
+                set_child(el, 'Lag', _fmt_hours(m[1]))
+                keep.append(el)
+            for t, h in missing:   # a baseline link of the pair the update dropped
+                new = copy.deepcopy(els[0])
+                max_rel_oid += 1
+                set_child(new, 'ObjectId', str(max_rel_oid))
+                set_child(new, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
+                set_child(new, 'Lag', _fmt_hours(h))
+                project.append(new)
+                keep.append(new)
+            rels_by_codes[pair] = keep
+            applied += 1
         elif kind == 'remove_rel':
             els = rels_by_codes.get(pair, [])
             for el in els:   # remove EVERY copy so none is left to loop
@@ -231,10 +279,15 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             set_child(new, 'ObjectId', str(max_rel_oid))
             set_child(new, 'PredecessorActivityObjectId', p_oids[0])
             set_child(new, 'SuccessorActivityObjectId', s_oids[0])
-            set_child(new, 'Type', _REL_TYPE_XML.get(op['type'], 'Finish to Start'))
-            set_child(new, 'Lag', _fmt_hours(op['lag_hours']))
-            project.append(new)
-            rels_by_codes.setdefault(pair, []).append(new)
+            for i, (t, h) in enumerate(op.get('links') or [(op['type'], op['lag_hours'])]):
+                el = new if i == 0 else copy.deepcopy(new)
+                if i:
+                    max_rel_oid += 1
+                    set_child(el, 'ObjectId', str(max_rel_oid))
+                set_child(el, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
+                set_child(el, 'Lag', _fmt_hours(h))
+                project.append(el)
+                rels_by_codes.setdefault(pair, []).append(el)
             applied += 1
 
     if note:

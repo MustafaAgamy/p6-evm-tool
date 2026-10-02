@@ -189,6 +189,20 @@ def resolve_baseline(data, attached_path=None, parse=None):
     return info
 
 
+def use_picked_baseline(schedules, baseline_path):
+    """Critical Path Analyzer with a Baseline picked: an update that carries no baseline of its
+    own (an XER update exports only the BASELINE_EXPORT pointer, none attached) is measured
+    against the picked baseline — what P6 shows once that baseline is assigned — instead of its
+    own Planned dates, so an XER update gives the same BL finish / slip as the same update as
+    XML with the baseline inside (comment 44). An embedded or attached baseline is kept. The
+    previous update then inherits the current update's baseline as before (R4)."""
+    bl, cur = schedules.get('baseline'), schedules.get('current')
+    if bl is not None and cur is not None and getattr(cur, 'baseline_source', None) in (None, 'self'):
+        resolve_baseline(cur, baseline_path, parse=lambda _p: bl)
+    if schedules.get('previous') is not None and cur is not None:
+        inherit_baseline(schedules['previous'], cur)
+
+
 def inherit_baseline(prev, curr):
     """Measure an earlier update (``prev``) against the current update's baseline when it has
     none of its own — the SAME baseline whether ``curr`` carries it inside the XML ('embedded')
