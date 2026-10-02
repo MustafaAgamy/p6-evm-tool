@@ -595,6 +595,9 @@ function setupFormHtml() {
       .bn-seqarrow{flex:0 0 auto;color:#1F4E79;font-weight:700}
       .bn-seqmv{width:26px;height:26px;border:1px solid var(--border,#dadee4);border-radius:6px;background:var(--surface,#f6f8fb);font-size:11px;cursor:pointer;line-height:1;padding:0;flex:0 0 auto;color:#b3402f}
       .bn-seqmv:hover{background:#f6e6e6;border-color:#b3402f}
+      .bn-seqord{width:26px;height:26px;border:1px solid var(--border,#dadee4);border-radius:6px;background:var(--surface,#f6f8fb);font-size:12px;cursor:pointer;line-height:1;padding:0;flex:0 0 auto;color:#1F4E79}
+      .bn-seqord:hover:not(:disabled){background:#e8f0f8;border-color:#1F4E79}
+      .bn-seqord:disabled{opacity:.35;cursor:default}
       .bn-seqadd{margin-top:2px;padding:6px 9px;border:1px dashed #7aa3c7;border-radius:7px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:#1F4E79;cursor:pointer}
     </style>
     <div class="bn-setup">
@@ -621,6 +624,21 @@ function setupFormHtml() {
 // Comments 4 & 5 — pick which Major Milestones and Key Dates to include (before Run).
 // Populated from the generated doc's meta.*_choices; the selection is stored in the
 // setup and posted with the next generate/export, which the server filters on.
+// Comment 45 — the planner orders the activity codes freely: swap the two codes of a sequence
+// analysis (e.g. 'Type of Works' → 'Type of Civil Works' becomes 'Type of Civil Works' →
+// 'Type of Works') and move whole analyses up / down. Pure: return new arrays.
+export function swapSeqCodes(list, i) {
+  return (list || []).map((a, k) => (k === i && a && Array.isArray(a.codes) && a.codes.length === 2)
+    ? { ...a, codes: [a.codes[1], a.codes[0]] } : a);
+}
+export function moveItem(list, i, dir) {
+  const out = (list || []).slice();
+  const j = dir === 'up' ? i - 1 : i + 1;
+  if (i < 0 || i >= out.length || j < 0 || j >= out.length) return out;
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
 function _esc(x) {
   return String(x == null ? '' : x).replace(/[&<>"]/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -742,9 +760,11 @@ function renderSelection() {
       ).join('');
     const rows = seqAnalyses.map((a, i) =>
       `<div class="bn-seqrow"><span class="bn-lvl">${i + 1}</span>` +
-      `<select class="bn-seqsel" data-i="${i}" data-slot="0" title="Primary activity code (required)">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
-      `<span class="bn-seqarrow">&rarr;</span>` +
-      `<select class="bn-seqsel" data-i="${i}" data-slot="1" title="Group-by second code (optional)">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<select class="bn-seqsel" data-i="${i}" data-slot="0" title="1st activity code (required)">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
+      `<button type="button" class="bn-seqord" data-seqswap="${i}" title="Swap: make the 2nd code 1st and the 1st code 2nd"${a.codes.length === 2 ? '' : ' disabled'}>&#8644;</button>` +
+      `<select class="bn-seqsel" data-i="${i}" data-slot="1" title="2nd activity code (optional)">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<button type="button" class="bn-seqord" data-seqmv="up" data-i="${i}" title="Move this analysis up"${i === 0 ? ' disabled' : ''}>&#9650;</button>` +
+      `<button type="button" class="bn-seqord" data-seqmv="down" data-i="${i}" title="Move this analysis down"${i === seqAnalyses.length - 1 ? ' disabled' : ''}>&#9660;</button>` +
       `<button type="button" class="bn-seqmv" data-seqrm="${i}" title="Remove">&#10005;</button>` +
       '</div>').join('');
     seqHtml =
@@ -752,7 +772,8 @@ function renderSelection() {
       '<div class="hint">Add one or more <b>sequence analyses</b> for §11. Pick <b>one</b> code for a ' +
       'general execution sequence, or add a <b>second</b> code to sequence each building/group by ' +
       'that code (identical buildings are grouped, e.g. “Silos 1–10”). The order of work is read ' +
-      'from the schedule’s dependency logic. Leave empty to auto-detect.</div>' +
+      'from the schedule’s dependency logic. <b>&#8644;</b> swaps which code comes 1st and 2nd; ' +
+      '<b>&#9650; &#9660;</b> reorder the analyses. Leave empty to auto-detect.</div>' +
       `<div class="bn-seqlist">${rows ||
         '<div class="hint" style="padding:6px 2px">No analyses — §11 will auto-detect a sensible sequence.</div>'}</div>` +
       '<button type="button" class="bn-seqadd">+ Add sequence analysis</button>';
@@ -796,6 +817,12 @@ function renderSelection() {
   }));
   box.querySelectorAll('[data-seqrm]').forEach(b => b.addEventListener('click', () => {
     seqAnalyses.splice(+b.dataset.seqrm, 1); reSeq();
+  }));
+  box.querySelectorAll('[data-seqswap]').forEach(b => b.addEventListener('click', () => {
+    seqAnalyses = swapSeqCodes(seqAnalyses, +b.dataset.seqswap); reSeq();
+  }));
+  box.querySelectorAll('[data-seqmv]').forEach(b => b.addEventListener('click', () => {
+    seqAnalyses = moveItem(seqAnalyses, +b.dataset.i, b.dataset.seqmv); reSeq();
   }));
   const seqAdd = box.querySelector('.bn-seqadd');
   if (seqAdd) seqAdd.addEventListener('click', () => {
@@ -918,6 +945,7 @@ function chatCss() {
     .bn-ch{color:#7c8794;cursor:pointer;font-size:12px}
     .bn-ch:hover{color:#1F4E79}
     .bn-carrow{color:#9aa4b0;font-size:12px}
+    .bn-sw{font-size:15px;color:#1F4E79}
     .bn-srow{display:flex;align-items:center;gap:7px;border:1px solid var(--border,#dadee4);border-radius:8px;padding:6px 9px;background:var(--surface-2,#fff);max-width:520px}
     .bn-sq{flex:1;min-width:0;padding:5px 8px;border:1px solid #c7cdd4;border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
     .bn-lvl2{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:#1F4E79;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
@@ -1045,9 +1073,11 @@ function chatControl(step) {
     const opt = (sel, ph) => [`<option value="">${ph}</option>`].concat(codes.map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`)).join('');
     const rows = list.map((a, i) =>
       `<div class="bn-srow"><span class="bn-lvl2">${i + 1}</span>` +
-      `<select class="bn-sq" data-si="${i}" data-slot="0">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
-      `<span class="bn-carrow">→</span>` +
-      `<select class="bn-sq" data-si="${i}" data-slot="1">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<select class="bn-sq" data-si="${i}" data-slot="0" title="1st activity code">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
+      `<i class="bn-ch bn-sw" data-sqswap="${i}" title="swap: make the 2nd code 1st"${a.codes.length === 2 ? '' : ' style="opacity:.3"'}>⇄</i>` +
+      `<select class="bn-sq" data-si="${i}" data-slot="1" title="2nd activity code">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<i class="bn-ch" data-sqmv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
+      `<i class="bn-ch" data-sqmv="down" data-i="${i}" title="move down"${i === list.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
       `<i class="bn-x" data-seqrm="${i}" title="remove">✕</i></div>`).join('');
     return `<button type="button" class="bn-add2" data-seqadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add sequence above</button>` +
       `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No analyses — section 11 auto-detects a sensible sequence.</span>'}</div>` +
@@ -1171,6 +1201,8 @@ function wireActive() {
     setSeq(list.filter(a => a.codes.length)); paintActive();
   }));
   box.querySelectorAll('[data-seqrm]').forEach(b => b.addEventListener('click', () => { const list = curSeq(); list.splice(+b.dataset.seqrm, 1); setSeq(list); paintActive(); }));
+  box.querySelectorAll('[data-sqswap]').forEach(b => b.addEventListener('click', () => { setSeq(swapSeqCodes(curSeq(), +b.dataset.sqswap)); paintActive(); }));
+  box.querySelectorAll('[data-sqmv]').forEach(b => b.addEventListener('click', () => { setSeq(moveItem(curSeq(), +b.dataset.i, b.dataset.sqmv)); paintActive(); }));
   box.querySelectorAll('[data-seqadd]').forEach(b => b.addEventListener('click', () => {
     const list = curSeq(), codes = chatCodes();
     const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
