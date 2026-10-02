@@ -243,14 +243,21 @@ test('no report keeps a private preview: every one opens the shared picker (comm
     assert.ok(!/per-preview-overlay/.test(src), `${m}.js still builds its own overlay`);
   }
 });
-test('feature_needs lists Word / HTML exactly where they exist', () => {
-  // Adopted previews (api.js passes exports: ADOPTED_EXPORTS) — update when a feature adopts.
-  const adoptedViews = ['evm', 'calendar'];
-  assert.equal((read('ui', 'modules', 'api.js').match(/exports: ADOPTED_EXPORTS/g) || []).length, adoptedViews.length);
-  const own = { narrative: ['Word', 'HTML'], special: ['Word'],        // REPORT_BTN docx / html
-    schedule: ['Word', 'HTML'] };                                      // PRINT_VIEW exports (printView)
+test('feature_needs lists Word / HTML for every feature that has a report (comment 2)', () => {
+  // Every report preview offers the full bar now: four callers in api.js (EVM, Calendar, the
+  // Schedule Health checks, Bad Weather) plus compare / revcompare / update / period / critpath,
+  // and every printView screen view (Word + HTML beside PDF).
+  assert.equal((read('ui', 'modules', 'api.js').match(/exports: ADOPTED_EXPORTS/g) || []).length, 3);
+  assert.match(read('ui', 'modules', 'api.js'), /exports: module === '__summary__' \? \['pdf', 'docx', 'html'\] : ADOPTED_EXPORTS/);
+  for (const m of ['compare', 'revcompare', 'update', 'period', 'critpath']) {
+    assert.match(read('ui', 'modules', `${m}.js`), /exports: \['pdf', 'docx', 'html', 'xlsx'\]/, m);
+    assert.match(read('ui', 'modules', `${m}.js`), /onExcel: \(\) =>/, m + ' gives its own workbook');
+  }
+  assert.match(read('ui', 'modules', 'printview.js'), /exports: exports \|\| \['pdf', 'docx', 'html'\]/);
+  const none = ['home', 'recent', 'chat'];                           // no report
+  const wordOnly = ['special'];                                      // the Studio: its own Word, no HTML
   for (const f of FEATURE_NEEDS) {
-    const want = adoptedViews.includes(f.id) ? ['Word', 'HTML'] : (own[f.id] || []);
+    const want = none.includes(f.id) ? [] : (wordOnly.includes(f.id) ? ['Word'] : ['Word', 'HTML']);
     for (const k of ['Word', 'HTML']) {
       assert.equal(f.exports.includes(k), want.includes(k), `${f.id}: exports ${k}?`);
     }

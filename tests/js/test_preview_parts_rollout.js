@@ -20,7 +20,7 @@ let passed = 0;
 function test(name, fn) { fn(); passed += 1; console.log('  ok  ' + name); }
 
 test('the shared preview offers an extras slot with a rerender() the feature can call', () => {
-  assert.match(preview, /serverOrder, extras \}\) \{/);
+  assert.match(preview, /serverOrder, extras, onExcel \}\) \{/);
   assert.match(preview, /<div class="rpv-extras" id="rpv-extras"><\/div>/);
   assert.match(preview, /extras\(extrasHost, \{ rerender \}\)/);
   const fn = preview.slice(preview.indexOf('const rerender = async () => {'));

@@ -288,7 +288,8 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
     for key, title, htmls in secs:
         if keys is not None and key not in keys:
             continue
-        body.append(f'<section data-sec="{key}"><h2>{_e(title)}</h2>{htmls}</section>')
+        whole = ' data-parts="none"' if key == 'counts' else ''     # one chart: ticked as a whole
+        body.append(f'<section data-sec="{key}"{whole}><h2>{_e(title)}</h2>{htmls}</section>')
     _ink = report_theme.var('rpt-ink')
     _muted = report_theme.var('rpt-muted')
     _edge = report_theme.var('rpt-edge')

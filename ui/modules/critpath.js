@@ -245,6 +245,7 @@ async function _openPreview() {
     title: 'Critical Path Analyzer preview', subtitle: _shownReport.project_name || '', html,
     sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_critpath', initialMode: cpaMode,
     feature: 'Critical Path Analyzer', exportName: 'critical_path_analyzer',
+    exports: ['pdf', 'docx', 'html', 'xlsx'], onExcel: () => _exportExcel(),
     meta: { project: _shownReport.project_name || '' },
     onRerender:    (keys, theme) => fetchPreview(keys, theme),
     onThemeChange: (theme, keys) => { cpaMode = theme; return fetchPreview(keys, theme); },

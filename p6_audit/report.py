@@ -1119,13 +1119,13 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .lbar {{ display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }}
   .lbar .lbl {{ width: 76px; font-size: 10px; color: var(--rpt-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
   .lbar .trk {{ flex: 1; height: 8px; background: var(--rpt-chart-grid); border-radius: 4px; overflow: hidden; }}
-  .lbar .trk i {{ display: block; height: 100%; background: var(--rpt-th-bg); border-radius: 4px; }}
+  .lbar .trk i {{ display: block; height: 100%; background: var(--rpt-accent); border-radius: 4px; }}
   .lbar .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: var(--rpt-muted); white-space: nowrap; }}
   .lbarS {{ margin-bottom: 9px; }}
   .lblS {{ font-size: 10px; color: var(--rpt-ink); margin-bottom: 3px; line-height: 1.3; }}
   .lineS {{ display: flex; align-items: center; gap: 8px; }}
   .lineS .trk {{ flex: 1; height: 8px; background: var(--rpt-chart-grid); border-radius: 4px; overflow: hidden; }}
-  .lineS .trk i {{ display: block; height: 100%; background: var(--rpt-th-bg); border-radius: 4px; }}
+  .lineS .trk i {{ display: block; height: 100%; background: var(--rpt-accent); border-radius: 4px; }}
   .lineS .lval {{ width: 56px; text-align: right; font-size: 9.5px; color: var(--rpt-muted); white-space: nowrap; }}
   .lmut {{ color: var(--rpt-muted); font-size: 10px; }}
   .ldonut {{ display: flex; align-items: center; gap: 12px; }}

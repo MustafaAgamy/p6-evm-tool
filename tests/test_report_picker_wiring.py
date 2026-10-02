@@ -33,19 +33,18 @@ def test_preview_defaults_to_the_pdf_only_bar():
     assert re.search(r"if \(!Array\.isArray\(exports\)\) return \['pdf'\];", parts)
 
 
-def test_only_adopted_features_offer_word_html_excel():
+def test_every_report_offers_word_html_excel():
+    # owner comment 2: the full bar is on for every report (it was Earned Value + Calendar only)
     api = _read('api.js')
     assert "const ADOPTED_EXPORTS = ['pdf', 'docx', 'html', 'xlsx'];" in api
-    assert api.count('exports: ADOPTED_EXPORTS') == 2
-    assert 'exports: ADOPTED_EXPORTS' in _fn_body(api, 'generatePdf')          # Earned Value
-    assert 'exports: ADOPTED_EXPORTS' in _fn_body(api, 'generateCalendarPdf')  # P6 Calendar Audit
-    for fn in ('generateModulePdf', 'generateWeatherPdf'):
-        assert 'exports:' not in _fn_body(api, fn), fn
-    # no other preview caller turns the full bar on until it is adopted
-    for name in ('compare.js', 'revcompare.js', 'printview.js', 'special.js'):
+    assert api.count('exports: ADOPTED_EXPORTS') == 3
+    for fn in ('generatePdf', 'generateCalendarPdf', 'generateWeatherPdf'):
+        assert 'exports: ADOPTED_EXPORTS' in _fn_body(api, fn), fn
+    assert "exports: module === '__summary__' ? ['pdf', 'docx', 'html'] : ADOPTED_EXPORTS" in _fn_body(api, 'generateModulePdf')
+    for name in ('compare.js', 'revcompare.js', 'update.js', 'period.js', 'critpath.js'):
         src = _read(name)
-        assert not re.search(r"exports:\s*\[[^\]]*'(docx|xlsx|html)'", src), name
-        assert 'ADOPTED_EXPORTS' not in src, name
+        assert "exports: ['pdf', 'docx', 'html', 'xlsx']" in src and 'onExcel: () =>' in src, name
+    assert "exports: exports || ['pdf', 'docx', 'html']" in _read('printview.js')
 
 
 # ── F2: drag-to-reorder only where the new order reaches the outputs ─────────

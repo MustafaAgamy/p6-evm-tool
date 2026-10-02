@@ -533,6 +533,7 @@ async function _exportPdf() {
     title: 'Update Analysis preview', subtitle: _shownReport.file || _shownReport.project_name || '', html,
     sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_update', initialMode: _uaTheme,
     feature: 'Update Analysis', exportName: 'update_analysis',
+    exports: ['pdf', 'docx', 'html', 'xlsx'], onExcel: () => _exportExcel(),
     meta: { project: _shownReport.project_name || '', data_date: _shownReport.data_date ? String(_shownReport.data_date).slice(0, 10) : '' },
     onRerender:    (keys, theme) => fetchPreview(keys, theme),
     onThemeChange: (theme, keys) => { _uaTheme = theme; return fetchPreview(keys, theme); },

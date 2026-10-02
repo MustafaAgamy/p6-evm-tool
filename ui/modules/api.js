@@ -302,6 +302,9 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
       title: 'Report — Schedule Health Review', subtitle: mod.name || module, html,
       sections, selected, storageKey, initialMode: mode,
       feature: featureName,
+      // the Summary has no workbook of its own; each check exports its findings workbook
+      exports: module === '__summary__' ? ['pdf', 'docx', 'html'] : ADOPTED_EXPORTS,
+      onExcel: module === '__summary__' ? undefined : () => exportExcel(btnId === 'pdf-btn-audit' ? 'excel-btn' : _siblingExcelBtn(btnId)),
       exportName: `${module.replace(/^_+|_+$/g, '') || 'summary'}_report`,
       meta: {
         project: reqBody.meta.project_name,
@@ -318,10 +321,13 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   }
 }
 
-// The full one-document export bar (PDF · Word · HTML · Excel). OPT-IN per feature: pass it
-// only from a feature whose report is ADOPTED (data-sec / data-part annotated, charts marked —
-// docs/report-picker-adoption.md); every other preview keeps the PDF-only bar.
+// The full export bar (PDF · Word · HTML · Excel). Every report offers it (owner comment 2):
+// Word and HTML are made from the previewed report itself (charts as pictures — the server
+// marks them, p6_export.auto_visuals); Excel is the feature's own complete workbook when it
+// has one (onExcel), else the sheet-per-section extract of the previewed report.
 const ADOPTED_EXPORTS = ['pdf', 'docx', 'html', 'xlsx'];
+// 'lag-pdf-btn' → 'lag-excel-btn', 'oos-pdf-btn' → 'oos-excel-btn' (the check's own Excel button)
+const _siblingExcelBtn = (pdfBtnId) => String(pdfBtnId || '').replace('-pdf-btn', '-excel-btn') || 'excel-btn';
 
 // Shared "Save as PDF" from a preview: pick a path, POST the same body with output_path.
 // Returns true on success (preview closes), false if the user cancelled or it failed.
@@ -513,6 +519,9 @@ export async function generateWeatherPdf() {
     showReportPreview({
       title: 'Bad Weather report preview', subtitle: reqBody.meta.source_file, html, initialMode: mode,
       sections, selected, storageKey,
+      feature: 'Bad Weather', exportName: 'Bad_Weather_Forecast',
+      meta: { project: reqBody.meta.project_name },
+      exports: ADOPTED_EXPORTS, onExcel: () => exportWeatherExcel(),
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'Bad_Weather_Forecast.pdf', 'pdf'),
