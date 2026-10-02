@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Results checked against Primavera P6, feature by feature (final test)
+The values P6 itself stores in the export file — every activity's Start, Finish, status, % complete and total float, every relationship's type and lag, the calendars' hours and the budgeted and actual costs — were read independently of the tool and compared with what each feature reports, on Grain Bulk (three baselines), Saint Gobain (two baselines, two updates) and Alstom: about 380 checks. They agree, except for three differences, now fixed:
+- **Consultant Review — milestone table.** A milestone that is already achieved showed its planned date in the "update finish" column (for example 27 Mar where P6 shows the actual 23 Mar). It now shows the date P6 shows in Finish: the actual date once achieved, the forecast otherwise.
+- **Baseline Revision — dates.** In a revision that already carries progress, a finished activity showed its planned finish. Start and Finish are now the dates P6 shows (actual where the work has happened).
+- **Baseline Revision — relationship count.** P6 allows two links between the same two activities (for example an SS and an FF). They were counted as one, so "Total relationships" read 2,589 where P6 holds 2,631 (Grain Bulk Rev.00). The count now equals P6's, and a change to either link is reported.
+- Also from the final sweep: the Reporting Studio's Excel now carries the real tables and figures of reused report sections (it had a one-line placeholder).
+
 ### Changed — Keyboard shortcuts: every feature has one, and all of them work (comment 42)
 - **Removed: Previous feature (Ctrl+[) and Next feature (Ctrl+]).** They are gone from the keyboard, from the View menu and from the Help list.
 - **Every feature now has its own shortcut**, in the same order as the navigator. Alt+1 Overview · Alt+2 WBS · Alt+3 Schedule (Gantt) · Alt+4 Schedule Health · Alt+5 Baseline Narrative · Alt+6 Lag Report · Alt+7 Earned Value · Alt+8 Out of Sequence · Alt+9 Update Analysis · Alt+0 Critical Path · Alt+Shift+1 Update vs Update · Alt+Shift+2 Consultant Review · Alt+Shift+3 Baseline Revision · Alt+Shift+4 P6 Calendar Audit · Alt+Shift+5 Bad Weather · Alt+Shift+6 Reporting Studio · Alt+Shift+7 Productivity & Resources · Alt+Shift+8 Knowledge Base · Alt+Shift+9 AI Chat · Alt+Shift+0 back to the import screen. Before, only seven features had one. (Earned Value moves from Alt+1 to Alt+7 so the numbers follow the navigator.) Recent Projects stays on Ctrl+Shift+R.

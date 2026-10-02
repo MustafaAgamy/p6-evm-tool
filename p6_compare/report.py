@@ -148,8 +148,10 @@ def build_report_from_data(baseline, update, config=None):
         milestones.append({
             'activity_id': code,
             'name': u.get('name', ''),
-            'baseline_finish': _fmt(b.get('planned_finish')),
-            'update_finish': _fmt(u.get('planned_finish') or u.get('remaining_early_finish')),
+            'baseline_finish': _fmt(b.get('actual_finish') or b.get('planned_finish')),
+            # P6's Finish column: the ACTUAL finish once the milestone is achieved (it showed the
+            # planned date of an achieved milestone), else the current forecast
+            'update_finish': _fmt(u.get('actual_finish') or u.get('planned_finish') or u.get('remaining_early_finish')),
         })
 
     return {

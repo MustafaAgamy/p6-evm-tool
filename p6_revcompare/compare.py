@@ -140,7 +140,7 @@ def _logic_stats(matched):
     type_ch = lag_ch = 0
     for k in (k0 & k1):
         a, b = e0[k], e1[k]
-        if a.get('type') != b.get('type'):
+        if a.get('type') != b.get('type') or (a.get('multi') or '') != (b.get('multi') or ''):
             type_ch += 1
         elif abs((a.get('lag_days') or 0.0) - (b.get('lag_days') or 0.0)) > 1e-9:
             lag_ch += 1

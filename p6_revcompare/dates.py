@@ -27,6 +27,17 @@ from p6_revcompare.compare import _short, _d0, _dur_days, _wd_between
 
 # ── calendar helpers ─────────────────────────────────────────────────────────
 
+def _p6_start(a):
+    """The date P6 shows in its Start column: the actual start once the work has started."""
+    return a.get('actual_start') or a.get('planned_start')
+
+
+def _p6_finish(a):
+    """The date P6 shows in its Finish column: the actual finish once the work is finished (a
+    revision that already carries progress showed the PLANNED finish of finished work)."""
+    return a.get('actual_finish') or a.get('planned_finish')
+
+
 def _cal_for(data, act):
     cals = getattr(data, 'calendars', None) or {}
     return cals.get((act or {}).get('calendar_id'))
@@ -83,8 +94,8 @@ def build_date_shifts(match, rev0, rev1, cal, top=None):
     movers = []
     for p in (match.get('pairs') or []):
         a0, a1 = p.get('act0') or {}, p.get('act1') or {}
-        s0, s1 = a0.get('planned_start'), a1.get('planned_start')
-        f0, f1 = a0.get('planned_finish'), a1.get('planned_finish')
+        s0, s1 = _p6_start(a0), _p6_start(a1)
+        f0, f1 = _p6_finish(a0), _p6_finish(a1)
         fin_shift = _shift_wd(cal, f0, f1)
         start_shift = _shift_wd(cal, s0, s1)
         shift = fin_shift if fin_shift is not None else start_shift
@@ -107,16 +118,16 @@ def build_date_shifts(match, rev0, rev1, cal, top=None):
         rows.append({
             'id': a.get('id'), 'name': a.get('name') or a.get('id'),
             'wbs': a.get('wbs_path') or '—',
-            'start0': None, 'start1': _short(a.get('planned_start')),
-            'finish0': None, 'finish1': _short(a.get('planned_finish')),
+            'start0': None, 'start1': _short(_p6_start(a)),
+            'finish0': None, 'finish1': _short(_p6_finish(a)),
             'shift_wd': None,
         })
     for a in (match.get('removed') or []):
         rows.append({
             'id': a.get('id'), 'name': a.get('name') or a.get('id'),
             'wbs': a.get('wbs_path') or '—',
-            'start0': _short(a.get('planned_start')), 'start1': None,
-            'finish0': _short(a.get('planned_finish')), 'finish1': None,
+            'start0': _short(_p6_start(a)), 'start1': None,
+            'finish0': _short(_p6_finish(a)), 'finish1': None,
             'shift_wd': None,
         })
     return rows
