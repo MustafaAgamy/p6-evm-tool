@@ -289,6 +289,10 @@ def fit_picture(p, avail_pt, min_scale=0.5):
     pics = _inline_pictures(p)
     if len(pics) != 1 or avail_pt <= 0:
         return False
+    # a native drawing (a group of Word shapes + text, comment 41) is never rescaled here: Word
+    # would shrink its shapes but not its text.  It was sized to the page when it was written.
+    if any('wordprocessingGroup' in (el.tag or '') or el.tag.endswith('}wgp') for el in p.iter() if isinstance(el.tag, str)):
+        return False
     ext, inner = pics[0]
     try:
         cx, cy = int(ext.get('cx')), int(ext.get('cy'))

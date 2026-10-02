@@ -345,3 +345,17 @@ def test_update_analysis_workbook_has_scope_weight_for_every_activity_code():
     assert len(sheets['Scope Weight']['blocks'][0]['rows']) == 2          # the default one is unchanged
     one = {'scope_default': 'Phase', 'scope': {'Phase': report['scope']['Phase']}}
     assert 'Scope Weight - All Codes' not in {s['name'] for s in report_excel_sections(one)}
+
+
+def test_the_lag_report_workbook_shows_no_score():
+    # the Lag Report screen and PDF carry no score (a register + justification), so neither does its Excel
+    from p6_audit.excel_sheets import extra_sheets
+    m = {'module': 'lag_lead', 'score': 20, 'grade': 'Critical', 'kpis': {'lagged_count': 401, 'lagged_pct': 15.2},
+         'presentation': {'verdict': '15.2% of items flagged.', 'scoring': {'formula': 'x'},
+                          'tiles': [{'label': 'lagged pct', 'value': 15.2}]}}
+    summary = next(s for s in extra_sheets(m) if s['name'] == 'Summary')
+    flat = [str(c) for b in summary['blocks'] for r in b['rows'] for c in r]
+    assert 'Score' not in flat and 'Critical' not in flat and 'Grade' not in flat
+    assert 'Lagged %' in flat                                  # a raw tile key is written as a heading
+    other = next(s for s in extra_sheets(dict(m, module='dangling')) if s['name'] == 'Summary')
+    assert 'Score' in [str(c) for b in other['blocks'] for r in b['rows'] for c in r]

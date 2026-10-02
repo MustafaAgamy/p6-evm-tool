@@ -90,7 +90,7 @@ export function composeDoc(css, title, subtitle, sections, selectedKeys, extraHe
 // sections: [{ key, label, html }] — html is the section's rendered content (may be '')
 // exports / exportName / meta: an ADOPTED view (its sections carry data-part wrappers and mark
 // screen-only cells data-export="skip") may offer Word / HTML beside PDF — default PDF only.
-export async function printView({ module, title, subtitle, sections, exports, exportName, meta }) {
+export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel }) {
   const usable = (sections || []).filter(Boolean);
   if (!usable.length) return false;
   const css = await appCss();
@@ -111,7 +111,8 @@ export async function printView({ module, title, subtitle, sections, exports, ex
     sections: secMeta,
     selected,
     storageKey,
-    exports: exports || ['pdf', 'docx', 'html'],        // Excel stays on the view's own Excel button
+    // Excel = the view's own workbook when it has one (Overview, WBS, Gantt)
+    exports: exports || (onExcel ? ['pdf', 'docx', 'html', 'xlsx'] : ['pdf', 'docx', 'html']), onExcel,
     feature: title, exportName: exportName || `${module}_report`, meta: meta || {},
     onRerender: (sel) => withParts(doc(sel)),
     onSave: async (mode, sel) => {

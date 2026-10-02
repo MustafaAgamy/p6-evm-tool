@@ -479,7 +479,7 @@ export async function generateCalendarPdf() {
       sections, selected, storageKey,
       feature: 'P6 Calendar Audit', exportName: 'P6_Calendar_Audit',
       meta: { project: reqBody.meta.project_name },   // data date: read from the report head (same text as the PDF)
-      exports: ADOPTED_EXPORTS,                       // report annotated (data-sec/data-part) → full export bar
+      exports: ADOPTED_EXPORTS, onExcel: () => exportCalendarExcel(),   // Excel = the complete Calendar workbook (Summary, monthly working time, issues)
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: (m, sel) => _savePdf('api/report/calendar', { ...reqBody, theme: m, sections: sel || null }, 'P6_Calendar_Audit.pdf', 'pdf'),

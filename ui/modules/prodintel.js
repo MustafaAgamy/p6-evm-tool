@@ -565,7 +565,7 @@ function renderRail(r) {
 function buildPrint(r) {
   if (!r || r.found === false) { _print = null; return; }
   const main = document.getElementById('pi-main'); const sec = [];
-  sec.push({ key: 'header', label: 'Header', html: `<h1 style="font-size:18px;margin:0 0 4px">${escapeHtml(r.item)}</h1><div style="color:#555;font-size:12px">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}${r.has_quantity ? ' · Quantity ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : ' · Knowledge lookup'}</div>` });
-  (main ? main.querySelectorAll('.pi-card') : []).forEach((card, i) => { const h = card.querySelector('h3,h4'); sec.push({ key: 'card' + i, label: h ? h.textContent : ('Section ' + (i + 1)), html: card.outerHTML }); });
+  sec.push({ key: 'header', label: 'Work item & settings', html: `<h1 style="font-size:18px;margin:0 0 4px">${escapeHtml(r.item)}</h1><div style="color:#555;font-size:12px">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}${r.has_quantity ? ' · Quantity ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : ' · Knowledge lookup'}</div>` });
+  (main ? main.querySelectorAll('.pi-card') : []).forEach((card, i) => { const h = card.querySelector('h3,h4'); sec.push({ key: 'card' + i, label: h ? h.textContent : (i === 0 ? 'Rates by trade — summary' : 'Section ' + (i + 1)), html: card.outerHTML }); });
   _print = sec;
 }

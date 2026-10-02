@@ -1118,9 +1118,23 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
                 if y1 - y0 < 2:
                     continue
                 clip = pymupdf.Rect(0, y0, pg.rect.width, y1)
+                height_pt = _PIC_W_IN * 72.0 * clip.height / pg.rect.width
+                # owner comment 41: Word is never a picture of the PDF.  The page's own vector
+                # drawing is read back and written as native Word shapes + real Word text.
+                prims = None
+                try:
+                    from p6_export.vector_shapes import MAX_PRIMS, page_prims
+                    prims = page_prims(pg, clip)
+                    if not (0 < len(prims) <= MAX_PRIMS):
+                        prims = None
+                except Exception:
+                    prims = None
+                if prims:
+                    out.append((None, height_pt, (prims, clip.width, clip.height)))
+                    continue
                 zoom = 2 * 96 / 72.0                # the old screenshot's 2x device scale
                 pix = pg.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip, alpha=False)
-                out.append((pix.tobytes('png'), _PIC_W_IN * 72.0 * clip.height / pg.rect.width))
+                out.append((pix.tobytes('png'), height_pt, None))
         return out or None
     except Exception:
         return None
@@ -1131,6 +1145,32 @@ def _slice_section(fragment_html, css, mode, chrome, room_pt, first_room_pt):
                     os.remove(p)
             except Exception:
                 pass
+
+
+def _add_native_slice(document, vector, height_pt, max_pt):
+    """One slice as a group of native Word shapes and text (never a picture), sized like the
+    picture it replaces.  None when it could not be written."""
+    try:
+        from docx.oxml import parse_xml
+        from p6_export import vector_shapes as VS
+        prims, w_pt, h_pt = vector
+        ids = document.__dict__.setdefault('_cx_shape_ids', [60000])
+        max_w = int(Inches(_PIC_W_IN))
+        if height_pt > max_pt > 0:
+            max_w = int(max_w * max_pt / height_pt)
+        xml = VS.group_drawing_xml(prims, w_pt, h_pt, ids, max_w_emu=max_w, name='Report section')
+        if not xml:
+            return None
+        p = document.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pf = p.paragraph_format
+        pf.space_before = Pt(0)
+        pf.space_after = Pt(0)
+        pf.line_spacing = 1.0
+        p.add_run()._r.append(parse_xml(xml))
+        return p
+    except Exception:
+        return None
 
 
 def _add_slice(document, png, height_pt, max_pt):
@@ -1175,14 +1215,15 @@ def _render_html(document, pl, chrome=None, mode='light'):
                 if lead + _LEAD_PT > _FLOW_MAX * room:
                     _open_on_new_page(document)
                 prev = None
-                for k, (png, h) in enumerate(slices):
+                for k, (png, h, vector) in enumerate(slices):
                     cap = first if k == 0 else room
                     if k == 1 and prev is not None and slices[0][1] < _TINY_SLICE * room:
                         # a tiny first slice (an intro line whose table was moved on) stays
                         # with the next one: both fit under the heading together
                         prev.paragraph_format.keep_with_next = True
                         cap = first - slices[0][1]
-                    prev = _add_slice(document, png, h, cap)
+                    prev = (_add_native_slice(document, vector, h, cap) if vector else None) \
+                        or (_add_slice(document, png, h, cap) if png else prev)
                 return
         except Exception:
             pass

@@ -87,7 +87,7 @@ def test_renderers_that_mark_their_own_exports_are_left_alone_and_it_never_raise
     assert mark_visuals(again) == again
 
 
-def test_word_gets_a_picture_and_excel_gets_the_numbers_through_the_routes(test_server, tmp_path):
+def test_word_gets_the_chart_and_excel_gets_the_numbers_through_the_routes(test_server, tmp_path):
     html = _doc('<div class="head"><div class="title">Update Analysis</div></div>'
                 f'<div data-sec="scope"><h2>Scope weight</h2>{BARS}{TABLE}</div>')
     docx, xlsx = tmp_path / 'r.docx', tmp_path / 'r.xlsx'
@@ -97,9 +97,11 @@ def test_word_gets_a_picture_and_excel_gets_the_numbers_through_the_routes(test_
     with zipfile.ZipFile(docx) as z:
         media = [n for n in z.namelist() if n.startswith('word/media/')]
         body = z.read('word/document.xml').decode('utf-8')
-    assert len(media) >= 1, 'the bar chart is a picture in Word'
+    # comment 41: the chart is native Word shapes + text, never a picture
+    assert '<wpg:wgp>' in body or len(media) >= 1, 'the bar chart is drawn in Word'
     assert body.count('<w:tbl>') >= 1 and 'Activity ID' in body          # the table is a real Word table
-    assert 'Phase A' not in re.sub(r'<w:tbl>.*?</w:tbl>', '', body, flags=re.S), 'chart labels are not loose text'
+    outside = re.sub(r'<w:drawing.*?</w:drawing>', '', re.sub(r'<w:tbl>.*?</w:tbl>', '', body, flags=re.S), flags=re.S)
+    assert 'Phase A' not in outside, 'chart labels are not loose text'
 
     _, d = _post_json(test_server, '/api/export/xlsx', {'html': html, 'output_path': str(xlsx), 'meta': meta})
     assert d['ok'], d

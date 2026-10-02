@@ -1101,6 +1101,16 @@ def get_audit_modules_for_snapshot(snapshot_id):
             hard['contract_milestones'] = get_contract_milestones(pid) if pid else []
             hard['milestones'] = []
             hard['needs_input'] = True
+            # the file's own milestone activities, offered on the entry screen to match against.
+            # They are not stored with the module, so a re-opened project said "0 milestone
+            # activities found" and suggested no names: rebuild them from the stored activity rows.
+            if not hard.get('baseline_milestones'):
+                views = get_snapshot_views(snapshot_id) or {}
+                ms = [{'activity_id': a.get('id'), 'name': a.get('name', ''), 'task_type': 'Milestone',
+                       'finish': a.get('finish')}
+                      for a in (views.get('activities') or []) if a.get('milestone')]
+                ms.sort(key=lambda x: (x['finish'] or '9999', x['name'] or ''))
+                hard['baseline_milestones'] = ms
         except Exception:
             pass
     return {'modules': modules, 'module_order': order,

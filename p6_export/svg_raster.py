@@ -264,12 +264,15 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
                     continue
                 last = next((p for p in firsts if p > first), doc.page_count)
                 pieces = []
+                vectors = []
                 for pno in range(first, last):          # every page this chart runs onto
-                    pieces.extend(_page_pieces(doc[pno], max_h_pt, scale, pymupdf))
+                    pieces.extend(_page_pieces(doc[pno], max_h_pt, scale, pymupdf, vectors))
                 if not pieces:
                     continue
                 v.png, v.width_px, v.height_px = pieces[0]
                 v.slices = pieces if len(pieces) > 1 else None
+                # every piece read as a drawing → Word gets native shapes, not a picture (comment 41)
+                v.vectors = vectors if vectors and len(vectors) == len(pieces) and all(x[0] for x in vectors) else None
                 drawn += 1
         finally:
             doc.close()
@@ -308,7 +311,7 @@ def _chart_start_pages(doc, n):
     return starts
 
 
-def _page_pieces(pg, max_h_pt, scale, pymupdf):
+def _page_pieces(pg, max_h_pt, scale, pymupdf, vectors=None):
     """Crop what is drawn on one page into (png, width_px, height_px) slices."""
     full = pg.rect
     box = None
@@ -324,6 +327,13 @@ def _page_pieces(pg, max_h_pt, scale, pymupdf):
     box = (box + (-4, -4, 4, 4)) & full
     pieces = []
     for clip in _slices(box, rects, max_h_pt):
+        if vectors is not None:
+            try:
+                from .vector_shapes import MAX_PRIMS, page_prims
+                prims = page_prims(pg, clip)
+                vectors.append((prims if 0 < len(prims) <= MAX_PRIMS else None, clip.width, clip.height))
+            except Exception:
+                vectors.append((None, clip.width, clip.height))
         pix = pg.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip, alpha=False)
         # PDF points → CSS px (96 dpi) so Word sizes the picture like the PDF
         pieces.append((pix.tobytes('png'), clip.width * 96 / 72, clip.height * 96 / 72))
@@ -338,20 +348,28 @@ def _slices(box, rects, max_h):
         import fitz as pymupdf
     if box.height <= max_h * 1.02:
         return [box]
-    inner = [r for r in rects if r.height < box.height * 0.9]
+    # containers (a lane, a card frame that spans several rows) do not block a cut: the cut is
+    # looked for between the rows INSIDE them
+    inner = [r for r in rects if r.height < min(box.height * 0.9, max_h * 0.45)]
     out, y = [], box.y0
     while box.y1 - y > max_h:
         target = y + max_h
         # the clean line (nothing drawn across it) with the WIDEST blank band below it —
         # i.e. between two blocks (months, cards), not between two rows of one block
         best = None
+        TOL = 3.0          # rows of cards touch / overlap by a point or two (borders, shadows)
         for c in {r.y1 for r in inner if y + max_h * 0.5 < r.y1 <= target}:
-            if any(r.y0 < c - 0.5 and r.y1 > c + 0.5 for r in inner):
-                continue
-            nxt = min((r.y0 for r in inner if r.y0 >= c - 0.5), default=box.y1)
-            key = (round(nxt - c, 1), c)
+            crossing = sum(1 for r in inner if r.y0 < c - TOL and r.y1 > c + TOL)
+            nxt = min((r.y0 for r in inner if r.y0 >= c - TOL and r.y1 > c + TOL), default=box.y1)
+            key = (-crossing, round(nxt - c, 1), c)        # fewest shapes cut, then the widest gap
             if best is None or key > best[0]:
                 best = (key, c)
+        if best and best[0][0] < 0:
+            # every candidate cuts something: only take it when it cuts fewer shapes than the
+            # page-height line itself would
+            at_target = sum(1 for r in inner if r.y0 < target - TOL and r.y1 > target + TOL)
+            if -best[0][0] >= at_target:
+                best = None
         cut = min(best[1] + 2, target) if best else target
         out.append(pymupdf.Rect(box.x0, y, box.x1, cut))
         y = cut
@@ -366,10 +384,16 @@ def rasterize(rep, chrome=None, use_chrome=True):
     for b in rep.all_blocks():
         if getattr(b, 'kind', '') != 'visual' or b.png:
             continue
-        if b.svg:
-            b.png = svg_to_png(b.svg, b.width_px)
-        if not b.png:
+        # Chrome draws EVERY chart (CSS or SVG): its print is read back as a vector drawing,
+        # which Word receives as native shapes.  The PyMuPDF picture of an SVG is only the
+        # fallback for a machine with no browser.
+        if b.html and use_chrome:
             pending.append(b)
+        elif b.svg:
+            b.png = svg_to_png(b.svg, b.width_px)
     if pending and use_chrome:
         chrome_raster(pending, rep, chrome=chrome)
+        for b in pending:                                   # the browser could not draw it
+            if not b.png and not b.vectors and b.svg:
+                b.png = svg_to_png(b.svg, b.width_px)
     return rep

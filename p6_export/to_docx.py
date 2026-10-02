@@ -24,13 +24,14 @@ mode is a screen + PDF choice; the Word page is never dark — see
 Every colour written is a concrete hex — Word ignores ``var(--x)``.
 """
 import io
+import os
 import re
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
-from docx.oxml import OxmlElement
+from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Emu, Mm, Pt, RGBColor
 
@@ -532,6 +533,8 @@ class _Writer:
             p.add_run('[picture]')
 
     def visual(self, v, c):
+        if v.vectors and self._native(v, c):                 # real Word shapes + text boxes (comment 41)
+            return
         if v.slices:
             for png, w, h in v.slices:
                 self.picture(png, w, c, h)
@@ -548,6 +551,31 @@ class _Writer:
         for line in v.text_lines or []:
             p = c.add_paragraph()
             p.add_run(_clean(line))
+
+    def _native(self, v, c):
+        """The chart as groups of native Word shapes read from the PDF's own drawing — every
+        bar and every label can be selected and edited.  False → nothing was written."""
+        from . import vector_shapes as VS
+        try:
+            ids = self.__dict__.setdefault('_shape_ids', [50000])
+            max_w = int(self.content_emu if c is self.doc else self.content_emu * 0.96)
+            xmls = []
+            for prims, w_pt, h_pt in v.vectors:
+                x = VS.group_drawing_xml(prims, w_pt, h_pt, ids, max_w_emu=max_w,
+                                         max_h_emu=self.max_h_emu or None, name=v.title or 'Chart')
+                if not x:
+                    return False
+                xmls.append(x)
+            for x in xmls:
+                p = c.add_paragraph()
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.space_after = Pt(2)
+                p.add_run()._r.append(parse_xml(x))
+            return bool(xmls)
+        except Exception:
+            if os.environ.get('CX_EXPORT_DEBUG'):
+                raise
+            return False
 
     def table(self, t, c):
         rows = [r for r in t.rows if r]

@@ -41,6 +41,13 @@ def label(key):
     return words[:1].upper() + words[1:]
 
 
+def _tile_label(text):
+    """A tile caption for the Summary sheet.  A caption that is still a raw key ('lagged pct',
+    'dcma lag line') is written as a heading ('Lagged %'); a real caption is kept as it is."""
+    t = str(text or '')
+    return label(t.replace(' ', '_')) if t and t == t.lower() else t
+
+
 def _value(v):
     if v is None:
         return ''
@@ -80,13 +87,16 @@ def _summary_blocks(m):
     blocks = []
 
     result = []
-    if m.get('score') is not None:
+    # The Lag Report is a register with a justification column: its screen and its PDF show no
+    # score, so its workbook shows none either (the score belongs to the Schedule Health checks).
+    scored = m.get('module') != 'lag_lead'
+    if scored and m.get('score') is not None:
         result.append(['Score', _value(m.get('score'))])
-    if m.get('grade'):
+    if scored and m.get('grade'):
         result.append(['Grade', m.get('grade')])
-    if p.get('verdict'):
+    if scored and p.get('verdict'):
         result.append(['Result', p.get('verdict')])
-    sc = p.get('scoring') or {}
+    sc = (p.get('scoring') or {}) if scored else {}
     for key, head in (('formula', 'How it is scored'), ('derivation', 'This schedule'),
                       ('bands', 'Grade bands'), ('benchmark', 'Benchmark')):
         if sc.get(key):
@@ -94,7 +104,7 @@ def _summary_blocks(m):
     if result:
         blocks.append({'title': 'Result', 'headers': ['Item', 'Value'], 'rows': result})
 
-    tiles = [[t.get('label', ''), _value(t.get('value'))] for t in (p.get('tiles') or [])
+    tiles = [[_tile_label(t.get('label', '')), _value(t.get('value'))] for t in (p.get('tiles') or [])
              if isinstance(t, dict)]
     if tiles:
         blocks.append({'title': 'Key figures (as shown on the report)',

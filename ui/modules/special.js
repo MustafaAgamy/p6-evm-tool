@@ -95,7 +95,7 @@ function drawBuilder(host, templates) {
           <button class="btn-secondary" id="sr-save-tpl">💾 Save as template</button>
           <span class="sr-appear" id="sr-appear"></span>
           <button class="btn-secondary" id="sr-preview">👁 Preview</button>
-          <button class="btn-secondary" id="sr-word" title="Word (.docx) — editable tables and text built from the same content as the PDF, with the same page layout; chart sections are placed as pictures">⬇ Word</button>
+          <button class="btn-secondary" id="sr-word" title="Word (.docx) — editable tables and text built from the same content as the PDF, with the same page layout; charts are editable Word shapes and text, not pictures">⬇ Word</button>
           <button class="btn-secondary" id="sr-excel">⬇ Excel</button>
           <button class="btn-primary" id="sr-pdf">⬇ PDF</button>
         </div>
@@ -110,7 +110,7 @@ function drawBuilder(host, templates) {
   document.getElementById('sr-appear').appendChild(buildAppearancePicker({ current: getSavedMode(), compact: true }));
   document.getElementById('sr-preview').addEventListener('click', doPreview);
   // Word = the real .docx built from the same content as the PDF (tables and text editable,
-  // chart sections as page-true pictures): it follows the PDF's page layout. The older
+  // chart sections as native Word shapes + text, comment 41): it follows the PDF's page layout. The older
   // Office-HTML .doc let Word re-flow the report itself (cards stacked one per line: 163
   // pages against the PDF's 105 on a GBT update), so Word did not match the PDF.
   document.getElementById('sr-word').addEventListener('click', () => doExport('docx', { editable: true }));
@@ -130,6 +130,19 @@ function drawTemplates(templates) {
     const t = (templates || []).find(x => x.id === id);
     if (t) { S.templateId = t.id; S.selected = (t.item_ids || []).slice(); S.name = t.name; S.retired = t.retired || 0; renderSpecialPanel(); }
   }));
+}
+
+// A feature's badge. When only SOME of its results can be picked, say how many — a group with
+// 18 of 21 results ready used to read "No data", as if nothing in it could be ticked.
+export function groupBadgeText(items, gavail) {
+  const ready = (items || []).filter(i => i.availability === 'ready').length;
+  if (ready && ready < items.length) return `${ready} of ${items.length} ready`;
+  return gavail === 'ready' ? 'Ready' : (gavail === 'needs_input' ? 'Needs input' : 'No data');
+}
+function groupBadge(items, gavail) {
+  const t = groupBadgeText(items, gavail);
+  if (/ of /.test(t)) return `<span class="sr-badge ok">${t}</span>`;
+  return availBadge(gavail);
 }
 
 function availBadge(av) {
@@ -159,7 +172,7 @@ function drawCatalog() {
     const gavail = g.items.every(i => i.availability === 'ready') ? 'ready'
       : (g.items.some(i => i.availability === 'needs_input') ? 'needs_input' : 'no_data');
     return `<div class="sr-feat">
-      <div class="sr-fh"><span class="sr-fname">${esc(g.feature_title)}</span>${availBadge(gavail)}</div>
+      <div class="sr-fh"><span class="sr-fname">${esc(g.feature_title)}</span>${groupBadge(g.items, gavail)}</div>
       ${attachBox}${noteBox}${items}</div>`;
   }).join('');
 

@@ -93,6 +93,10 @@ export function renderSchedule(result) {
     const raw = xOf(t.getTime());
     if (raw > trackW + 0.5) continue;
     const x = Math.max(0, raw);
+    if (raw < 0) {                                         // a first month with only a few days left: its
+      const nx = new Date(t); nx.setMonth(nx.getMonth() + 1);   // label would sit under the next month's
+      if (xOf(nx.getTime()) < 46) continue;
+    }
     const lbl = `${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}`;
     ticks += `<div class="g-tick" style="left:${x.toFixed(1)}px"><span>${lbl}</span></div>`;
     if (raw >= 0) grid += `<div class="g-grid-line" style="left:calc(var(--g-lblw) + ${x.toFixed(1)}px)"></div>`;
