@@ -477,6 +477,9 @@ export async function previewComparePdf() {
     showReportPreview({
       title: 'Print preview — Consultant Review', subtitle: report.update_file || '', html,
       sections, selected, storageKey: _CMP_STORAGE_KEY, initialMode: _cmpTheme,
+      feature: 'Consultant Review', exportName: 'consultant_review',
+      meta: { project: report.project_name || '', data_date: report.data_date || '' },
+      exports: ['pdf', 'docx', 'html', 'xlsx'], onExcel: () => exportCompareExcel(),
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => { _cmpTheme = theme; return fetchPreview(keys, theme); },
       onSave: (mode, keys) => _saveComparePdf(report, impact, mode, keys),

@@ -1826,6 +1826,10 @@ export async function openRevcompareReport() {
     showReportPreview({
       title: 'Baseline Revision Comparison', subtitle: `${r.rev0.file || 'Rev.00'} vs ${r.rev1.file || 'Rev.01'}`,
       html, sections, selected, storageKey: _RC_STORAGE_KEY, initialMode: mode,
+      feature: 'Baseline Revision Comparison', exportName: 'Baseline_Revision_Comparison',
+      meta: { project: (meta && meta.project_name) || '' },
+      exports: ['pdf', 'docx', 'html', 'xlsx'],
+      onExcel: () => { const b = document.getElementById('rc-export-xlsx'); if (b) b.click(); },
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => fetchPreview(keys, theme),
       onSave: async (m, keys) => {

@@ -3907,10 +3907,15 @@ class Handler(BaseHTTPRequestHandler):
                 write_html(html_content, output_path, title=title or APP_NAME)
             elif kind == 'docx':
                 from p6_export.to_docx import html_to_docx
+                from p6_export.auto_visuals import mark_visuals
+                # charts / tile groups built of styled divs go to Word as pictures (comment 2)
+                html_content = mark_visuals(html_content)
                 html_to_docx(html_content, output_path, app_name=APP_NAME, feature=feature,
                              project=project, chrome=chrome(), sections=body.get('sections'))
             elif kind == 'xlsx':
                 from p6_export.to_xlsx import html_to_xlsx
+                from p6_export.auto_visuals import mark_visuals
+                html_content = mark_visuals(html_content)   # … and to Excel as their numbers
                 html_to_xlsx(html_content, output_path, app_name=APP_NAME, feature=feature,
                              project=project, data_date=(meta.get('data_date') or ''),
                              sections=body.get('sections'))

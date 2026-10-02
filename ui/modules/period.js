@@ -866,6 +866,7 @@ export async function exportPeriodPdf() {
       title: 'Update vs Update preview', subtitle: _shownReport.update_file || _shownReport.project_name || '', html,
       sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_period', initialMode: _perTheme,
       feature: 'Update vs Update', exportName: 'update_vs_update',
+      exports: ['pdf', 'docx', 'html', 'xlsx'], onExcel: () => exportPeriodExcel(),
       meta: { project: _shownReport.project_name || '', data_date: _shownReport.data_date_now || '' },
       onRerender:    (keys, theme) => fetchPreview(keys, theme),
       onThemeChange: (theme, keys) => { _perTheme = theme; return fetchPreview(keys, theme); },

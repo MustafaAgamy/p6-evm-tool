@@ -24,6 +24,9 @@
 //               ADOPTED feature (report annotated with data-sec / data-part, charts marked —
 //               docs/report-picker-adoption.md) passes ['pdf','docx','html','xlsx']; an
 //               unannotated report's CSS charts would reach Word / Excel as bare text.
+//   onExcel — () => void: ⬇ Excel runs the feature's OWN workbook export (every table with all
+//               its rows, every chart as its numbers — the complete data, comment 29) instead of
+//               the generic sheet-per-section extract. Give it whenever the feature has one.
 //   extras  — (host, { rerender }) => void: a feature's OWN report options (an activity-code
 //               filter, a chart style, which milestones to draw) rendered under the tree. The
 //               feature keeps their state and reads it in its onRerender; rerender() fetches the
@@ -59,7 +62,7 @@ function _slug(s) {
 }
 
 export function showReportPreview({ title, subtitle, html, onSave, sections, selected, onRerender, storageKey,
-  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports, serverOrder, extras }) {
+  onThemeChange, initialMode, feature, exportName, meta, legacyPdf, exports, serverOrder, extras, onExcel }) {
   let mode = initialMode || getSavedMode();
   const offered = EXPORTS.filter(e => exportKinds(exports).includes(e.kind));
   const featureName = feature || String(title || 'Report').replace(/\s+(report\s+)?preview$/i, '').replace(/^Report\s+—\s+/i, '');
@@ -325,6 +328,10 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
     const label = btn.textContent;
     btn.disabled = true;
     try {
+      if (kind === 'xlsx' && typeof onExcel === 'function') {
+        await onExcel();                              // the feature's own save dialog + workbook
+        return;
+      }
       if (kind === 'pdf' && legacyPdf && typeof onSave === 'function') {
         btn.textContent = 'Saving…';
         const ok = await onSave(mode, hasSel ? serverKeys(st) : undefined);

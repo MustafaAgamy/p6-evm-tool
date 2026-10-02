@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Every report saves as PDF, Word, HTML and Excel from the same preview (comment 2)
+- **The preview of every report now has four save buttons: PDF · Word · HTML · Excel** (plus Print). Before, only Earned Value, Calendar Audit and the Gantt offered Word and HTML. This covers the Schedule Health checks and summary, Lag Report, Out of Sequence, Update Analysis, Update vs Update, Critical Path, Consultant Review, Baseline Revision, Bad Weather, and the screen views printed with File ▸ Print (Overview, WBS, Productivity, Knowledge Base).
+- **Word looks like the PDF.** Charts, gauges, tile rows and dashboard cards go into Word as pictures of exactly what the PDF shows; tables stay real Word tables and text stays text. What you untick in the Report Contents list is left out of Word and HTML too.
+- **Excel from the preview is the feature's complete workbook** — every table with all its rows and every chart as its numbers (the workbooks completed under comment 29).
+- **Fixed:** the bars of the Lag Report charts were almost invisible (in the PDF as well); they now use the report's accent colour.
+- **Fixed:** in Update Analysis, "Planned vs Actual by count" was split into three oddly named parts in the Report Contents list; it is one item now.
+- Known limit: in the Baseline Revision report, the very long change lists (thousands of rows) go into Word as plain text lines, not as formatted tables.
+
 ### Changed — Every report: pick any sub-feature, or any single table / chart inside it (comment 1)
 The print preview's **Report Contents** list has two levels: tick a whole section, or open it (▸) and tick single parts. Until now only Earned Value and Calendar Audit had the second level.
 - **All reports now list their parts.** Inside each section the single tables, charts and tile groups are found automatically and named (for example "Lags by relationship type", "Table — Activity ID · Activity Name"). Unticking one removes just that piece from the preview, the PDF and the print-out. This covers the Schedule Health checks and summary, Lag Report, Out of Sequence, Float, Consultant Review, Baseline Revision, Bad Weather, and the screen views printed with File ▸ Print (Overview, WBS, Gantt, Productivity, Knowledge Base).

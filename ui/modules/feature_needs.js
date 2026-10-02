@@ -75,7 +75,7 @@ export const FEATURE_NEEDS = [
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: [],
     produces: 'Progress snapshot with category planned vs actual %.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Project Overview ▸ Overview',
   },
   {
@@ -85,7 +85,7 @@ export const FEATURE_NEEDS = [
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: [],
     produces: 'WBS tree rolled up to the activity level — planned / actual %, start / finish, timeline.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Project Overview ▸ WBS',
   },
   {
@@ -109,7 +109,7 @@ export const FEATURE_NEEDS = [
       'Contract milestones — required before any result shows: type the project completion milestone (and any other contractual milestones), pick the matching milestone activity from the file and enter the contract date. Saved per project.',
     ],
     produces: 'Health score and every check with its findings; Resolve & Correct for dangling activities.',
-    exports: ['PDF', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
     start: 'Navigator ▸ Schedule Quality ▸ Schedule Health',
   },
   {
@@ -130,7 +130,7 @@ export const FEATURE_NEEDS = [
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: ['Optional: a written justification against each lag (typed in the register, saved per project).'],
     produces: 'Lag / lead register with the justification column.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Schedule Quality ▸ Lag Report',
   },
 
@@ -160,7 +160,7 @@ export const FEATURE_NEEDS = [
     files: [{ n: 1, role: 'A progressed update — needs actual start / finish dates (a baseline with no progress has nothing to flag)', formats: XER_OR_XML, k: 'p6' }],
     other: [],
     produces: 'Out-of-sequence register by WBS, root causes and the effect on the critical path; Resolve & Correct per finding.',
-    exports: ['PDF', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected schedule (same format as the import: XER or XML)'],
     start: 'Navigator ▸ Progress & Performance ▸ Out of Sequence',
   },
   {
@@ -176,7 +176,7 @@ export const FEATURE_NEEDS = [
     other: [],
     recommend: 'XML exported from P6 with its baseline — one file. An XER (or an XML without it) + its attached baseline gives the same result.',
     produces: 'Time status, planned vs actual by activity code, activity counts, scope weights and the critical path.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Progress & Performance ▸ Update Analysis (Alt+3)',
   },
   {
@@ -193,7 +193,7 @@ export const FEATURE_NEEDS = [
     tag: '2–3 files',
     other: ['Choose the comparison mode: Two updates · Update vs Baseline · Two updates + Baseline.'],
     produces: 'Critical-path census, path lanes, milestones and float migration between the schedules.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Progress & Performance ▸ Critical Path (Alt+4)',
   },
 
@@ -209,7 +209,7 @@ export const FEATURE_NEEDS = [
     ],
     other: ['The milestone slip trend uses every update of this project you have imported.'],
     produces: 'Progress vs last period’s forecast, % variance, critical-path movement and the period S-curve.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Compare & Claims ▸ Update vs Update',
   },
   {
@@ -226,7 +226,7 @@ export const FEATURE_NEEDS = [
     other: [],
     recommend: 'XML for the update — required to write the corrected but-for file.',
     produces: 'Driving-logic, lag and duration changes vs the baseline; reported vs but-for delay and a recommendation.',
-    exports: ['PDF', 'Excel', 'Corrected but-for XML'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel', 'Corrected but-for XML'],
     start: 'Navigator ▸ Compare & Claims ▸ Consultant Review',
   },
   {
@@ -240,7 +240,7 @@ export const FEATURE_NEEDS = [
     other: ['Import any schedule first — the feature opens from the navigator once a schedule is loaded.'],
     recommend: 'Either format — each revision is read the same way, and the two may differ.',
     produces: 'Executive summary, change register, critical path & sequence, milestones, calendars and manpower changes.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Compare & Claims ▸ Baseline Revision (Alt+5)',
   },
 
@@ -266,7 +266,7 @@ export const FEATURE_NEEDS = [
       'Internet connection — the map, the place search (OpenStreetMap) and the weather history (Open-Meteo) are online.',
     ],
     produces: 'Weather effect on the forecast finish — waterfall and a three-colour day histogram.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Calendars & Weather ▸ Bad Weather',
   },
 
@@ -294,7 +294,7 @@ export const FEATURE_NEEDS = [
     files: [],
     other: ['Pick a work item, enter the quantity and the project context (project type, location, method, shift hours).'],
     produces: 'Man-hours, crew and duration with the basis of estimate and P6 resource guidance.',
-    exports: ['PDF', 'Excel'],
+    exports: ['PDF', 'Word', 'HTML', 'Excel'],
     start: 'Navigator ▸ Library ▸ Productivity & Resources (or Tools ▸ Productivity & Resources)',
   },
   {
@@ -306,6 +306,8 @@ export const FEATURE_NEEDS = [
     produces: 'A project-type playbook: brief & components, MEP systems, construction sequence by trade, suggested WBS and basis of planning.',
     exports: [
       'PDF (the playbook)',
+      'Word',
+      'HTML',
       'Excel (suggested WBS)',
       'Detailed baseline (XER · 1000+ activities)',
       'Skeleton baseline (XER)',

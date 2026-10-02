@@ -233,7 +233,12 @@ def chrome_raster(visuals, rep, chrome=None, scale=2.0, timeout=120):
     html = (f'<!DOCTYPE html><html class="{rep.html_class}"><head><meta charset="utf-8">'
             f'<style>{rep.head_css}</style>'
             '<style>@page{size:' f'{content_px + 16:.0f}px 7000px;margin:0}}'
-            'html,body{margin:0!important;padding:0!important}'
+            # a screen view carries the APP stylesheet, which pins the window (height:100%,
+            # overflow:hidden) and hides everything in print except the preview overlay — in
+            # this capture document that drew nothing, so Word got no pictures (comment 2)
+            'html,body{margin:0!important;padding:0!important;height:auto!important;'
+            'overflow:visible!important}'
+            '@media print{body>.__xcap{display:block!important}}'
             '.__xcap{padding:6px;box-sizing:content-box;break-after:page;page-break-after:always;'
             'break-inside:avoid;overflow:hidden}'
             '.__xmk{position:absolute;display:block;width:1px;height:1px}'

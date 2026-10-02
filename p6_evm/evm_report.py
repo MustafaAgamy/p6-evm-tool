@@ -128,7 +128,7 @@ def _dashboard(result, meta):
               'approx' if approx else ''),
     ]
     return _part('dashboard.kpis', 'Executive dashboard tiles (SPI, PV, EV, CPI, dates)',
-                 f'<div class="dash-grid">{"".join(tiles)}</div>')
+                 f'<div class="dash-grid" data-export="kpis">{"".join(tiles)}</div>')
 
 
 def _pv_ev_bar(result):
@@ -173,7 +173,7 @@ def _progress_band(result, approx=False):
                 f'<div class="bar-val">{val * 100:.2f}%</div></div>')
     bars = bar('Planned', planned, report_theme.var('rpt-series-1')) + bar('Actual', actual, report_theme.var('rpt-series-2'))
     return (_part('progress.kpis', 'Planned % / Actual % / Variance tiles',
-                  f'<div class="dash-grid" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>')
+                  f'<div class="dash-grid" data-export="kpis" style="grid-template-columns:repeat(3,1fr)">{tiles}</div>')
             + _part('progress.chart', 'Planned vs Actual — bar chart',
                     f'<div style="margin-top:10px">{bars}</div>', export='image',
                     headers=['Measure', 'Progress %'],

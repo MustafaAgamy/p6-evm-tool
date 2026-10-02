@@ -111,7 +111,8 @@ export async function printView({ module, title, subtitle, sections, exports, ex
     sections: secMeta,
     selected,
     storageKey,
-    ...(exports ? { exports, feature: title, exportName: exportName || `${module}_report`, meta: meta || {} } : {}),
+    exports: exports || ['pdf', 'docx', 'html'],        // Excel stays on the view's own Excel button
+    feature: title, exportName: exportName || `${module}_report`, meta: meta || {},
     onRerender: (sel) => withParts(doc(sel)),
     onSave: async (mode, sel) => {
       const outputPath = await window.pywebview.api.choose_save_path(`${module}_report.pdf`, 'pdf');

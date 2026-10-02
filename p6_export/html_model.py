@@ -546,6 +546,9 @@ class _Walker:
     def _convert(self, el, tag, st, part):
         sec = el.get('data-sec')
         if sec is not None and not getattr(self, '_in_section', False):
+            if el.get('data-export') == 'image':
+                # a section that is ONE designed block (a dashboard card): the whole of it is a picture
+                return [Section(key=sec, title=el.get('data-sec-label') or '', blocks=[self.visual(el, part)])]
             self._in_section = True
             try:
                 inner = self.children_blocks(el, part)
