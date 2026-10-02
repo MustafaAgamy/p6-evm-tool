@@ -1,0 +1,655 @@
+{
+  "archetype": "water_supply_network",
+  "schema": 2,
+  "context": "linear network · pipe-laying rate, pressure test & disinfection, live connection to the existing main",
+  "brief": {
+    "intro": "New to this project type? A potable water network carries drinking water from a reservoir or trunk main to every plot: large transmission mains first, then distribution mains in the streets, then house connections and meters. It is pressure pipe, so it does not need a fall — it follows the road at a fixed cover depth — but every length must pass a pressure test and then be disinfected and sampled before it may carry drinking water. The programme is driven by metres laid per day per crew, by the delivery of pipe, valves and fittings, and by the short permitted shutdown in which the new network is connected to the live main.",
+    "scope": [
+      {
+        "name": "Route survey & existing services",
+        "desc": "Topographic survey, trial pits and utility detection so the main avoids existing cables and pipes."
+      },
+      {
+        "name": "Permits & traffic management",
+        "desc": "Road-opening permits, no-objection certificates and diversions for each road section."
+      },
+      {
+        "name": "Transmission mains",
+        "desc": "Large-diameter ductile iron, GRP, steel or HDPE mains from the source or reservoir to the area."
+      },
+      {
+        "name": "Distribution mains",
+        "desc": "Smaller mains in the streets forming loops, so each plot can be fed from two directions."
+      },
+      {
+        "name": "Valves & chambers",
+        "desc": "Isolation, air-release and washout valves with their chambers, and district meter chambers."
+      },
+      {
+        "name": "Thrust blocks & restraints",
+        "desc": "Concrete blocks or restrained joints at bends, tees and dead ends to hold the pipe under pressure."
+      },
+      {
+        "name": "Fire hydrants",
+        "desc": "Hydrants at the spacing the civil defence authority requires, fed from the distribution mains."
+      },
+      {
+        "name": "House connections & meters",
+        "desc": "Service pipes from the main to each plot boundary, with meter box and meter."
+      },
+      {
+        "name": "Pressure testing",
+        "desc": "Hydrostatic test of each section at the specified test pressure, with leakage measured."
+      },
+      {
+        "name": "Flushing, disinfection & sampling",
+        "desc": "Swabbing, chlorination, flushing and laboratory samples before the main may carry drinking water."
+      },
+      {
+        "name": "Connection to the existing network",
+        "desc": "Tie-in to the live main during a shutdown agreed with the water authority."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Transmission main",
+        "plain": "the large pipe that brings water to the area; few connections, high flow."
+      },
+      {
+        "term": "Distribution main",
+        "plain": "the street pipe that the house connections are taken from."
+      },
+      {
+        "term": "Thrust block",
+        "plain": "a concrete block cast against undisturbed ground at a bend or tee, so water pressure cannot push the joint apart."
+      },
+      {
+        "term": "Air valve",
+        "plain": "a valve at a high point that lets trapped air out when the main is filled and lets air in when it is drained."
+      },
+      {
+        "term": "Washout",
+        "plain": "a valve at a low point used to drain and flush the main."
+      },
+      {
+        "term": "Hydrostatic test",
+        "plain": "filling a section with water and holding it at test pressure to prove the joints do not leak."
+      },
+      {
+        "term": "Disinfection",
+        "plain": "dosing the new main with chlorine, holding it, then flushing until samples pass the laboratory test."
+      },
+      {
+        "term": "DMA (district metered area)",
+        "plain": "a part of the network fed through one meter so the authority can measure flow and find leaks."
+      },
+      {
+        "term": "Tie-in / shutdown",
+        "plain": "the moment the new pipe is cut into the live main; customers are off supply, so the time allowed is short."
+      }
+    ],
+    "must_get_right": [
+      "Plan the pipe-laying as a production rate (metres per day per crew, by diameter) and check that pipe, valves and fittings arrive ahead of each crew — a crew with no fittings stops.",
+      "Do not backfill joints or cast final reinstatement before the section's pressure test is passed, unless the specification allows it — a failed test under finished road is weeks of rework.",
+      "Disinfection and laboratory sampling take days and can fail; give them real durations and allow one repeat cycle before the connection date.",
+      "The shutdown for the live connection is granted by the water authority for a fixed window — treat its application, approval and date as milestones on the critical path."
+    ]
+  },
+  "components": [
+    {
+      "name": "Trenching & Bedding",
+      "desc": "Excavation, shoring, dewatering, bedding and backfill along the route",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Transmission & Distribution Mains",
+      "desc": "DI / GRP / HDPE pipe laying and jointing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Valves, Hydrants & Chambers",
+      "desc": "Isolation, air and washout valves, hydrants and their chambers",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Thrust Blocks & Crossings",
+      "desc": "Anchor blocks, sleeves and trenchless road crossings",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "House Connections & Metering",
+      "desc": "Service pipes, meter boxes, bulk and district meters",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Telemetry & Cathodic Protection",
+      "desc": "Pressure / flow monitoring and corrosion protection of steel or DI mains",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Testing, Disinfection & Tie-in",
+      "desc": "Pressure test, chlorination, sampling and live connection",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Water Piping",
+      "items": [
+        "Transmission mains (DI / GRP / steel / HDPE)",
+        "Distribution mains & loops",
+        "House connections & service pipes"
+      ]
+    },
+    {
+      "discipline": "Valves & Appurtenances",
+      "items": [
+        "Gate / butterfly isolation valves",
+        "Air-release valves & washouts",
+        "Fire hydrants",
+        "Pressure-reducing valve stations"
+      ]
+    },
+    {
+      "discipline": "Metering & Monitoring",
+      "items": [
+        "Bulk & district meters",
+        "Pressure / flow loggers & telemetry",
+        "Cathodic protection test posts"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Design & Permits",
+    "Mobilization & Pipe Delivery",
+    "Trenching & Pipe Laying",
+    "Valves, Chambers & Thrust Blocks",
+    "Pressure Testing",
+    "Backfill & Reinstatement",
+    "Disinfection & Sampling",
+    "Tie-in & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey/Permit",
+      "Trench",
+      "Lay",
+      "Chambers",
+      "Test",
+      "Disinfect",
+      "Tie-in"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trenching, Bedding & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 62,
+        "label": "Trench → bed → backfill → reinstate, section by section",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Water Mains — Pipe Laying",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 12,
+        "width": 56,
+        "label": "String → lay → joint → restrain",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Valves, Hydrants & Chambers",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 22,
+        "width": 50,
+        "label": "Valves → chambers → hydrants → covers",
+        "holds": []
+      },
+      {
+        "trade": "Thrust Blocks & Crossings",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 14,
+        "width": 40,
+        "label": "Thrust blocks at bends · sleeves under roads",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "House Connections & Meters",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 46,
+        "width": 34,
+        "label": "Tapping → service pipe → meter box",
+        "holds": []
+      },
+      {
+        "trade": "Telemetry & Cathodic Protection",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 60,
+        "width": 24,
+        "label": "Loggers → telemetry → CP survey",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Testing, Disinfection & Tie-in",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 74,
+        "width": 26,
+        "label": "Swab → chlorinate → sample → connect",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trenching, Bedding & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Trial pits & setting out of the route",
+        "Trench excavation, shoring & dewatering",
+        "Pipe bedding",
+        "Backfill & compaction in layers",
+        "Road & footpath reinstatement"
+      ]
+    },
+    {
+      "name": "Water Mains — Pipe Laying",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        4
+      ],
+      "steps": [
+        "Receive & inspect pipe, fittings and valves",
+        "String pipe along the trench",
+        "Lay & joint pipe to line and level",
+        "Install fittings, bends & restrained joints",
+        "Pressure test the section",
+        "Repair leaks & re-test"
+      ]
+    },
+    {
+      "name": "Valves, Hydrants & Chambers",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Install isolation valves & air valves",
+        "Build valve & meter chambers",
+        "Install fire hydrants & washouts",
+        "Fit covers, frames & marker posts",
+        "Operate every valve & record its position"
+      ]
+    },
+    {
+      "name": "Thrust Blocks & Crossings",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Cast thrust blocks against undisturbed ground",
+        "Cure thrust blocks before the pressure test",
+        "Thrust-bore / pipe-jack road crossings",
+        "Install carrier pipe in the sleeve & seal ends"
+      ]
+    },
+    {
+      "name": "House Connections & Meters",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Tap the main (saddle / ferrule)",
+        "Lay service pipe to the plot boundary",
+        "Install meter box, stop valve & meter",
+        "Test the connection & record the meter"
+      ]
+    },
+    {
+      "name": "Telemetry & Cathodic Protection",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install pressure / flow instruments in chambers",
+        "Cable or wireless link to the control room",
+        "Install CP anodes & test posts",
+        "Loop check & CP potential survey"
+      ]
+    },
+    {
+      "name": "Testing, Disinfection & Tie-in",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        4
+      ],
+      "steps": [
+        "Swab & flush the mains",
+        "Chlorinate & hold for the contact period",
+        "Flush & take laboratory samples",
+        "Samples passed — authority approval",
+        "Live tie-in during the approved shutdown",
+        "As-built survey & handover to the water authority"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "WSN",
+      "name": "Potable Water Supply Network — Project",
+      "level": 1
+    },
+    {
+      "code": "WSN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "WSN.02",
+      "name": "Survey, Design & Permits",
+      "level": 2
+    },
+    {
+      "code": "WSN.02.10",
+      "name": "Topographic survey & trial pits",
+      "level": 3
+    },
+    {
+      "code": "WSN.02.20",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "WSN.02.30",
+      "name": "Road-opening permits & NOCs",
+      "level": 3
+    },
+    {
+      "code": "WSN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "WSN.03.10",
+      "name": "Pipes & fittings",
+      "level": 3
+    },
+    {
+      "code": "WSN.03.20",
+      "name": "Valves, hydrants & meters",
+      "level": 3
+    },
+    {
+      "code": "WSN.04",
+      "name": "Civil Works — Trenching & Reinstatement",
+      "level": 2
+    },
+    {
+      "code": "WSN.04.10",
+      "name": "Trench excavation & dewatering",
+      "level": 3
+    },
+    {
+      "code": "WSN.04.20",
+      "name": "Bedding & backfill",
+      "level": 3
+    },
+    {
+      "code": "WSN.04.30",
+      "name": "Thrust blocks",
+      "level": 3
+    },
+    {
+      "code": "WSN.04.40",
+      "name": "Road crossings (trenchless)",
+      "level": 3
+    },
+    {
+      "code": "WSN.04.50",
+      "name": "Road & footpath reinstatement",
+      "level": 3
+    },
+    {
+      "code": "WSN.05",
+      "name": "Water Mains — Piping",
+      "level": 2
+    },
+    {
+      "code": "WSN.05.10",
+      "name": "Transmission mains",
+      "level": 3
+    },
+    {
+      "code": "WSN.05.10.10",
+      "name": "Pipe laying & jointing",
+      "level": 4
+    },
+    {
+      "code": "WSN.05.10.20",
+      "name": "Pressure testing",
+      "level": 4
+    },
+    {
+      "code": "WSN.05.20",
+      "name": "Distribution mains",
+      "level": 3
+    },
+    {
+      "code": "WSN.05.20.10",
+      "name": "Pipe laying & jointing",
+      "level": 4
+    },
+    {
+      "code": "WSN.05.20.20",
+      "name": "Pressure testing",
+      "level": 4
+    },
+    {
+      "code": "WSN.05.30",
+      "name": "House connections & meters",
+      "level": 3
+    },
+    {
+      "code": "WSN.06",
+      "name": "Valves, Hydrants & Chambers (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "WSN.06.10",
+      "name": "Isolation & air valves",
+      "level": 3
+    },
+    {
+      "code": "WSN.06.20",
+      "name": "Valve & meter chambers",
+      "level": 3
+    },
+    {
+      "code": "WSN.06.30",
+      "name": "Fire hydrants & washouts",
+      "level": 3
+    },
+    {
+      "code": "WSN.07",
+      "name": "Telemetry, Instrumentation & Cathodic Protection",
+      "level": 2
+    },
+    {
+      "code": "WSN.08",
+      "name": "Testing, Disinfection & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "WSN.08.10",
+      "name": "Flushing & swabbing",
+      "level": 3
+    },
+    {
+      "code": "WSN.08.20",
+      "name": "Disinfection & sampling",
+      "level": 3
+    },
+    {
+      "code": "WSN.08.30",
+      "name": "Tie-in to the existing network",
+      "level": 3
+    },
+    {
+      "code": "WSN.08.40",
+      "name": "As-built & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by road section and by main (transmission, distribution, connections), so metres laid, tested and disinfected can be read section by section."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Pipe laying runs on the standard site calendar; work in public roads may be limited to off-peak hours by the traffic authority. The live tie-in is a night or weekend shutdown on its own calendar, on the date the water authority grants."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Each section repeats the same chain: permit → trench → lay and joint → thrust blocks cured → pressure test → backfill and reinstate. All sections then feed the network-wide chain: flushing → disinfection → samples passed → live tie-in → handover. The critical path normally runs through the longest transmission main and then the disinfection and tie-in at the end."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Existing services are as shown by the survey and trial pits; road-opening permits are issued section by section in the planned order; water for testing and flushing is available from the authority; and the tie-in shutdown is granted on the assumed date."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Ductile iron / GRP pipe (large diameter)",
+              "12–20 weeks",
+              "Before the transmission-main crew starts"
+            ],
+            [
+              "Valves (gate / butterfly / air) & hydrants",
+              "12–18 weeks",
+              "Before each section is closed for testing"
+            ],
+            [
+              "Bulk & district meters, PRV stations",
+              "14–20 weeks",
+              "Before chamber fit-out"
+            ],
+            [
+              "Telemetry / data loggers",
+              "10–14 weeks",
+              "Before commissioning"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Only a limited length of trench may be open at once in a public road. Dewatering is needed where the water table is above the pipe. Pipe-laying crews are the production resource and are sized by diameter (large mains need a crane or excavator lift for every pipe)."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: unknown existing services, a late permit for one road, pipe or valve delivery slipping behind the crews, a failed pressure test, and a failed bacteriological sample that forces a repeat disinfection. Contingency is held before the tie-in date rather than spread along the route."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by road section and by main; expanded to Level 4–5 lookahead for the pipe-laying and testing crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "AWWA C600 — installation of ductile-iron mains"
+    },
+    {
+      "code": "STD",
+      "text": "AWWA C651 — disinfecting water mains"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

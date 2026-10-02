@@ -1,0 +1,660 @@
+{
+  "archetype": "site_infrastructure_networks",
+  "schema": 2,
+  "context": "area works · utilities laid deepest-first in a shared corridor, then kerbs and road layers; zone by zone",
+  "brief": {
+    "intro": "New to this project type? The infrastructure package of a development or a city district builds everything under and on the roads: sewer, stormwater, potable water, irrigation, fire water, gas, district cooling, power cables, street lighting and telecom, then the kerbs, road layers, footpaths and landscape strips. Each network has its own page in this library; this page is about putting them together. They share one corridor, so the order is fixed by depth and by size — deepest and largest first: sewer, then stormwater, then the pressure pipes, then power, and telecom and lighting last and shallowest. Every network must be tested before the next layer covers it, and every road crossing must be in before the road base. The work is released zone by zone, and each network finishes with its own authority's inspection.",
+    "scope": [
+      {
+        "name": "Survey, clearance & diversion of existing services",
+        "desc": "Setting out the corridor and moving or protecting what is already there."
+      },
+      {
+        "name": "Earthworks & road formation",
+        "desc": "Cut and fill to formation level across the road corridors."
+      },
+      {
+        "name": "Sewerage network",
+        "desc": "Gravity sewers, manholes, pumping stations and rising mains — deepest, first."
+      },
+      {
+        "name": "Stormwater drainage",
+        "desc": "Trunk drains, culverts, laterals and gullies."
+      },
+      {
+        "name": "Potable water & fire water",
+        "desc": "Mains, valves, hydrants and house connections."
+      },
+      {
+        "name": "Irrigation / TSE",
+        "desc": "Main lines and road sleeves for the later landscape."
+      },
+      {
+        "name": "Gas & district cooling",
+        "desc": "Where provided: gas mains, chilled-water supply and return."
+      },
+      {
+        "name": "Power network",
+        "desc": "Substations, MV rings, LV feeders and road-crossing ducts."
+      },
+      {
+        "name": "Street lighting & telecom",
+        "desc": "Ducts, chambers, pole foundations, poles and fibre."
+      },
+      {
+        "name": "Road works",
+        "desc": "Sub-base, base, kerbs, asphalt layers, marking and signs."
+      },
+      {
+        "name": "Footpaths, hardscape & landscape strips",
+        "desc": "Paving, street furniture and planting."
+      },
+      {
+        "name": "Testing, authority inspections & handover",
+        "desc": "Each network tested and handed to its authority."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Utility corridor",
+        "plain": "the strip in the road reserve where each service has its allotted position and depth."
+      },
+      {
+        "term": "Wet utilities / dry utilities",
+        "plain": "pipes carrying liquids (sewer, storm, water, irrigation) / cables and ducts (power, lighting, telecom)."
+      },
+      {
+        "term": "Formation level",
+        "plain": "the prepared ground level on which the road layers are built."
+      },
+      {
+        "term": "Road crossing",
+        "plain": "any service passing under the carriageway; installed as a duct or sleeve before the road base."
+      },
+      {
+        "term": "NOC",
+        "plain": "no-objection certificate — an authority's written permission to work near its service."
+      },
+      {
+        "term": "Combined services drawing",
+        "plain": "one drawing showing every network together, used to find clashes before digging."
+      },
+      {
+        "term": "Binder / wearing course",
+        "plain": "the lower and the final top layer of asphalt; the wearing course goes on last, after all utility work."
+      },
+      {
+        "term": "Zone release",
+        "plain": "handing a completed part of the site to building contractors or the client."
+      },
+      {
+        "term": "As-built",
+        "plain": "the surveyed record of what was actually installed and where."
+      }
+    ],
+    "must_get_right": [
+      "Sequence by depth: sewer → stormwater → water / irrigation / fire / cooling / gas → power → telecom and lighting → kerbs → road layers. Anything out of order means digging through a finished service.",
+      "Resolve clashes on a combined services drawing before the first trench, especially at junctions where every network crosses every other.",
+      "Test each network before the next one buries it, and put every road-crossing duct and sleeve in before the road base.",
+      "Lay the final wearing course last, after all utility testing and building connections — and plan the authority inspections and handovers network by network, zone by zone."
+    ]
+  },
+  "components": [
+    {
+      "name": "Earthworks & Road Formation",
+      "desc": "Cut, fill and formation of road corridors",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Wet Utilities",
+      "desc": "Sewer, stormwater, water, irrigation, fire, cooling, gas",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Dry Utilities",
+      "desc": "Power, street lighting and telecom",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Pumping Stations & Substations",
+      "desc": "Lift stations, tanks and distribution substations",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Road Works",
+      "desc": "Sub-base, base, kerbs, asphalt, marking and signs",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Hardscape & Landscape",
+      "desc": "Footpaths, street furniture and planting",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Testing & Authority Handover",
+      "desc": "Tests, inspections and handover of each network",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Wet Utilities",
+      "items": [
+        "Sewerage & pumping stations",
+        "Stormwater drainage",
+        "Potable water & fire hydrants",
+        "Irrigation / TSE",
+        "Gas & district cooling (where provided)"
+      ]
+    },
+    {
+      "discipline": "Dry Utilities",
+      "items": [
+        "MV / LV power network & substations",
+        "Street lighting",
+        "Telecom ducts & fibre"
+      ]
+    },
+    {
+      "discipline": "Road Systems",
+      "items": [
+        "Traffic signals & ITS",
+        "Road signs & marking"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Clearance & Diversions",
+    "Earthworks to Formation",
+    "Deep Wet Utilities (Sewer & Storm)",
+    "Pressure Pipes (Water, Irrigation, Fire, Gas, Cooling)",
+    "Dry Utilities (Power, Lighting, Telecom)",
+    "Kerbs, Road Base & Binder Course",
+    "Footpaths, Lighting Poles & Landscape",
+    "Wearing Course, Marking, Testing & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey",
+      "Earthworks",
+      "Deep wet",
+      "Pressure",
+      "Dry",
+      "Roads",
+      "Handover"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Earthworks & Road Formation",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 4,
+        "width": 30,
+        "label": "Clear → cut / fill → formation",
+        "holds": [
+          34
+        ]
+      },
+      {
+        "trade": "Mechanical — Deep Wet Utilities (Sewer & Stormwater)",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 12,
+        "width": 40,
+        "label": "Outfall upstream · deepest first",
+        "holds": [
+          52
+        ]
+      },
+      {
+        "trade": "Mechanical — Pressure Pipes (Water, Irrigation, Fire, Gas, Cooling)",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 26,
+        "width": 38,
+        "label": "Lay → test → backfill",
+        "holds": [
+          64
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Street Lighting & Telecom",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Road ducts → trenches → cables",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Civil — Road Works",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 52,
+        "width": 40,
+        "label": "Sub-base → kerbs → base → asphalt",
+        "holds": [
+          92
+        ]
+      },
+      {
+        "trade": "Civil — Footpaths, Hardscape & Landscape",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 64,
+        "width": 30,
+        "label": "Paving → poles → planting",
+        "holds": []
+      },
+      {
+        "trade": "Commissioning — Testing & Authority Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Inspect → energise → hand over, network by network",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Earthworks & Road Formation",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Divert / protect existing services",
+        "Site clearance & topsoil strip",
+        "Cut & fill to formation",
+        "Compaction tests",
+        "Trim formation after utilities"
+      ]
+    },
+    {
+      "name": "Mechanical — Deep Wet Utilities (Sewer & Stormwater)",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Sewer trenches, pipes & manholes",
+        "Stormwater drains, culverts & manholes",
+        "Leakage tests & CCTV before the next utility",
+        "Pumping station structure & equipment",
+        "Backfill to formation"
+      ]
+    },
+    {
+      "name": "Mechanical — Pressure Pipes (Water, Irrigation, Fire, Gas, Cooling)",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Potable water mains, valves & hydrants",
+        "Irrigation mains & road sleeves",
+        "Gas / chilled-water mains (where provided)",
+        "Pressure tests of each network",
+        "Disinfection of water mains"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Street Lighting & Telecom",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Road-crossing ducts for all dry utilities before road base",
+        "Substation plinths & equipment",
+        "MV / LV cable laying & jointing",
+        "Lighting ducts, foundations & telecom ducts and chambers",
+        "Cable & duct testing"
+      ]
+    },
+    {
+      "name": "Civil — Road Works",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Sub-base",
+        "Kerbs & gullies",
+        "Road base",
+        "Binder course",
+        "Wearing course after all utility tests",
+        "Road marking & signs"
+      ]
+    },
+    {
+      "name": "Civil — Footpaths, Hardscape & Landscape",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [],
+      "steps": [
+        "Footpath paving",
+        "Lighting pole erection & lanterns",
+        "Street furniture",
+        "Irrigation laterals & planting"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing & Authority Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Pumping-station commissioning",
+        "Power authority inspection & energisation",
+        "Water authority tie-in & acceptance",
+        "Telecom & lighting acceptance",
+        "As-built survey & handover of each network"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "INF",
+      "name": "Site Infrastructure — Roads & All Utility Networks — Project",
+      "level": 1
+    },
+    {
+      "code": "INF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "INF.02",
+      "name": "Survey, Design Coordination & Permits",
+      "level": 2
+    },
+    {
+      "code": "INF.02.10",
+      "name": "Combined services coordination",
+      "level": 3
+    },
+    {
+      "code": "INF.02.20",
+      "name": "Authority approvals & NOCs",
+      "level": 3
+    },
+    {
+      "code": "INF.02.30",
+      "name": "Diversion of existing services",
+      "level": 3
+    },
+    {
+      "code": "INF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "INF.03.10",
+      "name": "Pipes & manholes",
+      "level": 3
+    },
+    {
+      "code": "INF.03.20",
+      "name": "Pumps & mechanical equipment",
+      "level": 3
+    },
+    {
+      "code": "INF.03.30",
+      "name": "Transformers, switchgear & cables",
+      "level": 3
+    },
+    {
+      "code": "INF.04",
+      "name": "Civil Works — Earthworks & Road Formation",
+      "level": 2
+    },
+    {
+      "code": "INF.04.10",
+      "name": "Site clearance",
+      "level": 3
+    },
+    {
+      "code": "INF.04.20",
+      "name": "Cut & fill",
+      "level": 3
+    },
+    {
+      "code": "INF.05",
+      "name": "Wet Utilities — Sewerage (Piping)",
+      "level": 2
+    },
+    {
+      "code": "INF.05.10",
+      "name": "Gravity sewers & manholes",
+      "level": 3
+    },
+    {
+      "code": "INF.05.20",
+      "name": "Pumping stations & rising mains",
+      "level": 3
+    },
+    {
+      "code": "INF.06",
+      "name": "Wet Utilities — Stormwater Drainage (Piping)",
+      "level": 2
+    },
+    {
+      "code": "INF.07",
+      "name": "Wet Utilities — Potable & Fire Water (Piping)",
+      "level": 2
+    },
+    {
+      "code": "INF.08",
+      "name": "Wet Utilities — Irrigation, Gas & District Cooling (Piping)",
+      "level": 2
+    },
+    {
+      "code": "INF.09",
+      "name": "Dry Utilities — Electrical Power Network",
+      "level": 2
+    },
+    {
+      "code": "INF.09.10",
+      "name": "Substations",
+      "level": 3
+    },
+    {
+      "code": "INF.09.20",
+      "name": "MV & LV cables",
+      "level": 3
+    },
+    {
+      "code": "INF.10",
+      "name": "Dry Utilities — Street Lighting (Electrical)",
+      "level": 2
+    },
+    {
+      "code": "INF.11",
+      "name": "Dry Utilities — Telecom Network",
+      "level": 2
+    },
+    {
+      "code": "INF.12",
+      "name": "Road Works (Pavement)",
+      "level": 2
+    },
+    {
+      "code": "INF.12.10",
+      "name": "Sub-base & base",
+      "level": 3
+    },
+    {
+      "code": "INF.12.20",
+      "name": "Kerbs & gullies",
+      "level": 3
+    },
+    {
+      "code": "INF.12.30",
+      "name": "Asphalt",
+      "level": 3
+    },
+    {
+      "code": "INF.12.40",
+      "name": "Marking & signs",
+      "level": 3
+    },
+    {
+      "code": "INF.13",
+      "name": "Footpaths, Hardscape & Landscape",
+      "level": 2
+    },
+    {
+      "code": "INF.14",
+      "name": "Testing, Authority Inspections & Handover",
+      "level": 2
+    },
+    {
+      "code": "INF.14.10",
+      "name": "Wet utilities acceptance",
+      "level": 3
+    },
+    {
+      "code": "INF.14.20",
+      "name": "Dry utilities acceptance",
+      "level": 3
+    },
+    {
+      "code": "INF.14.30",
+      "name": "Roads acceptance",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by zone and road, and within each road by network in order of depth, so the schedule itself shows the build-up of the corridor."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; rainy season marked for earthworks and asphalt. Authority inspections, tie-ins and energisations are dated activities."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "In every road: formation → sewer → stormwater → pressure pipes → power → telecom and lighting ducts → sub-base and kerbs → base → binder → footpaths and poles → wearing course. Each network is tested before the next covers it. Zones are staggered so crews move from one to the next. The critical path runs through the deepest utility of the last zone, then the road layers and the authority handovers."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The combined services design is clash-free and approved; authorities attend inspections within the assumed notice; off-site connections (water source, sewer outfall, power feeder) are available on the planned dates."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Distribution transformers & RMUs",
+              "20–32 weeks",
+              "Before substation installation"
+            ],
+            [
+              "Pumps & MCC for pumping stations",
+              "16–24 weeks",
+              "Before pump-station fit-out"
+            ],
+            [
+              "Large-diameter pipe, precast manholes & culverts",
+              "10–16 weeks",
+              "Before the deep utilities start"
+            ],
+            [
+              "Lighting poles & lanterns",
+              "12–18 weeks",
+              "Before pole erection"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "All networks share one corridor and one access; open trenches block the road for everyone. Building contractors on the plots need access during the works."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: clashes found during excavation, a late design change by one authority, rain on open excavations, damage to finished utilities by following trades, and late off-site connections. Contingency is held before each zone release and before the final wearing course."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by zone, road and network; expanded to Level 4–5 lookahead for each utility crew and the road crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

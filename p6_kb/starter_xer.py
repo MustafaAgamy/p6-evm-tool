@@ -11,6 +11,8 @@ TASKPRED / CALENDAR), so the file both round-trips through the tool's own
 ``p6_evm.xer.parse_xer`` (a validity check) and imports into Primavera P6.
 """
 
+import re
+
 DAY_HR = 8.0
 BRANCH_DAYS = 20
 
@@ -179,6 +181,7 @@ _ZONE_WORDS = [
       'office', 'mixed-use', 'mall', 'university', 'school', 'parking', 'clinic', 'mosque'), 'Level'),
     (('road', 'highway'), 'Section'),
     (('metro', 'rail', 'tunnel', 'pipeline', 'bridge', 'viaduct'), 'Segment'),
+    (('network', 'line', 'cable', 'canal', 'ring main', 'tram'), 'Section'),
 ]
 
 
@@ -204,21 +207,74 @@ _DISC_KEYS = {
 }
 
 
+# Branches that hold no site work — an execution trade is never homed under them.
+_NON_EXECUTION = ('procurement', 'engineering', 'design', 'project management', 'programme management',
+                  'preliminar', 'survey', 'permit', 'approval')
+# Words that name a discipline, not a piece of work — one of these alone is not a name match.
+_DISC_WORDS = {'civil', 'mechanical', 'electrical', 'structural', 'structure', 'instrumentation', 'commissioning',
+               'piping', 'elv', 'fire', 'testing', 'equipment', 'control', 'power', 'installation'}
+_STOP_WORDS = {'works', 'work', 'and', 'the', 'for', 'with', 'from', 'system', 'systems'}
+
+
+def _name_words(text):
+    """The meaningful words of a trade / WBS name, singular ('Sewers' and 'sewer' match)."""
+    out = set()
+    for w in re.findall(r'[a-z]+', (text or '').lower()):
+        if len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+            w = w[:-1]
+        if len(w) > 2 and w not in _STOP_WORDS:
+            out.add(w)
+    return out
+
+
 def _home_wbs(trade, rows, code_to_id, root_id):
-    """Pick the curated WBS branch whose name matches the trade's discipline."""
+    """Pick the curated WBS branch a trade's activities belong under.
+
+    1. The branch whose NAME shares the most words with the trade's name ('Ring Main — Pipe
+       Laying' → 'Ring Main (Piping)'), at any level — so each trade lands on its own branch,
+       not all trades of a discipline on the first branch of that discipline.
+    2. Else the first branch matching the trade's discipline keywords, main (level-2) branches
+       before deeper rows.
+    Management / design / procurement branches are never used: they hold no site work."""
+    usable, main_ok = [], True
+    for w in rows:
+        lvl = int(w.get('level', 1))
+        if lvl < 2:
+            continue
+        nm = (w.get('name') or '').lower()
+        if lvl == 2:
+            main_ok = not any(x in nm for x in _NON_EXECUTION)
+        if main_ok:
+            usable.append((w, lvl, nm))
+
+    words = _name_words(trade.get('name'))
+    best, best_score, singles = None, 1, []         # a real match shares at least two words
+    for w, lvl, nm in usable:
+        shared = words & _name_words(nm)
+        if len(shared) > best_score:
+            best, best_score = w, len(shared)
+        elif len(shared) == 1 and not (shared & _DISC_WORDS):
+            singles.append((w, lvl))
+    if best is not None:
+        return code_to_id[best['code']]
+    # … or one distinctive word that only one branch has (main branches looked at first)
+    for pool in ([w for w, lvl in singles if lvl == 2], [w for w, _l in singles]):
+        if len(pool) == 1:
+            return code_to_id[pool[0]['code']]
+
     kinds = [str(k).lower() for k in (trade.get('kind') or [])] + [str(trade.get('disc') or '').lower()]
     kws = set()
     for k in kinds:
         kws.add(k)
-        for kk, words in _DISC_KEYS.items():
+        for kk, kw_list in _DISC_KEYS.items():
             if kk in k:
-                kws.update(words)
-    for w in rows:
-        if int(w.get('level', 1)) < 2:
-            continue
-        nm = (w.get('name') or '').lower()
-        if any(kw and kw in nm for kw in kws):
-            return code_to_id[w['code']]
+                kws.update(kw_list)
+    for main_only in (True, False):
+        for w, lvl, nm in usable:
+            if main_only and lvl != 2:
+                continue
+            if any(kw and kw in nm for kw in kws):
+                return code_to_id[w['code']]
     return root_id
 
 

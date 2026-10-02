@@ -1,0 +1,726 @@
+{
+  "archetype": "automotive_plant",
+  "schema": 2,
+  "context": "four shops · press, body, paint and assembly; paint shop is the longest and start of production is fixed",
+  "brief": {
+    "intro": "New to this project type? A car plant is four factories in a row. The press shop stamps steel coil into body panels on huge presses. The body shop welds the panels into a body shell with hundreds of robots. The paint shop cleans, dips, seals, sprays and bakes the body in a very clean, tightly controlled building. Final assembly then fits everything else — engine or battery, interior, wheels — on a moving line and tests the finished car. The four shops are linked by conveyors and fed by an energy centre. The start-of-production date is fixed years ahead with the vehicle launch, so the plan is built backwards from it. The paint shop, with its process equipment, ovens, air-handling and environmental permits, is nearly always the longest path, and the press foundations are the heaviest civil item.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Press shop",
+        "desc": "Coil handling, blanking and press lines on deep foundations, die storage."
+      },
+      {
+        "name": "Body shop",
+        "desc": "Robotic welding cells, framing stations and body storage."
+      },
+      {
+        "name": "Paint shop",
+        "desc": "Pre-treatment and e-coat tanks, sealer, spray booths, ovens and air-supply units."
+      },
+      {
+        "name": "Final assembly",
+        "desc": "Trim, chassis and final lines, marriage station, fluid filling."
+      },
+      {
+        "name": "End-of-line test & finish",
+        "desc": "Wheel alignment, roller test, water test and inspection."
+      },
+      {
+        "name": "Conveyors & logistics",
+        "desc": "Skid and overhead conveyors between shops, parts supermarket and docks."
+      },
+      {
+        "name": "Energy centre",
+        "desc": "Compressed air, chilled and hot water, gas and power distribution."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Compressed air, Chilled & hot water, Natural gas, Demineralised water & effluent treatment — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Equipment try-outs, pre-series cars, quality gates, then start of production and a ramp-up curve to full rate."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Press shop / body shop / paint shop / assembly",
+        "plain": "the four production stages of a car plant."
+      },
+      {
+        "term": "Body-in-white",
+        "plain": "the welded steel body shell before paint."
+      },
+      {
+        "term": "E-coat",
+        "plain": "the first, electrically deposited paint layer, applied by dipping the whole body in a tank."
+      },
+      {
+        "term": "RTO",
+        "plain": "regenerative thermal oxidiser — burns the solvent fumes from the ovens and booths."
+      },
+      {
+        "term": "Marriage",
+        "plain": "the station where the body is joined to the powertrain and chassis."
+      },
+      {
+        "term": "Takt time",
+        "plain": "the time between two cars leaving the line; all stations are designed to it."
+      },
+      {
+        "term": "Pre-series",
+        "plain": "trial cars built before the official start to prove the process and train the staff."
+      },
+      {
+        "term": "SOP",
+        "plain": "start of production — the contractual date of the first saleable car."
+      }
+    ],
+    "must_get_right": [
+      "Plan backwards from the start-of-production date; it is tied to the vehicle launch and does not move.",
+      "The paint shop is the longest chain — process design, permits (emissions, effluent), building, equipment, cleanliness, first paint — and should start first.",
+      "Press foundations are deep, heavy and need the press maker's loads early; they often start before the building steel.",
+      "Each shop is handed to the equipment suppliers on a 'building ready' date (roof tight, floor finished, power available). Fix those dates shop by shop and protect them."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Production Equipment by Shop",
+      "desc": "Presses, weld cells, paint process, assembly lines and conveyors",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Paint Shop Process",
+      "desc": "Tanks → booths → ovens → air supply",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Compressed air, Chilled & hot water, Natural gas, Demineralised water & effluent treatment",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Production Equipment by Shop",
+      "items": [
+        "Press shop",
+        "Body shop",
+        "Paint shop",
+        "Final assembly",
+        "End-of-line test & finish",
+        "Conveyors & logistics",
+        "Energy centre"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Compressed air",
+        "Chilled & hot water",
+        "Natural gas",
+        "Demineralised water & effluent treatment"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Sprinklers & paint-shop fire suppression",
+        "VOC abatement (RTO)",
+        "Effluent treatment",
+        "Welding-fume extraction"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Production Equipment by Shop",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Press → body → paint → assembly → test",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Paint Shop Process",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 46,
+        "label": "Tanks → booths → ovens → air supply",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Try-out → pre-series → SOP → ramp-up",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Production Equipment by Shop",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production equipment by shop",
+        "Install press lines & coil handling",
+        "Install body-shop robots, tooling & framing stations",
+        "Install assembly conveyors, lines & filling stations",
+        "Install inter-shop conveyors & body storage",
+        "Install end-of-line test equipment"
+      ]
+    },
+    {
+      "name": "Mechanical — Paint Shop Process",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        5
+      ],
+      "steps": [
+        "Paint-shop enclosure & clean-wall panels",
+        "Pre-treatment & e-coat tanks, rectifiers & piping",
+        "Spray booths, robots & paint-supply system",
+        "Ovens, exhaust & thermal oxidiser (RTO)",
+        "Air-supply units & ducting",
+        "Cleanliness acceptance before first paint"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: compressed air, chilled & hot water, natural gas",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        4,
+        5
+      ],
+      "steps": [
+        "Equipment power-on & dry cycles by shop",
+        "Die try-out & first panels",
+        "Robot programming & first bodies",
+        "Paint shop first-fill, flushing & first painted bodies",
+        "Pre-series vehicles & quality gates",
+        "Start of production (SOP)",
+        "Ramp-up to rated output"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "AUT",
+      "name": "Automotive / Vehicle Assembly Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "AUT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "AUT.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "AUT.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "AUT.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "AUT.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "AUT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "AUT.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "AUT.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "AUT.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "AUT.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "AUT.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "AUT.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "AUT.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "AUT.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "AUT.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "AUT.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "AUT.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "AUT.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "AUT.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "AUT.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "AUT.06.10",
+      "name": "Press shop",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.20",
+      "name": "Body shop",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.30",
+      "name": "Paint shop",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.40",
+      "name": "Final assembly",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.50",
+      "name": "End-of-line test & finish",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.60",
+      "name": "Conveyors & logistics",
+      "level": 3
+    },
+    {
+      "code": "AUT.06.70",
+      "name": "Energy centre",
+      "level": 3
+    },
+    {
+      "code": "AUT.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "AUT.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "AUT.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "AUT.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "AUT.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "AUT.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "AUT.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "AUT.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "AUT.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "AUT.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "AUT.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "AUT.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "AUT.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "For each shop: design freeze → foundations and pits → steel → roof and cladding → floor → building ready → equipment installation → power and utilities → try-out. Shops then join through the conveyors: first panels → first bodies → first painted bodies → pre-series → SOP. The critical path normally runs through the paint shop."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Press lines",
+              "18–24 months",
+              "Before press-shop installation"
+            ],
+            [
+              "Paint-shop process equipment",
+              "14–20 months",
+              "Before paint-shop installation"
+            ],
+            [
+              "Body-shop robots & tooling",
+              "12–16 months",
+              "Before body-shop installation"
+            ],
+            [
+              "Assembly conveyors & test equipment",
+              "10–14 months",
+              "Before assembly installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late vehicle design changes, paint-shop permits and cleanliness, press delivery, building-ready dates slipping into installation, and quality problems during pre-series. Contingency is held before pre-series and before SOP."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

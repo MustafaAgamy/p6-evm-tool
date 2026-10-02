@@ -1,0 +1,603 @@
+{
+  "archetype": "irrigation_network",
+  "schema": 2,
+  "context": "linear network · pipe laying by zone, pump station & controllers, finished ahead of planting",
+  "brief": {
+    "intro": "New to this project type? An irrigation network delivers water — usually treated sewage effluent (TSE) — to landscaped areas, street trees and parks. A storage tank and pump station feed a ring of main lines; from them, valve-controlled laterals feed drip lines, bubblers and sprinklers in each planting zone, all switched by a central controller. The pipes are small and shallow, so laying is fast. What governs the programme is the order of work with the landscape and the roads: sleeves under roads and paving must go in before the surfacing, the network must be tested and running before the first plants arrive, and planting itself depends on the season.",
+    "scope": [
+      {
+        "name": "Water source & storage",
+        "desc": "TSE connection or wells, storage tank and filtration."
+      },
+      {
+        "name": "Irrigation pump station",
+        "desc": "Pumps, filters, fertiliser injection, power and control."
+      },
+      {
+        "name": "Main lines",
+        "desc": "uPVC / HDPE pressure mains forming a ring around the irrigated areas."
+      },
+      {
+        "name": "Road & paving sleeves",
+        "desc": "Ducts under roads, kerbs and paving for pipes and control cables."
+      },
+      {
+        "name": "Valve stations",
+        "desc": "Isolation valves, solenoid valves and valve boxes for each zone."
+      },
+      {
+        "name": "Lateral lines",
+        "desc": "Smaller pipes from the valve to the emitters in each zone."
+      },
+      {
+        "name": "Emitters",
+        "desc": "Drip lines, bubblers, sprayers and sprinklers matched to each plant type."
+      },
+      {
+        "name": "Control system",
+        "desc": "Controllers, decoders or control cable, weather / soil sensors and central software."
+      },
+      {
+        "name": "Testing & balancing",
+        "desc": "Pressure test of mains, flushing, and pressure / coverage check of each zone."
+      },
+      {
+        "name": "Handover with the landscape",
+        "desc": "Operation during plant establishment and the maintenance period."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "TSE",
+        "plain": "treated sewage effluent — recycled water used for irrigation, kept separate from drinking water."
+      },
+      {
+        "term": "Main line",
+        "plain": "the pipe that is always under pressure, from the pump station to the valves."
+      },
+      {
+        "term": "Lateral",
+        "plain": "the pipe after the zone valve; under pressure only while that zone is watering."
+      },
+      {
+        "term": "Solenoid valve",
+        "plain": "an electrically operated valve that the controller opens and closes."
+      },
+      {
+        "term": "Emitter",
+        "plain": "the device that delivers water to the plant — dripper, bubbler or sprinkler."
+      },
+      {
+        "term": "Hydrozone",
+        "plain": "a group of plants with the same water need, watered by one valve."
+      },
+      {
+        "term": "Sleeve",
+        "plain": "an empty duct laid under a road or paving so the pipe can be passed through later."
+      },
+      {
+        "term": "Two-wire / decoder system",
+        "plain": "a control system where all valves share one cable and each has its own address."
+      },
+      {
+        "term": "Establishment period",
+        "plain": "the first months after planting, when plants need frequent watering and close attention."
+      }
+    ],
+    "must_get_right": [
+      "Install every road and paving sleeve before the road base and paving — a missed sleeve means cutting a finished road.",
+      "The network must be pressure-tested, flushed and operating before plants are delivered; plants cannot wait for water.",
+      "Tie the planting dates to the season and work backwards: soil, irrigation and testing must all finish before that date.",
+      "Power to the pump station and the TSE source connection are outside dependencies — track both as milestones."
+    ]
+  },
+  "components": [
+    {
+      "name": "Storage Tank & Pump Station",
+      "desc": "Tank, pumps, filters and fertigation",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Main Lines",
+      "desc": "Pressure mains and ring network",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Sleeves & Trenching",
+      "desc": "Road sleeves, trenches and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Valve Stations & Laterals",
+      "desc": "Solenoid valves, valve boxes and lateral pipes",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Emitters",
+      "desc": "Drip lines, bubblers and sprinklers by planting zone",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Control System",
+      "desc": "Controllers, cables / decoders and sensors",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Testing & Handover",
+      "desc": "Pressure test, flushing, coverage test and handover",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Irrigation Piping",
+      "items": [
+        "uPVC / HDPE main lines",
+        "Lateral lines",
+        "Drip lines, bubblers & sprinklers"
+      ]
+    },
+    {
+      "discipline": "Pump Station",
+      "items": [
+        "Irrigation pumps (duty / standby)",
+        "Screen & disc filters",
+        "Fertiliser injection",
+        "Pressure-sustaining & air valves"
+      ]
+    },
+    {
+      "discipline": "Control & Power",
+      "items": [
+        "Central controller & field controllers",
+        "Solenoid valves & decoders",
+        "Control cable, flow & rain sensors"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Approvals",
+    "Sleeves under Roads & Paving",
+    "Tank & Pump Station",
+    "Main Lines",
+    "Valves & Laterals by Zone",
+    "Emitters with Planting",
+    "Control System",
+    "Testing, Establishment & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Sleeves",
+      "Mains",
+      "Pump stn",
+      "Laterals",
+      "Control",
+      "Test"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Sleeves, Trenching & Backfill",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 4,
+        "width": 58,
+        "label": "Sleeves before roads → trench → backfill",
+        "holds": [
+          62
+        ]
+      },
+      {
+        "trade": "Storage Tank & Pump Station",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 8,
+        "width": 50,
+        "label": "Tank → pump room → pumps → filters",
+        "holds": [
+          58
+        ]
+      },
+      {
+        "trade": "Main Lines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 14,
+        "width": 44,
+        "label": "Lay → joint → thrust blocks → pressure test",
+        "holds": [
+          58
+        ]
+      },
+      {
+        "trade": "Valve Stations & Laterals",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 46,
+        "label": "Valve boxes → laterals, zone by zone",
+        "holds": []
+      },
+      {
+        "trade": "Control System",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Cable → controllers → sensors → program",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Testing & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 74,
+        "width": 26,
+        "label": "Pump test → zone test → establish → hand over",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Sleeves, Trenching & Backfill",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Install road & paving sleeves before road base",
+        "Mark sleeve ends & record as-built",
+        "Trench excavation for mains & laterals",
+        "Sand bedding & warning tape",
+        "Backfill & compaction"
+      ]
+    },
+    {
+      "name": "Storage Tank & Pump Station",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Tank & pump-room structure",
+        "Receive pumps, filters & control panel",
+        "Install pumps, filters & pipework",
+        "Fertigation unit & valves",
+        "Power connection to the pump station"
+      ]
+    },
+    {
+      "name": "Main Lines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Lay & joint main-line pipe",
+        "Isolation valves, air valves & thrust blocks",
+        "Pressure test the main lines",
+        "Flush the mains"
+      ]
+    },
+    {
+      "name": "Valve Stations & Laterals",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Install solenoid valves & valve boxes",
+        "Lay lateral lines by zone",
+        "Flush laterals before fitting emitters",
+        "Install drip lines, bubblers & sprinklers with planting"
+      ]
+    },
+    {
+      "name": "Control System",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Lay control cable / decoders with the mains",
+        "Install field controllers & earthing",
+        "Flow, rain & soil-moisture sensors",
+        "Program zones & run-times in the central controller"
+      ]
+    },
+    {
+      "name": "Testing & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Pump-station commissioning",
+        "Zone-by-zone pressure & coverage test",
+        "Adjust emitters & schedules",
+        "Operate through plant establishment",
+        "As-built drawings, training & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "IRR",
+      "name": "Irrigation & TSE Network — Project",
+      "level": 1
+    },
+    {
+      "code": "IRR.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "IRR.02",
+      "name": "Design, Shop Drawings & Approvals",
+      "level": 2
+    },
+    {
+      "code": "IRR.02.10",
+      "name": "Irrigation shop drawings & hydraulic calculations",
+      "level": 3
+    },
+    {
+      "code": "IRR.02.20",
+      "name": "Material approvals",
+      "level": 3
+    },
+    {
+      "code": "IRR.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "IRR.03.10",
+      "name": "Pipes, fittings & valves",
+      "level": 3
+    },
+    {
+      "code": "IRR.03.20",
+      "name": "Pumps, filters & control equipment",
+      "level": 3
+    },
+    {
+      "code": "IRR.04",
+      "name": "Civil Works — Sleeves, Trenching & Backfill",
+      "level": 2
+    },
+    {
+      "code": "IRR.04.10",
+      "name": "Road & paving sleeves",
+      "level": 3
+    },
+    {
+      "code": "IRR.04.20",
+      "name": "Trench excavation & bedding",
+      "level": 3
+    },
+    {
+      "code": "IRR.04.30",
+      "name": "Backfill",
+      "level": 3
+    },
+    {
+      "code": "IRR.05",
+      "name": "Storage Tank & Pump Station (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "IRR.05.10",
+      "name": "Tank & pump room",
+      "level": 3
+    },
+    {
+      "code": "IRR.05.20",
+      "name": "Pumps & filtration",
+      "level": 3
+    },
+    {
+      "code": "IRR.05.30",
+      "name": "Fertigation",
+      "level": 3
+    },
+    {
+      "code": "IRR.05.40",
+      "name": "Power supply",
+      "level": 3
+    },
+    {
+      "code": "IRR.06",
+      "name": "Main Lines (Piping)",
+      "level": 2
+    },
+    {
+      "code": "IRR.06.10",
+      "name": "Pipe laying & jointing",
+      "level": 3
+    },
+    {
+      "code": "IRR.06.20",
+      "name": "Valves & thrust blocks",
+      "level": 3
+    },
+    {
+      "code": "IRR.06.30",
+      "name": "Pressure testing & flushing",
+      "level": 3
+    },
+    {
+      "code": "IRR.07",
+      "name": "Valve Stations & Laterals (Piping by Zone)",
+      "level": 2
+    },
+    {
+      "code": "IRR.07.10",
+      "name": "Solenoid valves & valve boxes",
+      "level": 3
+    },
+    {
+      "code": "IRR.07.20",
+      "name": "Lateral lines",
+      "level": 3
+    },
+    {
+      "code": "IRR.07.30",
+      "name": "Emitters (drip / bubbler / sprinkler)",
+      "level": 3
+    },
+    {
+      "code": "IRR.08",
+      "name": "Irrigation Control System",
+      "level": 2
+    },
+    {
+      "code": "IRR.08.10",
+      "name": "Control cable & decoders",
+      "level": 3
+    },
+    {
+      "code": "IRR.08.20",
+      "name": "Controllers & sensors",
+      "level": 3
+    },
+    {
+      "code": "IRR.09",
+      "name": "Testing, Commissioning & Handover",
+      "level": 2
+    },
+    {
+      "code": "IRR.09.10",
+      "name": "Pump station commissioning",
+      "level": 3
+    },
+    {
+      "code": "IRR.09.20",
+      "name": "Zone testing & balancing",
+      "level": 3
+    },
+    {
+      "code": "IRR.09.30",
+      "name": "Establishment period & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by irrigation zone (matching the landscape zones) with the pump station and main lines as common works, so each zone can be read as ready for planting or not."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Planting windows are marked by season; in hot climates summer planting is avoided or planned with reduced survival allowance."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Sleeves precede road base and paving. Main lines and the pump station must be tested before any zone is commissioned. In each zone: laterals → flush → emitters → zone test → planting. The critical path normally runs through the pump station (tank, pumps, power) or through the zone released last by other trades."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The TSE source or tank filling point is available; permanent power reaches the pump station on the assumed date; road and hardscape contractors give access to each zone in the planned order; final soil levels are complete before laterals."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Irrigation pumps, filters & control panel",
+              "12–18 weeks",
+              "Before pump-station installation"
+            ],
+            [
+              "Central control system, decoders & sensors",
+              "10–16 weeks",
+              "Before zone programming"
+            ],
+            [
+              "Solenoid valves & emitters (specified brand)",
+              "8–12 weeks",
+              "Before lateral works in the first zone"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Irrigation follows the civil and hardscape trades into each area and is squeezed if they are late. Shallow pipes are easily damaged by later trades — protection and re-testing must be allowed for."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: missed sleeves, late power or water source, damage by other trades after testing, late zone release, and planting pushed into the wrong season. Contingency is held before the planting start of the first and last zones."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by irrigation zone; expanded to Level 4–5 lookahead for the pipe, valve and emitter crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

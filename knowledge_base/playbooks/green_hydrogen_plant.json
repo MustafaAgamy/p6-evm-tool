@@ -1,0 +1,679 @@
+{
+  "archetype": "green_hydrogen_plant",
+  "schema": 2,
+  "context": "process plant · electrolyser stacks, rectifiers, compression and storage; hazardous-area and purity tests",
+  "brief": {
+    "intro": "New to this project type? A green hydrogen plant splits water into hydrogen and oxygen using renewable electricity. Very pure water is fed to electrolyser stacks; large transformer-rectifiers supply them with direct current; the hydrogen that comes off is cooled, dried and purified, then compressed and stored in tubes or tanks, or piped on to a user such as an ammonia plant. Much of it is modular — stacks and skids arrive factory-built and are set in a hall or outdoors. But it is a real process plant: hydrogen is flammable and leaks easily, so piping is welded and tested to a high standard, areas are classified as hazardous, and detection, ventilation and venting are safety-critical. The big electrical supply and the electrolyser delivery are the long items; commissioning ends with a purity and performance test.",
+    "scope": [
+      {
+        "name": "Power supply",
+        "desc": "Grid or renewable connection, substation and transformer-rectifiers for the stacks."
+      },
+      {
+        "name": "Water treatment",
+        "desc": "Raw water intake, demineralisation and ultra-pure water polishing."
+      },
+      {
+        "name": "Electrolyser hall",
+        "desc": "Stacks (alkaline or PEM), gas-liquid separators and electrolyte / water circulation."
+      },
+      {
+        "name": "Gas processing",
+        "desc": "Deoxidiser, dryers and purification to the required hydrogen quality."
+      },
+      {
+        "name": "Cooling system",
+        "desc": "Cooling water or dry coolers removing the heat from stacks and rectifiers."
+      },
+      {
+        "name": "Compression",
+        "desc": "Hydrogen compressors with coolers and buffer vessels."
+      },
+      {
+        "name": "Storage & offtake",
+        "desc": "Pressure vessels or tube storage, trailer filling or pipeline connection."
+      },
+      {
+        "name": "Oxygen handling & vents",
+        "desc": "Oxygen venting or recovery, vent stacks and flare where required."
+      },
+      {
+        "name": "Nitrogen & instrument air",
+        "desc": "Purging and inerting systems."
+      },
+      {
+        "name": "Safety systems",
+        "desc": "Hydrogen detection, ventilation, emergency shutdown and fire protection."
+      },
+      {
+        "name": "Commissioning & performance test",
+        "desc": "Leak tests, purging, first hydrogen, purity and efficiency tests."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Electrolyser",
+        "plain": "equipment that uses electricity to split water into hydrogen and oxygen."
+      },
+      {
+        "term": "Stack",
+        "plain": "the core of the electrolyser — many cells bolted together."
+      },
+      {
+        "term": "PEM / alkaline",
+        "plain": "the two common electrolyser technologies."
+      },
+      {
+        "term": "Rectifier",
+        "plain": "the equipment that turns AC power into the DC the stacks need."
+      },
+      {
+        "term": "Balance of plant",
+        "plain": "everything around the stacks: water, cooling, gas clean-up, power."
+      },
+      {
+        "term": "Purity",
+        "plain": "how clean the hydrogen is — fuel-cell grade needs 99.999 %."
+      },
+      {
+        "term": "Hazardous area",
+        "plain": "a zone where hydrogen could be present, so only explosion-proof equipment is allowed."
+      },
+      {
+        "term": "Purging / inerting",
+        "plain": "pushing air out of the system with nitrogen before hydrogen is let in."
+      },
+      {
+        "term": "ESD",
+        "plain": "emergency shutdown system."
+      }
+    ],
+    "must_get_right": [
+      "The power supply (connection, substation, rectifier-transformers) is as large as the process plant; put it at the front of the schedule.",
+      "Electrolyser stacks and rectifiers are the long-lead items and suppliers have limited capacity — the order date fixes the earliest start-up.",
+      "Hydrogen piping needs high-integrity welding, cleaning and helium or pressure leak testing; do not treat it as ordinary utility piping.",
+      "Safety systems (gas detection, ventilation, ESD) must be proven before hydrogen is introduced, and the offtake — pipeline, trailers or the downstream plant — must be ready to take the gas."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Buildings",
+      "desc": "Electrolyser hall, foundations, compressor shelter and storage area",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Electrolyser Stacks & Balance of Plant",
+      "desc": "Stacks, separators, circulation and gas processing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Power Supply & Rectifiers",
+      "desc": "Substation, transformer-rectifiers and DC busbars",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Water Treatment & Cooling",
+      "desc": "Demineralised water plant and cooling system",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Compression & Storage",
+      "desc": "Compressors, buffer and storage vessels, filling",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Process Piping",
+      "desc": "Hydrogen, oxygen, water and nitrogen piping",
+      "disc": "Piping",
+      "primary": true
+    },
+    {
+      "name": "Control & Safety Systems",
+      "desc": "DCS, ESD, gas detection and fire protection",
+      "disc": "Instrumentation",
+      "primary": true
+    },
+    {
+      "name": "Commissioning",
+      "desc": "Leak tests, purging, first hydrogen and performance test",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Process",
+      "items": [
+        "Electrolyser stacks",
+        "Gas-liquid separators & circulation",
+        "Deoxo, dryers & purification",
+        "Hydrogen compressors & storage"
+      ]
+    },
+    {
+      "discipline": "Utilities",
+      "items": [
+        "Demineralised / ultra-pure water plant",
+        "Cooling water / dry coolers",
+        "Nitrogen & instrument air"
+      ]
+    },
+    {
+      "discipline": "Electrical",
+      "items": [
+        "Substation & transformer-rectifiers",
+        "DC busbar",
+        "Explosion-proof installations"
+      ]
+    },
+    {
+      "discipline": "Control & Safety",
+      "items": [
+        "DCS & ESD",
+        "Hydrogen & fire detection",
+        "Ventilation, vents & flare"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering, Permits & HAZOP",
+    "Long-lead Procurement",
+    "Civil Works & Buildings",
+    "Equipment Setting",
+    "Piping & Electrical Installation",
+    "Mechanical Completion & Leak Tests",
+    "Pre-commissioning & Purging",
+    "First Hydrogen & Performance Test"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Equipment",
+      "Piping",
+      "Electrical",
+      "Pre-comm",
+      "First H2"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations & Buildings",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 36,
+        "label": "Foundations → hall → pads → pipe supports",
+        "holds": [
+          44
+        ]
+      },
+      {
+        "trade": "Mechanical — Electrolyser Stacks & Process Skids",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 32,
+        "label": "Receive → set → align → assemble",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Mechanical — Compression & Storage",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 30,
+        "label": "Compressors → vessels → filling",
+        "holds": []
+      },
+      {
+        "trade": "Piping — Process & Utility Piping",
+        "disc": "Piping",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 42,
+        "width": 34,
+        "label": "Prefab → erect → test → clean",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Electrical — Power Supply & Rectifiers",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 28,
+        "width": 46,
+        "label": "Substation → rectifiers → busbar → Ex wiring",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Instrumentation — Control & Safety Systems",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 50,
+        "width": 30,
+        "label": "Instruments → DCS / ESD → detection",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — First Hydrogen & Performance Test",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Utilities → purge → first H2 → purity → test",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations & Buildings",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Site preparation & underground services",
+        "Equipment foundations & electrolyser hall",
+        "Compressor shelter & storage-area pads",
+        "Pipe-rack foundations & trenches",
+        "Areas released for equipment setting"
+      ]
+    },
+    {
+      "name": "Mechanical — Electrolyser Stacks & Process Skids",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive stacks & skids (FAT done)",
+        "Set electrolyser stacks & separators",
+        "Set gas-processing skids (deoxo, dryers)",
+        "Set water-treatment & cooling equipment",
+        "Assemble inter-skid connections"
+      ]
+    },
+    {
+      "name": "Mechanical — Compression & Storage",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Set hydrogen compressors & coolers",
+        "Erect storage vessels / tube bundles",
+        "Install filling station or pipeline metering skid",
+        "Vent stacks & flare"
+      ]
+    },
+    {
+      "name": "Piping — Process & Utility Piping",
+      "disc": "Piping",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2,
+        3
+      ],
+      "steps": [
+        "Prefabricate spools",
+        "Erect pipe racks & piping",
+        "NDT of hydrogen-service welds",
+        "Pressure & helium leak tests",
+        "Cleaning, drying & reinstatement"
+      ]
+    },
+    {
+      "name": "Electrical — Power Supply & Rectifiers",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Substation & main transformer",
+        "Receive transformer-rectifiers",
+        "Install rectifiers & DC busbars to the stacks",
+        "Cabling, earthing & explosion-proof installations",
+        "Energise the substation"
+      ]
+    },
+    {
+      "name": "Instrumentation — Control & Safety Systems",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install field instruments & analysers",
+        "DCS / ESD cabinets & cabling",
+        "Hydrogen & fire detection, ventilation interlocks",
+        "Loop checks & ESD function tests"
+      ]
+    },
+    {
+      "name": "Commissioning — First Hydrogen & Performance Test",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        3
+      ],
+      "steps": [
+        "Utilities commissioning (water, cooling, nitrogen)",
+        "Safety systems proven & pre-start-up safety review",
+        "Nitrogen purging & leak check",
+        "First hydrogen",
+        "Purity achieved & compressor commissioning",
+        "Performance test (output, efficiency, purity)"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "GH2",
+      "name": "Green Hydrogen / Electrolyser Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "GH2.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "GH2.02",
+      "name": "Engineering, Permits & Safety Studies",
+      "level": 2
+    },
+    {
+      "code": "GH2.02.10",
+      "name": "Process design & HAZOP",
+      "level": 3
+    },
+    {
+      "code": "GH2.02.20",
+      "name": "Permits & hazardous-area classification",
+      "level": 3
+    },
+    {
+      "code": "GH2.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "GH2.03.10",
+      "name": "Electrolyser stacks & skids",
+      "level": 3
+    },
+    {
+      "code": "GH2.03.20",
+      "name": "Transformer-rectifiers",
+      "level": 3
+    },
+    {
+      "code": "GH2.03.30",
+      "name": "Compressors & storage vessels",
+      "level": 3
+    },
+    {
+      "code": "GH2.04",
+      "name": "Civil Works & Buildings",
+      "level": 2
+    },
+    {
+      "code": "GH2.04.10",
+      "name": "Foundations",
+      "level": 3
+    },
+    {
+      "code": "GH2.04.20",
+      "name": "Electrolyser hall",
+      "level": 3
+    },
+    {
+      "code": "GH2.04.30",
+      "name": "Pipe racks & trenches",
+      "level": 3
+    },
+    {
+      "code": "GH2.05",
+      "name": "Electrolyser Stacks & Process Skids (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "GH2.05.10",
+      "name": "Stacks & separators",
+      "level": 3
+    },
+    {
+      "code": "GH2.05.20",
+      "name": "Gas processing",
+      "level": 3
+    },
+    {
+      "code": "GH2.05.30",
+      "name": "Water treatment & cooling equipment",
+      "level": 3
+    },
+    {
+      "code": "GH2.06",
+      "name": "Compression & Storage (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "GH2.06.10",
+      "name": "Compressors",
+      "level": 3
+    },
+    {
+      "code": "GH2.06.20",
+      "name": "Storage vessels",
+      "level": 3
+    },
+    {
+      "code": "GH2.06.30",
+      "name": "Filling / offtake",
+      "level": 3
+    },
+    {
+      "code": "GH2.07",
+      "name": "Process & Utility Piping",
+      "level": 2
+    },
+    {
+      "code": "GH2.07.10",
+      "name": "Prefabrication",
+      "level": 3
+    },
+    {
+      "code": "GH2.07.20",
+      "name": "Erection",
+      "level": 3
+    },
+    {
+      "code": "GH2.07.30",
+      "name": "Testing & cleaning",
+      "level": 3
+    },
+    {
+      "code": "GH2.08",
+      "name": "Electrical — Power Supply & Rectifiers",
+      "level": 2
+    },
+    {
+      "code": "GH2.08.10",
+      "name": "Substation",
+      "level": 3
+    },
+    {
+      "code": "GH2.08.20",
+      "name": "Rectifiers & DC busbar",
+      "level": 3
+    },
+    {
+      "code": "GH2.08.30",
+      "name": "Cabling & earthing",
+      "level": 3
+    },
+    {
+      "code": "GH2.09",
+      "name": "Instrumentation, Control & Safety Systems",
+      "level": 2
+    },
+    {
+      "code": "GH2.10",
+      "name": "Commissioning — First Hydrogen & Performance Test",
+      "level": 2
+    },
+    {
+      "code": "GH2.10.10",
+      "name": "Pre-commissioning & purging",
+      "level": 3
+    },
+    {
+      "code": "GH2.10.20",
+      "name": "First hydrogen",
+      "level": 3
+    },
+    {
+      "code": "GH2.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant unit (electrolysis, gas processing, compression and storage, utilities, power supply) and by system for commissioning."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; commissioning by system, with continuous operation during the performance test."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Engineering and HAZOP → long-lead orders → foundations and hall → equipment setting → piping and electrical → mechanical completion by system → leak tests → utilities commissioned → safety systems proven → purging → first hydrogen → purity → performance test. The critical path runs through the electrolyser or rectifier delivery, or the power connection."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Renewable or grid power is available at the required capacity for commissioning; water supply is available; the offtake (pipeline, trailers or downstream plant) is ready to accept hydrogen at first production."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Electrolyser stacks & modules",
+              "12–20 months",
+              "Before equipment setting"
+            ],
+            [
+              "Transformer-rectifiers",
+              "12–18 months",
+              "Before energisation"
+            ],
+            [
+              "Hydrogen compressors",
+              "12–16 months",
+              "Before compression commissioning"
+            ],
+            [
+              "High-pressure storage vessels",
+              "9–14 months",
+              "Before storage installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Hazardous-area rules apply once hydrogen is on site; stacks are sensitive to contamination and must be stored and installed in clean, dry conditions."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: electrolyser delivery and supplier capacity, power-supply readiness, leaks at the tightness test, purity not reached at first start-up, and a late offtake. Contingency is held before first hydrogen."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant unit and system; expanded to Level 4–5 lookahead for the mechanical, piping and commissioning teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "ISO 22734 — hydrogen generators using water electrolysis"
+    },
+    {
+      "code": "STD",
+      "text": "ASME B31.12 — hydrogen piping and pipelines"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

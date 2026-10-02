@@ -1,0 +1,618 @@
+{
+  "archetype": "overhead_transmission_line",
+  "schema": 2,
+  "context": "linear · tower by tower: foundations → erection → stringing; right-of-way and outages govern",
+  "brief": {
+    "intro": "New to this project type? An overhead transmission line carries high-voltage power (typically 66 kV to 500 kV) across country on steel lattice towers or poles. The work is a moving production line of three crews that follow each other along the route: foundations, tower erection, then stringing of the conductors and the earth wire. Nothing is technically difficult to repeat — the hard parts are getting onto the land (right-of-way, access tracks, crop and landowner compensation), the special places where the line crosses roads, railways, rivers or other power lines, and the final connection into live substations, which needs an outage granted by the grid operator on a fixed date.",
+    "scope": [
+      {
+        "name": "Route survey & tower spotting",
+        "desc": "Detailed survey and profile to fix each tower position, height and type."
+      },
+      {
+        "name": "Right-of-way & access",
+        "desc": "Land access, clearance of the corridor and temporary access tracks to each tower."
+      },
+      {
+        "name": "Soil investigation",
+        "desc": "A borehole or probe at tower locations to select the foundation type."
+      },
+      {
+        "name": "Tower foundations",
+        "desc": "Pad-and-chimney, pile or rock-anchor foundations with stub setting."
+      },
+      {
+        "name": "Tower earthing",
+        "desc": "Earthing of each tower and measurement of its resistance."
+      },
+      {
+        "name": "Tower erection",
+        "desc": "Assembly and erection of suspension and tension (angle) towers."
+      },
+      {
+        "name": "Insulators & hardware",
+        "desc": "Insulator strings and fittings hung on each tower."
+      },
+      {
+        "name": "Conductor & earth-wire stringing",
+        "desc": "Tension stringing of conductors and OPGW, sagging and clamping, section by section."
+      },
+      {
+        "name": "Crossings",
+        "desc": "Protected crossings of roads, railways, rivers and existing lines."
+      },
+      {
+        "name": "Line accessories",
+        "desc": "Spacers, dampers, aircraft warning spheres, number and danger plates."
+      },
+      {
+        "name": "Testing & energisation",
+        "desc": "Final inspection, line tests, connection to the substation gantries and energisation."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Right-of-way (ROW)",
+        "plain": "the strip of land the line is allowed to occupy and keep clear."
+      },
+      {
+        "term": "Tower spotting",
+        "plain": "deciding where each tower stands and how tall it is, from the ground profile."
+      },
+      {
+        "term": "Suspension tower",
+        "plain": "a tower that only carries the weight of the conductors on a straight run."
+      },
+      {
+        "term": "Tension (angle) tower",
+        "plain": "a stronger tower where the line changes direction or a stringing section ends."
+      },
+      {
+        "term": "Stub setting",
+        "plain": "fixing the four tower leg stubs in the foundation to exact position and level before concreting."
+      },
+      {
+        "term": "Stringing section",
+        "plain": "the length between two tension towers that is pulled and sagged in one operation."
+      },
+      {
+        "term": "Sagging",
+        "plain": "adjusting the conductor tension so its curve between towers matches the design for the temperature that day."
+      },
+      {
+        "term": "OPGW",
+        "plain": "the earth wire at the top of the towers that also contains optical fibres for communication."
+      },
+      {
+        "term": "Outage",
+        "plain": "a planned switch-off of an existing line or substation bay, granted by the grid operator, so work can be done safely."
+      }
+    ],
+    "must_get_right": [
+      "Right-of-way is the real critical path: a crew can only work where the land is released. Track ROW release tower by tower and keep the three crews in sequence behind it.",
+      "Plan foundations, erection and stringing as three production lines with a gap between them (concrete must gain strength before erection; whole sections must be erected before stringing).",
+      "Stringing needs a complete section between two tension towers — one missing tower stops kilometres of line.",
+      "Crossings of live lines, railways and highways, and the final connection to the substations, need permits and outages on fixed dates; put each one in the schedule as a milestone."
+    ]
+  },
+  "components": [
+    {
+      "name": "Survey, ROW & Access",
+      "desc": "Tower spotting, corridor clearance and access tracks",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Tower Foundations",
+      "desc": "Excavation, stub setting, concrete and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Tower Erection",
+      "desc": "Assembly and erection of lattice towers",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Stringing",
+      "desc": "Conductors, earth wire / OPGW, insulators and fittings",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Earthing",
+      "desc": "Tower earthing and resistance measurement",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Crossings & Outage Works",
+      "desc": "Protected crossings and connections to substations",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Testing & Energisation",
+      "desc": "Final inspection, line tests and energisation",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Line Electrical",
+      "items": [
+        "Phase conductors (ACSR / AAAC)",
+        "Earth wire & OPGW",
+        "Insulator strings & hardware",
+        "Spacers & vibration dampers"
+      ]
+    },
+    {
+      "discipline": "Earthing & Protection",
+      "items": [
+        "Tower earthing & counterpoise",
+        "Line arresters (where specified)",
+        "Anti-climbing devices & plates"
+      ]
+    },
+    {
+      "discipline": "Communication",
+      "items": [
+        "OPGW joint boxes & splicing",
+        "Fibre testing (OTDR)",
+        "Link to substation telecom"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Tower Spotting & ROW",
+    "Design, Type Tests & Procurement",
+    "Access & Foundations",
+    "Tower Erection",
+    "Stringing & Sagging",
+    "Crossings & Substation Connections",
+    "Final Inspection & Tests",
+    "Energisation & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey/ROW",
+      "Foundations",
+      "Erection",
+      "Stringing",
+      "Crossings",
+      "Test",
+      "Energise"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Survey, Access & Foundations",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 56,
+        "label": "ROW → access → excavate → stub → concrete",
+        "holds": [
+          62
+        ]
+      },
+      {
+        "trade": "Structural — Tower Erection",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 22,
+        "width": 50,
+        "label": "Sort → assemble → erect → tighten",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Electrical — Stringing",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 40,
+        "width": 44,
+        "label": "Insulators → pilot → pull → sag → clamp",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Electrical — Earthing",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 26,
+        "width": 46,
+        "label": "Earth each tower · measure resistance",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Electrical — Crossings & Substation Connections",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 50,
+        "width": 36,
+        "label": "Permit → protection → string → connect",
+        "holds": [
+          86
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests & Energisation",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 84,
+        "width": 16,
+        "label": "Patrol → test → energise",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Survey, Access & Foundations",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Right-of-way released for the tower",
+        "Access track & platform",
+        "Foundation excavation / piling",
+        "Stub setting & check of levels and diagonals",
+        "Reinforcement & concrete",
+        "Backfill & curing"
+      ]
+    },
+    {
+      "name": "Structural — Tower Erection",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive & sort galvanised tower steel by tower",
+        "Ground assembly of panels",
+        "Erect tower (crane or gin pole)",
+        "Bolt tightening, punching & verticality check",
+        "Fit anti-climbing devices & plates"
+      ]
+    },
+    {
+      "name": "Electrical — Stringing",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Hang insulator strings & running blocks",
+        "Pull pilot wire through the section",
+        "Tension-string conductors & earth wire / OPGW",
+        "Sagging to the design chart",
+        "Clamp in, fit spacers, dampers & jumpers"
+      ]
+    },
+    {
+      "name": "Electrical — Earthing",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Install tower earthing",
+        "Measure footing resistance",
+        "Add counterpoise where resistance is high",
+        "Record results per tower"
+      ]
+    },
+    {
+      "name": "Electrical — Crossings & Substation Connections",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Crossing permits & outage approvals",
+        "Erect protective scaffolds / nets",
+        "String across road, rail, river or live line",
+        "Connect downleads to the substation gantries during the outage"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests & Energisation",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Final line patrol & punch-list clearance",
+        "OPGW splicing & OTDR test",
+        "Line insulation & continuity / impedance tests",
+        "Energisation by the grid operator",
+        "As-built documents & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "OHL",
+      "name": "Overhead Transmission Line (OHTL) — Project",
+      "level": 1
+    },
+    {
+      "code": "OHL.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "OHL.02",
+      "name": "Survey, Design & Right-of-Way",
+      "level": 2
+    },
+    {
+      "code": "OHL.02.10",
+      "name": "Detailed route survey & tower spotting",
+      "level": 3
+    },
+    {
+      "code": "OHL.02.20",
+      "name": "Soil investigation",
+      "level": 3
+    },
+    {
+      "code": "OHL.02.30",
+      "name": "Right-of-way release & compensation",
+      "level": 3
+    },
+    {
+      "code": "OHL.02.40",
+      "name": "Design & tower type tests",
+      "level": 3
+    },
+    {
+      "code": "OHL.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "OHL.03.10",
+      "name": "Tower steel",
+      "level": 3
+    },
+    {
+      "code": "OHL.03.20",
+      "name": "Conductors & OPGW",
+      "level": 3
+    },
+    {
+      "code": "OHL.03.20.10",
+      "name": "Factory acceptance tests",
+      "level": 4
+    },
+    {
+      "code": "OHL.03.30",
+      "name": "Insulators & hardware",
+      "level": 3
+    },
+    {
+      "code": "OHL.04",
+      "name": "Civil Works — Access & Foundations",
+      "level": 2
+    },
+    {
+      "code": "OHL.04.10",
+      "name": "Access tracks",
+      "level": 3
+    },
+    {
+      "code": "OHL.04.20",
+      "name": "Foundation excavation & piling",
+      "level": 3
+    },
+    {
+      "code": "OHL.04.30",
+      "name": "Stub setting & concrete",
+      "level": 3
+    },
+    {
+      "code": "OHL.04.40",
+      "name": "Backfill & site reinstatement",
+      "level": 3
+    },
+    {
+      "code": "OHL.05",
+      "name": "Tower Erection (Steel Structure)",
+      "level": 2
+    },
+    {
+      "code": "OHL.05.10",
+      "name": "Suspension towers",
+      "level": 3
+    },
+    {
+      "code": "OHL.05.20",
+      "name": "Tension / angle towers",
+      "level": 3
+    },
+    {
+      "code": "OHL.06",
+      "name": "Electrical — Stringing",
+      "level": 2
+    },
+    {
+      "code": "OHL.06.10",
+      "name": "Insulators & fittings",
+      "level": 3
+    },
+    {
+      "code": "OHL.06.20",
+      "name": "Conductor stringing & sagging",
+      "level": 3
+    },
+    {
+      "code": "OHL.06.30",
+      "name": "Earth wire / OPGW",
+      "level": 3
+    },
+    {
+      "code": "OHL.06.40",
+      "name": "Accessories (spacers, dampers, spheres)",
+      "level": 3
+    },
+    {
+      "code": "OHL.07",
+      "name": "Electrical — Earthing",
+      "level": 2
+    },
+    {
+      "code": "OHL.08",
+      "name": "Crossings & Substation Connections (Power Outages)",
+      "level": 2
+    },
+    {
+      "code": "OHL.09",
+      "name": "Testing, Commissioning & Energisation",
+      "level": 2
+    },
+    {
+      "code": "OHL.09.10",
+      "name": "Final inspection",
+      "level": 3
+    },
+    {
+      "code": "OHL.09.20",
+      "name": "Line tests & OPGW tests",
+      "level": 3
+    },
+    {
+      "code": "OHL.09.30",
+      "name": "Energisation & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by line section (between tension towers) and by crew — foundations, erection, stringing — so the number of towers founded, erected and strung can be read at any date."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for the three crews; reduced output is assumed in the wet season where access is across farmland. Outage works are on the dates granted by the grid operator."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per tower: ROW released → access → foundation → curing → erection. Per section: all towers erected → stringing → sagging → clamping. Then crossings, substation connections during outages, final inspection and energisation. The critical path follows the last section to be released by right-of-way, or the outage date."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Right-of-way is released at the planned rate and in route order; soil types are as investigated; outages are granted on the requested dates; the substations at both ends are ready to receive the line."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Tower steel (after design & type test)",
+              "20–32 weeks",
+              "Before erection in each section"
+            ],
+            [
+              "Conductors & OPGW",
+              "20–28 weeks",
+              "Before the first stringing section"
+            ],
+            [
+              "Insulators & line hardware",
+              "16–24 weeks",
+              "Before stringing"
+            ],
+            [
+              "Foundation stubs & templates",
+              "10–14 weeks",
+              "Before the foundation crews start"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Access is seasonal across fields and wadis; crews and their plant must move along the route; live-line crossings and proximity to existing lines impose clearances and outage windows."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: right-of-way and landowner disputes, unexpected ground (rock, high water table) changing foundation types, late tower steel after type tests, theft of materials, and refused or moved outages. Contingency is held before the energisation date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by line section and crew; expanded to Level 4–5 lookahead for the foundation, erection and stringing gangs — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 60826 — design criteria of overhead transmission lines"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

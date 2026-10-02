@@ -1,0 +1,601 @@
+{
+  "archetype": "its_traffic_systems",
+  "schema": 2,
+  "context": "road systems · ducts and foundations with the road, equipment late, integration with the traffic control centre",
+  "brief": {
+    "intro": "New to this project type? Traffic signals and intelligent transport systems (ITS) are the electronics of a road: signal heads and controllers at junctions, detectors in or above the road, CCTV, variable message signs, speed and red-light enforcement, and the fibre network that links them all to a traffic control centre. Like street lighting, the civil part — ducts, chambers, pole and gantry foundations — is built into the road works early. The equipment arrives late and installs quickly. The real finishing work is software and integration: each junction's timings are configured and tested, every device must talk to the control centre, and the traffic authority must witness the tests before a junction is switched on.",
+    "scope": [
+      {
+        "name": "System design & authority approval",
+        "desc": "Junction layouts, phasing, equipment schedule and communication architecture."
+      },
+      {
+        "name": "Ducts & chambers",
+        "desc": "Ducts across and along the road, with chambers at each pole and controller."
+      },
+      {
+        "name": "Foundations",
+        "desc": "Foundations for signal poles, mast arms, CCTV poles, sign gantries and cabinets."
+      },
+      {
+        "name": "Signal poles & heads",
+        "desc": "Poles, mast arms, vehicle and pedestrian signal heads, push buttons."
+      },
+      {
+        "name": "Controllers & cabinets",
+        "desc": "Junction controllers with power supply and UPS."
+      },
+      {
+        "name": "Detection",
+        "desc": "Loops cut in the asphalt, or radar / video detectors on poles."
+      },
+      {
+        "name": "CCTV, VMS & enforcement",
+        "desc": "Cameras, variable message signs on gantries, and speed / red-light systems."
+      },
+      {
+        "name": "Communication network",
+        "desc": "Fibre cable and switches linking field cabinets to the control centre."
+      },
+      {
+        "name": "Control centre integration",
+        "desc": "Adding the new devices to the central traffic management software."
+      },
+      {
+        "name": "Testing & switch-on",
+        "desc": "Factory tests, site acceptance tests and witnessed switch-on of each junction."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Controller",
+        "plain": "the computer in the roadside cabinet that runs the signal timings of a junction."
+      },
+      {
+        "term": "Phase / stage",
+        "plain": "a group of movements that get green together, and the order in which they run."
+      },
+      {
+        "term": "Loop detector",
+        "plain": "a wire loop cut into the road that senses vehicles; it can only be cut after the asphalt is laid."
+      },
+      {
+        "term": "VMS",
+        "plain": "variable message sign — an electronic sign that shows messages to drivers."
+      },
+      {
+        "term": "Gantry / mast arm",
+        "plain": "the steel structure spanning or reaching over the road that carries signs or signals."
+      },
+      {
+        "term": "FAT / SAT",
+        "plain": "factory acceptance test and site acceptance test — the two formal tests of the equipment."
+      },
+      {
+        "term": "Conflict monitor test",
+        "plain": "a safety test proving the controller can never show conflicting greens."
+      },
+      {
+        "term": "TMC / ATMS",
+        "plain": "the traffic management centre and its software that monitors and controls the devices."
+      }
+    ],
+    "must_get_right": [
+      "Ducts, chambers and foundations go in with the road works; gantry foundations are substantial structures and need to be in the road contractor's sequence early.",
+      "Loop detectors are cut after the final asphalt and before road marking — a narrow window; above-ground detectors avoid it.",
+      "Power supply to each controller cabinet and the fibre link to the control centre are prerequisites for any testing.",
+      "Give integration real time: controller configuration, site acceptance tests and the authority's witnessed switch-on for each junction, plus a period of monitoring."
+    ]
+  },
+  "components": [
+    {
+      "name": "Ducts, Chambers & Foundations",
+      "desc": "Civil works built into the road",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Poles, Mast Arms & Gantries",
+      "desc": "Steel structures carrying signals and signs",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Signals & Controllers",
+      "desc": "Signal heads, push buttons, controllers and UPS",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Detection, CCTV & VMS",
+      "desc": "Detectors, cameras, message signs and enforcement",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Communication Network",
+      "desc": "Fibre, switches and field cabinets",
+      "disc": "ELV",
+      "primary": false
+    },
+    {
+      "name": "Power Supply",
+      "desc": "Supply and earthing of field cabinets",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Integration & Switch-on",
+      "desc": "SAT, control-centre integration and switch-on",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Field Equipment",
+      "items": [
+        "Signal heads & pedestrian units",
+        "Junction controllers & UPS",
+        "Detectors (loop / radar / video)",
+        "CCTV, VMS & enforcement cameras"
+      ]
+    },
+    {
+      "discipline": "Communications",
+      "items": [
+        "Fibre-optic cable & splicing",
+        "Field switches & cabinets",
+        "Connection to the control centre"
+      ]
+    },
+    {
+      "discipline": "Power",
+      "items": [
+        "Supply cables & feeder pillars",
+        "Earthing & surge protection"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Authority Approval",
+    "Procurement & Factory Tests",
+    "Ducts, Chambers & Foundations",
+    "Poles & Gantries",
+    "Cabling",
+    "Field Equipment Installation",
+    "Power & Communications",
+    "SAT, Integration & Switch-on"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Civil",
+      "Structures",
+      "Cabling",
+      "Equipment",
+      "Integrate",
+      "Switch-on"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Ducts, Chambers & Foundations",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 46,
+        "label": "With the road works",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Structural — Poles, Mast Arms & Gantries",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 40,
+        "width": 30,
+        "label": "Deliver → erect → check clearance",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "ELV — Cabling & Communications",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 46,
+        "width": 32,
+        "label": "Pull → terminate → splice",
+        "holds": []
+      },
+      {
+        "trade": "ELV — Signals, Detection, CCTV & VMS",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 58,
+        "width": 28,
+        "label": "Mount → connect → aim",
+        "holds": [
+          86
+        ]
+      },
+      {
+        "trade": "Electrical — Power Supply & Earthing",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 50,
+        "width": 30,
+        "label": "Supply → earth → energise",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — Integration & Switch-on",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Configure → SAT → integrate → switch on",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Ducts, Chambers & Foundations",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0,
+        4
+      ],
+      "steps": [
+        "Install road-crossing ducts before road base",
+        "Longitudinal ducts & chambers",
+        "Pole & cabinet foundations",
+        "Gantry foundations",
+        "Prove ducts & hand over to the systems team"
+      ]
+    },
+    {
+      "name": "Structural — Poles, Mast Arms & Gantries",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive galvanised poles & gantries",
+        "Erect signal & CCTV poles",
+        "Erect mast arms & sign gantries (road closure)",
+        "Check clearances & tighten"
+      ]
+    },
+    {
+      "name": "ELV — Cabling & Communications",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [],
+      "steps": [
+        "Pull signal, power & detector cables",
+        "Pull fibre-optic cable",
+        "Terminate in cabinets & pole tops",
+        "Splice fibre & OTDR test"
+      ]
+    },
+    {
+      "name": "ELV — Signals, Detection, CCTV & VMS",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive equipment after factory acceptance test",
+        "Install controllers, UPS & cabinets",
+        "Mount signal heads & push buttons",
+        "Cut loops after final asphalt / install radar detectors",
+        "Install CCTV, VMS & enforcement units"
+      ]
+    },
+    {
+      "name": "Electrical — Power Supply & Earthing",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Supply cables from feeder pillars",
+        "Earthing & surge protection",
+        "Power available at each cabinet",
+        "Energise cabinets"
+      ]
+    },
+    {
+      "name": "Commissioning — Integration & Switch-on",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        3
+      ],
+      "steps": [
+        "Load junction configuration & timings",
+        "Conflict monitor & site acceptance tests",
+        "Integrate devices with the control centre",
+        "Witnessed switch-on of each junction",
+        "Monitoring period, fine-tuning & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "ITS",
+      "name": "Traffic Signals & ITS Network — Project",
+      "level": 1
+    },
+    {
+      "code": "ITS.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "ITS.02",
+      "name": "Design & Authority Approval",
+      "level": 2
+    },
+    {
+      "code": "ITS.02.10",
+      "name": "Junction & system design",
+      "level": 3
+    },
+    {
+      "code": "ITS.02.20",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "ITS.03",
+      "name": "Procurement & Factory Tests",
+      "level": 2
+    },
+    {
+      "code": "ITS.03.10",
+      "name": "Controllers & signal equipment",
+      "level": 3
+    },
+    {
+      "code": "ITS.03.20",
+      "name": "CCTV, VMS & enforcement",
+      "level": 3
+    },
+    {
+      "code": "ITS.03.30",
+      "name": "Poles & gantries",
+      "level": 3
+    },
+    {
+      "code": "ITS.03.40",
+      "name": "Fibre & network equipment",
+      "level": 3
+    },
+    {
+      "code": "ITS.04",
+      "name": "Civil Works — Ducts, Chambers & Foundations",
+      "level": 2
+    },
+    {
+      "code": "ITS.04.10",
+      "name": "Road-crossing ducts",
+      "level": 3
+    },
+    {
+      "code": "ITS.04.20",
+      "name": "Ducts & chambers",
+      "level": 3
+    },
+    {
+      "code": "ITS.04.30",
+      "name": "Pole & cabinet foundations",
+      "level": 3
+    },
+    {
+      "code": "ITS.04.40",
+      "name": "Gantry foundations",
+      "level": 3
+    },
+    {
+      "code": "ITS.05",
+      "name": "Steel Structures — Poles & Gantries",
+      "level": 2
+    },
+    {
+      "code": "ITS.05.10",
+      "name": "Signal & CCTV poles",
+      "level": 3
+    },
+    {
+      "code": "ITS.05.20",
+      "name": "Mast arms & sign gantries",
+      "level": 3
+    },
+    {
+      "code": "ITS.06",
+      "name": "Systems Cabling & Telecom Network",
+      "level": 2
+    },
+    {
+      "code": "ITS.06.10",
+      "name": "Signal & power cables",
+      "level": 3
+    },
+    {
+      "code": "ITS.06.20",
+      "name": "Fibre-optic network",
+      "level": 3
+    },
+    {
+      "code": "ITS.07",
+      "name": "Field Equipment — Signals, Detection, CCTV & VMS (Control)",
+      "level": 2
+    },
+    {
+      "code": "ITS.07.10",
+      "name": "Controllers & cabinets",
+      "level": 3
+    },
+    {
+      "code": "ITS.07.20",
+      "name": "Signal heads & pedestrian units",
+      "level": 3
+    },
+    {
+      "code": "ITS.07.30",
+      "name": "Detection",
+      "level": 3
+    },
+    {
+      "code": "ITS.07.40",
+      "name": "CCTV, VMS & enforcement",
+      "level": 3
+    },
+    {
+      "code": "ITS.08",
+      "name": "Electrical Power Supply & Earthing",
+      "level": 2
+    },
+    {
+      "code": "ITS.09",
+      "name": "Testing, Integration & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "ITS.09.10",
+      "name": "Site acceptance tests",
+      "level": 3
+    },
+    {
+      "code": "ITS.09.20",
+      "name": "Control centre integration",
+      "level": 3
+    },
+    {
+      "code": "ITS.09.30",
+      "name": "Switch-on & monitoring",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by junction and by road section for the mid-block systems, so each junction can be read from civil works to switch-on."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; gantry erection and work on live junctions are night or weekend activities under road closures. Switch-on dates are agreed with the traffic authority and police."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Ducts and foundations with the road works → poles and gantries → cabling → equipment → power and communications → configuration → SAT → integration → switch-on. Loops are tied to the final asphalt. The critical path runs through equipment delivery after FAT, or through the last junction released by the road works."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The road contractor provides ducts and foundations in sequence; power is available at each cabinet; the control centre is ready to accept new devices; the authority attends FAT, SAT and switch-on within the assumed notice."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Junction controllers & signal equipment (after FAT)",
+              "14–20 weeks",
+              "Before field installation"
+            ],
+            [
+              "VMS units & sign gantries",
+              "18–26 weeks",
+              "Before gantry erection"
+            ],
+            [
+              "CCTV & enforcement systems",
+              "12–18 weeks",
+              "Before field installation"
+            ],
+            [
+              "Network switches & fibre cable",
+              "8–14 weeks",
+              "Before cabling"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Work at live junctions needs traffic management and police approval; road closures for gantries are limited in number and length."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late approval of junction design, missed ducts, late power, software integration problems with the control centre, and authority comments at switch-on. Contingency is held before the road-opening date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by junction and system; expanded to Level 4–5 lookahead for the civil, cabling and installation teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "category": "Infrastructure",
+  "type": "Street Lighting Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "street lighting",
+    "street light",
+    "lighting pole",
+    "light pole",
+    "lantern",
+    "luminaire",
+    "high mast",
+    "feeder pillar",
+    "pole foundation",
+    "lighting duct",
+    "lux",
+    "photocell",
+    "lighting cable"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "lighting calculation"
+      ]
+    },
+    {
+      "name": "Ducts & Draw-pits",
+      "keywords": [
+        "duct",
+        "draw pit",
+        "road crossing"
+      ]
+    },
+    {
+      "name": "Pole Foundations",
+      "keywords": [
+        "pole foundation",
+        "foundation",
+        "anchor bolt"
+      ]
+    },
+    {
+      "name": "Cable Pulling & Earthing",
+      "keywords": [
+        "cable pulling",
+        "lighting cable",
+        "earthing"
+      ]
+    },
+    {
+      "name": "Pole Erection",
+      "keywords": [
+        "pole erection",
+        "lighting pole",
+        "light pole",
+        "high mast"
+      ]
+    },
+    {
+      "name": "Lanterns & Wiring",
+      "keywords": [
+        "lantern",
+        "luminaire",
+        "wiring",
+        "cut-out"
+      ]
+    },
+    {
+      "name": "Feeder Pillars",
+      "keywords": [
+        "feeder pillar",
+        "control panel",
+        "power supply"
+      ]
+    },
+    {
+      "name": "Testing & Handover",
+      "keywords": [
+        "testing",
+        "lux",
+        "energisation",
+        "energization",
+        "handover"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Ducts & Pole Foundations",
+      "keywords": [
+        "duct",
+        "pole foundation"
+      ],
+      "wbs": "Pole Foundations",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Footpath Paving",
+      "duration_days": 35,
+      "why": "Ducts and foundations must be in place before the footpath is paved."
+    },
+    {
+      "name": "Cable Pulling",
+      "keywords": [
+        "cable pulling",
+        "lighting cable"
+      ],
+      "wbs": "Cable Pulling & Earthing",
+      "typical_pred": "Ducts & Draw-pits",
+      "typical_succ": "Lanterns & Wiring",
+      "duration_days": 20,
+      "why": "Cable is pulled through completed ducts before the poles are wired."
+    },
+    {
+      "name": "Pole Erection",
+      "keywords": [
+        "pole erection",
+        "lighting pole"
+      ],
+      "wbs": "Pole Erection",
+      "typical_pred": "Footpath Paving",
+      "typical_succ": "Lanterns & Wiring",
+      "duration_days": 25,
+      "why": "Poles are stood after paving so they are not damaged by plant."
+    },
+    {
+      "name": "Lanterns Installation",
+      "keywords": [
+        "lantern",
+        "luminaire"
+      ],
+      "wbs": "Lanterns & Wiring",
+      "typical_pred": "Pole Erection",
+      "typical_succ": "Testing & Handover",
+      "duration_days": 15,
+      "why": "Lanterns are fitted and wired once poles are up."
+    },
+    {
+      "name": "Energisation & Lux Measurement",
+      "keywords": [
+        "energisation",
+        "energization",
+        "lux"
+      ],
+      "wbs": "Testing & Handover",
+      "typical_pred": "Feeder Pillars",
+      "typical_succ": "Road Opening",
+      "duration_days": 8,
+      "why": "Lighting is energised and measured at night before the road is opened."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "duct",
+        "pole foundation"
+      ],
+      "after_keywords": [
+        "paving",
+        "interlock",
+        "footpath"
+      ],
+      "reason": "Footpath paving follows lighting ducts and pole foundations.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "duct",
+        "draw pit"
+      ],
+      "after_keywords": [
+        "cable pulling",
+        "lighting cable"
+      ],
+      "reason": "Cable is pulled after the ducts are complete.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pole foundation",
+        "paving"
+      ],
+      "after_keywords": [
+        "pole erection",
+        "lighting pole"
+      ],
+      "reason": "Poles are erected on cured foundations after paving.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pole erection"
+      ],
+      "after_keywords": [
+        "lantern",
+        "luminaire"
+      ],
+      "reason": "Lanterns follow pole erection.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "lantern",
+        "feeder pillar",
+        "power supply"
+      ],
+      "after_keywords": [
+        "energisation",
+        "energization",
+        "lux",
+        "testing"
+      ],
+      "reason": "Testing follows lanterns, pillars and the power supply.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Lighting Design Approved",
+    "Poles Delivered",
+    "Foundations Complete",
+    "Poles Erected",
+    "Power Supply Available",
+    "Lighting Energised",
+    "Handover"
+  ],
+  "common_issues": [
+    "Foundations planned after paving",
+    "Power supply to feeder pillars not in the schedule",
+    "Poles erected before paving",
+    "No night-time measurement before road opening"
+  ]
+}

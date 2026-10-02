@@ -1,0 +1,669 @@
+{
+  "archetype": "hydropower_plant",
+  "schema": 2,
+  "context": "heavy civil · river diversion and dam by dry seasons; turbines embedded in the powerhouse concrete",
+  "brief": {
+    "intro": "New to this project type? A hydropower plant stores or diverts river water, drops it through turbines and returns it to the river. Most of the job is heavy civil work in a river valley: divert the river through tunnels or channels behind cofferdams, excavate to sound rock, build the dam and the spillway, drive tunnels and a penstock to the powerhouse, and build the powerhouse itself. The turbines and generators are made over two or more years and installed in a strict sequence in which steel parts are set and then concreted in, stage by stage. The river sets the calendar: diversion and closure can only be done in the dry season, and a missed season is a lost year. At the end, the reservoir is filled under control and each unit is tested wet and connected to the grid.",
+    "scope": [
+      {
+        "name": "Access, camp & construction power",
+        "desc": "Roads, bridges, quarries, batching and crushing plants in a remote valley."
+      },
+      {
+        "name": "River diversion",
+        "desc": "Diversion tunnels or channels and upstream / downstream cofferdams."
+      },
+      {
+        "name": "Dam foundation",
+        "desc": "Excavation to rock, foundation treatment and grouting."
+      },
+      {
+        "name": "Dam",
+        "desc": "Concrete (RCC / conventional) or embankment dam, raised in lifts."
+      },
+      {
+        "name": "Spillway & outlets",
+        "desc": "Spillway structure, gates and bottom outlets."
+      },
+      {
+        "name": "Waterways",
+        "desc": "Intake, headrace tunnel, surge shaft and steel-lined penstock."
+      },
+      {
+        "name": "Powerhouse",
+        "desc": "Surface or underground powerhouse structure with cranes."
+      },
+      {
+        "name": "Turbines & generators",
+        "desc": "Embedded parts, turbines, generators, governors and auxiliaries."
+      },
+      {
+        "name": "Hydro-mechanical equipment",
+        "desc": "Gates, stop-logs, trash racks and hoists."
+      },
+      {
+        "name": "Switchyard & transmission",
+        "desc": "Transformers, switchyard and the line to the grid."
+      },
+      {
+        "name": "Reservoir filling & commissioning",
+        "desc": "Impoundment, dry and wet tests, synchronisation and trial run."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "River diversion",
+        "plain": "leading the river around the site so the dam can be built in the dry."
+      },
+      {
+        "term": "Cofferdam",
+        "plain": "a temporary dam that keeps water out of the work area."
+      },
+      {
+        "term": "RCC",
+        "plain": "roller-compacted concrete — placed in thin layers and rolled like earthfill; fast to build."
+      },
+      {
+        "term": "Spillway",
+        "plain": "the structure that passes floods safely over or around the dam."
+      },
+      {
+        "term": "Penstock",
+        "plain": "the pressure pipe that carries water down to the turbine."
+      },
+      {
+        "term": "Surge shaft",
+        "plain": "a tall shaft that absorbs pressure waves when flow to the turbines changes."
+      },
+      {
+        "term": "Embedded parts",
+        "plain": "steel components of the turbine (draft tube, spiral case) that are concreted into the structure."
+      },
+      {
+        "term": "Impoundment",
+        "plain": "filling the reservoir for the first time."
+      },
+      {
+        "term": "Wet commissioning",
+        "plain": "testing a unit with water flowing through the turbine."
+      }
+    ],
+    "must_get_right": [
+      "Build the schedule around the river: diversion, cofferdam closure and reservoir filling are tied to dry seasons and flood seasons. Show the seasons on the calendar and the float to each.",
+      "Access roads, quarry and concrete plants in a remote valley are a project before the project — they decide when the main works can really start.",
+      "Turbine embedded parts are needed long before the turbines: draft tube and spiral case arrive first and are concreted in stages, so manufacture, delivery and powerhouse concrete must be planned as one sequence.",
+      "Geology is the main risk; hold contingency in excavation, tunnelling and foundation treatment rather than at the end."
+    ]
+  },
+  "components": [
+    {
+      "name": "River Diversion",
+      "desc": "Diversion tunnels, cofferdams and closure",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Dam & Spillway",
+      "desc": "Foundation, dam body, spillway and outlets",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Waterways",
+      "desc": "Intake, tunnels, surge shaft and penstock",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Powerhouse",
+      "desc": "Structure, cranes and second-stage concrete",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Turbines & Generators",
+      "desc": "Embedded parts, turbine, generator and auxiliaries",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Hydro-mechanical Equipment",
+      "desc": "Gates, stop-logs, hoists and penstock steel",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Electrical & Switchyard",
+      "desc": "Transformers, switchyard, control and protection",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Impoundment & Commissioning",
+      "desc": "Reservoir filling, dry / wet tests and trial run",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Hydro-mechanical",
+      "items": [
+        "Spillway & intake gates",
+        "Penstock steel liner & valves",
+        "Stop-logs, trash racks & hoists"
+      ]
+    },
+    {
+      "discipline": "Electro-mechanical",
+      "items": [
+        "Turbines & governors",
+        "Generators & excitation",
+        "Main inlet valves",
+        "Cooling, drainage & compressed-air auxiliaries"
+      ]
+    },
+    {
+      "discipline": "Electrical",
+      "items": [
+        "Generator transformers",
+        "Switchyard & transmission line",
+        "Control, protection & SCADA"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Access & Site Installations",
+    "River Diversion",
+    "Excavation & Foundation Treatment",
+    "Dam, Spillway & Waterways",
+    "Powerhouse & Embedded Parts",
+    "Turbine-Generator Erection",
+    "Reservoir Filling",
+    "Wet Commissioning & Trial Run"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Access",
+      "Diversion",
+      "Dam",
+      "Waterways",
+      "Powerhouse",
+      "Units",
+      "Impound/Test"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — River Diversion & Cofferdams",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 4,
+        "width": 26,
+        "label": "Tunnels → cofferdams → closure in the dry season",
+        "holds": [
+          30
+        ]
+      },
+      {
+        "trade": "Civil — Dam & Spillway",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 18,
+        "width": 54,
+        "label": "Excavate → grout → raise dam → spillway",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Civil — Waterways (Tunnels, Shaft & Penstock)",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 16,
+        "width": 52,
+        "label": "Portals → drive → line → penstock",
+        "holds": []
+      },
+      {
+        "trade": "Structural — Powerhouse Structure",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 24,
+        "width": 46,
+        "label": "Excavate → first-stage concrete → crane → second stage",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Mechanical — Turbines, Generators & Gates",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 46,
+        "width": 38,
+        "label": "Embedded → turbine → generator → auxiliaries",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Electrical — Switchyard, Control & Protection",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 54,
+        "width": 32,
+        "label": "Transformers → switchyard → control",
+        "holds": [
+          86
+        ]
+      },
+      {
+        "trade": "Commissioning — Impoundment & Unit Tests",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 82,
+        "width": 18,
+        "label": "Dry tests → fill → wet tests → sync",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — River Diversion & Cofferdams",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Access roads, camp, quarry & batching plant",
+        "Excavate diversion tunnels / channel",
+        "Line diversion tunnels & build intake / outlet",
+        "River closure & cofferdams in the dry season",
+        "Dewater the dam foundation area"
+      ]
+    },
+    {
+      "name": "Civil — Dam & Spillway",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Foundation excavation to rock",
+        "Foundation mapping, treatment & grouting accepted",
+        "Dam concrete / embankment placement in lifts",
+        "Spillway structure & chute",
+        "Instrumentation & gallery works"
+      ]
+    },
+    {
+      "name": "Civil — Waterways (Tunnels, Shaft & Penstock)",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [],
+      "steps": [
+        "Intake structure",
+        "Excavate headrace tunnel & surge shaft",
+        "Tunnel support & concrete lining",
+        "Install & weld penstock steel liner",
+        "Contact grouting"
+      ]
+    },
+    {
+      "name": "Structural — Powerhouse Structure",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Powerhouse excavation & support",
+        "First-stage concrete to crane-beam level",
+        "Install & load-test the powerhouse crane",
+        "Embedded parts set & surveyed before each pour",
+        "Second-stage concrete around draft tube & spiral case"
+      ]
+    },
+    {
+      "name": "Mechanical — Turbines, Generators & Gates",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive embedded parts, turbines & generators",
+        "Erect draft tube & spiral case (pressure-test the spiral case)",
+        "Install runner, shaft & head cover",
+        "Assemble stator & rotor in the erection bay, lower into pit",
+        "Governor, inlet valve & auxiliaries",
+        "Install spillway & intake gates and hoists"
+      ]
+    },
+    {
+      "name": "Electrical — Switchyard, Control & Protection",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Generator transformers & bus ducts",
+        "Switchyard equipment & transmission-line bay",
+        "Control, protection & SCADA",
+        "Cabling & earthing",
+        "Back-energisation of the switchyard"
+      ]
+    },
+    {
+      "name": "Commissioning — Impoundment & Unit Tests",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Dry tests of each unit & gates",
+        "Diversion closure & start of reservoir filling",
+        "Controlled impoundment with dam monitoring",
+        "Water-up of waterways & wet tests",
+        "First synchronisation",
+        "Load rejection tests & trial run of each unit"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "HYD",
+      "name": "Hydropower Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "HYD.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "HYD.02",
+      "name": "Design, Permits & Land",
+      "level": 2
+    },
+    {
+      "code": "HYD.02.10",
+      "name": "Detailed design",
+      "level": 3
+    },
+    {
+      "code": "HYD.02.20",
+      "name": "Environmental & resettlement",
+      "level": 3
+    },
+    {
+      "code": "HYD.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "HYD.03.10",
+      "name": "Turbines & generators",
+      "level": 3
+    },
+    {
+      "code": "HYD.03.20",
+      "name": "Hydro-mechanical equipment",
+      "level": 3
+    },
+    {
+      "code": "HYD.03.30",
+      "name": "Transformers & switchyard equipment",
+      "level": 3
+    },
+    {
+      "code": "HYD.04",
+      "name": "Civil Works — Access & Site Installations",
+      "level": 2
+    },
+    {
+      "code": "HYD.05",
+      "name": "Civil Works — River Diversion & Cofferdams",
+      "level": 2
+    },
+    {
+      "code": "HYD.05.10",
+      "name": "Diversion tunnels",
+      "level": 3
+    },
+    {
+      "code": "HYD.05.20",
+      "name": "Cofferdams & closure",
+      "level": 3
+    },
+    {
+      "code": "HYD.06",
+      "name": "Civil Works — Dam & Spillway",
+      "level": 2
+    },
+    {
+      "code": "HYD.06.10",
+      "name": "Foundation excavation & treatment",
+      "level": 3
+    },
+    {
+      "code": "HYD.06.20",
+      "name": "Dam body",
+      "level": 3
+    },
+    {
+      "code": "HYD.06.30",
+      "name": "Spillway & outlets",
+      "level": 3
+    },
+    {
+      "code": "HYD.07",
+      "name": "Civil Works — Waterways (Tunnels, Shaft & Penstock)",
+      "level": 2
+    },
+    {
+      "code": "HYD.07.10",
+      "name": "Intake",
+      "level": 3
+    },
+    {
+      "code": "HYD.07.20",
+      "name": "Headrace tunnel & surge shaft",
+      "level": 3
+    },
+    {
+      "code": "HYD.07.30",
+      "name": "Penstock",
+      "level": 3
+    },
+    {
+      "code": "HYD.08",
+      "name": "Powerhouse (Structure)",
+      "level": 2
+    },
+    {
+      "code": "HYD.08.10",
+      "name": "Excavation & first-stage concrete",
+      "level": 3
+    },
+    {
+      "code": "HYD.08.20",
+      "name": "Second-stage concrete",
+      "level": 3
+    },
+    {
+      "code": "HYD.08.30",
+      "name": "Architectural & building services",
+      "level": 3
+    },
+    {
+      "code": "HYD.09",
+      "name": "Mechanical — Turbines, Generators & Gates",
+      "level": 2
+    },
+    {
+      "code": "HYD.09.10",
+      "name": "Embedded parts",
+      "level": 3
+    },
+    {
+      "code": "HYD.09.20",
+      "name": "Turbines",
+      "level": 3
+    },
+    {
+      "code": "HYD.09.30",
+      "name": "Generators",
+      "level": 3
+    },
+    {
+      "code": "HYD.09.40",
+      "name": "Gates & hoists",
+      "level": 3
+    },
+    {
+      "code": "HYD.10",
+      "name": "Electrical — Switchyard, Control & Protection",
+      "level": 2
+    },
+    {
+      "code": "HYD.11",
+      "name": "Impoundment & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "HYD.11.10",
+      "name": "Dry tests",
+      "level": 3
+    },
+    {
+      "code": "HYD.11.20",
+      "name": "Reservoir filling",
+      "level": 3
+    },
+    {
+      "code": "HYD.11.30",
+      "name": "Wet tests & trial run",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by structure (diversion, dam, spillway, waterways, powerhouse) and, inside the powerhouse, by generating unit."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Site calendar with dry and flood seasons marked; river works and dam placement rates differ by season. Underground works run around the clock."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Access → diversion → river closure in a dry season → foundation excavation and treatment → dam and spillway. Waterways and powerhouse in parallel. Powerhouse: first-stage concrete → crane → embedded parts → second-stage concrete → turbine → generator. Then dry tests → impoundment → wet tests → synchronisation, unit by unit. The critical path normally runs through diversion and the dam, or through the first unit."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "River closure and impoundment happen in the planned seasons; geology is as investigated; land and resettlement are complete before impoundment; the transmission line is ready for back-energisation."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Turbines & generators",
+              "24–36 months",
+              "Embedded parts first, then units to the erection sequence"
+            ],
+            [
+              "Generator transformers",
+              "14–20 months",
+              "Before back-energisation"
+            ],
+            [
+              "Gates, hoists & penstock steel",
+              "12–18 months",
+              "Before dam and waterway completion"
+            ],
+            [
+              "Powerhouse crane",
+              "10–14 months",
+              "Before embedded-parts installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Remote site with a single access; floods can overtop cofferdams; underground works limit the number of faces; heavy equipment needs road and bridge capacity checks."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: floods, worse rock than expected, tunnel inflows, late embedded parts, resettlement delaying impoundment, and transmission-line readiness. Contingency is held before river closure and before impoundment."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by structure and generating unit; expanded to Level 4–5 lookahead for the excavation, concrete and erection crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

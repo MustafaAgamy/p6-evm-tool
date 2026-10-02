@@ -1,0 +1,724 @@
+{
+  "archetype": "tyre_factory",
+  "schema": 2,
+  "context": "process factory · mixing tower, component lines, building machines and curing presses in trenches",
+  "brief": {
+    "intro": "New to this project type? A tyre is assembled from a dozen rubber and steel components and then cooked in a mould. The factory follows that order. In the mixing tower, rubber, carbon black and chemicals are kneaded in powerful mixers. Component lines then make the parts — extruded treads and sidewalls, rubber-coated fabric and steel cord from calenders, bead rings. Tyre-building machines assemble them into a 'green tyre', and curing presses mould and vulcanise it with steam and hot water. Every tyre is then inspected, including by X-ray and uniformity machines. The mixing building is tall and heavy; the curing hall has long rows of presses standing over service trenches full of steam and hot-water pipes. Steam, power and carbon-black handling make it an intensive utility job.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Raw material store & carbon black",
+        "desc": "Rubber bales, chemicals and silo or bulk handling of carbon black."
+      },
+      {
+        "name": "Mixing",
+        "desc": "Internal mixers over several floors with batch-off lines."
+      },
+      {
+        "name": "Extrusion",
+        "desc": "Tread and sidewall extrusion lines with cooling."
+      },
+      {
+        "name": "Calendering & cutting",
+        "desc": "Textile and steel-cord calenders, bias cutters, bead making."
+      },
+      {
+        "name": "Tyre building",
+        "desc": "Tyre-building machines and green-tyre storage."
+      },
+      {
+        "name": "Curing",
+        "desc": "Rows of curing presses with moulds, over service trenches."
+      },
+      {
+        "name": "Final finish & warehouse",
+        "desc": "Trimming, visual, X-ray and uniformity inspection, sorting and storage."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Steam & hot water, Cooling water & chillers, Compressed air & nitrogen, Dust collection (carbon black) — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Compound trials, component trials, first green tyres, first cured tyres, then testing and homologation of each tyre size."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Compound",
+        "plain": "the mixed rubber recipe; a tyre uses several."
+      },
+      {
+        "term": "Internal mixer (Banbury)",
+        "plain": "the powerful machine that kneads rubber with carbon black and chemicals."
+      },
+      {
+        "term": "Calender",
+        "plain": "heavy rolls that coat fabric or steel cord with a thin layer of rubber."
+      },
+      {
+        "term": "Bead",
+        "plain": "the steel-wire ring that holds the tyre on the wheel rim."
+      },
+      {
+        "term": "Green tyre",
+        "plain": "the assembled but uncured tyre."
+      },
+      {
+        "term": "Curing press",
+        "plain": "the press that shapes the tyre in a mould and vulcanises it with heat and pressure."
+      },
+      {
+        "term": "Uniformity machine",
+        "plain": "a test machine that measures how evenly a tyre runs."
+      },
+      {
+        "term": "Homologation",
+        "plain": "official approval of a tyre size and type for sale."
+      }
+    ],
+    "must_get_right": [
+      "The mixing tower is the tallest, heaviest structure with machines on several floors — design it around the mixer supplier's loads and start it first.",
+      "Curing-press trenches and their piping are built into the floor; freeze the press layout before the slab.",
+      "Steam and hot-water systems must be tested and insulated before the presses can be commissioned — they are the curing hall's critical utility.",
+      "Each tyre size must be tested and homologated before it can be sold; allow months after the first tyre."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Tyre Production Machinery",
+      "desc": "Mixers, extruders, calenders, building machines and curing presses",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Curing Services & Boiler House",
+      "desc": "Boilers → trench piping → hot water → nitrogen",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Steam & hot water, Cooling water & chillers, Compressed air & nitrogen, Dust collection (carbon black)",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Tyre Production Machinery",
+      "items": [
+        "Raw material store & carbon black",
+        "Mixing",
+        "Extrusion",
+        "Calendering & cutting",
+        "Tyre building",
+        "Curing",
+        "Final finish & warehouse"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Steam & hot water",
+        "Cooling water & chillers",
+        "Compressed air & nitrogen",
+        "Dust collection (carbon black)"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Tyre Production Machinery",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Mix → extrude / calender → build → cure → inspect",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Curing Services & Boiler House",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 42,
+        "label": "Boilers → trench piping → hot water → nitrogen",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Compound → components → first tyre → homologation",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Tyre Production Machinery",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive machinery",
+        "Install mixers, mills & batch-off lines in the mixing tower",
+        "Install extrusion & calender lines",
+        "Install cutters & bead machines",
+        "Install tyre-building machines & green-tyre conveyors",
+        "Set curing presses over trenches & fit moulds",
+        "Install final-finish inspection machines"
+      ]
+    },
+    {
+      "name": "Mechanical — Curing Services & Boiler House",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Boiler house & steam generation",
+        "Trench piping: steam, hot water, condensate, vacuum",
+        "Nitrogen & high-pressure hot-water systems",
+        "Pressure test of curing services",
+        "Insulation & trench covers"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: steam & hot water, cooling water & chillers, compressed air & nitrogen",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        5
+      ],
+      "steps": [
+        "Machine dry runs by department",
+        "Boiler & curing-services commissioning",
+        "Mixing trials & compound approval",
+        "Component trials (tread, ply, bead)",
+        "First green tyre & first cured tyre",
+        "Tyre tests & homologation per size",
+        "Ramp-up"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "TYR",
+      "name": "Tyre & Rubber Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "TYR.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "TYR.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "TYR.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "TYR.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "TYR.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "TYR.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "TYR.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "TYR.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "TYR.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "TYR.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "TYR.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "TYR.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "TYR.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "TYR.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "TYR.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "TYR.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "TYR.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "TYR.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "TYR.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "TYR.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "TYR.06.10",
+      "name": "Raw material store & carbon black",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.20",
+      "name": "Mixing",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.30",
+      "name": "Extrusion",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.40",
+      "name": "Calendering & cutting",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.50",
+      "name": "Tyre building",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.60",
+      "name": "Curing",
+      "level": 3
+    },
+    {
+      "code": "TYR.06.70",
+      "name": "Final finish & warehouse",
+      "level": 3
+    },
+    {
+      "code": "TYR.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "TYR.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "TYR.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "TYR.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "TYR.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "TYR.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "TYR.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "TYR.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "TYR.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "TYR.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "TYR.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "TYR.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "TYR.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Layout freeze → mixing tower structure and press trenches → building → machinery installation department by department in process order → steam, power and cooling → dry runs → compound trials → component trials → first tyre → homologation. The critical path runs through the mixing tower or the curing presses."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Mixers & mixing-line equipment",
+              "12–16 months",
+              "Before mixing-tower installation"
+            ],
+            [
+              "Curing presses & moulds",
+              "10–14 months",
+              "Before curing-hall installation"
+            ],
+            [
+              "Tyre-building machines",
+              "10–14 months",
+              "Before building-area installation"
+            ],
+            [
+              "Calenders & extrusion lines",
+              "10–14 months",
+              "Before component-area installation"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late mixers or presses, trench and services rework after layout changes, boiler / steam readiness, carbon-black dust control, and homologation time. Contingency is held before first tyre."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,670 @@
+{
+  "archetype": "nuclear_power_plant",
+  "schema": 2,
+  "context": "mega project · licence hold points, nuclear-grade quality and heavy components; a decade from first concrete",
+  "brief": {
+    "intro": "New to this project type? A nuclear power plant is a power station built under a nuclear licence. A reactor heats water, the steam drives a very large turbine-generator, and everything that touches the reactor sits inside a massive concrete containment designed for earthquakes and accidents. Three things make it unlike any other plant. First, the regulator: construction, fuel loading and start-up each need a licence, and work stops at defined hold points until the regulator has inspected and agreed. Second, quality: every safety-related item — rebar, concrete, welds, cables — is made and installed under a nuclear quality programme with full records, and work without its paperwork is not complete. Third, scale and duration: thousands of systems, heavy components that take years to forge, and a commissioning programme of two years or more before commercial operation.",
+    "scope": [
+      {
+        "name": "Licensing & safety case",
+        "desc": "Site, construction and operating licences and the safety analysis behind them."
+      },
+      {
+        "name": "Site preparation & excavation",
+        "desc": "Deep excavation, dewatering and foundations on rock or engineered fill."
+      },
+      {
+        "name": "Nuclear island civil works",
+        "desc": "Basemat, containment with steel liner, and the reactor, fuel and safeguard buildings."
+      },
+      {
+        "name": "Reactor & primary circuit",
+        "desc": "Reactor pressure vessel, steam generators, coolant pumps, pressuriser and primary piping."
+      },
+      {
+        "name": "Turbine island",
+        "desc": "Turbine-generator, condenser, feedwater heaters and the turbine building."
+      },
+      {
+        "name": "Balance of plant",
+        "desc": "Cooling-water intake or cooling towers, water treatment and auxiliary buildings."
+      },
+      {
+        "name": "Piping & mechanical systems",
+        "desc": "Thousands of pipe spools, valves, pumps, tanks and supports."
+      },
+      {
+        "name": "Electrical systems",
+        "desc": "Switchyard, transformers, emergency diesel generators and safety power trains."
+      },
+      {
+        "name": "Instrumentation & control",
+        "desc": "Safety and operational I&C, main control room and simulator."
+      },
+      {
+        "name": "Fuel & fuel handling",
+        "desc": "Fresh-fuel receipt, fuel pool, handling machines and first core loading."
+      },
+      {
+        "name": "Commissioning & start-up",
+        "desc": "System tests, cold and hot functional tests, fuel load, criticality and power ascension."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Nuclear island / turbine island",
+        "plain": "the reactor side of the plant and the conventional power-generation side."
+      },
+      {
+        "term": "First nuclear concrete (FNC)",
+        "plain": "pouring the reactor basemat — the official start of construction."
+      },
+      {
+        "term": "Containment",
+        "plain": "the strong, leak-tight building around the reactor."
+      },
+      {
+        "term": "Hold point",
+        "plain": "a point where work may not continue until an inspector or the regulator has signed off."
+      },
+      {
+        "term": "Safety class",
+        "plain": "the importance of an item to nuclear safety, which sets its quality requirements."
+      },
+      {
+        "term": "NSSS",
+        "plain": "nuclear steam supply system — the reactor and its primary circuit."
+      },
+      {
+        "term": "Cold / hot functional tests",
+        "plain": "tests of the primary circuit at pressure, first cold and then at operating temperature, before fuel."
+      },
+      {
+        "term": "Fuel load",
+        "plain": "placing the first fuel in the reactor; needs the operating licence."
+      },
+      {
+        "term": "Power ascension",
+        "plain": "raising power in steps, with tests at each step, up to full output."
+      }
+    ],
+    "must_get_right": [
+      "Put the licence milestones and regulatory hold points in the schedule as constraints — construction licence before first nuclear concrete, operating licence before fuel load.",
+      "Heavy components (reactor vessel, steam generators, turbine rotors) take four to six years to make; their order dates are set before the site work starts and their delivery fixes the 'open-top' installation windows.",
+      "Quality records are deliverables: an installation without its documentation is not complete. Plan documentation turnover system by system alongside the physical work.",
+      "Commissioning is a multi-year programme organised by system, and it needs systems handed over in a specific order — let the commissioning sequence drive construction priorities from early on."
+    ]
+  },
+  "components": [
+    {
+      "name": "Nuclear Island Civil",
+      "desc": "Basemat, containment and safety-class buildings",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Reactor & Primary Circuit",
+      "desc": "Reactor vessel, steam generators, pumps and primary piping",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Turbine Island",
+      "desc": "Turbine-generator, condenser and feedwater plant",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Piping & Mechanical Systems",
+      "desc": "Spools, valves, pumps, tanks and supports",
+      "disc": "Piping",
+      "primary": true
+    },
+    {
+      "name": "Electrical Systems",
+      "desc": "Switchyard, transformers, emergency power and cabling",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Instrumentation & Control",
+      "desc": "Safety and plant I&C, main control room",
+      "disc": "Instrumentation",
+      "primary": true
+    },
+    {
+      "name": "Balance of Plant",
+      "desc": "Cooling water, water treatment and auxiliaries",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Commissioning & Start-up",
+      "desc": "System tests, functional tests, fuel load, power ascension",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Nuclear Steam Supply",
+      "items": [
+        "Reactor pressure vessel & internals",
+        "Steam generators & reactor coolant pumps",
+        "Pressuriser & primary loop piping",
+        "Safety injection & residual heat removal"
+      ]
+    },
+    {
+      "discipline": "Turbine Island",
+      "items": [
+        "Turbine-generator",
+        "Condenser & circulating water",
+        "Feedwater heaters & pumps"
+      ]
+    },
+    {
+      "discipline": "Electrical",
+      "items": [
+        "Generator & auxiliary transformers",
+        "Emergency diesel generators",
+        "Safety-class switchgear & batteries"
+      ]
+    },
+    {
+      "discipline": "I&C",
+      "items": [
+        "Reactor protection system",
+        "Plant control system & main control room",
+        "Radiation monitoring"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Licensing & Long-lead Orders",
+    "Site Preparation & Excavation",
+    "First Nuclear Concrete & Civil Works",
+    "Heavy Component Installation",
+    "Piping, Electrical & I&C Installation",
+    "System Turnover & Cold Functional Tests",
+    "Hot Functional Tests & Fuel Load",
+    "Criticality, Power Ascension & Commercial Operation"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Licence",
+      "Civil",
+      "Heavy lifts",
+      "Systems",
+      "Cold tests",
+      "Hot / fuel",
+      "Power"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Nuclear Island & Turbine Building",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 50,
+        "label": "Excavate → basemat → containment → dome",
+        "holds": [
+          56
+        ]
+      },
+      {
+        "trade": "Mechanical — Reactor & Primary Circuit",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 34,
+        "label": "Set vessel → steam generators → weld primary loop",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Mechanical — Turbine Island",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 36,
+        "label": "Pedestal → condenser → turbine → generator",
+        "holds": []
+      },
+      {
+        "trade": "Piping — Piping & Mechanical Systems",
+        "disc": "Piping",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 48,
+        "label": "Spools → supports → weld → test, system by system",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Electrical — Power Systems & Cabling",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 34,
+        "width": 46,
+        "label": "Switchyard → trains → cable pulling",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Instrumentation — I&C & Main Control Room",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Cabinets → field → control room → tests",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Fuel Load & Power Ascension",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 72,
+        "width": 28,
+        "label": "System tests → cold → hot → fuel → power",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Nuclear Island & Turbine Building",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Deep excavation & dewatering",
+        "Construction licence & first nuclear concrete",
+        "Basemat, walls & containment liner",
+        "Internal structures & equipment supports",
+        "Open-top windows for heavy components",
+        "Containment dome & pre-stressing"
+      ]
+    },
+    {
+      "name": "Mechanical — Reactor & Primary Circuit",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        4
+      ],
+      "steps": [
+        "Receive reactor vessel, steam generators & pumps",
+        "Set reactor pressure vessel",
+        "Set steam generators & pressuriser",
+        "Weld the primary loop piping",
+        "NDT & baseline inspection of primary welds",
+        "Install reactor internals & control-rod drives"
+      ]
+    },
+    {
+      "name": "Mechanical — Turbine Island",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [],
+      "steps": [
+        "Turbine pedestal & condenser erection",
+        "Set LP / HP turbine casings & rotors",
+        "Set the generator",
+        "Feedwater heaters, pumps & moisture separators",
+        "Alignment & oil flushing"
+      ]
+    },
+    {
+      "name": "Piping — Piping & Mechanical Systems",
+      "disc": "Piping",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Prefabricate spools under the quality programme",
+        "Erect piping, supports & valves",
+        "Install pumps, tanks & heat exchangers",
+        "Weld NDT & documentation per system",
+        "Hydrostatic tests & flushing"
+      ]
+    },
+    {
+      "name": "Electrical — Power Systems & Cabling",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Switchyard & main transformers",
+        "Safety-class switchgear, batteries & diesel generators",
+        "Cable trays with train separation",
+        "Cable pulling & termination",
+        "Energise the plant auxiliaries (back-feed)"
+      ]
+    },
+    {
+      "name": "Instrumentation — I&C & Main Control Room",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install I&C cabinets & field instruments",
+        "Main control room & simulator",
+        "Reactor protection system",
+        "Loop checks & integrated I&C tests"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Fuel Load & Power Ascension",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        3,
+        4
+      ],
+      "steps": [
+        "System turnover & individual system tests",
+        "Cold functional tests (primary circuit hydrotest)",
+        "Containment integrated leak-rate test",
+        "Hot functional tests",
+        "Operating licence & first fuel load",
+        "First criticality & grid synchronisation",
+        "Power ascension tests & commercial operation"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "NPP",
+      "name": "Nuclear Power Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "NPP.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "NPP.02",
+      "name": "Licensing, Design & Safety Case",
+      "level": 2
+    },
+    {
+      "code": "NPP.02.10",
+      "name": "Construction licence",
+      "level": 3
+    },
+    {
+      "code": "NPP.02.20",
+      "name": "Detailed design",
+      "level": 3
+    },
+    {
+      "code": "NPP.02.30",
+      "name": "Operating licence",
+      "level": 3
+    },
+    {
+      "code": "NPP.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "NPP.03.10",
+      "name": "Reactor vessel & steam generators",
+      "level": 3
+    },
+    {
+      "code": "NPP.03.20",
+      "name": "Turbine-generator",
+      "level": 3
+    },
+    {
+      "code": "NPP.03.30",
+      "name": "Nuclear-grade pumps, valves & piping",
+      "level": 3
+    },
+    {
+      "code": "NPP.03.40",
+      "name": "Electrical & I&C equipment",
+      "level": 3
+    },
+    {
+      "code": "NPP.04",
+      "name": "Civil Works — Site Preparation & Excavation",
+      "level": 2
+    },
+    {
+      "code": "NPP.05",
+      "name": "Civil Works — Nuclear Island",
+      "level": 2
+    },
+    {
+      "code": "NPP.05.10",
+      "name": "Basemat",
+      "level": 3
+    },
+    {
+      "code": "NPP.05.20",
+      "name": "Containment",
+      "level": 3
+    },
+    {
+      "code": "NPP.05.30",
+      "name": "Safeguard & fuel buildings",
+      "level": 3
+    },
+    {
+      "code": "NPP.06",
+      "name": "Civil Works — Turbine Building & Balance of Plant",
+      "level": 2
+    },
+    {
+      "code": "NPP.07",
+      "name": "Mechanical — Reactor & Primary Circuit",
+      "level": 2
+    },
+    {
+      "code": "NPP.07.10",
+      "name": "Reactor pressure vessel",
+      "level": 3
+    },
+    {
+      "code": "NPP.07.20",
+      "name": "Steam generators & pressuriser",
+      "level": 3
+    },
+    {
+      "code": "NPP.07.30",
+      "name": "Primary loop piping",
+      "level": 3
+    },
+    {
+      "code": "NPP.08",
+      "name": "Mechanical — Turbine Island",
+      "level": 2
+    },
+    {
+      "code": "NPP.08.10",
+      "name": "Turbine-generator",
+      "level": 3
+    },
+    {
+      "code": "NPP.08.20",
+      "name": "Condenser & feedwater plant",
+      "level": 3
+    },
+    {
+      "code": "NPP.09",
+      "name": "Piping & Mechanical Systems",
+      "level": 2
+    },
+    {
+      "code": "NPP.10",
+      "name": "Electrical — Power Systems & Cabling",
+      "level": 2
+    },
+    {
+      "code": "NPP.11",
+      "name": "Instrumentation, Control & Main Control Room",
+      "level": 2
+    },
+    {
+      "code": "NPP.12",
+      "name": "Commissioning — Tests, Fuel Load & Power Ascension",
+      "level": 2
+    },
+    {
+      "code": "NPP.12.10",
+      "name": "System tests",
+      "level": 3
+    },
+    {
+      "code": "NPP.12.20",
+      "name": "Cold functional tests",
+      "level": 3
+    },
+    {
+      "code": "NPP.12.30",
+      "name": "Hot functional tests",
+      "level": 3
+    },
+    {
+      "code": "NPP.12.40",
+      "name": "Fuel load & power ascension",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Construction is organised by building and elevation, installation by area, and — from system turnover onwards — by system and commissioning package, with the licence milestones as fixed constraints."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Multi-shift site calendar. Regulatory reviews and inspections are dated activities with their own durations."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Licence → first nuclear concrete → structures rising with embedded items → open-top heavy lifts → primary loop welding → bulk piping, cabling and I&C by area → system completion and turnover in commissioning order → cold functional tests → hot functional tests → operating licence → fuel load → criticality → power ascension. The critical path runs through the nuclear island civil works to the heavy lifts, then through system turnover and the functional tests."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Design is substantially complete before first nuclear concrete; licences are granted on the assumed dates; heavy components are delivered to their windows; the grid connection is ready for back-feed and for full-power export."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Reactor pressure vessel & steam generators",
+              "48–72 months",
+              "Before the open-top installation window"
+            ],
+            [
+              "Turbine-generator",
+              "36–48 months",
+              "Before turbine-hall erection"
+            ],
+            [
+              "Reactor coolant pumps & nuclear-grade valves",
+              "36–48 months",
+              "Before primary-circuit completion"
+            ],
+            [
+              "Safety I&C & main control room",
+              "36–48 months",
+              "Before integrated I&C tests"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Nuclear quality programme and security regime on site; very dense reinforcement and embedded parts; congestion inside the containment; qualified welders and inspectors are scarce."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: design changes during construction, quality non-conformances requiring rework, late heavy components, bulk-installation productivity, regulatory findings at hold points, and test failures during commissioning. Contingency is held before each licence milestone."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by building / area, then system; expanded to Level 4–5 lookahead for area installation crews and system completion teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "IAEA Safety Standards — construction & commissioning of nuclear power plants"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

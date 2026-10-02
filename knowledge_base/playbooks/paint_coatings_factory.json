@@ -1,0 +1,726 @@
+{
+  "archetype": "paint_coatings_factory",
+  "schema": 2,
+  "context": "batch chemical plant · solvent tank farm, hazardous-area electrics and fire protection govern",
+  "brief": {
+    "intro": "New to this project type? A paint factory is a batch chemical plant. Pigments and powders are dispersed into resin and solvent (or water) in high-speed mixers, ground fine in bead mills, 'let down' with more resin and additives in larger tanks, tinted to the right colour, filtered and filled into cans, pails and drums. Resins and solvents arrive by tanker and are stored in a tank farm, then piped to the production building. If the paints are solvent-based, the whole factory is a flammable-liquid site: the tank farm is bunded, the electrical equipment in production areas must be explosion-proof, everything is earthed against static sparks, ventilation is designed for vapours, and foam or sprinkler fire protection is extensive. Those safety systems — and the authority's approval of them — shape both design and schedule.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Tank farm & tanker unloading",
+        "desc": "Bunded solvent and resin tanks, unloading bays and transfer pumps."
+      },
+      {
+        "name": "Raw material store & powder handling",
+        "desc": "Pigment and filler storage, bag tipping and dust collection."
+      },
+      {
+        "name": "Dispersion & milling",
+        "desc": "High-speed dispersers and bead mills."
+      },
+      {
+        "name": "Let-down & tinting",
+        "desc": "Mixing tanks, tinting and quality adjustment."
+      },
+      {
+        "name": "Filtration & filling",
+        "desc": "Filters, automatic filling, labelling and palletising lines."
+      },
+      {
+        "name": "Laboratory & colour matching",
+        "desc": "Quality control and colour laboratory."
+      },
+      {
+        "name": "Finished-goods warehouse",
+        "desc": "Flammable-goods storage with fire protection."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Solvent & resin transfer piping, Compressed air & nitrogen blanketing, Chilled water for mills, Vapour extraction & dust collection — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Water or solvent trials of each line, first batches, colour and quality approval, then product-by-product ramp-up."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Dispersion",
+        "plain": "breaking pigment lumps apart and wetting them in the liquid."
+      },
+      {
+        "term": "Bead mill",
+        "plain": "a mill that grinds the pigment fine between small beads."
+      },
+      {
+        "term": "Let-down",
+        "plain": "adding the remaining resin, solvent and additives to finish the batch."
+      },
+      {
+        "term": "Tinting",
+        "plain": "adjusting the colour of a batch to match the standard."
+      },
+      {
+        "term": "Bund",
+        "plain": "a walled, sealed area around tanks that holds the contents if a tank leaks."
+      },
+      {
+        "term": "Hazardous area (Ex zone)",
+        "plain": "an area where flammable vapour may be present, so only explosion-proof equipment may be used."
+      },
+      {
+        "term": "Static bonding",
+        "plain": "connecting tanks, pipes and containers to earth so static electricity cannot spark."
+      },
+      {
+        "term": "Nitrogen blanketing",
+        "plain": "filling the space above a flammable liquid with nitrogen to keep air out."
+      }
+    ],
+    "must_get_right": [
+      "Get the hazardous-area classification and the fire strategy approved before detailed design — they decide the electrical equipment, ventilation, building separation and cost.",
+      "Explosion-proof equipment has long delivery and cannot be swapped for standard items; order it early and inspect its installation formally.",
+      "The fire-protection system (water tank, pumps, foam, sprinklers) must be accepted by the authority before flammable liquids are brought on site.",
+      "Earthing and bonding of every tank, pipe and filling point is a commissioning deliverable with records, not a detail."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Process Vessels & Filling Lines",
+      "desc": "Dispersers, mills, mixing tanks, piping and filling lines",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Fire Protection & Hazardous-Area Systems",
+      "desc": "Foam / sprinkler → gas detection → Ex inspection",
+      "disc": "Fire",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Solvent & resin transfer piping, Compressed air & nitrogen blanketing, Chilled water for mills, Vapour extraction & dust collection",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Process Vessels & Filling Lines",
+      "items": [
+        "Tank farm & tanker unloading",
+        "Raw material store & powder handling",
+        "Dispersion & milling",
+        "Let-down & tinting",
+        "Filtration & filling",
+        "Laboratory & colour matching",
+        "Finished-goods warehouse"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Solvent & resin transfer piping",
+        "Compressed air & nitrogen blanketing",
+        "Chilled water for mills",
+        "Vapour extraction & dust collection"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Foam & sprinkler systems",
+        "Explosion-proof (Ex) electrical equipment",
+        "Static earthing & bonding",
+        "VOC abatement & spill containment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Process Vessels & Filling Lines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Tank farm → disperse → mill → let-down → fill",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Fire — Fire Protection & Hazardous-Area Systems",
+        "disc": "Fire",
+        "kind": [
+          "fire"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Foam / sprinkler → gas detection → Ex inspection",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Leak test → water trial → first batch → QC",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Process Vessels & Filling Lines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        5
+      ],
+      "steps": [
+        "Receive tanks, vessels & machines",
+        "Erect storage tanks in the bunded tank farm",
+        "Set dispersers, bead mills & mixing vessels on platforms",
+        "Process piping, pumps & manifolds",
+        "Install filling, labelling & palletising lines",
+        "Pressure test, earthing continuity & flushing of pipework"
+      ]
+    },
+    {
+      "name": "Fire — Fire Protection & Hazardous-Area Systems",
+      "disc": "Fire",
+      "kind": [
+        "fire"
+      ],
+      "holds": [
+        3,
+        4
+      ],
+      "steps": [
+        "Fire-water tank, pumps & ring main",
+        "Foam system for tank farm & sprinklers in production",
+        "Gas / vapour detection & emergency ventilation",
+        "Hazardous-area (Ex) inspection of all electrical equipment",
+        "Authority approval of the fire-protection systems"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: solvent & resin transfer piping, compressed air & nitrogen blanketing, chilled water for mills",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Tank & pipework leak tests",
+        "Earthing / bonding continuity check",
+        "Water or solvent trial of each line",
+        "Fire-protection acceptance by the authority",
+        "First production batches",
+        "Quality & colour approval",
+        "Ramp-up"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "PNT",
+      "name": "Paint & Coatings Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "PNT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "PNT.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "PNT.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "PNT.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "PNT.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "PNT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "PNT.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "PNT.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "PNT.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "PNT.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PNT.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "PNT.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "PNT.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "PNT.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "PNT.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "PNT.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "PNT.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "PNT.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "PNT.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "PNT.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "PNT.06.10",
+      "name": "Tank farm & tanker unloading",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.20",
+      "name": "Raw material store & powder handling",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.30",
+      "name": "Dispersion & milling",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.40",
+      "name": "Let-down & tinting",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.50",
+      "name": "Filtration & filling",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.60",
+      "name": "Laboratory & colour matching",
+      "level": 3
+    },
+    {
+      "code": "PNT.06.70",
+      "name": "Finished-goods warehouse",
+      "level": 3
+    },
+    {
+      "code": "PNT.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "PNT.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "PNT.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "PNT.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "PNT.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "PNT.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "PNT.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "PNT.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "PNT.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "PNT.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "PNT.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "PNT.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "PNT.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Hazardous-area and fire design approved → foundations, bunds and building → tanks, vessels and platforms → piping → Ex electrical installation → fire protection complete and accepted → leak tests and earthing checks → water trials → first solvent on site → first batches. The critical path runs through the fire-protection approval or the Ex equipment."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Explosion-proof electrical equipment & motors",
+              "5–8 months",
+              "Before electrical installation in Ex areas"
+            ],
+            [
+              "Bead mills, dispersers & mixing vessels",
+              "5–8 months",
+              "Before process installation"
+            ],
+            [
+              "Filling & packaging lines",
+              "6–9 months",
+              "Before filling-area installation"
+            ],
+            [
+              "Fire pumps & foam system",
+              "5–7 months",
+              "Before first solvent delivery"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late authority approval of the fire strategy, Ex equipment delivery, pipework leaks, and a failed fire-system acceptance delaying the first solvent delivery. Contingency is held before first batch."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,589 @@
+{
+  "archetype": "street_lighting_network",
+  "schema": 2,
+  "context": "linear · foundations and ducts with the kerbs, poles after paving, energised circuit by circuit",
+  "brief": {
+    "intro": "New to this project type? Street lighting is a long chain of identical items: a foundation, a pole, a lantern, and a cable from pole to pole back to a feeder pillar and a control panel. None of it is difficult. Its timing is — street lighting is woven into the road works. The ducts and pole foundations must go in with the kerbs and before the footpath is paved, the poles are stood after the paving so they are not damaged, and the lanterns are lit only when the power supply to the feeder pillars exists. A road usually cannot be opened to traffic without its lighting, so the lighting sits near the end of the road programme with very little float.",
+    "scope": [
+      {
+        "name": "Lighting design & approval",
+        "desc": "Lighting calculations, pole spacing and height approved by the municipality."
+      },
+      {
+        "name": "Ducts & draw-pits",
+        "desc": "Ducts along the road and under every crossing, with pits for pulling cable."
+      },
+      {
+        "name": "Pole foundations",
+        "desc": "Precast or cast-in-situ foundations with anchor bolts and duct entries."
+      },
+      {
+        "name": "Lighting poles & brackets",
+        "desc": "Galvanised steel or aluminium poles, or high masts at junctions."
+      },
+      {
+        "name": "Lanterns (luminaires)",
+        "desc": "LED lanterns with drivers and, often, a control node."
+      },
+      {
+        "name": "Cables & pole cut-outs",
+        "desc": "Feeder cable looped pole to pole and the fused cut-out in each pole base."
+      },
+      {
+        "name": "Feeder pillars & control panels",
+        "desc": "Supply and switching points, with photocell, timer or smart control."
+      },
+      {
+        "name": "Earthing",
+        "desc": "Earth rods and bonding of every pole and pillar."
+      },
+      {
+        "name": "Power supply connection",
+        "desc": "Supply from the distribution network to each feeder pillar."
+      },
+      {
+        "name": "Testing & night-time measurement",
+        "desc": "Electrical tests and measurement of the lighting level on the road."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Lantern (luminaire)",
+        "plain": "the light fitting at the top of the pole."
+      },
+      {
+        "term": "High mast",
+        "plain": "a tall mast (20–30 m) with a ring of floodlights, used at interchanges and plazas."
+      },
+      {
+        "term": "Feeder pillar",
+        "plain": "the street cabinet that feeds and switches a group of lighting circuits."
+      },
+      {
+        "term": "Cut-out",
+        "plain": "the fuse unit inside the pole door that protects that pole's lantern."
+      },
+      {
+        "term": "Draw-pit",
+        "plain": "a small chamber where cable is pulled into the ducts."
+      },
+      {
+        "term": "Lux level / uniformity",
+        "plain": "how bright the road is and how evenly; measured at night against the design."
+      },
+      {
+        "term": "Photocell",
+        "plain": "a sensor that switches the lights on at dusk and off at dawn."
+      },
+      {
+        "term": "CMS (central management system)",
+        "plain": "software that dims, switches and monitors each lantern remotely."
+      }
+    ],
+    "must_get_right": [
+      "Install ducts and pole foundations with the kerb line, before footpath paving — finding a missing foundation after paving means breaking finished work.",
+      "Stand the poles after the paving and kerbs, and fit lanterns last; early poles get hit by plant.",
+      "The power supply to each feeder pillar comes from another contract or the authority; without it nothing can be tested or lit. Track it as a milestone.",
+      "Allow for the night-time lighting measurement and the municipality's inspection before the road opening date."
+    ]
+  },
+  "components": [
+    {
+      "name": "Ducts, Draw-pits & Foundations",
+      "desc": "Ducts, pits and pole foundations along the road",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Poles & High Masts",
+      "desc": "Poles, brackets and masts",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Lanterns",
+      "desc": "LED luminaires and control nodes",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Cables & Earthing",
+      "desc": "Feeder cable, pole wiring and earthing",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Feeder Pillars & Controls",
+      "desc": "Feeder pillars, control panels and smart control",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Testing & Handover",
+      "desc": "Electrical tests, lux measurement and handover",
+      "disc": "Commissioning",
+      "primary": false
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Lighting Equipment",
+      "items": [
+        "Poles, brackets & high masts",
+        "LED lanterns & drivers",
+        "Pole cut-outs & internal wiring"
+      ]
+    },
+    {
+      "discipline": "Power & Control",
+      "items": [
+        "Feeder pillars & control panels",
+        "LV feeder cable",
+        "Photocell / timer / CMS nodes"
+      ]
+    },
+    {
+      "discipline": "Earthing",
+      "items": [
+        "Earth rods at poles & pillars",
+        "Bonding conductors"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Approval",
+    "Procurement of Poles & Lanterns",
+    "Ducts & Foundations with Kerbs",
+    "Cable Pulling",
+    "Pole Erection",
+    "Lanterns & Wiring",
+    "Feeder Pillars & Power Supply",
+    "Testing, Lux Measurement & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Ducts/Fdn",
+      "Cable",
+      "Poles",
+      "Lanterns",
+      "Power",
+      "Test"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Ducts, Draw-pits & Foundations",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 50,
+        "label": "With the kerb line, before paving",
+        "holds": [
+          58
+        ]
+      },
+      {
+        "trade": "Electrical — Cable Pulling & Earthing",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 36,
+        "label": "Pull → loop → earth",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Electrical — Pole Erection",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 48,
+        "width": 30,
+        "label": "After paving · erect → plumb → grout",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Electrical — Lanterns & Pole Wiring",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 58,
+        "width": 26,
+        "label": "Bracket → lantern → cut-out",
+        "holds": []
+      },
+      {
+        "trade": "Electrical — Feeder Pillars & Power Supply",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 50,
+        "width": 34,
+        "label": "Pillar → supply → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing & Handover",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 84,
+        "width": 16,
+        "label": "Energise → measure at night → hand over",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Ducts, Draw-pits & Foundations",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Setting out of pole positions",
+        "Lay ducts & road-crossing ducts",
+        "Draw-pits",
+        "Pole foundations with anchor bolts",
+        "Foundations & ducts complete before footpath paving"
+      ]
+    },
+    {
+      "name": "Electrical — Cable Pulling & Earthing",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Pull feeder cable through ducts",
+        "Loop cable into each pole base",
+        "Drive earth rods & bond",
+        "Insulation & continuity test of each circuit"
+      ]
+    },
+    {
+      "name": "Electrical — Pole Erection",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive poles & check galvanising / coating",
+        "Erect poles on anchor bolts",
+        "Plumb, tighten & grout base plates",
+        "Assemble & raise high masts"
+      ]
+    },
+    {
+      "name": "Electrical — Lanterns & Pole Wiring",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [],
+      "steps": [
+        "Fit brackets & lanterns",
+        "Pole internal wiring & cut-outs",
+        "Set lantern tilt & orientation",
+        "Install control nodes"
+      ]
+    },
+    {
+      "name": "Electrical — Feeder Pillars & Power Supply",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Feeder-pillar bases & installation",
+        "Terminate lighting circuits",
+        "Power supply connected to the pillar",
+        "Program photocell / timer / CMS"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing & Handover",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Energise circuit by circuit",
+        "Earthing resistance & loop tests",
+        "Night-time lux & uniformity measurement",
+        "Municipality inspection & snag clearance",
+        "As-built & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "SLN",
+      "name": "Street Lighting Network — Project",
+      "level": 1
+    },
+    {
+      "code": "SLN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "SLN.02",
+      "name": "Design & Approvals",
+      "level": 2
+    },
+    {
+      "code": "SLN.02.10",
+      "name": "Lighting calculations & layout",
+      "level": 3
+    },
+    {
+      "code": "SLN.02.20",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "SLN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "SLN.03.10",
+      "name": "Poles & high masts",
+      "level": 3
+    },
+    {
+      "code": "SLN.03.20",
+      "name": "Lanterns & control nodes",
+      "level": 3
+    },
+    {
+      "code": "SLN.03.30",
+      "name": "Cables, feeder pillars & accessories",
+      "level": 3
+    },
+    {
+      "code": "SLN.04",
+      "name": "Civil Works — Ducts & Foundations",
+      "level": 2
+    },
+    {
+      "code": "SLN.04.10",
+      "name": "Ducts & road crossings",
+      "level": 3
+    },
+    {
+      "code": "SLN.04.20",
+      "name": "Draw-pits",
+      "level": 3
+    },
+    {
+      "code": "SLN.04.30",
+      "name": "Pole foundations",
+      "level": 3
+    },
+    {
+      "code": "SLN.04.40",
+      "name": "Feeder-pillar bases",
+      "level": 3
+    },
+    {
+      "code": "SLN.05",
+      "name": "Electrical — Cables & Earthing",
+      "level": 2
+    },
+    {
+      "code": "SLN.05.10",
+      "name": "Cable pulling",
+      "level": 3
+    },
+    {
+      "code": "SLN.05.20",
+      "name": "Earthing",
+      "level": 3
+    },
+    {
+      "code": "SLN.06",
+      "name": "Electrical — Poles & High Masts",
+      "level": 2
+    },
+    {
+      "code": "SLN.06.10",
+      "name": "Pole erection",
+      "level": 3
+    },
+    {
+      "code": "SLN.06.20",
+      "name": "High masts",
+      "level": 3
+    },
+    {
+      "code": "SLN.07",
+      "name": "Electrical — Lanterns & Wiring",
+      "level": 2
+    },
+    {
+      "code": "SLN.07.10",
+      "name": "Lanterns & brackets",
+      "level": 3
+    },
+    {
+      "code": "SLN.07.20",
+      "name": "Pole wiring & cut-outs",
+      "level": 3
+    },
+    {
+      "code": "SLN.08",
+      "name": "Electrical — Feeder Pillars & Controls",
+      "level": 2
+    },
+    {
+      "code": "SLN.08.10",
+      "name": "Feeder pillars",
+      "level": 3
+    },
+    {
+      "code": "SLN.08.20",
+      "name": "Power supply connection",
+      "level": 3
+    },
+    {
+      "code": "SLN.08.30",
+      "name": "Control system (photocell / CMS)",
+      "level": 3
+    },
+    {
+      "code": "SLN.09",
+      "name": "Testing, Commissioning & Handover",
+      "level": 2
+    },
+    {
+      "code": "SLN.09.10",
+      "name": "Electrical tests",
+      "level": 3
+    },
+    {
+      "code": "SLN.09.20",
+      "name": "Lux measurement",
+      "level": 3
+    },
+    {
+      "code": "SLN.09.30",
+      "name": "Inspection & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by road and lighting circuit (one feeder pillar), following the road-works sections."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Lux measurements are night activities; pole erection on live roads may be limited to off-peak hours."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Ducts and foundations follow the kerb line and precede footpath paving. Cable pulling follows ducts. Poles follow paving; lanterns and wiring follow poles. Energisation needs the feeder pillar and its power supply. Testing and the night measurement precede the road opening."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The road contractor releases each section for ducts and foundations in sequence; the power supply to the feeder pillars is available on the assumed date; pole positions are free of clashes with other utilities and driveways."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Lighting poles & high masts",
+              "12–18 weeks",
+              "Before pole erection"
+            ],
+            [
+              "LED lanterns & control nodes",
+              "12–16 weeks",
+              "Before lantern installation"
+            ],
+            [
+              "Feeder pillars & control panels",
+              "10–14 weeks",
+              "Before circuit termination"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Works are in the footpath or median next to traffic and other trades. Pole positions are fixed by the lighting design and cannot be moved freely to avoid clashes."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: foundations or ducts missed before paving, clashes with other utilities at pole positions, late poles or lanterns, late power supply, and theft of cable. Contingency is held before the road-opening date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by road and lighting circuit; expanded to Level 4–5 lookahead for the foundation, cabling and erection crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "EN 13201 — road lighting"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

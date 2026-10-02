@@ -1,0 +1,677 @@
+{
+  "archetype": "readymix_batching_plant",
+  "schema": 2,
+  "context": "small plant · fast to build; permits, foundations, calibration and mix approvals govern",
+  "brief": {
+    "intro": "New to this project type? A ready-mix plant weighs aggregates, cement, water and admixtures, mixes them and loads truck mixers. It is a compact, largely factory-made machine: aggregate bins fed by a ramp or conveyor, cement silos, a weighing and mixing tower, a control cabin, and around it a yard with wash-out pits, water recycling, a laboratory and truck parking. Erection takes weeks, not months. What takes time is everything around it — the environmental and operating permits, the foundations and aggregate bays, the power and water supply, and then calibration of the scales and approval of the concrete mixes by the customers or the authority before the first cubic metre can be sold.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Aggregate bays & feeding",
+        "desc": "Ground bays, loading ramp or hopper, and inclined belt conveyor to the bins."
+      },
+      {
+        "name": "Aggregate bins & weighing",
+        "desc": "Overhead bins with weigh belt or weigh hoppers."
+      },
+      {
+        "name": "Cement silos & screw conveyors",
+        "desc": "Silos with filters, level probes and screw feeders."
+      },
+      {
+        "name": "Mixing tower",
+        "desc": "Mixer, water and admixture dosing, discharge chute to trucks."
+      },
+      {
+        "name": "Control cabin & automation",
+        "desc": "Batching computer, scales and ticket printing."
+      },
+      {
+        "name": "Water system & recycling",
+        "desc": "Water tanks, chiller or ice plant in hot climates, wash-out and reclaim pits."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Compressed air, Water supply & recycling, Chilled water / ice (hot climates), Dust collection — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Scale calibration, trial mixes for every concrete grade, and mix approval by the customers / authority."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Batching",
+        "plain": "weighing out the exact amount of each ingredient for a load of concrete."
+      },
+      {
+        "term": "Twin-shaft / pan mixer",
+        "plain": "the machine that mixes the batch before it is discharged into the truck."
+      },
+      {
+        "term": "Wet plant / dry plant",
+        "plain": "a wet plant mixes in its own mixer; a dry plant only weighs and the truck mixes."
+      },
+      {
+        "term": "Weigh hopper",
+        "plain": "a hopper on load cells that weighs the material inside it."
+      },
+      {
+        "term": "Admixture",
+        "plain": "a chemical added in small doses to change how the concrete behaves."
+      },
+      {
+        "term": "Reclaimer",
+        "plain": "equipment that washes leftover concrete and recovers the aggregates and water."
+      },
+      {
+        "term": "Trial mix",
+        "plain": "a test batch made to prove a mix design reaches its strength and workability."
+      },
+      {
+        "term": "Calibration",
+        "plain": "checking every scale against known weights so batches are accurate; usually witnessed and certified."
+      }
+    ],
+    "must_get_right": [
+      "Start the environmental and operating permits first — they are longer than the construction.",
+      "Foundations, silo bases and the truck-loading point follow the plant supplier's drawings; get them early.",
+      "Power, water and the access road must be ready before commissioning; a plant with no water cannot be tested.",
+      "Leave time after erection for calibration, trial mixes and 28-day (or accelerated) strength results before production is counted on."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Batching Plant Erection",
+      "desc": "Bins, silos, mixer tower, conveyors and control cabin",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Compressed air, Water supply & recycling, Chilled water / ice (hot climates), Dust collection",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Batching Plant Erection",
+      "items": [
+        "Aggregate bays & feeding",
+        "Aggregate bins & weighing",
+        "Cement silos & screw conveyors",
+        "Mixing tower",
+        "Control cabin & automation",
+        "Water system & recycling"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Compressed air",
+        "Water supply & recycling",
+        "Chilled water / ice (hot climates)",
+        "Dust collection"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Batching Plant Erection",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Tower → silos → bins → conveyors → cabin",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Calibrate → dry run → trial mixes → approval",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Batching Plant Erection",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive plant modules",
+        "Erect mixer tower & mixer",
+        "Erect cement silos & screw conveyors",
+        "Erect aggregate bins & belt conveyor",
+        "Install dosing, water & admixture systems",
+        "Install control cabin & automation"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: compressed air, water supply & recycling, chilled water / ice (hot climates)",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "No-load run of conveyors, mixer & screws",
+        "Calibration of all scales (witnessed)",
+        "Wet commissioning with first batches",
+        "Trial mixes for each grade",
+        "Cube results & mix-design approval",
+        "Operating permit & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "RMX",
+      "name": "Ready-Mix Batching Plant — Project",
+      "level": 1
+    },
+    {
+      "code": "RMX.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "RMX.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "RMX.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "RMX.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "RMX.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "RMX.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "RMX.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "RMX.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "RMX.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "RMX.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "RMX.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "RMX.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "RMX.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "RMX.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "RMX.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "RMX.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "RMX.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "RMX.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "RMX.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "RMX.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "RMX.06.10",
+      "name": "Aggregate bays & feeding",
+      "level": 3
+    },
+    {
+      "code": "RMX.06.20",
+      "name": "Aggregate bins & weighing",
+      "level": 3
+    },
+    {
+      "code": "RMX.06.30",
+      "name": "Cement silos & screw conveyors",
+      "level": 3
+    },
+    {
+      "code": "RMX.06.40",
+      "name": "Mixing tower",
+      "level": 3
+    },
+    {
+      "code": "RMX.06.50",
+      "name": "Control cabin & automation",
+      "level": 3
+    },
+    {
+      "code": "RMX.06.60",
+      "name": "Water system & recycling",
+      "level": 3
+    },
+    {
+      "code": "RMX.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "RMX.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "RMX.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "RMX.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "RMX.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "RMX.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "RMX.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "RMX.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "RMX.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "RMX.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "RMX.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "RMX.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "RMX.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Permits and supplier drawings → foundations, bays and pits → plant erection → power, water and air → calibration → trial mixes → mix approval → production. The critical path usually runs through the permits or the plant delivery, then mix approval."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Batching plant (mixer, bins, silos, control)",
+              "12–20 weeks",
+              "Before erection"
+            ],
+            [
+              "Chiller / ice plant",
+              "12–16 weeks",
+              "Before hot-weather production"
+            ],
+            [
+              "Truck mixers & pumps (fleet)",
+              "12–24 weeks",
+              "Before first deliveries"
+            ],
+            [
+              "Laboratory equipment",
+              "6–10 weeks",
+              "Before trial mixes"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: permit delay, late power or water connection, calibration failures, and trial mixes not reaching strength. Contingency is held before the first contracted delivery date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

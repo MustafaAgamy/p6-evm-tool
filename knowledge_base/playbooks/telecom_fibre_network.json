@@ -1,0 +1,627 @@
+{
+  "archetype": "telecom_fibre_network",
+  "schema": 2,
+  "context": "area network · ducts and chambers are the bulk; cable blowing, splicing and OTDR testing are fast",
+  "brief": {
+    "intro": "New to this project type? A telecom network is mostly a civil job with a short technical finish. Ducts and chambers are laid along every street; fibre cable is then blown or pulled through them, spliced in closures and cabinets, and tested end to end with an OTDR. Finally the active equipment in the exchange or point-of-presence is powered and the service is switched on. The ducts take months; blowing, splicing and testing take weeks. The ducts are shallow, so telecom is one of the last utilities laid in a road — but its road-crossing ducts must still be in before the road base, and the building that houses the equipment needs power and cooling before anything can be lit.",
+    "scope": [
+      {
+        "name": "Network design & operator approval",
+        "desc": "Route, duct sizes, chamber positions and fibre counts approved by the operator."
+      },
+      {
+        "name": "Ducts & sub-ducts",
+        "desc": "uPVC / HDPE ducts and micro-ducts along the roads."
+      },
+      {
+        "name": "Chambers",
+        "desc": "Manholes, handholes and joint boxes at junctions and at set intervals."
+      },
+      {
+        "name": "Road crossings",
+        "desc": "Ducts under roads, installed before the road base or by directional drilling."
+      },
+      {
+        "name": "Fibre cable installation",
+        "desc": "Blowing or pulling backbone, distribution and drop cables."
+      },
+      {
+        "name": "Splicing & closures",
+        "desc": "Fusion splicing in joint closures, cabinets and optical distribution frames."
+      },
+      {
+        "name": "Street cabinets & splitters",
+        "desc": "Cabinets housing splitters and patching for each area."
+      },
+      {
+        "name": "Exchange / POP building",
+        "desc": "Equipment room with power, batteries, cooling and racks."
+      },
+      {
+        "name": "Active equipment",
+        "desc": "OLTs, switches and transmission equipment."
+      },
+      {
+        "name": "Testing",
+        "desc": "OTDR and loss testing of every fibre, end to end."
+      },
+      {
+        "name": "Activation & handover",
+        "desc": "Lighting the network and handing the as-built records to the operator."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Backbone / feeder / distribution / drop",
+        "plain": "the levels of the network, from the main cable down to the cable into each building."
+      },
+      {
+        "term": "Micro-duct",
+        "plain": "a small tube inside a duct through which a thin fibre cable is blown with compressed air."
+      },
+      {
+        "term": "Cable blowing",
+        "plain": "installing fibre by floating it through the duct on a stream of air — fast and gentle on the cable."
+      },
+      {
+        "term": "Fusion splice",
+        "plain": "joining two fibres by melting them together; the loss of each splice is measured."
+      },
+      {
+        "term": "Closure",
+        "plain": "the sealed box in a chamber that protects a group of splices."
+      },
+      {
+        "term": "ODF",
+        "plain": "optical distribution frame — the rack where fibres end and are patched in the equipment room."
+      },
+      {
+        "term": "OTDR",
+        "plain": "an instrument that sends light down a fibre and shows the position and loss of every splice and fault."
+      },
+      {
+        "term": "OLT / splitter",
+        "plain": "the active unit in the exchange and the passive device that shares one fibre among many customers (in FTTH)."
+      },
+      {
+        "term": "POP",
+        "plain": "point of presence — the building or room that houses the active equipment."
+      }
+    ],
+    "must_get_right": [
+      "Treat it as a civil programme: metres of duct and number of chambers per day set the duration. Sequence it after the deeper utilities and before kerbs and paving.",
+      "Put road-crossing ducts in before the road base, with spare ducts — crossings are the expensive part to add later.",
+      "Prove every duct (rod and mandrel) and leave a draw rope before the cable crew arrives; blocked ducts are the usual cause of delay at the cable stage.",
+      "The equipment room needs permanent power, batteries and cooling before active equipment is installed; that readiness, and the operator's acceptance of OTDR results, are the end milestones."
+    ]
+  },
+  "components": [
+    {
+      "name": "Ducts & Chambers",
+      "desc": "Ducts, sub-ducts, manholes and handholes",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Road Crossings",
+      "desc": "Crossing ducts and directional drilling",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Fibre Cable",
+      "desc": "Backbone, distribution and drop cables",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Splicing & Cabinets",
+      "desc": "Closures, street cabinets, splitters and ODFs",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Exchange / POP & Active Equipment",
+      "desc": "Equipment room, power, cooling and active units",
+      "disc": "ELV",
+      "primary": true
+    },
+    {
+      "name": "Testing & Activation",
+      "desc": "OTDR tests, acceptance and service activation",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Passive Network",
+      "items": [
+        "Ducts, sub-ducts & micro-ducts",
+        "Fibre-optic cables",
+        "Closures, splitters & street cabinets",
+        "ODFs & patching"
+      ]
+    },
+    {
+      "discipline": "Active Equipment",
+      "items": [
+        "OLT / access switches",
+        "Transmission equipment",
+        "Network management system"
+      ]
+    },
+    {
+      "discipline": "POP Building Services",
+      "items": [
+        "DC power, rectifiers & batteries",
+        "Cooling",
+        "Earthing, fire detection & access control"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Operator Approval",
+    "Permits & Road-crossing Ducts",
+    "Ducts & Chambers",
+    "Duct Proving",
+    "Cable Blowing / Pulling",
+    "Splicing & Cabinets",
+    "POP Fit-out & Active Equipment",
+    "OTDR Testing, Activation & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Ducts",
+      "Chambers",
+      "Cable",
+      "Splice",
+      "POP",
+      "Test"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Ducts & Chambers",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 62,
+        "label": "Crossings first → trench → ducts → chambers → backfill",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Civil — POP / Exchange Building",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 10,
+        "width": 44,
+        "label": "Shell → cable entries → finishes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "ELV — Fibre Cable Installation",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 46,
+        "width": 30,
+        "label": "Blow / pull → coil slack → label",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "ELV — Splicing, Closures & Cabinets",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 56,
+        "width": 28,
+        "label": "Cabinets → splice → ODF",
+        "holds": []
+      },
+      {
+        "trade": "ELV — Active Equipment & Power",
+        "disc": "ELV",
+        "kind": [
+          "elv"
+        ],
+        "start": 54,
+        "width": 32,
+        "label": "Racks → DC power → OLT → NMS",
+        "holds": [
+          86
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing & Activation",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 84,
+        "width": 16,
+        "label": "OTDR → accept → activate",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Ducts & Chambers",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0,
+        5
+      ],
+      "steps": [
+        "Install road-crossing ducts before road base",
+        "Trench excavation",
+        "Lay ducts & sub-ducts on sand bed",
+        "Build manholes & handholes",
+        "Backfill, warning tape & reinstatement",
+        "Rod, mandrel & draw-rope every duct"
+      ]
+    },
+    {
+      "name": "Civil — POP / Exchange Building",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Building structure & envelope",
+        "Cable entry ducts & trenches",
+        "Raised floor, finishes & earthing bar",
+        "Room ready: dust-free, powered & cooled"
+      ]
+    },
+    {
+      "name": "ELV — Fibre Cable Installation",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive cable drums & check factory test reports",
+        "Blow or pull backbone & feeder cables",
+        "Install distribution & drop cables",
+        "Coil slack & fix cables in chambers",
+        "Label cables & ducts"
+      ]
+    },
+    {
+      "name": "ELV — Splicing, Closures & Cabinets",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [],
+      "steps": [
+        "Install street cabinets & splitters",
+        "Fusion-splice fibres in closures",
+        "Terminate fibres on ODFs",
+        "Record splice loss & update the fibre schedule"
+      ]
+    },
+    {
+      "name": "ELV — Active Equipment & Power",
+      "disc": "ELV",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Install racks, cable trays & ODF frames",
+        "DC power system, batteries & cooling",
+        "Receive active equipment",
+        "Install & power OLT / switches",
+        "Configure & connect to the network management system"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing & Activation",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "OTDR & loss test of every fibre, both directions",
+        "Operator acceptance of test results",
+        "End-to-end service test",
+        "Activate service area by area",
+        "As-built records (duct, cable & splice) & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "TFN",
+      "name": "Telecommunications / Fibre Network — Project",
+      "level": 1
+    },
+    {
+      "code": "TFN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "TFN.02",
+      "name": "Design, Approvals & Permits",
+      "level": 2
+    },
+    {
+      "code": "TFN.02.10",
+      "name": "Network design & fibre schedule",
+      "level": 3
+    },
+    {
+      "code": "TFN.02.20",
+      "name": "Operator approval",
+      "level": 3
+    },
+    {
+      "code": "TFN.02.30",
+      "name": "Road-opening permits",
+      "level": 3
+    },
+    {
+      "code": "TFN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "TFN.03.10",
+      "name": "Ducts & chamber units",
+      "level": 3
+    },
+    {
+      "code": "TFN.03.20",
+      "name": "Fibre cable & closures",
+      "level": 3
+    },
+    {
+      "code": "TFN.03.30",
+      "name": "Cabinets, splitters & ODFs",
+      "level": 3
+    },
+    {
+      "code": "TFN.03.40",
+      "name": "Active equipment & DC power",
+      "level": 3
+    },
+    {
+      "code": "TFN.04",
+      "name": "Civil Works — Ducts & Chambers",
+      "level": 2
+    },
+    {
+      "code": "TFN.04.10",
+      "name": "Road-crossing ducts",
+      "level": 3
+    },
+    {
+      "code": "TFN.04.20",
+      "name": "Trenching & ducts",
+      "level": 3
+    },
+    {
+      "code": "TFN.04.30",
+      "name": "Manholes & handholes",
+      "level": 3
+    },
+    {
+      "code": "TFN.04.40",
+      "name": "Backfill & reinstatement",
+      "level": 3
+    },
+    {
+      "code": "TFN.04.50",
+      "name": "Duct proving",
+      "level": 3
+    },
+    {
+      "code": "TFN.05",
+      "name": "Civil Works — POP / Exchange Building",
+      "level": 2
+    },
+    {
+      "code": "TFN.06",
+      "name": "Telecom — Fibre Cable Installation",
+      "level": 2
+    },
+    {
+      "code": "TFN.06.10",
+      "name": "Backbone & feeder cables",
+      "level": 3
+    },
+    {
+      "code": "TFN.06.20",
+      "name": "Distribution cables",
+      "level": 3
+    },
+    {
+      "code": "TFN.06.30",
+      "name": "Drop cables",
+      "level": 3
+    },
+    {
+      "code": "TFN.07",
+      "name": "Telecom — Splicing, Closures & Cabinets",
+      "level": 2
+    },
+    {
+      "code": "TFN.07.10",
+      "name": "Street cabinets & splitters",
+      "level": 3
+    },
+    {
+      "code": "TFN.07.20",
+      "name": "Splicing & closures",
+      "level": 3
+    },
+    {
+      "code": "TFN.07.30",
+      "name": "ODF termination",
+      "level": 3
+    },
+    {
+      "code": "TFN.08",
+      "name": "Telecom — Active Equipment & Power",
+      "level": 2
+    },
+    {
+      "code": "TFN.08.10",
+      "name": "Racks & DC power",
+      "level": 3
+    },
+    {
+      "code": "TFN.08.20",
+      "name": "OLT / switches",
+      "level": 3
+    },
+    {
+      "code": "TFN.08.30",
+      "name": "Network management",
+      "level": 3
+    },
+    {
+      "code": "TFN.09",
+      "name": "Testing, Commissioning & Handover",
+      "level": 2
+    },
+    {
+      "code": "TFN.09.10",
+      "name": "OTDR & loss tests",
+      "level": 3
+    },
+    {
+      "code": "TFN.09.20",
+      "name": "Service activation",
+      "level": 3
+    },
+    {
+      "code": "TFN.09.30",
+      "name": "As-built records & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by network area (cabinet or splitter area) and route section, so each area shows ducts complete, cable installed, spliced, tested and activated."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; works in live roads may be restricted to off-peak hours. Splicing and testing are not weather-dependent once chambers are dry."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Road-crossing ducts → trench, ducts and chambers → duct proving → cable blowing → splicing → OTDR test → activation. In parallel the POP building is completed, powered and cooled, then active equipment is installed. The critical path runs through the last duct section released, or the POP power supply."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Roads and other utilities release the telecom corridor in the planned order; the operator approves the design and accepts test results within the assumed review time; permanent power is available at the POP."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Active equipment (OLT / transmission)",
+              "12–20 weeks",
+              "Before POP installation"
+            ],
+            [
+              "Fibre-optic cable (by fibre count)",
+              "8–14 weeks",
+              "Before cable blowing"
+            ],
+            [
+              "DC power system & batteries",
+              "10–14 weeks",
+              "Before active equipment power-on"
+            ],
+            [
+              "Street cabinets, splitters & closures",
+              "8–12 weeks",
+              "Before splicing"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Telecom ducts are shallow and laid late, among finished utilities. Chambers must fit between other services and driveways. Fibre work needs clean, dry chambers."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: ducts damaged or blocked by later works, late road release, late POP power, and fibres failing the loss budget at the OTDR stage. Contingency is held before activation."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by network area and route section; expanded to Level 4–5 lookahead for the ducting, cabling and splicing teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "ITU-T G.652 — single-mode optical fibre"
+    },
+    {
+      "code": "STD",
+      "text": "ITU-T L-series — outside plant construction"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,724 @@
+{
+  "archetype": "textile_factory",
+  "schema": 2,
+  "context": "factory · spinning, weaving / knitting, dyeing & finishing; humidity control and effluent treatment",
+  "brief": {
+    "intro": "New to this project type? A textile mill can cover one or all of the steps from fibre to fabric. Spinning opens and cleans the fibre, cards and draws it and spins it into yarn. Weaving or knitting turns yarn into fabric on hundreds of looms or knitting machines. Dyeing and finishing — the 'wet' part — bleaches, dyes, prints and finishes the fabric using steam, hot water and chemicals. The spinning and weaving halls are large, windowless and air-conditioned to a constant humidity, because the yarn breaks if the air is too dry; under the floor run ducts that carry waste fibre and return air. The wet-processing section needs boilers, a great deal of water and an effluent treatment plant, which the environmental permit will insist on.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Blow room & carding",
+        "desc": "Bale opening, cleaning, blending and carding machines."
+      },
+      {
+        "name": "Drawing, roving & spinning",
+        "desc": "Draw frames, roving frames and ring or open-end spinning frames."
+      },
+      {
+        "name": "Winding & yarn store",
+        "desc": "Automatic winders and conditioned yarn storage."
+      },
+      {
+        "name": "Weaving / knitting preparation",
+        "desc": "Warping, sizing and drawing-in."
+      },
+      {
+        "name": "Weaving / knitting hall",
+        "desc": "Looms or knitting machines with inspection."
+      },
+      {
+        "name": "Dyeing, printing & finishing",
+        "desc": "Bleaching, dyeing machines, printing, stenters and finishing."
+      },
+      {
+        "name": "Inspection, packing & warehouse",
+        "desc": "Fabric inspection, folding, packing and storage."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Steam boilers, Compressed air, Soft water & hot water, Effluent treatment plant — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Machine-by-machine erection and trials, yarn and fabric quality tests, colour matching, then ramp-up by section."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Carding",
+        "plain": "combing the fibres into a soft, aligned rope (sliver)."
+      },
+      {
+        "term": "Ring frame",
+        "plain": "the machine that draws out and twists the fibre into yarn."
+      },
+      {
+        "term": "Sizing",
+        "plain": "coating warp yarn with starch so it survives weaving."
+      },
+      {
+        "term": "Loom",
+        "plain": "the weaving machine."
+      },
+      {
+        "term": "Stenter",
+        "plain": "a long machine that dries the fabric and sets its width."
+      },
+      {
+        "term": "Humidification plant",
+        "plain": "the air system that holds the hall at a set humidity and temperature."
+      },
+      {
+        "term": "ETP",
+        "plain": "effluent treatment plant — cleans the coloured, chemical waste water before discharge."
+      },
+      {
+        "term": "Count",
+        "plain": "the fineness of a yarn."
+      }
+    ],
+    "must_get_right": [
+      "Under-floor trenches and ducts for return air and waste must be built with the floor — the machine layout must be frozen before the slab.",
+      "Humidity must be under control before the machines run; plan the humidification plant ahead of the machinery trials.",
+      "The effluent treatment plant and its discharge permit gate the dye house — start them with the main works, not at the end.",
+      "Hundreds of similar machines are erected by the supplier's fitters in a fixed sequence; the building must be dust-free and powered before they start."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Textile Machinery",
+      "desc": "Spinning, weaving / knitting and wet-processing machines",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Humidification & Waste Collection",
+      "desc": "Plant rooms → ducts → trenches → balance",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Steam boilers, Compressed air, Soft water & hot water, Effluent treatment plant",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Textile Machinery",
+      "items": [
+        "Blow room & carding",
+        "Drawing, roving & spinning",
+        "Winding & yarn store",
+        "Weaving / knitting preparation",
+        "Weaving / knitting hall",
+        "Dyeing, printing & finishing",
+        "Inspection, packing & warehouse"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Steam boilers",
+        "Compressed air",
+        "Soft water & hot water",
+        "Effluent treatment plant"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Sprinklers & spark detection (fibre dust)",
+        "Effluent treatment",
+        "Boiler safety systems",
+        "Dust filtration"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Textile Machinery",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Spinning → weaving → dyeing → finishing",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Humidification & Waste Collection",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 40,
+        "label": "Plant rooms → ducts → trenches → balance",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Erect → trial run → quality → ramp-up",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Textile Machinery",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive machinery",
+        "Install blow room, cards & draw frames",
+        "Install roving, spinning frames & winders",
+        "Install warping, sizing & looms / knitting machines",
+        "Install dyeing, printing & finishing machines",
+        "Level, align & connect each machine"
+      ]
+    },
+    {
+      "name": "Mechanical — Humidification & Waste Collection",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Humidification plant rooms & air washers",
+        "Supply ducts & diffusers above the machines",
+        "Under-floor return & waste-collection trenches",
+        "Filters, fibre compactors & dust removal",
+        "Temperature & humidity proven in each hall"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: steam boilers, compressed air, soft water & hot water",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        5
+      ],
+      "steps": [
+        "Machine trial runs by section",
+        "Humidification plant balancing",
+        "First yarn & quality tests",
+        "First fabric & loom tuning",
+        "Boiler & dye-house commissioning",
+        "Effluent plant commissioned & discharge approved",
+        "Ramp-up by section"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "TXF",
+      "name": "Textile Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "TXF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "TXF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "TXF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "TXF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "TXF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "TXF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "TXF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "TXF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "TXF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "TXF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "TXF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "TXF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "TXF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "TXF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "TXF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "TXF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "TXF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "TXF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "TXF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "TXF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "TXF.06.10",
+      "name": "Blow room & carding",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.20",
+      "name": "Drawing, roving & spinning",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.30",
+      "name": "Winding & yarn store",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.40",
+      "name": "Weaving / knitting preparation",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.50",
+      "name": "Weaving / knitting hall",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.60",
+      "name": "Dyeing, printing & finishing",
+      "level": 3
+    },
+    {
+      "code": "TXF.06.70",
+      "name": "Inspection, packing & warehouse",
+      "level": 3
+    },
+    {
+      "code": "TXF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "TXF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "TXF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "TXF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "TXF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "TXF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "TXF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "TXF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "TXF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "TXF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "TXF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "TXF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "TXF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Layout freeze → foundations and floor with trenches → building enclosed → humidification plant and power → machinery erection by section → trials → quality. The dye house follows its own chain: boilers, water and effluent plant → machines → colour trials. The critical path runs through machinery delivery, or through the effluent plant and permit for the wet section."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Spinning machinery",
+              "8–12 months",
+              "Before spinning installation"
+            ],
+            [
+              "Looms / knitting machines",
+              "8–12 months",
+              "Before weaving installation"
+            ],
+            [
+              "Dyeing & finishing machines, stenters",
+              "8–12 months",
+              "Before dye-house installation"
+            ],
+            [
+              "Humidification plant & boilers",
+              "6–9 months",
+              "Before machinery trials"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: layout changes after the floor is cast, late machinery, humidity not achieved, effluent permit, and skilled-operator shortage during ramp-up. Contingency is held before first saleable production."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

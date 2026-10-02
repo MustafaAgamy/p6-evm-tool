@@ -1,0 +1,675 @@
+{
+  "archetype": "cross_country_pipeline",
+  "schema": 2,
+  "context": "linear · spread moving along the right-of-way: weld → coat → lower → backfill → hydrotest",
+  "brief": {
+    "intro": "New to this project type? A cross-country pipeline is built by a 'spread' — a travelling factory of crews that moves along the right-of-way, each crew doing one step and handing the pipe to the next: clear and grade the strip, string the pipes, bend, weld, inspect the welds, coat the joints, dig the trench, lower the pipe in, backfill and restore the land. Progress is counted in welds and kilometres per day. The straight run is routine; the programme is decided by the right-of-way, by special crossings (rivers, highways, railways) done by separate crews, by the stations at each end, and by the hydrostatic test and drying at the finish. Line pipe is ordered months ahead and must be on site before the spread starts.",
+    "scope": [
+      {
+        "name": "Route survey & right-of-way",
+        "desc": "Survey, land acquisition and permits for the working strip."
+      },
+      {
+        "name": "Clearing & grading",
+        "desc": "Preparing a level working strip and access along the route."
+      },
+      {
+        "name": "Stringing & bending",
+        "desc": "Laying pipes out along the strip and cold-bending them to follow the ground."
+      },
+      {
+        "name": "Mainline welding",
+        "desc": "Joining pipes into a continuous string, by manual or automatic welding."
+      },
+      {
+        "name": "NDT & joint coating",
+        "desc": "Radiography or ultrasonic testing of every weld, then coating the joint."
+      },
+      {
+        "name": "Trenching, lowering & backfill",
+        "desc": "Digging the trench, lowering the welded string, padding and backfilling."
+      },
+      {
+        "name": "Crossings",
+        "desc": "HDD, boring or open-cut crossings of rivers, roads, railways and other pipelines."
+      },
+      {
+        "name": "Tie-ins",
+        "desc": "Welding the separately built sections and crossings together."
+      },
+      {
+        "name": "Stations & valves",
+        "desc": "Block-valve stations, pig launchers / receivers, pump or compressor and metering stations."
+      },
+      {
+        "name": "Cathodic protection & SCADA",
+        "desc": "Corrosion protection, leak detection and remote control along the line."
+      },
+      {
+        "name": "Hydrotest, drying & commissioning",
+        "desc": "Cleaning, gauging, pressure test, dewatering, drying and product-in."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Spread",
+        "plain": "the complete set of crews and equipment that builds one stretch of pipeline."
+      },
+      {
+        "term": "Right-of-way (ROW)",
+        "plain": "the strip of land in which the pipeline is built and later operated."
+      },
+      {
+        "term": "Stringing",
+        "plain": "laying the pipe joints end to end along the trench line."
+      },
+      {
+        "term": "NDT",
+        "plain": "non-destructive testing of welds — radiography or automatic ultrasonic testing."
+      },
+      {
+        "term": "Holiday test",
+        "plain": "an electrical check that finds pin-holes in the pipe coating before it is buried."
+      },
+      {
+        "term": "Lowering-in",
+        "plain": "lifting the welded string with side-boom tractors and placing it in the trench."
+      },
+      {
+        "term": "Tie-in",
+        "plain": "a weld that joins two already-laid sections; made in the trench."
+      },
+      {
+        "term": "Pig",
+        "plain": "a device pushed through the pipeline to clean it, measure it or separate products."
+      },
+      {
+        "term": "Hydrotest",
+        "plain": "filling a section with water and holding it at test pressure to prove strength and tightness."
+      },
+      {
+        "term": "Block valve station",
+        "plain": "a fenced site with a valve that can isolate a section of the line."
+      }
+    ],
+    "must_get_right": [
+      "Line pipe and its coating are the first critical item; the spread cannot start, and cannot keep moving, without pipe strung ahead of it.",
+      "Plan the mainline as a moving sequence with fixed gaps between crews, and count progress in welds per day — one slow crew sets the pace of all.",
+      "Schedule each major crossing as its own small project with its own permit, crew and season (river levels); they are done off the main spread and tied in later.",
+      "Hydrotest water (source, permit to take and to discharge), test sections and drying are long and easy to forget — especially for gas lines, where drying to dew point takes weeks."
+    ]
+  },
+  "components": [
+    {
+      "name": "ROW, Clearing & Grading",
+      "desc": "Working strip, access and reinstatement",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Mainline Welding & NDT",
+      "desc": "Stringing, bending, welding and inspection",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Coating, Trenching & Lowering",
+      "desc": "Joint coating, trench, lowering-in and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Crossings & Tie-ins",
+      "desc": "HDD / bored crossings and tie-in welds",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Stations & Valves",
+      "desc": "Block valves, pig traps, pump / compressor and metering stations",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Cathodic Protection & SCADA",
+      "desc": "CP, leak detection, telecom and control",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Hydrotest & Commissioning",
+      "desc": "Cleaning, gauging, testing, drying and start-up",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Pipeline Mechanical",
+      "items": [
+        "Line pipe with factory coating",
+        "Induction bends & fittings",
+        "Block valves & actuators",
+        "Pig launchers & receivers"
+      ]
+    },
+    {
+      "discipline": "Stations",
+      "items": [
+        "Pumps / compressors",
+        "Metering & filtration skids",
+        "Station piping & utilities"
+      ]
+    },
+    {
+      "discipline": "Protection & Control",
+      "items": [
+        "Impressed-current cathodic protection",
+        "Fibre-optic cable & leak detection",
+        "SCADA & telecommunication"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, ROW & Permits",
+    "Line Pipe Procurement & Coating",
+    "Clearing, Grading & Stringing",
+    "Welding, NDT & Joint Coating",
+    "Trenching, Lowering & Backfill",
+    "Crossings & Tie-ins",
+    "Stations & Valves",
+    "Hydrotest, Drying & Commissioning"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "ROW",
+      "String",
+      "Weld",
+      "Lower",
+      "Crossings",
+      "Stations",
+      "Hydrotest"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — ROW, Trenching & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 62,
+        "label": "Clear → grade → trench → backfill → reinstate",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Mechanical — Stringing, Bending & Welding",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 14,
+        "width": 52,
+        "label": "String → bend → weld → NDT",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Mechanical — Coating & Lowering",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 22,
+        "width": 50,
+        "label": "Coat joints → holiday test → lower",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Mechanical — Crossings & Tie-ins",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 20,
+        "width": 54,
+        "label": "Crossing crews · tie-in crew follows",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Mechanical — Stations & Valves",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 24,
+        "width": 52,
+        "label": "Civil → equipment → piping",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Instrumentation — CP, SCADA & Telecom",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 50,
+        "width": 32,
+        "label": "CP → instruments → SCADA",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Commissioning — Hydrotest, Drying & Start-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Clean → gauge → test → dry → product-in",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — ROW, Trenching & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Right-of-way released for the section",
+        "Clear & grade the working strip",
+        "Trench excavation (rock breaking where needed)",
+        "Padding, backfill & crown",
+        "Reinstate land, fences & drainage"
+      ]
+    },
+    {
+      "name": "Mechanical — Stringing, Bending & Welding",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        4
+      ],
+      "steps": [
+        "Receive coated line pipe & check certificates",
+        "String pipe along the ROW",
+        "Cold field bending",
+        "Mainline welding (root, hot, fill, cap)",
+        "NDT of every weld & repair"
+      ]
+    },
+    {
+      "name": "Mechanical — Coating & Lowering",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Field-joint coating",
+        "Holiday test of the whole string",
+        "Lower-in with side booms",
+        "Install fibre-optic cable & warning tape"
+      ]
+    },
+    {
+      "name": "Mechanical — Crossings & Tie-ins",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Crossing permits (river / road / rail)",
+        "HDD / thrust-bore / open-cut crossing",
+        "Pre-test the crossing string",
+        "Tie-in welds, NDT & coating"
+      ]
+    },
+    {
+      "name": "Mechanical — Stations & Valves",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Station civil works & foundations",
+        "Receive valves, pig traps & rotating equipment",
+        "Install valves, pig launchers / receivers",
+        "Station piping, welding & NDT",
+        "Pumps / compressors & utilities"
+      ]
+    },
+    {
+      "name": "Instrumentation — CP, SCADA & Telecom",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install CP ground beds, rectifiers & test posts",
+        "Station instruments & valve actuators",
+        "Fibre splicing & telecom",
+        "Loop checks & SCADA point test"
+      ]
+    },
+    {
+      "name": "Commissioning — Hydrotest, Drying & Start-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Cleaning & gauging pig runs",
+        "Hydrostatic test of each test section",
+        "Dewatering, swabbing & drying",
+        "Caliper / intelligent pig baseline survey",
+        "Product-in & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "PPL",
+      "name": "Cross-Country Pipeline (Oil / Gas / Water) — Project",
+      "level": 1
+    },
+    {
+      "code": "PPL.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "PPL.02",
+      "name": "Survey, Right-of-Way & Permits",
+      "level": 2
+    },
+    {
+      "code": "PPL.02.10",
+      "name": "Route survey & geotechnical",
+      "level": 3
+    },
+    {
+      "code": "PPL.02.20",
+      "name": "Right-of-way acquisition",
+      "level": 3
+    },
+    {
+      "code": "PPL.02.30",
+      "name": "Crossing permits",
+      "level": 3
+    },
+    {
+      "code": "PPL.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "PPL.03.10",
+      "name": "Line pipe & coating",
+      "level": 3
+    },
+    {
+      "code": "PPL.03.20",
+      "name": "Valves, pig traps & fittings",
+      "level": 3
+    },
+    {
+      "code": "PPL.03.30",
+      "name": "Rotating equipment & skids",
+      "level": 3
+    },
+    {
+      "code": "PPL.04",
+      "name": "Civil Works — ROW, Trenching & Reinstatement",
+      "level": 2
+    },
+    {
+      "code": "PPL.04.10",
+      "name": "Clearing & grading",
+      "level": 3
+    },
+    {
+      "code": "PPL.04.20",
+      "name": "Trench excavation",
+      "level": 3
+    },
+    {
+      "code": "PPL.04.30",
+      "name": "Backfill",
+      "level": 3
+    },
+    {
+      "code": "PPL.04.40",
+      "name": "Reinstatement",
+      "level": 3
+    },
+    {
+      "code": "PPL.05",
+      "name": "Mainline Pipeline (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "PPL.05.10",
+      "name": "Stringing & bending",
+      "level": 3
+    },
+    {
+      "code": "PPL.05.20",
+      "name": "Welding",
+      "level": 3
+    },
+    {
+      "code": "PPL.05.20.10",
+      "name": "NDT & repairs",
+      "level": 4
+    },
+    {
+      "code": "PPL.05.30",
+      "name": "Field-joint coating",
+      "level": 3
+    },
+    {
+      "code": "PPL.05.40",
+      "name": "Lowering-in",
+      "level": 3
+    },
+    {
+      "code": "PPL.06",
+      "name": "Crossings & Tie-ins (Pipe)",
+      "level": 2
+    },
+    {
+      "code": "PPL.06.10",
+      "name": "River crossings (HDD)",
+      "level": 3
+    },
+    {
+      "code": "PPL.06.20",
+      "name": "Road & rail crossings",
+      "level": 3
+    },
+    {
+      "code": "PPL.06.30",
+      "name": "Tie-ins",
+      "level": 3
+    },
+    {
+      "code": "PPL.07",
+      "name": "Stations & Valves (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "PPL.07.10",
+      "name": "Block-valve stations",
+      "level": 3
+    },
+    {
+      "code": "PPL.07.20",
+      "name": "Pig launcher / receiver stations",
+      "level": 3
+    },
+    {
+      "code": "PPL.07.30",
+      "name": "Pump / compressor & metering stations",
+      "level": 3
+    },
+    {
+      "code": "PPL.08",
+      "name": "Cathodic Protection, Instrumentation, SCADA & Telecom",
+      "level": 2
+    },
+    {
+      "code": "PPL.09",
+      "name": "Testing & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "PPL.09.10",
+      "name": "Cleaning & gauging",
+      "level": 3
+    },
+    {
+      "code": "PPL.09.20",
+      "name": "Hydrostatic test",
+      "level": 3
+    },
+    {
+      "code": "PPL.09.30",
+      "name": "Dewatering & drying",
+      "level": 3
+    },
+    {
+      "code": "PPL.09.40",
+      "name": "Product-in & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by spread and by kilometre section, with crossings and stations as separate branches, so welded, lowered, backfilled and tested kilometres can be read at any date."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "The spread works a long-shift calendar; reduced output is assumed in the wet season and in rock or mountain sections. River crossings are tied to low-flow months."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per section: ROW → clear and grade → string → weld → NDT → coat → trench → lower → backfill → reinstate, with a set gap between crews. Crossings and stations are built in parallel and joined by tie-ins. Then test sections are cleaned, gauged, hydrotested and dried before product-in. The critical path runs through pipe delivery and the mainline, or through the longest-lead station equipment."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Right-of-way is released ahead of the spread; pipe is delivered to the stringing schedule; test water is available and may be discharged; upstream and downstream facilities are ready for product-in."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Line pipe with factory coating",
+              "26–40 weeks",
+              "Before stringing in each section"
+            ],
+            [
+              "Mainline ball valves & actuators",
+              "30–44 weeks",
+              "Before station piping"
+            ],
+            [
+              "Pumps / compressors & drivers",
+              "40–60 weeks",
+              "Before station mechanical completion"
+            ],
+            [
+              "Pig launchers / receivers & induction bends",
+              "20–28 weeks",
+              "Before station piping and tie-ins"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "The spread is long and must keep moving; access is along the ROW only; environmental and seasonal windows apply at rivers, farmland and protected areas."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: right-of-way delays, rock or wet ground, weld repair rate above plan, a failed crossing (HDD), late valves or rotating equipment, and a failed hydrotest. Contingency is held before the hydrotest and before product-in."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by spread and kilometre section; expanded to Level 4–5 lookahead for each crew of the spread — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "API 1104 — welding of pipelines and related facilities"
+    },
+    {
+      "code": "STD",
+      "text": "ASME B31.4 / B31.8 — liquid and gas pipeline systems"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

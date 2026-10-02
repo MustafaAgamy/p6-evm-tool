@@ -1,0 +1,712 @@
+{
+  "archetype": "brick_block_factory",
+  "schema": 2,
+  "context": "factory · block machine and curing for concrete blocks, or dryer and kiln for clay bricks",
+  "brief": {
+    "intro": "New to this project type? There are two different factories behind this name. A concrete block plant batches a dry concrete, presses it into blocks or pavers in a vibrating machine, moves the fresh blocks on boards into curing chambers for a day, then cubes and wraps them — a compact, automated line. A clay brick plant prepares clay, extrudes and cuts it, dries the green bricks slowly in a dryer and fires them for days in a long tunnel kiln; the kiln and dryer are large refractory structures that take months to build and weeks to heat up. In both, the building is a simple shed. The schedule is set by the production line order, the foundations for the press or the kiln, and the long start-up — especially drying and heating the kiln.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Raw material storage & preparation",
+        "desc": "Aggregate bins and batching (blocks), or clay box-feeder, crushers and mixers (bricks)."
+      },
+      {
+        "name": "Forming",
+        "desc": "Vibrating block machine with moulds, or extruder and cutter."
+      },
+      {
+        "name": "Handling & transfer",
+        "desc": "Finger cars, racks, kiln cars and transfer cars that move the products."
+      },
+      {
+        "name": "Curing chambers / dryer",
+        "desc": "Curing racks for blocks; tunnel or chamber dryer for clay bricks."
+      },
+      {
+        "name": "Tunnel kiln (clay)",
+        "desc": "Long refractory kiln with burners, fans and kiln-car track."
+      },
+      {
+        "name": "Cubing & packaging",
+        "desc": "Cuber, strapping, wrapping and pallet handling."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Natural gas / fuel supply, Compressed air, Process water, Dust extraction — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Dry runs, first products, then — for clay — a slow kiln dry-out and heat-up curve before first firing."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Block machine",
+        "plain": "a press that vibrates and compacts dry concrete into blocks or pavers on a board."
+      },
+      {
+        "term": "Green product",
+        "plain": "a freshly formed brick or block that has not yet hardened or been fired."
+      },
+      {
+        "term": "Curing chamber",
+        "plain": "a closed room where blocks harden in warm, damp air."
+      },
+      {
+        "term": "Tunnel kiln",
+        "plain": "a long kiln through which cars loaded with bricks move slowly past the firing zone."
+      },
+      {
+        "term": "Kiln car",
+        "plain": "the heat-resistant wagon that carries bricks through the dryer and kiln."
+      },
+      {
+        "term": "Refractory",
+        "plain": "heat-resistant brick or lining inside the kiln."
+      },
+      {
+        "term": "Dry-out",
+        "plain": "slowly heating new refractory to drive out moisture before full temperature; rushing it cracks the lining."
+      },
+      {
+        "term": "Cuber",
+        "plain": "the machine that stacks finished blocks into cubes for strapping and dispatch."
+      }
+    ],
+    "must_get_right": [
+      "Decide early which plant it is — concrete block or fired clay — because the clay plant adds a kiln and dryer that roughly double the installation and start-up time.",
+      "The kiln is built by specialist refractory masons to a strict sequence; it cannot be accelerated by adding labour once the casing is closed.",
+      "Gas supply and its approval are prerequisites for kiln dry-out; track the gas connection as a milestone.",
+      "Kiln dry-out and heat-up follow a fixed temperature curve over days or weeks — schedule it as a continuous, non-compressible activity."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Production Line",
+      "desc": "Batching, block machine or extruder, handling and packaging",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Kiln, Dryer & Curing Chambers",
+      "desc": "Steel → refractory → burners → dry-out",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Natural gas / fuel supply, Compressed air, Process water, Dust extraction",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Production Line",
+      "items": [
+        "Raw material storage & preparation",
+        "Forming",
+        "Handling & transfer",
+        "Curing chambers / dryer",
+        "Tunnel kiln (clay)",
+        "Cubing & packaging"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Natural gas / fuel supply",
+        "Compressed air",
+        "Process water",
+        "Dust extraction"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Production Line",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Batching → forming → handling → packaging",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Kiln, Dryer & Curing Chambers",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 44,
+        "label": "Steel → refractory → burners → dry-out",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Dry run → first product → kiln heat-up → quality",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Production Line",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production line",
+        "Install batching / clay preparation",
+        "Install block machine or extruder & cutter",
+        "Install racks, finger car / kiln-car track & transfer cars",
+        "Install cuber & packaging line",
+        "Align & level the complete line"
+      ]
+    },
+    {
+      "name": "Mechanical — Kiln, Dryer & Curing Chambers",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Kiln & dryer foundations and car track",
+        "Kiln steelwork & casing",
+        "Refractory brickwork & insulation",
+        "Burners, fans, ducting & gas train",
+        "Curing chamber racks, doors & steam / heating"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: natural gas / fuel supply, compressed air, process water",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Dry run of the complete line",
+        "First forming trials & mould adjustment",
+        "Kiln refractory dry-out to the supplier's curve",
+        "Kiln heat-up & first firing",
+        "Product tests (strength, absorption, dimensions)",
+        "Ramp-up & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "BBF",
+      "name": "Brick & Block Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "BBF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "BBF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "BBF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "BBF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "BBF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "BBF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "BBF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "BBF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "BBF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "BBF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "BBF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "BBF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "BBF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "BBF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "BBF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "BBF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "BBF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "BBF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "BBF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "BBF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "BBF.06.10",
+      "name": "Raw material storage & preparation",
+      "level": 3
+    },
+    {
+      "code": "BBF.06.20",
+      "name": "Forming",
+      "level": 3
+    },
+    {
+      "code": "BBF.06.30",
+      "name": "Handling & transfer",
+      "level": 3
+    },
+    {
+      "code": "BBF.06.40",
+      "name": "Curing chambers / dryer",
+      "level": 3
+    },
+    {
+      "code": "BBF.06.50",
+      "name": "Tunnel kiln (clay)",
+      "level": 3
+    },
+    {
+      "code": "BBF.06.60",
+      "name": "Cubing & packaging",
+      "level": 3
+    },
+    {
+      "code": "BBF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "BBF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "BBF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "BBF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "BBF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "BBF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "BBF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "BBF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "BBF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "BBF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "BBF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "BBF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "BBF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Supplier drawings → machine, kiln and dryer foundations → building → line installation in parallel with kiln steel and refractory → gas, power and air → dry runs → kiln dry-out and heat-up → first products → quality tests. The critical path runs through the kiln (clay) or the production line delivery (blocks)."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Block machine / extrusion line with handling",
+              "20–30 weeks",
+              "Before line installation"
+            ],
+            [
+              "Kiln & dryer equipment (burners, fans, controls)",
+              "24–32 weeks",
+              "Before kiln fit-out"
+            ],
+            [
+              "Refractory materials",
+              "12–18 weeks",
+              "Before kiln lining"
+            ],
+            [
+              "Moulds & kiln cars",
+              "12–16 weeks",
+              "Before first production"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late production line, refractory work behind programme, late gas connection, cracked lining from a rushed dry-out, and product quality during start-up. Contingency is held before first saleable production."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

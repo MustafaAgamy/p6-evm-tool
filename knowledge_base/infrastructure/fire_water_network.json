@@ -1,0 +1,229 @@
+{
+  "category": "Infrastructure",
+  "type": "Fire Water Ring Main & Hydrant Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "fire water",
+    "firewater",
+    "ring main",
+    "fire main",
+    "hydrant",
+    "monitor",
+    "fire pump",
+    "jockey pump",
+    "diesel fire pump",
+    "post indicator",
+    "deluge",
+    "fire tank",
+    "fire pump house",
+    "flushing",
+    "hydrostatic"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "civil defence",
+        "hydraulic calculation"
+      ]
+    },
+    {
+      "name": "Fire Water Tank",
+      "keywords": [
+        "fire tank",
+        "fire water tank",
+        "tank"
+      ]
+    },
+    {
+      "name": "Fire Pump House",
+      "keywords": [
+        "pump house",
+        "fire pump",
+        "jockey",
+        "diesel pump"
+      ]
+    },
+    {
+      "name": "Ring Main",
+      "keywords": [
+        "ring main",
+        "fire main",
+        "fire water piping",
+        "pipe laying"
+      ]
+    },
+    {
+      "name": "Hydrants & Monitors",
+      "keywords": [
+        "hydrant",
+        "monitor",
+        "hose cabinet"
+      ]
+    },
+    {
+      "name": "Thrust Blocks & Backfill",
+      "keywords": [
+        "thrust block",
+        "backfill",
+        "trench"
+      ]
+    },
+    {
+      "name": "Power & Control",
+      "keywords": [
+        "controller",
+        "power",
+        "fire alarm interface"
+      ]
+    },
+    {
+      "name": "Testing & Acceptance",
+      "keywords": [
+        "flushing",
+        "hydrostatic",
+        "pressure test",
+        "acceptance",
+        "commissioning"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Fire Pump Procurement & Delivery",
+      "keywords": [
+        "fire pump",
+        "procure"
+      ],
+      "wbs": "Fire Pump House",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Fire Pump Installation",
+      "duration_days": 150,
+      "why": "Listed fire pumps and controllers are the longest lead item of the system."
+    },
+    {
+      "name": "Ring Main Laying",
+      "keywords": [
+        "ring main",
+        "fire main",
+        "pipe laying"
+      ],
+      "wbs": "Ring Main",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Testing & Acceptance",
+      "duration_days": 45,
+      "why": "The buried ring is the bulk of the work and must be complete to flush and test."
+    },
+    {
+      "name": "Fire Pump Installation",
+      "keywords": [
+        "fire pump installation",
+        "pump installation"
+      ],
+      "wbs": "Fire Pump House",
+      "typical_pred": "Fire Pump House",
+      "typical_succ": "Testing & Acceptance",
+      "duration_days": 20,
+      "why": "Pumps need a completed pump house and plinths, then power, before acceptance testing."
+    },
+    {
+      "name": "Flushing & Hydrostatic Test",
+      "keywords": [
+        "flushing",
+        "hydrostatic",
+        "pressure test"
+      ],
+      "wbs": "Testing & Acceptance",
+      "typical_pred": "Ring Main",
+      "typical_succ": "Authority Acceptance",
+      "duration_days": 10,
+      "why": "The main is flushed and pressure-tested, witnessed, before it is connected and accepted."
+    },
+    {
+      "name": "Fire Pump Acceptance Test & Authority Approval",
+      "keywords": [
+        "acceptance test",
+        "authority",
+        "civil defence"
+      ],
+      "wbs": "Testing & Acceptance",
+      "typical_pred": "Fire Pump Installation",
+      "typical_succ": "In Service",
+      "duration_days": 7,
+      "why": "The system is not in service until the pumps are performance-tested and the authority has accepted it."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "ring main",
+        "fire main",
+        "thrust block"
+      ],
+      "after_keywords": [
+        "flushing",
+        "hydrostatic",
+        "pressure test"
+      ],
+      "reason": "Flushing and the pressure test follow a complete, restrained ring main.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "pump house",
+        "plinth"
+      ],
+      "after_keywords": [
+        "fire pump installation",
+        "pump installation"
+      ],
+      "reason": "Fire pumps are installed in a completed pump house.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "fire pump installation",
+        "power",
+        "controller"
+      ],
+      "after_keywords": [
+        "acceptance test",
+        "pump test"
+      ],
+      "reason": "The pump acceptance test follows installation and power.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "flushing",
+        "hydrostatic",
+        "acceptance test"
+      ],
+      "after_keywords": [
+        "authority",
+        "in service",
+        "handover"
+      ],
+      "reason": "Authority acceptance follows passed tests.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Fire Design Approved",
+    "Fire Pumps Delivered",
+    "Ring Main Complete",
+    "Hydrostatic Test Passed",
+    "Pump Acceptance Passed",
+    "Fire Water In Service"
+  ],
+  "common_issues": [
+    "Fire water not in service before fuel / occupancy",
+    "Fire pump lead time underestimated",
+    "No flushing before connection to sprinkler systems",
+    "Authority witness not planned",
+    "Backfill planned before the pressure test"
+  ]
+}

@@ -1,0 +1,662 @@
+{
+  "archetype": "power_distribution_network",
+  "schema": 2,
+  "context": "area network · substations + MV rings + LV feeders; energised ring by ring, authority inspection per stage",
+  "brief": {
+    "intro": "New to this project type? A distribution network takes power from the primary substation and delivers it to every plot. Medium-voltage (11–33 kV) cables run in rings through a number of small distribution substations — a ring main unit, a transformer and a low-voltage panel in a kiosk or a room — and from each substation low-voltage feeders run to feeder pillars and on to the customers' meters. There are many small, similar pieces rather than one big one. The programme is driven by the delivery of transformers and switchgear, by the cable trenches (which must fit in with the other utilities and the roads), and by the power authority: it inspects each stage and it alone energises the network, ring by ring.",
+    "scope": [
+      {
+        "name": "Network design & authority approval",
+        "desc": "Load schedule, single-line diagram and route approved by the power authority."
+      },
+      {
+        "name": "Distribution substations",
+        "desc": "Plinths or rooms with RMU, transformer and LV distribution panel."
+      },
+      {
+        "name": "MV cable rings",
+        "desc": "Medium-voltage cables linking the substations in open rings from the primary substation."
+      },
+      {
+        "name": "LV feeders",
+        "desc": "Low-voltage cables from each substation to feeder pillars."
+      },
+      {
+        "name": "Feeder pillars & service connections",
+        "desc": "Pillars and service cables to each plot, with meter cabinets."
+      },
+      {
+        "name": "Cable trenches, ducts & crossings",
+        "desc": "Trenches with sand, tiles and tape; ducts under every road crossing."
+      },
+      {
+        "name": "Earthing",
+        "desc": "Earthing system at every substation and pillar."
+      },
+      {
+        "name": "Jointing & termination",
+        "desc": "MV and LV joints and terminations by approved jointers."
+      },
+      {
+        "name": "Testing",
+        "desc": "Cable, transformer, switchgear and earthing tests."
+      },
+      {
+        "name": "Authority inspection & energisation",
+        "desc": "Stage inspections, energisation by the authority and handover of the network."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "RMU (ring main unit)",
+        "plain": "compact MV switchgear with two ring switches and a transformer feeder, used at each substation."
+      },
+      {
+        "term": "Distribution substation",
+        "plain": "RMU + transformer + LV panel that steps the voltage down for customers."
+      },
+      {
+        "term": "Open ring",
+        "plain": "MV cables forming a loop that is open at one point, so any substation can be fed from either side."
+      },
+      {
+        "term": "Feeder pillar",
+        "plain": "a street cabinet where an LV feeder is split to several customers through fuses."
+      },
+      {
+        "term": "Package / kiosk substation",
+        "plain": "a factory-built enclosure containing the RMU, transformer and LV panel."
+      },
+      {
+        "term": "VLF / hi-pot test",
+        "plain": "a high-voltage test on a cable after laying and jointing."
+      },
+      {
+        "term": "Earthing resistance",
+        "plain": "how well the substation is connected to the ground; measured and compared with the allowed value."
+      },
+      {
+        "term": "Energisation",
+        "plain": "making the equipment live for the first time — done by the authority after its inspection."
+      },
+      {
+        "term": "Load schedule",
+        "plain": "the list of expected demand at each plot, from which transformer sizes and cable sizes are fixed."
+      }
+    ],
+    "must_get_right": [
+      "Get the design approved by the power authority before ordering — transformer ratings, RMU type and cable sizes are theirs to accept, and they will not energise anything they did not approve.",
+      "Transformers, RMUs and LV panels are the long-lead items; substation plinths or rooms must be ready and the equipment must be on site before the ring can be closed.",
+      "Coordinate the cable corridor with the other utilities and install road-crossing ducts before the road base — power cable is usually one of the last utilities in, and the shallowest.",
+      "Plan energisation ring by ring: each needs testing, an authority inspection, snag clearance and an energisation date. These are real activities with waiting time."
+    ]
+  },
+  "components": [
+    {
+      "name": "Distribution Substations",
+      "desc": "Plinths / rooms, RMUs, transformers and LV panels",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "MV Cable Rings",
+      "desc": "MV cable laying, jointing and termination",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "LV Feeders & Feeder Pillars",
+      "desc": "LV cables, pillars and service connections",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Cable Trenches & Ducts",
+      "desc": "Trenching, ducts, crossings and reinstatement",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Earthing",
+      "desc": "Substation and pillar earthing",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "SCADA & Metering",
+      "desc": "Remote monitoring of RMUs and meters",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Testing & Energisation",
+      "desc": "Tests, authority inspection and energisation",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "MV System",
+      "items": [
+        "Ring main units",
+        "MV XLPE cable, joints & terminations",
+        "Fault-passage indicators"
+      ]
+    },
+    {
+      "discipline": "Transformers & LV",
+      "items": [
+        "Distribution transformers",
+        "LV distribution panels",
+        "LV feeders, feeder pillars & service cables"
+      ]
+    },
+    {
+      "discipline": "Earthing & Monitoring",
+      "items": [
+        "Substation earthing & bonding",
+        "RMU remote terminal units / SCADA",
+        "Metering cabinets"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Authority Approval",
+    "Procurement of Transformers, RMUs & Cable",
+    "Substation Civil Works",
+    "Cable Trenches & Road Ducts",
+    "Equipment Installation",
+    "MV & LV Cable Laying and Jointing",
+    "Testing & Authority Inspection",
+    "Energisation Ring by Ring"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Substn civil",
+      "Trench",
+      "Equipment",
+      "Cables",
+      "Test",
+      "Energise"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Substation Plinths & Rooms",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 40,
+        "label": "Excavate → plinth / room → cable entries",
+        "holds": [
+          48
+        ]
+      },
+      {
+        "trade": "Civil — Cable Trenches & Ducts",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 12,
+        "width": 56,
+        "label": "Road ducts first → trench → sand → tiles → backfill",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Electrical — Substation Equipment",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 36,
+        "label": "Receive → set → connect",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Electrical — MV Cable Rings",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 30,
+        "width": 44,
+        "label": "Lay → joint → terminate → test",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Electrical — LV Feeders & Feeder Pillars",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 44,
+        "width": 40,
+        "label": "Pillars → LV cable → services",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Instrumentation — SCADA & Metering",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 62,
+        "width": 22,
+        "label": "RTUs → comms → point test",
+        "holds": []
+      },
+      {
+        "trade": "Commissioning — Testing & Energisation",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 78,
+        "width": 22,
+        "label": "Test → inspect → clear snags → energise",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Substation Plinths & Rooms",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Setting out & excavation",
+        "Plinth or substation-room structure",
+        "Cable entry ducts & trench covers",
+        "Earthing pits & buried earth ring",
+        "Room / plinth handed over for equipment"
+      ]
+    },
+    {
+      "name": "Civil — Cable Trenches & Ducts",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Install road-crossing ducts before road base",
+        "Excavate cable trenches",
+        "Sand bedding",
+        "Cable tiles, warning tape & backfill",
+        "Reinstatement"
+      ]
+    },
+    {
+      "name": "Electrical — Substation Equipment",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive transformers, RMUs & LV panels (FAT done)",
+        "Set equipment on plinths / in rooms",
+        "Install MV & LV terminations and connections",
+        "Earthing connections",
+        "Labels, locks & safety signs"
+      ]
+    },
+    {
+      "name": "Electrical — MV Cable Rings",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Lay MV cable in trench & through ducts",
+        "MV straight joints",
+        "Terminate at RMUs",
+        "Sheath & VLF / hi-pot test of each cable"
+      ]
+    },
+    {
+      "name": "Electrical — LV Feeders & Feeder Pillars",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install feeder pillars on bases",
+        "Lay LV feeders & terminate",
+        "Service cables & meter cabinets to plots",
+        "Insulation & continuity tests"
+      ]
+    },
+    {
+      "name": "Instrumentation — SCADA & Metering",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [],
+      "steps": [
+        "Install RTUs & fault indicators at RMUs",
+        "Communication link to the control centre",
+        "Point-to-point test with the control centre",
+        "Install meters where in scope"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing & Energisation",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        2,
+        4
+      ],
+      "steps": [
+        "Transformer, RMU & LV panel tests",
+        "Earthing resistance tests",
+        "Authority inspection of each ring",
+        "Clear inspection snags",
+        "Energisation by the authority, ring by ring",
+        "As-built & handover of the network"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "PDN",
+      "name": "Power Distribution Network (MV / LV) — Project",
+      "level": 1
+    },
+    {
+      "code": "PDN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "PDN.02",
+      "name": "Design & Authority Approval",
+      "level": 2
+    },
+    {
+      "code": "PDN.02.10",
+      "name": "Load schedule & single-line diagram",
+      "level": 3
+    },
+    {
+      "code": "PDN.02.20",
+      "name": "Route & substation layout approval",
+      "level": 3
+    },
+    {
+      "code": "PDN.02.30",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "PDN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "PDN.03.10",
+      "name": "Transformers",
+      "level": 3
+    },
+    {
+      "code": "PDN.03.20",
+      "name": "Ring main units & LV panels",
+      "level": 3
+    },
+    {
+      "code": "PDN.03.30",
+      "name": "MV & LV cables",
+      "level": 3
+    },
+    {
+      "code": "PDN.03.40",
+      "name": "Feeder pillars & accessories",
+      "level": 3
+    },
+    {
+      "code": "PDN.04",
+      "name": "Civil Works — Substations",
+      "level": 2
+    },
+    {
+      "code": "PDN.04.10",
+      "name": "Plinths & rooms",
+      "level": 3
+    },
+    {
+      "code": "PDN.04.20",
+      "name": "Earthing pits",
+      "level": 3
+    },
+    {
+      "code": "PDN.05",
+      "name": "Civil Works — Cable Trenches & Ducts",
+      "level": 2
+    },
+    {
+      "code": "PDN.05.10",
+      "name": "Road-crossing ducts",
+      "level": 3
+    },
+    {
+      "code": "PDN.05.20",
+      "name": "Cable trenches",
+      "level": 3
+    },
+    {
+      "code": "PDN.05.30",
+      "name": "Backfill & reinstatement",
+      "level": 3
+    },
+    {
+      "code": "PDN.06",
+      "name": "Electrical — Substation Equipment",
+      "level": 2
+    },
+    {
+      "code": "PDN.06.10",
+      "name": "RMUs",
+      "level": 3
+    },
+    {
+      "code": "PDN.06.20",
+      "name": "Transformers",
+      "level": 3
+    },
+    {
+      "code": "PDN.06.30",
+      "name": "LV distribution panels",
+      "level": 3
+    },
+    {
+      "code": "PDN.07",
+      "name": "Electrical — MV Cable Network",
+      "level": 2
+    },
+    {
+      "code": "PDN.07.10",
+      "name": "Cable laying",
+      "level": 3
+    },
+    {
+      "code": "PDN.07.20",
+      "name": "Joints & terminations",
+      "level": 3
+    },
+    {
+      "code": "PDN.07.30",
+      "name": "Cable testing",
+      "level": 3
+    },
+    {
+      "code": "PDN.08",
+      "name": "Electrical — LV Network",
+      "level": 2
+    },
+    {
+      "code": "PDN.08.10",
+      "name": "LV feeders",
+      "level": 3
+    },
+    {
+      "code": "PDN.08.20",
+      "name": "Feeder pillars",
+      "level": 3
+    },
+    {
+      "code": "PDN.08.30",
+      "name": "Service connections & metering",
+      "level": 3
+    },
+    {
+      "code": "PDN.09",
+      "name": "SCADA & Telecom Interface",
+      "level": 2
+    },
+    {
+      "code": "PDN.10",
+      "name": "Testing, Inspection & Energisation",
+      "level": 2
+    },
+    {
+      "code": "PDN.10.10",
+      "name": "Pre-commissioning tests",
+      "level": 3
+    },
+    {
+      "code": "PDN.10.20",
+      "name": "Authority inspection",
+      "level": 3
+    },
+    {
+      "code": "PDN.10.30",
+      "name": "Energisation & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by MV ring and, inside each ring, by substation and its LV area — the same units in which the authority inspects and energises."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Authority inspections and energisations are dated activities on the authority's calendar, with a waiting time after each request."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per substation: plinth / room → equipment set → terminations → tests. Per ring: road ducts → trenches → MV cable → joints → cable tests. A ring is energised only when all its substations and cables are tested and the authority has inspected it; LV areas follow their substation. The critical path follows equipment delivery or the last road section released for trenching."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The authority approves the design in the assumed time; the primary substation has a spare feeder ready on the planned date; plots and roads are released for trenching in the planned order; approved jointers are available."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Distribution transformers",
+              "20–32 weeks",
+              "Before equipment installation at each substation"
+            ],
+            [
+              "Ring main units",
+              "18–26 weeks",
+              "Before MV terminations"
+            ],
+            [
+              "LV distribution panels & feeder pillars",
+              "12–18 weeks",
+              "Before LV cable termination"
+            ],
+            [
+              "MV XLPE cable",
+              "12–20 weeks",
+              "Before MV cable laying"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Cables share the utility corridor with water, telecom and lighting; minimum separations apply. Trenching follows deeper utilities and precedes kerbs and paving. Transformers need crane access to each plinth."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late approval, late transformers or RMUs, damage to laid cables by other contractors, authority snags at inspection, and the upstream supply not ready. Contingency is held before the first energisation and before the final one."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by MV ring and substation; expanded to Level 4–5 lookahead for the trenching, cable and installation teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 60502 — power cables 1 kV to 30 kV"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 62271-200 — AC metal-enclosed switchgear"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

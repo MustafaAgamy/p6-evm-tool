@@ -1,0 +1,731 @@
+{
+  "archetype": "aluminium_smelter",
+  "schema": 2,
+  "context": "mega process plant · potlines and their power supply; pots are started one by one over months",
+  "brief": {
+    "intro": "New to this project type? An aluminium smelter makes metal by passing a very large electric current through alumina dissolved in a molten bath, in hundreds of identical steel cells called pots, connected in series in a building a kilometre long — the potline. Carbon anodes, made in the smelter's own carbon plant, are consumed and replaced continuously; the liquid metal is tapped and cast into ingots or billets in the casthouse. The smelter uses as much electricity as a city, so it comes with a rectifier substation and usually its own power plant or a dedicated grid connection. Construction is highly repetitive — pot shells, linings and busbars many hundreds of times — and the plant does not switch on: pots are energised a few at a time, so start-up itself lasts months.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Alumina & raw material handling",
+        "desc": "Port or rail unloading, silos and dense-phase conveying to the pots."
+      },
+      {
+        "name": "Carbon plant",
+        "desc": "Green anode paste plant, anode baking furnace and rodding shop."
+      },
+      {
+        "name": "Potlines",
+        "desc": "Potrooms with pot shells, lining, superstructures and busbars."
+      },
+      {
+        "name": "Rectifier substation",
+        "desc": "Rectifier-transformers supplying DC current to the potline."
+      },
+      {
+        "name": "Gas treatment centres",
+        "desc": "Dry scrubbers and filters that clean the pot fumes and recover fluoride."
+      },
+      {
+        "name": "Casthouse",
+        "desc": "Holding furnaces, casting machines, homogenising and saws."
+      },
+      {
+        "name": "Utilities & power interface",
+        "desc": "Compressed air, cooling water and the power-plant or grid interface."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Compressed air (large), Cooling water, Alumina dense-phase conveying, Fuel gas — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Rectifier energisation, pot preheating and start-up a few pots per day, first metal, then full amperage over months."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Pot (cell)",
+        "plain": "the steel-shelled, carbon-lined cell in which aluminium is made by electrolysis."
+      },
+      {
+        "term": "Potline",
+        "plain": "hundreds of pots connected electrically in series in one or two long buildings."
+      },
+      {
+        "term": "Anode",
+        "plain": "the carbon block that carries current into the pot and is consumed."
+      },
+      {
+        "term": "Busbar",
+        "plain": "the heavy aluminium conductors that carry the current from pot to pot."
+      },
+      {
+        "term": "Rectifier",
+        "plain": "the equipment that turns grid AC power into the DC current the potline needs."
+      },
+      {
+        "term": "Gas treatment centre (GTC)",
+        "plain": "the dry scrubber that captures fumes from the pots."
+      },
+      {
+        "term": "Rodding shop",
+        "plain": "where new anodes are fixed to their metal stems and spent ones are stripped."
+      },
+      {
+        "term": "Pot start-up",
+        "plain": "preheating a new pot and filling it with bath; done pot by pot."
+      },
+      {
+        "term": "Casthouse",
+        "plain": "where molten metal is alloyed and cast into products."
+      }
+    ],
+    "must_get_right": [
+      "Power first: the rectifier substation and the power supply must be ready before any pot can start, and power contracts drive the start-up curve.",
+      "The carbon plant has to produce good anodes before the first pot starts — it is commissioned months ahead of the potline.",
+      "Potline work is mass repetition; plan it as production lines (shells per week, linings per week, busbar welds per day) section by section.",
+      "Start-up is a schedule of its own: pots are energised a few per day for months. First metal is a milestone, not the finish."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Potline Installation",
+      "desc": "Pot shells, linings, superstructures, busbars and pot-tending cranes",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Carbon Plant, Casthouse & Gas Treatment",
+      "desc": "Bake furnace → rodding → GTC → casthouse",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Compressed air (large), Cooling water, Alumina dense-phase conveying, Fuel gas",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Potline Installation",
+      "items": [
+        "Alumina & raw material handling",
+        "Carbon plant",
+        "Potlines",
+        "Rectifier substation",
+        "Gas treatment centres",
+        "Casthouse",
+        "Utilities & power interface"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Compressed air (large)",
+        "Cooling water",
+        "Alumina dense-phase conveying",
+        "Fuel gas"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fume treatment & fluoride recovery",
+        "Electrical insulation of potrooms",
+        "Molten-metal safety systems",
+        "Fire protection of oil-filled rectifiers"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Potline Installation",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Shells → lining → busbar → superstructure → cranes",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Carbon Plant, Casthouse & Gas Treatment",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 30,
+        "width": 48,
+        "label": "Bake furnace → rodding → GTC → casthouse",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Energise → preheat → start pots → first metal",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Potline Installation",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        6
+      ],
+      "steps": [
+        "Receive pot shells, superstructures & busbar",
+        "Set pot shells on insulated supports",
+        "Pot lining (cathode blocks, refractory & ramming paste)",
+        "Install & weld aluminium busbars",
+        "Install superstructures, feeders & hoods",
+        "Install pot-tending cranes & alumina distribution",
+        "Insulation-resistance check of every pot"
+      ]
+    },
+    {
+      "name": "Mechanical — Carbon Plant, Casthouse & Gas Treatment",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Anode baking furnace refractory & fire-train equipment",
+        "Paste plant & rodding-shop equipment",
+        "Gas treatment centres, ducting & stacks",
+        "Casthouse furnaces & casting machines",
+        "Baking-furnace dry-out & first anodes"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: compressed air (large), cooling water, alumina dense-phase conveying",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        4
+      ],
+      "steps": [
+        "Rectifier substation tests & energisation",
+        "Gas-treatment & alumina systems commissioning",
+        "First anodes from the carbon plant",
+        "Potline energised — first pots preheated & started",
+        "First metal",
+        "Pot-by-pot start-up to full potline",
+        "Casthouse ramp-up & performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "ALS",
+      "name": "Aluminium Smelter — Project",
+      "level": 1
+    },
+    {
+      "code": "ALS.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "ALS.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "ALS.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "ALS.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "ALS.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "ALS.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "ALS.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "ALS.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "ALS.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "ALS.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "ALS.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "ALS.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "ALS.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "ALS.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "ALS.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "ALS.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "ALS.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "ALS.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "ALS.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "ALS.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "ALS.06.10",
+      "name": "Alumina & raw material handling",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.20",
+      "name": "Carbon plant",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.30",
+      "name": "Potlines",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.40",
+      "name": "Rectifier substation",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.50",
+      "name": "Gas treatment centres",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.60",
+      "name": "Casthouse",
+      "level": 3
+    },
+    {
+      "code": "ALS.06.70",
+      "name": "Utilities & power interface",
+      "level": 3
+    },
+    {
+      "code": "ALS.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "ALS.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "ALS.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "ALS.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "ALS.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "ALS.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "ALS.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "ALS.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "ALS.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "ALS.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "ALS.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "ALS.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "ALS.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar with extended shifts on the potline production lines; pot start-up runs continuously, around the clock."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Site, piling and potroom buildings → pot shells → lining → busbar → superstructures, section by section. In parallel: carbon plant to first anodes; rectifier substation to energisation; gas treatment and alumina handling; casthouse. Then potline energised → pots started in sequence → first metal → full line. The critical path runs through the power supply and rectifiers or the carbon plant."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Rectifier-transformers",
+              "16–22 months",
+              "Before potline energisation"
+            ],
+            [
+              "Pot-tending cranes",
+              "14–18 months",
+              "Before pot start-up"
+            ],
+            [
+              "Anode baking furnace equipment & refractory",
+              "12–16 months",
+              "Before first anodes"
+            ],
+            [
+              "Busbar, cathode blocks & pot shells",
+              "10–14 months",
+              "To the potline installation rate"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: power-supply readiness, rectifier delivery, anode quality at start-up, busbar welding productivity, and pot failures during early operation. Contingency is held before first metal."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

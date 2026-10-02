@@ -1,0 +1,249 @@
+{
+  "category": "Infrastructure",
+  "type": "Common Utility Tunnel / Service Corridor",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "utility tunnel",
+    "service tunnel",
+    "service corridor",
+    "common utility",
+    "cut and cover",
+    "tunnel box",
+    "cable rack",
+    "pipe support",
+    "ventilation shaft",
+    "branch chamber",
+    "water-stop",
+    "cast-in channel",
+    "sump pump"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Agreements",
+      "keywords": [
+        "design",
+        "approval",
+        "utility agreement"
+      ]
+    },
+    {
+      "name": "Excavation & Shoring",
+      "keywords": [
+        "excavation",
+        "shoring",
+        "dewatering"
+      ]
+    },
+    {
+      "name": "Tunnel Structure",
+      "keywords": [
+        "base slab",
+        "wall",
+        "top slab",
+        "tunnel box",
+        "blinding"
+      ]
+    },
+    {
+      "name": "Waterproofing",
+      "keywords": [
+        "waterproofing",
+        "membrane",
+        "joint seal"
+      ]
+    },
+    {
+      "name": "Shafts & Chambers",
+      "keywords": [
+        "shaft",
+        "branch chamber",
+        "access"
+      ]
+    },
+    {
+      "name": "Backfill",
+      "keywords": [
+        "backfill",
+        "compaction"
+      ]
+    },
+    {
+      "name": "Racks & Tunnel MEP",
+      "keywords": [
+        "rack",
+        "support",
+        "ventilation",
+        "sump",
+        "lighting"
+      ]
+    },
+    {
+      "name": "Safety Systems",
+      "keywords": [
+        "fire detection",
+        "gas detection",
+        "cctv",
+        "scada"
+      ]
+    },
+    {
+      "name": "Utility Installation",
+      "keywords": [
+        "utility installation",
+        "cable installation",
+        "pipe installation"
+      ]
+    },
+    {
+      "name": "Testing & Handover",
+      "keywords": [
+        "testing",
+        "commissioning",
+        "handover"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Tunnel Structure by Bay",
+      "keywords": [
+        "base slab",
+        "wall",
+        "top slab",
+        "tunnel box"
+      ],
+      "wbs": "Tunnel Structure",
+      "typical_pred": "Excavation & Shoring",
+      "typical_succ": "Waterproofing",
+      "duration_days": 150,
+      "why": "The repetitive concrete cycle is the longest chain and sets the completion of the tunnel."
+    },
+    {
+      "name": "Waterproofing & Inspection",
+      "keywords": [
+        "waterproofing",
+        "membrane"
+      ],
+      "wbs": "Waterproofing",
+      "typical_pred": "Tunnel Structure",
+      "typical_succ": "Backfill",
+      "duration_days": 40,
+      "why": "Waterproofing must be inspected before it is buried."
+    },
+    {
+      "name": "Racks & Supports",
+      "keywords": [
+        "rack",
+        "support"
+      ],
+      "wbs": "Racks & Tunnel MEP",
+      "typical_pred": "Tunnel Structure",
+      "typical_succ": "Utility Installation",
+      "duration_days": 45,
+      "why": "Utilities cannot be installed until racks and supports are fixed."
+    },
+    {
+      "name": "Tunnel MEP & Safety Systems",
+      "keywords": [
+        "ventilation",
+        "lighting",
+        "fire detection"
+      ],
+      "wbs": "Racks & Tunnel MEP",
+      "typical_pred": "Tunnel Structure",
+      "typical_succ": "Utility Installation",
+      "duration_days": 60,
+      "why": "Ventilation, lighting and detection make the tunnel safe to work in and to operate."
+    },
+    {
+      "name": "Utility Installation by Owners",
+      "keywords": [
+        "utility installation",
+        "cable installation",
+        "pipe installation"
+      ],
+      "wbs": "Utility Installation",
+      "typical_pred": "Racks & Tunnel MEP",
+      "typical_succ": "Testing & Handover",
+      "duration_days": 90,
+      "why": "Each owner installs in its slot; large pipes first, cables last."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "excavation",
+        "shoring",
+        "blinding"
+      ],
+      "after_keywords": [
+        "base slab"
+      ],
+      "reason": "The base slab follows excavation and blinding.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "base slab"
+      ],
+      "after_keywords": [
+        "wall"
+      ],
+      "reason": "Walls follow the base slab.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "wall"
+      ],
+      "after_keywords": [
+        "top slab"
+      ],
+      "reason": "The top slab follows the walls.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "top slab",
+        "waterproofing",
+        "membrane"
+      ],
+      "after_keywords": [
+        "backfill"
+      ],
+      "reason": "Backfill follows the top slab and inspected waterproofing.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "rack",
+        "support",
+        "ventilation",
+        "lighting"
+      ],
+      "after_keywords": [
+        "utility installation",
+        "cable installation",
+        "pipe installation"
+      ],
+      "reason": "Utilities are installed after racks and tunnel services.",
+      "impact": "Near-critical"
+    }
+  ],
+  "milestones": [
+    "Cross-section Agreed with Utility Owners",
+    "Excavation Complete",
+    "Tunnel Structure Complete",
+    "Backfill Complete — Surface to Road Works",
+    "Tunnel Services Powered",
+    "Utilities Installed",
+    "Handover to Operator"
+  ],
+  "common_issues": [
+    "Utility owners' installation not in the schedule",
+    "Backfill before waterproofing inspection",
+    "Cast-in items not coordinated before pours",
+    "No space-allocation agreement milestone"
+  ]
+}

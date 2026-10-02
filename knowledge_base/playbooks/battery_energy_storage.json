@@ -1,0 +1,646 @@
+{
+  "archetype": "battery_energy_storage",
+  "schema": 2,
+  "context": "modular plant · containers set on pads in weeks; grid connection, fire approval and grid-code tests govern",
+  "brief": {
+    "intro": "New to this project type? A battery energy storage plant is rows of factory-built containers full of lithium battery racks, each with its own cooling and fire system, connected through power-conversion units (inverters) and transformers to a substation and the grid. Almost nothing is built on site: the civil work is pads, roads, cable trenches and a fence, and the containers are lifted into place in days. That is what misleads newcomers — the site work is short, but the project is long. The grid connection agreement and the substation, the delivery of containers and transformers, the fire authority's approval of the layout, and above all the testing — commissioning every container, then proving to the grid operator that the plant responds as the grid code requires — decide the completion date.",
+    "scope": [
+      {
+        "name": "Grid connection & permits",
+        "desc": "Connection agreement, grid studies, planning and fire-authority approvals."
+      },
+      {
+        "name": "Site preparation",
+        "desc": "Earthworks, drainage, access roads, fence and security."
+      },
+      {
+        "name": "Foundations & pads",
+        "desc": "Pads or piles for battery containers, inverters and transformers."
+      },
+      {
+        "name": "Battery containers",
+        "desc": "Factory-assembled enclosures with racks, battery management, cooling and fire detection."
+      },
+      {
+        "name": "Power conversion systems",
+        "desc": "Inverters (PCS) and medium-voltage transformers, usually on skids."
+      },
+      {
+        "name": "MV collection & substation",
+        "desc": "MV cables and switchgear, main transformer and grid-connection bay."
+      },
+      {
+        "name": "DC, AC & communication cabling",
+        "desc": "Cabling between containers, PCS, transformers and the control room."
+      },
+      {
+        "name": "Earthing & lightning protection",
+        "desc": "Site earthing grid and bonding of every enclosure."
+      },
+      {
+        "name": "Fire protection",
+        "desc": "Detection, suppression or deflagration venting, separation distances and fire water."
+      },
+      {
+        "name": "Energy management & SCADA",
+        "desc": "Plant controller, EMS and communication with the grid operator."
+      },
+      {
+        "name": "Commissioning & grid-code tests",
+        "desc": "Container commissioning, capacity test and compliance tests witnessed by the grid operator."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "BESS",
+        "plain": "battery energy storage system."
+      },
+      {
+        "term": "PCS",
+        "plain": "power conversion system — the inverter that changes battery DC into grid AC and back."
+      },
+      {
+        "term": "BMS",
+        "plain": "battery management system — monitors every cell and protects the battery."
+      },
+      {
+        "term": "EMS / plant controller",
+        "plain": "the control system that decides when the plant charges and discharges."
+      },
+      {
+        "term": "MW / MWh",
+        "plain": "power (how fast it can charge or discharge) and energy (how long it can do so)."
+      },
+      {
+        "term": "Thermal runaway",
+        "plain": "a battery cell overheating uncontrollably — the fire risk that the layout and protection are designed around."
+      },
+      {
+        "term": "Grid code",
+        "plain": "the technical rules a plant must meet to be connected — response, ride-through, reactive power."
+      },
+      {
+        "term": "Capacity test",
+        "plain": "a full charge-discharge test proving the contracted energy."
+      },
+      {
+        "term": "Augmentation",
+        "plain": "adding batteries later to make up for ageing; space is often left for it."
+      }
+    ],
+    "must_get_right": [
+      "The grid connection (agreement, substation, main transformer, energisation date) is usually the critical path — start it first and show it as its own chain.",
+      "Containers and transformers are the long-lead items; site works are short and should be timed to finish just before they arrive, not months earlier.",
+      "Settle the fire strategy with the authority before the layout is frozen — spacing between containers decides how much fits on the site.",
+      "Leave real time for commissioning and grid-code compliance tests; the grid operator witnesses them and they can take weeks after energisation."
+    ]
+  },
+  "components": [
+    {
+      "name": "Site & Foundations",
+      "desc": "Earthworks, pads, roads, trenches and fence",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Battery Containers",
+      "desc": "Enclosures with racks, BMS, cooling and fire detection",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Power Conversion & MV Transformers",
+      "desc": "PCS skids and step-up transformers",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Substation & Grid Connection",
+      "desc": "MV switchgear, main transformer and grid bay",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Cabling & Earthing",
+      "desc": "DC / AC / fibre cabling and earthing grid",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "EMS, SCADA & Fire Systems",
+      "desc": "Plant controller, SCADA and fire protection",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Commissioning & Grid-Code Tests",
+      "desc": "Container tests, capacity test and compliance tests",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Battery System",
+      "items": [
+        "Battery containers & racks",
+        "Battery management system",
+        "Liquid / air thermal management"
+      ]
+    },
+    {
+      "discipline": "Power Conversion",
+      "items": [
+        "Inverters (PCS)",
+        "MV step-up transformers",
+        "MV switchgear & collection cables"
+      ]
+    },
+    {
+      "discipline": "Grid Connection",
+      "items": [
+        "Main power transformer",
+        "HV bay, protection & metering"
+      ]
+    },
+    {
+      "discipline": "Control & Safety",
+      "items": [
+        "Plant controller / EMS & SCADA",
+        "Gas / smoke detection & suppression",
+        "CCTV & access control"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Grid Agreement, Permits & Design",
+    "Procurement & Factory Tests",
+    "Site Works & Foundations",
+    "Substation & MV Works",
+    "Container & PCS Installation",
+    "Cabling & Earthing",
+    "Cold Commissioning",
+    "Energisation, Hot Commissioning & Grid-Code Tests"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Permits",
+      "Civil",
+      "Substation",
+      "Containers",
+      "Cabling",
+      "Commission",
+      "Grid tests"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Site Works & Foundations",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 10,
+        "width": 34,
+        "label": "Earthworks → pads → trenches → roads",
+        "holds": [
+          44
+        ]
+      },
+      {
+        "trade": "Electrical — Substation & Grid Connection",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 14,
+        "width": 52,
+        "label": "Civil → transformer → switchgear → bay",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Electrical — Battery Containers & PCS",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 40,
+        "width": 30,
+        "label": "Deliver → set → anchor → connect",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Electrical — Cabling & Earthing",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 44,
+        "width": 34,
+        "label": "Earth grid → DC → AC → fibre",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Instrumentation — EMS, SCADA & Fire Systems",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 50,
+        "width": 30,
+        "label": "Controller → SCADA → fire system",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Commissioning — Energisation & Grid-Code Tests",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 78,
+        "width": 22,
+        "label": "Cold → energise → hot → capacity → compliance",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Site Works & Foundations",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Earthworks, drainage & platform",
+        "Container, PCS & transformer pads / piles",
+        "Cable trenches & ducts",
+        "Roads, fence & gate",
+        "Pads surveyed & released for equipment"
+      ]
+    },
+    {
+      "name": "Electrical — Substation & Grid Connection",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Substation civil works & control building",
+        "Receive main transformer & switchgear",
+        "Install main transformer, MV switchgear & protection panels",
+        "HV bay equipment & connection to the grid",
+        "Pre-energisation tests & grid-operator inspection"
+      ]
+    },
+    {
+      "name": "Electrical — Battery Containers & PCS",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive containers, PCS & MV transformers (FAT done)",
+        "Set containers on pads by crane",
+        "Set PCS skids & MV transformers",
+        "Anchor, seal & assemble accessories",
+        "Install battery modules (if shipped separately)"
+      ]
+    },
+    {
+      "name": "Electrical — Cabling & Earthing",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Site earthing grid & bonding",
+        "DC cabling: containers to PCS",
+        "MV cabling: transformers to switchgear",
+        "Auxiliary power & fibre / communication cabling",
+        "Cable tests (insulation, VLF, fibre)"
+      ]
+    },
+    {
+      "name": "Instrumentation — EMS, SCADA & Fire Systems",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install plant controller, EMS & SCADA",
+        "Communication with BMS, PCS & meters",
+        "Fire detection, suppression & site fire-water",
+        "Fire-system acceptance by the authority",
+        "Point-to-point checks & link to the grid operator"
+      ]
+    },
+    {
+      "name": "Commissioning — Energisation & Grid-Code Tests",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        4
+      ],
+      "steps": [
+        "Cold commissioning of each container & PCS",
+        "Substation energisation",
+        "Hot commissioning block by block",
+        "Capacity & round-trip efficiency test",
+        "Grid-code compliance tests (witnessed)",
+        "Reliability run & commercial operation"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "BES",
+      "name": "Battery Energy Storage System (BESS) — Project",
+      "level": 1
+    },
+    {
+      "code": "BES.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "BES.02",
+      "name": "Grid Connection Agreement, Permits & Design",
+      "level": 2
+    },
+    {
+      "code": "BES.02.10",
+      "name": "Grid studies & connection agreement",
+      "level": 3
+    },
+    {
+      "code": "BES.02.20",
+      "name": "Planning & fire-authority approvals",
+      "level": 3
+    },
+    {
+      "code": "BES.02.30",
+      "name": "Detailed design",
+      "level": 3
+    },
+    {
+      "code": "BES.03",
+      "name": "Procurement & Factory Tests",
+      "level": 2
+    },
+    {
+      "code": "BES.03.10",
+      "name": "Battery containers",
+      "level": 3
+    },
+    {
+      "code": "BES.03.20",
+      "name": "PCS & MV transformers",
+      "level": 3
+    },
+    {
+      "code": "BES.03.30",
+      "name": "Main transformer & switchgear",
+      "level": 3
+    },
+    {
+      "code": "BES.04",
+      "name": "Civil Works — Site & Foundations",
+      "level": 2
+    },
+    {
+      "code": "BES.04.10",
+      "name": "Earthworks & drainage",
+      "level": 3
+    },
+    {
+      "code": "BES.04.20",
+      "name": "Equipment pads & piles",
+      "level": 3
+    },
+    {
+      "code": "BES.04.30",
+      "name": "Cable trenches",
+      "level": 3
+    },
+    {
+      "code": "BES.04.40",
+      "name": "Roads & fencing",
+      "level": 3
+    },
+    {
+      "code": "BES.05",
+      "name": "Electrical — Substation & Grid Connection",
+      "level": 2
+    },
+    {
+      "code": "BES.05.10",
+      "name": "Substation civil & control building",
+      "level": 3
+    },
+    {
+      "code": "BES.05.20",
+      "name": "Main transformer",
+      "level": 3
+    },
+    {
+      "code": "BES.05.30",
+      "name": "MV switchgear & protection",
+      "level": 3
+    },
+    {
+      "code": "BES.05.40",
+      "name": "HV bay & grid tie-in",
+      "level": 3
+    },
+    {
+      "code": "BES.06",
+      "name": "Electrical — Battery Containers & PCS",
+      "level": 2
+    },
+    {
+      "code": "BES.06.10",
+      "name": "Battery containers",
+      "level": 3
+    },
+    {
+      "code": "BES.06.20",
+      "name": "PCS skids & MV transformers",
+      "level": 3
+    },
+    {
+      "code": "BES.07",
+      "name": "Electrical — Cabling & Earthing",
+      "level": 2
+    },
+    {
+      "code": "BES.07.10",
+      "name": "Earthing grid",
+      "level": 3
+    },
+    {
+      "code": "BES.07.20",
+      "name": "DC cabling",
+      "level": 3
+    },
+    {
+      "code": "BES.07.30",
+      "name": "MV & auxiliary cabling",
+      "level": 3
+    },
+    {
+      "code": "BES.07.40",
+      "name": "Fibre & communication",
+      "level": 3
+    },
+    {
+      "code": "BES.08",
+      "name": "Control Systems — EMS, SCADA & Fire Systems",
+      "level": 2
+    },
+    {
+      "code": "BES.09",
+      "name": "Commissioning & Grid-Code Tests",
+      "level": 2
+    },
+    {
+      "code": "BES.09.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "BES.09.20",
+      "name": "Energisation & hot commissioning",
+      "level": 3
+    },
+    {
+      "code": "BES.09.30",
+      "name": "Capacity test",
+      "level": 3
+    },
+    {
+      "code": "BES.09.40",
+      "name": "Grid-code compliance & commercial operation",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by block (a group of containers with its PCS and transformer) and by the substation, so each block can be commissioned and counted as available capacity."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar. Energisation and grid-code tests are dated activities agreed with the grid operator; some tests need particular grid conditions."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Two chains meet at energisation: (1) grid agreement → substation → main transformer → pre-energisation tests; (2) pads → containers and PCS → cabling → cold commissioning. Then energisation → hot commissioning by block → capacity test → grid-code tests → commercial operation. The critical path normally runs through the grid connection or the main transformer."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The connection agreement is signed on the assumed date; the grid operator builds or releases its side of the connection on time; containers ship fully tested; the fire authority accepts the layout as designed."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Main power transformer",
+              "12–18 months",
+              "Before substation energisation"
+            ],
+            [
+              "Battery containers",
+              "8–12 months",
+              "Before container installation"
+            ],
+            [
+              "PCS skids & MV transformers",
+              "8–12 months",
+              "Before container installation"
+            ],
+            [
+              "MV / HV switchgear & protection panels",
+              "8–12 months",
+              "Before pre-energisation tests"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy lifts need hardstanding and crane access to every pad. Batteries are dangerous goods in transport and storage; they should not sit on site for long before installation and must be kept within a charge and temperature range."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late grid connection or transformer, container delivery, fire-authority comments changing spacing, communication problems between BMS, PCS and EMS, and failed compliance tests. Contingency is held before the commercial operation date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by block and substation; expanded to Level 4–5 lookahead for the installation and commissioning teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "NFPA 855 — installation of stationary energy storage systems"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 62933 — electrical energy storage systems"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

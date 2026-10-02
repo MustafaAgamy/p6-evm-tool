@@ -2649,6 +2649,1733 @@
    ],
    "applicability": "Applies to sports academy / training facility projects.",
    "notes": "Sports academy / training facility: outdoor pitches, indoor halls and gyms, and accommodation/admin. A mix of sports-civil (pitches, drainage) and standard building work."
+  },
+  {
+   "archetype": "battery_energy_storage",
+   "name": "Battery Energy Storage System (BESS)",
+   "category": "energy",
+   "primary_systems": [
+    "electrical_power",
+    "containment_cabling",
+    "earthing",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "fire_alarm",
+    "fire_fighting",
+    "skids_packaged",
+    "hvac"
+   ],
+   "civil_interfaces": [
+    "platform earthworks & drainage",
+    "container, PCS & transformer pads",
+    "cable trenches & ducts",
+    "substation foundations & control building",
+    "roads, fence & fire-water tank"
+   ],
+   "commissioning_focus": [
+    "cold commissioning per container & PCS",
+    "substation pre-energisation tests",
+    "energisation & hot commissioning by block",
+    "capacity & efficiency test",
+    "grid-code compliance tests"
+   ],
+   "applicability": "Grid-scale and commercial battery storage plants, stand-alone or co-located with solar or wind.",
+   "notes": "Site work is short; the project is long. Grid connection and main transformer, container delivery, fire-authority approval and grid-code compliance testing govern.",
+   "kb_type": "Battery Energy Storage (BESS)"
+  },
+  {
+   "archetype": "green_hydrogen_plant",
+   "name": "Green Hydrogen / Electrolyser Plant",
+   "category": "energy",
+   "primary_systems": [
+    "process_equipment",
+    "process_piping",
+    "electrical_power",
+    "skids_packaged",
+    "tanks_vessels",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "instrumentation",
+    "utilities",
+    "earthing",
+    "fire_fighting",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "electrolyser hall & foundations",
+    "rectifier & transformer bays",
+    "compressor shelter",
+    "storage-vessel foundations & separation walls",
+    "pipe racks & trenches"
+   ],
+   "commissioning_focus": [
+    "NDT & helium leak tests of hydrogen piping",
+    "utilities commissioning",
+    "gas detection & ESD function tests",
+    "nitrogen purging & first hydrogen",
+    "purity & performance test"
+   ],
+   "applicability": "Water-electrolysis hydrogen plants with compression and storage, stand-alone or feeding ammonia, refining or mobility.",
+   "notes": "Modular but a true process plant. Power supply and rectifiers, electrolyser delivery, high-integrity hydrogen piping and proven safety systems before first gas govern.",
+   "kb_type": "Green Hydrogen / Electrolyser"
+  },
+  {
+   "archetype": "hydropower_plant",
+   "name": "Hydropower Plant",
+   "category": "energy",
+   "primary_systems": [
+    "civil_interface",
+    "rotating_equipment",
+    "mechanical_equipment",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "structural_steel",
+    "instrumentation",
+    "containment_cabling",
+    "earthing",
+    "utility_piping",
+    "waterproofing"
+   ],
+   "civil_interfaces": [
+    "river diversion tunnels & cofferdams",
+    "dam foundation excavation & grouting",
+    "dam body & spillway",
+    "tunnels, surge shaft & penstock",
+    "powerhouse first- and second-stage concrete"
+   ],
+   "commissioning_focus": [
+    "spiral-case pressure test",
+    "dry tests of units & gates",
+    "controlled reservoir impoundment",
+    "wet tests & first synchronisation",
+    "load-rejection tests & trial run"
+   ],
+   "applicability": "Storage, run-of-river and pumped-storage hydropower with dam, waterways and powerhouse.",
+   "notes": "Heavy civil works governed by the river's seasons; turbine embedded parts are concreted in stages, tying manufacture to powerhouse concrete. Geology is the main risk; impoundment and unit-by-unit wet tests close the programme.",
+   "kb_type": "Hydropower Plant"
+  },
+  {
+   "archetype": "nuclear_power_plant",
+   "name": "Nuclear Power Plant",
+   "category": "energy",
+   "primary_systems": [
+    "civil_interface",
+    "process_equipment",
+    "rotating_equipment",
+    "process_piping",
+    "electrical_power",
+    "instrumentation",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "structural_steel",
+    "tanks_vessels",
+    "hvac",
+    "fire_fighting",
+    "earthing",
+    "pipe_spool_fabrication"
+   ],
+   "civil_interfaces": [
+    "deep excavation & basemat",
+    "containment with steel liner & pre-stressing",
+    "safety-class buildings with dense reinforcement & embedded parts",
+    "turbine pedestal",
+    "cooling-water intake / towers"
+   ],
+   "commissioning_focus": [
+    "primary-circuit hydrotest (cold functional tests)",
+    "containment integrated leak-rate test",
+    "hot functional tests",
+    "fuel load & first criticality",
+    "power ascension tests"
+   ],
+   "applicability": "Large pressurised- or boiling-water reactor plants; the same logic, shortened, applies to small modular reactors.",
+   "notes": "Licence milestones and regulatory hold points are schedule constraints; nuclear-grade quality records are deliverables; heavy components take years; commissioning is a multi-year, system-driven programme.",
+   "kb_type": "Nuclear Power Plant"
+  },
+  {
+   "archetype": "csp_solar_plant",
+   "name": "Concentrated Solar Power (CSP) Plant",
+   "category": "energy",
+   "primary_systems": [
+    "mechanical_equipment",
+    "process_piping",
+    "tanks_vessels",
+    "rotating_equipment",
+    "civil_interface",
+    "insulation_coating",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "instrumentation",
+    "containment_cabling",
+    "structural_steel",
+    "earthing",
+    "utilities"
+   ],
+   "civil_interfaces": [
+    "mass grading of the solar field",
+    "collector piles / pedestals to tolerance",
+    "slip-formed receiver tower",
+    "salt-tank foundations with cooling",
+    "power-block foundations"
+   ],
+   "commissioning_focus": [
+    "collector alignment & tracking tests",
+    "heat-tracing tests",
+    "salt melting & circulation",
+    "steam blowing & synchronisation",
+    "storage and performance tests"
+   ],
+   "applicability": "Tower and parabolic-trough solar thermal plants with molten-salt storage and a steam power block.",
+   "notes": "A mass-produced solar field plus a demanding thermal plant. Field production rate, tower and receiver, salt tanks with heat tracing and the salt-melting campaign, and the long-lead turbine govern.",
+   "kb_type": "Concentrated Solar Power (CSP)"
+  },
+  {
+   "archetype": "ev_charging_infrastructure",
+   "name": "EV Charging Infrastructure",
+   "category": "energy",
+   "primary_systems": [
+    "electrical_power",
+    "containment_cabling",
+    "civil_interface",
+    "earthing",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "lighting"
+   ],
+   "civil_interfaces": [
+    "trenches & ducts across car parks",
+    "charger & transformer plinths",
+    "bollards, kerbs & drainage",
+    "resurfacing & bay marking",
+    "canopies & lighting columns"
+   ],
+   "commissioning_focus": [
+    "electrical tests (insulation, earth, RCD)",
+    "charger commissioning with the manufacturer",
+    "communication & payment tests",
+    "load-management test",
+    "energisation & go-live"
+   ],
+   "applicability": "Public and fleet EV charging roll-outs: destination AC charging, DC fast-charging hubs and bus / truck depots.",
+   "notes": "Many small sites, each gated by its own agreement and grid connection. Run as a pipeline by stage; chargers and transformers ordered against the pipeline; go-live needs power, data and payment together.",
+   "kb_type": "EV Charging Infrastructure"
+  },
+  {
+   "archetype": "precast_concrete_factory",
+   "name": "Precast Concrete Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "mechanical_equipment",
+    "conveying",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "flat, heavy casting-bed foundations",
+    "prestressing abutments",
+    "batching-plant & silo foundations",
+    "crane-rail foundations for yard gantries",
+    "heavy-duty yard paving"
+   ],
+   "commissioning_focus": [
+    "batching plant calibration & trial mixes",
+    "crane load tests",
+    "dry run of beds / carousel",
+    "first casts & stressing trial",
+    "product strength results & certification"
+   ],
+   "applicability": "Factories producing precast and prestressed concrete elements: hollow-core, wall panels, beams, columns and special products.",
+   "notes": "Simple building, demanding foundations: long flat beds and stressing abutments. Machinery lead time, cranes and product certification after trial casts govern.",
+   "kb_type": "Precast Concrete Factory"
+  },
+  {
+   "archetype": "readymix_batching_plant",
+   "name": "Ready-Mix Batching Plant",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "civil_interface",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "plant & silo foundations",
+    "aggregate ground bays & ramp",
+    "wash-out & water-recycling pits",
+    "heavy-duty yard & truck circulation",
+    "laboratory & office"
+   ],
+   "commissioning_focus": [
+    "no-load run of conveyors & mixer",
+    "witnessed scale calibration",
+    "wet commissioning",
+    "trial mixes & cube results",
+    "mix-design approval"
+   ],
+   "applicability": "Stationary ready-mix concrete plants for commercial supply or dedicated to a large project.",
+   "notes": "Quick to erect; permits, utilities, calibration and mix approvals take longer than the construction itself.",
+   "kb_type": "Ready-Mix Batching Plant"
+  },
+  {
+   "archetype": "asphalt_plant",
+   "name": "Asphalt / Hot-Mix Plant",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "tanks_vessels",
+    "civil_interface",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "dryer & tower foundations",
+    "bunded bitumen & fuel tank area",
+    "cold-feed ramp & aggregate bays",
+    "heavy-duty yard & weighbridge pit",
+    "laboratory & control building"
+   ],
+   "commissioning_focus": [
+    "cold run of drives & conveyors",
+    "thermal-oil heat-up & bitumen circulation",
+    "burner ignition & tuning",
+    "scale calibration & trial mixes",
+    "emission test & job-mix approval"
+   ],
+   "applicability": "Stationary asphalt batch or drum-mix plants for road contractors and commercial supply.",
+   "notes": "Modular plant erected in weeks. Environmental permit, fuel and bitumen systems, slow heat-up, emission test and mix approval govern.",
+   "kb_type": "Asphalt / Hot-Mix Plant"
+  },
+  {
+   "archetype": "brick_block_factory",
+   "name": "Brick & Block Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "block-machine foundation & pits",
+    "kiln & dryer foundations with car track",
+    "curing-chamber structure",
+    "raw-material bays",
+    "product stockyard paving"
+   ],
+   "commissioning_focus": [
+    "dry run of the line",
+    "forming trials & mould adjustment",
+    "kiln refractory dry-out curve",
+    "first firing",
+    "product strength & absorption tests"
+   ],
+   "applicability": "Concrete block and paver plants, and fired clay brick plants with dryer and tunnel kiln.",
+   "notes": "A simple shed around an automated line. For clay bricks the kiln — refractory work, gas supply and a slow dry-out and heat-up — governs.",
+   "kb_type": "Brick & Block Factory"
+  },
+  {
+   "archetype": "ceramic_tile_factory",
+   "name": "Ceramic & Tile Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "ball-mill & press foundations with pits",
+    "spray-dryer tower foundation",
+    "flat kiln-line floor",
+    "slip tanks & underground channels",
+    "raw-material bays"
+   ],
+   "commissioning_focus": [
+    "cold tests section by section",
+    "first powder from the spray dryer",
+    "press trials",
+    "kiln heat-up & first firing",
+    "quality acceptance & performance test"
+   ],
+   "applicability": "Ceramic floor and wall tile and porcelain plants; similar logic applies to sanitaryware with casting and tunnel kilns.",
+   "notes": "One supplier's continuous line inside a long building. Spray dryer and roller kiln fix the layout; gas supply and kiln start-up are the key commissioning events.",
+   "kb_type": "Ceramic & Tile Factory"
+  },
+  {
+   "archetype": "gypsum_board_factory",
+   "name": "Gypsum Board Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "long, level forming-line floor",
+    "dryer foundations",
+    "calciner & silo foundations",
+    "gypsum storage hall",
+    "warehouse floor"
+   ],
+   "commissioning_focus": [
+    "cold run of belt & dryer drives",
+    "calciner heat-up & first stucco",
+    "first board & setting tuning",
+    "dryer balancing",
+    "product certification"
+   ],
+   "applicability": "Plasterboard / drywall plants with calcining, board line, dryer and warehouse.",
+   "notes": "A very long building around a continuous line. Floor tolerance, dryer erection, gas supply and the tuning period after first board govern.",
+   "kb_type": "Gypsum Board Factory"
+  },
+  {
+   "archetype": "mdf_wood_panel_factory",
+   "name": "MDF / Wood Panel Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "structural_steel",
+    "civil_interface",
+    "fire_fighting",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "electrical_power",
+    "insulation_coating",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "continuous-press foundation & pit",
+    "refiner & chipper foundations",
+    "energy-plant foundation",
+    "wood-yard paving",
+    "dryer & cyclone support structures"
+   ],
+   "commissioning_focus": [
+    "spark detection & extinguishing tests",
+    "energy-plant firing & thermal-oil heat-up",
+    "first fibre",
+    "first board through the press",
+    "performance test"
+   ],
+   "applicability": "MDF, HDF, particleboard and OSB plants with wood yard, energy plant and continuous press.",
+   "notes": "Heavy process plant with fire and dust-explosion risk. Continuous press and energy plant are long-lead and lead the commissioning sequence.",
+   "kb_type": "MDF / Wood Panel Factory"
+  },
+  {
+   "archetype": "rebar_rolling_mill",
+   "name": "Reinforcement (Rebar) Rolling Mill",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "rotating_equipment",
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "conveying",
+    "earthing",
+    "insulation_coating"
+   ],
+   "civil_interfaces": [
+    "deep stand foundations with cast-in items",
+    "scale pit & flume channels",
+    "oil & cable cellars",
+    "furnace foundation",
+    "cooling-bed foundations"
+   ],
+   "commissioning_focus": [
+    "oil flushing of hydraulic & lube systems",
+    "cold run of all drives",
+    "water-system commissioning",
+    "furnace dry-out & heat-up",
+    "first hot bar & rolling trials"
+   ],
+   "applicability": "Rebar and wire-rod rolling mills, with or without a melt shop.",
+   "notes": "Heavy mill on deep, complex foundations. Mill alignment, long-lead drives, grid power and the water system govern; hot trials run size by size.",
+   "kb_type": "Reinforcement (Rebar) Factory"
+  },
+  {
+   "archetype": "pipe_factory",
+   "name": "Pipe Factory (Steel & HDPE)",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "structural_steel",
+    "civil_interface",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "long, level line foundations",
+    "hydrotester pit & water tanks",
+    "coating-plant foundations",
+    "heavy-duty pipe-yard paving",
+    "coil / resin storage"
+   ],
+   "commissioning_focus": [
+    "dry run of each line",
+    "welding / extrusion parameter trials",
+    "hydrotest & NDT calibration",
+    "coating trials",
+    "product qualification & certification"
+   ],
+   "applicability": "Steel pipe mills (spiral, longitudinal, ERW) with coating, and HDPE / PVC pipe extrusion plants.",
+   "notes": "Long straight lines in a simple hall. Layout, cooling water and power capacity, the pipe yard and product certification govern.",
+   "kb_type": "Pipe Factory (Steel & HDPE)"
+  },
+  {
+   "archetype": "cable_wire_factory",
+   "name": "Cable & Wire Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "structural_steel",
+    "civil_interface",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "CV tower or catenary building",
+    "machine foundations & cable pits",
+    "screened HV test hall with earthing grid",
+    "degassing rooms",
+    "drum yard paving"
+   ],
+   "commissioning_focus": [
+    "dry run of each machine",
+    "extrusion trials",
+    "CV line start-up",
+    "HV laboratory calibration & routine tests",
+    "type tests & utility approval"
+   ],
+   "applicability": "LV, MV and HV power cable and wire plants; similar logic for communication cable.",
+   "notes": "For MV / HV cable the CV line with its tower, the clean room, degassing and the HV laboratory govern; type tests and approvals follow first production by months.",
+   "kb_type": "Cable & Wire Factory"
+  },
+  {
+   "archetype": "automotive_plant",
+   "name": "Automotive / Vehicle Assembly Plant",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "conveying",
+    "structural_steel",
+    "civil_interface",
+    "hvac",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "electrical_power",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "deep press foundations & scrap tunnels",
+    "paint-shop tank pits & multi-level structure",
+    "flat assembly floors with conveyor pits",
+    "inter-shop conveyor bridges",
+    "energy centre & yards"
+   ],
+   "commissioning_focus": [
+    "die try-out & first panels",
+    "robot programming & first bodies",
+    "paint-shop cleanliness & first paint",
+    "pre-series quality gates",
+    "start of production & ramp-up"
+   ],
+   "applicability": "Vehicle plants with press, body, paint and assembly shops — passenger cars, trucks, buses and EVs.",
+   "notes": "Four linked shops planned backwards from a fixed start of production. Paint shop is the longest chain; press foundations the heaviest civil; building-ready dates per shop are the key interfaces.",
+   "kb_type": "Automotive / Assembly Plant"
+  },
+  {
+   "archetype": "battery_gigafactory",
+   "name": "Battery Cell Factory (Gigafactory)",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "hvac",
+    "chilled_water",
+    "electrical_power",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "conveying",
+    "bms"
+   ],
+   "civil_interfaces": [
+    "large flat production floors",
+    "utility building & pipe bridges",
+    "formation / ageing high-bay structure",
+    "bulk chemical & solvent tank farm",
+    "substation yard"
+   ],
+   "commissioning_focus": [
+    "utility plant commissioning",
+    "dry-room dew-point acceptance",
+    "equipment site acceptance tests",
+    "first cells, formation & ageing",
+    "customer qualification"
+   ],
+   "applicability": "Lithium-ion cell factories with electrode manufacturing, dry-room cell assembly and formation; also module and pack plants.",
+   "notes": "Dry rooms and their utility plant, power demand and fire strategy are the hard parts. Formation, ageing and customer qualification put months between first cell and production.",
+   "kb_type": "Battery / Gigafactory"
+  },
+  {
+   "archetype": "semiconductor_fab",
+   "name": "Semiconductor Fab",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "hvac",
+    "process_piping",
+    "process_equipment",
+    "electrical_power",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_alarm",
+    "chilled_water",
+    "bms"
+   ],
+   "civil_interfaces": [
+    "low-vibration waffle slab & sub-fab",
+    "long-span fab structure",
+    "utility buildings & pipe bridges",
+    "bulk-gas yard & chemical stores",
+    "wastewater treatment plant"
+   ],
+   "commissioning_focus": [
+    "cleanroom certification",
+    "UPW & gas purity certification",
+    "toxic-gas monitoring system test",
+    "tool hook-up sign-off & qualification",
+    "first silicon"
+   ],
+   "applicability": "Wafer fabs, display fabs and similar cleanroom manufacturing with high-purity utilities.",
+   "notes": "A cleanroom wrapped in utilities. Three gates — weather-tight, cleanroom certified, tools hooked up. High-purity systems and tool hook-up are as large as the building.",
+   "kb_type": "Semiconductor Fab"
+  },
+  {
+   "archetype": "textile_factory",
+   "name": "Textile Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "hvac",
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "floor with under-floor air & waste trenches",
+    "machine foundations for cards & looms",
+    "humidification plant rooms",
+    "boiler house & effluent plant",
+    "cotton & fabric warehouses"
+   ],
+   "commissioning_focus": [
+    "machine trial runs by section",
+    "humidity & temperature proof per hall",
+    "yarn & fabric quality tests",
+    "boiler & dye-house commissioning",
+    "effluent plant & discharge approval"
+   ],
+   "applicability": "Spinning mills, weaving and knitting mills, dye houses and integrated textile complexes.",
+   "notes": "Air-conditioned halls with under-floor ducts fixed by the machine layout. Humidification before machinery trials; effluent plant and permit gate the wet section.",
+   "kb_type": "Textile Factory"
+  },
+  {
+   "archetype": "sugar_factory",
+   "name": "Sugar Factory / Mill",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "tanks_vessels",
+    "rotating_equipment",
+    "process_piping",
+    "structural_steel",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "electrical_power",
+    "insulation_coating",
+    "conveying"
+   ],
+   "civil_interfaces": [
+    "mill foundations",
+    "boiler & turbine foundations",
+    "process-house structure & vessel supports",
+    "cane yard & bagasse store",
+    "spray pond / cooling towers & effluent ponds"
+   ],
+   "commissioning_focus": [
+    "no-load run of mills",
+    "water trials",
+    "boiler hydrotest, steam blowing & safety valves",
+    "turbine synchronisation",
+    "steam trials & first crush"
+   ],
+   "applicability": "Cane and beet sugar factories with cogeneration; similar logic for refineries and ethanol distilleries.",
+   "notes": "Process plant plus power plant, tied to the crushing season. Boilers, turbines and the mill tandem are long-lead; water and steam trials must finish before the season starts.",
+   "kb_type": "Sugar Factory / Mill"
+  },
+  {
+   "archetype": "tyre_factory",
+   "name": "Tyre & Rubber Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "mechanical_equipment",
+    "utility_piping",
+    "structural_steel",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "electrical_power",
+    "conveying"
+   ],
+   "civil_interfaces": [
+    "multi-storey mixing tower with heavy floor loads",
+    "curing-press foundations & service trenches",
+    "calender & extruder foundations",
+    "boiler house",
+    "raw-material & finished-tyre warehouses"
+   ],
+   "commissioning_focus": [
+    "machine dry runs by department",
+    "curing-services pressure test",
+    "compound & component trials",
+    "first cured tyre",
+    "tyre tests & homologation"
+   ],
+   "applicability": "Passenger, truck and off-road tyre plants and other moulded rubber product factories.",
+   "notes": "Mixing tower and curing hall are the demanding buildings; steam and hot-water services in trenches are the critical utility. Homologation follows the first tyre by months.",
+   "kb_type": "Tyre & Rubber Factory"
+  },
+  {
+   "archetype": "plastics_factory",
+   "name": "Plastics / Injection-Moulding Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "civil_interface",
+    "structural_steel",
+    "chilled_water",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "flat, high-strength floor",
+    "silo foundations",
+    "utility plant room & cooling towers",
+    "mould store with crane",
+    "warehouse & loading docks"
+   ],
+   "commissioning_focus": [
+    "chilled water & compressed air commissioning",
+    "machine dry cycles & acceptance",
+    "mould trials",
+    "dimensional reports",
+    "customer sample approval"
+   ],
+   "applicability": "Injection-moulding, blow-moulding and extrusion plants for packaging, automotive parts, appliances and consumer goods.",
+   "notes": "A simple hall with generous utilities. Moulds — not machines — are the long-lead item, and each product needs trials and customer approval.",
+   "kb_type": "Plastics / Injection-Moulding Factory"
+  },
+  {
+   "archetype": "paint_coatings_factory",
+   "name": "Paint & Coatings Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "tanks_vessels",
+    "process_piping",
+    "process_equipment",
+    "fire_fighting",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "earthing",
+    "hvac",
+    "civil_interface"
+   ],
+   "civil_interfaces": [
+    "bunded tank farm & unloading bays",
+    "production building with platforms & blast / fire separation",
+    "spill-containment floors & drains",
+    "fire-water tank & pump house",
+    "flammable-goods warehouse"
+   ],
+   "commissioning_focus": [
+    "tank & pipework leak tests",
+    "earthing / bonding records",
+    "Ex installation inspection",
+    "fire-protection acceptance",
+    "first batches & quality approval"
+   ],
+   "applicability": "Solvent- and water-based paint, coatings, inks, resins and adhesives plants.",
+   "notes": "A batch chemical plant handling flammable liquids. Hazardous-area classification, explosion-proof equipment, earthing and authority-accepted fire protection govern design and schedule.",
+   "kb_type": "Paint & Coatings Factory"
+  },
+  {
+   "archetype": "furniture_factory",
+   "name": "Furniture Factory",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "mechanical_equipment",
+    "conveying",
+    "hvac",
+    "civil_interface",
+    "structural_steel",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "hvac",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "flat production floor",
+    "filter & silo foundations outside the hall",
+    "finishing-area enclosure",
+    "boiler house",
+    "warehouse & docks"
+   ],
+   "commissioning_focus": [
+    "dust-extraction balancing",
+    "spark-detection & extinguishing test",
+    "machine acceptance tests",
+    "line integration",
+    "first products & quality tuning"
+   ],
+   "applicability": "Panel-furniture, kitchen, office-furniture, solid-wood and upholstered-furniture factories.",
+   "notes": "A plain hall whose real engineering is the dust-extraction system with spark detection, the finishing line and line integration.",
+   "kb_type": "Furniture Factory"
+  },
+  {
+   "archetype": "aluminium_smelter",
+   "name": "Aluminium Smelter",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "process_equipment",
+    "electrical_power",
+    "structural_steel",
+    "civil_interface",
+    "conveying",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "instrumentation",
+    "containment_cabling",
+    "earthing",
+    "tanks_vessels",
+    "insulation_coating"
+   ],
+   "civil_interfaces": [
+    "potroom buildings with electrically insulated floors",
+    "pot foundations & basements",
+    "baking-furnace foundations",
+    "rectifier yard",
+    "silo, casthouse & port-handling foundations"
+   ],
+   "commissioning_focus": [
+    "rectifier energisation",
+    "baking-furnace dry-out & first anodes",
+    "pot insulation-resistance checks",
+    "pot preheat & start-up sequence",
+    "first metal & full-amperage ramp"
+   ],
+   "applicability": "Primary aluminium smelters with potlines, carbon plant, casthouse and dedicated power supply.",
+   "notes": "Highly repetitive potline construction planned as production lines; power supply and rectifiers, and a carbon plant producing good anodes, gate the start. Pots start a few per day over months.",
+   "kb_type": "Aluminium Smelter"
+  },
+  {
+   "archetype": "overhead_transmission_line",
+   "name": "Overhead Transmission Line (OHTL)",
+   "category": "network_power",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "electrical_power",
+    "earthing",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "containment_cabling",
+    "instrumentation"
+   ],
+   "civil_interfaces": [
+    "access tracks to each tower",
+    "pad-and-chimney / pile / rock foundations",
+    "stub setting to template",
+    "backfill & site reinstatement",
+    "crossing protection structures"
+   ],
+   "commissioning_focus": [
+    "tower footing-resistance measurement",
+    "sag & clearance check",
+    "OPGW splicing & OTDR test",
+    "line insulation / impedance tests",
+    "energisation by the grid operator"
+   ],
+   "applicability": "High-voltage overhead lines on lattice towers or poles between substations or from a power plant to the grid.",
+   "notes": "Three crews in sequence along the route — foundations, erection, stringing. Right-of-way release, crossings and outage dates govern far more than the repetitive work itself.",
+   "kb_type": "Transmission Line (Overhead)"
+  },
+  {
+   "archetype": "underground_cable_network",
+   "name": "Underground Power Cable Circuits (HV / MV)",
+   "category": "network_power",
+   "primary_systems": [
+    "containment_cabling",
+    "electrical_power",
+    "civil_interface",
+    "earthing",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation"
+   ],
+   "civil_interfaces": [
+    "trench excavation & shoring",
+    "duct bank with concrete encasement",
+    "joint bays & link-box pits",
+    "HDD / pipe-jack crossings",
+    "thermal backfill & road reinstatement"
+   ],
+   "commissioning_focus": [
+    "duct proving with mandrel",
+    "sheath integrity test",
+    "HV AC resonant test with PD measurement",
+    "bonding & phasing checks",
+    "outage connection & energisation"
+   ],
+   "applicability": "Buried HV and MV cable circuits between substations or from generation to the grid, in ducts or direct-buried.",
+   "notes": "Civil duct work is the bulk of the time; cable is made to drum lengths, so the route must be frozen early. Certified jointers and the HV test / outage dates govern the end of the programme."
+  },
+  {
+   "archetype": "power_distribution_network",
+   "name": "Power Distribution Network (MV / LV)",
+   "category": "network_power",
+   "primary_systems": [
+    "electrical_power",
+    "containment_cabling",
+    "earthing",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "lighting"
+   ],
+   "civil_interfaces": [
+    "substation plinths / rooms",
+    "road-crossing ducts before road base",
+    "cable trenches with sand, tiles & tape",
+    "feeder-pillar bases",
+    "earthing pits"
+   ],
+   "commissioning_focus": [
+    "cable sheath & VLF / hi-pot tests",
+    "transformer & RMU tests",
+    "earthing resistance tests",
+    "authority inspection per ring",
+    "energisation ring by ring"
+   ],
+   "applicability": "MV / LV distribution for a city district, an industrial estate or a development: distribution substations, MV rings, LV feeders, feeder pillars and service connections.",
+   "notes": "Many small, similar substations linked by MV rings. Transformer and RMU delivery, trench coordination with other utilities, and the authority's stage inspections and energisations govern."
+  },
+  {
+   "archetype": "street_lighting_network",
+   "name": "Street Lighting Network",
+   "category": "network_power",
+   "primary_systems": [
+    "lighting",
+    "containment_cabling",
+    "civil_interface",
+    "earthing"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "commissioning"
+   ],
+   "civil_interfaces": [
+    "ducts & road-crossing ducts",
+    "draw-pits",
+    "pole foundations with anchor bolts",
+    "feeder-pillar bases",
+    "coordination with kerbs & paving"
+   ],
+   "commissioning_focus": [
+    "insulation & continuity tests per circuit",
+    "earthing resistance tests",
+    "energisation circuit by circuit",
+    "night-time lux & uniformity measurement",
+    "municipality inspection"
+   ],
+   "applicability": "Road, street and area lighting: ducts, foundations, poles or high masts, lanterns, feeder pillars and control.",
+   "notes": "Simple repetitive work whose timing is set by the road works: ducts and foundations with the kerbs, poles after paving, energisation when the supply exists. Sits at the end of the road programme with little float."
+  },
+  {
+   "archetype": "telecom_fibre_network",
+   "name": "Telecommunications / Fibre Network",
+   "category": "network_telecom",
+   "primary_systems": [
+    "containment_cabling",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "earthing",
+    "hvac",
+    "fire_alarm"
+   ],
+   "civil_interfaces": [
+    "road-crossing ducts before road base",
+    "trenching, ducts & sub-ducts",
+    "manholes & handholes",
+    "POP / exchange building",
+    "street-cabinet bases"
+   ],
+   "commissioning_focus": [
+    "duct proving (rod & mandrel)",
+    "splice-loss records",
+    "OTDR & loss test of every fibre",
+    "active equipment power-on & configuration",
+    "service activation area by area"
+   ],
+   "applicability": "Fibre and telecom outside-plant networks (FTTH / backbone) for cities and developments: ducts, chambers, fibre cable, cabinets, POP and active equipment.",
+   "notes": "A civil duct-and-chamber programme with a short technical finish. Road-crossing ducts before road base; ducts proved before cabling; POP power and operator acceptance of OTDR results close the programme.",
+   "kb_type": "Telecommunications / Fibre Network"
+  },
+  {
+   "archetype": "gas_distribution_network",
+   "name": "Gas Distribution Network",
+   "category": "network_gas",
+   "primary_systems": [
+    "utility_piping",
+    "skids_packaged",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "earthing",
+    "insulation_coating"
+   ],
+   "civil_interfaces": [
+    "trenching with sand surround",
+    "protection slabs, warning tape & marker posts",
+    "PRS compound & skid foundation",
+    "sleeved / trenchless road crossings",
+    "valve pits"
+   ],
+   "commissioning_focus": [
+    "weld NDT & fusion joint records",
+    "strength & tightness tests (witnessed)",
+    "CP commissioning survey",
+    "PRS commissioning",
+    "purging & gas-in by the gas company"
+   ],
+   "applicability": "Natural-gas distribution for towns, districts and industrial estates: pressure-reducing station, steel feeders, PE mains, service lines and meters.",
+   "notes": "Fast PE laying controlled by qualified fusion teams and traceable joints. The PRS skid is long-lead; pressure test, gas company inspection and gas-in are dated end milestones."
+  },
+  {
+   "archetype": "its_traffic_systems",
+   "name": "Traffic Signals & ITS Network",
+   "category": "network_telecom",
+   "primary_systems": [
+    "containment_cabling",
+    "instrumentation",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "earthing",
+    "structural_steel",
+    "lighting"
+   ],
+   "civil_interfaces": [
+    "road-crossing ducts before road base",
+    "ducts & chambers",
+    "pole & cabinet foundations",
+    "gantry foundations",
+    "loop slots after final asphalt"
+   ],
+   "commissioning_focus": [
+    "factory acceptance tests",
+    "conflict monitor & site acceptance tests",
+    "fibre OTDR tests",
+    "integration with the traffic control centre",
+    "witnessed switch-on per junction"
+   ],
+   "applicability": "Signalised junctions and ITS on urban roads and highways: signals, detection, CCTV, VMS, enforcement, communications and control-centre integration.",
+   "notes": "Civil works built into the road early; equipment late and fast; software configuration, SAT, control-centre integration and witnessed switch-on are the real finish."
+  },
+  {
+   "archetype": "cross_country_pipeline",
+   "name": "Cross-Country Pipeline (Oil / Gas / Water)",
+   "category": "network_gas",
+   "primary_systems": [
+    "utility_piping",
+    "pipe_spool_fabrication",
+    "insulation_coating",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "instrumentation",
+    "earthing",
+    "skids_packaged",
+    "electrical_power"
+   ],
+   "civil_interfaces": [
+    "right-of-way clearing & grading",
+    "trench excavation & rock breaking",
+    "padding, backfill & reinstatement",
+    "river / road / rail crossings",
+    "station foundations"
+   ],
+   "commissioning_focus": [
+    "weld NDT acceptance",
+    "holiday test before lowering",
+    "cleaning & gauging pig runs",
+    "hydrostatic test by section",
+    "dewatering, drying & product-in"
+   ],
+   "applicability": "Long-distance oil, gas, product or water transmission pipelines with their valve, pigging, pump or compressor and metering stations.",
+   "notes": "Built by a moving spread; welds per day set the pace. Line pipe delivery, right-of-way, special crossings, long-lead station equipment and the hydrotest / drying at the end govern.",
+   "kb_type": "Pipeline"
+  },
+  {
+   "archetype": "district_cooling_network",
+   "name": "District Cooling Distribution Network",
+   "category": "network_wet",
+   "primary_systems": [
+    "chilled_water",
+    "utility_piping",
+    "insulation_coating",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "mechanical_equipment",
+    "instrumentation",
+    "bms"
+   ],
+   "civil_interfaces": [
+    "wide twin-pipe trench & shoring",
+    "sand bedding & backfill",
+    "valve chambers",
+    "road crossings (culvert / sleeve)",
+    "reinstatement"
+   ],
+   "commissioning_focus": [
+    "weld NDT",
+    "leak-detection loop test",
+    "hydrostatic test by section",
+    "flushing, chemical cleaning & passivation",
+    "ETS commissioning & hydraulic balancing"
+   ],
+   "applicability": "Buried chilled-water supply and return networks from a district cooling plant to building energy transfer stations.",
+   "notes": "Large twin pre-insulated pipes: wide trench, qualified welding, joint insulation with leak detection. Flushing and cleaning to the operator's water quality, and readiness of each building's ETS, close the programme."
+  },
+  {
+   "archetype": "utility_tunnel",
+   "name": "Common Utility Tunnel / Service Corridor",
+   "category": "network_multi",
+   "primary_systems": [
+    "civil_interface",
+    "waterproofing",
+    "containment_cabling",
+    "utility_piping",
+    "hvac"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "lighting",
+    "fire_alarm",
+    "earthing",
+    "commissioning",
+    "bms"
+   ],
+   "civil_interfaces": [
+    "shoring, dewatering & deep excavation",
+    "cut-and-cover box structure by bay",
+    "waterproofing & movement joints",
+    "access, ventilation shafts & branch chambers",
+    "backfill & road formation above"
+   ],
+   "commissioning_focus": [
+    "waterproofing inspection before backfill",
+    "ventilation & drainage commissioning",
+    "fire / gas detection cause-and-effect test",
+    "earthing & bonding checks",
+    "handover to utility owners and the operator"
+   ],
+   "applicability": "Walk-through utility tunnels and service corridors under roads in new cities, campuses, airports and industrial estates.",
+   "notes": "A long cut-and-cover concrete box built bay by bay, then fitted with its own services, then occupied by each utility owner in turn. Space agreements between owners and their installation slots are as critical as the concrete."
+  },
+  {
+   "archetype": "site_infrastructure_networks",
+   "name": "Site Infrastructure — Roads & All Utility Networks",
+   "category": "network_multi",
+   "primary_systems": [
+    "utility_piping",
+    "civil_interface",
+    "electrical_power",
+    "containment_cabling",
+    "lighting",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "earthing",
+    "instrumentation",
+    "fire_fighting"
+   ],
+   "civil_interfaces": [
+    "earthworks to formation",
+    "trenches in a shared utility corridor",
+    "manholes, chambers & substation plinths",
+    "road-crossing ducts & sleeves before road base",
+    "kerbs, road layers & footpaths"
+   ],
+   "commissioning_focus": [
+    "sewer / drain leakage tests & CCTV",
+    "water pressure test & disinfection",
+    "cable tests & authority energisation",
+    "pumping-station commissioning",
+    "handover of each network to its authority"
+   ],
+   "applicability": "Infrastructure packages of developments, industrial estates and city districts where roads and all wet and dry utility networks are built together.",
+   "notes": "All networks in one corridor, built deepest-first and tested before being covered; road-crossing ducts before road base; wearing course last. Released zone by zone with a separate authority handover for each network."
+  },
+  {
+   "archetype": "light_rail_tram",
+   "name": "Light Rail / Tram",
+   "category": "infrastructure_transit",
+   "primary_systems": [
+    "civil_interface",
+    "electrical_power",
+    "containment_cabling",
+    "instrumentation",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "structural_steel",
+    "earthing",
+    "lighting",
+    "mechanical_equipment"
+   ],
+   "civil_interfaces": [
+    "utility diversions out of the track zone",
+    "track bed & concrete track slab",
+    "embedded rail & street reconstruction",
+    "stops, bridges & retaining walls",
+    "depot earthworks, track & buildings"
+   ],
+   "commissioning_focus": [
+    "track geometry & rail-weld acceptance",
+    "OCS energisation by section",
+    "signalling & junction-priority tests",
+    "system integration & dynamic testing",
+    "trial running & safety authority approval"
+   ],
+   "applicability": "Street-running tram and light-rail lines with stops, overhead line, traction substations, depot and rolling stock.",
+   "notes": "A railway built in live streets: utility diversions and traffic staging govern the civil work; rolling stock and systems are long-lead; integration tests, trial running and safety approval need months at the end.",
+   "kb_type": "Light Rail / Tram"
+  },
+  {
+   "archetype": "irrigation_canals",
+   "name": "Irrigation Canals & Hydraulic Structures",
+   "category": "water_infrastructure",
+   "primary_systems": [
+    "civil_interface",
+    "mechanical_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "electrical_power",
+    "structural_steel",
+    "waterproofing"
+   ],
+   "civil_interfaces": [
+    "canal excavation & embankment by reach",
+    "trimming & lining",
+    "regulators, intakes & turnouts",
+    "siphons, aqueducts & bridges",
+    "service roads & side drains"
+   ],
+   "commissioning_focus": [
+    "sub-grade inspection before lining",
+    "dry operation test of gates",
+    "watering by reach & seepage observation",
+    "wet test of regulators",
+    "telemetry / remote operation test"
+   ],
+   "applicability": "New or rehabilitated irrigation and conveyance canals with regulators, intakes, siphons, aqueducts, bridges and gates.",
+   "notes": "Earthworks and lining by reach with structures built in the dry. The irrigation season and the canal closure fix the dates; gates are the long-lead item that decides when a reach can be watered.",
+   "kb_type": "Irrigation & Canals"
+  },
+  {
+   "archetype": "water_supply_network",
+   "name": "Potable Water Supply Network",
+   "category": "network_wet",
+   "primary_systems": [
+    "utility_piping",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "earthing"
+   ],
+   "civil_interfaces": [
+    "trench excavation, shoring & dewatering",
+    "bedding, backfill & compaction",
+    "thrust blocks at bends and tees",
+    "valve & meter chambers",
+    "road crossings & reinstatement"
+   ],
+   "commissioning_focus": [
+    "hydrostatic pressure test section by section",
+    "swabbing & flushing",
+    "disinfection & bacteriological sampling",
+    "valve operation check",
+    "live tie-in during an authority shutdown"
+   ],
+   "applicability": "Drinking-water transmission and distribution mains with valves, hydrants, house connections and meters, for a city district, a development or a trunk route.",
+   "notes": "Pressure-pipe network laid at a fixed cover along the roads; driven by metres laid per day and pipe deliveries. Pressure test, disinfection with laboratory samples, and the authority shutdown for the live tie-in close the programme."
+  },
+  {
+   "archetype": "sewerage_network",
+   "name": "Sewerage Network (Gravity Sewers & Rising Mains)",
+   "category": "network_wet",
+   "primary_systems": [
+    "utility_piping",
+    "civil_interface",
+    "rotating_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "instrumentation",
+    "mechanical_equipment",
+    "containment_cabling"
+   ],
+   "civil_interfaces": [
+    "deep trench excavation, shoring & dewatering",
+    "manholes & inspection chambers",
+    "pumping-station wet well & valve chamber",
+    "micro-tunnel / pipe-jack shafts",
+    "backfill, compaction & road reinstatement"
+   ],
+   "commissioning_focus": [
+    "air / water leakage test of each sewer run",
+    "CCTV survey & mandrel test",
+    "rising-main pressure test",
+    "pump-station wet commissioning & control test",
+    "connection to the existing system with flow diversion"
+   ],
+   "applicability": "Wastewater collection: gravity trunk and lateral sewers with manholes and house connections, lift or pumping stations and rising mains.",
+   "notes": "Deepest utility, laid to gradient from the outfall upstream; deep excavation and dewatering control the rate. The pumping station is a long parallel job. Leakage tests and CCTV acceptance come before reinstatement and handover."
+  },
+  {
+   "archetype": "stormwater_drainage_network",
+   "name": "Stormwater Drainage Network",
+   "category": "network_wet",
+   "primary_systems": [
+    "civil_interface",
+    "utility_piping",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "electrical_power",
+    "instrumentation"
+   ],
+   "civil_interfaces": [
+    "wide trench excavation & dewatering",
+    "box culverts (precast / in-situ)",
+    "outfall headwall & erosion protection",
+    "manholes, junction chambers & gullies",
+    "detention ponds, channels & soakaways"
+   ],
+   "commissioning_focus": [
+    "cleaning & CCTV / walk-through inspection",
+    "as-built level survey",
+    "pumping-station wet test & level control",
+    "flap-valve / penstock operation",
+    "handover to the municipality"
+   ],
+   "applicability": "Surface-water drainage of roads and developments: trunk drains and culverts, laterals, gullies, outfalls, ponds and storm pumping stations.",
+   "notes": "Large gravity pipes and culverts built from the outfall upstream; heavy civil content. Rainy season and the road-works sequence (gullies with kerbs, before final asphalt) shape the programme."
+  },
+  {
+   "archetype": "irrigation_network",
+   "name": "Irrigation & TSE Network",
+   "category": "network_wet",
+   "primary_systems": [
+    "utility_piping",
+    "civil_interface",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "rotating_equipment",
+    "instrumentation",
+    "electrical_power"
+   ],
+   "civil_interfaces": [
+    "road & paving sleeves before road base",
+    "shallow trenching, sand bedding & backfill",
+    "storage tank & pump room",
+    "valve boxes & chambers",
+    "thrust blocks on main lines"
+   ],
+   "commissioning_focus": [
+    "main-line pressure test & flushing",
+    "pump-station commissioning",
+    "zone-by-zone pressure & coverage test",
+    "controller programming & sensor check",
+    "operation through plant establishment"
+   ],
+   "applicability": "Irrigation of landscape, streetscape and parks from TSE or wells: tank, pump station, main lines, zone valves, laterals, emitters and central control.",
+   "notes": "Shallow, fast pipe work whose timing is set by other trades: sleeves before roads, network operating before planting, planting by season. Pump-station power and the water source are the outside dependencies."
+  },
+  {
+   "archetype": "fire_water_network",
+   "name": "Fire Water Ring Main & Hydrant Network",
+   "category": "network_wet",
+   "primary_systems": [
+    "fire_fighting",
+    "utility_piping",
+    "rotating_equipment",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "civil_interface",
+    "electrical_power",
+    "tanks_vessels",
+    "fire_alarm"
+   ],
+   "civil_interfaces": [
+    "trenching, bedding & backfill along the ring",
+    "thrust blocks at bends & tees",
+    "tank foundation / ring beam",
+    "pump-house structure & plinths",
+    "hydrant & valve pits"
+   ],
+   "commissioning_focus": [
+    "high-velocity flushing",
+    "witnessed hydrostatic test",
+    "fire pump acceptance test",
+    "hydrant flow test at the most remote point",
+    "authority / insurer inspection & certificate"
+   ],
+   "applicability": "Site-wide fire water systems for plants, tank farms, logistics parks and developments: tank, fire pumps, buried ring main, hydrants, monitors and feeds to sprinkler and deluge systems.",
+   "notes": "Life-safety system with listed, long-lead fire pumps. Completion is fixed by the first fuel / occupancy date; flushing, witnessed pressure test, pump acceptance and authority approval close the programme."
+  },
+  {
+   "archetype": "fertilizer_ammonia_plant",
+   "name": "Fertilizer / Ammonia-Urea Plant",
+   "category": "industrial_process",
+   "primary_systems": [
+    "process_equipment",
+    "process_piping",
+    "rotating_equipment",
+    "tanks_vessels",
+    "pipe_spool_fabrication",
+    "pipe_racks",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "instrumentation",
+    "electrical_power",
+    "insulation_coating",
+    "structural_steel",
+    "utilities",
+    "fire_fighting",
+    "civil_interface",
+    "conveying"
+   ],
+   "civil_interfaces": [
+    "piling & heavy compressor foundations",
+    "reformer foundation & structure",
+    "pipe racks & tall structures",
+    "prilling / granulation tower",
+    "ammonia tank foundations & urea storage shed"
+   ],
+   "commissioning_focus": [
+    "hydrotest by test pack",
+    "lube-oil flushing & compressor solo runs",
+    "steam blowing & chemical cleaning",
+    "catalyst loading & reformer dry-out",
+    "first ammonia, first urea & performance test"
+   ],
+   "applicability": "Ammonia, urea, nitric acid, ammonium nitrate and NPK fertilizer complexes.",
+   "notes": "Classic process EPC: long-lead compressors and HP equipment, piping as the bulk of the work, utilities first, and a fixed start-up order ending in a guaranteed performance test.",
+   "kb_type": "Fertilizer / Ammonia Plant"
+  },
+  {
+   "archetype": "offshore_platform",
+   "name": "Offshore Platform / FPSO",
+   "category": "industrial_process",
+   "primary_systems": [
+    "structural_steel",
+    "process_equipment",
+    "process_piping",
+    "rotating_equipment",
+    "skids_packaged",
+    "pipe_spool_fabrication",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "electrical_power",
+    "instrumentation",
+    "containment_cabling",
+    "fire_fighting",
+    "insulation_coating",
+    "hvac",
+    "local_fabrication"
+   ],
+   "civil_interfaces": [
+    "yard skidways & load-out quay",
+    "jacket & deck assembly supports",
+    "sea-fastening & grillage",
+    "offshore piling",
+    "no conventional civil works offshore"
+   ],
+   "commissioning_focus": [
+    "hydrotest & leak test by system",
+    "loop checks & function tests in the yard",
+    "load-out & installation surveys",
+    "fire & gas / ESD tests",
+    "first oil / first gas"
+   ],
+   "applicability": "Fixed platforms (jacket and topsides), wellhead platforms and floating production units fabricated onshore and installed offshore.",
+   "notes": "Built onshore, finished offshore. Planned backwards from the installation vessel's weather window; completion in the yard by system, weight control and minimising carry-over work are decisive.",
+   "kb_type": "Offshore Platform / FPSO"
+  },
+  {
+   "archetype": "shipyard",
+   "name": "Shipyard / Ship-Building Facility",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "civil_interface",
+    "structural_steel",
+    "mechanical_equipment",
+    "conveying",
+    "electrical_power",
+    "commissioning"
+   ],
+   "secondary_systems": [
+    "utility_piping",
+    "utilities",
+    "rotating_equipment",
+    "containment_cabling",
+    "earthing",
+    "hvac",
+    "waterproofing"
+   ],
+   "civil_interfaces": [
+    "dredging, reclamation & ground improvement",
+    "cofferdam, deep excavation & dewatering",
+    "dock floor, walls & gate sill",
+    "quay walls & service tunnels",
+    "heavy-duty paving & crane-rail foundations"
+   ],
+   "commissioning_focus": [
+    "dock pump & gate dry tests",
+    "first flooding & gate leakage test",
+    "crane load tests & certification",
+    "production-line trials",
+    "ship-lift load test (where used)"
+   ],
+   "applicability": "New-build and repair shipyards with dry dock or ship lift, outfitting quays, fabrication halls and heavy cranes.",
+   "notes": "Heavy marine works plus a large factory. The dry dock is the longest and riskiest chain; the goliath crane and dock gate are the long-lead items; halls follow the production flow of steel.",
+   "kb_type": "Shipyard / Ship Building"
+  },
+  {
+   "archetype": "steel_structure_project",
+   "name": "Steel Structures (Fabrication & Erection)",
+   "category": "industrial_manufacturing",
+   "primary_systems": [
+    "structural_steel",
+    "local_fabrication",
+    "civil_interface",
+    "insulation_coating"
+   ],
+   "secondary_systems": [
+    "architectural_finishing",
+    "earthing",
+    "commissioning"
+   ],
+   "civil_interfaces": [
+    "anchor bolts set to template & surveyed",
+    "foundation handover in erection sequence",
+    "crane pads & access roads",
+    "laydown area",
+    "base-plate grouting"
+   ],
+   "commissioning_focus": [
+    "weld NDT & dimensional inspection in the shop",
+    "coating thickness inspection",
+    "bolt-tightening inspection",
+    "plumb & alignment survey",
+    "as-built survey & handover"
+   ],
+   "applicability": "Structural steel packages for industrial buildings, pipe racks, hangars, warehouses, long-span roofs and multi-storey frames.",
+   "notes": "A supply chain: shop-drawing approval, steel procurement and shop throughput decide the dates; fabrication and delivery must follow the erection sequence; foundations with surveyed anchor bolts gate the first lift.",
+   "kb_type": "Steel Structures"
   }
  ]
 }

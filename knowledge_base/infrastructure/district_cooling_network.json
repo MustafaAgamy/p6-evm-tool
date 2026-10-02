@@ -1,0 +1,237 @@
+{
+  "category": "Infrastructure",
+  "type": "District Cooling Distribution Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "district cooling",
+    "chilled water network",
+    "chilled water pipe",
+    "pre-insulated",
+    "preinsulated",
+    "ets",
+    "energy transfer station",
+    "heat exchanger",
+    "joint casing",
+    "leak detection",
+    "flushing",
+    "passivation",
+    "btu meter"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approval",
+      "keywords": [
+        "design",
+        "approval",
+        "hydraulic"
+      ]
+    },
+    {
+      "name": "Trenching",
+      "keywords": [
+        "trench",
+        "excavation",
+        "bedding"
+      ]
+    },
+    {
+      "name": "Pipe Laying & Welding",
+      "keywords": [
+        "pipe laying",
+        "welding",
+        "chilled water pipe",
+        "pre-insulated"
+      ]
+    },
+    {
+      "name": "Joint Insulation",
+      "keywords": [
+        "joint casing",
+        "joint insulation",
+        "foaming",
+        "leak detection"
+      ]
+    },
+    {
+      "name": "Valve Chambers",
+      "keywords": [
+        "valve chamber",
+        "chamber",
+        "valve"
+      ]
+    },
+    {
+      "name": "Energy Transfer Stations",
+      "keywords": [
+        "ets",
+        "energy transfer",
+        "heat exchanger"
+      ]
+    },
+    {
+      "name": "Pressure Testing",
+      "keywords": [
+        "pressure test",
+        "hydrotest",
+        "hydrostatic"
+      ]
+    },
+    {
+      "name": "Flushing & Commissioning",
+      "keywords": [
+        "flushing",
+        "chemical cleaning",
+        "passivation",
+        "commissioning",
+        "balancing"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Pre-insulated Pipe Delivery",
+      "keywords": [
+        "pre-insulated",
+        "pipe delivery",
+        "procure"
+      ],
+      "wbs": "Pipe Laying & Welding",
+      "typical_pred": "Design & Approval",
+      "typical_succ": "Pipe Laying & Welding",
+      "duration_days": 130,
+      "why": "The pipe is made to order and must be on site ahead of the welding teams."
+    },
+    {
+      "name": "Pipe Laying & Welding",
+      "keywords": [
+        "pipe laying",
+        "welding"
+      ],
+      "wbs": "Pipe Laying & Welding",
+      "typical_pred": "Trenching",
+      "typical_succ": "Joint Insulation",
+      "duration_days": 80,
+      "why": "Welding by qualified welders is the pace-setting activity."
+    },
+    {
+      "name": "Joint Insulation & Leak-Detection Test",
+      "keywords": [
+        "joint casing",
+        "joint insulation",
+        "leak detection"
+      ],
+      "wbs": "Joint Insulation",
+      "typical_pred": "Pipe Laying & Welding",
+      "typical_succ": "Backfill",
+      "duration_days": 40,
+      "why": "Every joint is insulated, sealed and its alarm loop tested before backfill."
+    },
+    {
+      "name": "ETS Installation",
+      "keywords": [
+        "ets",
+        "heat exchanger"
+      ],
+      "wbs": "Energy Transfer Stations",
+      "typical_pred": "ETS Room Handover",
+      "typical_succ": "Flushing & Commissioning",
+      "duration_days": 45,
+      "why": "Each building needs its ETS before it can take chilled water."
+    },
+    {
+      "name": "Flushing & Chemical Cleaning",
+      "keywords": [
+        "flushing",
+        "chemical cleaning",
+        "passivation"
+      ],
+      "wbs": "Flushing & Commissioning",
+      "typical_pred": "Pressure Testing",
+      "typical_succ": "Chilled Water On",
+      "duration_days": 35,
+      "why": "The network is flushed and cleaned to the operator's water-quality standard before it is connected to the plant."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "trench",
+        "bedding"
+      ],
+      "after_keywords": [
+        "pipe laying",
+        "welding"
+      ],
+      "reason": "Pipe is laid and welded in a prepared trench.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "welding"
+      ],
+      "after_keywords": [
+        "ndt",
+        "joint casing",
+        "joint insulation"
+      ],
+      "reason": "Weld testing and joint insulation follow welding.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "joint insulation",
+        "joint casing",
+        "pressure test",
+        "hydrotest"
+      ],
+      "after_keywords": [
+        "backfill"
+      ],
+      "reason": "Backfill follows joint completion and a passed test.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "pressure test",
+        "hydrotest"
+      ],
+      "after_keywords": [
+        "flushing",
+        "chemical cleaning"
+      ],
+      "reason": "Flushing follows a passed pressure test.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "flushing",
+        "chemical cleaning",
+        "ets"
+      ],
+      "after_keywords": [
+        "commissioning",
+        "chilled water on",
+        "balancing"
+      ],
+      "reason": "Commissioning follows cleaning and ETS installation.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Corridor Approved",
+    "Pipe Delivered",
+    "Welding Complete",
+    "Pressure Tests Passed",
+    "Flushing Accepted",
+    "First ETS Commissioned",
+    "Chilled Water On"
+  ],
+  "common_issues": [
+    "Flushing and cleaning durations missing",
+    "ETS room handover not tracked",
+    "Backfill before joint alarm test",
+    "Plant readiness not linked",
+    "Welder productivity overstated"
+  ]
+}

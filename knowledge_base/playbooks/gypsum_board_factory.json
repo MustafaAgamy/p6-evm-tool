@@ -1,0 +1,688 @@
+{
+  "archetype": "gypsum_board_factory",
+  "schema": 2,
+  "context": "process factory · calcining plant, long board line and multi-deck dryer",
+  "brief": {
+    "intro": "New to this project type? A gypsum board plant has two parts. First, gypsum rock or synthetic gypsum is crushed and heated in a calciner to make stucco (plaster). Second, on the board line, the stucco is mixed with water and additives into a slurry, poured between two sheets of paper on a moving belt, and — because it needs a few minutes to set — the belt is several hundred metres long. The set board is cut, turned and sent through a multi-deck dryer the size of a building, then trimmed, bundled and stacked. The factory is therefore very long and thin. The dryer and the calciner are the big, gas-fired items; the forming line demands a dead-straight, level floor along its whole length.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Gypsum storage & crushing",
+        "desc": "Rock or synthetic gypsum handling, crusher and feed silos."
+      },
+      {
+        "name": "Calcining plant",
+        "desc": "Mill-calciner or kettle, cooler and stucco silos."
+      },
+      {
+        "name": "Paper handling & mixing",
+        "desc": "Paper unwinders and splicers, additive dosing and pin mixer."
+      },
+      {
+        "name": "Forming line",
+        "desc": "Forming station and long setting belt to the cutting knife."
+      },
+      {
+        "name": "Wet transfer & dryer",
+        "desc": "Turner, dryer in-feed, multi-deck gas-fired dryer."
+      },
+      {
+        "name": "Dry end",
+        "desc": "Trimming saws, bundler, stacker and dunnage."
+      },
+      {
+        "name": "Warehouse & dispatch",
+        "desc": "Board storage and truck loading."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Natural gas supply, Process water, Compressed air, Dust collection — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Calciner start-up for first stucco, first board on the line, dryer balancing and product certification."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Stucco",
+        "plain": "calcined gypsum powder (plaster) — the binder of the board."
+      },
+      {
+        "term": "Calcining",
+        "plain": "heating gypsum to drive off part of its water so it will set again when wetted."
+      },
+      {
+        "term": "Pin mixer",
+        "plain": "the high-speed mixer that makes the slurry just before it is poured."
+      },
+      {
+        "term": "Forming belt",
+        "plain": "the long moving belt on which the board sets between the paper liners."
+      },
+      {
+        "term": "Setting time",
+        "plain": "the minutes the slurry needs to harden; it fixes how long the belt must be at a given speed."
+      },
+      {
+        "term": "Multi-deck dryer",
+        "plain": "a large oven with many levels through which the boards travel to dry."
+      },
+      {
+        "term": "Wet end / dry end",
+        "plain": "the part of the line before the dryer and the part after it."
+      },
+      {
+        "term": "Synthetic gypsum (FGD)",
+        "plain": "gypsum produced as a by-product of power-station flue-gas cleaning."
+      }
+    ],
+    "must_get_right": [
+      "The forming line needs a straight, level floor over hundreds of metres — treat floor tolerance as a critical quality gate before installation.",
+      "The dryer is a major erection job in its own right (steel, insulated panels, fans, burners); give it its own crew and sequence.",
+      "Gas at the right pressure is needed for both calciner and dryer; track the connection as a milestone.",
+      "First board is not the finish: dryer balancing and product certification take weeks."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Board Line & Calcining Plant",
+      "desc": "Calciner, mixer, forming belt, dryer and dry end",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Natural gas supply, Process water, Compressed air, Dust collection",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Board Line & Calcining Plant",
+      "items": [
+        "Gypsum storage & crushing",
+        "Calcining plant",
+        "Paper handling & mixing",
+        "Forming line",
+        "Wet transfer & dryer",
+        "Dry end",
+        "Warehouse & dispatch"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Natural gas supply",
+        "Process water",
+        "Compressed air",
+        "Dust collection"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Board Line & Calcining Plant",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Calciner → mixer → forming belt → dryer → dry end",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Cold run → stucco → first board → dryer tuning",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Board Line & Calcining Plant",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive line equipment",
+        "Erect calcining plant, mill & stucco silos",
+        "Install paper station & mixer platform",
+        "Install forming belt & roller conveyors (aligned over full length)",
+        "Erect multi-deck dryer, burners & fans",
+        "Install dry-end saws, bundler & stacker"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: natural gas supply, process water, compressed air",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        5
+      ],
+      "steps": [
+        "Cold run of conveyors, belt & dryer drives",
+        "Calciner heat-up & first stucco",
+        "Stucco quality tests",
+        "First board & setting-time tuning",
+        "Dryer temperature balancing",
+        "Product tests & certification",
+        "Ramp-up & performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "GBF",
+      "name": "Gypsum Board Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "GBF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "GBF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "GBF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "GBF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "GBF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "GBF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "GBF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "GBF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "GBF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "GBF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "GBF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "GBF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "GBF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "GBF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "GBF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "GBF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "GBF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "GBF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "GBF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "GBF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "GBF.06.10",
+      "name": "Gypsum storage & crushing",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.20",
+      "name": "Calcining plant",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.30",
+      "name": "Paper handling & mixing",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.40",
+      "name": "Forming line",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.50",
+      "name": "Wet transfer & dryer",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.60",
+      "name": "Dry end",
+      "level": 3
+    },
+    {
+      "code": "GBF.06.70",
+      "name": "Warehouse & dispatch",
+      "level": 3
+    },
+    {
+      "code": "GBF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "GBF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "GBF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "GBF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "GBF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "GBF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "GBF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "GBF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "GBF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "GBF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "GBF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "GBF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "GBF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Supplier drawings → foundations and long line floor → building → calcining plant and dryer erection in parallel with the forming line → gas, power, water → cold run → calciner start-up → first board → dryer tuning → certification. The critical path runs through the line delivery and the dryer erection."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Board line (forming, dryer, dry end)",
+              "28–40 weeks",
+              "Before line installation"
+            ],
+            [
+              "Calcining plant (mill-calciner, cooler)",
+              "24–34 weeks",
+              "Before calciner erection"
+            ],
+            [
+              "Paper handling & mixer equipment",
+              "18–24 weeks",
+              "Before wet-end installation"
+            ],
+            [
+              "Stucco silos & conveying",
+              "14–20 weeks",
+              "Before calciner commissioning"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: floor out of tolerance, late line equipment, gas connection, and a long tuning period for board quality. Contingency is held before first saleable board."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

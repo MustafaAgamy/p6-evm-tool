@@ -1,0 +1,236 @@
+{
+  "category": "Infrastructure",
+  "type": "Irrigation & TSE Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "irrigation",
+    "tse",
+    "drip",
+    "bubbler",
+    "sprinkler",
+    "solenoid",
+    "valve box",
+    "lateral",
+    "main line",
+    "mainline",
+    "irrigation pump",
+    "controller",
+    "fertigation",
+    "sleeve",
+    "emitter",
+    "softscape"
+  ],
+  "wbs": [
+    {
+      "name": "Design & Approvals",
+      "keywords": [
+        "shop drawing",
+        "design",
+        "approval",
+        "submittal"
+      ]
+    },
+    {
+      "name": "Sleeves",
+      "keywords": [
+        "sleeve",
+        "road crossing",
+        "duct"
+      ]
+    },
+    {
+      "name": "Tank & Pump Station",
+      "keywords": [
+        "tank",
+        "pump station",
+        "pump room",
+        "irrigation pump",
+        "filter"
+      ]
+    },
+    {
+      "name": "Main Lines",
+      "keywords": [
+        "main line",
+        "mainline",
+        "irrigation main"
+      ]
+    },
+    {
+      "name": "Valves & Laterals",
+      "keywords": [
+        "solenoid",
+        "valve box",
+        "lateral"
+      ]
+    },
+    {
+      "name": "Emitters",
+      "keywords": [
+        "drip",
+        "bubbler",
+        "sprinkler",
+        "emitter"
+      ]
+    },
+    {
+      "name": "Control System",
+      "keywords": [
+        "controller",
+        "control cable",
+        "decoder",
+        "sensor"
+      ]
+    },
+    {
+      "name": "Testing & Handover",
+      "keywords": [
+        "pressure test",
+        "flushing",
+        "commissioning",
+        "handover",
+        "testing"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Road & Paving Sleeves",
+      "keywords": [
+        "sleeve"
+      ],
+      "wbs": "Sleeves",
+      "typical_pred": "Design & Approvals",
+      "typical_succ": "Road Base",
+      "duration_days": 20,
+      "why": "Sleeves must be in the ground before road base and paving, or finished surfaces are cut later."
+    },
+    {
+      "name": "Main Line Laying & Pressure Test",
+      "keywords": [
+        "main line",
+        "mainline",
+        "pressure test"
+      ],
+      "wbs": "Main Lines",
+      "typical_pred": "Sleeves",
+      "typical_succ": "Valves & Laterals",
+      "duration_days": 35,
+      "why": "The main lines feed every zone and must be tested before any zone is commissioned."
+    },
+    {
+      "name": "Irrigation Pump Station",
+      "keywords": [
+        "pump station",
+        "irrigation pump"
+      ],
+      "wbs": "Tank & Pump Station",
+      "typical_pred": "Design & Approvals",
+      "typical_succ": "Testing & Handover",
+      "duration_days": 50,
+      "why": "Pumps and their power supply are long-lead; without the station no zone can be tested."
+    },
+    {
+      "name": "Laterals & Emitters by Zone",
+      "keywords": [
+        "lateral",
+        "drip",
+        "bubbler",
+        "sprinkler"
+      ],
+      "wbs": "Valves & Laterals",
+      "typical_pred": "Main Lines",
+      "typical_succ": "Planting",
+      "duration_days": 40,
+      "why": "Laterals follow final soil levels and must be complete and tested before planting in that zone."
+    },
+    {
+      "name": "Zone Testing & Commissioning",
+      "keywords": [
+        "commissioning",
+        "zone test",
+        "testing"
+      ],
+      "wbs": "Testing & Handover",
+      "typical_pred": "Valves & Laterals",
+      "typical_succ": "Planting",
+      "duration_days": 12,
+      "why": "Each zone is tested for pressure and coverage before plants arrive."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "sleeve"
+      ],
+      "after_keywords": [
+        "road base",
+        "sub-base",
+        "asphalt",
+        "paving",
+        "interlock"
+      ],
+      "reason": "Road and paving layers follow the irrigation sleeves.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "main line",
+        "mainline"
+      ],
+      "after_keywords": [
+        "lateral",
+        "solenoid",
+        "valve box"
+      ],
+      "reason": "Zone valves and laterals follow the main lines.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "lateral",
+        "main line",
+        "pump station"
+      ],
+      "after_keywords": [
+        "zone test",
+        "commissioning",
+        "testing"
+      ],
+      "reason": "Zone testing follows mains, laterals and the pump station.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "irrigation",
+        "zone test",
+        "commissioning"
+      ],
+      "after_keywords": [
+        "planting",
+        "trees",
+        "shrubs",
+        "softscape"
+      ],
+      "reason": "Planting follows an operating irrigation system.",
+      "impact": "Critical"
+    }
+  ],
+  "milestones": [
+    "Shop Drawings Approved",
+    "Sleeves Complete",
+    "Main Lines Tested",
+    "Pump Station Powered",
+    "Irrigation Operational",
+    "Planting Start",
+    "Handover"
+  ],
+  "common_issues": [
+    "Sleeves not planned before road works",
+    "Planting scheduled before irrigation is operational",
+    "Pump-station power supply not in the schedule",
+    "No establishment period",
+    "Planting season ignored"
+  ]
+}

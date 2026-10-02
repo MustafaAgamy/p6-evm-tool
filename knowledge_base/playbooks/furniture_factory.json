@@ -1,0 +1,725 @@
+{
+  "archetype": "furniture_factory",
+  "schema": 2,
+  "context": "light factory · panel processing lines, finishing line and dust extraction",
+  "brief": {
+    "intro": "New to this project type? A modern furniture factory is mostly a panel-processing line. Boards (chipboard, MDF) are cut to size on beam saws, their edges are covered on edge-banding machines, holes and grooves are made on CNC drilling and routing machines, and the parts are sorted, assembled or flat-packed. Solid-wood parts go through moulders and sanders. A finishing line sprays and dries lacquer or paint. Upholstered furniture adds cutting, sewing and foam departments. The building is a plain hall. What needs care is the dust-extraction system — ducts from every machine to large filters outside, with spark detection because wood dust burns and explodes — the spray-finishing area with its ventilation and fire protection, and compressed air everywhere.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Board store & cutting",
+        "desc": "Board storage, automatic feeding and beam / nesting saws."
+      },
+      {
+        "name": "Edge banding",
+        "desc": "Single- or double-sided edge-banding lines."
+      },
+      {
+        "name": "CNC drilling & routing",
+        "desc": "Machining centres and through-feed drilling lines."
+      },
+      {
+        "name": "Solid wood machining",
+        "desc": "Moulders, tenoners and sanders."
+      },
+      {
+        "name": "Finishing line",
+        "desc": "Sanding, spray booths or roller coaters, UV / drying ovens."
+      },
+      {
+        "name": "Assembly, upholstery & packing",
+        "desc": "Assembly presses, sewing, foam, packing lines."
+      },
+      {
+        "name": "Warehouse & dispatch",
+        "desc": "Racked storage and loading docks."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Dust extraction, Compressed air, Heating (wood-waste boiler), Fire water — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Machine acceptance, line linking and software, first products, quality tuning and ramp-up."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Beam saw",
+        "plain": "a saw that cuts stacks of boards to size."
+      },
+      {
+        "term": "Edge banding",
+        "plain": "gluing a strip onto the cut edge of a panel."
+      },
+      {
+        "term": "CNC machining centre",
+        "plain": "a computer-controlled machine that drills, routes and grooves parts."
+      },
+      {
+        "term": "Nesting",
+        "plain": "cutting many different parts from one board in an optimised pattern."
+      },
+      {
+        "term": "Finishing line",
+        "plain": "the line that sands, coats and dries the surface."
+      },
+      {
+        "term": "Dust extraction",
+        "plain": "the duct and filter system that removes chips and dust from every machine."
+      },
+      {
+        "term": "Spark detection",
+        "plain": "sensors that spot a spark in a duct and quench it before it reaches the filter."
+      },
+      {
+        "term": "Batch-size-one",
+        "plain": "producing each order individually, controlled by software, instead of large runs."
+      }
+    ],
+    "must_get_right": [
+      "Design dust extraction with the machine layout — duct routes, filter position and capacity are fixed by the machines and are expensive to change.",
+      "Spark detection, explosion venting and sprinklers must be complete and tested before production; wood dust is a real explosion hazard.",
+      "The finishing area needs its own ventilation, fire protection and environmental permit (solvent emissions).",
+      "Linked lines depend on software and conveyors; allow integration time after the individual machines are accepted."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Woodworking Machinery",
+      "desc": "Saws, edge banders, CNC machines, finishing and packing lines",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Dust Extraction & Finishing Ventilation",
+      "desc": "Ducts → filters → spark detection → balance",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Dust extraction, Compressed air, Heating (wood-waste boiler), Fire water",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Woodworking Machinery",
+      "items": [
+        "Board store & cutting",
+        "Edge banding",
+        "CNC drilling & routing",
+        "Solid wood machining",
+        "Finishing line",
+        "Assembly, upholstery & packing",
+        "Warehouse & dispatch"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Dust extraction",
+        "Compressed air",
+        "Heating (wood-waste boiler)",
+        "Fire water"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Spark detection & extinguishing",
+        "Explosion venting of filters & silo",
+        "Sprinklers",
+        "Solvent-vapour ventilation in finishing"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Woodworking Machinery",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Cut → edge → drill → finish → assemble → pack",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Dust Extraction & Finishing Ventilation",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 38,
+        "label": "Ducts → filters → spark detection → balance",
+        "holds": [
+          78
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Machine test → line link → first product",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Woodworking Machinery",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive machinery",
+        "Install board storage & beam saws",
+        "Install edge-banding lines",
+        "Install CNC drilling & routing machines",
+        "Install finishing line (booths, coaters, ovens)",
+        "Install assembly presses, sorting & packing lines",
+        "Level, align & link machines with conveyors"
+      ]
+    },
+    {
+      "name": "Mechanical — Dust Extraction & Finishing Ventilation",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        5
+      ],
+      "steps": [
+        "Extraction ducting to every machine",
+        "Filter units, fans & chip silo / briquetting",
+        "Spark detection & extinguishing in ducts",
+        "Explosion vents & isolation",
+        "Spray-booth supply & exhaust air",
+        "Air-flow balancing at every machine"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: dust extraction, compressed air, heating (wood-waste boiler)",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Dust-extraction commissioning & balancing",
+        "Spark-detection system test",
+        "Machine acceptance tests",
+        "Production software & line integration",
+        "First products & quality tuning",
+        "Ramp-up"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "FRN",
+      "name": "Furniture Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "FRN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "FRN.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "FRN.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "FRN.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "FRN.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "FRN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "FRN.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "FRN.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "FRN.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "FRN.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "FRN.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "FRN.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "FRN.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "FRN.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "FRN.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "FRN.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "FRN.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "FRN.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "FRN.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "FRN.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "FRN.06.10",
+      "name": "Board store & cutting",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.20",
+      "name": "Edge banding",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.30",
+      "name": "CNC drilling & routing",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.40",
+      "name": "Solid wood machining",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.50",
+      "name": "Finishing line",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.60",
+      "name": "Assembly, upholstery & packing",
+      "level": 3
+    },
+    {
+      "code": "FRN.06.70",
+      "name": "Warehouse & dispatch",
+      "level": 3
+    },
+    {
+      "code": "FRN.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "FRN.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "FRN.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "FRN.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "FRN.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "FRN.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "FRN.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "FRN.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "FRN.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "FRN.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "FRN.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "FRN.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "FRN.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Layout freeze → floor and building → machinery installation in process order → dust extraction, air and power → safety-system tests → machine acceptance → line integration → first products. The critical path runs through the machinery delivery and the dust-extraction system."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Panel-processing lines (saws, edge banders, drilling)",
+              "6–10 months",
+              "Before machine installation"
+            ],
+            [
+              "Finishing line",
+              "6–9 months",
+              "Before finishing-area installation"
+            ],
+            [
+              "Dust-extraction filters & fans",
+              "4–6 months",
+              "Before machine trials"
+            ],
+            [
+              "Packing lines & automation",
+              "5–8 months",
+              "Before line integration"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late machinery, extraction undersized or unbalanced, finishing-line permit, and software integration of linked lines. Contingency is held before first deliveries."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

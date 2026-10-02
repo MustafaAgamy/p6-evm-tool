@@ -1,0 +1,607 @@
+{
+  "archetype": "underground_cable_network",
+  "schema": 2,
+  "context": "linear · trench or duct bank → cable pulling → jointing → HV test; drum lengths and jointers govern",
+  "brief": {
+    "intro": "New to this project type? An underground cable circuit carries power between substations below the streets instead of on towers. The civil work — a trench or a concrete duct bank, with joint bays every few hundred metres — is most of the duration. The cable itself arrives on large drums, each made to a specific length for a specific section of the route, and is pulled in one drum at a time. Specialist jointers then make the joints and the terminations in clean, dry conditions; for high-voltage cable each joint takes days and only certified jointers may do it. The circuit is finished by a high-voltage test and by connection into the substations during an outage.",
+    "scope": [
+      {
+        "name": "Route survey & trial pits",
+        "desc": "Confirming the route and the position of existing buried services."
+      },
+      {
+        "name": "Permits & traffic management",
+        "desc": "Road-opening permits and diversions for each section."
+      },
+      {
+        "name": "Trench / duct bank",
+        "desc": "Excavation, ducts in concrete or direct-buried cable trench, with cable tiles and tape."
+      },
+      {
+        "name": "Joint bays & link boxes",
+        "desc": "Chambers where drum lengths are joined and the sheath bonding is arranged."
+      },
+      {
+        "name": "Trenchless crossings",
+        "desc": "HDD or pipe jacking under main roads, railways and canals."
+      },
+      {
+        "name": "Cable pulling",
+        "desc": "Pulling each drum length through ducts or laying it in the trench on rollers."
+      },
+      {
+        "name": "Jointing & terminations",
+        "desc": "Straight joints in the bays and sealing ends / GIS terminations in the substations."
+      },
+      {
+        "name": "Thermal backfill",
+        "desc": "Selected or cement-bound sand around the cables so heat can escape."
+      },
+      {
+        "name": "Bonding, earthing & fibre",
+        "desc": "Sheath bonding (cross-bonding), earth continuity conductor and temperature-sensing fibre."
+      },
+      {
+        "name": "Testing",
+        "desc": "Sheath test, HV AC test and partial-discharge measurement."
+      },
+      {
+        "name": "Energisation",
+        "desc": "Connection to the substation bays during an outage and energisation."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Duct bank",
+        "plain": "a group of ducts encased in concrete through which the cables are pulled."
+      },
+      {
+        "term": "Joint bay",
+        "plain": "the pit where two drum lengths of cable are joined."
+      },
+      {
+        "term": "Drum length",
+        "plain": "the length of cable on one drum; cut in the factory to suit the distance between joint bays."
+      },
+      {
+        "term": "Termination (sealing end)",
+        "plain": "the end fitting that connects the cable to switchgear, a transformer or an overhead line."
+      },
+      {
+        "term": "Cross-bonding",
+        "plain": "connecting the cable sheaths in a pattern, through link boxes, to cancel induced currents."
+      },
+      {
+        "term": "Thermal backfill",
+        "plain": "backfill chosen to conduct heat away from the cable so it can carry its rated current."
+      },
+      {
+        "term": "HDD",
+        "plain": "horizontal directional drilling — installing ducts under an obstacle without digging a trench."
+      },
+      {
+        "term": "Sheath test",
+        "plain": "a DC test proving the outer covering of the cable was not damaged during pulling."
+      },
+      {
+        "term": "Partial discharge (PD) test",
+        "plain": "a sensitive test that finds small defects in joints and terminations before they fail."
+      }
+    ],
+    "must_get_right": [
+      "The route must be final before the cable is ordered: drum lengths are made for the distance between joint bays, and a change of route can make drums unusable.",
+      "Civil work is the long activity; cable can only be pulled into a section whose ducts are complete, cleaned and proved with a mandrel.",
+      "HV jointers are few. Count the joints and terminations, give each its real duration (days, not hours), and level the jointing teams — this is usually the resource-critical step.",
+      "The HV test set and the outage for connection are booked dates; missing them costs weeks."
+    ]
+  },
+  "components": [
+    {
+      "name": "Trench & Duct Bank",
+      "desc": "Excavation, ducts, concrete and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Joint Bays & Crossings",
+      "desc": "Joint bays, link-box pits and trenchless crossings",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Cable Installation",
+      "desc": "Drum handling and cable pulling / laying",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Jointing & Terminations",
+      "desc": "Straight joints, sealing ends and GIS terminations",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Bonding, Earthing & Fibre",
+      "desc": "Link boxes, earth conductor and DTS fibre",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Testing & Energisation",
+      "desc": "Sheath, HV and PD tests, energisation",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Power Cable",
+      "items": [
+        "XLPE HV / MV cable",
+        "Straight & cross-bonding joints",
+        "Outdoor / GIS / transformer terminations"
+      ]
+    },
+    {
+      "discipline": "Bonding & Earthing",
+      "items": [
+        "Link boxes & sheath voltage limiters",
+        "Earth continuity conductor",
+        "Earthing of joint bays"
+      ]
+    },
+    {
+      "discipline": "Monitoring",
+      "items": [
+        "Distributed temperature sensing (DTS) fibre",
+        "Partial-discharge sensors (where specified)",
+        "Fibre-optic communication cable"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Route Survey & Permits",
+    "Cable Manufacture & FAT",
+    "Trench / Duct Bank & Joint Bays",
+    "Crossings",
+    "Cable Pulling",
+    "Jointing & Terminations",
+    "Backfill & Reinstatement",
+    "HV Testing & Energisation"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey/Permit",
+      "Civil",
+      "Crossings",
+      "Pull",
+      "Joint",
+      "Test",
+      "Energise"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trench, Duct Bank & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 60,
+        "label": "Trench → ducts → concrete → backfill → reinstate",
+        "holds": [
+          66
+        ]
+      },
+      {
+        "trade": "Civil — Joint Bays & Crossings",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 12,
+        "width": 46,
+        "label": "Joint bays · HDD under obstacles",
+        "holds": [
+          58
+        ]
+      },
+      {
+        "trade": "Electrical — Cable Pulling",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 38,
+        "width": 36,
+        "label": "Drum → rollers / winch → pull → seal",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Electrical — Jointing & Terminations",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 50,
+        "width": 32,
+        "label": "Clean tent → joint → bond",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Electrical — Bonding, Earthing & Monitoring",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 58,
+        "width": 26,
+        "label": "Link boxes → DTS → checks",
+        "holds": []
+      },
+      {
+        "trade": "Commissioning — HV Testing & Energisation",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 84,
+        "width": 16,
+        "label": "Sheath test → HV AC test → PD → energise",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trench, Duct Bank & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Trial pits & confirm route against existing services",
+        "Trench excavation & shoring",
+        "Lay ducts on spacers & concrete encasement",
+        "Clean ducts & prove with mandrel",
+        "Thermal backfill, tiles & warning tape",
+        "Road reinstatement"
+      ]
+    },
+    {
+      "name": "Civil — Joint Bays & Crossings",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Excavate & construct joint bays",
+        "Link-box pits & earthing pits",
+        "Crossing permits",
+        "HDD / pipe-jack crossings & duct installation"
+      ]
+    },
+    {
+      "name": "Electrical — Cable Pulling",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive drums & check test certificates",
+        "Set up drum, winch & rollers",
+        "Pull cable with tension monitoring",
+        "Seal ends & sheath test after pulling",
+        "Lay earth conductor & fibre"
+      ]
+    },
+    {
+      "name": "Electrical — Jointing & Terminations",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Set up clean, dry jointing enclosure",
+        "Make straight / cross-bonding joints",
+        "Install link boxes & bonding leads",
+        "Erect terminations at the substations",
+        "Jointing records & inspection per joint"
+      ]
+    },
+    {
+      "name": "Electrical — Bonding, Earthing & Monitoring",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [],
+      "steps": [
+        "Connect cross-bonding system",
+        "Earth joint bays & link boxes",
+        "Splice DTS / communication fibre",
+        "Bonding verification test"
+      ]
+    },
+    {
+      "name": "Commissioning — HV Testing & Energisation",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        3
+      ],
+      "steps": [
+        "Sheath integrity test of each section",
+        "HV AC resonant test with partial-discharge measurement",
+        "Phasing & continuity checks",
+        "Connection to the substation bays during the outage",
+        "Energisation, soak & handover"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "UGC",
+      "name": "Underground Power Cable Circuits (HV / MV) — Project",
+      "level": 1
+    },
+    {
+      "code": "UGC.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "UGC.02",
+      "name": "Route Survey, Design & Permits",
+      "level": 2
+    },
+    {
+      "code": "UGC.02.10",
+      "name": "Route survey & trial pits",
+      "level": 3
+    },
+    {
+      "code": "UGC.02.20",
+      "name": "Cable system design & drum schedule",
+      "level": 3
+    },
+    {
+      "code": "UGC.02.30",
+      "name": "Road-opening permits & NOCs",
+      "level": 3
+    },
+    {
+      "code": "UGC.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "UGC.03.10",
+      "name": "Cable manufacture & factory tests",
+      "level": 3
+    },
+    {
+      "code": "UGC.03.20",
+      "name": "Joints, terminations & link boxes",
+      "level": 3
+    },
+    {
+      "code": "UGC.03.30",
+      "name": "Ducts & accessories",
+      "level": 3
+    },
+    {
+      "code": "UGC.04",
+      "name": "Civil Works — Trench & Duct Bank",
+      "level": 2
+    },
+    {
+      "code": "UGC.04.10",
+      "name": "Trench excavation",
+      "level": 3
+    },
+    {
+      "code": "UGC.04.20",
+      "name": "Ducts & concrete encasement",
+      "level": 3
+    },
+    {
+      "code": "UGC.04.30",
+      "name": "Thermal backfill & protection",
+      "level": 3
+    },
+    {
+      "code": "UGC.04.40",
+      "name": "Road reinstatement",
+      "level": 3
+    },
+    {
+      "code": "UGC.05",
+      "name": "Civil Works — Joint Bays & Crossings",
+      "level": 2
+    },
+    {
+      "code": "UGC.05.10",
+      "name": "Joint bays",
+      "level": 3
+    },
+    {
+      "code": "UGC.05.20",
+      "name": "Trenchless crossings (HDD / pipe jacking)",
+      "level": 3
+    },
+    {
+      "code": "UGC.06",
+      "name": "Electrical — Cable Installation",
+      "level": 2
+    },
+    {
+      "code": "UGC.06.10",
+      "name": "Cable pulling",
+      "level": 3
+    },
+    {
+      "code": "UGC.06.20",
+      "name": "Earth conductor & fibre",
+      "level": 3
+    },
+    {
+      "code": "UGC.07",
+      "name": "Electrical — Jointing & Terminations",
+      "level": 2
+    },
+    {
+      "code": "UGC.07.10",
+      "name": "Straight joints",
+      "level": 3
+    },
+    {
+      "code": "UGC.07.20",
+      "name": "Terminations",
+      "level": 3
+    },
+    {
+      "code": "UGC.07.30",
+      "name": "Bonding & link boxes",
+      "level": 3
+    },
+    {
+      "code": "UGC.08",
+      "name": "Testing, Commissioning & Energisation",
+      "level": 2
+    },
+    {
+      "code": "UGC.08.10",
+      "name": "Sheath tests",
+      "level": 3
+    },
+    {
+      "code": "UGC.08.20",
+      "name": "HV AC & PD test",
+      "level": 3
+    },
+    {
+      "code": "UGC.08.30",
+      "name": "Outage connection & energisation",
+      "level": 3
+    },
+    {
+      "code": "UGC.08.40",
+      "name": "As-built & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by route section between joint bays, so each section shows civil complete, cable pulled, jointed and tested."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; road works may be restricted to night or off-peak hours. Jointing continues without interruption once a joint is opened. Outage works are on the grid operator's dates."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per section: permit → trench and ducts → mandrel proving → cable pulling → sheath test. Per joint bay: both adjoining sections pulled → jointing. Whole circuit: all joints and terminations → bonding checks → HV test → outage connection → energisation. The critical path runs through the cable delivery or the last civil section, then jointing and the HV test."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The route is frozen before the cable order; permits are granted section by section; the substations at both ends are ready for terminations; outage dates are granted as requested."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "HV XLPE cable (made to the drum schedule)",
+              "24–40 weeks",
+              "Before cable pulling in the first section"
+            ],
+            [
+              "Joints, terminations & link boxes",
+              "20–28 weeks",
+              "Before jointing starts"
+            ],
+            [
+              "HV resonant test set (hire)",
+              "6–10 weeks booking",
+              "On the test date"
+            ],
+            [
+              "Ducts, spacers & thermal backfill material",
+              "4–8 weeks",
+              "Before duct-bank works"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy drums need access and a straight pulling set-up at each joint bay; pulling tension and bending radius limit section length; jointing needs dry, dust-free conditions."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: unknown services forcing a route change after drums are cut, late cable, duct damage found at mandrel stage, shortage of certified jointers, and a failed HV test. Contingency is held before the outage date."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by route section and joint bay; expanded to Level 4–5 lookahead for the civil, pulling and jointing teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 60840 — tests for power cables 30 kV to 150 kV"
+    },
+    {
+      "code": "STD",
+      "text": "IEC 62067 — tests for power cables above 150 kV"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

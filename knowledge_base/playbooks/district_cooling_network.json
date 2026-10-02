@@ -1,0 +1,626 @@
+{
+  "archetype": "district_cooling_network",
+  "schema": 2,
+  "context": "area network · pre-insulated chilled-water pipe, welded and tested; ETS in each building; flushing governs the end",
+  "brief": {
+    "intro": "New to this project type? A district cooling network carries chilled water from a central plant to many buildings and brings the warmed water back, through a pair of large buried pipes (supply and return). The pipe is steel, factory pre-insulated inside a plastic jacket with a leak-detection wire in the foam. On site the lengths are welded, each weld is tested, and the joint is then insulated and sealed. In the basement of each building an energy transfer station (ETS) — heat exchangers, valves and a meter — connects the network to the building's own system. Because the pipes are large and come in pairs, the trench is wide and takes a big share of the utility corridor. The end of the job is dominated by flushing and cleaning the pipes to the plant's water-quality standard.",
+    "scope": [
+      {
+        "name": "Network design & hydraulic model",
+        "desc": "Pipe sizes, routes, valve chambers and expansion design."
+      },
+      {
+        "name": "Wide trench & bedding",
+        "desc": "Trench for supply and return pipes side by side, with sand bedding."
+      },
+      {
+        "name": "Pre-insulated pipe laying",
+        "desc": "Laying pre-insulated steel pipe, bends, tees and reducers."
+      },
+      {
+        "name": "Welding & NDT",
+        "desc": "Welding by qualified welders and testing of the welds."
+      },
+      {
+        "name": "Joint insulation & leak detection",
+        "desc": "Foaming and sealing each joint casing and connecting the alarm wires."
+      },
+      {
+        "name": "Valve chambers",
+        "desc": "Isolation valves, drains and vents in chambers along the route."
+      },
+      {
+        "name": "Crossings",
+        "desc": "Culverts, sleeves or trenchless crossings under main roads."
+      },
+      {
+        "name": "Energy transfer stations",
+        "desc": "Heat exchangers, control valves, pumps and energy meters in each building."
+      },
+      {
+        "name": "Pressure testing",
+        "desc": "Hydrostatic test of each section."
+      },
+      {
+        "name": "Flushing & chemical cleaning",
+        "desc": "High-velocity flushing, chemical cleaning and passivation to the required water quality."
+      },
+      {
+        "name": "Connection to the plant & balancing",
+        "desc": "Tie-in to the cooling plant, filling with treated water and hydraulic balancing."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Supply / return",
+        "plain": "the pipe carrying chilled water out to the buildings and the pipe bringing warmer water back."
+      },
+      {
+        "term": "Pre-insulated pipe",
+        "plain": "steel pipe supplied with foam insulation and an outer plastic jacket already on it."
+      },
+      {
+        "term": "Joint casing",
+        "plain": "the sleeve fitted over a welded joint and filled with foam to complete the insulation."
+      },
+      {
+        "term": "Leak-detection wire",
+        "plain": "wires in the foam that raise an alarm, and locate the spot, if water gets into the insulation."
+      },
+      {
+        "term": "ETS (energy transfer station)",
+        "plain": "the heat-exchanger set in a building that connects it to the network without mixing the water."
+      },
+      {
+        "term": "Delta-T",
+        "plain": "the temperature difference between return and supply water; the network is sized for it."
+      },
+      {
+        "term": "Flushing",
+        "plain": "circulating water fast enough to carry out debris; repeated until the water is clean."
+      },
+      {
+        "term": "Passivation",
+        "plain": "chemical treatment that forms a protective film inside the steel pipe."
+      },
+      {
+        "term": "Tonnage (TR)",
+        "plain": "the unit of cooling capacity — tons of refrigeration."
+      }
+    ],
+    "must_get_right": [
+      "Reserve the corridor early: two large pipes need a wide trench, and they compete with every other utility in the road.",
+      "Welding output per qualified welder sets the pace; each weld needs testing and each joint needs foaming and an alarm-wire check before backfill.",
+      "Flushing and chemical cleaning are long (weeks), need large temporary pumps and water, and must be accepted by the plant operator — give them their own section of the schedule.",
+      "Each building's ETS room must be ready, and each customer's own system must be ready, before chilled water can be supplied; track both building by building."
+    ]
+  },
+  "components": [
+    {
+      "name": "Trench & Bedding",
+      "desc": "Wide trench, bedding, backfill and reinstatement",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Chilled Water Piping",
+      "desc": "Pre-insulated supply and return pipe",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Welding, Joints & Leak Detection",
+      "desc": "Welds, NDT, joint casings and alarm wires",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Valve Chambers & Crossings",
+      "desc": "Chambers, isolation valves and road crossings",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Energy Transfer Stations",
+      "desc": "Heat exchangers, valves, pumps and meters",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Control & Metering",
+      "desc": "ETS controls, energy meters and network SCADA",
+      "disc": "Instrumentation",
+      "primary": false
+    },
+    {
+      "name": "Testing, Flushing & Commissioning",
+      "desc": "Pressure test, flushing, cleaning and balancing",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Chilled Water Network",
+      "items": [
+        "Pre-insulated steel pipe (supply & return)",
+        "Pre-insulated bends, tees & valves",
+        "Joint casings & leak-detection system"
+      ]
+    },
+    {
+      "discipline": "Energy Transfer Stations",
+      "items": [
+        "Plate heat exchangers",
+        "Control valves & strainers",
+        "Energy (BTU) meters",
+        "Building-side pumps (where in scope)"
+      ]
+    },
+    {
+      "discipline": "Control",
+      "items": [
+        "ETS control panels",
+        "Network SCADA & leak-detection monitoring",
+        "Communication to the plant control room"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Design & Corridor Approval",
+    "Pipe Procurement",
+    "Trenching",
+    "Pipe Laying & Welding",
+    "Joint Insulation & Chambers",
+    "ETS Installation",
+    "Pressure Test & Backfill",
+    "Flushing, Cleaning & Commissioning"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Design",
+      "Trench",
+      "Lay/Weld",
+      "Joints",
+      "ETS",
+      "Test",
+      "Flush"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Trench, Chambers & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 8,
+        "width": 60,
+        "label": "Wide trench → bed → chambers → backfill",
+        "holds": [
+          68
+        ]
+      },
+      {
+        "trade": "Mechanical — Chilled Water Pipe Laying & Welding",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 16,
+        "width": 54,
+        "label": "Lay → fit-up → weld → NDT",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Mechanical — Joint Insulation & Leak Detection",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 24,
+        "width": 50,
+        "label": "Casing → foam → seal → wire test",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Mechanical — Energy Transfer Stations",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Room ready → skid → piping → meter",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Instrumentation — Control & Metering",
+        "disc": "Instrumentation",
+        "kind": [
+          "elv"
+        ],
+        "start": 56,
+        "width": 26,
+        "label": "Panels → cabling → SCADA",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Commissioning — Testing, Flushing & Balancing",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 74,
+        "width": 26,
+        "label": "Hydrotest → flush → clean → fill → balance",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Trench, Chambers & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Trial pits & corridor confirmation",
+        "Excavate wide trench & shore",
+        "Sand bedding",
+        "Valve chambers & road crossings",
+        "Backfill, warning tape & reinstatement"
+      ]
+    },
+    {
+      "name": "Mechanical — Chilled Water Pipe Laying & Welding",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive pre-insulated pipe & check alarm wires",
+        "Lay supply & return pipe on supports",
+        "Fit-up & weld (qualified welders)",
+        "NDT of welds",
+        "Install valves, drains & vents"
+      ]
+    },
+    {
+      "name": "Mechanical — Joint Insulation & Leak Detection",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Connect leak-detection wires across the joint",
+        "Fit joint casing & pressure-test it",
+        "Inject foam & seal",
+        "Alarm-loop resistance test section by section"
+      ]
+    },
+    {
+      "name": "Mechanical — Energy Transfer Stations",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "ETS room handed over by the building",
+        "Install heat exchangers & skid",
+        "Primary-side piping, valves & strainers",
+        "Energy meters & insulation"
+      ]
+    },
+    {
+      "name": "Instrumentation — Control & Metering",
+      "disc": "Instrumentation",
+      "kind": [
+        "elv"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Install ETS control panels",
+        "Instrument & communication cabling",
+        "Connect leak-detection units",
+        "Point test with the plant control room"
+      ]
+    },
+    {
+      "name": "Commissioning — Testing, Flushing & Balancing",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Hydrostatic test of each section",
+        "High-velocity flushing",
+        "Chemical cleaning & passivation",
+        "Water quality accepted by the plant operator",
+        "Fill with treated water, connect to plant & balance"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "DCN",
+      "name": "District Cooling Distribution Network — Project",
+      "level": 1
+    },
+    {
+      "code": "DCN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "DCN.02",
+      "name": "Design, Approvals & Permits",
+      "level": 2
+    },
+    {
+      "code": "DCN.02.10",
+      "name": "Hydraulic model & stress analysis",
+      "level": 3
+    },
+    {
+      "code": "DCN.02.20",
+      "name": "Corridor approval & permits",
+      "level": 3
+    },
+    {
+      "code": "DCN.02.30",
+      "name": "Shop drawings",
+      "level": 3
+    },
+    {
+      "code": "DCN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "DCN.03.10",
+      "name": "Pre-insulated pipe & fittings",
+      "level": 3
+    },
+    {
+      "code": "DCN.03.20",
+      "name": "Valves",
+      "level": 3
+    },
+    {
+      "code": "DCN.03.30",
+      "name": "ETS equipment & meters",
+      "level": 3
+    },
+    {
+      "code": "DCN.04",
+      "name": "Civil Works — Trench & Reinstatement",
+      "level": 2
+    },
+    {
+      "code": "DCN.04.10",
+      "name": "Trench excavation & shoring",
+      "level": 3
+    },
+    {
+      "code": "DCN.04.20",
+      "name": "Bedding & backfill",
+      "level": 3
+    },
+    {
+      "code": "DCN.04.30",
+      "name": "Valve chambers",
+      "level": 3
+    },
+    {
+      "code": "DCN.04.40",
+      "name": "Road crossings",
+      "level": 3
+    },
+    {
+      "code": "DCN.04.50",
+      "name": "Reinstatement",
+      "level": 3
+    },
+    {
+      "code": "DCN.05",
+      "name": "Chilled Water Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "DCN.05.10",
+      "name": "Pipe laying",
+      "level": 3
+    },
+    {
+      "code": "DCN.05.20",
+      "name": "Welding & NDT",
+      "level": 3
+    },
+    {
+      "code": "DCN.05.30",
+      "name": "Joint insulation",
+      "level": 3
+    },
+    {
+      "code": "DCN.05.40",
+      "name": "Leak-detection system",
+      "level": 3
+    },
+    {
+      "code": "DCN.05.50",
+      "name": "Valves, drains & vents",
+      "level": 3
+    },
+    {
+      "code": "DCN.06",
+      "name": "Energy Transfer Stations (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "DCN.06.10",
+      "name": "Heat exchangers & skids",
+      "level": 3
+    },
+    {
+      "code": "DCN.06.20",
+      "name": "Primary piping & valves",
+      "level": 3
+    },
+    {
+      "code": "DCN.06.30",
+      "name": "Energy meters",
+      "level": 3
+    },
+    {
+      "code": "DCN.07",
+      "name": "Control, Instrumentation & SCADA",
+      "level": 2
+    },
+    {
+      "code": "DCN.08",
+      "name": "Testing, Flushing & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "DCN.08.10",
+      "name": "Hydrostatic tests",
+      "level": 3
+    },
+    {
+      "code": "DCN.08.20",
+      "name": "Flushing",
+      "level": 3
+    },
+    {
+      "code": "DCN.08.30",
+      "name": "Chemical cleaning & passivation",
+      "level": 3
+    },
+    {
+      "code": "DCN.08.40",
+      "name": "Plant connection & balancing",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by network section between valve chambers and by building (ETS), so each customer connection can be read from trench to chilled-water-on."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar; welding and joint foaming are sensitive to rain and to very high temperatures. Flushing runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Per section: trench → lay → weld → NDT → joint casing and foam → alarm-wire test → hydrotest → backfill. Network: all sections → flushing → chemical cleaning → water quality accepted → fill → connection to the plant → balancing. Each building: ETS room ready → ETS installed → customer side ready → chilled water on."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The corridor is reserved and free; the cooling plant is ready to receive the network on the assumed date; ETS rooms are handed over by the building contractors; flushing water and discharge are available."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Pre-insulated steel pipe & fittings",
+              "16–24 weeks",
+              "Before pipe laying in each section"
+            ],
+            [
+              "Large isolation valves (pre-insulated)",
+              "16–22 weeks",
+              "Before chamber sections are welded"
+            ],
+            [
+              "Plate heat exchangers & ETS skids",
+              "14–20 weeks",
+              "Before ETS installation"
+            ],
+            [
+              "Energy meters & control panels",
+              "10–14 weeks",
+              "Before ETS commissioning"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "The wide trench limits traffic and other utilities; the pipe must be kept dry and capped at all times; welders must be qualified to the procedure."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: corridor clashes, water entering the insulation, weld repairs, late ETS rooms, and repeated flushing cycles to reach water quality. Contingency is held before the chilled-water-on date of the first customer."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by network section and building; expanded to Level 4–5 lookahead for the trench, welding and jointing teams — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "EN 253 — pre-insulated bonded pipe systems"
+    },
+    {
+      "code": "STD",
+      "text": "ASHRAE District Cooling Guide"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

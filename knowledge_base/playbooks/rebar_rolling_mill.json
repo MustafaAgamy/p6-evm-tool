@@ -1,0 +1,726 @@
+{
+  "archetype": "rebar_rolling_mill",
+  "schema": 2,
+  "context": "heavy process plant · reheating furnace, rolling stands and cooling bed on deep foundations",
+  "brief": {
+    "intro": "New to this project type? A rebar mill heats steel billets to about 1,100 °C in a reheating furnace and passes them through a row of rolling stands that squeeze the glowing bar thinner and longer at every pass, forming the ribs in the last stand. The bar is water-quenched, laid on a long cooling bed, cut to length, bundled and tied. Some plants also have a melt shop — an electric furnace and a caster that make the billets from scrap — which is a larger project again. The mill hall is long, with heavy overhead cranes. Underneath it is a small city of foundations: deep bases for the stands, a scale pit, oil cellars and water channels. Those foundations, the long-lead mill equipment and a big power and water system are what the schedule turns on.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Billet yard & charging",
+        "desc": "Billet storage, charging grid and roller tables."
+      },
+      {
+        "name": "Reheating furnace",
+        "desc": "Walking-beam or pusher furnace with burners and recuperator."
+      },
+      {
+        "name": "Roughing, intermediate & finishing stands",
+        "desc": "Rolling stands with drives, shears and guides."
+      },
+      {
+        "name": "Quenching (TMT) & cooling bed",
+        "desc": "Water quench boxes, dividing shear and cooling bed."
+      },
+      {
+        "name": "Cut-to-length, bundling & tying",
+        "desc": "Cold shear, counting, bundling and tying machines."
+      },
+      {
+        "name": "Roll shop",
+        "desc": "Roll turning lathes and guide workshop."
+      },
+      {
+        "name": "Water treatment plant",
+        "desc": "Direct and indirect cooling circuits, scale pit and filters."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Cooling water circuits, Natural gas / fuel, Compressed air, Hydraulic & lubrication oil — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Cold run of every drive, furnace heat-up, first hot billet through the stands, size-by-size rolling trials."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Billet",
+        "plain": "the square steel bar, typically 130–160 mm, that the mill rolls into rebar."
+      },
+      {
+        "term": "Reheating furnace",
+        "plain": "the furnace that brings billets up to rolling temperature."
+      },
+      {
+        "term": "Rolling stand",
+        "plain": "a frame holding a pair of grooved rolls that reduce the bar."
+      },
+      {
+        "term": "TMT / quenching",
+        "plain": "rapid water cooling of the bar surface after the last stand, which gives the rebar its strength."
+      },
+      {
+        "term": "Cooling bed",
+        "plain": "a long rack where bars cool in air and are moved sideways step by step."
+      },
+      {
+        "term": "Scale pit",
+        "plain": "a deep pit that collects the cooling water and the iron scale washed off the bar."
+      },
+      {
+        "term": "Sole plate",
+        "plain": "the machined plate grouted to the foundation on which a stand is fixed."
+      },
+      {
+        "term": "Cobble",
+        "plain": "a bar that escapes the rolls during rolling — expected during first trials."
+      }
+    ],
+    "must_get_right": [
+      "Mill foundations are deep, complex and full of cast-in items; they take longer than the building and need complete vendor drawings before the first pour.",
+      "Alignment of the mill centre-line is the key quality step — everything else is positioned from it.",
+      "Power demand is large (main drives); the grid connection and the substation are schedule items of their own.",
+      "Water treatment must be working before any hot rolling; it is often started too late."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Rolling Mill Equipment",
+      "desc": "Furnace, stands, shears, cooling bed and finishing",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Reheating Furnace",
+      "desc": "Steel → refractory → burners → dry-out",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Cooling water circuits, Natural gas / fuel, Compressed air, Hydraulic & lubrication oil",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Rolling Mill Equipment",
+      "items": [
+        "Billet yard & charging",
+        "Reheating furnace",
+        "Roughing, intermediate & finishing stands",
+        "Quenching (TMT) & cooling bed",
+        "Cut-to-length, bundling & tying",
+        "Roll shop",
+        "Water treatment plant"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Cooling water circuits",
+        "Natural gas / fuel",
+        "Compressed air",
+        "Hydraulic & lubrication oil"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Rolling Mill Equipment",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Furnace → stands → quench → cooling bed → bundling",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Reheating Furnace",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 40,
+        "label": "Steel → refractory → burners → dry-out",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Cold run → furnace heat-up → first bar → trials",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Rolling Mill Equipment",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0,
+        6
+      ],
+      "steps": [
+        "Receive mill equipment",
+        "Set sole plates & align the mill centre-line",
+        "Install rolling stands, gearboxes & motors",
+        "Install shears, roller tables & quench box",
+        "Erect cooling bed & finishing equipment",
+        "Install hydraulic, lubrication & grease systems",
+        "Final alignment of the whole line"
+      ]
+    },
+    {
+      "name": "Mechanical — Reheating Furnace",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Furnace foundations & steel casing",
+        "Walking-beam mechanism & hydraulics",
+        "Refractory lining",
+        "Burners, recuperator, ducting & stack",
+        "Refractory dry-out & heat-up"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: cooling water circuits, natural gas / fuel, compressed air",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        4
+      ],
+      "steps": [
+        "Flushing of hydraulic & lubrication systems",
+        "Cold run of stands, tables & cooling bed",
+        "Water-system commissioning",
+        "Furnace dry-out & heat-up",
+        "First hot bar through the mill",
+        "Rolling trials for each bar size",
+        "Product tests & performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "RRM",
+      "name": "Reinforcement (Rebar) Rolling Mill — Project",
+      "level": 1
+    },
+    {
+      "code": "RRM.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "RRM.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "RRM.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "RRM.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "RRM.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "RRM.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "RRM.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "RRM.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "RRM.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "RRM.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "RRM.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "RRM.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "RRM.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "RRM.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "RRM.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "RRM.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "RRM.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "RRM.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "RRM.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "RRM.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "RRM.06.10",
+      "name": "Billet yard & charging",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.20",
+      "name": "Reheating furnace",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.30",
+      "name": "Roughing, intermediate & finishing stands",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.40",
+      "name": "Quenching (TMT) & cooling bed",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.50",
+      "name": "Cut-to-length, bundling & tying",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.60",
+      "name": "Roll shop",
+      "level": 3
+    },
+    {
+      "code": "RRM.06.70",
+      "name": "Water treatment plant",
+      "level": 3
+    },
+    {
+      "code": "RRM.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "RRM.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "RRM.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "RRM.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "RRM.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "RRM.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "RRM.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "RRM.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "RRM.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "RRM.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "RRM.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "RRM.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "RRM.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Vendor drawings → deep mill foundations, scale pit and cellars → building and cranes → sole plates and alignment → stands, furnace and cooling bed → hydraulics, water and power → flushing → cold run → furnace heat-up → first hot bar → trials by size. The critical path runs through the foundations and the mill equipment delivery."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Rolling stands, gearboxes & main drives",
+              "36–52 weeks",
+              "Before mill installation"
+            ],
+            [
+              "Reheating furnace equipment & refractory",
+              "30–40 weeks",
+              "Before furnace erection"
+            ],
+            [
+              "Cooling bed & finishing equipment",
+              "30–40 weeks",
+              "Before finishing-end installation"
+            ],
+            [
+              "Transformers & drive systems",
+              "28–40 weeks",
+              "Before cold run"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: groundwater in deep pits, late vendor data, late main drives, grid connection, and a long trial period (cobbles, roll changes). Contingency is held before first hot bar."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

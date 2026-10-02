@@ -1,0 +1,655 @@
+{
+  "archetype": "sewerage_network",
+  "schema": 2,
+  "context": "linear network · deep excavation, laid from the outfall upstream, air / water tests & CCTV survey",
+  "brief": {
+    "intro": "New to this project type? A sewerage network collects wastewater from every plot and carries it to a pumping station or treatment plant. Most of it flows by gravity, so every pipe must fall at an exact gradient — which makes sewers the deepest utility in the road, and the first one built. Work starts at the lowest point (the outfall or pumping station) and proceeds upstream, manhole to manhole, so each new length can drain. Where gravity cannot do the job, a lift or pumping station pushes the flow through a pressurised rising main. Deep trenches mean shoring, dewatering and slow progress, and each length must pass a leakage test and a CCTV inspection before the road is closed above it.",
+    "scope": [
+      {
+        "name": "Survey, levels & existing services",
+        "desc": "Accurate levels are essential — the whole design depends on gradient."
+      },
+      {
+        "name": "Deep excavation, shoring & dewatering",
+        "desc": "Trenches several metres deep, supported and kept dry while pipe is laid."
+      },
+      {
+        "name": "Gravity sewer pipes",
+        "desc": "uPVC, GRP, vitrified clay or concrete pipes laid to line and gradient between manholes."
+      },
+      {
+        "name": "Manholes & inspection chambers",
+        "desc": "Precast or cast-in-situ manholes at every change of direction, level or diameter."
+      },
+      {
+        "name": "House connections",
+        "desc": "Branch connections from each plot to the sewer, with an inspection chamber at the boundary."
+      },
+      {
+        "name": "Lift / pumping stations",
+        "desc": "Wet well, pumps, valves, power and controls where the flow must be lifted."
+      },
+      {
+        "name": "Rising (force) mains",
+        "desc": "Pressure pipe from the pumping station to the discharge point."
+      },
+      {
+        "name": "Trenchless crossings",
+        "desc": "Micro-tunnelling or pipe jacking under main roads, railways and canals."
+      },
+      {
+        "name": "Testing & CCTV",
+        "desc": "Air or water leakage tests, mandrel test and CCTV survey of every length."
+      },
+      {
+        "name": "Backfill & reinstatement",
+        "desc": "Compacted backfill in layers and reinstatement of the road above."
+      },
+      {
+        "name": "Connection to the existing system",
+        "desc": "Breaking into the existing sewer or treatment-works inlet, with flow diversion."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Gravity sewer",
+        "plain": "a pipe that flows part-full, driven only by its slope."
+      },
+      {
+        "term": "Invert level",
+        "plain": "the level of the inside bottom of the pipe — the number the gradient is set out from."
+      },
+      {
+        "term": "Manhole",
+        "plain": "a chamber giving access to the sewer; placed at every bend, junction and change of gradient."
+      },
+      {
+        "term": "Rising main (force main)",
+        "plain": "a pressurised pipe that carries pumped sewage uphill."
+      },
+      {
+        "term": "Lift station",
+        "plain": "a small pumping station that raises sewage so it can flow by gravity again."
+      },
+      {
+        "term": "Micro-tunnelling / pipe jacking",
+        "plain": "installing the pipe by pushing it through the ground from a shaft, without an open trench."
+      },
+      {
+        "term": "Dewatering",
+        "plain": "pumping groundwater down so the trench is dry enough to lay pipe."
+      },
+      {
+        "term": "Air test / water test",
+        "plain": "a leakage test on a length of sewer between two manholes."
+      },
+      {
+        "term": "CCTV survey",
+        "plain": "a camera run through the finished pipe to prove it is clean, aligned and undamaged."
+      },
+      {
+        "term": "Flow diversion (over-pumping)",
+        "plain": "temporarily pumping the existing flow around the point where the new sewer is connected."
+      }
+    ],
+    "must_get_right": [
+      "Build from the downstream end upward. A sewer laid in the middle of the route with nowhere to drain cannot be tested or used, and the levels cannot be corrected later.",
+      "Sewers go in before every other utility because they are deepest — the sewer programme sets the start date of water, power and telecom in the same road.",
+      "Deep-trench production is slow and depends on shoring and dewatering; plan it as metres per day by depth band, not as one rate for the whole network.",
+      "The pumping station is a long job in its own right (deep wet well, pumps, power supply). Start it early — the network cannot be commissioned until it works."
+    ]
+  },
+  "components": [
+    {
+      "name": "Deep Excavation & Dewatering",
+      "desc": "Trenches, shoring, well-points and backfill",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Gravity Sewers",
+      "desc": "Pipes laid to gradient, manhole to manhole",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Manholes & Chambers",
+      "desc": "Precast / in-situ manholes and house inspection chambers",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Pumping Stations",
+      "desc": "Wet well, pumps, valves, power and control",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Rising Mains",
+      "desc": "Pressure mains with air valves and thrust blocks",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Trenchless Crossings",
+      "desc": "Micro-tunnel and pipe-jack drives with their shafts",
+      "disc": "Civil",
+      "primary": false
+    },
+    {
+      "name": "Power, Control & Telemetry",
+      "desc": "Pump-station MCC, level control and SCADA link",
+      "disc": "Electrical",
+      "primary": false
+    },
+    {
+      "name": "Testing & CCTV",
+      "desc": "Leakage tests, CCTV survey and commissioning",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Sewer Piping",
+      "items": [
+        "Gravity sewers (uPVC / GRP / VC / concrete)",
+        "Rising mains (DI / HDPE / GRP)",
+        "House connections"
+      ]
+    },
+    {
+      "discipline": "Pumping Station Mechanical",
+      "items": [
+        "Submersible pumps & guide rails",
+        "Valves, pipework & surge protection",
+        "Odour control & ventilation",
+        "Lifting equipment"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "MCC & power supply (with standby generator)",
+        "Level instruments & pump control",
+        "SCADA / telemetry to the operator"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Survey, Design & Permits",
+    "Mobilization & Dewatering Set-up",
+    "Outfall & Pumping Station Civil",
+    "Gravity Sewers (downstream → upstream)",
+    "Manholes & House Connections",
+    "Rising Mains",
+    "Testing & CCTV",
+    "Pump Station Commissioning & Handover"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Survey",
+      "PS civil",
+      "Sewers",
+      "Manholes",
+      "Rising main",
+      "Test/CCTV",
+      "Commission"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Deep Excavation & Reinstatement",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 64,
+        "label": "Dewater → excavate & shore → backfill → reinstate",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Gravity Sewers — Pipe Laying",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 12,
+        "width": 58,
+        "label": "Bed → lay to gradient → joint, upstream from the outfall",
+        "holds": [
+          70
+        ]
+      },
+      {
+        "trade": "Manholes & House Connections",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 16,
+        "width": 58,
+        "label": "Base → rings → benching → cover",
+        "holds": []
+      },
+      {
+        "trade": "Pumping Station — Civil & Mechanical",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 8,
+        "width": 66,
+        "label": "Wet well → pumps → pipework → valves",
+        "holds": [
+          74
+        ]
+      },
+      {
+        "trade": "Rising Mains",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 36,
+        "width": 36,
+        "label": "Lay → thrust blocks → pressure test",
+        "holds": [
+          72
+        ]
+      },
+      {
+        "trade": "Power, Control & Telemetry",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 52,
+        "width": 30,
+        "label": "Power supply → MCC → instruments → SCADA",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Testing, CCTV & Commissioning",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 78,
+        "width": 22,
+        "label": "Clean → CCTV → pump test → connect",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Deep Excavation & Reinstatement",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Set out levels & confirm existing services",
+        "Install dewatering & lower the water table",
+        "Excavate & shore the trench",
+        "Backfill & compact in layers",
+        "Road reinstatement"
+      ]
+    },
+    {
+      "name": "Gravity Sewers — Pipe Laying",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2,
+        4
+      ],
+      "steps": [
+        "Granular bedding to level",
+        "Lay & joint pipe to line and gradient",
+        "Level check of every length (invert)",
+        "Pipe surround & first backfill",
+        "Air / water test manhole to manhole"
+      ]
+    },
+    {
+      "name": "Manholes & House Connections",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [],
+      "steps": [
+        "Cast manhole base or place precast base",
+        "Erect shaft rings & cover slab",
+        "Benching, channels & lining / coating",
+        "House connection branches & inspection chambers",
+        "Covers & frames to finished road level"
+      ]
+    },
+    {
+      "name": "Pumping Station — Civil & Mechanical",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Wet-well excavation & base slab",
+        "Wet-well walls, cover slab & lining",
+        "Receive pumps & valves",
+        "Install pumps, guide rails & pipework",
+        "Valve chamber, surge vessel & odour control"
+      ]
+    },
+    {
+      "name": "Rising Mains",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Trench & bedding",
+        "Lay & joint pressure pipe",
+        "Air valves, washouts & thrust blocks",
+        "Pressure test the rising main"
+      ]
+    },
+    {
+      "name": "Power, Control & Telemetry",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Power-supply connection & transformer",
+        "Install MCC & standby generator",
+        "Cabling, level instruments & control panel",
+        "Loop checks & pump control test",
+        "Telemetry link to the operator"
+      ]
+    },
+    {
+      "name": "Testing, CCTV & Commissioning",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        3
+      ],
+      "steps": [
+        "Jetting & cleaning of sewers",
+        "CCTV survey of every length",
+        "Pump-station wet commissioning (clean water)",
+        "Connection to the existing system with flow diversion",
+        "As-built levels & handover to the authority"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "SWN",
+      "name": "Sewerage Network (Gravity Sewers & Rising Mains) — Project",
+      "level": 1
+    },
+    {
+      "code": "SWN.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "SWN.02",
+      "name": "Survey, Design & Permits",
+      "level": 2
+    },
+    {
+      "code": "SWN.02.10",
+      "name": "Level survey & trial pits",
+      "level": 3
+    },
+    {
+      "code": "SWN.02.20",
+      "name": "Shop drawings & material approvals",
+      "level": 3
+    },
+    {
+      "code": "SWN.02.30",
+      "name": "Road-opening permits & NOCs",
+      "level": 3
+    },
+    {
+      "code": "SWN.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "SWN.03.10",
+      "name": "Pipes & manhole units",
+      "level": 3
+    },
+    {
+      "code": "SWN.03.20",
+      "name": "Pumps, valves & MCC",
+      "level": 3
+    },
+    {
+      "code": "SWN.04",
+      "name": "Civil Works — Excavation, Dewatering & Reinstatement",
+      "level": 2
+    },
+    {
+      "code": "SWN.04.10",
+      "name": "Dewatering",
+      "level": 3
+    },
+    {
+      "code": "SWN.04.20",
+      "name": "Trench excavation & shoring",
+      "level": 3
+    },
+    {
+      "code": "SWN.04.30",
+      "name": "Backfill & compaction",
+      "level": 3
+    },
+    {
+      "code": "SWN.04.40",
+      "name": "Trenchless crossings (micro-tunnel / pipe jacking)",
+      "level": 3
+    },
+    {
+      "code": "SWN.04.50",
+      "name": "Road reinstatement",
+      "level": 3
+    },
+    {
+      "code": "SWN.05",
+      "name": "Gravity Sewers — Piping",
+      "level": 2
+    },
+    {
+      "code": "SWN.05.10",
+      "name": "Trunk sewers",
+      "level": 3
+    },
+    {
+      "code": "SWN.05.20",
+      "name": "Lateral sewers",
+      "level": 3
+    },
+    {
+      "code": "SWN.05.30",
+      "name": "Manholes & house connections",
+      "level": 3
+    },
+    {
+      "code": "SWN.05.40",
+      "name": "Inspection chambers",
+      "level": 3
+    },
+    {
+      "code": "SWN.06",
+      "name": "Pumping Stations (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "SWN.06.10",
+      "name": "Wet well & valve chamber structure",
+      "level": 3
+    },
+    {
+      "code": "SWN.06.20",
+      "name": "Pumps, pipework & valves",
+      "level": 3
+    },
+    {
+      "code": "SWN.06.30",
+      "name": "Odour control & lifting equipment",
+      "level": 3
+    },
+    {
+      "code": "SWN.07",
+      "name": "Rising Mains (Pressure Pipe)",
+      "level": 2
+    },
+    {
+      "code": "SWN.08",
+      "name": "Electrical Power, Control & Telemetry",
+      "level": 2
+    },
+    {
+      "code": "SWN.09",
+      "name": "Testing, CCTV & Commissioning",
+      "level": 2
+    },
+    {
+      "code": "SWN.09.10",
+      "name": "Leakage tests",
+      "level": 3
+    },
+    {
+      "code": "SWN.09.20",
+      "name": "CCTV survey",
+      "level": 3
+    },
+    {
+      "code": "SWN.09.30",
+      "name": "Pump station commissioning",
+      "level": 3
+    },
+    {
+      "code": "SWN.09.40",
+      "name": "Connection to existing system & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by sewer run (manhole to manhole) grouped by catchment, in the order of construction from the outfall upstream, so the completed and tested length is always a connected, drainable system."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for pipe laying; dewatering runs continuously (24 hours, 7 days) once started. Connection to the live system is done at low-flow hours (night) on its own calendar."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "The driving chain is: pumping-station structure and outfall → trunk sewer upstream from the outfall → laterals → house connections, with each run following dewater → excavate → lay → test → backfill. In parallel the pumping station is fitted out and powered. The network is commissioned only when sewers are CCTV-accepted, the station is wet-tested and the rising main is pressure-tested."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "Ground and groundwater are as in the soil report; permits are granted in construction order (downstream first); power supply to the pumping station is available on the assumed date; the receiving sewer or treatment works can accept the flow at handover."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Submersible pumps & guide-rail sets",
+              "16–24 weeks",
+              "Before pump-station mechanical installation"
+            ],
+            [
+              "MCC, control panel & standby generator",
+              "14–20 weeks",
+              "Before pump-station power-on"
+            ],
+            [
+              "Large-diameter GRP / concrete pipe & precast manholes",
+              "10–16 weeks",
+              "Before the trunk-sewer crew starts"
+            ],
+            [
+              "Micro-tunnelling machine mobilisation",
+              "8–12 weeks",
+              "Before the first trenchless drive"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Trench depth limits output and needs shoring; the open length is limited in public roads; dewatering discharge needs a permit and a discharge point. Deep manholes and the wet well are confined spaces."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: higher groundwater or rock than expected, collapse or settlement next to deep trenches, level errors found at CCTV stage, late power supply to the pumping station, and late pump delivery. Contingency is held on the deep trunk sewer and before the station commissioning."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by sewer run and catchment; expanded to Level 4–5 lookahead for the excavation, pipe-laying and manhole crews — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "STD",
+      "text": "EN 1610 — construction and testing of drains and sewers"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

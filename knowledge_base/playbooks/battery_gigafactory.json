@@ -1,0 +1,730 @@
+{
+  "archetype": "battery_gigafactory",
+  "schema": 2,
+  "context": "dry-room factory · electrode, cell assembly and formation; dry rooms and utilities are the hard part",
+  "brief": {
+    "intro": "New to this project type? A battery cell factory makes lithium-ion cells in three stages. Electrode manufacturing mixes active powders into a slurry, coats it onto metal foil, dries it in long ovens and presses and slits it. Cell assembly cuts, stacks or winds the electrodes, puts them in a case, fills in the electrolyte and seals the cell. Formation then charges and discharges every cell for the first time and lets it rest for days in large racked halls. Lithium reacts with moisture, so assembly happens in dry rooms where the air is hundreds of times drier than a desert — and making that air takes an enormous utility plant. The building is big but ordinary; the dry rooms, the solvent-recovery system, the power demand of formation and the fire protection are what make it hard.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Mixing",
+        "desc": "Powder handling and slurry mixing for cathode and anode."
+      },
+      {
+        "name": "Coating & drying",
+        "desc": "Coating machines with long drying ovens and solvent (NMP) recovery."
+      },
+      {
+        "name": "Calendering & slitting",
+        "desc": "Roll presses and slitters."
+      },
+      {
+        "name": "Cell assembly (dry room)",
+        "desc": "Notching, stacking or winding, welding, casing, electrolyte filling and sealing."
+      },
+      {
+        "name": "Formation & ageing",
+        "desc": "Charge / discharge channels and high-rack ageing warehouse."
+      },
+      {
+        "name": "Testing, grading & packing",
+        "desc": "End-of-line tests, grading and module / pack lines."
+      },
+      {
+        "name": "Utility building",
+        "desc": "Dehumidifiers, chillers, boilers, NMP recovery, nitrogen and bulk chemicals."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Chilled water & large chillers, Steam / hot water, Compressed dry air & nitrogen, NMP solvent recovery — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Line-by-line acceptance, first cells, formation and ageing (weeks), customer qualification of cells, then ramp-up."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Electrode",
+        "plain": "the coated foil — cathode or anode — that stores the energy."
+      },
+      {
+        "term": "Slurry",
+        "plain": "the paste of active material, binder and solvent that is coated onto the foil."
+      },
+      {
+        "term": "NMP",
+        "plain": "the solvent used for cathode slurry; it is evaporated in the ovens and recovered."
+      },
+      {
+        "term": "Calendering",
+        "plain": "pressing the coated foil between rolls to the exact thickness and density."
+      },
+      {
+        "term": "Dry room",
+        "plain": "a sealed room kept at a very low dew point so moisture cannot reach the cell materials."
+      },
+      {
+        "term": "Dew point",
+        "plain": "the measure of how dry the air is; dry rooms run at about −40 °C or lower."
+      },
+      {
+        "term": "Formation",
+        "plain": "the first controlled charging of a cell, which creates its internal protective layer."
+      },
+      {
+        "term": "Ageing",
+        "plain": "resting the cells for days or weeks after formation to find weak ones."
+      },
+      {
+        "term": "Yield",
+        "plain": "the share of cells that pass; raising it is the main work of ramp-up."
+      }
+    ],
+    "must_get_right": [
+      "Utilities lead: dehumidifiers, chillers and power must be running before the dry rooms can be proven, and the dry rooms must be proven before assembly equipment is unpacked.",
+      "Size and order the power supply early — formation and the dry-room plant make this one of the most power-hungry factories there is.",
+      "Formation and ageing mean the first cells take weeks to come out; customer qualification then takes months. Put both between 'first cell' and 'production'.",
+      "Fire strategy (formation halls, electrolyte, finished cells) shapes the building and the insurer's approval — settle it at design stage."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Cell Production Lines",
+      "desc": "Mixing, coating, calendering, assembly and formation equipment",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Dry Rooms & Clean Rooms",
+      "desc": "Enclosure → dehumidifiers → ducting → dew-point proof",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Chilled water & large chillers, Steam / hot water, Compressed dry air & nitrogen, NMP solvent recovery",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Cell Production Lines",
+      "items": [
+        "Mixing",
+        "Coating & drying",
+        "Calendering & slitting",
+        "Cell assembly (dry room)",
+        "Formation & ageing",
+        "Testing, grading & packing",
+        "Utility building"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Chilled water & large chillers",
+        "Steam / hot water",
+        "Compressed dry air & nitrogen",
+        "NMP solvent recovery"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Sprinklers & gas detection",
+        "Formation-area fire compartments",
+        "Electrolyte storage protection",
+        "Exhaust abatement"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Cell Production Lines",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Mix → coat → calender → assemble → form → test",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Dry Rooms & Clean Rooms",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 34,
+        "width": 42,
+        "label": "Enclosure → dehumidifiers → ducting → dew-point proof",
+        "holds": [
+          76
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Utilities → dry room → first cell → qualification",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Cell Production Lines",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive production equipment",
+        "Install mixers & slurry piping",
+        "Install coaters, ovens & NMP recovery",
+        "Install calenders & slitters",
+        "Install cell-assembly lines inside the dry rooms",
+        "Install formation channels, racks & stacker cranes",
+        "Install testing, grading & pack lines"
+      ]
+    },
+    {
+      "name": "Mechanical — Dry Rooms & Clean Rooms",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        4
+      ],
+      "steps": [
+        "Dry-room panels, floors & airlocks",
+        "Desiccant dehumidifiers & chilled-water coils",
+        "Supply / return ducting & filters",
+        "Sealing & leak testing of the enclosure",
+        "Dew point proven before equipment move-in"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: chilled water & large chillers, steam / hot water, compressed dry air & nitrogen",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        1,
+        5
+      ],
+      "steps": [
+        "Utility plant commissioning",
+        "Dry-room dew-point acceptance",
+        "Equipment site acceptance tests line by line",
+        "First electrodes & first cells",
+        "Formation, ageing & grading of first lots",
+        "Customer qualification of cells",
+        "Yield ramp-up"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "BAT",
+      "name": "Battery Cell Factory (Gigafactory) — Project",
+      "level": 1
+    },
+    {
+      "code": "BAT.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "BAT.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "BAT.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "BAT.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "BAT.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "BAT.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "BAT.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "BAT.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "BAT.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "BAT.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "BAT.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "BAT.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "BAT.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "BAT.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "BAT.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "BAT.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "BAT.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "BAT.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "BAT.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "BAT.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "BAT.06.10",
+      "name": "Mixing",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.20",
+      "name": "Coating & drying",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.30",
+      "name": "Calendering & slitting",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.40",
+      "name": "Cell assembly (dry room)",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.50",
+      "name": "Formation & ageing",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.60",
+      "name": "Testing, grading & packing",
+      "level": 3
+    },
+    {
+      "code": "BAT.06.70",
+      "name": "Utility building",
+      "level": 3
+    },
+    {
+      "code": "BAT.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "BAT.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "BAT.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "BAT.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "BAT.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "BAT.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "BAT.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "BAT.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "BAT.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "BAT.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "BAT.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "BAT.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "BAT.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Building and utility plant → power-on → dry rooms built and proven → equipment move-in and installation → site acceptance tests → first electrodes → first cells → formation and ageing → qualification → ramp-up. The critical path runs through power and utilities to the dry-room acceptance, or through the equipment delivery."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Coating lines & ovens",
+              "12–18 months",
+              "Before electrode-area installation"
+            ],
+            [
+              "Cell-assembly lines",
+              "12–16 months",
+              "After dry-room acceptance"
+            ],
+            [
+              "Formation equipment",
+              "10–14 months",
+              "Before first cells"
+            ],
+            [
+              "Dehumidifiers, chillers & transformers",
+              "9–14 months",
+              "Before dry-room commissioning"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: power supply, dry rooms not reaching dew point, late equipment, low yield at start-up, and long customer qualification. Contingency is held before first cell and before start of deliveries."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

@@ -1,0 +1,689 @@
+{
+  "archetype": "ceramic_tile_factory",
+  "schema": 2,
+  "context": "process factory · spray dryer, presses, glazing lines and roller kiln; one supplier's line governs",
+  "brief": {
+    "intro": "New to this project type? A tile factory turns clay and minerals into ceramic tiles in a continuous line. Raw materials are ground wet in large ball mills, the slurry is dried into a fine powder in a tall spray-dryer tower, hydraulic presses form the tiles, a dryer removes moisture, the tiles are glazed and digitally printed, and a long roller kiln fires them in under an hour. Sorting and packing machines finish the job. Almost all of this equipment comes from one or two specialist suppliers who also supervise installation, so their delivery and their technicians set the pace. The spray dryer and the kiln are the tall and the long items around which the building is arranged, and the start-up of the kiln on gas is the key commissioning event.",
+    "scope": [
+      {
+        "name": "Site preparation & enabling",
+        "desc": "Grading, access roads, temporary facilities and underground services."
+      },
+      {
+        "name": "Building & machine foundations",
+        "desc": "Column footings plus the heavy bases, pits and trenches the machines sit on — set out from the equipment drawings."
+      },
+      {
+        "name": "Steel structure & envelope",
+        "desc": "Portal frames, crane beams, roof and wall cladding, making the hall weather-tight."
+      },
+      {
+        "name": "Industrial floor",
+        "desc": "Flat, hard-wearing floor slab, cast after the roof is on and before the machines move in."
+      },
+      {
+        "name": "Raw material storage & batching",
+        "desc": "Clay and mineral bays, weighing and feeding."
+      },
+      {
+        "name": "Milling & slip preparation",
+        "desc": "Ball mills, slip tanks, sieves and pumps."
+      },
+      {
+        "name": "Spray dryer & powder silos",
+        "desc": "Tower that dries the slip into press powder, with burner and silos."
+      },
+      {
+        "name": "Pressing & drying",
+        "desc": "Hydraulic presses, moulds and horizontal dryers."
+      },
+      {
+        "name": "Glazing & digital printing",
+        "desc": "Glaze preparation, glazing lines and inkjet printers."
+      },
+      {
+        "name": "Roller kiln",
+        "desc": "Long gas-fired kiln with ceramic rollers."
+      },
+      {
+        "name": "Sorting, packing & warehouse",
+        "desc": "Quality sorting, packing machines, palletising and storage."
+      },
+      {
+        "name": "Plant utilities",
+        "desc": "Natural gas supply & trains, Compressed air, Process water & recycling, Dust & fume extraction — the services every machine needs before it can run."
+      },
+      {
+        "name": "Power supply & control",
+        "desc": "Substation, transformers, switchgear, cabling and the plant control system."
+      },
+      {
+        "name": "Fire protection, HVAC & dust / fume extraction",
+        "desc": "Life-safety and environmental systems required for the operating permit."
+      },
+      {
+        "name": "Commissioning & ramp-up",
+        "desc": "Cold tests line by line, kiln heat-up, first fired tiles, shade and size tuning, then ramp-up by format."
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Slip",
+        "plain": "the liquid mixture of clay, minerals and water that comes out of the mills."
+      },
+      {
+        "term": "Spray dryer",
+        "plain": "a tall tower where slip is sprayed into hot air and falls as dry powder."
+      },
+      {
+        "term": "Press powder",
+        "plain": "the granulated powder that the presses form into tiles."
+      },
+      {
+        "term": "Green tile",
+        "plain": "a pressed tile before firing — fragile and still slightly damp."
+      },
+      {
+        "term": "Roller kiln",
+        "plain": "a long, low kiln in which tiles travel on rotating ceramic rollers."
+      },
+      {
+        "term": "Firing curve",
+        "plain": "the temperature profile along the kiln; adjusting it controls size, flatness and colour."
+      },
+      {
+        "term": "Glaze",
+        "plain": "the glassy coating applied before firing."
+      },
+      {
+        "term": "Format",
+        "plain": "the tile size being produced; each format needs its own moulds and settings."
+      }
+    ],
+    "must_get_right": [
+      "Choose the line supplier and freeze the layout first — building dimensions, foundations and the spray-dryer height all come from the supplier's drawings.",
+      "The spray-dryer tower and the kiln line fix the building: the tower may need a higher bay or to stand outside, and the kiln needs an uninterrupted straight run.",
+      "Gas supply at the required pressure is essential for the spray dryer and the kiln — a late gas connection stops commissioning entirely.",
+      "Supplier technicians install and start up in a fixed order; align the civil and steel handover dates of each area with their arrival."
+    ]
+  },
+  "components": [
+    {
+      "name": "Civil & Machine Foundations",
+      "desc": "Foundations, pits, trenches and industrial floor",
+      "disc": "Civil",
+      "primary": true
+    },
+    {
+      "name": "Steel Building & Cranes",
+      "desc": "Structure, cladding and overhead cranes",
+      "disc": "Structural",
+      "primary": true
+    },
+    {
+      "name": "Tile Production Line",
+      "desc": "Mills, spray dryer, presses, glazing lines, kiln and sorting",
+      "disc": "Mechanical",
+      "primary": true
+    },
+    {
+      "name": "Plant Utilities & Piping",
+      "desc": "Natural gas supply & trains, Compressed air, Process water & recycling, Dust & fume extraction",
+      "disc": "Mechanical",
+      "primary": false
+    },
+    {
+      "name": "Power, Automation & Control",
+      "desc": "Substation, MCCs, cabling, PLC / SCADA",
+      "disc": "Electrical",
+      "primary": true
+    },
+    {
+      "name": "Commissioning & Ramp-up",
+      "desc": "Cold tests, hot tests, trial production",
+      "disc": "Commissioning",
+      "primary": true
+    }
+  ],
+  "mep_systems": [
+    {
+      "discipline": "Tile Production Line",
+      "items": [
+        "Raw material storage & batching",
+        "Milling & slip preparation",
+        "Spray dryer & powder silos",
+        "Pressing & drying",
+        "Glazing & digital printing",
+        "Roller kiln",
+        "Sorting, packing & warehouse"
+      ]
+    },
+    {
+      "discipline": "Plant Utilities",
+      "items": [
+        "Natural gas supply & trains",
+        "Compressed air",
+        "Process water & recycling",
+        "Dust & fume extraction"
+      ]
+    },
+    {
+      "discipline": "Electrical & Control",
+      "items": [
+        "Substation & transformers",
+        "MCCs, drives & cabling",
+        "PLC / SCADA & instrumentation"
+      ]
+    },
+    {
+      "discipline": "Safety & Environment",
+      "items": [
+        "Fire detection & fighting",
+        "Dust / fume extraction",
+        "Effluent treatment"
+      ]
+    }
+  ],
+  "overview_phases": [
+    "Engineering & Long-lead Orders",
+    "Civil & Machine Foundations",
+    "Steel Building & Envelope",
+    "Industrial Floor",
+    "Equipment Installation",
+    "Utilities, Power & Control",
+    "Cold & Hot Commissioning",
+    "Trial Production & Ramp-up"
+  ],
+  "sequence_chart": {
+    "phases": [
+      "Engineer",
+      "Civil",
+      "Steel",
+      "Install",
+      "Utilities",
+      "Commission",
+      "Ramp-up"
+    ],
+    "lanes": [
+      {
+        "trade": "Civil — Foundations, Pits & Industrial Floor",
+        "disc": "Civil",
+        "kind": [
+          "civil"
+        ],
+        "start": 6,
+        "width": 40,
+        "label": "Building footings → machine bases → floor",
+        "holds": [
+          46
+        ]
+      },
+      {
+        "trade": "Structural — Steel Building, Cladding & Cranes",
+        "disc": "Structural",
+        "kind": [
+          "structural"
+        ],
+        "start": 18,
+        "width": 36,
+        "label": "Erect → align → clad → cranes",
+        "holds": [
+          54
+        ]
+      },
+      {
+        "trade": "Mechanical — Tile Production Line",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 44,
+        "width": 38,
+        "label": "Mills → spray dryer → presses → glaze → kiln → sort",
+        "holds": [
+          82
+        ]
+      },
+      {
+        "trade": "Mechanical — Utilities, Piping & HVAC",
+        "disc": "Mechanical",
+        "kind": [
+          "mechanical"
+        ],
+        "start": 40,
+        "width": 40,
+        "label": "Utility equipment → piping → test",
+        "holds": [
+          80
+        ]
+      },
+      {
+        "trade": "Electrical — Power, Automation & Control",
+        "disc": "Electrical",
+        "kind": [
+          "electrical"
+        ],
+        "start": 36,
+        "width": 48,
+        "label": "Substation → MCC → cabling → control",
+        "holds": [
+          84
+        ]
+      },
+      {
+        "trade": "Commissioning — Tests, Trial Production & Ramp-up",
+        "disc": "Commissioning",
+        "kind": [
+          "comm"
+        ],
+        "start": 80,
+        "width": 20,
+        "label": "Cold tests → kiln heat-up → first tiles → tuning",
+        "holds": [
+          96
+        ]
+      }
+    ]
+  },
+  "trades": [
+    {
+      "name": "Civil — Foundations, Pits & Industrial Floor",
+      "disc": "Civil",
+      "kind": [
+        "civil"
+      ],
+      "holds": [
+        1
+      ],
+      "steps": [
+        "Earthworks & building foundations",
+        "Machine foundations & pits to the vendor drawings (anchor bolts surveyed)",
+        "Trenches, ducts & underground services",
+        "Industrial floor slab (after roof)",
+        "External works, roads & yards"
+      ]
+    },
+    {
+      "name": "Structural — Steel Building, Cladding & Cranes",
+      "disc": "Structural",
+      "kind": [
+        "structural"
+      ],
+      "holds": [
+        0,
+        3
+      ],
+      "steps": [
+        "Receive fabricated steel",
+        "Erect columns, rafters & crane beams",
+        "Alignment survey & bolt tightening",
+        "Roof & wall cladding — building weather-tight",
+        "Install & load-test overhead cranes"
+      ]
+    },
+    {
+      "name": "Mechanical — Tile Production Line",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        0
+      ],
+      "steps": [
+        "Receive line equipment",
+        "Install ball mills, tanks & slip pumps",
+        "Erect spray-dryer tower, burner & cyclones",
+        "Install presses, moulds & dryers",
+        "Install glazing lines, printers & storage / AGV systems",
+        "Assemble roller kiln modules & rollers",
+        "Install sorting & packing lines"
+      ]
+    },
+    {
+      "name": "Mechanical — Utilities, Piping & HVAC",
+      "disc": "Mechanical",
+      "kind": [
+        "mechanical"
+      ],
+      "holds": [
+        2
+      ],
+      "steps": [
+        "Utility equipment: natural gas supply & trains, compressed air, process water & recycling",
+        "Pipe racks & utility piping",
+        "Pressure test & flush",
+        "HVAC, ventilation & dust / fume extraction",
+        "Fire-fighting system"
+      ]
+    },
+    {
+      "name": "Electrical — Power, Automation & Control",
+      "disc": "Electrical",
+      "kind": [
+        "electrical"
+      ],
+      "holds": [
+        3
+      ],
+      "steps": [
+        "Substation, transformers & MV switchgear",
+        "MCCs, drives & LV distribution",
+        "Cable trays, cabling & terminations",
+        "Energise the substation",
+        "Earthing, lighting & lightning protection",
+        "PLC / SCADA installation & loop checks"
+      ]
+    },
+    {
+      "name": "Commissioning — Tests, Trial Production & Ramp-up",
+      "disc": "Commissioning",
+      "kind": [
+        "comm"
+      ],
+      "holds": [
+        3,
+        5
+      ],
+      "steps": [
+        "Cold test of each section",
+        "Mill & spray-dryer start-up (first powder)",
+        "Press trials & mould tuning",
+        "Kiln heat-up to the supplier's curve",
+        "First fired tiles & firing-curve tuning",
+        "Product quality accepted (size, flatness, shade)",
+        "Ramp-up & performance test"
+      ]
+    }
+  ],
+  "wbs": [
+    {
+      "code": "CTF",
+      "name": "Ceramic & Tile Factory — Project",
+      "level": 1
+    },
+    {
+      "code": "CTF.01",
+      "name": "Project Management & Preliminaries",
+      "level": 2
+    },
+    {
+      "code": "CTF.02",
+      "name": "Engineering & Permits",
+      "level": 2
+    },
+    {
+      "code": "CTF.02.10",
+      "name": "Process & layout design",
+      "level": 3
+    },
+    {
+      "code": "CTF.02.20",
+      "name": "Vendor data for foundations",
+      "level": 3
+    },
+    {
+      "code": "CTF.02.30",
+      "name": "Building permit & environmental approval",
+      "level": 3
+    },
+    {
+      "code": "CTF.03",
+      "name": "Procurement",
+      "level": 2
+    },
+    {
+      "code": "CTF.03.10",
+      "name": "Process equipment (long-lead)",
+      "level": 3
+    },
+    {
+      "code": "CTF.03.10.10",
+      "name": "Factory acceptance tests & shipping",
+      "level": 4
+    },
+    {
+      "code": "CTF.03.20",
+      "name": "Steel structure & cladding",
+      "level": 3
+    },
+    {
+      "code": "CTF.03.30",
+      "name": "Electrical & utility equipment",
+      "level": 3
+    },
+    {
+      "code": "CTF.04",
+      "name": "Civil Works — Foundations, Pits & Industrial Floor",
+      "level": 2
+    },
+    {
+      "code": "CTF.04.10",
+      "name": "Earthworks & building foundations",
+      "level": 3
+    },
+    {
+      "code": "CTF.04.20",
+      "name": "Machine foundations & pits",
+      "level": 3
+    },
+    {
+      "code": "CTF.04.30",
+      "name": "Industrial floor",
+      "level": 3
+    },
+    {
+      "code": "CTF.04.40",
+      "name": "External works & roads",
+      "level": 3
+    },
+    {
+      "code": "CTF.05",
+      "name": "Steel Building & Cranes (Structure)",
+      "level": 2
+    },
+    {
+      "code": "CTF.05.10",
+      "name": "Steel erection",
+      "level": 3
+    },
+    {
+      "code": "CTF.05.20",
+      "name": "Roof & wall cladding",
+      "level": 3
+    },
+    {
+      "code": "CTF.05.30",
+      "name": "Overhead cranes",
+      "level": 3
+    },
+    {
+      "code": "CTF.06",
+      "name": "Process Plant (Mechanical Equipment)",
+      "level": 2
+    },
+    {
+      "code": "CTF.06.10",
+      "name": "Raw material storage & batching",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.20",
+      "name": "Milling & slip preparation",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.30",
+      "name": "Spray dryer & powder silos",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.40",
+      "name": "Pressing & drying",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.50",
+      "name": "Glazing & digital printing",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.60",
+      "name": "Roller kiln",
+      "level": 3
+    },
+    {
+      "code": "CTF.06.70",
+      "name": "Sorting, packing & warehouse",
+      "level": 3
+    },
+    {
+      "code": "CTF.07",
+      "name": "Plant Utilities & Piping (Mechanical)",
+      "level": 2
+    },
+    {
+      "code": "CTF.07.10",
+      "name": "Utility equipment",
+      "level": 3
+    },
+    {
+      "code": "CTF.07.20",
+      "name": "Utility piping",
+      "level": 3
+    },
+    {
+      "code": "CTF.07.30",
+      "name": "HVAC, extraction & fire fighting",
+      "level": 3
+    },
+    {
+      "code": "CTF.08",
+      "name": "Electrical Power & Automation",
+      "level": 2
+    },
+    {
+      "code": "CTF.08.10",
+      "name": "Substation & switchgear",
+      "level": 3
+    },
+    {
+      "code": "CTF.08.20",
+      "name": "Cabling & MCCs",
+      "level": 3
+    },
+    {
+      "code": "CTF.08.30",
+      "name": "Control system",
+      "level": 3
+    },
+    {
+      "code": "CTF.09",
+      "name": "Buildings — Offices, Laboratory & Stores",
+      "level": 2
+    },
+    {
+      "code": "CTF.10",
+      "name": "Commissioning, Tests, Trial Production & Ramp-up",
+      "level": 2
+    },
+    {
+      "code": "CTF.10.10",
+      "name": "Cold commissioning",
+      "level": 3
+    },
+    {
+      "code": "CTF.10.20",
+      "name": "Hot commissioning & trial production",
+      "level": 3
+    },
+    {
+      "code": "CTF.10.30",
+      "name": "Performance test & handover",
+      "level": 3
+    }
+  ],
+  "basis_of_planning": {
+    "standard": "AACE Recommended Practice 38R-06 — Documenting the Schedule Basis",
+    "sections": [
+      {
+        "heading": "Scheduling method & tools",
+        "body": "A Critical Path Method (CPM) network built in Primavera P6, developed to a Level 3 control schedule with retained-logic progress. Activities are organised by plant area along the process line and by discipline, with every long-lead machine tracked from order to factory test, shipping and arrival."
+      },
+      {
+        "heading": "Calendars & working time",
+        "body": "Standard site calendar for construction; equipment installation may run extended shifts under vendor supervision. Commissioning follows the vendor's programme, and hot commissioning runs continuously once started."
+      },
+      {
+        "heading": "Sequencing logic & critical path",
+        "body": "Supplier drawings → foundations (mill bases, press pits, kiln floor, tower) → building → floor → installation area by area in process order → gas, power, air and water → cold tests → spray dryer and kiln heat-up → first tiles → tuning. The critical path runs through the line supplier's delivery and the kiln start-up."
+      },
+      {
+        "heading": "Key assumptions",
+        "body": "The process technology and vendor are fixed before design starts; vendor drawings for foundations arrive on the agreed dates; permanent power and water are available before cold commissioning; raw material for trial production is on site."
+      },
+      {
+        "heading": "Procurement & long-lead items",
+        "body": "The schedule tracks the following as milestones because they drive the programme:",
+        "table": {
+          "columns": [
+            "Item",
+            "Typical lead time",
+            "Needed on site by"
+          ],
+          "rows": [
+            [
+              "Presses, kiln, dryers & glazing lines (line supplier)",
+              "28–40 weeks",
+              "Before line installation"
+            ],
+            [
+              "Spray dryer & ball mills",
+              "24–32 weeks",
+              "Before body-preparation installation"
+            ],
+            [
+              "Digital printers & sorting / packing lines",
+              "20–28 weeks",
+              "Before finishing-line installation"
+            ],
+            [
+              "Moulds & kiln rollers",
+              "12–16 weeks",
+              "Before press and kiln trials"
+            ]
+          ]
+        }
+      },
+      {
+        "heading": "Access, resource & site constraints",
+        "body": "Heavy machines need crane access and often must enter before the cladding or a wall is closed. Vendor supervisors are booked for fixed periods. Clean, dry, powered conditions are required before precision equipment is unpacked."
+      },
+      {
+        "heading": "Risks, float & contingency",
+        "body": "Main risks: late supplier drawings or equipment, gas connection, press-pit and kiln-floor tolerances, and a long tuning period before quality is accepted. Contingency is held before first saleable production."
+      },
+      {
+        "heading": "Schedule levels of detail",
+        "body": "Reported at Level 1 (milestones) and Level 2 (summary) to the client; controlled at Level 3 by plant area and discipline; expanded to Level 4–5 lookahead for the installation crews and the vendor supervisors — consistent with AACE 37R-06."
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "WBS",
+      "text": "PMI Practice Standard for Work Breakdown Structures — deliverable-based WBS"
+    },
+    {
+      "code": "BOP",
+      "text": "AACE 38R-06 — Basis of Schedule"
+    },
+    {
+      "code": "LOD",
+      "text": "AACE 37R-06 — schedule levels of detail"
+    }
+  ],
+  "baseline": {
+    "xer": true
+  }
+}

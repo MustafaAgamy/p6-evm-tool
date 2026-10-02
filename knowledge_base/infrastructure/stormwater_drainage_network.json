@@ -1,0 +1,255 @@
+{
+  "category": "Infrastructure",
+  "type": "Stormwater Drainage Network",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "storm",
+    "stormwater",
+    "storm water",
+    "drainage",
+    "box culvert",
+    "culvert",
+    "gully",
+    "catch basin",
+    "outfall",
+    "headwall",
+    "detention pond",
+    "soakaway",
+    "swale",
+    "open channel",
+    "storm drain",
+    "flap valve"
+  ],
+  "wbs": [
+    {
+      "name": "Survey & Permits",
+      "keywords": [
+        "survey",
+        "permit",
+        "level",
+        "noc"
+      ]
+    },
+    {
+      "name": "Excavation & Bedding",
+      "keywords": [
+        "excavation",
+        "trench",
+        "bedding",
+        "dewatering"
+      ]
+    },
+    {
+      "name": "Trunk Drains & Culverts",
+      "keywords": [
+        "trunk",
+        "culvert",
+        "box culvert",
+        "storm pipe",
+        "storm drain"
+      ]
+    },
+    {
+      "name": "Lateral Drains",
+      "keywords": [
+        "lateral",
+        "gully connection",
+        "drain laying"
+      ]
+    },
+    {
+      "name": "Manholes & Gullies",
+      "keywords": [
+        "manhole",
+        "gully",
+        "catch basin",
+        "chamber"
+      ]
+    },
+    {
+      "name": "Outfall & Ponds",
+      "keywords": [
+        "outfall",
+        "headwall",
+        "pond",
+        "soakaway",
+        "channel",
+        "swale"
+      ]
+    },
+    {
+      "name": "Pumping Station",
+      "keywords": [
+        "pumping station",
+        "pump",
+        "screen",
+        "penstock"
+      ]
+    },
+    {
+      "name": "Backfill & Reinstatement",
+      "keywords": [
+        "backfill",
+        "compaction",
+        "reinstatement"
+      ]
+    },
+    {
+      "name": "Cleaning & Handover",
+      "keywords": [
+        "cleaning",
+        "cctv",
+        "handover",
+        "jetting"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Outfall Structure",
+      "keywords": [
+        "outfall",
+        "headwall"
+      ],
+      "wbs": "Outfall & Ponds",
+      "typical_pred": "Survey & Permits",
+      "typical_succ": "Trunk Drains & Culverts",
+      "duration_days": 25,
+      "why": "The outfall is built first so that every upstream length has somewhere to drain."
+    },
+    {
+      "name": "Box Culvert Construction",
+      "keywords": [
+        "box culvert",
+        "culvert"
+      ],
+      "wbs": "Trunk Drains & Culverts",
+      "typical_pred": "Excavation & Bedding",
+      "typical_succ": "Backfill & Reinstatement",
+      "duration_days": 60,
+      "why": "Culverts are concrete structures with curing time; they usually carry the critical path of the drainage."
+    },
+    {
+      "name": "Lateral Drains & Manholes",
+      "keywords": [
+        "lateral",
+        "manhole"
+      ],
+      "wbs": "Lateral Drains",
+      "typical_pred": "Trunk Drains & Culverts",
+      "typical_succ": "Manholes & Gullies",
+      "duration_days": 40,
+      "why": "Laterals connect into the finished trunk drain."
+    },
+    {
+      "name": "Gullies & Connections",
+      "keywords": [
+        "gully",
+        "catch basin"
+      ],
+      "wbs": "Manholes & Gullies",
+      "typical_pred": "Lateral Drains",
+      "typical_succ": "Road Surfacing",
+      "duration_days": 25,
+      "why": "Gullies are set with the kerbs and must be complete before the final asphalt layer."
+    },
+    {
+      "name": "Cleaning & CCTV Inspection",
+      "keywords": [
+        "cleaning",
+        "cctv",
+        "jetting"
+      ],
+      "wbs": "Cleaning & Handover",
+      "typical_pred": "Manholes & Gullies",
+      "typical_succ": "Handover",
+      "duration_days": 10,
+      "why": "Lines are cleaned of construction silt and inspected before handover."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "outfall",
+        "headwall"
+      ],
+      "after_keywords": [
+        "trunk",
+        "culvert",
+        "storm pipe"
+      ],
+      "reason": "The trunk drain is built upstream from a completed outfall.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "excavation",
+        "bedding",
+        "blinding"
+      ],
+      "after_keywords": [
+        "culvert",
+        "pipe laying",
+        "storm pipe"
+      ],
+      "reason": "Culverts and pipes follow excavation and bedding.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "trunk",
+        "culvert"
+      ],
+      "after_keywords": [
+        "lateral",
+        "gully"
+      ],
+      "reason": "Laterals and gullies connect to a completed trunk drain.",
+      "impact": "Near-critical"
+    },
+    {
+      "before_keywords": [
+        "gully",
+        "catch basin",
+        "manhole"
+      ],
+      "after_keywords": [
+        "asphalt",
+        "wearing course",
+        "surfacing"
+      ],
+      "reason": "Road surfacing follows gullies and manhole covers set to level.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "gully",
+        "lateral",
+        "culvert"
+      ],
+      "after_keywords": [
+        "cleaning",
+        "cctv",
+        "handover"
+      ],
+      "reason": "Cleaning and inspection follow completion of the lines.",
+      "impact": "Near-critical"
+    }
+  ],
+  "milestones": [
+    "Outfall Approved",
+    "Outfall Complete",
+    "Trunk Drain Complete",
+    "Drainage Operational Before Rainy Season",
+    "Gullies Complete",
+    "Handover to Municipality"
+  ],
+  "common_issues": [
+    "Drains not sequenced from the outfall upstream",
+    "Rainy season not shown in the calendar",
+    "Gullies not linked to kerbs and asphalt",
+    "Culvert curing time missing",
+    "Outfall approval not tracked"
+  ]
+}

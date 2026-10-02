@@ -1,0 +1,296 @@
+{
+  "category": "Infrastructure",
+  "type": "Site Infrastructure — Roads & All Utility Networks",
+  "status": "draft",
+  "note": "Starter draft — confirm with a planning engineer before relying on it.",
+  "signatures": [
+    "infrastructure",
+    "sewer",
+    "storm",
+    "potable water",
+    "irrigation",
+    "street lighting",
+    "telecom",
+    "mv cable",
+    "road works",
+    "kerb",
+    "asphalt",
+    "sub-base",
+    "manhole",
+    "wet utilities",
+    "dry utilities",
+    "utility corridor",
+    "zone"
+  ],
+  "wbs": [
+    {
+      "name": "Survey & Approvals",
+      "keywords": [
+        "survey",
+        "approval",
+        "noc",
+        "coordination"
+      ]
+    },
+    {
+      "name": "Earthworks",
+      "keywords": [
+        "earthwork",
+        "cut",
+        "fill",
+        "formation",
+        "clearance"
+      ]
+    },
+    {
+      "name": "Sewerage",
+      "keywords": [
+        "sewer",
+        "sewerage",
+        "manhole",
+        "rising main"
+      ]
+    },
+    {
+      "name": "Stormwater",
+      "keywords": [
+        "storm",
+        "drainage",
+        "culvert",
+        "gully"
+      ]
+    },
+    {
+      "name": "Water & Fire",
+      "keywords": [
+        "potable",
+        "water main",
+        "water network",
+        "hydrant",
+        "fire water"
+      ]
+    },
+    {
+      "name": "Irrigation",
+      "keywords": [
+        "irrigation",
+        "tse"
+      ]
+    },
+    {
+      "name": "Power Network",
+      "keywords": [
+        "mv cable",
+        "lv cable",
+        "substation",
+        "power network",
+        "rmu",
+        "transformer"
+      ]
+    },
+    {
+      "name": "Street Lighting",
+      "keywords": [
+        "street lighting",
+        "lighting pole",
+        "lantern"
+      ]
+    },
+    {
+      "name": "Telecom",
+      "keywords": [
+        "telecom",
+        "fibre",
+        "fiber",
+        "telecom duct"
+      ]
+    },
+    {
+      "name": "Road Works",
+      "keywords": [
+        "sub-base",
+        "road base",
+        "kerb",
+        "asphalt",
+        "wearing course",
+        "binder",
+        "road marking"
+      ]
+    },
+    {
+      "name": "Hardscape & Landscape",
+      "keywords": [
+        "footpath",
+        "paving",
+        "interlock",
+        "landscape",
+        "planting"
+      ]
+    },
+    {
+      "name": "Testing & Handover",
+      "keywords": [
+        "testing",
+        "inspection",
+        "handover",
+        "energisation",
+        "energization"
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "name": "Sewer Network",
+      "keywords": [
+        "sewer",
+        "sewerage"
+      ],
+      "wbs": "Sewerage",
+      "typical_pred": "Earthworks",
+      "typical_succ": "Stormwater",
+      "duration_days": 70,
+      "why": "The sewer is the deepest utility and is laid first; every other network in the road waits for it."
+    },
+    {
+      "name": "Stormwater Drainage",
+      "keywords": [
+        "storm",
+        "drainage"
+      ],
+      "wbs": "Stormwater",
+      "typical_pred": "Sewerage",
+      "typical_succ": "Water & Fire",
+      "duration_days": 50,
+      "why": "Large storm drains follow the sewer and precede the shallower pressure pipes."
+    },
+    {
+      "name": "Water Network",
+      "keywords": [
+        "water main",
+        "water network",
+        "potable"
+      ],
+      "wbs": "Water & Fire",
+      "typical_pred": "Stormwater",
+      "typical_succ": "Power Network",
+      "duration_days": 45,
+      "why": "Pressure pipes follow the gravity networks and are tested before being covered."
+    },
+    {
+      "name": "Power Cables & Substations",
+      "keywords": [
+        "mv cable",
+        "lv cable",
+        "substation"
+      ],
+      "wbs": "Power Network",
+      "typical_pred": "Water & Fire",
+      "typical_succ": "Road Works",
+      "duration_days": 60,
+      "why": "Power is one of the shallowest networks; its road ducts must precede the road base."
+    },
+    {
+      "name": "Road Base & Asphalt",
+      "keywords": [
+        "road base",
+        "asphalt",
+        "sub-base"
+      ],
+      "wbs": "Road Works",
+      "typical_pred": "Power Network",
+      "typical_succ": "Testing & Handover",
+      "duration_days": 60,
+      "why": "Road layers close the corridor; the wearing course goes on after all utility testing."
+    }
+  ],
+  "logic_rules": [
+    {
+      "before_keywords": [
+        "sewer",
+        "sewerage"
+      ],
+      "after_keywords": [
+        "storm",
+        "water main",
+        "potable",
+        "irrigation"
+      ],
+      "reason": "Shallower pipes follow the deeper sewer in the same road.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "storm",
+        "water main",
+        "potable",
+        "irrigation"
+      ],
+      "after_keywords": [
+        "mv cable",
+        "lv cable",
+        "telecom duct",
+        "lighting duct"
+      ],
+      "reason": "Dry utilities follow the wet utilities.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "mv cable",
+        "lv cable",
+        "telecom",
+        "duct",
+        "sewer",
+        "water main"
+      ],
+      "after_keywords": [
+        "sub-base",
+        "road base",
+        "kerb"
+      ],
+      "reason": "Road layers follow all underground utilities and crossings.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "road base",
+        "kerb"
+      ],
+      "after_keywords": [
+        "asphalt",
+        "binder"
+      ],
+      "reason": "Asphalt follows the road base and kerbs.",
+      "impact": "Critical"
+    },
+    {
+      "before_keywords": [
+        "testing",
+        "pressure test",
+        "cctv"
+      ],
+      "after_keywords": [
+        "wearing course"
+      ],
+      "reason": "The wearing course follows utility testing.",
+      "impact": "Near-critical"
+    }
+  ],
+  "milestones": [
+    "Combined Services Approved",
+    "Formation Complete",
+    "Deep Utilities Complete",
+    "All Utilities Tested",
+    "Binder Course Complete",
+    "Power Energised",
+    "Wearing Course Complete",
+    "Zone Handover"
+  ],
+  "common_issues": [
+    "Utilities not sequenced by depth",
+    "Road base planned before utility crossings",
+    "No testing before the next utility covers the last",
+    "Wearing course before utility acceptance",
+    "Authority inspections and off-site connections missing"
+  ]
+}
