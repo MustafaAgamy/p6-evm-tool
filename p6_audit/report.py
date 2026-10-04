@@ -12,7 +12,9 @@ from utils import date_text as _date_text
 
 _SEV = {'Critical': report_theme.var('rpt-bad'), 'High': report_theme.var('rpt-warn'),
         'Medium': report_theme.var('rpt-warn'), 'Low': report_theme.var('rpt-muted')}
-_GRADE = {'Excellent': report_theme.var('rpt-good'), 'Acceptable': report_theme.var('rpt-warn'),
+_GRADE = {'Pass': report_theme.var('rpt-good'), 'Review': report_theme.var('rpt-warn'),
+          'Excellent': report_theme.var('rpt-good'), 'Good': report_theme.var('rpt-good'),
+          'Acceptable': report_theme.var('rpt-warn'),
           'Needs Attention': report_theme.var('rpt-warn'), 'Critical': report_theme.var('rpt-bad')}
 
 _DCMA = {
@@ -156,8 +158,8 @@ def _wbs_summary(m):
 
 
 def _grade_to_sev(grade):
-    return {'Critical': 'Critical', 'Needs Attention': 'High',
-            'Acceptable': 'Medium', 'Excellent': 'Low'}.get(grade, 'Low')
+    return {'Critical': 'Critical', 'Needs Attention': 'High', 'Review': 'Medium',
+            'Acceptable': 'Medium', 'Excellent': 'Low', 'Pass': 'Low'}.get(grade, 'Low')
 
 
 def _findings_table(m):
@@ -828,7 +830,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
         f'{lab} <b style="margin-left:auto">{val}</b></div>' for col, lab, val in _leg)
 
     def _tone(s):
-        return _MUT if s is None else (_GOOD if s >= 85 else _WARN if s >= 60 else _BAD)
+        return _MUT if s is None else (_GOOD if s >= 95 else _WARN if s >= 90 else _BAD)   # one band legend
 
     def _scol(st):
         return {'Pass': _GOOD, 'Review': _WARN, 'Critical': _BAD}.get(st, _MUT)
@@ -862,7 +864,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
                   f'<div class="tv" style="color:{_tone(score)}">{score_txt}</div></div>')
 
     # Headline stat cards
-    cf_txt = '—' if comp_float is None else f'{_pnum(comp_float)} d'
+    cf_txt = '—' if comp_float is None else f'{int(round(comp_float)) or 0} d'      # whole days (comment 53)
     cf_col = _MUT if comp_float is None else (_BAD if comp_float < 0 else _GOOD)
     headline = (
         f'<div class="stat"><div class="sv" style="color:{_tone(score)}">{score_txt}'
@@ -913,7 +915,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
       <div class="ct">Checks status &nbsp;·&nbsp; {total} sub-features</div>
       <div style="display:flex;gap:14px;align-items:center">{donut}<div style="flex:1">{donut_legend}</div></div>
       <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass &ge; 95</div></div>
-      <div class="bnote">How status is decided — each check's score against the per-check bands. A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS &ge; 90%. The overall baseline is submit-ready at &ge; 80%.</div>
+      <div class="bnote">How status is decided — each check's score against the per-check bands. Every sub-feature uses the same bands: below 95 needs review; below 90 is critical. The overall baseline is submit-ready at &ge; 80%.</div>
     </div>''')
     if on('headline'):
         top_cards.append(f'''<div class="card3 head3" data-sec="headline" data-parts="none">

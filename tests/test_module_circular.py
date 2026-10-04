@@ -32,7 +32,7 @@ def test_acyclic_chain_has_no_loops():
     assert r['blocking'] is False
     assert r['pct'] == 0.0
     assert r['score'] == 100.0
-    assert r['grade'] == 'Excellent'
+    assert r['grade'] == 'Pass'
     assert r['findings'] == []
 
 

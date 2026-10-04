@@ -74,7 +74,7 @@ _DEFAULT_ACTION = {
 # Pass >= 95, Review 90-95, Critical < 90 — the per-check status bands Ibrahim set
 # (the overall 80% submission standard is a separate, whole-schedule verdict).
 _DEFAULT_THRESHOLDS = (95.0, 90.0)
-_THRESHOLDS = {'relationship_types': (90.0, 85.0)}
+_THRESHOLDS = {}          # no per-check exceptions: every sub-feature uses the same bands
 
 
 def _thresholds(key):

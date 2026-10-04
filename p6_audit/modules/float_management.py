@@ -72,10 +72,10 @@ def float_health(high_pct, neg_pct=0.0, cfg=None):
 
 
 def fh_color(score):
-    """Colour band (no subjective word-grade): green ≥ 85 · amber 60–84 · red < 60."""
-    if score >= 85:
+    """Colour of the one band legend: green Pass ≥ 95 · amber Review 90–95 · red Critical < 90."""
+    if score >= 95:
         return 'green'
-    if score >= 60:
+    if score >= 90:
         return 'amber'
     return 'red'
 

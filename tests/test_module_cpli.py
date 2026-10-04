@@ -94,7 +94,7 @@ def test_no_data_scores_100_and_cpli_none():
     assert r['kpis']['project_total_float_days'] is None
     assert r['kpis']['finish_milestone_id'] is None
     assert r['score'] == 100.0
-    assert r['grade'] == 'Excellent'
+    assert r['grade'] == 'Pass'
     assert r['baseline_rule_met'] is False
 
 

@@ -117,7 +117,7 @@ def test_scoring_descriptor_is_transparent():
     assert s['formula'] == 'Score = 100 − defect%'
     assert '3 of 100' in s['derivation']
     assert 'Score = 100 − 3% = 97' in s['derivation']
-    assert 'Excellent' in s['bands'] and 'Critical' in s['bands']
+    assert s['bands'] == 'Pass ≥ 95 · Review 90–95 · Critical < 90'
     assert 'Metric 3' in s['benchmark']
 
 

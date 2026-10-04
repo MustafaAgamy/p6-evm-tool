@@ -23,13 +23,9 @@ def module_score(pct):
 
 
 def grade_for_pct(pct):
-    """4-level engineering grade from the KPI percentage."""
-    if pct is None:
-        return 'Excellent'
-    for cutoff, label in _PCT_BANDS:
-        if pct <= cutoff:
-            return label
-    return 'Critical'
+    """The band of a defect % — through the same Score = 100 − defect% and the ONE band legend
+    every sub-feature uses (Pass ≥ 95 · Review 90–95 · Critical < 90)."""
+    return band(None if pct is None else linear_score(pct))
 
 
 # ── Schedule Health Review scoring: score = 100 − defect%, uniform legend ──────
@@ -40,17 +36,24 @@ def linear_score(defect_pct):
     return round(max(0.0, min(100.0, 100.0 - defect_pct)), 1)
 
 
-_UNIFORM_BANDS = [(98.0, 'Excellent'), (95.0, 'Good'), (90.0, 'Acceptable')]
+# ONE band legend for every Schedule Health sub-feature (Ibrahim): Pass >= 95, Review 90-95,
+# Critical < 90 — the grade beside every score, the Summary donut and every legend.
+PASS_AT, REVIEW_AT = 95.0, 90.0
+BANDS_TEXT = 'Pass ≥ 95 · Review 90–95 · Critical < 90'
+
+
+def band(score):
+    """Pass / Review / Critical for a 0-100 score (no score = nothing wrong = Pass)."""
+    if score is None or score >= PASS_AT:
+        return 'Pass'
+    if score >= REVIEW_AT:
+        return 'Review'
+    return 'Critical'
 
 
 def uniform_grade(score):
-    """Uniform Schedule Health legend: >=98 Excellent, >=95 Good, >=90 Acceptable, else Critical."""
-    if score is None:
-        return 'Excellent'
-    for cutoff, label in _UNIFORM_BANDS:
-        if score >= cutoff:
-            return label
-    return 'Critical'
+    """The grade beside a sub-feature score — the one band legend (Pass / Review / Critical)."""
+    return band(score)
 
 
 # ── Legacy penalty scoring (superseded by module scoring above; retained so

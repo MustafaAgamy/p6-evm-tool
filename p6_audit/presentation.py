@@ -325,7 +325,7 @@ def _cpli_tiles_from_module(m):
 # ── Scoring transparency: how each check's 0-100 score is derived ──────────
 # Unified Schedule Health model: Score = 100 − defect%, one uniform legend.
 # CPLI is the exception (its own DCMA formula); Circular is a gate (not weighted).
-_UNIFORM_BANDS_TEXT = '≥ 98 Excellent · ≥ 95 Good · ≥ 90 Acceptable · < 90 Critical'
+_UNIFORM_BANDS_TEXT = 'Pass ≥ 95 · Review 90–95 · Critical < 90'
 
 # DCMA 14-Point reference per check — the industry benchmark, shown SEPARATELY
 # from the tool's 0-100 score (they are not the same thing).
@@ -366,7 +366,7 @@ def _scoring(m):
         return {'formula': 'Score = critical-path density — the share of activities on the critical path',
                 'derivation': _cpli_verdict(m),
                 'bands': ('≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · > 40% → 60'
-                          '  ·  grade: 100 Excellent · 90 Acceptable · below 90 Critical'),
+                          '  ·  band: Pass ≥ 95 · Review 90–95 · Critical < 90'),
                 'benchmark': ref}
     if mod == 'circular':
         loops = k.get('loops', 0) or 0

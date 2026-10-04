@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — The same bands for every Schedule Health sub-feature
+Every sub-feature now grades its score on the one band legend — **Pass ≥ 95 · Review 90–95 · Critical < 90** — with no exceptions: the grade beside each score (was Excellent / Good / Acceptable / Critical, and CPLI's own 100 / 90 / 85 / 75 / 60 steps), the colours (green / amber / red were ≥ 85 / 60–84 / < 60 on the gauges and Float Health), the WBS rows, the Summary's checks-status donut (Relationship Types used to pass at 90 and review from 85) and every "how this score is calculated" legend. Each check keeps its own score formula. The Summary headline's completion total float is shown in whole days (−104 d, was −104.11212121212121 d).
+
 ### Added — Schedule Health Summary: the legend under the overall score (comment 54)
 The overall score now carries its legend, on screen and in the PDF: the submission scale the verdict uses (Not ready < 80 · Acceptable to submit 80–90 · Ready to submit ≥ 90 — the 80% rule is kept) and where the same score falls on the per-check bands (Critical < 90 · Review 90–95 · Pass ≥ 95). An overall 81.2 now reads "Acceptable to submit — on the per-check bands the overall 81.2 would be Critical", so it is never taken for a pass.
 
