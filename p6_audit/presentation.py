@@ -49,11 +49,33 @@ def _plain(v):
     return str(v)
 
 
+def _one(v):
+    """A percentage / score to one decimal (comment 53): 26.84 -> 26.8, 99.0 -> 99."""
+    try:
+        return _plain(round(float(v), 1))
+    except (TypeError, ValueError):
+        return _plain(v)
+
+
 def _pct(v):
-    return f"{_plain(v if v is not None else 0)}%"
+    return f"{_one(v if v is not None else 0)}%"
+
+
+def _whole_days(v):
+    """Days as a whole number (comment 53): -10.44 -> -10, 117.6 -> 118 (never '-0')."""
+    try:
+        n = int(round(float(v)))
+    except (TypeError, ValueError):
+        return str(v)
+    return str(0 if n == 0 else n)
 
 
 def _days(v):
+    return '—' if v is None else f"{_whole_days(v)} d"
+
+
+def _days_exact(v):
+    """The Whole-Day check's own finding IS the decimal (51.71 d) — shown as P6 holds it."""
     return '—' if v is None else f"{_plain(v)} d"
 
 
@@ -116,6 +138,8 @@ def _cell_for(kind, value):
         return _cell(value, badge=_SEV_CLASS.get(value, 't-low'))
     if kind == 'days':
         return _cell(_days(value), 'num')
+    if kind == 'days_exact':
+        return _cell(_days_exact(value), 'num')
     if kind == 'date':
         return _cell(_iso(value), 'mut')
     if kind == 'chain':
@@ -124,7 +148,7 @@ def _cell_for(kind, value):
 
 
 # align is 'num' (right) for numeric/day columns, '' otherwise.
-_NUM_KINDS = {'num', 'days'}
+_NUM_KINDS = {'num', 'days', 'days_exact'}
 
 
 # ── per-check specs (ported verbatim from ui MODULE_SPECS — single source) ──
@@ -206,7 +230,7 @@ SPECS = {
         'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))), ('Decimal Durations', k.get('decimal_count', 0)),
                             ('Decimal %', _pct(k.get('decimal_pct')))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
-                    ('WBS Path', 'wbs_path', 'wbs'), ('Original', 'original_days', 'days'), ('Rounds To', 'rounds_to', 'days'),
+                    ('WBS Path', 'wbs_path', 'wbs'), ('Original', 'original_days', 'days_exact'), ('Rounds To', 'rounds_to', 'days'),
                     ('Calendar', 'calendar', 'mut'), ('Hrs/day', 'day_hours', 'mut'), ('Cause', 'cause_label', 'text'),
                     ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
     },

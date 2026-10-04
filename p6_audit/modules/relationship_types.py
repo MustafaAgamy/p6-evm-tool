@@ -18,6 +18,9 @@ NAME = 'Relationship Types'
 def _lag_txt(lag):
     if not lag:
         return ''
+    lag = int(round(lag))                            # whole days (comment 53)
+    if not lag:
+        return ''
     return f' +{lag}d' if lag > 0 else f' {lag}d'
 
 

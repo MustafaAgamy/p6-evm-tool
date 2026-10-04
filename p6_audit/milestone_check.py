@@ -252,7 +252,7 @@ def _milestone_presentation(evals, counts, score, matched, bad):
             _mcell(e.get('contract_name')), _mcell(e.get('contract_date'), 'mut'),
             _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('matched_activity_name') or '—'),
             _mcell(e.get('scheduled_finish') or '—', 'mut'),
-            _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{tf} d', 'num'),
+            _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{(lambda n: 0 if n == 0 else n)(int(round(tf)))} d', 'num'),   # whole days (comment 51)
             _mcell(e.get('status'), 'mut'), _mcell(e.get('recommendation'), 'mut')])
     _vp = [f"{counts[s]} {s.lower()}" for s in ('Masked', 'Late', 'On track', 'Unmatched') if counts.get(s)]
     verdict = ' · '.join(_vp) if _vp else 'No contract milestones matched.'

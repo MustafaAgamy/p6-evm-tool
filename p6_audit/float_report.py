@@ -23,15 +23,18 @@ def _esc(v):
 
 
 def _num(v):
+    """A percentage to one decimal (comment 53)."""
     try:
-        return f"{float(v):g}"
+        return f"{round(float(v), 1):g}"
     except (TypeError, ValueError):
         return _esc(v)
 
 
 def _wd(v):
+    """Working days as a whole number (comment 53)."""
     try:
-        return f"{float(v):g} WD"
+        n = int(round(float(v)))
+        return f"{0 if n == 0 else n} WD"
     except (TypeError, ValueError):
         return '0 WD'
 
