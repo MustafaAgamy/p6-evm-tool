@@ -2,7 +2,8 @@ from p6_evm.parser import (ScheduleData, full_wbs_path, _activity_calendar, lag_
                            lag_day_hours, sort_relationships, sort_calendars, units_percent_complete,
                            parse_p6_datetime, collect_unparsed_dates, resource_type_label,
                            resource_unit)
-from p6_evm.calendars import Calendar, float_basis, total_float_hours, lag_calendar_basis, minute_hours
+from p6_evm.calendars import (Calendar, float_basis, total_float_hours, lag_calendar_basis, minute_hours,
+                              critical_path_type, p6_is_critical)
 from p6_evm.clndr import parse_clndr_data
 
 TASK_TYPE = {'TT_Task': 'Task', 'TT_Mile': 'StartMilestone', 'TT_FinMile': 'FinishMilestone',
@@ -171,6 +172,10 @@ def _parse_xer(path):
         'lag_calendar': lag_calendar_basis(sched_opts.get('sched_calendar_on_relationship_lag')),
         'ss_lag_from_early_start': (sched_opts.get('sched_lag_early_start_flag') or 'Y').strip().upper() != 'N',
         'default_calendar_id': proj.get('clndr_id') or None,
+        # 'Define critical activities as' (PROJECT.critical_path_type CT_TotFloat / CT_DrivPath)
+        # and its float limit in hours (critical_drtn_hr_cnt) — P6's Critical flag (comment 49)
+        'critical_float_limit_hours': _num(proj.get('critical_drtn_hr_cnt'), 0.0) or 0.0,
+        'critical_path_type': critical_path_type(proj.get('critical_path_type')),
     }
 
     # This project's calendars = global + resource calendars (no proj_id) + its own project
@@ -278,7 +283,10 @@ def _parse_xer(path):
             # ONE Delay rule in both formats (finding F7-D1)
             'tf_from_hours': tf_days is not None,
             'free_float_days': ff_days,   # XER-only: P6's XML carries no float (finding P24)
-            'is_critical': (tf_days is not None and tf_days <= 0),
+            # P6's Longest Path flag (TASK.driving_path_flag) and its Critical flag (comment 49)
+            'longest_path': (t.get('driving_path_flag') == 'Y') if t.get('driving_path_flag') else None,
+            'is_critical': p6_is_critical(tf_days, day_hours, _status(t.get('status_code')), data.project,
+                                          (t.get('driving_path_flag') == 'Y') if t.get('driving_path_flag') else None),
             'constraint_type': _cstr(t.get('cstr_type')),
             'constraint_date': _dt(t.get('cstr_date')),
             'secondary_constraint_type': _cstr(t.get('cstr_type2')),

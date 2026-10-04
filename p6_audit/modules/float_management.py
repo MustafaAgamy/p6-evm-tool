@@ -161,15 +161,17 @@ def float_management(graph, config):
     fh_cfg = audit.get('float_health') or {}
     eff = {**FH_DEFAULTS, **fh_cfg}
 
-    real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
-    # Float analysis is about REMAINING work — completed activities carry no live float.
-    remaining = [(oid, a) for oid, a in real if not _completed(a)]
+    # P6's counts (comment 50): every activity type P6 lists. Float is about REMAINING work —
+    # completed activities carry no live float — and every % is over the activities not
+    # completed (Not Started + In Progress; every activity when nothing is completed).
+    real = graph.p6_all()
+    remaining = graph.p6_remaining()
     assessable = [(oid, a) for oid, a in remaining if a.get('total_float_days') is not None]
-    total = len(assessable)
+    total = len(remaining)
 
     # Baseline (no progress anywhere) vs update (something has started) → tile wording.
     is_update = any(_has_progress(a) for _, a in real)
-    total_label = 'Remaining Total Activities' if is_update else 'Total Activities'
+    total_label = 'Remaining Activities' if is_update else 'Total Activities'
 
     critical = [a for _, a in assessable if a.get('is_critical')]
     near = [a for _, a in assessable
@@ -215,6 +217,7 @@ def float_management(graph, config):
 
     stats = {
         'total': total, 'total_label': total_label, 'is_update': is_update,
+        'total_all': len(real),                    # every activity, completed included (comment 48)
         'critical': len(critical), 'critical_pct': _pct(len(critical), total),
         'near_critical': len(near), 'near_critical_pct': _pct(len(near), total),
         'near_band': near_band,

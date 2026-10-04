@@ -35,9 +35,9 @@ def _day(d):
 
 
 def _long_to_day(s):
-    """'01 June 2025' / '30-Aug-2025' / '30 Aug 2025' -> '2025-06-01'."""
+    """'01-Jun.2025' (comment 46) or an older '01 June 2025' / '30-Aug-2025' -> '2025-06-01'."""
     from datetime import datetime
-    for f in ('%d %B %Y', '%d-%b-%Y', '%d %b %Y', '%Y-%m-%d'):
+    for f in ('%d-%b.%Y', '%d %B %Y', '%d-%b-%Y', '%d %b %Y', '%Y-%m-%d'):
         try:
             return datetime.strptime(s, f).strftime('%Y-%m-%d')
         except (TypeError, ValueError):

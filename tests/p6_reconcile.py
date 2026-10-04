@@ -86,11 +86,26 @@ def reconcile(path, res):
         if lt[t] or bt.get(t):
             chk(P, 'Lag Report', f'lagged {t} links', lt[t], bt.get(t, 0))
     chk(P, 'Leads', 'leads', sum(1 for r in R.rels if r['lag_h'] < 0), K('leads')['leads'])
+    # comments 48-52: P6 counts EVERY activity type; each % is over the activities not completed
+    allc = list(R.acts)
+    rem = [c for c in allc if open_(R.acts[c])]
+    pct = lambda n: round(100.0 * n / len(rem), 1) if rem else 0.0
+    chk(P, 'Schedule Health', 'total activities (all types, incl. completed)', len(allc), K('cpli')['total_activities'])
+    chk(P, 'Schedule Health', 'remaining activities (not started + in progress)', len(rem), K('cpli').get('remaining_activities'))
     if has_tf:
-        chk(P, 'Negative Float', 'open tasks with float < 0', sum(1 for c, a in base.items() if open_(a) and a['tf_h'] is not None and tfd(c) < 0),
-            K('negative_float')['negative_count'])
-        chk(P, 'Float Analysis', 'open tasks with float > 44 d',
-            sum(1 for c, a in base.items() if open_(a) and a['tf_h'] is not None and tfd(c) > 44), K('float')['above_threshold'])
+        tfk = lambda c: R.acts[c]['tf_h'] is not None
+        neg = sum(1 for c in rem if tfk(c) and R.acts[c]['tf_h'] < 0)
+        chk(P, 'Negative Float', 'remaining activities with float < 0 (all types)', neg, K('negative_float')['negative_count'])
+        chk(P, 'Negative Float', 'negative-float % of remaining', pct(neg), K('negative_float')['neg_pct'])
+        chk(P, 'Float Analysis', 'remaining activities with float > 44 d (all types)',
+            sum(1 for c in rem if tfk(c) and tfd(c) > 44), K('float')['above_threshold'])
+        fm = (res['audit_modules']['modules']['float'].get('mgmt') or {}).get('stats') or {}
+        crit_all = sum(1 for c in rem if tfk(c) and R.acts[c]['tf_h'] <= 0)
+        near = sum(1 for c in rem if tfk(c) and R.acts[c]['tf_h'] > 0 and tfd(c) <= fm.get('near_band', 10))
+        chk(P, 'Float Analysis', 'critical (float <= 0, all types)', crit_all, fm.get('critical'))
+        chk(P, 'Float Analysis', 'near-critical (0 < float <= 10 wd, all types)', near, fm.get('near_critical'))
+        chk(P, 'Float Analysis', 'remaining activities', len(rem), fm.get('total'))
+        chk(P, 'Float Analysis', 'total activities (incl. completed)', len(allc), fm.get('total_all'))
     od = lambda c: (R.acts[c]['od_h'] or 0) / R.hpd(c)
     rd = lambda c: (R.acts[c]['rd_h'] or 0) / R.hpd(c)
     chk(P, 'High Duration', 'tasks with original duration > 44 d', sum(1 for c in base if od(c) > 44),
@@ -148,8 +163,10 @@ def reconcile(path, res):
             sc(v)
     chk(P, 'Circular Logic', 'loops', len(sccs), K('circular')['loops'])
     if has_tf:
-        crit = sum(1 for c, a in base.items() if open_(a) and a['tf_h'] is not None and tfd(c) <= 0)
-        chk(P, 'Critical Path / CPLI', 'critical open tasks (float <= 0)', crit, K('cpli')['critical_count'])
+        crit = sum(1 for c in rem if R.acts[c]['tf_h'] is not None and R.acts[c]['tf_h'] <= 0)
+        chk(P, 'Critical Path / CPLI', 'critical remaining activities (P6 Critical: float <= 0, all types)', crit,
+            K('cpli')['critical_count'])
+        chk(P, 'Critical Path / CPLI', 'critical % of remaining', pct(crit), K('cpli')['critical_pct'])
     # ── P6 Calendar Audit ──
     ca = res['calendar_audit']
     for c in ca.get('assigned_calendars') or []:

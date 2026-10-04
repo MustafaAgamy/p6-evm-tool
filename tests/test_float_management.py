@@ -157,7 +157,7 @@ def test_baseline_shows_total_update_shows_remaining():
     upd['p'] = _act('p', 60, status='In Progress')
     mu = float_management(_g(upd), CONFIG)
     assert mu['stats']['is_update'] is True
-    assert mu['stats']['total_label'] == 'Remaining Total Activities'
+    assert mu['stats']['total_label'] == 'Remaining Activities'
 
 
 def test_conclusion_is_prose_about_construction_scope():

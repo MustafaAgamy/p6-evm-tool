@@ -46,9 +46,10 @@ def test_zero_float_not_flagged():
     assert 'a' not in ids
 
 
-def test_milestone_excluded():
+def test_milestone_counted_like_p6():
+    """Comment 52: P6 counts every activity type — a milestone with negative float is one."""
     g = _g({'m': _act('m', task_type='StartMilestone', total_float_days=-8)}, [])
-    assert run_negative_float(g, CONFIG)['findings'] == []
+    assert [f['activity_id'] for f in run_negative_float(g, CONFIG)['findings']] == ['m']
 
 
 def test_total_float_rounded():

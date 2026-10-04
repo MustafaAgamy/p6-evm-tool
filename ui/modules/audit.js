@@ -1809,15 +1809,17 @@ function renderCpliModule(m) {
     : `<span class="shr-rule bad">Negative float — re-plan (baseline must be ≥ 0)</span>`;
   const fmTile = k.finish_date ? fmtDate(k.finish_date) : (k.finish_milestone_id || '—');
   const tiles = [
-    ['Critical %', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
+    ['Total Activities', k.total_activities == null ? '—' : Number(k.total_activities).toLocaleString()],
+    ['Remaining Activities', Number(k.remaining_activities ?? k.total_activities ?? 0).toLocaleString()],
     ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
+    ['Critical % (of remaining)', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
     ['CPLI', ratioComputable ? `${ratioPct}%` : '—'],
     ['Completion Total Float', dnum(k.project_total_float_days)],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
     ['Finish Milestone', fmTile],
   ];
   const verdict = computable
-    ? `${k.critical_pct}% of activities are on the critical path → score ${m.score}. Fewer critical activities = a less fragile schedule.`
+    ? `${k.critical_pct}% of the remaining activities are critical in P6 → score ${m.score}. Fewer critical activities = a less fragile schedule.`
     : 'Critical-path density not computable — no task-dependent activities to assess.';
 
   document.getElementById('module-body').innerHTML = `
@@ -2263,11 +2265,12 @@ function renderFloatModule(m) {
   const score = g.float_health ?? 0;
 
   const statsTiles = [
-    fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'task-dependent'),
+    fhTile('Total Activities', (stats.total_all ?? stats.total ?? 0).toLocaleString(), 'all types, incl. completed'),
+    fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'not started + in progress'),
     fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
-    fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`),
+    fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`, 'of the remaining activities'),
     fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `float 1–${stats.near_band ?? 10} working days`),
-    fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`),
+    fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`, 'of the remaining activities'),
   ].join('');
 
   const indTiles = [

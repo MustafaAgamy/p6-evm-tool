@@ -93,6 +93,8 @@ def audit_modules(data, config):
     order = []
     for runner in MODULE_RUNNERS:
         result = runner(graph, config)
+        # P6's own activity totals beside every check (comment 48)
+        result['p6_counts'] = {'total': len(graph.p6_all()), 'remaining': len(graph.p6_remaining())}
         # The normalized presentation the screen, PDF and Excel all render from —
         # derived from this result, so it is identical on import and on DB read.
         result['presentation'] = build_presentation(result)

@@ -129,6 +129,29 @@ def signed_working_minutes(calendar: Calendar, start: datetime, end: datetime):
     return -calendar.working_minutes(end, start)
 
 
+def critical_path_type(raw):
+    """P6's 'Define critical activities as' — 'longest' (Longest Path; XER CT_DrivPath, XML
+    'Longest Path') or 'float' (Total Float less than or equal to …, the default)."""
+    r = (raw or '').strip().lower()
+    return 'longest' if ('longest' in r or 'drivpath' in r) else 'float'
+
+
+def p6_is_critical(total_float_days, day_hours, status, project, longest_path=None):
+    """P6's Critical flag (comment 49): a remaining activity is critical when its total float is
+    less than or equal to the project's critical float limit (Schedule > Options; 0 h unless
+    changed) — or, when the project defines critical as the Longest Path, when P6 flags it on the
+    longest path. A completed activity carries no float and is never critical."""
+    if (status or '').replace(' ', '').lower() == 'completed':
+        return False
+    project = project or {}
+    if project.get('critical_path_type') == 'longest' and longest_path is not None:
+        return bool(longest_path)
+    if total_float_days is None:
+        return False
+    limit_h = project.get('critical_float_limit_hours') or 0.0
+    return total_float_days * (day_hours or 8.0) <= limit_h + 1e-9
+
+
 def float_basis(raw):
     """P6's 'Compute Total Float as' project option -> 'finish' | 'start' | 'smallest'.
 

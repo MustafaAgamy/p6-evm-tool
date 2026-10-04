@@ -192,9 +192,11 @@ SPECS = {
                     ('Recommendation', 'recommendation', 'mut')],
     },
     'negative_float': {
-        'verdict': lambda m: _v_pct(m, 'of activities carry negative total float — a baseline must not start with any.'),
-        'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))), ('Negative Float', k.get('negative_count', 0)),
-                            ('Negative-Float %', _pct(k.get('neg_pct')))],
+        'verdict': lambda m: _v_pct(m, 'of the remaining activities carry negative total float — a baseline must not start with any.'),
+        'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))),
+                            ('Remaining Activities', _num(k.get('remaining_activities', k.get('total_activities')))),
+                            ('Negative Float', k.get('negative_count', 0)),
+                            ('Negative-Float % (of remaining)', _pct(k.get('neg_pct')))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Total Float', 'total_float_days', 'days'),
                     ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
@@ -248,8 +250,10 @@ def _cpli_tiles(k):
     cpl_txt = '—' if cpl is None else f"{cpl} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
     cpli_ratio = k.get('cpli')
     return [
-        ('Critical %', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
+        ('Total Activities', _num(k.get('total_activities'))),
+        ('Remaining Activities', _num(k.get('remaining_activities', k.get('total_activities')))),
         ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
+        ('Critical % (of remaining)', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
         ('CPLI', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
         ('Completion Total Float', _days(k.get('project_total_float_days'))),
         ('Critical Path Length', cpl_txt),
@@ -265,7 +269,7 @@ def _cpli_verdict(m):
     sc = _plain(m.get('score'))
     ratio = k.get('cpli_pct')
     ctx = '' if ratio is None else f" Context — CPLI ratio (CPL + TF) ÷ CPL = {_plain(ratio)}% (DCMA Metric 13)."
-    return (f"{cp}% of activities are on the critical path → score {sc}. "
+    return (f"{cp}% of the remaining activities are critical in P6 → score {sc}. "
             f"Fewer critical activities = a less fragile schedule.{ctx}")
 
 
@@ -303,7 +307,7 @@ _DEFECT_NOUN = {
     'open_ends':          ('open_ends', 'total_activities', 'activities are open on a side'),
     'relationship_types': ('non_fs', 'total_relationships', 'relationships are not Finish-to-Start'),
     'leads':              ('leads', 'total_relationships', 'relationships are leads (negative lag)'),
-    'negative_float':     ('negative_count', 'total_activities', 'activities carry negative float'),
+    'negative_float':     ('negative_count', 'remaining_activities', 'remaining activities carry negative float'),
     'hard_constraints':   ('hard_count', 'total_activities', 'activities carry a hard constraint'),
     'high_duration':      ('over_threshold', 'total_activities', 'activities exceed the duration threshold'),
     'whole_day':          ('decimal_count', 'total_activities', 'activities have a decimal duration'),
@@ -432,6 +436,10 @@ def report_sections(m):
     ]
 
 
+# checks that examine the task activities only (Task / Resource Dependent, completed included)
+_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'whole_day'}
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -443,6 +451,12 @@ def build_presentation(module_result):
         raw_tiles = _cpli_tiles_from_module(m)
     else:
         raw_tiles = spec['tiles'](k)
+    p6c = m.get('p6_counts') or {}
+    if p6c and m.get('module') in _TASK_BASED:
+        # comment 48: P6's own totals first — every activity (completed included) and the ones
+        # still to do — then this check's own base, which is the task activities it examines
+        raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
+                     + [(('Tasks Checked' if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
     tiles = [{'label': lab, 'value': _plain(val)} for lab, val in raw_tiles]
 
     columns = [{'label': lab, 'align': 'num' if kind in _NUM_KINDS else ''}

@@ -95,11 +95,12 @@ def _stats_tiles(mgmt):
     s = mgmt.get('stats', {}) or {}
     band = s.get('near_band', 10)
     return ''.join([
-        _tile(s.get('total_label', 'Total Activities'), f"{s.get('total', 0):,}", 'task-dependent'),
+        _tile('Total Activities', f"{s.get('total_all', s.get('total', 0)):,}", 'all types, incl. completed'),
+        _tile(s.get('total_label', 'Total Activities'), f"{s.get('total', 0):,}", 'not started + in progress'),
         _tile('Critical Activities', str(s.get('critical', 0)), 'flagged Critical in P6'),
-        _tile('Critical %', f"{_num(s.get('critical_pct', 0))}%"),
+        _tile('Critical %', f"{_num(s.get('critical_pct', 0))}%", 'of the remaining activities'),
         _tile('Near-Critical Activities', str(s.get('near_critical', 0)), f'float 1–{band} working days'),
-        _tile('Near-Critical %', f"{_num(s.get('near_critical_pct', 0))}%"),
+        _tile('Near-Critical %', f"{_num(s.get('near_critical_pct', 0))}%", 'of the remaining activities'),
     ])
 
 
