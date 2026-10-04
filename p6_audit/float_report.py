@@ -90,7 +90,7 @@ def _legend(mgmt):
             Each 1% of defect costs 1 point — here {_esc(_num(high.get("pct", 0)))}% &rarr; <b>{_esc(mgmt.get("float_health", 0))}</b>.</div>
           <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least {within}% of activities within the float threshold (high float &lt; {dmax}%). Shown for reference; it does not set the score.</div>
         </div>
-        <div class="sl-colours"><span><i class="dot g"></i>Green ≥ 85</span><span><i class="dot a"></i>Amber 60–84</span><span><i class="dot r"></i>Red &lt; 60</span></div>
+        <div class="sl-colours"><span><i class="dot g"></i>Pass ≥ 95</span><span><i class="dot a"></i>Review 90–95</span><span><i class="dot r"></i>Critical &lt; 90</span></div>
       </div>'''
 
 

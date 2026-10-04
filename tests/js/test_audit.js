@@ -47,8 +47,8 @@ test('area = Schedule Logic keeps the 2 logic findings', () =>
 console.log('\nseverityClass / scoreColor / gauge / uniqueValues');
 test('sev crit',        () => assert.equal(severityClass('Critical'), 't-crit'));
 test('sev unknown → low', () => assert.equal(severityClass('???'), 't-low'));
-test('score green',     () => assert.equal(scoreColor(90), 'color-green'));
-test('score amber',     () => assert.equal(scoreColor(70), 'color-amber'));
+test('score green (Pass ≥ 95)',    () => assert.equal(scoreColor(95), 'color-green'));
+test('score amber (Review 90–95)', () => assert.equal(scoreColor(92), 'color-amber'));
 test('score red',       () => assert.equal(scoreColor(40), 'color-red'));
 test('gauge full at 0',  () => assert.equal(gaugeDashoffset(0, 100), 100));
 test('gauge empty at 100', () => assert.equal(gaugeDashoffset(100, 100), 0));
@@ -58,9 +58,9 @@ test('barPct caps at 100',    () => assert.equal(barPct(21.6, 20), 100));
 test('barPct proportional',   () => assert.equal(barPct(1.2, 5), 24));
 test('barPct zero',           () => assert.equal(barPct(0, 10), 0));
 test('barPct guards max=0',   () => assert.equal(barPct(5, 0), 100));
-test('fh colour 85 → green',  () => assert.equal(scoreColor(85), 'color-green'));
-test('fh colour 60 → amber',  () => assert.equal(scoreColor(60), 'color-amber'));
-test('fh colour 59 → red',    () => assert.equal(scoreColor(59), 'color-red'));
+test('colour 95 → green',  () => assert.equal(scoreColor(95), 'color-green'));
+test('colour 90 → amber',  () => assert.equal(scoreColor(90), 'color-amber'));
+test('colour 89 → red',    () => assert.equal(scoreColor(89), 'color-red'));
 test('unique checks sorted', () => assert.deepEqual(uniqueValues(F, 'check_name'),
      ['Circular Logic', 'Float Analysis', 'Open Ends']));
 

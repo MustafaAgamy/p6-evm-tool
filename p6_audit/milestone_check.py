@@ -262,7 +262,7 @@ def _milestone_presentation(evals, counts, score, matched, bad):
         scoring = {
             'formula': 'Score = 100 − share of matched contract milestones that are Late or Masked',
             'derivation': f'{len(bad)} of {matched} matched milestones are late or masked = {defect}% → Score = {score}',
-            'bands': '≥ 98 Excellent · ≥ 95 Good · ≥ 90 Acceptable · < 90 Critical',
+            'bands': 'Pass ≥ 95 · Review 90–95 · Critical < 90',
             'benchmark': 'Contract milestones vs the baseline completion dates',
         }
     return {'tiles': tiles, 'columns': columns, 'rows': rows, 'verdict': verdict,

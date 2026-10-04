@@ -71,11 +71,10 @@ def test_fh_floors_at_zero():
 
 
 def test_fh_color_bands():
-    assert fh_color(100) == 'green'
-    assert fh_color(85) == 'green'
-    assert fh_color(84) == 'amber'
-    assert fh_color(60) == 'amber'
-    assert fh_color(59) == 'red'
+    # the one band legend (Pass ≥ 95 · Review 90–95 · Critical < 90)
+    assert fh_color(100) == 'green' and fh_color(95) == 'green'
+    assert fh_color(94.9) == 'amber' and fh_color(90) == 'amber'
+    assert fh_color(89.9) == 'red'
 
 
 # ── float_management aggregations ────────────────────────────────────────────

@@ -48,10 +48,11 @@ def _critical_density(pct):
     """The CPLI sub-feature score from critical-path density. (score, grade)."""
     if pct is None:
         return (None, None)
-    for thr, sc, gr in _DENSITY_BANDS:
+    from p6_audit.scoring import band          # the one band legend for every sub-feature
+    for thr, sc, _gr in _DENSITY_BANDS:
         if pct <= thr:
-            return (sc, gr)
-    return (60, 'High density')
+            return (sc, band(sc))
+    return (60, band(60))
 
 # Spans, not finish candidates — they run to the project end by construction.
 _SUMMARY_TYPES = {'LOE', 'WBSSummary'}

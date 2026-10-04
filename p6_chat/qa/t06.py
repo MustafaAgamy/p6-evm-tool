@@ -97,8 +97,14 @@ def _delay_is_real_line(F):
 
 
 def _grade_word(g):
-    return {'Excellent': 'excellent', 'Good': 'good', 'Acceptable': 'acceptable',
+    # Pass / Review / Critical — the one band legend (older saved results: the old words)
+    return {'Pass': 'pass', 'Review': 'review', 'Excellent': 'excellent', 'Good': 'good', 'Acceptable': 'acceptable',
             'Needs Attention': 'needs attention', 'Critical': 'critical'}.get(g, (g or '').lower() or 'ungraded')
+
+
+def _is_minor(g):
+    """A check below Pass but not Critical (Review; 'Acceptable' on older saved results)."""
+    return g in ('Review', 'Acceptable')
 
 
 def _is_flag(g):
@@ -221,7 +227,7 @@ def t06q00(F, role):
     tech = role == 'planning'
     mods = _present_modules(F)
     flagged = [m for m in mods if _is_flag(m['grade'])]
-    minor = [m for m in mods if m['grade'] == 'Acceptable' and (m['count'] or 0) > 0]
+    minor = [m for m in mods if _is_minor(m['grade']) and (m['count'] or 0) > 0]
     npts = len(mods)
 
     def _phrase(items):
@@ -310,7 +316,7 @@ def t06q01(F, role):
         return _no_audit(F, 'Schedule Health Review', 'the failing checks')
     tech = role == 'planning'
     mods = _present_modules(F)
-    failing = [m for m in mods if _is_flag(m['grade']) or (m['grade'] == 'Acceptable' and (m['count'] or 0) > 0)]
+    failing = [m for m in mods if _is_flag(m['grade']) or (_is_minor(m['grade']) and (m['count'] or 0) > 0)]
     failing.sort(key=lambda m: (m['pct'] if m['pct'] is not None else -1), reverse=True)
 
     if not failing:
@@ -362,7 +368,7 @@ def t06q02(F, role):
         return _no_audit(F, 'Schedule Health Review', 'a plain read of the logic')
     mods = _present_modules(F)
     flagged = [m for m in mods if _is_flag(m['grade'])]
-    minor = [m for m in mods if m['grade'] == 'Acceptable' and (m['count'] or 0) > 0]
+    minor = [m for m in mods if _is_minor(m['grade']) and (m['count'] or 0) > 0]
     oe = _c(F.get('open_ends'), 'loose end', 'loose ends')
     oos = _c(F.get('oos_count'), 'activity ticked off out of order', 'activities ticked off out of order')
 

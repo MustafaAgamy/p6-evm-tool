@@ -26,9 +26,9 @@ export function severityClass(sev) {
   return { Critical: 't-crit', High: 't-high', Medium: 't-med', Low: 't-low' }[sev] || 't-low';
 }
 
-export function scoreColor(score) {
-  if (score >= 85) return 'color-green';
-  if (score >= 60) return 'color-amber';
+export function scoreColor(score) {        // Pass ≥ 95 · Review 90–95 · Critical < 90
+  if (score >= 95) return 'color-green';
+  if (score >= 90) return 'color-amber';
   return 'color-red';
 }
 
@@ -170,7 +170,8 @@ export function shortWbs(path, n = 3) {
 }
 
 export function gradeClass(grade) {
-  return { 'Excellent': 'g-exc', 'Acceptable': 'g-acc',
+  // Pass / Review / Critical — the one band legend (older saved projects: the old words)
+  return { 'Pass': 'g-exc', 'Review': 'g-acc', 'Excellent': 'g-exc', 'Good': 'g-exc', 'Acceptable': 'g-acc',
            'Needs Attention': 'g-need', 'Critical': 'g-crit' }[grade] || 'g-need';
 }
 
@@ -283,7 +284,7 @@ export function statusColor(status) {
 export function statusDot(status) {
   return { Pass: 'd-g', Review: 'd-a', Critical: 'd-c' }[status] || 'd-n';
 }
-export // The legend under the overall score (comment 54): the 80% submission scale the verdict uses,
+// The legend under the overall score (comment 54): the 80% submission scale the verdict uses,
 // and where the same number falls on the per-check bands (81.2 = acceptable, yet Critical).
 function overallLegendHtml(score) {
   if (score == null) return '';
@@ -295,7 +296,7 @@ function overallLegendHtml(score) {
     </div>`;
 }
 
-function verdictClass(verdict) {
+export function verdictClass(verdict) {
   if (verdict === 'Ready to submit') return 'v-good';
   if (verdict === 'Acceptable to submit') return 'v-warn';   // 80–90: meets the standard
   return 'v-bad';   // Not ready / Blocked / Not computed
@@ -1851,7 +1852,7 @@ function renderCpliModule(m) {
     <div class="shr-legend">
       <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
       <div style="margin-top:5px">Band: ≤ 25% → 100 · ≤ 30% → 90 · ≤ 35% → 85 · ≤ 40% → 75 · &gt; 40% → 60.</div>
-      <div style="margin-top:5px">Grade of the score: 100 = Excellent · 90 = Acceptable · below 90 (85 / 75 / 60) = Critical.</div>
+      <div style="margin-top:5px">Band of the score: Pass ≥ 95 · Review 90–95 · Critical &lt; 90 — the same bands as every sub-feature.</div>
     </div>
     <div class="shr-legend">
       <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>.
@@ -2138,7 +2139,7 @@ function renderSummary(health, am) {
   const cpliK = (am && am.modules && am.modules.cpli && am.modules.cpli.kpis) || {};
   const compFloat = cpliK.project_total_float_days;
 
-  const tone = s => (s == null ? '' : s >= 85 ? 'shr-green' : s >= 60 ? 'shr-amber' : 'shr-red');
+  const tone = s => (s == null ? '' : s >= 95 ? 'shr-green' : s >= 90 ? 'shr-amber' : 'shr-red');   // one band legend
 
   const compRows = subs.map(s => {
     const barW = s.score == null ? 0 : Math.max(0, Math.min(100, s.score));
@@ -2202,7 +2203,7 @@ function renderSummary(health, am) {
           <div class="shr-bands">
             <div class="lab">How status is decided — each check's score against the per-check bands</div>
             <div class="bands"><div class="bd bd-c">Critical &lt; 90</div><div class="bd bd-r">Review 90–95</div><div class="bd bd-p">Pass ≥ 95</div></div>
-            <div class="note">A check below 95 needs review; below 90 is critical. Per-check targets adjust where DCMA differs — e.g. FS ≥ 90%. The overall baseline is submit-ready at ≥ 80%.</div>
+            <div class="note">Every sub-feature uses the same bands: below 95 needs review; below 90 is critical. The overall baseline is submit-ready at ≥ 80%.</div>
           </div>
         </div>
 
@@ -2211,7 +2212,7 @@ function renderSummary(health, am) {
           <div class="shr-statcol">
             <div class="stat"><div class="sv ${tone(score)}">${score ?? '—'}<span>/100</span></div><div class="sk">Baseline health score</div></div>
             <div class="stat"><div class="sv ${c ? 'shr-red' : 'shr-green'}">${c}</div><div class="sk">Critical sub-features</div></div>
-            <div class="stat"><div class="sv ${compFloat == null ? '' : compFloat < 0 ? 'shr-red' : 'shr-green'}">${compFloat == null ? '—' : compFloat + ' d'}</div><div class="sk">Completion total float (rule ≥ 0)</div></div>
+            <div class="stat"><div class="sv ${compFloat == null ? '' : compFloat < 0 ? 'shr-red' : 'shr-green'}">${compFloat == null ? '—' : dnum(compFloat)}</div><div class="sk">Completion total float (rule ≥ 0)</div></div>
           </div>
         </div>
       </div>
@@ -2338,7 +2339,7 @@ function renderFloatModule(m) {
       <div class="sl-formula">Float Health = 100 − construction excess-float defect%</div>
       <div class="sl-row"><b>Defect%</b> = construction activities with total float &gt; ${thr} WD ÷ all construction activities. Each 1% of defect costs 1 point — here ${fhFmt(high.pct ?? 0)}% → <b>${score}</b>.</div>
       <div class="sl-row sl-ref"><b>DCMA reference — not the score.</b> DCMA Metric 5 benchmark: at least ${fhFmt(high.dcma_within_pct ?? 95)}% of activities within the float threshold (high float &lt; ${fhFmt(high.dcma_max_pct ?? 5)}%). Shown for reference; it does not set the score.</div>
-      <div class="sl-colours"><span><i class="g"></i>Green ≥ 85</span><span><i class="a"></i>Amber 60–84</span><span><i class="r"></i>Red &lt; 60</span></div>
+      <div class="sl-colours"><span><i class="g"></i>Pass ≥ 95</span><span><i class="a"></i>Review 90–95</span><span><i class="r"></i>Critical &lt; 90</span></div>
     </div>
     <div class="mod-sec">Schedule Statistics <span class="mod-sub">— whole schedule</span></div>
     <div class="fh-tiles five">${statsTiles}</div>

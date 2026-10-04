@@ -17,11 +17,7 @@ def test_score_interpolates_between_anchors():
 
 
 def test_grade_bands():
-    assert grade_for_pct(0) == 'Excellent'
-    assert grade_for_pct(2) == 'Excellent'      # <= 2
-    assert grade_for_pct(2.1) == 'Acceptable'
-    assert grade_for_pct(5) == 'Acceptable'
-    assert grade_for_pct(5.1) == 'Needs Attention'
-    assert grade_for_pct(8) == 'Needs Attention'
-    assert grade_for_pct(8.1) == 'Critical'
-    assert grade_for_pct(39.3) == 'Critical'
+    # defect % -> Score = 100 − % -> the one band legend (Pass ≥ 95 · Review 90–95 · Critical < 90)
+    assert grade_for_pct(0) == 'Pass' and grade_for_pct(5) == 'Pass'
+    assert grade_for_pct(5.1) == 'Review' and grade_for_pct(10) == 'Review'
+    assert grade_for_pct(10.1) == 'Critical' and grade_for_pct(39.3) == 'Critical'
