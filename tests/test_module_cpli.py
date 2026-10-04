@@ -42,13 +42,13 @@ def test_compute_cpli_guards_zero_none_and_backwards_cpl():
 
 
 # ── on-plan schedule: TF = 0, computable CPL → CPLI ≈ 1.0, perfect score ────
-def test_finish_milestone_tf_zero_scores_100():
+def test_finish_milestone_tf_zero_is_on_plan():
     data_date = datetime(2026, 1, 1)
     cal = Calendar(object_id='C1', name='5-day',
                    nonworking_days={'Saturday', 'Sunday'}, day_hours=8.0)
     acts = {
         'm': _act('m', task_type='FinishMilestone', calendar_id='C1',
-                  planned_finish=datetime(2026, 2, 2), total_float_days=0.0),
+                  planned_finish=datetime(2026, 2, 2), total_float_days=0.0, is_critical=True),
     }
     g = _g(acts, data_date=data_date, calendars={'C1': cal})
     r = run_cpli(g, CONFIG)
@@ -60,11 +60,10 @@ def test_finish_milestone_tf_zero_scores_100():
     assert r['baseline_rule_met'] is True
     assert r['kpis']['finish_milestone_id'] == 'm'
     assert r['kpis']['target'] == 0.95
-    # no task-dependent activities -> density not computable -> score defaults to 100
-    assert r['kpis']['computable'] is False
-    assert r['score'] == 100.0
-    assert r['pct'] == 0.0
-    assert r['grade'] == 'Excellent'
+    # comment 49: P6 counts the critical finish milestone too — 1 of 1 remaining is critical
+    assert r['kpis']['computable'] is True
+    assert r['kpis']['critical_count'] == 1 and r['kpis']['remaining_activities'] == 1
+    assert r['kpis']['critical_pct'] == 100.0
 
 
 # ── behind plan: TF = -22 via the calendar-days fallback → score < 95 ───────
@@ -152,10 +151,9 @@ def test_score_is_critical_path_density():
     assert r50['score'] == 60.0
 
 
-def test_density_population_excludes_milestones_but_gantt_keeps_them():
-    """Critical % uses task-dependent activities for BOTH numerator and denominator,
-    so a critical finish milestone does not inflate it — yet the driving-path Gantt
-    still shows every critical activity, milestone included."""
+def test_density_counts_every_activity_type_like_p6():
+    """Comment 49: P6's Critical filter counts every activity type, so a critical finish
+    milestone is one of the critical activities; the % is over the remaining activities."""
     acts = {
         't1': _act('t1', is_critical=True, planned_finish=datetime(2026, 2, 1), total_float_days=0.0),
         't2': _act('t2', is_critical=False, planned_finish=datetime(2026, 3, 1), total_float_days=5.0),
@@ -163,9 +161,10 @@ def test_density_population_excludes_milestones_but_gantt_keeps_them():
                    planned_finish=datetime(2026, 4, 1), total_float_days=0.0),
     }
     r = run_cpli(_g(acts, data_date=datetime(2026, 1, 1)), CONFIG)
-    assert r['kpis']['total_activities'] == 2      # only the two Tasks
-    assert r['kpis']['critical_count'] == 1         # one critical Task (milestone excluded)
-    assert r['kpis']['critical_pct'] == 50.0
+    assert r['kpis']['total_activities'] == 3      # every activity, as P6 lists them
+    assert r['kpis']['remaining_activities'] == 3
+    assert r['kpis']['critical_count'] == 2         # t1 + the critical finish milestone
+    assert r['kpis']['critical_pct'] == 66.7
     assert r['kpis']['driving_path_count'] == 2     # t1 + ms both on the path (Gantt)
     assert len(r['findings']) == 2
 
@@ -189,9 +188,7 @@ def test_finish_before_data_date_is_not_computable():
     r = run_cpli(_g(acts, data_date=datetime(2026, 6, 1)), CONFIG)
 
     assert r['kpis']['critical_path_length_days'] < 0
-    assert r['kpis']['cpli'] is None
-    assert r['kpis']['computable'] is False
-    assert r['score'] == 100.0            # no penalty for missing data ...
+    assert r['kpis']['cpli'] is None      # the backwards CPL is never shown as on-plan
     assert r['baseline_rule_met'] is False  # ... but the negative float still shows
 
 

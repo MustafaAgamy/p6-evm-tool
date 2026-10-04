@@ -161,10 +161,13 @@ def run_cpli(graph, config):
     # 7) SCORE = critical-path DENSITY. Numerator and denominator use the SAME
     #    population — task-dependent activities (what P6 calls "activities") — so the
     #    percentage is trustworthy. Fewer critical activities = less fragile schedule.
-    real_ids = [oid for oid in acts if graph.is_real_activity(oid)]
-    total_real = len(real_ids)
-    critical_count = sum(1 for oid in real_ids if acts[oid].get('is_critical'))
-    critical_pct = round(100.0 * critical_count / total_real, 1) if total_real else None
+    #    P6's counts (comments 49, 52): every activity type P6 lists, critical by P6's own flag
+    #    (the file's critical float limit / longest path); the % is over the activities still to
+    #    do (Not Started + In Progress) — every activity when nothing is completed.
+    total_real = len(graph.p6_all())
+    remaining = graph.p6_remaining()
+    critical_count = sum(1 for _oid, a in remaining if a.get('is_critical'))
+    critical_pct = round(100.0 * critical_count / len(remaining), 1) if remaining else None
     density_score, density_grade = _critical_density(critical_pct)
 
     computable = critical_pct is not None            # a density needs >= 1 task activity
@@ -179,7 +182,8 @@ def run_cpli(graph, config):
             # --- the sub-feature score driver: critical-path density ---
             'critical_count':            critical_count,   # critical task-dependent activities
             'critical_pct':              critical_pct,     # over all task-dependent activities
-            'total_activities':          total_real,
+            'total_activities':          total_real,       # every activity, completed included
+            'remaining_activities':      len(remaining),   # Not Started + In Progress (the % base)
             'critical_density_score':    density_score,    # == score
             'critical_density_grade':    density_grade,
             'driving_path_count':        len(findings),    # all critical incl. milestones (Gantt)

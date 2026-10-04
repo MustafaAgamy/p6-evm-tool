@@ -31,6 +31,27 @@ class ScheduleGraph:
         # every Schedule Health check (final P6 test, comment 5: Grain Bulk 1,466 vs P6 1,467).
         return bool(act) and act.get('task_type') in ('Task', 'ResourceDependent')
 
+    # ── P6's own activity counts (comments 48-52) ─────────────────────────────────────
+    # P6 lists — and its Critical / float filters count — EVERY activity type (tasks, milestones,
+    # Level of Effort, WBS summaries). Percentages are over the activities still to do (Not
+    # Started + In Progress); with nothing completed (a baseline) that is every activity.
+    @staticmethod
+    def is_completed(act):
+        s = (act.get('status') or '').replace(' ', '').lower()
+        if s == 'completed':
+            return True
+        if s in ('inprogress', 'notstarted'):
+            return False
+        return bool(act.get('actual_finish'))
+
+    def p6_all(self):
+        """Every activity in the file, as P6's Activities window counts them."""
+        return list(self.activities.items())
+
+    def p6_remaining(self):
+        """Every activity not completed (Not Started + In Progress) — the base of each %."""
+        return [(oid, a) for oid, a in self.activities.items() if not self.is_completed(a)]
+
     def wbs_path(self, oid):
         act = self.activities.get(oid, {})
         return act.get('wbs_path', '') or ''

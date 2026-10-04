@@ -62,14 +62,15 @@ def test_cpli_tiles_use_module_score_and_dates():
                        'start': '2026-02-09', 'finish': '2026-02-27', 'total_float_days': 0}]}
     p = build_presentation(m)
     labels = [t['label'] for t in p['tiles']]
-    assert p['tiles'][0] == {'label': 'Critical %', 'value': '30%'}   # density drives the score
+    assert p['tiles'][0] == {'label': 'Total Activities', 'value': '100'}      # comment 48
+    assert {'label': 'Critical % (of remaining)', 'value': '30%'} in p['tiles']   # density drives the score
     assert 'DCMA Target' not in labels
     assert {'label': 'Critical Activities', 'value': '30'} in p['tiles']
     assert {'label': 'CPLI', 'value': '100%'} in p['tiles']  # ratio kept as context, not the score
     assert {'label': 'Finish Milestone', 'value': '12-Jun.2028'} in p['tiles']   # date, not the id
     start_idx = [c['label'] for c in p['columns']].index('Start')
     assert p['rows'][0][start_idx] == {'text': '09-Feb.2026', 'cls': 'mut'}
-    assert '30% of activities are on the critical path' in p['verdict']
+    assert '30% of the remaining activities are critical in P6' in p['verdict']
 
 
 def test_cpli_not_computable():
@@ -79,7 +80,7 @@ def test_cpli_not_computable():
                   'project_total_float_days': None, 'target': 0.95, 'finish_milestone_id': None},
          'findings': []}
     p = build_presentation(m)
-    assert p['tiles'][0] == {'label': 'Critical %', 'value': '—'}
+    assert {'label': 'Critical % (of remaining)', 'value': '—'} in p['tiles']
     assert 'not computable' in p['verdict']
 
 

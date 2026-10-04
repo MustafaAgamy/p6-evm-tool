@@ -15,11 +15,12 @@ _RECOMMENDATION = ('Recover the driving path - a baseline must not start with '
 
 
 def run_negative_float(graph, config):
-    real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
-    total = len(real)
+    # P6's counts (comment 52): every activity type, the % over the activities not completed
+    total = len(graph.p6_all())
+    remaining = graph.p6_remaining()
 
     findings = []
-    for oid, act in real:
+    for oid, act in remaining:
         tf = act.get('total_float_days')
         if tf is None or tf >= 0:
             continue
@@ -34,7 +35,7 @@ def run_negative_float(graph, config):
         })
 
     negative = len(findings)
-    pct = round(100.0 * negative / total, 1) if total else 0.0
+    pct = round(100.0 * negative / len(remaining), 1) if remaining else 0.0
 
     findings.sort(key=lambda f: (f['total_float_days'], f['activity_id']))
 
@@ -43,7 +44,8 @@ def run_negative_float(graph, config):
         'module': MODULE,
         'name': NAME,
         'kpis': {
-            'total_activities': total,
+            'total_activities': total,                 # every activity, completed included
+            'remaining_activities': len(remaining),    # Not Started + In Progress (the % base)
             'negative_count':   negative,
             'neg_pct':          pct,
         },

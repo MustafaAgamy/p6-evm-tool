@@ -4,7 +4,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from p6_evm.calendars import (Calendar, hhmmss_to_min, float_basis, total_float_hours,
+from p6_evm.calendars import (Calendar, hhmmss_to_min, float_basis, total_float_hours, critical_path_type, p6_is_critical,
                               lag_calendar_basis, minute_hours)
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%S'
@@ -449,6 +449,11 @@ def _parse_xml(path) -> ScheduleData:
         # predecessor's SS lag then runs from its remaining early start (final P6 test, comment 44)
         'ss_lag_from_early_start': (_schedule_option(project_el, 'StartToStartLagCalculationType') or '1').strip() not in ('0', 'false', 'False'),
         'default_calendar_id': text(project_el, 'ActivityDefaultCalendarObjectId'),
+        # 'Define critical activities as' — Total Float <= the limit (hours) or the Longest Path
+        # (comment 49: P6's Critical flag, read from the file, not assumed)
+        'critical_float_limit_hours': parse_float(text(project_el, 'CriticalActivityFloatLimit'), 0.0) or 0.0,
+        'critical_path_type': critical_path_type(text(project_el, 'CriticalActivityPathType')
+                                                 or _schedule_option(project_el, 'CriticalActivityPathType')),
     }
 
     tf_basis = data.project['total_float_type']
@@ -532,7 +537,10 @@ def _parse_xml(path) -> ScheduleData:
         # No feature reads free float (guarded by tests/test_parser_parity.py
         # test_no_feature_reads_free_float); one that needs it must first rebuild it for the XML.
         act['free_float_days'] = (ff_hours / day_hours) if ff_hours is not None else None
-        act['is_critical'] = (act['total_float_days'] is not None and act['total_float_days'] <= 0)
+        # P6's own Critical flag: the file's critical float limit / longest-path setting (comment 49).
+        # A P6 XML exports no longest-path flag, so a Longest Path project falls back to float.
+        act['longest_path'] = None
+        act['is_critical'] = p6_is_critical(act['total_float_days'], day_hours, act.get('status'), data.project)
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
         act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
         act['secondary_constraint_type'] = text(act_el, 'SecondaryConstraintType')

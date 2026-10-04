@@ -15,8 +15,9 @@ NAME = 'Float Analysis'
 
 def run_float(graph, config):
     threshold = config.get('audit', {}).get('float_threshold_days', 44)
-    real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
-    total = len(real)
+    # P6's counts (comment 50): every activity type, the % over the activities not completed
+    total = len(graph.p6_all())
+    real = graph.p6_remaining()
 
     with_float = [(oid, a) for oid, a in real if a.get('total_float_days') is not None]
     floats = [a['total_float_days'] for _, a in with_float]
@@ -64,7 +65,7 @@ def run_float(graph, config):
             'recommendation':   recommendation,
         })
 
-    float_pct = round(100.0 * above / total, 1) if total else 0.0
+    float_pct = round(100.0 * above / len(real), 1) if real else 0.0
 
     # WBS summary — where the excessive float concentrates (over-threshold only)
     wbs_total = defaultdict(int)
@@ -89,7 +90,8 @@ def run_float(graph, config):
         'module': MODULE,
         'name': NAME,
         'kpis': {
-            'total_activities': total,
+            'total_activities': total,                 # every activity, completed included
+            'remaining_activities': len(real),         # Not Started + In Progress (the % base)
             'above_threshold':  above,
             'float_pct':        float_pct,
             'threshold':        threshold,
