@@ -114,6 +114,9 @@ def run_relationship_types(graph, config):
             'ff_pct': ff_pct,
             'sf_pct': sf_pct,
             'non_fs': non_fs,
+            # the counts behind each % (comment 47): % = that type's relationships ÷ all of them
+            'fs_count': counts['FS'], 'ss_count': counts['SS'],
+            'ff_count': counts['FF'], 'sf_count': counts['SF'],
         },
         'pct':   defect_pct,
         'score': score,
