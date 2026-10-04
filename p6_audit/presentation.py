@@ -157,6 +157,23 @@ def _v_pct(m, tail):
     return f"{_plain(m.get('pct'))}% {tail}"
 
 
+def _type_pct(k, t):
+    """'5.1% (252)' — the % with the relationship count it comes from (comment 47)."""
+    n = k.get(f'{t}_count')
+    return _pct(k.get(f'{t}_pct')) + (f' ({_num(n)})' if n is not None else '')
+
+
+def _reltype_verdict(k):
+    base = (f"{_plain(k.get('fs_pct'))}% of relationships are Finish-to-Start; "
+            f"{_plain(k.get('non_fs'))} are not (DCMA target ≥ 90% FS).")
+    if k.get('fs_count') is None:
+        return base
+    total = _num(k.get('total_relationships'))
+    return (base + f" How each % is worked out: that type's relationships ÷ all {total} relationships — "
+            f"FS {_num(k.get('fs_count'))} · SS {_num(k.get('ss_count'))} · FF {_num(k.get('ff_count'))} · "
+            f"SF {_num(k.get('sf_count'))} (e.g. SS % = {_num(k.get('ss_count'))} ÷ {total} = {_pct(k.get('ss_pct'))}).")
+
+
 SPECS = {
     'dangling': {
         'verdict': lambda m: _v_pct(m, 'of activities have broken start/finish logic (an open end on one side).'),
@@ -178,10 +195,10 @@ SPECS = {
                     ('Recommendation', 'recommendation', 'mut')],
     },
     'relationship_types': {
-        'verdict': lambda m: f"{_plain((m.get('kpis') or {}).get('fs_pct'))}% of relationships are Finish-to-Start; "
-                             f"{_plain((m.get('kpis') or {}).get('non_fs'))} are not (DCMA target ≥ 90% FS).",
-        'tiles': lambda k: [('Total Relationships', _num(k.get('total_relationships'))), ('FS %', _pct(k.get('fs_pct'))),
-                            ('SS %', _pct(k.get('ss_pct'))), ('FF %', _pct(k.get('ff_pct'))), ('SF %', _pct(k.get('sf_pct'))),
+        'verdict': lambda m: _reltype_verdict(m.get('kpis') or {}),
+        'tiles': lambda k: [('Total Relationships', _num(k.get('total_relationships'))),
+                            ('FS %', _type_pct(k, 'fs')), ('SS %', _type_pct(k, 'ss')),
+                            ('FF %', _type_pct(k, 'ff')), ('SF %', _type_pct(k, 'sf')),
                             ('Non-FS', k.get('non_fs', 0))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Predecessor', 'predecessor_display', 'mut'),
@@ -462,6 +479,8 @@ def report_sections(m):
 
 # checks that examine the task activities only (Task / Resource Dependent, completed included)
 _TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'whole_day'}
+# checks on relationships: P6's activity totals shown beside them for context (comment 47)
+_ACTIVITY_CONTEXT = {'relationship_types'}
 
 
 def build_presentation(module_result):
@@ -481,6 +500,9 @@ def build_presentation(module_result):
         # still to do — then this check's own base, which is the task activities it examines
         raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
                      + [(('Tasks Checked' if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
+    if p6c and m.get('module') in _ACTIVITY_CONTEXT:
+        raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
+                     + list(raw_tiles))
     tiles = [{'label': lab, 'value': _plain(val)} for lab, val in raw_tiles]
 
     columns = [{'label': lab, 'align': 'num' if kind in _NUM_KINDS else ''}

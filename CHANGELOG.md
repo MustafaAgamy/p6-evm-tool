@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Relationship Types: total activities and how SS % / FF % are worked out (comment 47)
+The Relationship Types check now shows **Total Activities** and **Remaining Activities** (as P6 counts them) and the count behind every percentage — FS 88.9% (4,380), SS 5.1% (252), FF 5.9% (292), SF (1) on Alstom — with one line saying how each % is worked out: that type's relationships ÷ all relationships (SS % = 252 ÷ 4,925 = 5.1%). The Excel export lists the four counts too.
+
 ### Changed — Schedule Health shows rounded numbers (comments 51, 53)
 Days are shown as whole numbers everywhere in the Schedule Health results — total float, durations, lags, variances, the Float Analysis averages and highest float, and the Milestone Check's **Total Float** column, which showed raw values like −10.4375 d (now −10 d). Percentages and scores keep one decimal (26.8%, 95.8), so a small share such as 0.2% stays visible. The Whole-Day check still shows the exact duration (51.71 d), because that decimal is what it reports.
 

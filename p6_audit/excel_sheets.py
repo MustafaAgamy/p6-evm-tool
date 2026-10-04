@@ -20,6 +20,9 @@ _LABELS = {
     'dcma_lag_line': 'DCMA lag guideline %', 'dcma_max_pct': 'DCMA maximum %',
     'dcma_within_pct': 'DCMA within %', 'fs_pct': 'FS %', 'ss_pct': 'SS %', 'ff_pct': 'FF %',
     'sf_pct': 'SF %', 'non_fs': 'Non-FS relationships',
+    'fs_count': 'FS relationships', 'ss_count': 'SS relationships', 'ff_count': 'FF relationships',
+    'sf_count': 'SF relationships', 'remaining_activities': 'Remaining activities (not started + in progress)',
+    'total_activities': 'Total activities', 'total_all': 'Total activities (incl. completed)',
 }
 # Display-only keys (colours, short duplicates of a label, internal switches).
 _SKIP = {'fh_color', 'short', 'computable', 'cpli_computable', 'score_basis', 'cpl_basis',
