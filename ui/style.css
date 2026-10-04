@@ -4020,3 +4020,6 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .rpv-extras select { width: 100%; margin-bottom: 6px; }
 .rpv-extras label.rpv-xcheck { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; line-height: 1.35; cursor: pointer; }
 .rpv-extras label.rpv-xcheck input { margin-top: 2px; }
+
+/* how the Lag Report charts are counted (comment 55) */
+.lag-basis { margin-top:8px; font-size:11px; line-height:1.45; color:var(--muted); }

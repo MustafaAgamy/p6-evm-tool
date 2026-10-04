@@ -129,6 +129,23 @@ def apply_justifications(lag_module, justifications):
     return lag_module
 
 
+def _basis_lines(lagged, total_rels, by_type, wbs_summary):
+    """How 'Lags by relationship type' and 'Lags by WBS area' are counted (comment 55)."""
+    if not lagged:
+        return ('', '')
+    ex = by_type[0] if by_type else None
+    t = (f"Counted from the {lagged:,} relationships that carry a lag or a lead (of all {total_rels:,} "
+         f"relationships). Each bar = the lagged links of that type; % = that count ÷ {lagged:,} lagged links"
+         + (f" (e.g. {ex['type']} {ex['count']:,} ÷ {lagged:,} = {ex['pct']:g}%)." if ex else '.'))
+    top = wbs_summary[0] if wbs_summary else None
+    shown = min(10, len(wbs_summary))
+    w = (f"Each lagged link is counted under its successor activity's WBS area — the WBS level just "
+         f"below the project. % = that area's lagged links ÷ {lagged:,} lagged links"
+         + (f" (e.g. {top['wbs']} {top['lagged']:,} ÷ {lagged:,} = {top['pct']:g}%)" if top else '')
+         + (f". The {shown} areas with the most lags of {len(wbs_summary)} are shown." if len(wbs_summary) > 10 else '.'))
+    return (t, w)
+
+
 def run_lag_lead(graph, config):
     audit_cfg = config.get('audit', {})
     near_days = audit_cfg.get('near_critical_days', 10)
@@ -208,6 +225,7 @@ def run_lag_lead(graph, config):
 
     verdict = 'Needs attention' if (lagged_pct > DCMA_LAG_LINE or leads > 0) else 'Pass'
     findings.sort(key=_rank)
+    basis_type, basis_wbs = _basis_lines(lagged, total_rels, by_type, wbs_summary)
 
     return {
         'module': MODULE,
@@ -235,6 +253,9 @@ def run_lag_lead(graph, config):
             'verdict':              verdict,
             'verdict_reason':       _verdict_reason(lagged_pct, leads),
             'executive_conclusion': _conclusion(lagged, lagged_pct, leads, longs, crit_c, long_days),
+            # how the two distribution charts are counted (comment 55) — one text everywhere
+            'basis_type':           basis_type,
+            'basis_wbs':            basis_wbs,
         },
         'wbs_summary': wbs_summary,
         # Report-Contents picker (tool-wide standard): declaring sections here makes

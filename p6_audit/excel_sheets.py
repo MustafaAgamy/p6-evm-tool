@@ -23,6 +23,7 @@ _LABELS = {
     'fs_count': 'FS relationships', 'ss_count': 'SS relationships', 'ff_count': 'FF relationships',
     'sf_count': 'SF relationships', 'remaining_activities': 'Remaining activities (not started + in progress)',
     'total_activities': 'Total activities', 'total_all': 'Total activities (incl. completed)',
+    'basis_type': 'How lags by relationship type are counted', 'basis_wbs': 'How lags by WBS area are counted',
 }
 # Display-only keys (colours, short duplicates of a label, internal switches).
 _SKIP = {'fh_color', 'short', 'computable', 'cpli_computable', 'score_basis', 'cpl_basis',
