@@ -260,7 +260,8 @@ export function selectModule(key) {
 // ── Small formatting + table-cell helpers (shared by every check view) ────
 const num = v => (Number(v) || 0).toLocaleString();
 const pctv = v => `${v ?? 0}%`;
-const dnum = v => (v === null || v === undefined) ? '—' : `${v} d`;
+// days as whole numbers in every result (comment 53): -10.44 -> '-10 d'
+const dnum = v => (v === null || v === undefined || v === '') ? '—' : `${(Math.round(Number(v)) || 0)} d`;
 const isoDate = v => v ? (dateText(v) || String(v).slice(0, 10)) : '—';   // 03-Dec.2026 (comment 46)
 const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
@@ -2229,9 +2230,13 @@ function renderSummary(health, am) {
 }
 
 // ── Float Analysis management dashboard (V2 redesign) ─────────────────────
-function fhFmt(v) {
+function fhFmt(v) {                     // a % to one decimal (comment 53)
   const n = Number(v);
-  return Number.isFinite(n) ? String(+n.toFixed(2)) : escapeHtml(String(v ?? ''));
+  return Number.isFinite(n) ? String(+n.toFixed(1)) : escapeHtml(String(v ?? ''));
+}
+function fhWd(v) {                      // working days as a whole number (comment 53)
+  const n = Number(v);
+  return Number.isFinite(n) ? String(Math.round(n) || 0) : escapeHtml(String(v ?? ''));
 }
 
 function fhTile(k, v, note = '', hot = false, amber = false, noteCls = '') {
@@ -2280,7 +2285,7 @@ function renderFloatModule(m) {
            `threshold = ${thr} working days`, true, true),
     fhTile('Top WBS by Float Concentration', `<span class="tw">${escapeHtml(ind.top_wbs || '—')}</span>`,
            `${fhFmt(ind.top_wbs_pct ?? 0)}% of its activities > ${thr} WD`),
-    fhTile('Highest Float (single activity)', `${fhFmt(ind.highest_float ?? 0)} WD`,
+    fhTile('Highest Float (single activity)', `${fhWd(ind.highest_float ?? 0)} WD`,
            ind.highest_float_wbs || '', false, false, 'wbs'),
   ].join('');
 
@@ -2289,8 +2294,8 @@ function renderFloatModule(m) {
     return `<tr>
       <td title="${escapeHtml(r.wbs || '')}">${escapeHtml(shortWbs(r.wbs, 3))} ${tag}</td>
       <td class="num">${r.activities ?? 0}</td>
-      <td class="num">${fhFmt(r.avg_float ?? 0)} WD</td>
-      <td class="num">${fhFmt(r.max_float ?? 0)} WD</td>
+      <td class="num">${fhWd(r.avg_float ?? 0)} WD</td>
+      <td class="num">${fhWd(r.max_float ?? 0)} WD</td>
       <td class="num">${r.over_44 ?? 0}</td>
       <td class="num">${fhFmt(r.pct ?? 0)}%</td></tr>`;
   }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">No activities with assessable float.</td></tr>`;

@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Schedule Health shows rounded numbers (comments 51, 53)
+Days are shown as whole numbers everywhere in the Schedule Health results — total float, durations, lags, variances, the Float Analysis averages and highest float, and the Milestone Check's **Total Float** column, which showed raw values like −10.4375 d (now −10 d). Percentages and scores keep one decimal (26.8%, 95.8), so a small share such as 0.2% stays visible. The Whole-Day check still shows the exact duration (51.71 d), because that decimal is what it reports.
+
 ### Fixed — Schedule Health counts activities the way P6 does (comments 48, 49, 50, 52)
 Critical, near-critical and negative-float activities are now counted as P6 counts them: **every activity type** (tasks, milestones, Level of Effort, WBS summaries), critical by P6's own setting in the file ("Define critical activities as" — total float ≤ the project's limit, or the longest path). Before, only task-dependent activities were counted, so on Alstom UP-006 the CPLI and Float Analysis showed 483 critical where P6 shows **497** (483 tasks + 8 finish milestones + 6 LOE), 306 near-critical where P6 has **325**, 410 negative-float where P6 has **421**, and 2,450 activities where P6 lists **2,502**. Every percentage is now over the **remaining activities** (Not Started + In Progress — every activity when nothing is completed), the same base in every check (CPLI showed 19.7% and Float Analysis 23.5% for the same 483; both now 497 ÷ 2,102 = 23.6%). Each Health check shows **Total Activities** (completed included) and **Remaining Activities**; checks that examine the task activities only (open ends, dangling, constraints, durations, whole days) label their own base "Tasks Checked". Checked on Alstom, Saint Gobain, Grain Bulk and MAFI — every count equals P6.
 
