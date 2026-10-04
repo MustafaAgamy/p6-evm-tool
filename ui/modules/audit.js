@@ -2884,8 +2884,8 @@ export function renderLagPanel(auditModules) {
     </div>
 
     <div class="lag-charts">
-      <div class="lag-panel"><div class="lag-ph">Lags by relationship type</div>${typeRows}</div>
-      <div class="lag-panel"><div class="lag-ph">Lags by WBS area</div>${wbsRows}</div>
+      <div class="lag-panel"><div class="lag-ph">Lags by relationship type</div>${typeRows}${k.basis_type ? `<div class="lag-basis">${escapeHtml(k.basis_type)}</div>` : ''}</div>
+      <div class="lag-panel"><div class="lag-ph">Lags by WBS area</div>${wbsRows}${k.basis_wbs ? `<div class="lag-basis">${escapeHtml(k.basis_wbs)}</div>` : ''}</div>
       <div class="lag-panel"><div class="lag-ph">Lag makeup</div>${lagDonut(k)}</div>
     </div>
 

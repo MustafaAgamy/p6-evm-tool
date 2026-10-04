@@ -448,6 +448,12 @@ def _lag_donut(m):
             f'</div></div>')
 
 
+def _basis(text):
+    """How a lag chart is counted (comment 55), printed under it."""
+    return (f'<div class="lbasis" style="margin-top:6px;font-size:8.5px;line-height:1.4;color:{report_theme.var("rpt-muted")}">'
+            f'{_esc(text)}</div>') if text else ''
+
+
 def _lag_charts(m):
     k = m.get('kpis', {})
     by_type = k.get('by_type', [])
@@ -457,9 +463,9 @@ def _lag_charts(m):
         return ''
     return (f'<h2 class="sec">Lag charts</h2><div class="lcharts">'
             f'<div class="lcard"><div class="lch">Lags by relationship type</div>'
-            f'{_lag_bars(by_type, "type", "count")}</div>'
+            f'{_lag_bars(by_type, "type", "count")}{_basis(k.get("basis_type"))}</div>'
             f'<div class="lcard"><div class="lch">Lags by WBS area</div>'
-            f'{_lag_bars(ws, "wbs", "lagged", stacked=True)}</div>'
+            f'{_lag_bars(ws, "wbs", "lagged", stacked=True)}{_basis(k.get("basis_wbs"))}</div>'
             f'<div class="lcard"><div class="lch">Lag makeup</div>{_lag_donut(m)}</div>'
             f'</div>')
 

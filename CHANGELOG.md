@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — Lag Report: how the lag charts are counted (comment 55)
+Under **Lags by relationship type** and **Lags by WBS area** the Lag Report now says how each number is worked out — on screen, in the PDF and in Excel. Both are counted from the relationships that carry a lag or a lead (Grain Bulk: 406 of 2,631 relationships); each bar is the lagged links of that type, or of that WBS area, and its % is that count ÷ all lagged links (FS 256 ÷ 406 = 63.1%). A lagged link is counted under its **successor** activity's WBS area — the WBS level just below the project — and when there are more than 10 areas the note says the 10 with the most lags are shown.
+
 ### Changed — The same bands for every Schedule Health sub-feature
 Every sub-feature now grades its score on the one band legend — **Pass ≥ 95 · Review 90–95 · Critical < 90** — with no exceptions: the grade beside each score (was Excellent / Good / Acceptable / Critical, and CPLI's own 100 / 90 / 85 / 75 / 60 steps), the colours (green / amber / red were ≥ 85 / 60–84 / < 60 on the gauges and Float Health), the WBS rows, the Summary's checks-status donut (Relationship Types used to pass at 90 and review from 85) and every "how this score is calculated" legend. Each check keeps its own score formula. The Summary headline's completion total float is shown in whole days (−104 d, was −104.11212121212121 d).
 
