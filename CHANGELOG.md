@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — Schedule Health Summary: the legend under the overall score (comment 54)
+The overall score now carries its legend, on screen and in the PDF: the submission scale the verdict uses (Not ready < 80 · Acceptable to submit 80–90 · Ready to submit ≥ 90 — the 80% rule is kept) and where the same score falls on the per-check bands (Critical < 90 · Review 90–95 · Pass ≥ 95). An overall 81.2 now reads "Acceptable to submit — on the per-check bands the overall 81.2 would be Critical", so it is never taken for a pass.
+
 ### Changed — Relationship Types: total activities and how SS % / FF % are worked out (comment 47)
 The Relationship Types check now shows **Total Activities** and **Remaining Activities** (as P6 counts them) and the count behind every percentage — FS 88.9% (4,380), SS 5.1% (252), FF 5.9% (292), SF (1) on Alstom — with one line saying how each % is worked out: that type's relationships ÷ all relationships (SS % = 252 ÷ 4,925 = 5.1%). The Excel export lists the four counts too.
 

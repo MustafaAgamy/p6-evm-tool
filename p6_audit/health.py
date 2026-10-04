@@ -170,6 +170,21 @@ def _apply_weights(rows):
     return available_weight
 
 
+def score_legend(score):
+    """The overall score's legend (comment 54) — the submission scale, plus the per-check band
+    the same number would get (an 81.2 is acceptable to submit, yet Critical as a check score)."""
+    band = status_for(None, score)
+    return {
+        'submission': [('Not ready to submit', '< 80'), ('Acceptable to submit', '80–90'),
+                       ('Ready to submit', '≥ 90')],
+        'checks': [('Critical', '< 90'), ('Review', '90–95'), ('Pass', '≥ 95')],
+        'check_band': band,
+        'note': (None if score is None else
+                 f"On the per-check bands the overall {score:g} would be {band} "
+                 f"({'< 90' if band == 'Critical' else ('90–95' if band == 'Review' else '≥ 95')})."),
+    }
+
+
 def _verdict(score, blocking):
     """The submission call, in the words the report and the dashboard both use."""
     if blocking:
@@ -266,6 +281,9 @@ def schedule_health(modules):
     return {
         'score':      score,
         'grade':      uniform_grade(score) if score is not None else None,
+        # the legend under the overall score (comment 54): the 80% submission scale the verdict
+        # uses, and where the same score falls on the per-check bands
+        'legend':     score_legend(score),
         'verdict':    verdict,
         'statement':  statement,
         # a loop caps the grade: nothing submits while P6 cannot calculate the file

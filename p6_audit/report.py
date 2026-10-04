@@ -34,6 +34,18 @@ def _esc(v):
     return _html.escape('' if v is None else str(v))
 
 
+def _overall_legend(score):
+    """The legend under the overall score (comment 54) — same text as the screen."""
+    if score is None:
+        return ''
+    from p6_audit.health import score_legend
+    lg = score_legend(score)
+    return ('<div class="oleg" style="margin-top:6px;font-size:9.5px;line-height:1.45">'
+            '<div><b>Submission:</b> Not ready &lt; 80 · Acceptable to submit 80–90 · Ready to submit ≥ 90</div>'
+            f'<div><b>Per-check bands:</b> Critical &lt; 90 · Review 90–95 · Pass ≥ 95 — '
+            f'the overall {_esc(f"{score:g}")} would be <b>{_esc(lg["check_band"])}</b>.</div></div>')
+
+
 def _sev_badge(sev):
     return f'<span class="sev" style="background:{_SEV.get(sev, report_theme.var("rpt-muted"))}">{_esc(sev)}</span>'
 
@@ -893,6 +905,7 @@ def render_summary_report(health, meta, sections=None, modules=None, completion_
       <div>
         <div class="verdict-badge" style="background:{color}">{_esc(verdict)}</div>
         <div class="statement">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>{_esc(statement)}</div>
+        {_overall_legend(score)}
       </div>
     </div>''')
     if on('checks'):

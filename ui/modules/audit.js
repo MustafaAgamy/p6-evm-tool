@@ -283,7 +283,19 @@ export function statusColor(status) {
 export function statusDot(status) {
   return { Pass: 'd-g', Review: 'd-a', Critical: 'd-c' }[status] || 'd-n';
 }
-export function verdictClass(verdict) {
+export // The legend under the overall score (comment 54): the 80% submission scale the verdict uses,
+// and where the same number falls on the per-check bands (81.2 = acceptable, yet Critical).
+function overallLegendHtml(score) {
+  if (score == null) return '';
+  const band = score >= 95 ? 'Pass' : (score >= 90 ? 'Review' : 'Critical');
+  const rng = { Critical: '< 90', Review: '90–95', Pass: '≥ 95' }[band];
+  return `<div class="shr-oleg">
+      <div><b>Submission:</b> Not ready &lt; 80 · Acceptable to submit 80–90 · Ready to submit ≥ 90</div>
+      <div><b>Per-check bands:</b> Critical &lt; 90 · Review 90–95 · Pass ≥ 95 — the overall ${escapeHtml(String(score))} would be <b>${band}</b> (${rng}).</div>
+    </div>`;
+}
+
+function verdictClass(verdict) {
   if (verdict === 'Ready to submit') return 'v-good';
   if (verdict === 'Acceptable to submit') return 'v-warn';   // 80–90: meets the standard
   return 'v-bad';   // Not ready / Blocked / Not computed
@@ -2171,6 +2183,7 @@ function renderSummary(health, am) {
           <div class="shr-gmeta">
             <div class="shr-verdict ${verdictClass(verdict)}">${escapeHtml(verdict)}</div>
             <div class="shr-gl">Overall <b>Schedule Health</b> — the weighted roll-up of every sub-feature.<br>${escapeHtml(statement)}</div>
+            ${overallLegendHtml(score)}
           </div>
         </div>
 
