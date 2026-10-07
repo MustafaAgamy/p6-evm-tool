@@ -9,20 +9,20 @@ import { escapeHtml } from './format.js';
 import { printView } from './printview.js';
 
 let _tree = null, _flat = [];
-let _ctx = { 'Project type': 'Industrial', 'Location': 'Egypt', 'Methodology': 'Conventional', 'shift_hours': 8 };
+let _ctx = { 'Project type': 'Industrial', 'Methodology': 'Conventional', 'shift_hours': 8 };
 let _quantity = 100;
 let _itemId = null, _result = null, _print = null;
 let _compQty = {}, _compQtyItem = null;   // planner's per-component quantity overrides (own units)
 
 const PROJECT_TYPES = ['Industrial', 'Commercial', 'Residential', 'Hospital', 'Infrastructure', 'Oil & Gas', 'Marine/Port', 'Airport', 'Power Plant'];
-const LOCATIONS = ['Egypt', 'KSA', 'GCC', 'Europe', 'Other'];
 const METHODS = ['Conventional', 'Jump-form', 'Climbing form', 'Precast'];
 
 // The planner's OWN man-hour factors, one per choice of each setting (owner comment 37):
-// { 'Location': { KSA: 1.15 }, 'Methodology': { 'Jump-form': 0.8 }, 'Project type': {…} }.
+// { 'Methodology': { 'Jump-form': 0.8 }, 'Project type': {…} }. There is no Location setting:
+// the tool is for planning engineers working in Egypt (owner comment 61).
 // Controlyx ships NO factor of its own — the library norm is used until he types one. Kept on
-// this computer (localStorage) so a country / method / project type keeps its factor.
-export const FACTOR_DIMS = ['Project type', 'Location', 'Methodology'];
+// this computer (localStorage) so a method / project type keeps its factor.
+export const FACTOR_DIMS = ['Project type', 'Methodology'];
 export const FACTOR_MIN = 0.2, FACTOR_MAX = 5;
 const FACTOR_KEY = 'p6evm_pi_factors';
 let _factors = loadFactors();
@@ -141,16 +141,14 @@ function renderSelRow() {
       </div></div>
     <div class="pi-selg"><span class="pi-l">Project type</span>
       <div class="pi-ptchips">${PROJECT_TYPES.map(p => `<span class="pi-ptchip ${p === _ctx['Project type'] ? 'on' : ''}" data-pt="${escapeHtml(p)}">${escapeHtml(p)}</span>`).join('')}${fbox('Project type')}</div></div>
-    <div class="pi-selg"><span class="pi-l">Location</span><div class="pi-setf"><select id="pi-loc">${opt(LOCATIONS, _ctx['Location'])}</select>${fbox('Location')}</div></div>
     <div class="pi-selg"><span class="pi-l">Methodology</span><div class="pi-setf"><select id="pi-meth">${opt(METHODS, _ctx['Methodology'])}</select>${fbox('Methodology')}</div></div>
     <div class="pi-selg"><span class="pi-l">Quantity ${_result ? '(' + escapeHtml(_result.primary_unit || '') + ')' : ''}</span>
       <input id="pi-qty" type="number" placeholder="optional" value="${_quantity != null ? _quantity : ''}" style="width:96px;text-align:right"></div>
-    <div class="pi-fhelp"><b>How the settings change the rate:</b> Controlyx holds one library norm per work item and no factors of its own for a project type, a country or a method. Type <b>your factor</b> beside a choice and every rate, man-hour figure and duration follows it (1.20 = 20% more man-hours, so slower; 0.85 = faster). The factor is remembered for that choice on this computer. Empty = the library norm.</div>`;
+    <div class="pi-fhelp"><b>How the settings change the rate:</b> Controlyx holds one library norm per work item and no factors of its own for a project type or a method. Type <b>your factor</b> beside a choice and every rate, man-hour figure and duration follows it (1.20 = 20% more man-hours, so slower; 0.85 = faster). The factor is remembered for that choice on this computer. Empty = the library norm.</div>`;
   el.querySelector('#pi-disc').onchange = (e) => { const d = _tree.find(x => x.name === e.target.value); const s = d.systems[0]; _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-sys').onchange = (e) => { const d = _tree.find(x => x.name === curItem().discipline); const s = d.systems.find(y => y.name === e.target.value); _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-item').onchange = (e) => { _itemId = e.target.value; selectItem(_itemId); };
   el.querySelectorAll('.pi-ptchip').forEach(c => c.onclick = () => { _ctx['Project type'] = c.dataset.pt; renderSelRow(); selectItem(_itemId); });
-  el.querySelector('#pi-loc').onchange = (e) => { _ctx['Location'] = e.target.value; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-meth').onchange = (e) => { _ctx['Methodology'] = e.target.value; renderSelRow(); selectItem(_itemId); };
   el.querySelectorAll('.pi-factor').forEach(inp => inp.onchange = () => {
     const dim = inp.dataset.dim, choice = _ctx[dim], { value, error } = parseFactor(inp.value);
@@ -183,7 +181,7 @@ function wireChrome() {
 
 function exportPDF() {
   if (!_print || !_print.length) { piNote('Open a work item first, then export.'); return; }
-  const sub = _result ? [_result.item, (_result.context || {})['Project type'], (_result.context || {})['Location']].filter(Boolean).join(' · ') : '';
+  const sub = _result ? [_result.item, (_result.context || {})['Project type']].filter(Boolean).join(' · ') : '';
   printView({ module: 'prodintel', title: 'Productivity & Resource Intelligence', subtitle: sub, sections: _print });
 }
 async function exportXLS() {
@@ -477,7 +475,7 @@ function renderP6(r) {
           <div class="sr"><span>Original duration</span><b>${Math.ceil(roll.duration_days)} d</b></div>
           <div class="sr"><span>Total budgeted labor</span><b>${num(roll.total_mh)} MH</b></div>
           <div class="sr"><span>Total nonlabor</span><b>${totNon ? totNon + ' h' : '—'}</b></div>
-          <div class="sr"><span>Activity calendar</span><b>${escapeHtml((r.context || {})['Location'] || 'project')} · ${shift} h</b></div>
+          <div class="sr"><span>Activity calendar</span><b>project calendar · ${shift} h</b></div>
           <div class="sr"><span>Resource curve</span><b>Uniform</b></div>
         </div>
         <div class="pi-p6how"><div class="st">How to assign (5 steps)</div><ol>
@@ -496,7 +494,7 @@ function renderBasis(r) {
     + (r.context_net != null && r.context_net !== 1 ? `<div class="pi-lrow"><span><b>All factors together</b></span><span><b>×${r.context_net}</b> on man-hours · output per day ÷ ${r.context_net}</span></div>` : '');
   const pi = `<div class="pi-card pi-pad"><h3 class="pi-h3">Productivity intelligence</h3>
     <div class="pi-dl"><span>Primary unit</span><b>${escapeHtml(r.primary_unit || '')}</b></div>
-    <div class="pi-dl"><span>Project context</span><b>${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}</b></div>
+    <div class="pi-dl"><span>Project context</span><b>${escapeHtml((r.context || {})['Project type'] || '')}</b></div>
     <div class="pi-dl"><span>Shift basis</span><b>${escapeHtml(String((r.context || {}).shift_hours || 8))} hr/day</b></div>
     <div class="pi-dl"><span>Overall confidence</span><b>${(CONF[r.overall_confidence] || CONF.none)[1]}</b></div>
     <div class="pi-l" style="margin-top:10px">Context adjustment ledger</div><div class="pi-ledger">${ledger}</div></div>`;
@@ -551,7 +549,6 @@ function renderRail(r) {
       <div style="font-size:11px;color:var(--ink-soft)">${(CONF[r.overall_confidence] || CONF.none)[1]} — built-in norms; validate with your XER</div></div>
     <div class="pi-rc"><h4>◪ Project context</h4>
       <div class="pi-rrow"><span>Project type</span><b>${escapeHtml((r.context || {})['Project type'] || '')}</b></div>
-      <div class="pi-rrow"><span>Location</span><b>${escapeHtml((r.context || {})['Location'] || '')}</b></div>
       <div class="pi-rrow"><span>Methodology</span><b>${escapeHtml((r.context || {})['Methodology'] || '')}</b></div>
       <div class="pi-rrow"><span>Shift basis</span><b>${escapeHtml(String((r.context || {}).shift_hours || 8))} hr/day</b></div></div>
     <div class="pi-rc pi-smart"><h4>✓ Evidence &amp; confidence</h4>

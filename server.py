@@ -120,7 +120,7 @@ def _prodintel_excel_sections(r):
     dash = lambda x: x if x is not None else '—'
 
     summ = [['Item', r.get('item')], ['Discipline', r.get('discipline')], ['System', r.get('system')],
-            ['Project type', ctx.get('Project type')], ['Location', ctx.get('Location')],
+            ['Project type', ctx.get('Project type')],
             ['Methodology', ctx.get('Methodology')], ['Shift (hr/day)', shift]]
     if hasq:
         summ += [['Quantity', '%s %s' % (r.get('quantity'), r.get('primary_unit') or '')],

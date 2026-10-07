@@ -11,7 +11,7 @@ Design rules baked in here (never bypassed):
   roll-up is flagged ``basis_incomplete`` rather than inventing one.
 - Percentiles   -> only when a component has >= PERCENTILE_MIN_RECORDS validated records.
 - Context factor without evidence -> "not adjusted — insufficient evidence" (x1.0).
-- The planner's OWN factor for a setting (Project type / Location / Methodology), typed on the
+- The planner's OWN factor for a setting (Project type / Methodology), typed on the
   screen, is applied and labelled as his: the tool never supplies a factor of its own.
 - A factor changes the man-hours per unit AND the output per day (and so the duration).
 - Overall confidence is the weakest link across the priced components.
@@ -22,7 +22,8 @@ PERCENTILE_MIN_RECORDS = 5
 DEFAULT_SHIFT_HOURS = 8.0
 
 # context dimensions surfaced in the adjustment ledger, in display order
-CONTEXT_DIMENSIONS = ["Project type", "Location", "Methodology", "Access", "Congestion", "Shift / environment"]
+# (no "Location": the tool is for planning engineers working in Egypt — owner comment 61)
+CONTEXT_DIMENSIONS = ["Project type", "Methodology", "Access", "Congestion", "Shift / environment"]
 
 # a planner-entered factor outside this range is a typing slip (0.2 = five times faster, 5 = five
 # times slower): it is ignored and reported, never applied
