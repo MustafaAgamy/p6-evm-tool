@@ -540,17 +540,26 @@ def recovery_summary(w):
     hours = round(days * float(w['day_hours']), 1) if w.get('day_hours') else None
     wd = f'{days} working day{"s" if days != 1 else ""}'
     hrs = f' (about {hours:g} work-hours)' if hours else ''
+    # Two plain sentences (owner: "13 of the 21 days lost" read as a contradiction of the
+    # total of 30): what to do, then which share of the LOST WORKING DAYS the months hold.
     if labels:
-        most = 'the month' if len(labels) == 1 else 'the months'
-        text = (f'Add a second shift over {_join_and(labels)} — {most} with the most lost days '
-                f'({got} of the {total}) — to recover the {wd}{hrs}.')
+        hold = ('This month loses' if len(labels) == 1 else 'These months lose')
+        text = (f'Add a second shift over {_join_and(labels)} to recover the {wd}{hrs}. '
+                f'{hold} the most: {got} of the {total} lost working days fall in '
+                f'{"it" if len(labels) == 1 else "them"}.')
     else:
         text = f'Add a second shift over the affected weeks to recover the {wd}{hrs}.'
+    # how the expected bad-weather days become the lost working days
+    expected = int(w.get('expected_bad_days_total') or 0)
+    already_off = max(0, expected - days)
+    basis = (f'{expected} bad-weather day{"s" if expected != 1 else ""} expected − {already_off} on days already off '
+             f'(weekend / holiday) = {wd} lost') if expected else ''
     return {
         'days': days, 'hours': hours,
         'planned_finish': w.get('project_finish'),
         'adjusted_finish': w.get('weather_adjusted_finish'),
         'shift_months': labels, 'shift_days': got, 'lost_days': total,
+        'expected_bad_days': expected, 'already_off': already_off, 'basis': basis,
         'text': text,
     }
 

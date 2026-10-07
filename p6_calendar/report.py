@@ -525,7 +525,8 @@ def _weather_section(weather, dashboard=None, scope=''):
             '<table class="rsum"><tr>'
             f'<td class="rsum-big"><div class="rsum-k">Total weather impact</div>'
             f'<div class="rsum-v">+{rs["days"]} wd</div>'
-            f'<div class="rsum-s">on project finish<br><b>{fin}</b></div></td>'
+            f'<div class="rsum-s">on project finish<br><b>{fin}</b></div>'
+            + (f'<div class="rsum-b">{_esc(rs["basis"])}</div>' if rs.get('basis') else '') + '</td>'
             f'<td class="rsum-rec"><div class="rsum-k">Recovery recommendation · second shift</div>'
             f'<div class="rsum-t">{_esc(rs["text"])}</div></td></tr></table>')
     else:
@@ -739,6 +740,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .rsum-big .rsum-k {{ color: var(--rpt-bad); }}
   .rsum-v {{ font-size: 26px; font-weight: 800; color: var(--rpt-bad); line-height: 1.15; margin: 3px 0 2px; }}
   .rsum-s {{ font-size: 10px; color: var(--rpt-ink-soft); }} .rsum-s b {{ color: var(--rpt-ink); }}
+  .rsum-b {{ font-size: 9px; color: var(--rpt-ink); margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--rpt-bad); line-height: 1.4; }}
   .rsum-t {{ font-size: 12px; font-weight: 600; line-height: 1.5; margin-top: 4px; color: var(--rpt-ink); }}
   .rsum-c {{ font-size: 10.5px; line-height: 1.55; margin: 0 0 6px; border-left: 4px solid var(--rpt-warn); background: var(--rpt-warn-bg); border-radius: 0 8px 8px 0; padding: 9px 13px; }}
   .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-surface); border-radius: 0 8px 8px 0; padding: 10px 15px; }}

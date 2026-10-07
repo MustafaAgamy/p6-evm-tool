@@ -130,7 +130,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'Weather Impact' in html and 'Impact on Milestone Completion' in html
     # §7 — ONE summary: total impact + second shift + the conclusion (owner comment 58)
     assert 'Conclusion &amp; Recovery Recommendation' in html and '+5 wd' in html
-    assert 'Add a second shift over Mar 2025' in html and 'option_longer' not in html
+    assert 'Add a second shift over Mar 2025 to recover the 5 working days' in html and 'option_longer' not in html
     assert 'Bad weather is estimated to cost about 5 working days' in html
     # new results carried into the PDF: upcoming days with measured reason, source + limits
     assert 'Upcoming Bad-Weather Days' in html

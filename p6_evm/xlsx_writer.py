@@ -861,6 +861,8 @@ def _wx_recovery_rows(w):
     rows = []
     if rs:
         rows.append(['Total weather impact on project finish', f"+{rs['days']} working days"])
+        if rs.get('basis'):
+            rows.append(['How the total is counted', rs['basis']])
         if rs.get('planned_finish'):
             rows.append(['Project finish', _human_date(rs['planned_finish'])])
         rows.append(['Weather-adjusted finish', _human_date(rs['adjusted_finish'])])

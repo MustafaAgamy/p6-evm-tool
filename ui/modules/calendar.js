@@ -737,10 +737,14 @@ export function recoverySummary(w) {
   const hrs = hours ? ` (about ${hours} work-hours)` : '';
   const joined = labels.length <= 1 ? (labels[0] || '') : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
   const text = labels.length
-    ? `Add a second shift over ${joined} — ${labels.length === 1 ? 'the month' : 'the months'} with the most lost days (${got} of the ${total}) — to recover the ${wd}${hrs}.`
+    ? `Add a second shift over ${joined} to recover the ${wd}${hrs}. ${labels.length === 1 ? 'This month loses' : 'These months lose'} the most: ${got} of the ${total} lost working days fall in ${labels.length === 1 ? 'it' : 'them'}.`
     : `Add a second shift over the affected weeks to recover the ${wd}${hrs}.`;
+  const expected = Math.trunc(w.expected_bad_days_total || 0);
+  const alreadyOff = Math.max(0, expected - days);
+  const basis = expected ? `${expected} bad-weather day${expected !== 1 ? 's' : ''} expected − ${alreadyOff} on days already off (weekend / holiday) = ${wd} lost` : '';
   return { days, hours, planned_finish: w.project_finish || null, adjusted_finish: w.weather_adjusted_finish,
-           shift_months: labels, shift_days: got, lost_days: total, text };
+           shift_months: labels, shift_days: got, lost_days: total,
+           expected_bad_days: expected, already_off: alreadyOff, basis, text };
 }
 
 function _weatherSection() {
@@ -793,7 +797,7 @@ function _weatherSection() {
     ? `<div class="cal-rsum">
         <div class="cal-rsum-big"><div class="cal-rsum-k">Total weather impact</div>
           <div class="cal-rsum-v">+${rs.days} wd</div>
-          <div class="cal-rsum-s">on project finish<br><b>${rs.planned_finish ? `${fmtCalDate(rs.planned_finish)} → ` : ''}${fmtCalDate(rs.adjusted_finish)}</b></div></div>
+          <div class="cal-rsum-s">on project finish<br><b>${rs.planned_finish ? `${fmtCalDate(rs.planned_finish)} → ` : ''}${fmtCalDate(rs.adjusted_finish)}</b>${rs.basis ? `<div class="cal-rsum-b">${escapeHtml(rs.basis)}</div>` : ''}</div></div>
         <div class="cal-rsum-rec"><div class="cal-rsum-k">Recovery recommendation · second shift</div>
           <div class="cal-rsum-t">${escapeHtml(rs.text)}</div></div>
       </div>`

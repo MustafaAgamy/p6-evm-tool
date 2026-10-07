@@ -15,15 +15,17 @@ assert.deepEqual(s.shift_months, ['Jan 2027', 'Feb 2027']);
 assert.equal(s.shift_days, 6);
 assert.equal(s.days, 10);
 assert.equal(s.planned_finish, '2027-05-02');
-assert.equal(s.text, 'Add a second shift over Jan 2027 and Feb 2027 — the months with the most lost days ' +
-  '(6 of the 10) — to recover the 10 working days (about 80 work-hours).');
+assert.equal(s.text, 'Add a second shift over Jan 2027 and Feb 2027 to recover the 10 working days ' +
+  '(about 80 work-hours). These months lose the most: 6 of the 10 lost working days fall in them.');
+assert.equal(recoverySummary({ ...w, expected_bad_days_total: 14 }).basis,
+  '14 bad-weather days expected − 4 on days already off (weekend / holiday) = 10 working days lost');
 // the server's summary wins when present; no delay → no recommendation
 assert.equal(recoverySummary({ ...w, recovery_summary: { days: 3, text: 'x' } }).text, 'x');
 assert.equal(recoverySummary({ net_finish_delay: 0 }), null);
 assert.equal(recoverySummary(null), null);
 // one peak month reads in the singular
 const one = recoverySummary({ net_finish_delay: 1, weather_adjusted_finish: '2027-01-02', histogram: [{ label: 'Jan 2027', bad: 1 }] });
-assert.equal(one.text, 'Add a second shift over Jan 2027 — the month with the most lost days (1 of the 1) — to recover the 1 working day.');
+assert.equal(one.text, 'Add a second shift over Jan 2027 to recover the 1 working day. This month loses the most: 1 of the 1 lost working days fall in it.');
 console.log('test_weather_recovery_summary: ok');
 
 // Owner, comment 58 (second round): the Project Type stays as chosen when a limit is edited;
