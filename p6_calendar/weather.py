@@ -267,9 +267,15 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     # undercounts scattered wind/rain (it rarely repeats on the same date), so a typical
     # year is used instead (Ibrahim, Option A).
     has_climate = bool(climate_samples)
+    # The weather is read to the WEATHER-ADJUSTED finish, not only to the schedule's own
+    # finish: the days the finish moves out by are worked too, so they are checked for bad
+    # weather as well (and the monthly chart runs to the same date). `hard_end` = the last day
+    # there is weather for — the caller downloads a margin past the schedule finish.
+    _dates = [d for d in list(daily_weather or {}) + list(climate_samples or {}) if d is not None]
+    hard_end = max([project_finish] + _dates)
     flagged = {}
     for d, rec in (daily_weather or {}).items():
-        if not (data_date < d <= project_finish):
+        if not (data_date < d <= hard_end):
             continue
         if has_climate and d > forecast_horizon:      # beyond-horizon comes from the climate history
             continue
@@ -285,12 +291,13 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     years_list = sorted(years_seen)
     year_bad = {y: set() for y in years_list}      # {year: {dates bad that year}}
     for d, s in (climate_samples or {}).items():
-        if not (data_date < d <= project_finish):
+        if not (data_date < d <= hard_end):
             continue
         for y, rec in s.items():
             if classify_day(rec, thresholds)[0]:
                 year_bad[y].add(d)
-    counts_by_year = {y: len(year_bad[y]) for y in years_list}
+    # the typical year is chosen on the schedule's own window (data date → schedule finish)
+    counts_by_year = {y: sum(1 for d in year_bad[y] if d <= project_finish) for y in years_list}
     climate_avg_total = (round(sum(counts_by_year.values()) / len(years_list))
                          if years_list else 0)
     rep_year = None
@@ -305,28 +312,42 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                 _, lb, dt = classify_day(climate_samples[d][rep_year], thresholds)
                 flagged[d] = {'detail': dt or lb, 'label': lb, 'confidence': 'expected'}
 
-    remaining = flagged
     # Lost construction days = bad days landing on a WORKING day of the reference calendar.
     # Days already off (weekend / holiday / shutdown) carry no impact, so they never move a
     # milestone or trigger a recovery option (Ibrahim's rule).
-    lost = {d for d in remaining if primary_cal and primary_cal.is_working_day(d)}
+    lost_all = {d for d in flagged if primary_cal and primary_cal.is_working_day(d)}
+
+    def _settle(planned):
+        """A completion date pushed out by the bad weather before it — including the bad
+        weather that falls in the days it is pushed into. Returns (net lost working days,
+        weather-adjusted date, the last day whose weather was counted)."""
+        end = planned
+        for _ in range(60):
+            n = sum(1 for d in lost_all if d <= end)
+            adj = _shift_working_days(primary_cal, planned, n)
+            if adj <= end or adj > hard_end:
+                return n, adj, max(end, min(adj, hard_end))
+            end = adj
+        return n, adj, end
 
     # Milestones — same reference calendar as the finish, so a milestone can never show a
     # slip the headline finish doesn't (and vice-versa).
     ms = []
     for m in milestones:
         mdate = _to_date(m['date'])
-        before = sum(1 for d in remaining if d <= mdate)
-        net = sum(1 for d in lost if d <= mdate)
+        net, adj, end = _settle(mdate)
+        before = sum(1 for d in flagged if d <= end)
         ms.append({
             'name': m['name'], 'planned': mdate.isoformat(),
             'bad_days_before': before, 'already_allowed': before - net,
             'net_delay': net,
-            'adjusted': _shift_working_days(primary_cal, mdate, net).isoformat(),
+            'adjusted': adj.isoformat(),
         })
 
-    net_finish = len(lost)   # every lost day is within (data_date, project_finish]
-    adjusted_finish = _shift_working_days(primary_cal, project_finish, net_finish)
+    net_finish, adjusted_finish, window_end = _settle(project_finish)
+    # everything below reports the window (data date → weather-adjusted finish]
+    remaining = {d: v for d, v in flagged.items() if d <= window_end}
+    lost = {d for d in lost_all if d <= window_end}
 
     # Breakdown of the flagged days by cause (a day can hit more than one limit,
     # so the counts can sum to more than the day total).
@@ -378,6 +399,8 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         month_year = {}
         for y in years_list:
             for d in year_bad[y]:
+                if d > window_end:
+                    continue
                 month_year.setdefault((d.year, d.month), {yy: 0 for yy in years_list})[y] += 1
         monthly = []
         for (y, m) in sorted(month_year):
@@ -397,7 +420,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     # non-working days (red). net = working days − weather-lost days; bar = calendar days.
     hcount = {}
     hd = data_date + timedelta(days=1)
-    while hd <= project_finish:
+    while hd <= window_end:      # to the weather-adjusted finish (owner: the last month showed 1 day)
         h = hcount.setdefault((hd.year, hd.month), {'working': 0, 'nonworking': 0, 'lost': 0})
         if primary_cal and primary_cal.is_working_day(hd):
             h['working'] += 1
@@ -443,13 +466,14 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'project_finish': project_finish.isoformat() if project_finish else None,
+        'window_finish': window_end.isoformat(),   # the last day whose weather is counted
         'day_hours': day_hours,
         'conclusion': conclusion,
         'thresholds': thresholds,          # the stop-work limits applied
         'site_type': site_type,            # the chosen site type (None = today's default)
         'site_type_label': (SITE_TYPES.get(site_type) or {}).get('label'),
         'criteria': build_criteria(site_type, thresholds),          # shown in full (screen + PDF)
-        'limit_performance': limit_performance(daily_eff, data_date, project_finish, thresholds),
+        'limit_performance': limit_performance(daily_eff, data_date, window_end, thresholds),
         # Where the numbers come from (shown to the user + in the PDF); the server adds location.
         'climate_reference': {
             'history_source': 'Open-Meteo ERA5 reanalysis',

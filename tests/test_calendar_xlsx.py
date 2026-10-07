@@ -252,3 +252,16 @@ def test_weather_workbook_carries_the_dashboard_histogram_and_limits(tmp_path):
     assert [x for x in next(r for r in vals if r and r[0] == 'Wind') if x != ''] == ['Wind', 'off (not counted)', '38 km/h']
     # the dashboard comes first, the day list after the limits — the report's order
     assert flat.index('Execution Dashboard — estimate, not a P6 figure') < flat.index('Upcoming Bad-Weather Days')
+
+
+def test_calendar_and_weather_workbooks_centre_their_cells():
+    """Owner, on comment 58: the data sits in the middle of the Excel cells."""
+    import re
+    from p6_evm import xlsx_writer as xw
+    xfs = re.findall(r'<xf[^>]*?(?:/>|>.*?</xf>)', xw._CAL_STYLES[xw._CAL_STYLES.index('<cellXfs'):], re.S)
+    centred = '<alignment horizontal="center" vertical="center" wrapText="1"/>'
+    for i in (2, 3, 4, 5, 6, 7, 10, xw._CAL_CENTER_STYLE):          # header, day cells, table cells
+        assert centred in xfs[i], i
+    xml = xw._stacked_sheet([{'title': 'T', 'headers': ['A', 'B'], 'rows': [['x', 5]]}],
+                            title_style=9, note_style=0, header_style=2, data_style=xw._CAL_CENTER_STYLE)
+    assert f'<c r="A3" s="{xw._CAL_CENTER_STYLE}"' in xml and f'<c r="B3" s="{xw._CAL_CENTER_STYLE}"' in xml

@@ -143,20 +143,21 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <border><left style="thin"><color rgb="FFD0D7DE"/></left><right style="thin"><color rgb="FFD0D7DE"/></right><top style="thin"><color rgb="FFD0D7DE"/></top><bottom style="thin"><color rgb="FFD0D7DE"/></bottom></border>
 </borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="13">
+<cellXfs count="14">
 <xf/>
 <xf fontId="1" applyFont="1"/>
-<xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
-<xf fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
-<xf fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
-<xf fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
-<xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="2" fillId="7" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="0" fillId="2" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
 <xf fontId="3" applyFont="1"/>
-<xf fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+<xf fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf fontId="4" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
 <xf fontId="5" applyFont="1"/>
+<xf applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 </cellXfs>
 </styleSheet>'''
 _CAL_RPTTITLE = 11                    # report-block title (bold 15 navy) — matches _RPTTITLE_STYLE
@@ -568,8 +569,14 @@ def _timeline_sheet_xml(months, cal_name, subtitle, header_lines=None):
                         row_heights=row_heights)
 
 
+# _CAL_STYLES xf 13: a table cell centred both ways and wrapped — the calendar and Bad Weather
+# workbooks show their data in the middle of the cells (owner, on comment 58).
+_CAL_CENTER_STYLE = 13
+
+
 def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
-                   title_style=_TITLE_STYLE, note_style=_CONTEXT_STYLE, header_style=_SECHDR_STYLE):
+                   title_style=_TITLE_STYLE, note_style=_CONTEXT_STYLE, header_style=_SECHDR_STYLE,
+                   data_style=None):
     """Several titled tables stacked on one sheet.
 
     ``title_style`` / ``note_style`` / ``header_style`` default to the report-clarity
@@ -610,7 +617,7 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
                 elif c in hi:
                     st = _HIGHLIGHT_STYLE
                 else:
-                    st = None
+                    st = data_style        # e.g. the calendar / weather workbooks centre their cells
                 if isinstance(v, Styled):
                     st = st or v.style
                     v = v.value
@@ -764,7 +771,8 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
                   for s in exc.get('shutdowns', [])]},
     ]
     sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22},
-                                                 title_style=9, note_style=0, header_style=2)))
+                                                 title_style=9, note_style=0, header_style=2,
+                                                    data_style=_CAL_CENTER_STYLE)))
 
     comp = ca.get('comparison', [])
     sheets.append(('Comparison', _sheet(
@@ -783,7 +791,8 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
     # calendars' own exceptions and the calendar issues found — so nothing shown on screen /
     # in the PDF is missing from the workbook.
     for name, blocks in _calendar_extra_sheets(ca):
-        sheets.append((name, _stacked_sheet(blocks, title_style=9, note_style=0, header_style=2)))
+        sheets.append((name, _stacked_sheet(blocks, title_style=9, note_style=0, header_style=2,
+                                                    data_style=_CAL_CENTER_STYLE)))
 
     if weather:
         w = weather
@@ -810,7 +819,8 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
         ]
         # auto column widths — the blocks have different column layouts, so a single fixed
         # width map (the old per-block bug) mis-sized them; auto sizes each column to fit.
-        sheets.append(('Weather', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
+        sheets.append(('Weather', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2,
+                                                    data_style=_CAL_CENTER_STYLE)))
 
     _write_book(path, sheets, _CAL_STYLES)
 
@@ -891,7 +901,7 @@ def write_weather_xlsx(path, ca, weather, meta=None):
     assigned = ca.get('assigned_calendars') or []
     proj = ca.get('project', {}) or {}
     hidden = proj.get('hidden_months') or 0
-    subtitle = (f'Weather window from data date {proj.get("timeline_start") or "start"} to finish'
+    subtitle = (f'Weather window from data date {proj.get("timeline_start") or "start"} to the bad-weather completion'
                 + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
     # Reference construction calendar = the assigned calendar with the most activities (matches
     # how the weather engine picks its dominant calendar); fall back to primary / first.
@@ -982,5 +992,6 @@ def write_weather_xlsx(path, ca, weather, meta=None):
          'rows': _wx_recovery_rows(w)},
     ]
     # auto widths — heterogeneous blocks (the old fixed map mis-sized them; that was the bug)
-    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
+    sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2,
+                                                    data_style=_CAL_CENTER_STYLE)))
     _write_book(path, sheets, _CAL_STYLES)

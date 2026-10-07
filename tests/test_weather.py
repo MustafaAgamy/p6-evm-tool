@@ -481,3 +481,27 @@ def test_weather_impact_emits_site_type_and_criteria():
     # backward-compatible: no site type → still works, label is None
     r0 = _impact()
     assert r0['site_type'] is None and r0['criteria']
+
+
+def test_weather_is_read_to_the_weather_adjusted_finish():
+    """Owner, on comment 58: the finish moved into a month the chart showed with 1 working day
+    and no weather. The months chart now runs to the weather-adjusted finish, and the days the
+    finish is pushed into are themselves checked for bad weather."""
+    cal = _cal()
+    daily = {
+        date(2025, 6, 3):  {'rain_mm': 15},   # Tue - working, inside the schedule
+        date(2025, 6, 10): {'dust': True},    # Tue - working, inside the schedule
+        date(2025, 7, 1):  {'rain_mm': 30},   # Tue - working, in the days the finish moves into
+        date(2025, 7, 25): {'rain_mm': 30},   # far past the settled finish - never counted
+    }
+    r = weather_impact(calendars={'C': cal}, construction_cal_ids={'C'}, milestones=[],
+                       data_date=date(2025, 6, 1), project_finish=date(2025, 6, 30),
+                       daily_weather=daily, forecast_horizon=date(2025, 6, 8))
+    # 2 lost days push the finish to Wed 2 Jul; 1 Jul is bad too -> a 3rd day -> Thu 3 Jul
+    assert r['net_finish_delay'] == 3
+    assert r['weather_adjusted_finish'] == '2025-07-03' == r['window_finish']
+    assert [d['date'] for d in r['bad_days']] == ['2025-06-03', '2025-06-10', '2025-07-01']
+    jul = r['histogram'][-1]
+    assert jul['label'] == 'Jul 2025' and jul['working'] == 3 and jul['bad'] == 1 and jul['net'] == 2
+    assert sum(h['bad'] for h in r['histogram']) == r['net_finish_delay']
+    assert sum(h['working'] + h['nonworking'] for h in r['histogram']) == (date(2025, 7, 3) - date(2025, 6, 1)).days

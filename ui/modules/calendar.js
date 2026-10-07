@@ -215,7 +215,7 @@ function _renderWeatherBody() {
 function _ddBanner() {
   const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
   return dd
-    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → finish.</div>`
+    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → bad-weather completion.</div>`
     : '';
 }
 
@@ -770,7 +770,7 @@ function _weatherSection() {
       <th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>
       <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
       <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
-     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's planned finish. <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
+     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's weather-adjusted completion (the days it is pushed into are checked too). <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
   // §7 — Conclusion & recovery recommendation: ONE summary of the whole estimate (owner
   // comment 58) — the total weather impact, the second shift that recovers it, the conclusion.
   const rs = recoverySummary(w);
