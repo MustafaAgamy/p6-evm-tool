@@ -483,49 +483,30 @@ function summaryView(r) {
       </div>
       <div class="rc-foot" style="margin-top:10px">${snapFoot}</div></div>`;
 
-  // Comparison ledger — a composite measure renders as one centered cell spanning both
-  // revision columns, total in the Change column.
+  // Comparison ledger — one named count per row, grouped, with what each row means (owner
+  // comment 60: "New / removed 524 | 43" under Rev.00 / Rev.01 never said which was which).
+  const lcell = v => (v == null || v === '') ? '—' : (typeof v === 'number' ? fmtInt(v) : esc(v));
+  let lgroup = null;
   const ledgerRows = (r.ledger || []).map(l => {
-    const composite = l.rev1 == null && typeof l.delta === 'string' && l.delta;
-    if (composite) {
-      return `<tr><td>${esc(l.label)}</td>
-        <td class="n rc-mut" colspan="2" style="text-align:center">${esc(l.delta)}</td>
-        <td class="n">${l.rev0 != null ? `<span class="rc-d">${esc(l.rev0)}</span>` : '—'}</td></tr>`;
-    }
-    return `<tr><td>${esc(l.label)}</td>
-      <td class="n rc-mut">${l.rev0 != null ? esc(l.rev0) : '—'}</td>
-      <td class="n rc-new">${l.rev1 != null ? esc(l.rev1) : '—'}</td>
-      <td class="n">${deltaCell(l.delta)}</td></tr>`;
+    const head = l.group !== lgroup ? `<tr class="rc-lgrp"><td colspan="5">${esc(l.group)}</td></tr>` : '';
+    lgroup = l.group;
+    const revs = l.span
+      ? `<td class="n rc-mut" colspan="2" style="text-align:center">${esc(l.span)}</td>`
+      : `<td class="n rc-mut">${lcell(l.rev0)}</td><td class="n rc-new">${lcell(l.rev1)}</td>`;
+    return `${head}<tr class="${l.sub ? 'rc-lsub' : 'rc-ltot'}"><td>${esc(l.label)}</td>${revs}
+      <td class="n"><span class="rc-lpill ${esc(l.tone || 'chg')}">${esc(l.change)}</span></td>
+      <td class="rc-lmean">${esc(l.meaning)}</td></tr>`;
   }).join('');
-  const ledgerCard = `<div class="rc-card"><h3>Comparison ledger</h3>
-    ${ledgerRows ? `<table class="rc-t"><thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr></thead><tbody>${ledgerRows}</tbody></table>`
+  const ledgerChecks = (r.ledger_checks || []).length
+    ? `<div class="rc-foot" style="margin-top:10px"><b>Check:</b> ${r.ledger_checks.map(esc).join(' · ')}</div>` : '';
+  const ledgerCard = `<div class="rc-card"><h3>Comparison ledger <span class="rc-n">every count named</span></h3>
+    ${ledgerRows ? `<table class="rc-t rc-ledger"><thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th><th>What it means</th></tr></thead><tbody>${ledgerRows}</tbody></table>${ledgerChecks}`
                  : noData('No comparison measures available.')}</div>`;
 
-  // Credibility / red flags (constraint row removed per comment 6).
-  const q = r.quality || {};
-  const cc = r.calendar_changes || {};
-  const credRow = (label, o) => {
-    if (!o) return '';
-    const d = (o.rev1 != null && o.rev0 != null) ? o.rev1 - o.rev0 : null;
-    return `<tr><td>${escapeHtml(label)}</td><td class="n rc-mut">${o.rev0 != null ? esc(o.rev0) : '—'}</td><td class="n rc-new">${o.rev1 != null ? esc(o.rev1) : '—'}</td><td class="n">${deltaCell(d)}</td></tr>`;
-  };
-  const calDefs = Array.isArray(cc.calendars) ? cc.calendars.length : 0;
-  const calReassign = Array.isArray(cc.reassignments) ? cc.reassignments.reduce((s, g) => s + (g.count || 0), 0) : 0;
-  const calRow = (calDefs || calReassign)
-    ? `<tr><td>Calendars changed</td><td class="n rc-mut" colspan="2" style="text-align:center">${calDefs} definition(s) · ${calReassign} activities reassigned</td><td class="n">${deltaCell('!')}</td></tr>`
-    : '';
-  const credRows = [
-    credRow('Negative-float activities', q.negative_float),
-    credRow('Open ends (dangling)', q.open_ends),
-    calRow,
-    credRow('Leads (negative lags)', q.leads),
-  ].filter(Boolean).join('');
-  const credCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Schedule-quality signals <span class="rc-n">signals to review</span></h3>
-    ${credRows ? `<table class="rc-t"><thead><tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr></thead><tbody>${credRows}</tbody></table>`
-               : noData('No schedule-quality signals available.')}</div>`;
-
+  // The quality-signals table was removed (owner comment 59) — the ledger takes the
+  // full width.
   return secmark('1', 'Executive Summary') + bl + snap
-    + `<div class="rc-split">${ledgerCard}${credCard}</div>`
+    + ledgerCard
     + scopeAnalysisCard(r);
 }
 

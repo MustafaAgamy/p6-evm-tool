@@ -368,53 +368,36 @@ def _snapshot(report):
 
 
 def _ledger(report):
+    """The comparison ledger - one named count per row, grouped, with what each row means
+    (owner comment 60). Rows come ready from compare._ledger."""
     led = report.get('ledger') or []
     if not led:
         return _card('Comparison ledger', '', _muted('No comparison ledger available.'))
-    rows = ''
+
+    def cell(v):
+        if v is None or v == '':
+            return '<span class="mut">—</span>'
+        return _num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else _e(v)
+
+    rows, group = '', None
     for e in led:
-        r0 = e.get('rev0')
-        r1 = e.get('rev1')
-        dl = e.get('delta')
-        dcell = _dcell(dl) if isinstance(dl, (int, float)) and not isinstance(dl, bool) else (
-            f'<span class="d">{_e(dl)}</span>' if dl not in (None, '') else '<span class="mut">—</span>')
-        rows += (f'<tr><td class="lbl">{_e(e.get("label"))}</td>'
-                 f'<td class="n mut">{_num(r0)}</td>'
-                 f'<td class="n new">{("" if r1 is None else _num(r1))}</td>'
-                 f'<td class="n">{dcell}</td></tr>')
-    head = '<tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr>'
-    return _card('Comparison ledger', '', _tbl(head, rows))
-
-
-def _redflags(report):
-    q = report.get('quality') or {}
-    cal = report.get('calendar_changes') or {}
-    ne = q.get('negative_float') or {}
-    oe = q.get('open_ends') or {}
-    hc = q.get('hard_constraints') or {}
-    ld = q.get('leads') or {}
-    reass = cal.get('reassignments') or []
-    cal_defs = len(cal.get('calendars') or [])
-    cal_acts = sum((g.get('count') or 0) for g in reass)
-
-    def row(label, r0, r1):
-        return (f'<tr><td class="lbl">{_e(label)}</td><td class="n mut">{_num(r0)}</td>'
-                f'<td class="n new">{_num(r1)}</td><td class="n">{_dcell((r1 or 0) - (r0 or 0))}</td></tr>')
-
-    rows = [
-        row('Negative-float activities', ne.get('rev0'), ne.get('rev1')),
-        row('Open ends (dangling)', oe.get('rev0'), oe.get('rev1')),
-        row('Hard constraints', hc.get('rev0'), hc.get('rev1')),
-        row('Leads (negative lags)', ld.get('rev0'), ld.get('rev1')),
-    ]
-    if cal_defs or cal_acts:
-        rows.append(
-            f'<tr><td class="lbl">Calendars changed</td>'
-            f'<td class="n mut" colspan="2" style="text-align:center">{cal_defs} definition(s) · {cal_acts} activities reassigned</td>'
-            f'<td class="n"><span class="d up">!</span></td></tr>')
-    head = '<tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr>'
-    body = _tbl(head, rows)
-    return f'<div class="card flagcard"><h3 class="flagh">Schedule-quality signals</h3>{body}</div>'
+        if e.get('group') != group:
+            group = e.get('group')
+            rows += f'<tr class="lgrp"><td colspan="5">{_e(group)}</td></tr>'
+        if e.get('span'):
+            revs = f'<td class="n mut" colspan="2" style="text-align:center">{_e(e["span"])}</td>'
+        else:
+            revs = f'<td class="n mut">{cell(e.get("rev0"))}</td><td class="n new">{cell(e.get("rev1"))}</td>'
+        tone = {'add': 'ladd', 'rem': 'lrem', 'chg': 'lchg'}.get(e.get('tone'), 'lchg')
+        lbl = _e(e.get('label'))
+        rows += (f'<tr class="{"lsub" if e.get("sub") else "ltot"}"><td class="lbl">{lbl}</td>{revs}'
+                 f'<td class="n"><span class="lpill {tone}">{_e(e.get("change"))}</span></td>'
+                 f'<td class="lmean">{_e(e.get("meaning"))}</td></tr>')
+    head = ('<tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th>'
+            '<th class="n">Change</th><th>What it means</th></tr>')
+    checks = report.get('ledger_checks') or []
+    foot = ('<div class="foot"><b>Check:</b> ' + ' · '.join(_e(c) for c in checks) + '</div>') if checks else ''
+    return _card('Comparison ledger', 'every count named', _tbl(head, rows, 'ledger') + foot)
 
 
 def _scope_analysis(report, filters):
@@ -488,7 +471,7 @@ def _sec_summary(report, filters=None):
     banner = (f'<div class="bottomline"><b>Bottom line:</b> {_e(bl)}</div>' if bl else '')
     return (banner
             + _snapshot(report)
-            + '<div class="split">' + _ledger(report) + _redflags(report) + '</div>'
+            + _ledger(report)        # the quality-signals table was removed (comment 59)
             + _scope_analysis(report, filters))
 
 
@@ -2157,6 +2140,14 @@ tr:last-child td { border-bottom: 0; }
 td.bord, th.bord { border-right: 1px solid var(--rpt-hair); }
 .totrow td { font-weight: 800; border-top: 2px solid var(--rpt-edge); background: var(--rpt-surface-2); }
 .lbl { font-weight: 600; color: var(--rpt-ink-soft); }
+table.ledger tr.lgrp td { background: var(--rpt-surface-2); font-weight: 800; font-size: 8.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--rpt-ink-soft); }
+table.ledger tr.lsub td.lbl { padding-left: 20px; font-weight: 500; }
+table.ledger tr.ltot td.lbl { font-weight: 800; color: var(--rpt-ink); }
+table.ledger td.lmean { color: var(--rpt-ink-soft); font-size: 9.5px; }
+.lpill { display: inline-block; border-radius: 9px; padding: 0 7px; font-weight: 700; white-space: nowrap; }
+.lpill.ladd { color: var(--rpt-good); background: var(--rpt-good-bg); }
+.lpill.lrem { color: var(--rpt-bad); background: var(--rpt-bad-bg); }
+.lpill.lchg { color: var(--rpt-accent); background: var(--rpt-accent-soft); }
 .d { font-weight: 700; } .d.up { color: var(--rpt-bad); } .d.down { color: var(--rpt-good); } .d.zero { color: var(--rpt-muted); }
 .tag { font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
 .tag.add { background: var(--rpt-good-bg); color: var(--rpt-good); } .tag.rem { background: var(--rpt-bad-bg); color: var(--rpt-bad); }

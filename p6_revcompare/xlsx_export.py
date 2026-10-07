@@ -9,7 +9,7 @@ prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revco
 ``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``):
 
     summary   → Executive Summary   (bottom line · revision snapshot · comparison ledger ·
-                schedule-quality signals · scope BY ACTIVITY CODE — no Building column)
+                scope BY ACTIVITY CODE — no Building column)
     findings  → Key Findings        (finish-slip driver bridge + its contribution breakdown ·
                 the "Logic & Sequence Changes" — every changed relationship as rows carrying
                 a column per activity-code dimension · key findings list)
@@ -167,7 +167,6 @@ def _rows_or_none(rows, ncols, msg='No data'):
 def _summary_blocks(report):
     r0, r1 = report.get('rev0') or {}, report.get('rev1') or {}
     s = report.get('summary') or {}
-    q = report.get('quality') or {}
     codes = report.get('codes') or {}
 
     bottom = report.get('bottom_line') or ''
@@ -188,38 +187,19 @@ def _summary_blocks(report):
                    'note': 'Baselines only (no actuals) — a like-for-like comparison.',
                    'headers': ['', 'Rev.00 · Original', 'Rev.01 · Revised'], 'rows': snap_rows})
 
-    # Comparison ledger
-    ledger = [[_txt(l.get('label')), _num(l.get('rev0')), _num(l.get('rev1')), _num(l.get('delta'))]
-              for l in (report.get('ledger') or [])]
+    # Comparison ledger — one named count per row (owner comment 60)
+    def lcell(v):
+        return '—' if v is None or v == '' else (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v))
+    ledger = []
+    for l in (report.get('ledger') or []):
+        r0c, r1c = (l['span'], l['span']) if l.get('span') else (lcell(l.get('rev0')), lcell(l.get('rev1')))
+        ledger.append([_txt(l.get('group')), ('    ' if l.get('sub') else '') + _txt(l.get('label')),
+                       r0c, r1c, _txt(l.get('change')), _txt(l.get('meaning'))])
+    checks = report.get('ledger_checks') or []
     blocks.append({'title': 'Comparison ledger',
-                   'headers': ['Measure', 'Rev.00', 'Rev.01', 'Change'],
-                   'rows': _rows_or_none(ledger, 4)})
-
-    # Credibility / red flags — from quality
-    neg = q.get('negative_float') or {}
-    oe = q.get('open_ends') or {}
-    ld = q.get('leads') or {}
-    tr = q.get('total_rels') or {}
-    rpa = q.get('rels_per_act') or {}
-    hc = q.get('hard_constraints') or {}
-    nc = q.get('near_critical') or {}
-
-    def qrow(lbl, d):
-        d = d or {}
-        return [lbl, _num(d.get('rev0')), _num(d.get('rev1')), _delta(d.get('rev0'), d.get('rev1'))]
-    red = [
-        qrow('Negative-float activities', neg),
-        qrow('Open ends (dangling)', oe),
-        qrow('Hard constraints', hc),
-        qrow('Leads (negative lags)', ld),
-        qrow('Near-critical activities', nc),
-        qrow('Total relationships', tr),
-        ['Relationships per activity', _num(rpa.get('rev0')), _num(rpa.get('rev1')),
-         _delta(rpa.get('rev0'), rpa.get('rev1'))],
-    ]
-    blocks.append({'title': 'Schedule-quality signals',
-                   'note': 'Signals for planning review, not defects.',
-                   'headers': ['Signal', 'Rev.00', 'Rev.01', 'Δ'], 'rows': red})
+                   'note': ('Check: ' + ' · '.join(checks)) if checks else None,
+                   'headers': ['Group', 'Measure', 'Rev.00', 'Rev.01', 'Change', 'What it means'],
+                   'rows': _rows_or_none(ledger, 6)})
 
     # Scope change — by activity code (the activity-code analysis; no Building column, comment 1)
     sbc = codes.get('scope_by_code') or {}

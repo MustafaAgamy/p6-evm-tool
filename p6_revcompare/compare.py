@@ -67,18 +67,27 @@ def _governing_finish(data):
     return _forecast_finish(gov) if gov else None
 
 
+def _is_crit(a):
+    """Critical the way P6 flags it (owner comment 103): the parser's ``is_critical`` - every
+    activity type, total float <= the project's critical float limit, or P6's Longest Path
+    flag when the project defines critical that way. Falls back to total float <= 0 only for
+    a record that carries no flag."""
+    if 'is_critical' in a:
+        return bool(a.get('is_critical'))
+    tf = a.get('total_float_days')
+    return tf is not None and tf <= 0
+
+
 def _critical_codes(data):
-    """Activity codes on the critical path — TF ≤ 0 where the export carries float, else the
-    longest-path chain (a clean baseline may carry no float)."""
+    """Activity IDs P6 shows as Critical in this revision - milestones and every other activity
+    type included, so the count equals P6's own Critical filter. A baseline exported with no
+    float at all has nothing to flag: there the longest-path chain is used instead."""
     codes, any_tf = set(), False
     for a in data.activities.values():
-        if a.get('task_type') in _MS:
-            continue
-        tf = a.get('total_float_days')
-        if tf is not None:
+        if a.get('total_float_days') is not None or a.get('longest_path') is not None:
             any_tf = True
-            if tf <= 0 and a.get('id'):
-                codes.add(a['id'])
+        if _is_crit(a) and a.get('id'):
+            codes.add(a['id'])
     if not any_tf:
         from p6_critpath.analysis import _critical_from_paths
         for oid in _critical_from_paths(data):
@@ -86,6 +95,17 @@ def _critical_codes(data):
             if a and a.get('id'):
                 codes.add(a['id'])
     return codes
+
+
+def _band(a):
+    """Float band of an activity, with 'crit' = P6's Critical flag (see _is_crit)."""
+    tf = a.get('total_float_days')
+    if tf is None:
+        return None
+    if _is_crit(a):
+        return 'crit'
+    b = SEV.band(tf)
+    return 'near' if b == 'crit' else b      # at / under zero float but not flagged critical by P6
 
 
 def _cp_chain(data, crit_codes, entered, left):
@@ -255,7 +275,7 @@ def _float_movement(pairs, floor=5.0):
         tf0, tf1 = p['act0'].get('total_float_days'), p['act1'].get('total_float_days')
         if tf0 is None or tf1 is None:
             continue
-        b0, b1 = SEV.band(tf0), SEV.band(tf1)
+        b0, b1 = _band(p['act0']), _band(p['act1'])
         delta = round(tf1 - tf0, 1)
         movement = cls = None
         if b0 != 'crit' and b1 == 'crit':
@@ -460,6 +480,7 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
         'renamed': len(match['renamed']), 'moved_wbs': len(match['moved_wbs']),
         'duration_change_wd': cp_len_change, 'finish_shift_days': finish_shift,
         'logic': logic_stats, 'sequence': len(sequences),
+        'critical0': len(crit0), 'critical1': len(crit1),
         'cp_in': len(entered), 'cp_out': len(left), 'cp_length_change_wd': cp_len_change,
         'criticality': sum(1 for f in floats if f['movement_cls'] in ('rem', 'add') and 'critical' in f['movement'].lower()),
         'float_moves': len(floats),
@@ -474,7 +495,6 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     }
     profile = _profile(match, logic_stats, sequences, floats, milestones, time_changes,
                        wbs_changes, calendar_changes, constraint_changes, resource_changes)
-    ledger = _ledger(summary, match, milestones)
     findings = _findings(register, sequences, milestones, cp)
     narrative = _narrative(summary, finish_shift, sequences, milestones)
 
@@ -482,6 +502,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
     redesign = _redesign_sections(rev0, rev1, rev1c, matched, match, cal, cp, crit1,
                                   sequences, wbs_changes, gov0, gov1)
     bottom_line = _bottom_line(summary, finish_shift, gov1, resource_changes, redesign.get('quality'))
+    ledger = _ledger(summary, (redesign.get('quality') or {}).get('total_rels'))
+    ledger_checks = _ledger_checks(summary, (redesign.get('quality') or {}).get('total_rels'))
 
     return {
         'rev0': {'file': None, 'activities': len(rev0.activities),
@@ -491,7 +513,8 @@ def build_report_from_data(rev0, rev1, config=None, options=None):
                  'data_date': _short((rev1.project or {}).get('data_date')),
                  'finish': _short(gov1)},
         'warnings': warnings,
-        'summary': summary, 'profile': profile, 'ledger': ledger, 'findings': findings,
+        'summary': summary, 'profile': profile, 'ledger': ledger, 'ledger_checks': ledger_checks,
+        'findings': findings,
         'register': register, 'critical_path': cp, 'sequence': sequences,
         'float_movement': floats, 'milestones': milestones, 'narrative': narrative,
         'wbs_changes': wbs_changes, 'calendar_changes': calendar_changes,
@@ -760,26 +783,108 @@ def _profile(match, logic, sequences, floats, milestones, time_changes,
     return bars
 
 
-def _ledger(summary, match, milestones):
+def _n(v):
+    return f'{v:,}' if isinstance(v, int) and not isinstance(v, bool) else str(v)
+
+
+def _sgn_n(v):
+    return ('+' if v > 0 else '−' if v < 0 else '') + _n(abs(v))
+
+
+def _ledger(summary, total_rels=None):
+    """The comparison ledger - ONE named count per row (owner comment 60: "New / removed 524 |
+    43" under the Rev.00 / Rev.01 headings never said which was which). Each row:
+
+        group    - the block it sits in (Activities / Relationships / Critical path & float)
+        label    - what is counted
+        rev0/rev1- a value only where it BELONGS to that revision (added sits under Rev.01,
+                   removed under Rev.00); None = a dash
+        span     - instead of rev0/rev1: one text across both columns ("in both revisions")
+        change   - the count with its word ("+524 added"), tone = add | rem | chg
+        meaning  - one plain line
+        sub      - a breakdown row under its total
+    """
     L = summary['logic']
-    gov = next((m for m in milestones if m['kind'] in ('delayed', 'advanced')), None)
-    return [
-        {'label': 'Total activities', 'rev0': summary['activities0'], 'rev1': summary['activities1'],
-         'delta': summary['net']},
-        {'label': 'New / removed activities', 'rev0': summary['added'], 'rev1': summary['removed'],
-         'delta': None},
-        {'label': 'Modified · identity (ID) changes', 'rev0': summary['modified'],
-         'rev1': summary['id_changes'], 'delta': None},
-        {'label': 'Logic / relationship changes',
-         'rev0': L['total'], 'rev1': None,
-         'delta': f"+{L['added']} −{L['removed']} · {L['type']} type · {L['lag']} lag"},
-        {'label': 'Meaningful sequence changes', 'rev0': summary['sequence'], 'rev1': None, 'delta': None},
-        {'label': 'Critical-path activities in / out',
-         'rev0': summary['cp_in'], 'rev1': summary['cp_out'],
-         'delta': (f"CP {'+' if (summary['cp_length_change_wd'] or 0) >= 0 else ''}{summary['cp_length_change_wd']} d"
-                   if summary['cp_length_change_wd'] is not None else None)},
-        {'label': 'Criticality / float movement', 'rev0': summary['float_moves'], 'rev1': None, 'delta': None},
-    ]
+    rows = []
+
+    def row(group, label, change, tone, meaning, rev0=None, rev1=None, span=None, sub=True):
+        rows.append({'group': group, 'label': label, 'rev0': rev0, 'rev1': rev1, 'span': span,
+                     'change': change, 'tone': tone, 'meaning': meaning, 'sub': sub})
+
+    def tone_of(d):
+        return 'add' if d > 0 else 'rem' if d < 0 else 'chg'
+
+    def more_fewer(d, what):
+        if d == 0:
+            return f'Both revisions have the same number of {what}.'
+        return f'Rev.01 has {_n(abs(d))} {"more" if d > 0 else "fewer"} {what} than Rev.00.'
+
+    both = 'in both revisions'
+    G = 'Activities'
+    net = summary['net']
+    row(G, 'Total activities', _sgn_n(net) if net else 'no change', tone_of(net),
+        more_fewer(net, 'activities'), rev0=summary['activities0'], rev1=summary['activities1'], sub=False)
+    row(G, 'Added — new in Rev.01', f"+{_n(summary['added'])} added", 'add',
+        'In Rev.01 only; not in Rev.00.', rev1=summary['added'])
+    row(G, 'Removed — deleted from Rev.00', f"−{_n(summary['removed'])} removed", 'rem',
+        'In Rev.00 only; not in Rev.01.', rev0=summary['removed'])
+    row(G, 'Modified — in both, with a change', f"{_n(summary['modified'])} modified", 'chg',
+        'Same activity in both revisions, something changed (dates, duration, logic, calendar…).', span=both)
+    row(G, 'Activity ID changed', f"{_n(summary['id_changes'])} re-numbered", 'chg',
+        'Same activity, given a new Activity ID in Rev.01.', span=both)
+
+    G = 'Relationships (logic)'
+    tr = total_rels or {}
+    if tr.get('rev0') is not None and tr.get('rev1') is not None:
+        d = tr['rev1'] - tr['rev0']
+        row(G, 'Total relationships', _sgn_n(d) if d else 'no change', tone_of(d),
+            more_fewer(d, 'relationships'), rev0=tr['rev0'], rev1=tr['rev1'], sub=False)
+    row(G, 'Added — new in Rev.01', f"+{_n(L['added'])} added", 'add',
+        'Links that exist in Rev.01 only.', rev1=L['added'])
+    row(G, 'Removed — deleted from Rev.00', f"−{_n(L['removed'])} removed", 'rem',
+        'Links that existed in Rev.00 only.', rev0=L['removed'])
+    row(G, 'Relationship type changed', f"{_n(L['type'])} changed", 'chg',
+        'Same link, different type (e.g. FS → SS).', span=both)
+    row(G, 'Lag changed', f"{_n(L['lag'])} changed", 'chg', 'Same link, different lag.', span=both)
+    row(G, 'Meaningful sequence changes', f"{_n(summary['sequence'])} changed", 'chg',
+        'The order of work was changed (see the Sequence section).', span=both)
+
+    G = 'Critical path & float'
+    c0, c1 = summary.get('critical0'), summary.get('critical1')
+    if c0 is not None and c1 is not None:
+        d = c1 - c0
+        row(G, 'Critical activities', _sgn_n(d) if d else 'no change', 'rem' if d > 0 else 'add' if d < 0 else 'chg',
+            'Activities P6 flags Critical in each revision (every activity type, milestones included).',
+            rev0=c0, rev1=c1, sub=False)
+    row(G, 'Became critical in Rev.01', f"+{_n(summary['cp_in'])} entered", 'rem',
+        'Critical in Rev.01 and not critical in Rev.00 (or new in Rev.01).', rev0='not critical', rev1='critical')
+    row(G, 'No longer critical in Rev.01', f"−{_n(summary['cp_out'])} left", 'add',
+        'Critical in Rev.00 and not critical in Rev.01 (or removed).', rev0='critical', rev1='not critical')
+    lc = summary.get('cp_length_change_wd')
+    if lc is not None:
+        word = 'longer' if lc > 0 else 'shorter' if lc < 0 else 'unchanged'
+        row(G, 'Critical path length', (f'{_sgn_n(lc)} d {word}' if lc else 'unchanged'), 'rem' if lc > 0 else 'add' if lc < 0 else 'chg',
+            (f'The Rev.01 critical path is {_n(abs(lc))} working days {word}.' if lc else
+             'The critical path has the same length in both revisions.'), span='Rev.01 vs Rev.00')
+    row(G, 'Total float changed', f"{_n(summary['float_moves'])} activities", 'chg',
+        'Activities whose total float moved materially, or that changed between critical / near-critical.',
+        span=both)
+    return rows
+
+
+def _ledger_checks(summary, total_rels=None):
+    """The arithmetic under the ledger, printed only where it closes exactly."""
+    out = []
+    a0, a1, ad, rm = summary['activities0'], summary['activities1'], summary['added'], summary['removed']
+    if a0 + ad - rm == a1:
+        out.append(f'{_n(a0)} + {_n(ad)} added − {_n(rm)} removed = {_n(a1)} activities')
+    tr, L = total_rels or {}, summary['logic']
+    if tr.get('rev0') is not None and tr.get('rev1') is not None and tr['rev0'] + L['added'] - L['removed'] == tr['rev1']:
+        out.append(f"{_n(tr['rev0'])} + {_n(L['added'])} added − {_n(L['removed'])} removed = {_n(tr['rev1'])} relationships")
+    c0, c1 = summary.get('critical0'), summary.get('critical1')
+    if c0 is not None and c1 is not None and c0 + summary['cp_in'] - summary['cp_out'] == c1:
+        out.append(f"{_n(c0)} + {_n(summary['cp_in'])} became critical − {_n(summary['cp_out'])} no longer critical = {_n(c1)} critical activities")
+    return out
 
 
 def _findings(register, sequences, milestones, cp):
