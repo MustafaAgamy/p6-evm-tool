@@ -127,6 +127,7 @@ let _map = null;          // Leaflet map instance (location picker)
 let _marker = null;       // the draggable location pin
 let _leafletPromise = null;
 let _mapRO = null;        // ResizeObserver that re-measures the map when the tab is shown
+let _wxSnap = null;       // the schedule the on-screen weather result belongs to
 let _wxNotice = null;     // {text, kept} — why the last Calculate produced no estimate (offline…)
 const _openMonths = new Set();
 
@@ -151,7 +152,6 @@ export function renderCalendar(ca) {
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
   if (settings.site_type) _siteType = settings.site_type;        // restore the picked site type
   else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);  // infer from saved limits
-  if (settings.last_weather) _weather = settings.last_weather;   // show the last saved estimate on re-open
   _renderCalendarBody();
 }
 
@@ -198,9 +198,20 @@ export function renderWeatherView(ca) {
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
   if (settings.site_type) _siteType = settings.site_type;
   else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);
-  if (settings.last_weather) _weather = settings.last_weather;
+  // No result is shown until the planner has picked the Project Type and the Location and
+  // clicked Apply & Recalculate (owner, comment 58): the saved type / location / limits are
+  // pre-filled, but a saved estimate is never shown by itself. A result computed in this
+  // session stays while the same schedule is open.
+  if (_wxSnap !== state.currentSnapshotId) { _weather = null; _wxNotice = null; _wxSnap = state.currentSnapshotId; }
   _renderWeatherBody();
 }
+
+// True once Apply & Recalculate has produced the result now on screen — the PDF / Excel
+// exports print that result, so they wait for it too.
+export function hasWeatherResult() { return !!_weather && _wxSnap === state.currentSnapshotId; }
+
+// Apply & Recalculate needs both inputs: a picked Project Type and a Location.
+function _wxReady() { return !!(_pendingLoc && _siteType); }
 
 function _renderWeatherBody() {
   const body = document.getElementById('weather-body');
@@ -545,13 +556,13 @@ function _weatherControls() {
     </div>
     ${_criteriaPanelHtml()}
     <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">✎ Fine-tune the limits</span>
-      <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off; switches to “Custom”)</span></div>
+      <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off) — the Project Type stays as you chose it</span></div>
     <div class="cal-thr">
       ${num('thr-rain', '🌧 Rain ≥ (mm)', t.rain_mm)}
       ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
       ${num('thr-wind', '💨 Wind ≥ (km/h)', t.wind_kmh)}
       <div class="thr-f"><label>🌫 Dust</label><span class="thr-sw"><input type="checkbox" id="thr-dust" ${t.dust ? 'checked' : ''}> count sandstorm days</span></div>
-      <button class="cal-btn pri" id="thr-apply" ${_pendingLoc ? '' : 'disabled'}>Apply &amp; Recalculate</button>
+      <button class="cal-btn pri" id="thr-apply" ${_wxReady() ? '' : 'disabled'} title="${_wxReady() ? '' : 'Pick the Project Type and set the Location first'}">Apply &amp; Recalculate</button>
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
@@ -562,13 +573,14 @@ function _criteriaPanelHtml() {
   const st = _siteType;
   const meta = st === 'custom' ? { label: 'Custom limits', icon: '⚙️' }
     : (SITE_TYPES[st] || { label: 'Default limits (Desert / inland)', icon: '🏜️' });
+  const edited = SITE_TYPES[st] && matchSiteType(_thr()) !== st;      // limits changed from the type's own
   const rows = buildSiteCriteria(st, _thr()).map(r =>
     `<div class="cal-crit-row">
       <div class="cal-crit-lim ${r.on ? 'on' : 'off'}">${r.icon} ${escapeHtml(r.label)} <b>${escapeHtml(r.value)}</b></div>
       <div class="cal-crit-exp">${escapeHtml(r.explain)}${r.on ? '' : ' <span class="cal-muted">(not counted)</span>'}</div>
     </div>`).join('');
   return `<div class="cal-crit">
-    <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)} — what stops work here</span>
+    <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)}${edited ? ' · limits edited' : ''} — what stops work here</span>
       <span class="cal-pill mini def" style="margin-left:auto">criteria in full</span></div>
     <div class="cal-crit-lead">A construction <b>working</b> day between the data date and finish is a <b>lost day</b> when <b>any</b> limit below is met. Days already off (weekend / holiday / shutdown) are never double-counted.</div>
     ${rows}
@@ -695,7 +707,7 @@ function _weatherHistogram() {
       <div class="cal-3l">${escapeHtml(m.label)}</div></div>`).join('');
   return _sec(2, 'Calendar Timeline &amp; Statistics') +
     `<div class="cal-3title">${escapeHtml(_scopeName())}</div>
-     <div class="cal-3sub">Net-working (green) · non-working (red) · bad-weather (amber) days per month · the number above each bar = <b>net working days</b> (working − bad-weather)</div>
+     <div class="cal-3sub">Net-working (green) · non-working (red) · bad-weather (amber) days per month · the number above each bar = <b>net working days</b> (working − bad-weather) · every month is shown to its end, so the month of the bad-weather completion shows all its working days</div>
      <div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
        <span><i class="sw sw-nw"></i>Non-working days</span>
        <span><i class="sw sw-bad"></i>Bad-weather days (expected)</span>
@@ -737,13 +749,15 @@ function _weatherSection() {
   // button, so it's shown up-front (button disabled until a location is set) — one always-
   // available CTA that serves both the first calculation and every recalculation.
   const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>` + _wxNoticeHtml();
-  if (!_pendingLoc) {
+  if (!_wxReady()) {
+    const need = !_siteType && !_pendingLoc ? 'Pick the <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin)'
+      : !_siteType ? 'Pick the <b>Project Type</b> above' : 'Set the <b>Location</b> on the map above (search or drop a pin)';
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Pick a <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin), then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
+      ${need}, then click <b>Apply &amp; Recalculate</b>. No result is shown before that.</p></div>`;
   }
   if (!_weather) {
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Adjust the stop-work limits above if needed, then click <b>Apply &amp; Recalculate</b>.</p></div>`;
+      Project Type and Location are set. Adjust the stop-work limits above if needed, then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery.</p></div>`;
   }
   const w = _weather;
   const dashboard = _weatherDashboard();      // §1 Execution Dashboard (waterfall)
@@ -913,7 +927,7 @@ function _updateLocReadout() {
   const eb = document.getElementById('cal-entry-loc');
   if (eb) eb.innerHTML = _entryLocHtml();
   const apply = document.getElementById('thr-apply');
-  if (apply && _pendingLoc) apply.disabled = false;
+  if (apply) apply.disabled = !_wxReady();
 }
 
 // Load the vendored Leaflet (local file — ships in the .exe) exactly once.
@@ -1065,13 +1079,14 @@ function _wireWeather() {
   const applyBtn = document.getElementById('thr-apply');
   if (applyBtn) applyBtn.addEventListener('click', () => {
     _thresholds = _readThresholds();
-    _siteType = matchSiteType(_thresholds) || 'custom';   // edited away from a preset → Custom
+    // the Project Type stays as the planner chose it — editing a limit never changes it (comment 58)
+    if (!_wxReady()) return;
     _runWeather(applyBtn, document.getElementById('thr-status'));
   });
 }
 
 async function _runWeather(btn, statusEl) {
-  if (!_pendingLoc) return;
+  if (!_wxReady()) return;
   if (btn) btn.disabled = true;
   // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
   // weather estimate computes + renders — same experience as every other feature.
@@ -1083,6 +1098,7 @@ async function _runWeather(btn, statusEl) {
       const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
       if (resp.ok) {
         _weather = resp.weather;
+        _wxSnap = state.currentSnapshotId;
         _wxNotice = null;
         _pendingLoc = resp.location || _pendingLoc;
         if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;

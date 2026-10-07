@@ -353,7 +353,8 @@ def _wx_hist3(histogram, scope=''):
         '<h2 class="sec">2 · Calendar Timeline &amp; Statistics</h2>'
         f'{title}'
         '<div class="h3sub">Working / non-working / bad-weather days per month · the number above each '
-        'bar = <b>net working days</b> (working − bad-weather)</div>'
+        'bar = <b>net working days</b> (working − bad-weather) · every month is shown to its end, so the '
+        'month of the bad-weather completion shows all its working days</div>'
         f'{legend}<div class="h3bars">{bars}</div>')
 
 

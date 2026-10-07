@@ -419,8 +419,12 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
     # each month's NET working days (green), the working days lost to weather (amber) and the
     # non-working days (red). net = working days − weather-lost days; bar = calendar days.
     hcount = {}
+    # The chart runs to the END of the month the weather-adjusted finish falls in, so that
+    # month shows all its working days, not only those up to the finish (owner: a finish on
+    # 1 June showed June with 1 working day). Weather is counted only up to the finish.
+    chart_end = (window_end.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
     hd = data_date + timedelta(days=1)
-    while hd <= window_end:      # to the weather-adjusted finish (owner: the last month showed 1 day)
+    while hd <= chart_end:
         h = hcount.setdefault((hd.year, hd.month), {'working': 0, 'nonworking': 0, 'lost': 0})
         if primary_cal and primary_cal.is_working_day(hd):
             h['working'] += 1
@@ -467,6 +471,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
         'project_finish': project_finish.isoformat() if project_finish else None,
         'window_finish': window_end.isoformat(),   # the last day whose weather is counted
+        'chart_finish': chart_end.isoformat(),     # the months chart runs to this month end
         'day_hours': day_hours,
         'conclusion': conclusion,
         'thresholds': thresholds,          # the stop-work limits applied

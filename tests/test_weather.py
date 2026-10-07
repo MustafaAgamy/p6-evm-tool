@@ -502,6 +502,8 @@ def test_weather_is_read_to_the_weather_adjusted_finish():
     assert r['weather_adjusted_finish'] == '2025-07-03' == r['window_finish']
     assert [d['date'] for d in r['bad_days']] == ['2025-06-03', '2025-06-10', '2025-07-01']
     jul = r['histogram'][-1]
-    assert jul['label'] == 'Jul 2025' and jul['working'] == 3 and jul['bad'] == 1 and jul['net'] == 2
+    # the finish month is shown IN FULL (a finish early in a month showed that month with 1 day)
+    assert jul['label'] == 'Jul 2025' and jul['working'] == 23 and jul['bad'] == 1 and jul['net'] == 22
+    assert r['chart_finish'] == '2025-07-31'
     assert sum(h['bad'] for h in r['histogram']) == r['net_finish_delay']
-    assert sum(h['working'] + h['nonworking'] for h in r['histogram']) == (date(2025, 7, 3) - date(2025, 6, 1)).days
+    assert sum(h['working'] + h['nonworking'] for h in r['histogram']) == (date(2025, 7, 31) - date(2025, 6, 1)).days

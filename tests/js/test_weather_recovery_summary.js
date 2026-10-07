@@ -25,3 +25,14 @@ assert.equal(recoverySummary(null), null);
 const one = recoverySummary({ net_finish_delay: 1, weather_adjusted_finish: '2027-01-02', histogram: [{ label: 'Jan 2027', bad: 1 }] });
 assert.equal(one.text, 'Add a second shift over Jan 2027 — the month with the most lost days (1 of the 1) — to recover the 1 working day.');
 console.log('test_weather_recovery_summary: ok');
+
+// Owner, comment 58 (second round): the Project Type stays as chosen when a limit is edited;
+// no result before Project Type + Location + Apply & Recalculate; exports wait for it.
+import fs from 'node:fs';
+const src = fs.readFileSync(new URL('../../ui/modules/calendar.js', import.meta.url), 'utf8');
+assert.ok(!/_siteType = matchSiteType\(_thresholds\) \|\| 'custom'/.test(src), 'editing a limit must not change the Project Type');
+assert.ok(!/_weather = settings\.last_weather/.test(src), 'a saved estimate is never shown before Apply & Recalculate');
+assert.ok(/function _wxReady\(\) \{ return !!\(_pendingLoc && _siteType\); \}/.test(src), 'Apply needs type + location');
+const api = fs.readFileSync(new URL('../../ui/modules/api.js', import.meta.url), 'utf8');
+assert.equal((api.match(/if \(!hasWeatherResult\(\)\)/g) || []).length, 2, 'PDF and Excel wait for the on-screen result');
+console.log('test_weather_recovery_summary (round 2): ok');
