@@ -1,8 +1,10 @@
 // Owner comment 57: the print preview lays a landscape report out on the landscape page
 // width (its wide tables were trimmed at the portrait width).
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(__dirname, '..', '..', 'ui', 'modules', 'preview.js'), 'utf8');
 const m = src.match(/export function pageWidthFor\(html\) \{([\s\S]*?)\n\}/);
 assert(m, 'pageWidthFor is exported by preview.js');
