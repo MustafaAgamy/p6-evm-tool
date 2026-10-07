@@ -3679,8 +3679,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {'ok': False, 'error': 'Schedule has no usable start/finish dates.'})
                 return
             net = {}
+            # downloaded past the schedule finish: the days the finish is pushed into by bad
+            # weather are checked for bad weather too (weather_impact stops where it settles)
+            from datetime import timedelta as _td
             daily, climate_samples, horizon, climate_meta = build_daily_weather(
-                lat, lon, inp['data_date'], inp['project_finish'], net=net)
+                lat, lon, inp['data_date'], inp['project_finish'] + _td(days=120), net=net)
             location = {'lat': lat, 'lon': lon, 'name': body.get('place_name', '')}
             # The location, site type and edited limits are the planner's settings — keep them
             # even when the weather itself could not be downloaded.

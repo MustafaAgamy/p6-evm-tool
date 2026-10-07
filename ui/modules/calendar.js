@@ -127,6 +127,7 @@ let _map = null;          // Leaflet map instance (location picker)
 let _marker = null;       // the draggable location pin
 let _leafletPromise = null;
 let _mapRO = null;        // ResizeObserver that re-measures the map when the tab is shown
+let _wxSnap = null;       // the schedule the on-screen weather result belongs to
 let _wxNotice = null;     // {text, kept} — why the last Calculate produced no estimate (offline…)
 const _openMonths = new Set();
 
@@ -151,7 +152,6 @@ export function renderCalendar(ca) {
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
   if (settings.site_type) _siteType = settings.site_type;        // restore the picked site type
   else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);  // infer from saved limits
-  if (settings.last_weather) _weather = settings.last_weather;   // show the last saved estimate on re-open
   _renderCalendarBody();
 }
 
@@ -198,9 +198,20 @@ export function renderWeatherView(ca) {
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
   if (settings.site_type) _siteType = settings.site_type;
   else if (settings.weather_thresholds) _siteType = matchSiteType(_thresholds);
-  if (settings.last_weather) _weather = settings.last_weather;
+  // No result is shown until the planner has picked the Project Type and the Location and
+  // clicked Apply & Recalculate (owner, comment 58): the saved type / location / limits are
+  // pre-filled, but a saved estimate is never shown by itself. A result computed in this
+  // session stays while the same schedule is open.
+  if (_wxSnap !== state.currentSnapshotId) { _weather = null; _wxNotice = null; _wxSnap = state.currentSnapshotId; }
   _renderWeatherBody();
 }
+
+// True once Apply & Recalculate has produced the result now on screen — the PDF / Excel
+// exports print that result, so they wait for it too.
+export function hasWeatherResult() { return !!_weather && _wxSnap === state.currentSnapshotId; }
+
+// Apply & Recalculate needs both inputs: a picked Project Type and a Location.
+function _wxReady() { return !!(_pendingLoc && _siteType); }
 
 function _renderWeatherBody() {
   const body = document.getElementById('weather-body');
@@ -215,7 +226,7 @@ function _renderWeatherBody() {
 function _ddBanner() {
   const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
   return dd
-    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → finish.</div>`
+    ? `<div class="cal-ddbanner">📅 All results start from the <b>Data Date · ${dd}</b> — nothing before it. Weather window: data date → bad-weather completion.</div>`
     : '';
 }
 
@@ -281,7 +292,7 @@ export const WEATHER_SECTIONS = [
   ['wx_dashboard', '1 Execution Dashboard'], ['wx_timeline', '2 Calendar Timeline & Statistics'],
   ['wx_why', '3 Why This Result'], ['wx_upcoming', '4 Upcoming Bad Weather'],
   ['wx_causes', "5 What's Causing the Lost Days"], ['wx_milestones', '6 Impact on Milestones'],
-  ['wx_recovery', '7 Recovery Recommendations'],
+  ['wx_recovery', '7 Conclusion & Recovery Recommendation'],
 ];
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
@@ -545,13 +556,13 @@ function _weatherControls() {
     </div>
     ${_criteriaPanelHtml()}
     <div class="cal-grp" style="margin-top:0"><span class="cal-pill warn">✎ Fine-tune the limits</span>
-      <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off; switches to “Custom”)</span></div>
+      <span class="cal-grp-meta">the site type sets these — change any number to match your site (blank = off) — the Project Type stays as you chose it</span></div>
     <div class="cal-thr">
       ${num('thr-rain', '🌧 Rain ≥ (mm)', t.rain_mm)}
       ${num('thr-heat', '🌡 Heat ≥ (°C)', t.temp_max_c)}
       ${num('thr-wind', '💨 Wind ≥ (km/h)', t.wind_kmh)}
       <div class="thr-f"><label>🌫 Dust</label><span class="thr-sw"><input type="checkbox" id="thr-dust" ${t.dust ? 'checked' : ''}> count sandstorm days</span></div>
-      <button class="cal-btn pri" id="thr-apply" ${_pendingLoc ? '' : 'disabled'}>Apply &amp; Recalculate</button>
+      <button class="cal-btn pri" id="thr-apply" ${_wxReady() ? '' : 'disabled'} title="${_wxReady() ? '' : 'Pick the Project Type and set the Location first'}">Apply &amp; Recalculate</button>
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
     <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
@@ -562,13 +573,14 @@ function _criteriaPanelHtml() {
   const st = _siteType;
   const meta = st === 'custom' ? { label: 'Custom limits', icon: '⚙️' }
     : (SITE_TYPES[st] || { label: 'Default limits (Desert / inland)', icon: '🏜️' });
+  const edited = SITE_TYPES[st] && matchSiteType(_thr()) !== st;      // limits changed from the type's own
   const rows = buildSiteCriteria(st, _thr()).map(r =>
     `<div class="cal-crit-row">
       <div class="cal-crit-lim ${r.on ? 'on' : 'off'}">${r.icon} ${escapeHtml(r.label)} <b>${escapeHtml(r.value)}</b></div>
       <div class="cal-crit-exp">${escapeHtml(r.explain)}${r.on ? '' : ' <span class="cal-muted">(not counted)</span>'}</div>
     </div>`).join('');
   return `<div class="cal-crit">
-    <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)} — what stops work here</span>
+    <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)}${edited ? ' · limits edited' : ''} — what stops work here</span>
       <span class="cal-pill mini def" style="margin-left:auto">criteria in full</span></div>
     <div class="cal-crit-lead">A construction <b>working</b> day between the data date and finish is a <b>lost day</b> when <b>any</b> limit below is met. Days already off (weekend / holiday / shutdown) are never double-counted.</div>
     ${rows}
@@ -695,12 +707,45 @@ function _weatherHistogram() {
       <div class="cal-3l">${escapeHtml(m.label)}</div></div>`).join('');
   return _sec(2, 'Calendar Timeline &amp; Statistics') +
     `<div class="cal-3title">${escapeHtml(_scopeName())}</div>
-     <div class="cal-3sub">Net-working (green) · non-working (red) · bad-weather (amber) days per month · the number above each bar = <b>net working days</b> (working − bad-weather)</div>
+     <div class="cal-3sub">Net-working (green) · non-working (red) · bad-weather (amber) days per month · the number above each bar = <b>net working days</b> (working − bad-weather) · every month is shown to its end, so the month of the bad-weather completion shows all its working days</div>
      <div class="cal-3leg"><span><i class="sw sw-net"></i>Net working days</span>
        <span><i class="sw sw-nw"></i>Non-working days</span>
        <span><i class="sw sw-bad"></i>Bad-weather days (expected)</span>
        <span>▲ number above bar = <b>net working days</b></span></div>
      <div class="cal-3hist">${bars}</div>`;
+}
+
+// The Recovery Recommendation summary — the server's `recovery_summary`, or (an estimate
+// saved before it existed) the same summary worked out from the estimate's own fields.
+// Mirrors p6_calendar/weather.py recovery_summary. null when weather adds no delay.
+export function recoverySummary(w) {
+  if (!w) return null;
+  if (w.recovery_summary) return w.recovery_summary;
+  const days = Math.trunc(w.net_finish_delay || 0);
+  if (days <= 0) return null;
+  const months = (w.histogram || []).map((h, i) => ({ i, label: h.label, bad: Math.trunc(h.bad || 0) })).filter(m => m.bad > 0);
+  const total = months.reduce((a, m) => a + m.bad, 0);
+  const picked = []; let got = 0;
+  for (const m of [...months].sort((a, b) => (b.bad - a.bad) || (a.i - b.i))) {
+    if (picked.length && (picked.length >= 3 || (got * 2 >= total && m.bad < picked[picked.length - 1].bad))) break;
+    picked.push(m); got += m.bad;
+  }
+  picked.sort((a, b) => a.i - b.i);
+  const labels = picked.map(m => m.label);
+  const hours = w.day_hours ? Math.round(days * w.day_hours * 10) / 10 : null;
+  const wd = `${days} working day${days !== 1 ? 's' : ''}`;
+  const hrs = hours ? ` (about ${hours} work-hours)` : '';
+  const joined = labels.length <= 1 ? (labels[0] || '') : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  const lostTxt = `${wd} lost${hrs}`;
+  const text = labels.length
+    ? `Add a second shift in ${joined} — ${labels.length === 1 ? 'the month' : 'the months'} with the most bad weather — to recover the ${lostTxt}.`
+    : `Add a second shift over the affected weeks to recover the ${lostTxt}.`;
+  const expected = Math.trunc(w.expected_bad_days_total || 0);
+  const alreadyOff = Math.max(0, expected - days);
+  const basis = expected ? `${expected} bad-weather day${expected !== 1 ? 's' : ''} expected − ${alreadyOff} on days already off (weekend / holiday) = ${wd} lost` : '';
+  return { days, hours, planned_finish: w.project_finish || null, adjusted_finish: w.weather_adjusted_finish,
+           shift_months: labels, shift_days: got, lost_days: total,
+           expected_bad_days: expected, already_off: alreadyOff, basis, text };
 }
 
 function _weatherSection() {
@@ -709,13 +754,15 @@ function _weatherSection() {
   // button, so it's shown up-front (button disabled until a location is set) — one always-
   // available CTA that serves both the first calculation and every recalculation.
   const controls = `<div class="cal-card" style="margin-bottom:12px">${_weatherControls()}</div>` + _wxNoticeHtml();
-  if (!_pendingLoc) {
+  if (!_wxReady()) {
+    const need = !_siteType && !_pendingLoc ? 'Pick the <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin)'
+      : !_siteType ? 'Pick the <b>Project Type</b> above' : 'Set the <b>Location</b> on the map above (search or drop a pin)';
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Pick a <b>Project Type</b> and set the <b>Location</b> on the map above (search or drop a pin), then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery options.</p></div>`;
+      ${need}, then click <b>Apply &amp; Recalculate</b>. No result is shown before that.</p></div>`;
   }
   if (!_weather) {
     return controls + `<div class="cal-card"><p style="color:var(--muted);font-size:13px;margin:0">
-      Adjust the stop-work limits above if needed, then click <b>Apply &amp; Recalculate</b>.</p></div>`;
+      Project Type and Location are set. Adjust the stop-work limits above if needed, then click <b>Apply &amp; Recalculate</b> to see the expected bad-weather days, milestone impact and recovery.</p></div>`;
   }
   const w = _weather;
   const dashboard = _weatherDashboard();      // §1 Execution Dashboard (waterfall)
@@ -742,15 +789,22 @@ function _weatherSection() {
       <th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>
       <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
       <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
-     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's planned finish. <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
-  // §7 — Recovery recommendation
-  const recRows = (w.recovery || []).map(r =>
-    `<tr><td>${escapeHtml(r.period)}</td><td class="num"><span class="cal-pill mini shutdown">${r.days} d</span></td>
-      <td>${escapeHtml(r.option_longer_days)}</td><td>${escapeHtml(r.option_extra_days)}</td><td>${escapeHtml(r.option_shift)}</td></tr>`).join('');
-  const recTable = _sec(7, 'Recovery recommendation', 'advisory — one option per period, computed from the estimated lost hours') +
-    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
-      <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
-      <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
+     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's weather-adjusted completion (the days it is pushed into are checked too). <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
+  // §7 — Conclusion & recovery recommendation: ONE summary of the whole estimate (owner
+  // comment 58) — the total weather impact, the second shift that recovers it, the conclusion.
+  const rs = recoverySummary(w);
+  const conclP = w.conclusion ? `<p class="cal-rsum-c">${escapeHtml(w.conclusion)}</p>` : '';
+  const recBody = rs
+    ? `<div class="cal-rsum">
+        <div class="cal-rsum-big"><div class="cal-rsum-k">Total weather impact</div>
+          <div class="cal-rsum-v">+${rs.days} wd</div>
+          <div class="cal-rsum-s">on project finish<br><b>${rs.planned_finish ? `${fmtCalDate(rs.planned_finish)} → ` : ''}${fmtCalDate(rs.adjusted_finish)}</b>${rs.basis ? `<div class="cal-rsum-b">${escapeHtml(rs.basis)}</div>` : ''}</div></div>
+        <div class="cal-rsum-rec"><div class="cal-rsum-k">Recovery recommendation · second shift</div>
+          <div class="cal-rsum-t">${escapeHtml(rs.text)}</div></div>
+      </div>`
+    : '<p class="cal-rsum-none"><b>No recovery needed</b> — bad weather adds no working days to the project finish.</p>';
+  const recTable = _sec(7, 'Conclusion & recovery recommendation', 'advisory — the total weather impact and the second shift that recovers it') +
+    `<div class="cal-card">${recBody}${conclP}</div>`;
   // §4 — What's causing the lost days, by weather type
   const totalBad = w.expected_bad_days_total || 0;
   const causeColor = { Heat: 'var(--danger)', Dust: 'var(--warning)', Rain: 'var(--chart-1)', Wind: 'var(--muted)' };
@@ -767,15 +821,10 @@ function _weatherSection() {
     ? _sec(5, "What's causing the lost days — by weather type", 'which condition to plan around (heat → shift hours earlier; rain → drainage)') +
       `<div class="cal-card">${causeRows}</div>`
     : '';
-  // Footnotes (after §7) — auto weather-conclusion, then the source & climate reference. Demoted.
-  const conclHtml = w.conclusion
-    ? `<div class="cal-foot"><span class="cal-foot-lab">Weather conclusion — auto-generated</span>
-        <p style="margin:2px 0 0;font-size:12px;line-height:1.55">${escapeHtml(w.conclusion)}</p></div>`
-    : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
   return controls + dashboard + histogram +
     _whyResultHtml() + dayTable + causeCard + msTable + recTable +
-    conclHtml + _climateRefHtml() + note;
+    _climateRefHtml() + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).
@@ -883,7 +932,7 @@ function _updateLocReadout() {
   const eb = document.getElementById('cal-entry-loc');
   if (eb) eb.innerHTML = _entryLocHtml();
   const apply = document.getElementById('thr-apply');
-  if (apply && _pendingLoc) apply.disabled = false;
+  if (apply) apply.disabled = !_wxReady();
 }
 
 // Load the vendored Leaflet (local file — ships in the .exe) exactly once.
@@ -1035,13 +1084,14 @@ function _wireWeather() {
   const applyBtn = document.getElementById('thr-apply');
   if (applyBtn) applyBtn.addEventListener('click', () => {
     _thresholds = _readThresholds();
-    _siteType = matchSiteType(_thresholds) || 'custom';   // edited away from a preset → Custom
+    // the Project Type stays as the planner chose it — editing a limit never changes it (comment 58)
+    if (!_wxReady()) return;
     _runWeather(applyBtn, document.getElementById('thr-status'));
   });
 }
 
 async function _runWeather(btn, statusEl) {
-  if (!_pendingLoc) return;
+  if (!_wxReady()) return;
   if (btn) btn.disabled = true;
   // Branded feature-open presentation (Loading → 100%) plays over the panel, then the
   // weather estimate computes + renders — same experience as every other feature.
@@ -1053,6 +1103,7 @@ async function _runWeather(btn, statusEl) {
       const resp = await computeWeather(_pendingLoc.lat, _pendingLoc.lon, _pendingLoc.name, _thresholds, _siteType);
       if (resp.ok) {
         _weather = resp.weather;
+        _wxSnap = state.currentSnapshotId;
         _wxNotice = null;
         _pendingLoc = resp.location || _pendingLoc;
         if (resp.weather && resp.weather.thresholds) _thresholds = resp.weather.thresholds;

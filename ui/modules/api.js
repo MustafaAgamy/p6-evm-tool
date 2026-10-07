@@ -3,7 +3,7 @@ import { setLoading, showError, clearError, renderResults, renderHistory, update
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
-import { CAL_SECTIONS, WEATHER_SECTIONS }                        from './calendar.js';
+import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult }      from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
@@ -400,6 +400,7 @@ export async function exportCalendarExcel() {
 
 export async function exportWeatherExcel() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  if (!hasWeatherResult()) { showError('Pick the Project Type and the Location, then click Apply & Recalculate — the report prints the result shown on screen.'); return; }
   const btn = new ButtonState(document.getElementById('weather-excel-btn'), 'Export to Excel');
   btn.loading('Exporting…');
   try {
@@ -503,6 +504,7 @@ export async function generateCalendarPdf() {
 // Feature 2 — Bad Weather effect on Forecast Finish PDF (weather-only report).
 export async function generateWeatherPdf() {
   if (!state.currentSnapshotId) { showError('Open a schedule first.'); return; }
+  if (!hasWeatherResult()) { showError('Pick the Project Type and the Location, then click Apply & Recalculate — the report prints the result shown on screen.'); return; }
   const btn = new ButtonState(document.getElementById('weather-pdf-btn'), 'Generate Bad-Weather PDF');
   btn.loading('Preparing preview…');
   // Live "Report contents" picker: every tick re-renders the iframe from the server (same

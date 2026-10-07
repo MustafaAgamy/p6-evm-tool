@@ -128,7 +128,10 @@ def test_report_weather_section_only_when_provided(tmp_path):
     weather['bad_days'][0]['activities_count'] = 1
     html = render_calendar_report(result, META, weather=weather, feature='weather')
     assert 'Weather Impact' in html and 'Impact on Milestone Completion' in html
-    assert 'Recovery Recommendations' in html
+    # §7 — ONE summary: total impact + second shift + the conclusion (owner comment 58)
+    assert 'Conclusion &amp; Recovery Recommendation' in html and '+5 wd' in html
+    assert 'Add a second shift in Mar 2025 — the month with the most bad weather — to recover the 5 working days lost' in html and 'option_longer' not in html
+    assert 'Bad weather is estimated to cost about 5 working days' in html
     # new results carried into the PDF: upcoming days with measured reason, source + limits
     assert 'Upcoming Bad-Weather Days' in html
     assert '45.5' in html and '42' in html            # measured reason value
@@ -136,7 +139,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     # the clarification Ibrahim asked for, plus the new report parts
     assert 'How this estimate is built' in html and 'What counts as a bad-weather day' in html
     assert 'Causing the Lost Days' in html            # cause breakdown table (relabelled #03)
-    assert 'Weather Conclusion' in html and 'cost about 5 working days' in html
+    assert 'Conclusion &amp; Recovery Recommendation' in html and 'cost about 5 working days' in html
     # Feature-2 screen parity: §1 Execution Dashboard waterfall (three dates + variances)
     assert '1 · Execution Dashboard' in html
     assert 'Baseline Finish' in html and 'Forecast Completion' in html and 'Bad-weather Completion' in html
@@ -147,7 +150,7 @@ def test_report_weather_section_only_when_provided(tmp_path):
     assert 'net working days' in html                 # the histogram subtitle
     # sections are numbered to match the screen, with the §4/§5 SWAP (Upcoming = §4, Causes = §5)
     assert '4 · Upcoming Bad-Weather Days' in html and '6 · Impact on Milestone Completion' in html
-    assert '7 · Recovery Recommendations' in html
+    assert '7 · Conclusion &amp; Recovery Recommendation' in html
     assert '5 · Upcoming' not in html                  # Upcoming is no longer §5 (swapped to §4)
     # #07 affected activities column (now with a leading serial #) + #12 milestone legend
     assert 'Affected work (by WBS)' in html and 'Cable pulling' in html
@@ -205,7 +208,7 @@ def test_report_weather_seven_selectable_sections(tmp_path):
     assert '<td class="num">1</td>' in up and '<td class="num">2</td>' in up \
         and '<td class="num">3</td>' in up
     # footnotes always render, whatever the ticks
-    assert 'Weather Conclusion' in html and 'Where These Bad-Weather Days Come From' in html
+    assert 'Where These Bad-Weather Days Come From' in html
 
     # `sections` filter — only the ticked wx_* keys reach the saved PDF
     only_up = render_calendar_report(result, META, weather=weather, feature='weather',
@@ -215,11 +218,11 @@ def test_report_weather_seven_selectable_sections(tmp_path):
     assert 'class="h3bars"' not in only_up                 # wx_timeline absent
     assert 'Causing the Lost Days' not in only_up          # wx_causes absent
     assert 'Impact on Milestone Completion' not in only_up  # wx_milestones absent
-    assert 'Recovery Recommendations' not in only_up       # wx_recovery absent
+    assert 'Recovery Recommendation' not in only_up        # wx_recovery absent
 
     two = render_calendar_report(result, META, weather=weather, feature='weather',
                                  sections=['wx_dashboard', 'wx_recovery'])
-    assert 'Baseline Finish' in two and 'Recovery Recommendations' in two  # the two ticked
+    assert 'Baseline Finish' in two and 'Recovery Recommendation' in two  # the two ticked
     assert '4 · Upcoming Bad-Weather Days' not in two      # wx_upcoming absent
     assert 'Causing the Lost Days' not in two              # wx_causes absent
     assert 'class="h3bars"' not in two                     # wx_timeline absent
