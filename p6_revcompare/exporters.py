@@ -386,37 +386,6 @@ def _ledger(report):
     return _card('Comparison ledger', '', _tbl(head, rows))
 
 
-def _redflags(report):
-    q = report.get('quality') or {}
-    cal = report.get('calendar_changes') or {}
-    ne = q.get('negative_float') or {}
-    oe = q.get('open_ends') or {}
-    hc = q.get('hard_constraints') or {}
-    ld = q.get('leads') or {}
-    reass = cal.get('reassignments') or []
-    cal_defs = len(cal.get('calendars') or [])
-    cal_acts = sum((g.get('count') or 0) for g in reass)
-
-    def row(label, r0, r1):
-        return (f'<tr><td class="lbl">{_e(label)}</td><td class="n mut">{_num(r0)}</td>'
-                f'<td class="n new">{_num(r1)}</td><td class="n">{_dcell((r1 or 0) - (r0 or 0))}</td></tr>')
-
-    rows = [
-        row('Negative-float activities', ne.get('rev0'), ne.get('rev1')),
-        row('Open ends (dangling)', oe.get('rev0'), oe.get('rev1')),
-        row('Hard constraints', hc.get('rev0'), hc.get('rev1')),
-        row('Leads (negative lags)', ld.get('rev0'), ld.get('rev1')),
-    ]
-    if cal_defs or cal_acts:
-        rows.append(
-            f'<tr><td class="lbl">Calendars changed</td>'
-            f'<td class="n mut" colspan="2" style="text-align:center">{cal_defs} definition(s) · {cal_acts} activities reassigned</td>'
-            f'<td class="n"><span class="d up">!</span></td></tr>')
-    head = '<tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr>'
-    body = _tbl(head, rows)
-    return f'<div class="card flagcard"><h3 class="flagh">Schedule-quality signals</h3>{body}</div>'
-
-
 def _scope_analysis(report, filters):
     """Comment 1 — scope change as an activity-code ANALYSIS. Pick a dimension, then a code
     value: the count, a bar chart (added activities per code value) and the itemised list all
@@ -488,7 +457,7 @@ def _sec_summary(report, filters=None):
     banner = (f'<div class="bottomline"><b>Bottom line:</b> {_e(bl)}</div>' if bl else '')
     return (banner
             + _snapshot(report)
-            + '<div class="split">' + _ledger(report) + _redflags(report) + '</div>'
+            + _ledger(report)        # the Schedule-quality signals table was removed (comment 59)
             + _scope_analysis(report, filters))
 
 

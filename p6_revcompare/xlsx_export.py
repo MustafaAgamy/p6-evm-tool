@@ -9,7 +9,7 @@ prototype ``mockups/baseline-revision-interactive-v2.html`` / ``ui/modules/revco
 ``RC_TABS`` / ``p6_revcompare/exporters.py`` ``render_html``):
 
     summary   → Executive Summary   (bottom line · revision snapshot · comparison ledger ·
-                schedule-quality signals · scope BY ACTIVITY CODE — no Building column)
+                scope BY ACTIVITY CODE — no Building column)
     findings  → Key Findings        (finish-slip driver bridge + its contribution breakdown ·
                 the "Logic & Sequence Changes" — every changed relationship as rows carrying
                 a column per activity-code dimension · key findings list)
@@ -167,7 +167,6 @@ def _rows_or_none(rows, ncols, msg='No data'):
 def _summary_blocks(report):
     r0, r1 = report.get('rev0') or {}, report.get('rev1') or {}
     s = report.get('summary') or {}
-    q = report.get('quality') or {}
     codes = report.get('codes') or {}
 
     bottom = report.get('bottom_line') or ''
@@ -194,32 +193,6 @@ def _summary_blocks(report):
     blocks.append({'title': 'Comparison ledger',
                    'headers': ['Measure', 'Rev.00', 'Rev.01', 'Change'],
                    'rows': _rows_or_none(ledger, 4)})
-
-    # Credibility / red flags — from quality
-    neg = q.get('negative_float') or {}
-    oe = q.get('open_ends') or {}
-    ld = q.get('leads') or {}
-    tr = q.get('total_rels') or {}
-    rpa = q.get('rels_per_act') or {}
-    hc = q.get('hard_constraints') or {}
-    nc = q.get('near_critical') or {}
-
-    def qrow(lbl, d):
-        d = d or {}
-        return [lbl, _num(d.get('rev0')), _num(d.get('rev1')), _delta(d.get('rev0'), d.get('rev1'))]
-    red = [
-        qrow('Negative-float activities', neg),
-        qrow('Open ends (dangling)', oe),
-        qrow('Hard constraints', hc),
-        qrow('Leads (negative lags)', ld),
-        qrow('Near-critical activities', nc),
-        qrow('Total relationships', tr),
-        ['Relationships per activity', _num(rpa.get('rev0')), _num(rpa.get('rev1')),
-         _delta(rpa.get('rev0'), rpa.get('rev1'))],
-    ]
-    blocks.append({'title': 'Schedule-quality signals',
-                   'note': 'Signals for planning review, not defects.',
-                   'headers': ['Signal', 'Rev.00', 'Rev.01', 'Δ'], 'rows': red})
 
     # Scope change — by activity code (the activity-code analysis; no Building column, comment 1)
     sbc = codes.get('scope_by_code') or {}

@@ -501,31 +501,10 @@ function summaryView(r) {
     ${ledgerRows ? `<table class="rc-t"><thead><tr><th>Measure</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Change</th></tr></thead><tbody>${ledgerRows}</tbody></table>`
                  : noData('No comparison measures available.')}</div>`;
 
-  // Credibility / red flags (constraint row removed per comment 6).
-  const q = r.quality || {};
-  const cc = r.calendar_changes || {};
-  const credRow = (label, o) => {
-    if (!o) return '';
-    const d = (o.rev1 != null && o.rev0 != null) ? o.rev1 - o.rev0 : null;
-    return `<tr><td>${escapeHtml(label)}</td><td class="n rc-mut">${o.rev0 != null ? esc(o.rev0) : '—'}</td><td class="n rc-new">${o.rev1 != null ? esc(o.rev1) : '—'}</td><td class="n">${deltaCell(d)}</td></tr>`;
-  };
-  const calDefs = Array.isArray(cc.calendars) ? cc.calendars.length : 0;
-  const calReassign = Array.isArray(cc.reassignments) ? cc.reassignments.reduce((s, g) => s + (g.count || 0), 0) : 0;
-  const calRow = (calDefs || calReassign)
-    ? `<tr><td>Calendars changed</td><td class="n rc-mut" colspan="2" style="text-align:center">${calDefs} definition(s) · ${calReassign} activities reassigned</td><td class="n">${deltaCell('!')}</td></tr>`
-    : '';
-  const credRows = [
-    credRow('Negative-float activities', q.negative_float),
-    credRow('Open ends (dangling)', q.open_ends),
-    calRow,
-    credRow('Leads (negative lags)', q.leads),
-  ].filter(Boolean).join('');
-  const credCard = `<div class="rc-card rc-flag"><h3 class="rc-flagh">Schedule-quality signals <span class="rc-n">signals to review</span></h3>
-    ${credRows ? `<table class="rc-t"><thead><tr><th>Signal</th><th class="n">Rev.00</th><th class="n">Rev.01</th><th class="n">Δ</th></tr></thead><tbody>${credRows}</tbody></table>`
-               : noData('No schedule-quality signals available.')}</div>`;
-
+  // The Schedule-quality signals table was removed (owner comment 59) — the ledger takes the
+  // full width.
   return secmark('1', 'Executive Summary') + bl + snap
-    + `<div class="rc-split">${ledgerCard}${credCard}</div>`
+    + ledgerCard
     + scopeAnalysisCard(r);
 }
 
