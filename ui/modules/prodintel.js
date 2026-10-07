@@ -129,9 +129,16 @@ function renderSelRow() {
   const systems = (_tree.find(d => d.name === ci.discipline) || { systems: [] }).systems.map(s => s.name);
   const items = ((_tree.find(d => d.name === ci.discipline) || { systems: [] }).systems.find(s => s.name === ci.system) || { items: [] }).items;
   const opt = (arr, v) => arr.map(o => `<option ${o === v ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+  // built-in project-type factor of this work item's trade (owner comment 62) — from the result
+  const built = ((_result && _result.context_ledger) || []).find(f => f.factor === 'Project type' && f.choice === _ctx['Project type']);
+  const builtIn = built && typeof built.builtin === 'number' ? built.builtin : null;
   const fbox = (dim) => { const v = factorFor(_factors, dim, _ctx[dim]);
-    return `<label class="pi-fbox ${v != null && v !== 1 ? 'on' : ''}" title="Your man-hour factor for ${escapeHtml(_ctx[dim] || '')}. 1.20 = 20% more man-hours (slower); 0.85 = 15% fewer (faster). Leave empty to use the library norm.">
-      <span>your factor ×</span><input class="pi-factor" data-dim="${escapeHtml(dim)}" type="text" inputmode="decimal" placeholder="1.00" value="${v != null ? v : ''}"></label>`; };
+    const bi = dim === 'Project type' ? builtIn : null;
+    const tip = bi != null
+      ? `Built-in factor for ${escapeHtml(_ctx[dim] || '')}: ×${bi.toFixed(2)}. Type your own factor to replace it (1.20 = 20% more man-hours, slower; 0.85 = faster). Empty = the built-in factor.`
+      : `Your man-hour factor for ${escapeHtml(_ctx[dim] || '')}. 1.20 = 20% more man-hours (slower); 0.85 = 15% fewer (faster). Leave empty to use the library norm.`;
+    return `<label class="pi-fbox ${v != null && v !== 1 ? 'on' : ''}" title="${tip}">
+      <span>${bi != null && v == null ? 'built-in ×' : 'your factor ×'}</span><input class="pi-factor" data-dim="${escapeHtml(dim)}" type="text" inputmode="decimal" placeholder="${bi != null ? bi.toFixed(2) : '1.00'}" value="${v != null ? v : ''}"></label>`; };
   el.innerHTML = `
     <div class="pi-selg"><span class="pi-l">Work item</span>
       <div class="pi-cascade">
@@ -144,7 +151,7 @@ function renderSelRow() {
     <div class="pi-selg"><span class="pi-l">Methodology</span><div class="pi-setf"><select id="pi-meth">${opt(METHODS, _ctx['Methodology'])}</select>${fbox('Methodology')}</div></div>
     <div class="pi-selg"><span class="pi-l">Quantity ${_result ? '(' + escapeHtml(_result.primary_unit || '') + ')' : ''}</span>
       <input id="pi-qty" type="number" placeholder="optional" value="${_quantity != null ? _quantity : ''}" style="width:96px;text-align:right"></div>
-    <div class="pi-fhelp"><b>How the settings change the rate:</b> Controlyx holds one library norm per work item and no factors of its own for a project type or a method. Type <b>your factor</b> beside a choice and every rate, man-hour figure and duration follows it (1.20 = 20% more man-hours, so slower; 0.85 = faster). The factor is remembered for that choice on this computer. Empty = the library norm.</div>`;
+    <div class="pi-fhelp"><b>How the settings change the rate:</b> pick the <b>Project type</b> and the rate changes by itself — Controlyx holds a built-in factor for every project type and trade (the same trade is not equally productive on a residential, an industrial or an oil &amp; gas project); the table <b>This work item on every project type</b> below shows them all. A factor multiplies the man-hours (1.20 = 20% more man-hours, so a lower output per day and a longer duration; 0.90 = faster). Type <b>your own factor</b> in the box to replace the built-in one — it is remembered for that choice on this computer. Methodology has no built-in factor: empty = the library norm.</div>`;
   el.querySelector('#pi-disc').onchange = (e) => { const d = _tree.find(x => x.name === e.target.value); const s = d.systems[0]; _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-sys').onchange = (e) => { const d = _tree.find(x => x.name === curItem().discipline); const s = d.systems.find(y => y.name === e.target.value); _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-item').onchange = (e) => { _itemId = e.target.value; selectItem(_itemId); };
@@ -271,7 +278,7 @@ function ratePhrase(c) {
 function adjNote(c) {
   const r = c.rate; if (!r || !r.adjusted) return '';
   const base = r.output_per_day_base ? `${r.output_per_day_base} ${escapeHtml(((r.output_unit || c.unit || '').split('/')[0] || '').trim())}/crew·day` : `${r.mh_per_unit_base} MH/${escapeHtml(c.unit)}`;
-  return `<div class="pi-adjnote">Library norm ${base} · your factors ×${r.factor} applied</div>`;
+  return `<div class="pi-adjnote">Library norm ${base} · factors ×${r.factor} applied</div>`;
 }
 
 function renderResult() {
@@ -385,16 +392,17 @@ function renderResult() {
   const methodCard = `<div class="pi-card pi-pad"><div class="pi-ch"><h3>Methodology — ${escapeHtml(meth)}</h3><span class="m">what it is &amp; how the options differ</span></div>
     <div class="pi-methdesc">${escapeHtml(METHOD_INFO[meth] || METHOD_INFO._default)}</div>
     <table class="pi-methtable"><thead><tr><th>Method</th><th>What it is</th><th>Crew / plant</th><th>Speed / use</th></tr></thead><tbody>${METHOD_ROWS.map(m => `<tr class="${m[0] === meth ? 'on' : ''}"><td><b>${escapeHtml(m[0])}</b></td><td>${escapeHtml(m[1])}</td><td>${escapeHtml(m[2])}</td><td>${escapeHtml(m[3])}</td></tr>`).join('')}</tbody></table>
-    <div class="pi-methnote">The library holds one norm per work item, not one per methodology. To price a method, type <b>your factor</b> beside Methodology above — the rates, man-hours and duration follow it. Controlyx never guesses a multiplier.</div></div>`;
+    <div class="pi-methnote">The library holds one norm per work item, not one per methodology. To price a method, type <b>your factor</b> beside Methodology above — the rates, man-hours and duration follow it. (The Project type already changes the rate by itself.)</div></div>`;
 
   main.innerHTML = `
     <div class="pi-card pi-pad">
-      <div class="pi-ihead"><div><div class="t">${escapeHtml(r.item)}</div><div class="c">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.work_type || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}</div></div>
+      <div class="pi-ihead"><div><div class="t">${escapeHtml(r.item)}</div><div class="c">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.work_type || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')}</div></div>
       <span class="pi-mode">${hasQ ? '◆ Quantity estimate' : '▣ Knowledge lookup'}</span></div>
       ${settingsLine(r)}
       <div class="pi-band">${band}</div>
     </div>
     ${rateBar}
+    ${renderByProjectType(r)}
     ${flow}
     ${methodCard}
     ${compCard}
@@ -406,6 +414,7 @@ function renderResult() {
 
   wireCompQty();
   renderRail(r);
+  document.querySelectorAll('.pi-ptrow').forEach(tr => tr.onclick = () => { _ctx['Project type'] = tr.dataset.pt; renderSelRow(); selectItem(_itemId); });
   wireWhatIf(r);
   buildPrint(r);
 }
@@ -414,7 +423,8 @@ function renderResult() {
 function settingsLine(r) {
   const rows = (r.context_ledger || []).filter(f => FACTOR_DIMS.includes(f.factor));
   const chips = rows.map(f => f.source === 'user' && f.multiplier !== 1
-    ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${f.multiplier}</b> your factor</span>`
+    ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${f.multiplier}</b> your factor${typeof f.builtin === 'number' ? ` (built-in ×${f.builtin.toFixed(2)})` : ''}</span>`
+    : f.source === 'builtin' ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${Number(f.multiplier).toFixed(2)}</b> built-in · ${escapeHtml(f.group || '')}</span>`
     : f.applied ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${f.multiplier}</b> ${escapeHtml(f.evidence || '')}</span>`
     : `<span class="pi-setchip">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} — no factor, library norm</span>`).join('');
   const net = r.context_net != null && r.context_net !== 1 ? `<span class="pi-setnet">Rates = library norm × ${r.context_net}</span>` : '';
@@ -487,6 +497,33 @@ function renderP6(r) {
         </ol></div>
       </div>
     </div></div>`;
+}
+
+// The same work item on EVERY project type (owner comment 62): the built-in factor and what it
+// does to the output per day, the man-hours per unit, the total man-hours and the duration.
+// Click a row to switch the project type.
+export function byProjectTypeRows(r) {
+  return (r && r.project_type_rates || []).filter(x => x && x.project_type);
+}
+function renderByProjectType(r) {
+  const rows = byProjectTypeRows(r);
+  if (!rows.length) return '';
+  const hasQ = r.has_quantity;
+  const lead = rows.find(x => x.component) || {};
+  const f2 = v => (v == null ? '—' : Number(v).toFixed(2));
+  const body = rows.map(x => `<tr class="pi-ptrow ${x.chosen ? 'on' : ''}" data-pt="${escapeHtml(x.project_type)}" title="Click to pick ${escapeHtml(x.project_type)}">
+      <td>${x.chosen ? '▶ ' : ''}<b>${escapeHtml(x.project_type)}</b>${x.applies ? '' : ' <span class="pi-ptna">not usual for this item</span>'}</td>
+      <td class="n">×${f2(x.factor)}</td>
+      <td class="n">${x.output_per_day != null ? num(x.output_per_day) : '—'}</td>
+      <td class="n">${x.mh_per_unit != null ? x.mh_per_unit : '—'}</td>
+      ${hasQ ? `<td class="n">${num(x.total_mh)}</td><td class="n">${x.duration_days != null ? x.duration_days : '—'}</td>` : ''}</tr>`).join('');
+  return `<div class="pi-card pi-ptcard"><div class="pi-pthead"><h3>This work item on every project type</h3>
+      <span class="pi-ptsub">built-in factor of the trade “${escapeHtml(lead.group || '')}” · 1.00 = the library norm · click a row to pick that project type</span></div>
+    <table class="pi-pttbl"><thead><tr><th>Project type</th><th class="n">Factor</th>
+      <th class="n">Output per day${lead.component ? ` — ${escapeHtml(lead.component)} (${escapeHtml(lead.output_unit || '')})` : ''}</th>
+      <th class="n">Man-hours per ${escapeHtml(lead.unit || 'unit')}</th>
+      ${hasQ ? `<th class="n">Total man-hours</th><th class="n">Duration (days)</th>` : ''}</tr></thead><tbody>${body}</tbody></table>
+    <div class="pi-ptfoot">General construction practice for work in Egypt, not measured on a specific project. Your own factor, typed beside the project type, replaces the built-in one for that type.</div></div>`;
 }
 
 function renderBasis(r) {
@@ -562,7 +599,7 @@ function renderRail(r) {
 function buildPrint(r) {
   if (!r || r.found === false) { _print = null; return; }
   const main = document.getElementById('pi-main'); const sec = [];
-  sec.push({ key: 'header', label: 'Work item & settings', html: `<h1 style="font-size:18px;margin:0 0 4px">${escapeHtml(r.item)}</h1><div style="color:#555;font-size:12px">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')} · ${escapeHtml((r.context || {})['Location'] || '')}${r.has_quantity ? ' · Quantity ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : ' · Knowledge lookup'}</div>` });
+  sec.push({ key: 'header', label: 'Work item & settings', html: `<h1 style="font-size:18px;margin:0 0 4px">${escapeHtml(r.item)}</h1><div style="color:#555;font-size:12px">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')}${r.has_quantity ? ' · Quantity ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : ' · Knowledge lookup'}</div>` });
   (main ? main.querySelectorAll('.pi-card') : []).forEach((card, i) => { const h = card.querySelector('h3,h4'); sec.push({ key: 'card' + i, label: h ? h.textContent : (i === 0 ? 'Rates by trade — summary' : 'Section ' + (i + 1)), html: card.outerHTML }); });
   _print = sec;
 }

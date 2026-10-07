@@ -19,6 +19,6 @@ Additive to the app — never import or modify ``p6_evm``.
 """
 
 from .kb import load_items, by_id, build_tree
-from .engine import query, item_result, PERCENTILE_MIN_RECORDS
+from .engine import query, item_result, rates_database, PERCENTILE_MIN_RECORDS
 
-__all__ = ["load_items", "by_id", "build_tree", "query", "item_result", "PERCENTILE_MIN_RECORDS"]
+__all__ = ["load_items", "by_id", "build_tree", "query", "item_result", "rates_database", "PERCENTILE_MIN_RECORDS"]

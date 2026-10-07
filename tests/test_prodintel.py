@@ -37,7 +37,7 @@ def test_every_item_computes():
 
 def test_rc_column_numbers():
     r = engine.query("civil.structural.concrete.rc_column",
-                     context={"Project type": "Industrial", "Location": "Egypt"}, quantity=100)
+                     context={"Project type": "Commercial"}, quantity=100)
     assert r["found"] is True
     comps = {c["component_id"]: c for c in r["components"]}
     assert comps["formwork"]["component_qty"] == 900
@@ -122,7 +122,7 @@ def test_build_tree_shapes():
 def test_component_quantity_override():
     """Planner can enter a component's quantity in its own unit; it overrides the derived value."""
     r = engine.query("civil.structural.concrete.rc_column",
-                     context={"Project type": "Industrial"},
+                     context={"Project type": "Commercial"},
                      component_quantities={"reinforcement": 20})
     comps = {c["component_id"]: c for c in r["components"]}
     assert r["has_quantity"] is True
@@ -140,35 +140,105 @@ def test_primary_quantity_still_derives_all():
     assert comps["formwork"]["component_qty"] == 900
 
 
-# ── Owner comment 37: the settings (project type / country / methodology) change the rate ──
+# ── Owner comments 37 / 61 / 62: the settings change the rate ───────────────────────────
+#   61  there is no Location setting (the tool is used in Egypt)
+#   62  the Project type changes the rate BY ITSELF: a built-in factor per project type and trade
+#   37  the planner's own factor (Project type / Methodology) replaces it and is labelled as his
 
 RC = "civil.structural.concrete.rc_column"
+PLASTER = "architectural.finishes.plaster.internal_plaster"
 
 
-def _q(factors=None, **ctx):
-    c = {"Project type": "Industrial", "Location": "KSA", "Methodology": "Jump-form"}
+def _q(factors=None, item=RC, **ctx):
+    c = {"Project type": "Commercial", "Methodology": "Jump-form"}
     c.update(ctx)
     if factors is not None:
         c["factors"] = factors
-    return engine.query(RC, context=c, quantity=100)
+    return engine.query(item, context=c, quantity=100)
 
 
-def test_no_factor_means_the_library_norm_and_says_so():
-    base = engine.query(RC, context={}, quantity=100)
+def test_there_is_no_location_setting():
+    assert "Location" not in engine.CONTEXT_DIMENSIONS
     r = _q()
-    assert r["context_net"] == 1.0
-    assert r["rollup"]["total_mh"] == base["rollup"]["total_mh"]
-    ledger = {row["factor"]: row for row in r["context_ledger"]}
-    for dim in ("Project type", "Location", "Methodology"):       # every screen setting is in the ledger
-        assert ledger[dim]["applied"] is False and ledger[dim]["source"] == "none"
-        assert "insufficient evidence" in ledger[dim]["evidence"]
-    assert all(c["rate"]["adjusted"] is False for c in r["components"] if c.get("rate"))
+    assert "Location" not in {row["factor"] for row in r["context_ledger"]}
+    js = open("ui/modules/prodintel.js", encoding="utf-8").read()
+    assert "pi-loc" not in js and "LOCATIONS" not in js and "['Location']" not in js
+    import server
+    summary = dict((row[0], row[1]) for row in server._prodintel_excel_sections(r)[0]["blocks"][0]["rows"])
+    assert "Location" not in summary
+
+
+def test_project_type_changes_the_rate_by_itself_per_trade():
+    """Plaster is not equally productive on a residential, a commercial and a hospital project -
+    and a hospital slows MEP more than it slows concrete."""
+    out = {pt: _q(item=PLASTER, **{"Project type": pt}) for pt in ("Residential", "Commercial", "Hospital")}
+    rate = lambda r: r["components"][0]["rate"]["output_per_day"]
+    assert rate(out["Residential"]) > rate(out["Commercial"]) > rate(out["Hospital"])
+    assert out["Commercial"]["context_net"] == 1.0                       # the base = the library norm
+    assert out["Hospital"]["rollup"]["total_mh"] > out["Commercial"]["rollup"]["total_mh"]
+    assert out["Hospital"]["rollup"]["duration_days"] > out["Commercial"]["rollup"]["duration_days"]
+    row = out["Hospital"]["context_ledger"][0]
+    assert row["factor"] == "Project type" and row["source"] == "builtin" and row["applied"] is True
+    assert "Architectural finishes" in row["evidence"] and "Hospital" in row["evidence"]
+    # the factor is the TRADE's: different for concrete and for MEP on the same project type
+    conc = _q(item=RC, **{"Project type": "Hospital"})["context_net"]
+    mep_item = next(i for i in kb.load_items() if i["discipline"] == "MEP" and i["work_type"] == "HVAC")
+    mep = engine.item_result(mep_item, context={"Project type": "Hospital"})["context_net"]
+    assert mep > conc > 1.0
+
+
+def test_every_work_item_has_a_rate_on_every_project_type():
+    types = kb.project_types()
+    assert types == ["Residential", "Commercial", "Hospital", "Industrial", "Infrastructure",
+                     "Oil & Gas", "Marine/Port", "Airport", "Power Plant"]
+    items = kb.load_items()
+    for it in items:
+        g = kb.trade_group(it)
+        assert g, (it["item_id"], it["discipline"], it["work_type"])       # no work item is left out
+        for pt in types:
+            f, label = kb.builtin_project_factor(it, pt)
+            assert f is not None and 0.8 <= f <= 1.5 and label, (it["item_id"], pt)
+    t, rows = engine.rates_database()
+    assert t == types and len(rows) == len(items)
+    assert all(set(r["rates"]) == set(types) and all(v for v in r["rates"].values()) for r in rows)
+    # every trade group's Commercial factor is the base
+    assert all(g["factors"]["Commercial"] == 1.0 for g in kb.project_type_factors()["groups"])
+
+
+def test_the_same_work_item_on_every_project_type_table():
+    r = _q(item=PLASTER, **{"Project type": "Residential"})
+    tbl = {x["project_type"]: x for x in r["project_type_rates"]}
+    assert list(tbl) == kb.project_types()
+    assert tbl["Residential"]["chosen"] and not tbl["Hospital"]["chosen"]
+    assert tbl["Residential"]["output_per_day"] == r["components"][0]["rate"]["output_per_day"]
+    assert tbl["Residential"]["total_mh"] == r["rollup"]["total_mh"]
+    assert tbl["Hospital"]["factor"] == 1.2 and tbl["Commercial"]["factor"] == 1.0
+    # the planner's own project-type factor is NOT in this table - it shows the library's own numbers
+    mine = _q({"Project type": 2.0}, item=PLASTER, **{"Project type": "Residential"})
+    assert mine["context_net"] == 2.0
+    assert {x["project_type"]: x["output_per_day"] for x in mine["project_type_rates"]} == \
+           {k: v["output_per_day"] for k, v in tbl.items()}
+
+
+def test_an_item_can_carry_its_own_number_instead_of_its_trade_groups(monkeypatch):
+    it = next(i for i in kb.load_items() if i["item_id"] == PLASTER)
+    table = dict(kb.project_type_factors(), items={PLASTER: {"Industrial": 1.25}})
+    monkeypatch.setattr(kb, "_PT_FACTORS", table)
+    assert kb.builtin_project_factor(it, "Industrial")[0] == 1.25         # the item's own
+    assert kb.builtin_project_factor(it, "Hospital")[0] == 1.2            # the group's
+
+
+def test_methodology_has_no_builtin_factor_and_says_so():
+    r = _q()
+    row = {x["factor"]: x for x in r["context_ledger"]}["Methodology"]
+    assert row["applied"] is False and row["source"] == "none" and "insufficient evidence" in row["evidence"]
+    assert all(c["rate"]["adjusted"] is False for c in r["components"] if c.get("rate"))   # Commercial x1.00
 
 
 def test_each_setting_factor_changes_rate_manhours_and_duration():
     base = _q()
     fw0 = {c["component_id"]: c for c in base["components"]}["formwork"]
-    for dim in ("Project type", "Location", "Methodology"):
+    for dim in ("Project type", "Methodology"):
         r = _q({dim: 1.25})
         fw = {c["component_id"]: c for c in r["components"]}["formwork"]
         assert r["context_net"] == 1.25, dim
@@ -183,22 +253,30 @@ def test_each_setting_factor_changes_rate_manhours_and_duration():
         assert row["applied"] is True and row["source"] == "user" and "entered by you" in row["evidence"]
 
 
+def test_the_planners_factor_replaces_the_builtin_one():
+    r = _q({"Project type": 1.4}, **{"Project type": "Oil & Gas"})
+    row = r["context_ledger"][0]
+    assert r["context_net"] == 1.4 and row["source"] == "user" and row["builtin"] == 1.15
+
+
 def test_factors_multiply_together_and_a_faster_factor_shortens():
-    r = _q({"Location": 1.25, "Methodology": 0.8})
+    r = _q({"Project type": 1.25, "Methodology": 0.8})
     assert r["context_net"] == 1.0                               # 1.25 x 0.8
     fast = _q({"Methodology": 0.8})
     assert fast["rollup"]["duration_days"] < _q()["rollup"]["duration_days"]
     assert fast["rollup"]["total_mh"] < _q()["rollup"]["total_mh"]
+    both = _q({"Methodology": 0.8}, **{"Project type": "Industrial"})     # built-in x your factor
+    assert both["context_net"] == round(1.1 * 0.8, 3)
 
 
 def test_a_bad_factor_is_ignored_and_reported_never_applied():
     for bad in (9, 0.05, "abc", -1):
-        r = _q({"Location": bad})
-        row = {x["factor"]: x for x in r["context_ledger"]}["Location"]
+        r = _q({"Methodology": bad})
+        row = {x["factor"]: x for x in r["context_ledger"]}["Methodology"]
         assert r["context_net"] == 1.0 and row["applied"] is False, bad
         assert "ignored" in row["evidence"], bad
-    assert _q({"Location": ""})["context_net"] == 1.0
-    assert _q({"Location": 1})["context_net"] == 1.0
+    assert _q({"Methodology": ""})["context_net"] == 1.0
+    assert _q({"Methodology": 1})["context_net"] == 1.0
 
 
 def test_project_type_applicability_is_reported():
@@ -210,21 +288,28 @@ def test_project_type_applicability_is_reported():
     assert engine.item_result(it, context={})["project_type_applies"] is None
 
 
-def test_shipped_library_still_carries_no_factor_of_its_own():
-    """The tool never supplies a multiplier: a factor is the planner's, or evidence in the item."""
+def test_a_factor_inside_a_library_item_needs_evidence():
+    """A multiplier written in a work item itself must name its evidence (the built-in
+    project-type table is separate and says what it is: general practice)."""
     for it in kb.load_items():
         for dim, choices in (it.get("context_factors") or {}).items():
             for choice, entry in (choices or {}).items():
                 assert entry.get("evidence"), (it["item_id"], dim, choice)
+    assert "general construction practice" in kb.project_type_factors()["note"].lower()
 
 
-def test_excel_summary_lists_the_factors():
+def test_excel_summary_lists_the_factors_and_the_rates_database():
     import server
-    r = _q({"Location": 1.15, "Methodology": 0.9})
+    r = _q({"Methodology": 0.9}, **{"Project type": "Industrial"})
     sheets = server._prodintel_excel_sections(r)
-    summary = dict((row[0], row[1]) for row in sheets[0][2]) if isinstance(sheets[0], tuple) else \
-        dict((row[0], row[1]) for row in sheets[0]["blocks"][0]["rows"])
-    assert summary["Factor · Location (KSA)"].startswith("x1.15")
+    summary = dict((row[0], row[1]) for row in sheets[0]["blocks"][0]["rows"])
+    assert summary["Factor · Project type (Industrial)"].startswith("x1.1 — built-in factor for Concrete structure")
     assert summary["Factor · Methodology (Jump-form)"].startswith("x0.9")
-    assert "insufficient evidence" in summary["Factor · Project type (Industrial)"]
-    assert summary["All factors together"].startswith("x1.035")
+    assert summary["All factors together"].startswith("x0.99")
+    names = [sh["name"] for sh in sheets]
+    assert "By project type" in names and names[-1] == "Rates database"
+    bpt = next(sh for sh in sheets if sh["name"] == "By project type")["blocks"][0]
+    assert [row[0] for row in bpt["rows"]][:2] == ["Residential", "Commercial"]
+    assert any(row[0] == "Industrial (chosen)" for row in bpt["rows"])
+    db = sheets[-1]["blocks"][0]
+    assert db["headers"][-9:] == kb.project_types() and len(db["rows"]) == len(kb.load_items())

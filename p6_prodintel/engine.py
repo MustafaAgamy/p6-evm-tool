@@ -11,12 +11,15 @@ Design rules baked in here (never bypassed):
   roll-up is flagged ``basis_incomplete`` rather than inventing one.
 - Percentiles   -> only when a component has >= PERCENTILE_MIN_RECORDS validated records.
 - Context factor without evidence -> "not adjusted — insufficient evidence" (x1.0).
-- The planner's OWN factor for a setting (Project type / Methodology), typed on the
-  screen, is applied and labelled as his: the tool never supplies a factor of its own.
+- PROJECT TYPE changes the rate by itself (owner comment 62): a built-in factor by project type
+  and TRADE GROUP (productivity_kb/project_type_factors.json) - a trade is not equally productive
+  on a residential, an industrial or an oil & gas project.
+- The planner's OWN factor for a setting (Project type / Methodology), typed on the screen,
+  replaces the built-in one and is labelled as his.
 - A factor changes the man-hours per unit AND the output per day (and so the duration).
 - Overall confidence is the weakest link across the priced components.
 """
-from .kb import by_id, load_items
+from .kb import by_id, load_items, builtin_project_factor, project_types
 
 PERCENTILE_MIN_RECORDS = 5
 DEFAULT_SHIFT_HOURS = 8.0
@@ -30,6 +33,7 @@ CONTEXT_DIMENSIONS = ["Project type", "Methodology", "Access", "Congestion", "Sh
 USER_FACTOR_MIN, USER_FACTOR_MAX = 0.2, 5.0
 USER_FACTOR_SOURCE = "your factor — entered by you"
 NO_FACTOR_NOTE = "not adjusted — insufficient evidence"
+BUILTIN_FACTOR_SOURCE = "built-in factor for %s on %s projects"
 
 
 def _round(x, n=1):
@@ -90,7 +94,10 @@ def _context_ledger(item, context):
     1. the planner's own factor for the chosen setting (``context["factors"]``) — applied and
        labelled as his;
     2. a factor the item itself carries WITH evidence;
-    3. otherwise an honest 'not adjusted — insufficient evidence' pass-through (x1.0).
+    3. for the Project type: the built-in factor of the item's trade group (comment 62);
+    4. otherwise an honest 'not adjusted — insufficient evidence' pass-through (x1.0).
+    Each row also carries ``builtin`` (the built-in factor, when one exists) so the screen can
+    show what the planner's own number replaced.
     A factor multiplies the man-hours per unit (1.20 = 20 % more man-hours, slower)."""
     factors = item.get("context_factors") or {}
     ctx = context or {}
@@ -103,18 +110,26 @@ def _context_ledger(item, context):
         dimdata = factors.get(dim) or {}
         if chosen and isinstance(dimdata, dict):
             entry = dimdata.get(chosen)
+        builtin, group = builtin_project_factor(item, chosen) if dim == "Project type" else (None, None)
         if user is not None and chosen:
             net *= user
             ledger.append({"factor": dim, "choice": chosen, "applied": user != 1.0, "multiplier": user,
-                           "evidence": USER_FACTOR_SOURCE, "source": "user"})
+                           "evidence": USER_FACTOR_SOURCE, "source": "user",
+                           "builtin": builtin, "group": group})
         elif entry and isinstance(entry, dict) and entry.get("multiplier") and entry.get("evidence"):
             mult = float(entry["multiplier"])
             net *= mult
             ledger.append({"factor": dim, "choice": chosen, "applied": True,
                            "multiplier": mult, "evidence": entry.get("evidence"), "source": "kb"})
+        elif builtin is not None and not problem:
+            net *= builtin
+            ledger.append({"factor": dim, "choice": chosen, "applied": builtin != 1.0, "multiplier": builtin,
+                           "evidence": BUILTIN_FACTOR_SOURCE % (group, chosen), "source": "builtin",
+                           "builtin": builtin, "group": group})
         else:
             ledger.append({"factor": dim, "choice": chosen, "applied": False, "multiplier": 1.0,
-                           "evidence": problem or NO_FACTOR_NOTE, "source": "none"})
+                           "evidence": problem or NO_FACTOR_NOTE, "source": "none",
+                           "builtin": builtin, "group": group})
     return ledger, net
 
 
@@ -298,4 +313,65 @@ def query(item_id, context=None, quantity=None, items=None, component_quantities
                 "message": "No validated reference available."}
     res = item_result(item, context=context, quantity=quantity, component_quantities=component_quantities)
     res["found"] = True
+    res["project_type_rates"] = project_type_rates(item, context=context, quantity=quantity,
+                                                   component_quantities=component_quantities)
     return res
+
+
+def project_type_rates(item, context=None, quantity=None, component_quantities=None):
+    """The same work item on EVERY project type (owner comment 62: "the productivity rate for
+    plaster works in a residential project is different than in an industrial project"): one row
+    per project type with its built-in factor and what that does to the controlling component's
+    output per day, the man-hours per unit, the total man-hours and the duration. The other
+    settings (methodology, quantity, the planner's own methodology factor) are kept as chosen;
+    the planner's own PROJECT-TYPE factor is left out here - this table is the library's own."""
+    ctx = dict(context or {})
+    chosen = ctx.get("Project type")
+    f = dict(ctx.get("factors") or {}) if isinstance(ctx.get("factors"), dict) else {}
+    f.pop("Project type", None)
+    rows = []
+    for pt in project_types():
+        r = item_result(item, context={**ctx, "Project type": pt, "factors": f}, quantity=quantity,
+                        component_quantities=component_quantities)
+        led = next((x for x in r["context_ledger"] if x["factor"] == "Project type"), {})
+        comps = [c for c in r["components"] if c.get("rate")]
+        lead = next((c for c in comps if c.get("controls")), comps[0] if comps else None)
+        roll = r.get("rollup") or {}
+        rows.append({
+            "project_type": pt, "chosen": pt == chosen,
+            "factor": led.get("builtin"), "group": led.get("group"),
+            "applies": pt in (item.get("project_types") or []),
+            "component": lead.get("name") if lead else None,
+            "output_per_day": (lead.get("rate") or {}).get("output_per_day") if lead else None,
+            "output_unit": (lead.get("rate") or {}).get("output_unit") if lead else None,
+            "mh_per_unit": (lead.get("rate") or {}).get("mh_per_unit") if lead else None,
+            "unit": lead.get("unit") if lead else None,
+            "total_mh": roll.get("total_mh"), "duration_days": roll.get("duration_days"),
+        })
+    return rows
+
+
+def rates_database(items=None):
+    """The whole library as one table (owner comment 62: "a database that knows the productivity
+    rates"): every work item's leading component with its output per day on EVERY project type.
+    Returns (project types, rows); a row = {discipline, work_type, item, component, unit,
+    output_unit, group, norm, rates: {project type: output per day}, factors: {...}}."""
+    types = project_types()
+    rows = []
+    for it in (items if items is not None else load_items()):
+        table = project_type_rates(it, context={})
+        lead = next((x for x in table if x.get("component")), None)
+        if not lead:
+            continue
+        base = item_result(it, context={})
+        comp = next((c for c in base["components"] if c.get("rate") and c.get("name") == lead["component"]), None)
+        rows.append({
+            "discipline": it.get("discipline"), "work_type": it.get("work_type"), "item": it.get("item"),
+            "component": lead.get("component"), "unit": lead.get("unit"), "output_unit": lead.get("output_unit"),
+            "group": lead.get("group"),
+            "norm": (comp.get("rate") or {}).get("output_per_day") if comp else None,
+            "rates": {x["project_type"]: x.get("output_per_day") for x in table},
+            "factors": {x["project_type"]: x.get("factor") for x in table},
+        })
+    rows.sort(key=lambda r: (r["discipline"] or "", r["work_type"] or "", r["item"] or ""))
+    return types, rows

@@ -133,7 +133,7 @@ def _prodintel_excel_sections(r):
     for row in (r.get('context_ledger') or []):
         if not (row.get('choice') or row.get('applied')):
             continue
-        if row.get('applied') or row.get('source') == 'user':
+        if row.get('applied') or row.get('source') in ('user', 'builtin'):
             txt = 'x%s — %s' % (row.get('multiplier'), row.get('evidence') or '')
         else:
             txt = row.get('evidence') or 'not adjusted'
@@ -144,6 +144,12 @@ def _prodintel_excel_sections(r):
         summ.append(['Note', 'This work item is not normally part of %s projects' % (ctx.get('Project type') or '')])
     summ += [['Overall confidence', r.get('overall_confidence')]]
 
+    # this work item on every project type (owner comment 62)
+    pt_rows = [[x.get('project_type') + (' (chosen)' if x.get('chosen') else ''), dash(x.get('factor')),
+                dash(x.get('output_per_day')), dash(x.get('mh_per_unit')),
+                dash(x.get('total_mh')) if hasq else '—', dash(x.get('duration_days')) if hasq else '—']
+               for x in (r.get('project_type_rates') or [])]
+    pt_lead = next((x for x in (r.get('project_type_rates') or []) if x.get('component')), {})
     prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Library norm (MH/unit)', 'Crew', 'Quantity', 'Man-hours']
     prod_r = []
     for c in comps:
@@ -199,8 +205,29 @@ def _prodintel_excel_sections(r):
                 p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
         if p6_r:
             sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
-    # shape into the shared write_sections_xlsx contract: one sheet per section, one titled block each
-    return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+    if pt_rows:
+        sections.insert(2, ('By project type',
+                            ['Project type', 'Built-in factor',
+                             'Output per day - %s (%s)' % (pt_lead.get('component') or 'leading component', pt_lead.get('output_unit') or ''),
+                             'Man-hours per %s' % (pt_lead.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], pt_rows))
+    out = [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+    # the whole library on every project type (owner comment 62) - one row per work item
+    try:
+        import p6_prodintel
+        types, db_rows = p6_prodintel.rates_database()
+        if db_rows:
+            out.append({'name': 'Rates database', 'blocks': [{
+                'title': 'Productivity rates of every work item, by project type',
+                'note': ('Output per crew-day of the leading component of each work item. Library norm x the built-in '
+                         'factor of its trade for the project type (general construction practice for work in Egypt, '
+                         'not measured on a specific project). A lower output = more man-hours per unit.'),
+                'headers': ['Discipline', 'Work type', 'Work item', 'Leading component', 'Unit', 'Trade group',
+                            'Library norm (output/day)'] + types,
+                'rows': [[x['discipline'], x['work_type'], x['item'], x['component'], x['output_unit'] or x['unit'],
+                          x['group'], dash(x['norm'])] + [dash(x['rates'].get(t)) for t in types] for x in db_rows]}]})
+    except Exception:
+        pass
+    return out
 
 
 # ── Project Setup (EVM category weights + Actual Cost) ─────────────────────
