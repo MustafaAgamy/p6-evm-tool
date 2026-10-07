@@ -635,7 +635,8 @@ def render_html(report, impact=None, theme='light', sections=None, layout='lands
       table.data {{ width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0; }}
       table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 5px 6px; font-weight: 600; }}
       table.data th.grp {{ background: var(--rpt-th-bg); }} table.data th.grpu {{ background: var(--rpt-accent); color: var(--rpt-accent-ink); }}
-      table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 4px 6px; vertical-align: top; }}
+      table.data td {{ border: 1px solid color-mix(in srgb, var(--rpt-ink) 38%, var(--rpt-edge)); padding: 4px 6px; vertical-align: top; }}
+      table.data th {{ border: 1px solid color-mix(in srgb, var(--rpt-ink) 38%, var(--rpt-edge)); }}   /* full grid: every cell boxed (owner comment 57) */
       table.data.stk {{ table-layout: fixed; }}
       table.data.stk td, table.data.stk th {{ overflow-wrap: anywhere; }}
       .lk {{ margin: 0 0 4px; }} .lk:last-child {{ margin-bottom: 0; }}

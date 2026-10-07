@@ -246,3 +246,16 @@ def test_logic_excel_left_intact():
     headers, rows = logic_excel(_report())
     assert headers[0] == '#' and len(headers) == 16
     assert rows[0][1] == 'A1120'
+
+
+def test_report_tables_draw_a_full_grid():
+    """Owner comment 57: every cell of the report tables is boxed (not just a line under a row)."""
+    import re
+    from p6_compare import exporters
+    names = [n for n in dir(exporters) if n == 'render_html']
+    assert names
+    src = open(exporters.__file__, encoding='utf-8').read()
+    assert re.search(r'table\.data td \{\{ border: 1px solid', src)
+    assert re.search(r'table\.data th \{\{ border: 1px solid', src)
+    css = open('ui/style.css', encoding='utf-8').read()
+    assert re.search(r'\.cmp-log th, \.cmp-log td[^{]*\{ border: 1px solid', css)
