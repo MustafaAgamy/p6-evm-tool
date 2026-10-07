@@ -805,16 +805,33 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
                 ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
              'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
                        f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
-            {'title': 'Recovery Recommendations', 'headers':
-                ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
-             'rows': [[r['period'], r['days'], r['option_longer_days'],
-                       r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+            {'title': 'Conclusion & Recovery Recommendation', 'headers': ['Item', 'Value'],
+         'rows': _wx_recovery_rows(w)},
         ]
         # auto column widths — the blocks have different column layouts, so a single fixed
         # width map (the old per-block bug) mis-sized them; auto sizes each column to fit.
         sheets.append(('Weather', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))
 
     _write_book(path, sheets, _CAL_STYLES)
+
+
+def _wx_recovery_rows(w):
+    """Section 7 of the Bad Weather report as rows — the total impact on the finish, the
+    second-shift recommendation and the conclusion (the same summary as the screen / PDF)."""
+    from p6_calendar.weather import recovery_summary
+    rs = w.get('recovery_summary') or recovery_summary(w)
+    rows = []
+    if rs:
+        rows.append(['Total weather impact on project finish', f"+{rs['days']} working days"])
+        if rs.get('planned_finish'):
+            rows.append(['Project finish', _human_date(rs['planned_finish'])])
+        rows.append(['Weather-adjusted finish', _human_date(rs['adjusted_finish'])])
+        rows.append(['Recovery recommendation (second shift)', rs['text']])
+    else:
+        rows.append(['Recovery recommendation', 'No recovery needed - bad weather adds no net delay.'])
+    if w.get('conclusion'):
+        rows.append(['Conclusion', w['conclusion']])
+    return rows
 
 
 def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle, header_lines=None):
@@ -961,10 +978,8 @@ def write_weather_xlsx(path, ca, weather, meta=None):
             ['Milestone', 'Planned', 'Bad days before', 'Already in calendar', 'Net delay', 'Weather-adjusted'],
          'rows': [[m['name'], _human_date(m['planned']), m['bad_days_before'], m['already_allowed'],
                    f"+{m['net_delay']} d", _human_date(m['adjusted'])] for m in w.get('milestones', [])]},
-        {'title': 'Recovery Recommendations', 'headers':
-            ['Period / milestone', 'Days', 'Longer days', 'Extra working days', 'Add shift'],
-         'rows': [[r['period'], r['days'], r['option_longer_days'],
-                   r['option_extra_days'], r['option_shift']] for r in w.get('recovery', [])]},
+        {'title': 'Conclusion & Recovery Recommendation', 'headers': ['Item', 'Value'],
+         'rows': _wx_recovery_rows(w)},
     ]
     # auto widths — heterogeneous blocks (the old fixed map mis-sized them; that was the bug)
     sheets.append(('Weather Detail', _stacked_sheet(wx_blocks, title_style=9, note_style=0, header_style=2)))

@@ -318,7 +318,7 @@ _WX_TITLES = {
     'wx_upcoming': '4 · Upcoming Bad-Weather Days',
     'wx_causes': '5 · What&rsquo;s Causing the Lost Days — by Weather Type',
     'wx_milestones': '6 · Impact on Milestone Completion',
-    'wx_recovery': '7 · Recovery Recommendations',
+    'wx_recovery': '7 · Conclusion & Recovery Recommendation',
 }
 
 
@@ -456,10 +456,6 @@ def _weather_section(weather, dashboard=None, scope=''):
         f'<td class="num">{m["bad_days_before"]}</td><td class="num">{m["already_allowed"]}</td>'
         f'<td class="num">+{m["net_delay"]} d</td><td>{_fmt(m["adjusted"])}</td></tr>'
         for m in w.get('milestones', []))
-    rec = ''.join(
-        f'<tr><td>{_esc(r["period"])}</td><td class="num">{r["days"]} d</td>'
-        f'<td>{_esc(r["option_longer_days"])}</td><td>{_esc(r["option_extra_days"])}</td>'
-        f'<td>{_esc(r["option_shift"])}</td></tr>' for r in w.get('recovery', []))
     days = ''.join(
         f'<tr><td class="num">{i}</td><td>{_fmt(d["date"])}</td><td>{_esc(d.get("day_name",""))}</td>'
         f'<td>{_esc(d.get("condition",""))}</td>'
@@ -515,16 +511,27 @@ def _weather_section(weather, dashboard=None, scope=''):
         'weather adds, which push the <b>Weather-adjusted completion</b> out. '
         '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
         'so only 2 hit working days → +2 working days.</i></p>') if ms else ''
-    rec_table = (
-        '<h2 class="sec">7 · Recovery Recommendations</h2>'
-        '<table><thead><tr><th>Period / milestone</th><th class="num">Days</th><th>Longer days</th>'
-        f'<th>Extra working days</th><th>Add shift</th></tr></thead><tbody>{rec}</tbody></table>') if rec else ''
-    conclusion = ''
-    if w.get('conclusion'):
-        conclusion = (
-            f'<div class="grp"><span class="pill" style="background:{report_theme.var("rpt-warn")}">Weather Conclusion</span></div>'
-            f'<div class="concl" style="border-left-color:{report_theme.var("rpt-warn")};background:{report_theme.var("rpt-warn-bg")}">'
-            f'<p style="margin:0;font-size:10.5px;line-height:1.5">{_esc(w["conclusion"])}</p></div>')
+    # §7 — the conclusion and the recovery recommendation as ONE summary (owner comment 58):
+    # the total weather impact, the second shift that recovers it, then the conclusion text.
+    from p6_calendar.weather import recovery_summary
+    rs = w.get('recovery_summary') or recovery_summary(w)
+    concl_p = (f'<p class="rsum-c">{_esc(w["conclusion"])}</p>' if w.get('conclusion') else '')
+    if rs:
+        fin = (f'{_fmt(rs["planned_finish"])} → {_fmt(rs["adjusted_finish"])}' if rs.get('planned_finish')
+               else f'weather-adjusted finish {_fmt(rs["adjusted_finish"])}')
+        rec_body = (
+            '<table class="rsum"><tr>'
+            f'<td class="rsum-big"><div class="rsum-k">Total weather impact</div>'
+            f'<div class="rsum-v">+{rs["days"]} wd</div>'
+            f'<div class="rsum-s">on project finish<br><b>{fin}</b></div></td>'
+            f'<td class="rsum-rec"><div class="rsum-k">Recovery recommendation · second shift</div>'
+            f'<div class="rsum-t">{_esc(rs["text"])}</div></td></tr></table>')
+    else:
+        rec_body = '<p class="lg"><b>No recovery needed</b> — bad weather adds no net delay to the project finish.</p>'
+    # heading + tiles + conclusion stay on one page (the page-coordination standard)
+    rec_table = ('<div style="break-inside:avoid;page-break-inside:avoid">'
+                 '<h2 class="sec">7 · Conclusion &amp; Recovery Recommendation</h2>' + rec_body + concl_p
+                 + '</div>') if (rs or concl_p) else ''
     # Seven individually-selectable subsections, each returned under its own data-sec key.
     # The how/criteria preamble rides inside wx_why (it explains "why this result"); the §4/§5
     # SWAP puts Upcoming (§4) ahead of Causes (§5). The source-reference + auto conclusion are
@@ -536,9 +543,9 @@ def _weather_section(weather, dashboard=None, scope=''):
         ('wx_upcoming', days_table),                       # §4 Upcoming Bad-Weather Days (SWAP)
         ('wx_causes', cause_table),                        # §5 What's Causing the Lost Days (SWAP)
         ('wx_milestones', ms_table),                       # §6 Impact on Milestone Completion
-        ('wx_recovery', rec_table),                        # §7 Recovery Recommendations
+        ('wx_recovery', rec_table),                        # §7 Conclusion & Recovery Recommendation
     ]
-    footnotes = source_ref + conclusion
+    footnotes = source_ref            # the conclusion now sits in §7 with the recovery
     return sections, footnotes
 
 
@@ -722,6 +729,16 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .h3col .s-nw {{ background: var(--rpt-bad); }}
   .h3col .s-net {{ background: var(--rpt-good); }}
   .h3l {{ font-size: 7.5px; color: var(--rpt-muted); margin-top: 3px; }}
+  table.rsum {{ width: 100%; border-collapse: separate; border-spacing: 0; margin: 4px 0 8px; }}
+  table.rsum td {{ border: 0; vertical-align: top; padding: 10px 14px; }}
+  table.rsum td.rsum-big {{ width: 30%; background: var(--rpt-bad-bg); border: 1px solid var(--rpt-bad); border-radius: 8px; }}
+  table.rsum td.rsum-rec {{ border: 1px solid var(--rpt-edge); border-left: 10px solid var(--rpt-bg); border-radius: 8px; background: var(--rpt-surface); }}
+  .rsum-k {{ font-size: 8.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--rpt-muted); }}
+  .rsum-big .rsum-k {{ color: var(--rpt-bad); }}
+  .rsum-v {{ font-size: 26px; font-weight: 800; color: var(--rpt-bad); line-height: 1.15; margin: 3px 0 2px; }}
+  .rsum-s {{ font-size: 10px; color: var(--rpt-ink-soft); }} .rsum-s b {{ color: var(--rpt-ink); }}
+  .rsum-t {{ font-size: 12px; font-weight: 600; line-height: 1.5; margin-top: 4px; color: var(--rpt-ink); }}
+  .rsum-c {{ font-size: 10.5px; line-height: 1.55; margin: 0 0 6px; border-left: 4px solid var(--rpt-warn); background: var(--rpt-warn-bg); border-radius: 0 8px 8px 0; padding: 9px 13px; }}
   .concl {{ border-left: 4px solid var(--rpt-accent); background: var(--rpt-surface); border-radius: 0 8px 8px 0; padding: 10px 15px; }}
   .concl ul {{ margin: 0; padding-left: 18px; }}
   .concl li {{ font-size: 11px; line-height: 1.5; margin-bottom: 5px; }}

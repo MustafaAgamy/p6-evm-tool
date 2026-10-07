@@ -413,24 +413,10 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
                   'working': hcount[(y, m)]['working']}
                  for (y, m) in sorted(hcount)]
 
-    # Recovery recommendations (advisory) — per milestone that slips.
-    recovery = []
-    for m in ms:
-        n = m['net_delay']
-        if n <= 0:
-            continue
-        lost_h = n * day_hours
-        recovery.append({
-            'period': m['name'],
-            'days': n,
-            'option_longer_days': f'Add ~{lost_h:g} work-hours (longer days / overtime) before "{m["name"]}"',
-            'option_extra_days': f'Work {n} extra day(s) (e.g. weekends)',
-            'option_shift': 'Add a second shift over the affected weeks',
-        })
-
     conclusion = _weather_conclusion(
         total=len(remaining), net=net_finish, adjusted=adjusted_finish,
-        by_cause=by_cause, monthly=monthly, milestones=ms)
+        by_cause=by_cause, monthly=monthly, milestones=ms,
+        peaks=_peak_months(histogram)[0])
 
     # For the "why this result" panel, fold the multi-year climate into a single per-date view
     # (the worst value seen across the years), so peaks like "hottest expected day" are real.
@@ -446,7 +432,7 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         }
 
     meta = climate_meta or {}
-    return {
+    out = {
         'bad_days': bad_list,
         'monthly': monthly,
         'histogram': histogram,      # per-month net / bad-weather / non-working days (Feature 2)
@@ -456,7 +442,8 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'climate_avg_total': climate_avg_total,   # N-year average bad days over the window
         'net_finish_delay': net_finish,
         'weather_adjusted_finish': adjusted_finish.isoformat(),
-        'recovery': recovery,
+        'project_finish': project_finish.isoformat() if project_finish else None,
+        'day_hours': day_hours,
         'conclusion': conclusion,
         'thresholds': thresholds,          # the stop-work limits applied
         'site_type': site_type,            # the chosen site type (None = today's default)
@@ -477,6 +464,66 @@ def weather_impact(*, calendars, construction_cal_ids, milestones, data_date,
         'source': 'Open-Meteo (forecast + ERA5 historical + air-quality)',
         'is_estimate': True,
     }
+    out['recovery_summary'] = recovery_summary(out)
+    return out
+
+
+def _peak_months(histogram):
+    """The months that lose the most working days to weather: the peak month(s), widened
+    until they hold at least half the loss (three at most), in calendar order.
+    Returns (labels, lost days they hold, all lost days)."""
+    months = [(i, h.get('label'), int(h.get('bad') or 0)) for i, h in enumerate(histogram or [])]
+    months = [m for m in months if m[2] > 0]
+    total = sum(m[2] for m in months)
+    picked, got = [], 0
+    for m in sorted(months, key=lambda m: (-m[2], m[0])):
+        if picked and (len(picked) >= 3 or (got * 2 >= total and m[2] < picked[-1][2])):
+            break
+        picked.append(m)
+        got += m[2]
+    picked.sort()                                          # back to calendar order
+    return [m[1] for m in picked], got, total
+
+
+def _join_and(items):
+    items = [str(i) for i in items]
+    return items[0] if len(items) == 1 else ', '.join(items[:-1]) + ' and ' + items[-1]
+
+
+def recovery_summary(w):
+    """The Recovery Recommendation as ONE summary of the whole estimate (owner comment 58) —
+    it replaced a table that repeated the same options for every delayed milestone:
+
+      * ``days``  — the total impact on project finish, in working days (``net_finish_delay``);
+      * ``planned_finish`` → ``adjusted_finish`` — the finish before / after bad weather;
+      * ``shift_months`` — where to put a second shift: the months that lose the most working
+        days to weather (the peak month(s), widened until they hold at least half the loss,
+        three at most), with ``shift_days`` = the lost days they hold;
+      * ``text`` — the recommendation sentence the screen, PDF, Word and Excel all print.
+
+    Pure: derived only from the estimate's own fields, so an estimate saved before this
+    summary existed is summarised the same way. ``None`` when weather adds no delay."""
+    w = w or {}
+    days = int(w.get('net_finish_delay') or 0)
+    if days <= 0:
+        return None
+    labels, got, total = _peak_months(w.get('histogram'))
+    hours = round(days * float(w['day_hours']), 1) if w.get('day_hours') else None
+    wd = f'{days} working day{"s" if days != 1 else ""}'
+    hrs = f' (about {hours:g} work-hours)' if hours else ''
+    if labels:
+        most = 'the month' if len(labels) == 1 else 'the months'
+        text = (f'Add a second shift over {_join_and(labels)} — {most} with the most lost days '
+                f'({got} of the {total}) — to recover the {wd}{hrs}.')
+    else:
+        text = f'Add a second shift over the affected weeks to recover the {wd}{hrs}.'
+    return {
+        'days': days, 'hours': hours,
+        'planned_finish': w.get('project_finish'),
+        'adjusted_finish': w.get('weather_adjusted_finish'),
+        'shift_months': labels, 'shift_days': got, 'lost_days': total,
+        'text': text,
+    }
 
 
 def _fmt_long(d):
@@ -484,7 +531,7 @@ def _fmt_long(d):
     return f'{d.day:02d}-{_MON[d.month]}.{d.year}' if d else '—'
 
 
-def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones):
+def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones, peaks=None):
     """A short management paragraph, generated from the numbers — mirrors what the
     UI and PDF show. Degrades gracefully when there is no impact / no location."""
     if total == 0:
@@ -504,7 +551,9 @@ def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones):
         pct = round(ranked[0]['count'] / total * 100)
         dom_txt = f' The risk is driven mainly by {ranked[0]["label"].lower()} ({pct}% of the flagged days).'
     peak_txt = ''
-    if monthly:
+    if peaks:               # the same months the recovery recommendation names (lost working days)
+        peak_txt = f' Exposure concentrates around {_join_and(peaks)}.'
+    elif monthly:
         mx = max(m['count'] for m in monthly)
         peaks = [m['label'] for m in monthly if m['count'] == mx and mx > 0]
         if peaks:

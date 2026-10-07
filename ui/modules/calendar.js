@@ -281,7 +281,7 @@ export const WEATHER_SECTIONS = [
   ['wx_dashboard', '1 Execution Dashboard'], ['wx_timeline', '2 Calendar Timeline & Statistics'],
   ['wx_why', '3 Why This Result'], ['wx_upcoming', '4 Upcoming Bad Weather'],
   ['wx_causes', "5 What's Causing the Lost Days"], ['wx_milestones', '6 Impact on Milestones'],
-  ['wx_recovery', '7 Recovery Recommendations'],
+  ['wx_recovery', '7 Conclusion & Recovery Recommendation'],
 ];
 
 // ── Location picker (top — drives the Weather-Adjusted Finish + Section 9) ──
@@ -703,6 +703,34 @@ function _weatherHistogram() {
      <div class="cal-3hist">${bars}</div>`;
 }
 
+// The Recovery Recommendation summary — the server's `recovery_summary`, or (an estimate
+// saved before it existed) the same summary worked out from the estimate's own fields.
+// Mirrors p6_calendar/weather.py recovery_summary. null when weather adds no delay.
+export function recoverySummary(w) {
+  if (!w) return null;
+  if (w.recovery_summary) return w.recovery_summary;
+  const days = Math.trunc(w.net_finish_delay || 0);
+  if (days <= 0) return null;
+  const months = (w.histogram || []).map((h, i) => ({ i, label: h.label, bad: Math.trunc(h.bad || 0) })).filter(m => m.bad > 0);
+  const total = months.reduce((a, m) => a + m.bad, 0);
+  const picked = []; let got = 0;
+  for (const m of [...months].sort((a, b) => (b.bad - a.bad) || (a.i - b.i))) {
+    if (picked.length && (picked.length >= 3 || (got * 2 >= total && m.bad < picked[picked.length - 1].bad))) break;
+    picked.push(m); got += m.bad;
+  }
+  picked.sort((a, b) => a.i - b.i);
+  const labels = picked.map(m => m.label);
+  const hours = w.day_hours ? Math.round(days * w.day_hours * 10) / 10 : null;
+  const wd = `${days} working day${days !== 1 ? 's' : ''}`;
+  const hrs = hours ? ` (about ${hours} work-hours)` : '';
+  const joined = labels.length <= 1 ? (labels[0] || '') : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  const text = labels.length
+    ? `Add a second shift over ${joined} — ${labels.length === 1 ? 'the month' : 'the months'} with the most lost days (${got} of the ${total}) — to recover the ${wd}${hrs}.`
+    : `Add a second shift over the affected weeks to recover the ${wd}${hrs}.`;
+  return { days, hours, planned_finish: w.project_finish || null, adjusted_finish: w.weather_adjusted_finish,
+           shift_months: labels, shift_days: got, lost_days: total, text };
+}
+
 function _weatherSection() {
   // The data-date banner + compact entry bar + location map are emitted by _renderWeatherBody
   // (above this). The stop-work criteria/limits editor holds the single "Apply & Recalculate"
@@ -743,14 +771,21 @@ function _weatherSection() {
       <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
       <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
      <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's planned finish. <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
-  // §7 — Recovery recommendation
-  const recRows = (w.recovery || []).map(r =>
-    `<tr><td>${escapeHtml(r.period)}</td><td class="num"><span class="cal-pill mini shutdown">${r.days} d</span></td>
-      <td>${escapeHtml(r.option_longer_days)}</td><td>${escapeHtml(r.option_extra_days)}</td><td>${escapeHtml(r.option_shift)}</td></tr>`).join('');
-  const recTable = _sec(7, 'Recovery recommendation', 'advisory — one option per period, computed from the estimated lost hours') +
-    `<div class="cal-card p0"><table class="cal-table"><thead><tr>
-      <th>Period / milestone</th><th class="num">Days</th><th>Longer days</th><th>Extra working days</th><th>Add shift</th></tr></thead>
-      <tbody>${recRows || '<tr><td colspan="5" class="cal-empty">No recovery needed — no net weather delay.</td></tr>'}</tbody></table></div>`;
+  // §7 — Conclusion & recovery recommendation: ONE summary of the whole estimate (owner
+  // comment 58) — the total weather impact, the second shift that recovers it, the conclusion.
+  const rs = recoverySummary(w);
+  const conclP = w.conclusion ? `<p class="cal-rsum-c">${escapeHtml(w.conclusion)}</p>` : '';
+  const recBody = rs
+    ? `<div class="cal-rsum">
+        <div class="cal-rsum-big"><div class="cal-rsum-k">Total weather impact</div>
+          <div class="cal-rsum-v">+${rs.days} wd</div>
+          <div class="cal-rsum-s">on project finish<br><b>${rs.planned_finish ? `${fmtCalDate(rs.planned_finish)} → ` : ''}${fmtCalDate(rs.adjusted_finish)}</b></div></div>
+        <div class="cal-rsum-rec"><div class="cal-rsum-k">Recovery recommendation · second shift</div>
+          <div class="cal-rsum-t">${escapeHtml(rs.text)}</div></div>
+      </div>`
+    : '<p class="cal-rsum-none"><b>No recovery needed</b> — bad weather adds no net delay to the project finish.</p>';
+  const recTable = _sec(7, 'Conclusion & recovery recommendation', 'advisory — the total weather impact and the second shift that recovers it') +
+    `<div class="cal-card">${recBody}${conclP}</div>`;
   // §4 — What's causing the lost days, by weather type
   const totalBad = w.expected_bad_days_total || 0;
   const causeColor = { Heat: 'var(--danger)', Dust: 'var(--warning)', Rain: 'var(--chart-1)', Wind: 'var(--muted)' };
@@ -767,15 +802,10 @@ function _weatherSection() {
     ? _sec(5, "What's causing the lost days — by weather type", 'which condition to plan around (heat → shift hours earlier; rain → drainage)') +
       `<div class="cal-card">${causeRows}</div>`
     : '';
-  // Footnotes (after §7) — auto weather-conclusion, then the source & climate reference. Demoted.
-  const conclHtml = w.conclusion
-    ? `<div class="cal-foot"><span class="cal-foot-lab">Weather conclusion — auto-generated</span>
-        <p style="margin:2px 0 0;font-size:12px;line-height:1.55">${escapeHtml(w.conclusion)}</p></div>`
-    : '';
   const note = '<div class="cal-note">Applies to construction activities only (auto-detected), and only to Finish/completion milestones. A forward-looking risk, kept separate from the exact P6 Delay. Needs an internet connection.</div>';
   return controls + dashboard + histogram +
     _whyResultHtml() + dayTable + causeCard + msTable + recTable +
-    conclHtml + _climateRefHtml() + note;
+    _climateRefHtml() + note;
 }
 
 // Read the stop-work-limit inputs → thresholds object (blank = off).

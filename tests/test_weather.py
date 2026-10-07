@@ -89,12 +89,26 @@ def test_daily_list_confidence_split():
     assert conf['2025-06-25'] == 'expected'   # beyond horizon
 
 
-def test_recovery_recommendations_present():
+def test_recovery_is_one_summary_of_the_total_impact():
+    """Owner comment 58: no per-milestone rows — one summary: the total impact on the finish
+    and the second shift (over the months that lose the most days) that recovers it."""
+    from p6_calendar.weather import recovery_summary
     r = _impact()
-    assert isinstance(r['recovery'], list) and len(r['recovery']) >= 1
-    rec = r['recovery'][0]
-    assert 'days' in rec and rec['days'] >= 1
-    assert rec.get('option_longer_days') and rec.get('option_extra_days')
+    assert 'recovery' not in r
+    rs = r['recovery_summary']
+    assert rs['days'] == r['net_finish_delay'] >= 1
+    assert rs['adjusted_finish'] == r['weather_adjusted_finish'] and rs['planned_finish'] == r['project_finish']
+    assert rs['shift_months'] and rs['text'].startswith('Add a second shift over ' + rs['shift_months'][0])
+    assert f"recover the {rs['days']} working day" in rs['text']
+    # the peak months: widened until they hold at least half the lost days, in calendar order
+    w = {'net_finish_delay': 10, 'weather_adjusted_finish': '2027-05-19', 'day_hours': 8,
+         'histogram': [{'label': 'Dec 2026', 'bad': 2}, {'label': 'Jan 2027', 'bad': 3},
+                       {'label': 'Feb 2027', 'bad': 3}, {'label': 'Mar 2027', 'bad': 1}, {'label': 'Apr 2027', 'bad': 1}]}
+    s = recovery_summary(w)
+    assert s['shift_months'] == ['Jan 2027', 'Feb 2027'] and s['shift_days'] == 6 and s['hours'] == 80
+    assert s['text'] == ('Add a second shift over Jan 2027 and Feb 2027 — the months with the most lost days '
+                         '(6 of the 10) — to recover the 10 working days (about 80 work-hours).')
+    assert recovery_summary({'net_finish_delay': 0}) is None and recovery_summary({}) is None
 
 
 def test_weather_inputs_from_schedule(tmp_path):

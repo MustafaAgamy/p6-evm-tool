@@ -33,7 +33,7 @@ WEATHER_SECS = [('wx_dashboard', 'Weather — Execution dashboard'),
                 ('wx_upcoming', 'Weather — Upcoming bad-weather days'),
                 ('wx_causes', "Weather — What's causing the lost days"),
                 ('wx_milestones', 'Weather — Impact on milestones'),
-                ('wx_recovery', 'Weather — Recovery recommendations')]
+                ('wx_recovery', 'Weather — Conclusion & recovery recommendation')]
 CRITPATH_SECS = [('verdict', 'Verdict'), ('dashboard', 'Execution dashboard'),
                  ('driving_path', 'Critical Path Analyzer (driving paths)'), ('census', 'Critical & near-critical census'),
                  ('milestones', 'Every-milestone finish table'), ('float_migration', 'Float migration'),

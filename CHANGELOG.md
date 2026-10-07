@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Bad Weather: one Conclusion & Recovery Recommendation (comment 58)
+Section 7 is now a single summary instead of a table that repeated the same three options for every delayed milestone (13 rows on Grain Bulk) and never stated the total. It shows the **total weather impact** on the project finish (Grain Bulk: +10 wd, 02-May.2027 → 19-May.2027), one **recovery recommendation — a second shift** over the months that lose the most working days to weather (“Add a second shift over Jan 2027, Feb 2027 and Apr 2027 — the months with the most lost days (7 of the 10) — to recover the 10 working days (about 80 work-hours)”), and the **conclusion** paragraph, which used to sit apart as a footnote. The conclusion names the same peak months as the recommendation. Screen, PDF, Word and Excel show the same summary; the delay of each milestone stays in section 6. When weather adds no delay the section says no recovery is needed.
+
 ### Changed — Consultant Review: table borders, highlights in every export, untrimmed preview (comment 57)
 - **Borders.** The **Driving logic & lag changes vs baseline** table — and the Duration table in the report — draw a full grid: every cell is boxed, on screen, in the PDF and in Word. Before, the report had only a pale line under each row and the screen had no lines between the columns.
 - **Highlights in PDF / Word / Excel.** The marks the screen table shows are now in every export: the **driving link** is bold with a ▶ before its ID, a link **changed** vs the baseline is red, an **added** link green and a **removed** link struck through — one link per line, with the legend under the table. Before, the exports listed the links as plain text joined with “/” and coloured every update relationship red whether it had changed or not.
