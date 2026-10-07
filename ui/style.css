@@ -1516,6 +1516,8 @@ body.dng-fs-body #results-section { transform: none !important; }
 .cmp-log { width: 100%; table-layout: fixed; }
 .cmp-log th, .cmp-log td { padding: 3px 5px; line-height: 1.2; font-size: 10.5px; word-break: break-word; overflow-wrap: anywhere; }
 .cmp-log thead th { font-size: 10px; vertical-align: bottom; }
+/* full grid — every cell boxed so a row / column is easy to follow (owner comment 57) */
+.cmp-log th, .cmp-log td, .cmp-log tr:last-child td { border: 1px solid color-mix(in srgb, var(--text) 32%, var(--border)); }
 .cmp-log col.c-sn { width: 3.4%; } .cmp-log col.c-aid { width: 8%; } .cmp-log col.c-anm { width: 9.5%; } .cmp-log col.c-chg { width: 7.3%; }
 .cmp-log col.c-id { width: 8.1%; } .cmp-log col.c-rel { width: 3.3%; } .cmp-log col.c-nm { width: 6.6%; }
 .cmp-log .cmp-tag { white-space: normal; }

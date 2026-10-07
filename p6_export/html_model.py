@@ -128,6 +128,7 @@ class Table:
     col_weights: list = field(default_factory=list)
     caption: str = None
     border_color: str = None
+    grid: bool = False         # every cell boxed (the HTML cells carry side borders too)
     size_pt: float = None
     part: str = None
     kind: str = 'table'
@@ -744,15 +745,17 @@ class _Walker:
             caption = _norm_ws(cap.text_content()).strip() or None
         weights = self._col_weights(el, rows)
         border = None
+        grid = False
         for tr in rows_el[header_rows:header_rows + 1] or rows_el[:1]:
             for c in tr:
                 if C.is_element(c):
                     b = self.border(c, 'bottom')
                     if b:
                         border = b[1]
+                        grid = bool(self.border(c, 'left'))      # boxed cells → a full grid in Word
                         break
         return Table(rows=rows, header_rows=header_rows, col_weights=weights, caption=caption,
-                     border_color=border, size_pt=_pt(st.font_px()), part=part)
+                     border_color=border, grid=grid, size_pt=_pt(st.font_px()), part=part)
 
     def data_table(self, el, part):
         """``data-export="table"``: a long designed list (too many rows to draw) → a real table

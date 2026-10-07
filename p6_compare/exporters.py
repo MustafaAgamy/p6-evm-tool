@@ -50,6 +50,59 @@ def _links_str(links, key):
     return ' / '.join(out)
 
 
+def _link_val(l, key):
+    if key == 'id':
+        return str(l.get('code', ''))
+    if key == 'name':
+        return str(l.get('name', ''))
+    t = l.get('type', 'FS')
+    lag = round(l.get('lag_days', 0) or 0)
+    return t if not lag else f"{t}{'+' if lag > 0 else ''}{lag}"
+
+
+# The screen's link highlights (ui/modules/compare.js cellStack), repeated in every export
+# (owner comment 57): the DRIVING link is bold with a leading ▶, and a link that is changed /
+# added / removed vs the baseline carries its colour.
+_LINK_STATUS_CLASS = {'changed': 'lchg', 'added': 'ladd', 'removed': 'lrem'}
+_LINK_STATUS_XLSX = {'changed': 'FFB91C1C', 'added': 'FF15803D', 'removed': 'FF6B7280'}
+
+
+def _links_html(links, key):
+    """One table cell of an activity's links for the PDF / Word report: a link per line,
+    the driving link bold (▶ before its ID), changed / added / removed links coloured —
+    the same marks as the screen."""
+    if not links:
+        return '—'
+    out = []
+    for l in links:
+        val = _e(_link_val(l, key))
+        cls = _LINK_STATUS_CLASS.get(l.get('status'))
+        if cls:
+            val = f'<span class="{cls}">{val}</span>'
+        drv = bool(l.get('driving'))
+        mark = '<span class="ldot">▶ </span>' if drv and key == 'id' else ''
+        out.append(f'<div class="ll{" ldrv" if drv else ""}">{mark}{val}</div>')
+    return ''.join(out)
+
+
+def _links_rich(links, key):
+    """The same cell for Excel: one link per line as rich text — driving link bold with ▶,
+    changed (red) / added (green) / removed (grey, struck) links coloured."""
+    if not links:
+        return '—'
+    from p6_evm.xlsx_writer import RichText
+    runs = []
+    for i, l in enumerate(links):
+        drv = bool(l.get('driving'))
+        text = ('▶ ' if drv and key == 'id' else '') + _link_val(l, key)
+        run = {'t': text + ('\n' if i < len(links) - 1 else ''), 'b': drv,
+               'color': _LINK_STATUS_XLSX.get(l.get('status'))}
+        if l.get('status') == 'removed':
+            run['strike'] = True
+        runs.append(run)
+    return RichText(runs)
+
+
 # ── Excel: the driving logic & lag change table ─────────────────────────────
 
 _LOGIC_HEADERS = [
@@ -111,16 +164,16 @@ def _blank(v):
 
 
 def _logic_section_rows(report):
-    """The driving-logic table rows for the sections export — identical flattening to
-    logic_excel (serial # + baseline/update pred/succ links joined one per cell)."""
+    """The driving-logic table rows for the sections export — serial # + the baseline / update predecessor and
+    successor links, one link per line with the screen's highlights (see _links_rich)."""
     rows = []
     for i, r in enumerate((report.get('logic', {}) or {}).get('rows', []), start=1):
         rows.append([
             i, r.get('activity_id', ''), r.get('activity_name', ''), r.get('change_label', ''),
-            _links_str(r.get('baseline_preds'), 'id'), _links_str(r.get('baseline_preds'), 'rel'), _links_str(r.get('baseline_preds'), 'name'),
-            _links_str(r.get('baseline_succs'), 'id'), _links_str(r.get('baseline_succs'), 'rel'), _links_str(r.get('baseline_succs'), 'name'),
-            _links_str(r.get('update_preds'), 'id'), _links_str(r.get('update_preds'), 'rel'), _links_str(r.get('update_preds'), 'name'),
-            _links_str(r.get('update_succs'), 'id'), _links_str(r.get('update_succs'), 'rel'), _links_str(r.get('update_succs'), 'name'),
+            _links_rich(r.get('baseline_preds'), 'id'), _links_rich(r.get('baseline_preds'), 'rel'), _links_rich(r.get('baseline_preds'), 'name'),
+            _links_rich(r.get('baseline_succs'), 'id'), _links_rich(r.get('baseline_succs'), 'rel'), _links_rich(r.get('baseline_succs'), 'name'),
+            _links_rich(r.get('update_preds'), 'id'), _links_rich(r.get('update_preds'), 'rel'), _links_rich(r.get('update_preds'), 'name'),
+            _links_rich(r.get('update_succs'), 'id'), _links_rich(r.get('update_succs'), 'rel'), _links_rich(r.get('update_succs'), 'name'),
         ])
     return rows
 
@@ -191,7 +244,8 @@ def logic_excel_sections(report, impact=None):
         logic_note = (f"{dash.get('logic_changed', len(logic_rows))} activities with driving-logic / lag "
                       f"changes of the {dash.get('changed_activities', len(logic_rows))} total changed "
                       f"({dash.get('duration_only', 0)} changed in duration only). "
-                      "Highlighted cells are the changed relationship values.")
+                      "▶ bold = the driving link. Red = changed vs baseline, green = added, "
+                      "grey struck = removed. Shaded columns hold the update's relationship values.")
     else:
         logic_note = 'No driving relationship or lag changes vs the baseline.'
     sheets.append({'name': 'Driving Logic Changes', 'blocks': [{
@@ -344,18 +398,25 @@ def _tile(label, value, sub=None):
 
 def _links_cell(links, changed=False):
     """One activity's driving links as ONE table cell, a link per block:
-    ``ID  rel`` on the first line and the linked activity's name under it (portrait layout)."""
+    ``ID  rel`` on the first line and the linked activity's name under it (portrait layout).
+    Same marks as the screen: driving link bold with ▶, changed / added / removed coloured."""
     if not links:
         return '—'
     out = []
     for l in links:
-        t = l.get('type', 'FS')
-        lag = round(l.get('lag_days', 0) or 0)
-        rel = t if not lag else f"{t}{'+' if lag > 0 else ''}{lag}"
-        out.append(f'<div class="lk"><span class="mono">{_e(l.get("code", ""))}</span> '
-                   f'<b class="lkr{" chg" if changed else ""}">{_e(rel)}</b>'
-                   f'<div class="lkn">{_e(l.get("name", ""))}</div></div>')
+        cls = _LINK_STATUS_CLASS.get(l.get('status'))
+        wrap = (lambda v, c=cls: f'<span class="{c}">{v}</span>') if cls else (lambda v: v)
+        drv = bool(l.get('driving'))
+        mark = '<span class="ldot">▶ </span>' if drv else ''
+        out.append(f'<div class="lk{" ldrv" if drv else ""}">{mark}<span class="mono">{wrap(_e(l.get("code", "")))}</span> '
+                   f'<b class="lkr">{wrap(_e(_link_val(l, "rel")))}</b>'
+                   f'<div class="lkn">{wrap(_e(l.get("name", "")))}</div></div>')
     return ''.join(out)
+
+
+_LINK_LEGEND_HTML = ('<p class="legend2"><b>▶ bold</b> = the driving link (date-derived; may be absent on '
+                     'completed activities). <span class="lchg">Red</span> = changed vs baseline · '
+                     '<span class="ladd">green</span> = added · <span class="lrem">struck</span> = removed.</p>')
 
 
 def _logic_table_stacked_html(shown):
@@ -385,7 +446,7 @@ def _logic_table_stacked_html(shown):
         '<th colspan="2" class="grp">Baseline — driving links</th>'
         '<th colspan="2" class="grpu">Update — driving links</th></tr>'
         '<tr><th>Predecessors</th><th>Successors</th><th>Predecessors</th><th>Successors</th></tr>'
-        '</thead><tbody>' + ''.join(body) + '</tbody></table>')
+        '</thead><tbody>' + ''.join(body) + '</tbody></table>' + _LINK_LEGEND_HTML)
 
 
 def _logic_table_html(report, cap=_PDF_ROW_CAP, stacked=False):
@@ -399,24 +460,16 @@ def _logic_table_html(report, cap=_PDF_ROW_CAP, stacked=False):
         return _logic_table_stacked_html(shown) + more
     body = []
     for i, r in enumerate(shown, start=1):
+        cells = ''.join(
+            f'<td class="mono">{_links_html(r.get(side), "id")}</td>'
+            f'<td class="mono">{_links_html(r.get(side), "rel")}</td>'
+            f'<td>{_links_html(r.get(side), "name")}</td>'
+            for side in ('baseline_preds', 'baseline_succs', 'update_preds', 'update_succs'))
         body.append(
             '<tr>'
             f'<td class="num">{i}</td>'
             f'<td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
-            f'<td>{_e(r.get("change_label"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_preds"), "id"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_preds"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("baseline_preds"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_succs"), "id"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("baseline_succs"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("baseline_succs"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("update_preds"), "id"))}</td>'
-            f'<td class="mono chg">{_e(_links_str(r.get("update_preds"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("update_preds"), "name"))}</td>'
-            f'<td class="mono">{_e(_links_str(r.get("update_succs"), "id"))}</td>'
-            f'<td class="mono chg">{_e(_links_str(r.get("update_succs"), "rel"))}</td>'
-            f'<td>{_e(_links_str(r.get("update_succs"), "name"))}</td>'
-            '</tr>')
+            f'<td>{_e(r.get("change_label"))}</td>{cells}</tr>')
     return (
         '<table class="data"><thead><tr>'
         '<th rowspan="2">#</th><th rowspan="2">Activity ID</th><th rowspan="2">Activity name</th><th rowspan="2">Change</th>'
@@ -424,7 +477,7 @@ def _logic_table_html(report, cap=_PDF_ROW_CAP, stacked=False):
         '<th colspan="6" class="grpu">Update — driving links</th></tr>'
         '<tr><th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th>'
         '<th>Pred ID</th><th>Pred rel</th><th>Pred name</th><th>Succ ID</th><th>Succ rel</th><th>Succ name</th></tr>'
-        '</thead><tbody>' + ''.join(body) + '</tbody></table>' + more)
+        '</thead><tbody>' + ''.join(body) + '</tbody></table>' + _LINK_LEGEND_HTML + more)
 
 
 def _duration_table_html(report, cap=_PDF_ROW_CAP):
@@ -635,10 +688,16 @@ def render_html(report, impact=None, theme='light', sections=None, layout='lands
       table.data {{ width: 100%; border-collapse: collapse; font-size: 10.5px; margin: 6px 0; }}
       table.data th {{ background: var(--rpt-th-bg); color: var(--rpt-th-ink); text-align: left; padding: 5px 6px; font-weight: 600; }}
       table.data th.grp {{ background: var(--rpt-th-bg); }} table.data th.grpu {{ background: var(--rpt-accent); color: var(--rpt-accent-ink); }}
-      table.data td {{ border-bottom: 1px solid var(--rpt-edge); padding: 4px 6px; vertical-align: top; }}
+      table.data td {{ border: 1px solid var(--rpt-muted); padding: 4px 6px; vertical-align: top; }}
+      table.data th {{ border: 1px solid var(--rpt-muted); }}   /* full grid: every cell boxed (owner comment 57) */
       table.data.stk {{ table-layout: fixed; }}
       table.data.stk td, table.data.stk th {{ overflow-wrap: anywhere; }}
       .lk {{ margin: 0 0 4px; }} .lk:last-child {{ margin-bottom: 0; }}
+      .ll {{ padding: 1px 0; }} .ll + .ll {{ border-top: 1px dashed var(--rpt-edge); margin-top: 3px; padding-top: 3px; }}
+      .ldrv {{ font-weight: 700; }} .ldot {{ color: var(--rpt-accent); }}
+      .lchg {{ color: var(--rpt-bad); font-weight: 700; background: var(--rpt-bad-bg); }}
+      .ladd {{ color: var(--rpt-good); font-weight: 700; }}
+      .lrem {{ color: var(--rpt-muted); text-decoration: line-through; }}
       .lkr {{ font-weight: 700; }} .lkn {{ color: var(--rpt-ink-soft); }}
       .mono {{ font-family: Consolas, monospace; }}
       .num {{ text-align: right; }}
