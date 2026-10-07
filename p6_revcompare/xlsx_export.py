@@ -187,12 +187,19 @@ def _summary_blocks(report):
                    'note': 'Baselines only (no actuals) — a like-for-like comparison.',
                    'headers': ['', 'Rev.00 · Original', 'Rev.01 · Revised'], 'rows': snap_rows})
 
-    # Comparison ledger
-    ledger = [[_txt(l.get('label')), _num(l.get('rev0')), _num(l.get('rev1')), _num(l.get('delta'))]
-              for l in (report.get('ledger') or [])]
+    # Comparison ledger — one named count per row (owner comment 60)
+    def lcell(v):
+        return '—' if v is None or v == '' else (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v))
+    ledger = []
+    for l in (report.get('ledger') or []):
+        r0c, r1c = (l['span'], l['span']) if l.get('span') else (lcell(l.get('rev0')), lcell(l.get('rev1')))
+        ledger.append([_txt(l.get('group')), ('    ' if l.get('sub') else '') + _txt(l.get('label')),
+                       r0c, r1c, _txt(l.get('change')), _txt(l.get('meaning'))])
+    checks = report.get('ledger_checks') or []
     blocks.append({'title': 'Comparison ledger',
-                   'headers': ['Measure', 'Rev.00', 'Rev.01', 'Change'],
-                   'rows': _rows_or_none(ledger, 4)})
+                   'note': ('Check: ' + ' · '.join(checks)) if checks else None,
+                   'headers': ['Group', 'Measure', 'Rev.00', 'Rev.01', 'Change', 'What it means'],
+                   'rows': _rows_or_none(ledger, 6)})
 
     # Scope change — by activity code (the activity-code analysis; no Building column, comment 1)
     sbc = codes.get('scope_by_code') or {}
