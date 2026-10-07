@@ -7,8 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Changed — Consultant Review: the tables show their borders (comment 57)
-The **Driving logic & lag changes vs baseline** table — and the Duration table in the report — now draw a full grid: every cell is boxed, on screen and in the PDF, so a row and its Baseline / Update columns are easy to follow. Before, the report had only a pale line under each row and the screen had no lines between the columns.
+### Changed — Consultant Review: table borders, highlights in every export, untrimmed preview (comment 57)
+- **Borders.** The **Driving logic & lag changes vs baseline** table — and the Duration table in the report — draw a full grid: every cell is boxed, on screen, in the PDF and in Word. Before, the report had only a pale line under each row and the screen had no lines between the columns.
+- **Highlights in PDF / Word / Excel.** The marks the screen table shows are now in every export: the **driving link** is bold with a ▶ before its ID, a link **changed** vs the baseline is red, an **added** link green and a **removed** link struck through — one link per line, with the legend under the table. Before, the exports listed the links as plain text joined with “/” and coloured every update relationship red whether it had changed or not.
+- **Print preview no longer trimmed.** A landscape report (Consultant Review, Update Analysis, Update vs Update, Critical Path Analyzer, Baseline Revision, Knowledge Base) is now previewed on the landscape page it prints on. It was laid out on the portrait width, so its wide tables ran past the page edge and were cut off in the preview while the PDF was complete.
 
 ### Added — Lag Report: how the lag charts are counted (comment 55)
 Under **Lags by relationship type** and **Lags by WBS area** the Lag Report now says how each number is worked out — on screen, in the PDF and in Excel. Both are counted from the relationships that carry a lag or a lead (Grain Bulk: 406 of 2,631 relationships); each bar is the lagged links of that type, or of that WBS area, and its % is that count ÷ all lagged links (FS 256 ÷ 406 = 63.1%). A lagged link is counted under its **successor** activity's WBS area — the WBS level just below the project — and when there are more than 10 areas the note says the 10 with the most lags are shown.

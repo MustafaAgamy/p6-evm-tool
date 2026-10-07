@@ -194,6 +194,8 @@ def _cell(col, row, value, style=None):
             props = ''
             if run.get('b'):
                 props += '<b/>'
+            if run.get('strike'):
+                props += '<strike/>'
             if run.get('color'):
                 props += f'<color rgb="{run["color"]}"/>'
             rpr = f'<rPr>{props}<sz val="11"/><rFont val="Calibri"/></rPr>' if props else ''

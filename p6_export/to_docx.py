@@ -630,10 +630,11 @@ class _Writer:
                     longest[ci] = max(longest[ci], min(len(word), 40) * pt * per)
         widths = _fit_widths(widths, [int(w * 12700) + 101600 + 25400 for w in longest])
         hair = _hex(t.border_color) or self.hair
+        side = (4, hair) if getattr(t, 'grid', False) else None     # full grid when the report boxes its cells
         tblPr = table._tbl.tblPr
         tblPr.append(_borders('w:tblBorders', {
-            'top': (4, hair), 'bottom': (4, hair), 'left': None, 'right': None,
-            'insideH': (4, hair), 'insideV': None}))
+            'top': (4, hair), 'bottom': (4, hair), 'left': side, 'right': side,
+            'insideH': (4, hair), 'insideV': side}))
         trs = table.rows
         for ri in range(nrows):
             if ri < t.header_rows:

@@ -45,6 +45,15 @@ import {
 import { takeDocExport, pendingExportPlan } from './export_intent.js';
 
 const PAGE_W = 820;   // approximate print page content width (px); the page is scaled to fit
+const PAGE_W_LANDSCAPE = 1032;   // A4 landscape content width (297 mm − 2 × 12 mm margins)
+
+// The preview page is as wide as the page the PDF prints on: a report whose own stylesheet
+// says `@page { size: A4 landscape }` (Consultant Review, …) is laid out on the landscape
+// width. Laid out on the portrait width its wide tables ran past the page edge and showed
+// trimmed in the preview while the PDF was complete (owner comment 57).
+export function pageWidthFor(html) {
+  return /@page\s*\{[^}]*size\s*:[^;}]*landscape/i.test(String(html || '')) ? PAGE_W_LANDSCAPE : PAGE_W;
+}
 
 const EXPORTS = [
   { kind: 'pdf',  label: 'PDF',   ext: 'pdf'  },
@@ -122,7 +131,8 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   const page   = overlay.querySelector('.rpv-page');
   const frame  = overlay.querySelector('.rpv-frame');
   const toastEl = overlay.querySelector('.rpv-toast');
-  page.style.width = frame.style.width = PAGE_W + 'px';
+  let pageW = PAGE_W;
+  page.style.width = frame.style.width = pageW + 'px';
   page.style.transformOrigin = 'top left';
 
   let toastTimer = null;
@@ -139,14 +149,16 @@ export function showReportPreview({ title, subtitle, html, onSave, sections, sel
   let contentH = 1100;
   const relayout = () => {
     const avail = scroll.clientWidth - 32;              // minus padding
-    const scale = Math.min(1, avail / PAGE_W);
+    const scale = Math.min(1, avail / pageW);
     page.style.transform = `scale(${scale})`;
-    canvas.style.width = (PAGE_W * scale) + 'px';
+    canvas.style.width = (pageW * scale) + 'px';
     canvas.style.height = (contentH * scale) + 'px';
   };
   frame.addEventListener('load', () => {
     try {
       const doc = frame.contentDocument;
+      pageW = pageWidthFor(doc.documentElement.outerHTML);
+      page.style.width = frame.style.width = pageW + 'px';   // before measuring the height
       contentH = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight) || 1100;
     } catch { contentH = 1100; }
     page.style.height = frame.style.height = contentH + 'px';
@@ -443,7 +455,8 @@ export function showReportContentsPreview(opts) {
   const canvas = overlay.querySelector('.rpv-canvas');
   const page   = overlay.querySelector('.rpv-page');
   const frame  = overlay.querySelector('.rpv-frame');
-  page.style.width = frame.style.width = PAGE_W + 'px';
+  let pageW = PAGE_W;
+  page.style.width = frame.style.width = pageW + 'px';
   page.style.transformOrigin = 'top left';
   const paintBackdrop = () => { page.style.background = frame.style.background = backdropColor(mode); };
   paintBackdrop();
@@ -451,14 +464,16 @@ export function showReportContentsPreview(opts) {
   let contentH = 1100;
   const relayout = () => {
     const avail = scroll.clientWidth - 32;
-    const scale = Math.min(1, avail / PAGE_W);
+    const scale = Math.min(1, avail / pageW);
     page.style.transform = `scale(${scale})`;
-    canvas.style.width = (PAGE_W * scale) + 'px';
+    canvas.style.width = (pageW * scale) + 'px';
     canvas.style.height = (contentH * scale) + 'px';
   };
   frame.addEventListener('load', () => {
     try {
       const doc = frame.contentDocument;
+      pageW = pageWidthFor(doc.documentElement.outerHTML);
+      page.style.width = frame.style.width = pageW + 'px';   // before measuring the height
       contentH = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight) || 1100;
     } catch { contentH = 1100; }
     page.style.height = frame.style.height = contentH + 'px';

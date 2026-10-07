@@ -259,3 +259,32 @@ def test_report_tables_draw_a_full_grid():
     assert re.search(r'table\.data th \{\{ border: 1px solid', src)
     css = open('ui/style.css', encoding='utf-8').read()
     assert re.search(r'\.cmp-log th, \.cmp-log td[^{]*\{ border: 1px solid', css)
+
+
+def _hl_report():
+    link = lambda code, st='same', drv=False, t='FS': {
+        'code': code, 'name': 'N ' + code, 'type': t, 'lag_days': 0.0, 'status': st, 'driving': drv}
+    return {'logic': {'rows': [{
+        'activity_id': 'A1', 'activity_name': 'Act', 'change_label': 'Type changed',
+        'baseline_preds': [link('P1', drv=True), link('P2')], 'baseline_succs': [],
+        'update_preds': [link('P1', 'changed', True, 'FF'), link('P2', 'removed'), link('P3', 'added')],
+        'update_succs': []}]}, 'dashboard': {}}
+
+
+def test_exports_carry_the_screen_link_highlights():
+    """Owner comment 57: the driving link (bold + arrow) and the changed / added / removed
+    colours of the screen table are in the PDF / Word HTML and in the Excel sheet."""
+    from p6_compare import exporters
+    from p6_evm.xlsx_writer import RichText
+    for layout in ('landscape', 'portrait'):
+        h = exporters.render_html(_hl_report(), sections=('logic',), layout=layout)
+        assert 'ldrv' in h and '▶' in h
+        assert 'class="lchg"' in h and 'class="ladd"' in h and 'class="lrem"' in h
+        assert 'the driving link' in h                       # the legend under the table
+    row = exporters._logic_section_rows(_hl_report())[0]
+    ids = row[10]                                            # update predecessor IDs
+    assert isinstance(ids, RichText)
+    assert ids.runs[0]['t'].startswith('▶ P1') and ids.runs[0]['b'] and ids.runs[0]['color'] == 'FFB91C1C'
+    assert ids.runs[1].get('strike') and not ids.runs[1]['b']
+    assert ids.runs[2]['color'] == 'FF15803D'
+    assert row[7] == '—'                                     # no links → a dash, as before
