@@ -91,5 +91,5 @@ def test_report_shows_the_ledger_and_no_quality_signals_table():
     led = next(b for b in blocks if b['title'] == 'Comparison ledger')
     assert led['headers'] == ['Group', 'Measure', 'Rev.00', 'Rev.01', 'Change', 'What it means']
     row = next(r for r in led['rows'] if 'Added' in r[1] and r[0] == 'Activities')
-    assert row[2:5] == ['—', '524', '+524 added']
+    assert row[2:5] == ['—', 524, '+524 added']            # a real number in Excel
     assert not any('quality' in b['title'].lower() for b in blocks)
