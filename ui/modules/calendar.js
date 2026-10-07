@@ -736,9 +736,10 @@ export function recoverySummary(w) {
   const wd = `${days} working day${days !== 1 ? 's' : ''}`;
   const hrs = hours ? ` (about ${hours} work-hours)` : '';
   const joined = labels.length <= 1 ? (labels[0] || '') : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  const lostTxt = `${wd} lost${hrs}`;
   const text = labels.length
-    ? `Add a second shift over ${joined} to recover the ${wd}${hrs}. ${labels.length === 1 ? 'This month loses' : 'These months lose'} the most: ${got} of the ${total} lost working days fall in ${labels.length === 1 ? 'it' : 'them'}.`
-    : `Add a second shift over the affected weeks to recover the ${wd}${hrs}.`;
+    ? `Add a second shift in ${joined} — ${labels.length === 1 ? 'the month' : 'the months'} with the most bad weather — to recover the ${lostTxt}.`
+    : `Add a second shift over the affected weeks to recover the ${lostTxt}.`;
   const expected = Math.trunc(w.expected_bad_days_total || 0);
   const alreadyOff = Math.max(0, expected - days);
   const basis = expected ? `${expected} bad-weather day${expected !== 1 ? 's' : ''} expected − ${alreadyOff} on days already off (weekend / holiday) = ${wd} lost` : '';
@@ -801,7 +802,7 @@ function _weatherSection() {
         <div class="cal-rsum-rec"><div class="cal-rsum-k">Recovery recommendation · second shift</div>
           <div class="cal-rsum-t">${escapeHtml(rs.text)}</div></div>
       </div>`
-    : '<p class="cal-rsum-none"><b>No recovery needed</b> — bad weather adds no net delay to the project finish.</p>';
+    : '<p class="cal-rsum-none"><b>No recovery needed</b> — bad weather adds no working days to the project finish.</p>';
   const recTable = _sec(7, 'Conclusion & recovery recommendation', 'advisory — the total weather impact and the second shift that recovers it') +
     `<div class="cal-card">${recBody}${conclP}</div>`;
   // §4 — What's causing the lost days, by weather type

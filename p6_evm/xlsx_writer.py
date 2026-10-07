@@ -868,7 +868,7 @@ def _wx_recovery_rows(w):
         rows.append(['Weather-adjusted finish', _human_date(rs['adjusted_finish'])])
         rows.append(['Recovery recommendation (second shift)', rs['text']])
     else:
-        rows.append(['Recovery recommendation', 'No recovery needed - bad weather adds no net delay.'])
+        rows.append(['Recovery recommendation', 'No recovery needed - bad weather adds no working days to the project finish.'])
     if w.get('conclusion'):
         rows.append(['Conclusion', w['conclusion']])
     return rows

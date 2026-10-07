@@ -530,7 +530,7 @@ def _weather_section(weather, dashboard=None, scope=''):
             f'<td class="rsum-rec"><div class="rsum-k">Recovery recommendation · second shift</div>'
             f'<div class="rsum-t">{_esc(rs["text"])}</div></td></tr></table>')
     else:
-        rec_body = '<p class="lg"><b>No recovery needed</b> — bad weather adds no net delay to the project finish.</p>'
+        rec_body = '<p class="lg"><b>No recovery needed</b> — bad weather adds no working days to the project finish.</p>'
     # heading + tiles + conclusion stay on one page (the page-coordination standard)
     rec_table = ('<div style="break-inside:avoid;page-break-inside:avoid">'
                  '<h2 class="sec">7 · Conclusion &amp; Recovery Recommendation</h2>' + rec_body + concl_p

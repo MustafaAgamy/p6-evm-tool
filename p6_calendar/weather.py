@@ -540,15 +540,15 @@ def recovery_summary(w):
     hours = round(days * float(w['day_hours']), 1) if w.get('day_hours') else None
     wd = f'{days} working day{"s" if days != 1 else ""}'
     hrs = f' (about {hours:g} work-hours)' if hours else ''
-    # Two plain sentences (owner: "13 of the 21 days lost" read as a contradiction of the
-    # total of 30): what to do, then which share of the LOST WORKING DAYS the months hold.
+    # One plain sentence, approved by the owner (comment 58): where to add the shift, why
+    # there, and what it recovers. No "N of M" share - it read as a contradiction of the total.
+    lost_txt = f'{wd} lost{hrs}'
     if labels:
-        hold = ('This month loses' if len(labels) == 1 else 'These months lose')
-        text = (f'Add a second shift over {_join_and(labels)} to recover the {wd}{hrs}. '
-                f'{hold} the most: {got} of the {total} lost working days fall in '
-                f'{"it" if len(labels) == 1 else "them"}.')
+        most = 'the month' if len(labels) == 1 else 'the months'
+        text = (f'Add a second shift in {_join_and(labels)} — {most} with the most bad weather — '
+                f'to recover the {lost_txt}.')
     else:
-        text = f'Add a second shift over the affected weeks to recover the {wd}{hrs}.'
+        text = f'Add a second shift over the affected weeks to recover the {lost_txt}.'
     # how the expected bad-weather days become the lost working days
     expected = int(w.get('expected_bad_days_total') or 0)
     already_off = max(0, expected - days)
@@ -590,7 +590,7 @@ def _weather_conclusion(*, total, net, adjusted, by_cause, monthly, milestones, 
         dom_txt = f' The risk is driven mainly by {ranked[0]["label"].lower()} ({pct}% of the flagged days).'
     peak_txt = ''
     if peaks:               # the same months the recovery recommendation names (lost working days)
-        peak_txt = f' Exposure concentrates around {_join_and(peaks)}.'
+        peak_txt = f' Most of the bad weather is in {_join_and(peaks)}.'
     elif monthly:
         mx = max(m['count'] for m in monthly)
         peaks = [m['label'] for m in monthly if m['count'] == mx and mx > 0]

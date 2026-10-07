@@ -98,16 +98,16 @@ def test_recovery_is_one_summary_of_the_total_impact():
     rs = r['recovery_summary']
     assert rs['days'] == r['net_finish_delay'] >= 1
     assert rs['adjusted_finish'] == r['weather_adjusted_finish'] and rs['planned_finish'] == r['project_finish']
-    assert rs['shift_months'] and rs['text'].startswith('Add a second shift over ' + rs['shift_months'][0])
-    assert f"recover the {rs['days']} working day" in rs['text']
+    assert rs['shift_months'] and rs['text'].startswith('Add a second shift in ' + rs['shift_months'][0])
+    assert f"recover the {rs['days']} working day" in rs['text'] and ' of the ' not in rs['text']
     # the peak months: widened until they hold at least half the lost days, in calendar order
     w = {'net_finish_delay': 10, 'weather_adjusted_finish': '2027-05-19', 'day_hours': 8,
          'histogram': [{'label': 'Dec 2026', 'bad': 2}, {'label': 'Jan 2027', 'bad': 3},
                        {'label': 'Feb 2027', 'bad': 3}, {'label': 'Mar 2027', 'bad': 1}, {'label': 'Apr 2027', 'bad': 1}]}
     s = recovery_summary(w)
     assert s['shift_months'] == ['Jan 2027', 'Feb 2027'] and s['shift_days'] == 6 and s['hours'] == 80
-    assert s['text'] == ('Add a second shift over Jan 2027 and Feb 2027 to recover the 10 working days '
-                         '(about 80 work-hours). These months lose the most: 6 of the 10 lost working days fall in them.')
+    assert s['text'] == ('Add a second shift in Jan 2027 and Feb 2027 — the months with the most bad weather — '
+                         'to recover the 10 working days lost (about 80 work-hours).')
     # the total is explained: expected bad-weather days - those on days already off = lost working days
     b = recovery_summary({**w, 'expected_bad_days_total': 14})
     assert b['already_off'] == 4 and b['basis'] == ('14 bad-weather days expected − 4 on days already off '
