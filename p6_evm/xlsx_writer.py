@@ -569,6 +569,22 @@ def _timeline_sheet_xml(months, cal_name, subtitle, header_lines=None):
                         row_heights=row_heights)
 
 
+def _wrapped_lines(value, width):
+    """How many lines a wrapped cell needs at a column `width` (characters)."""
+    import math
+    if isinstance(value, Styled):
+        value = value.text if value.text is not None else value.value
+    if isinstance(value, RichText):
+        value = ''.join(str(run.get('t', '')) for run in value.runs)
+    per = max(1.0, (width or 9) - 1.5)                  # cell padding
+    return sum(max(1, math.ceil(len(line) * 1.08 / per)) for line in str(value).split('\n')) or 1
+
+
+def _row_height(lines):
+    """Row height (points) that shows `lines` wrapped lines of 11-pt text - None for one line."""
+    return None if lines <= 1 else round(15 * lines + 3, 1)
+
+
 # _CAL_STYLES xf 13: a table cell centred both ways and wrapped — the calendar and Bad Weather
 # workbooks show their data in the middle of the cells (owner, on comment 58).
 _CAL_CENTER_STYLE = 13
@@ -634,7 +650,19 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
             r += 1
     if col_widths is None:
         col_widths = _auto_col_widths(width_matrix)
-    return _cells_sheet(cells, col_widths=col_widths)
+    row_heights = None
+    if data_style is not None:
+        # every word of a wrapped cell is shown: the row is as tall as its longest cell needs
+        # (owner, on comment 58 - a long reason / activity list was cut at the row height)
+        auto = _auto_col_widths(width_matrix)
+        need = {}
+        for (rr, cc), (v, st) in cells.items():
+            if st in (title_style, note_style) and cc == 0 and st != data_style and st != header_style:
+                continue                                  # titles / notes run across the sheet
+            w = col_widths.get(cc) or auto.get(cc) or 9
+            need[rr] = max(need.get(rr, 1), _wrapped_lines(v, w))
+        row_heights = {rr: _row_height(n) for rr, n in need.items() if n > 1}
+    return _cells_sheet(cells, col_widths=col_widths, row_heights=row_heights)
 
 
 _CAL_FIGURES = (
@@ -860,6 +888,8 @@ def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle, header_lines=Non
     for i, (lab, st) in enumerate(_WX_LEGEND):
         cells[(4 + off, i)] = (lab, st)
     row_heights = {}
+    WX_COL = 24                      # wide enough that a day's reason wraps to few lines
+    lines = {}
     r = 6 + off
     for m in months:
         cells[(r, 0)] = (m.get('label', ''), 1)
@@ -878,17 +908,18 @@ def _wx_grid_sheet_xml(months, cal_name, bad_by_date, subtitle, header_lines=Non
                 cond = bad_by_date[iso]
                 cells[(rr, cc)] = ((f'{dnum}\n{cond}' if cond else dnum), WX_BAD_STYLE)
                 if cond:
-                    row_heights[rr] = 30
+                    lines[rr] = max(lines.get(rr, 1), _wrapped_lines(f'{dnum}\n{cond}', WX_COL))
             elif day['status'] == 'work':
                 cells[(rr, cc)] = (dnum, _STATUS_STYLE['work'])
             else:                                        # weekend / holiday / shutdown → one "Non-working"
                 nm = day.get('name')
                 cells[(rr, cc)] = ((f'{dnum}\n{nm}' if nm else dnum), _STATUS_STYLE['weekend'])
                 if nm:
-                    row_heights[rr] = 30
+                    lines[rr] = max(lines.get(rr, 1), _wrapped_lines(f'{dnum}\n{nm}', WX_COL))
             idx += 1
         r += max(1, (idx + 6) // 7) + 1     # weeks used + a blank row
-    return _cells_sheet(cells, col_widths={i: 15 for i in range(7)}, row_heights=row_heights)
+    row_heights = {rr: _row_height(n) for rr, n in lines.items() if n > 1}   # every word shown
+    return _cells_sheet(cells, col_widths={i: WX_COL for i in range(7)}, row_heights=row_heights)
 
 
 def write_weather_xlsx(path, ca, weather, meta=None):

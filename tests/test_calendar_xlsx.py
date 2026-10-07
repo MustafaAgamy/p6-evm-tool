@@ -265,3 +265,21 @@ def test_calendar_and_weather_workbooks_centre_their_cells():
     xml = xw._stacked_sheet([{'title': 'T', 'headers': ['A', 'B'], 'rows': [['x', 5]]}],
                             title_style=9, note_style=0, header_style=2, data_style=xw._CAL_CENTER_STYLE)
     assert f'<c r="A3" s="{xw._CAL_CENTER_STYLE}"' in xml and f'<c r="B3" s="{xw._CAL_CENTER_STYLE}"' in xml
+
+
+def test_wrapped_cells_get_a_row_tall_enough_to_show_every_word():
+    """Owner, on comment 58: a wrapped cell (a bad-weather day's reason, a long activity
+    list) must be shown in full - the row is as tall as its longest cell needs."""
+    import re
+    from p6_evm import xlsx_writer as xw
+    assert xw._wrapped_lines('short', 24) == 1
+    assert xw._wrapped_lines('12\nrain 21.0 mm at or above the 5 mm limit, heat 43.0 C', 24) >= 4
+    long = 'Installation of Silo Mechanical Works, ' * 12
+    xml = xw._stacked_sheet([{'title': 'T', 'headers': ['#', 'Affected work'], 'rows': [[1, long], [2, 'x']]}],
+                            title_style=9, note_style=0, header_style=2, data_style=xw._CAL_CENTER_STYLE)
+    ht = dict(re.findall(r'<row r="(\d+)" ht="([\d.]+)"', xml))
+    assert float(ht['3']) >= 15 * 8 and '4' not in ht            # the long row is tall; the short one is default
+    months = [{'label': 'Jan 2027', 'year': 2027, 'month': 1, 'first_weekday': 4,
+               'days': [{'d': d, 'status': 'work'} for d in range(1, 32)]}]
+    grid = xw._wx_grid_sheet_xml(months, 'Cal', {'2027-01-12': 'rain 21.0 mm at or above the 5 mm limit, heat 43.0 C above 42 C'}, '')
+    assert 'width="24"' in grid and re.search(r'<row r="\d+" ht="(6\d|[7-9]\d|1\d\d)', grid)

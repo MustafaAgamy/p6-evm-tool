@@ -12,7 +12,7 @@ Section 7 is now a single summary instead of a table that repeated the same thre
 
 ### Fixed — Bad Weather: the months chart runs to the bad-weather completion; Excel cells centred (comment 58)
 - **Weather window.** The estimate now reads the weather up to the **bad-weather completion**, not only to the schedule's own finish. Before, the months chart stopped at the forecast completion, so when weather moved the finish into a later part of the month that month still showed 1 working day and no weather (Grain Bulk: forecast 02-May.2027, bad-weather completion 19-May.2027, May 2027 showed 1 working day — now 11). The days the finish — and each milestone — is pushed into are themselves checked for bad weather, so a bad day there adds to the delay.
-- **Excel.** In the Bad Weather and P6 Calendar Audit workbooks the data sits in the middle of the cells (centred across and down, wrapped); titles stay left.
+- **Excel.** In the Bad Weather and P6 Calendar Audit workbooks the data sits in the middle of the cells (centred across and down, wrapped); titles stay left. Every word of a wrapped cell is shown: each row is as tall as its longest cell needs (a long reason or activity list was cut off at the row height), and the day columns of the Bad-Weather Calendar sheet are wider so a bad-weather day's reason reads in full.
 
 ### Changed — Consultant Review: table borders, highlights in every export, untrimmed preview (comment 57)
 - **Borders.** The **Driving logic & lag changes vs baseline** table — and the Duration table in the report — draw a full grid: every cell is boxed, on screen, in the PDF and in Word. Before, the report had only a pale line under each row and the screen had no lines between the columns.
