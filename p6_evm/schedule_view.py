@@ -80,6 +80,23 @@ def working_delay(cal, baseline_finish, finish):
         return None
 
 
+def working_span(cal, start, finish):
+    """A summary bar's duration in working days on `cal` (P6's Original Duration of a WBS band:
+    working hours from its start to its finish, over the calendar's hours per day)."""
+    d = working_delay(cal, start, finish)
+    return None if d is None else abs(d)
+
+
+def critical_records(records):
+    """The records P6's Critical filter keeps: flagged Critical and not finished."""
+    out = []
+    for r in records:
+        a = r['activity']
+        if is_critical(a, activity_status(a), r.get('total_float')):
+            out.append(r)
+    return out
+
+
 def float_delay(tf):
     """Days late from a Total Float in days: -(total float), to the whole day as P6 shows it."""
     if not isinstance(tf, (int, float)):
@@ -247,6 +264,7 @@ def gantt_activities(records, wbs_map, data=None):
             'delay':      float_delay(tf) if status != 'Completed' else None,
             # the activity's P6 activity codes, for the Gantt's pick-a-code column
             'codes':      {k: str(v) for k, v in (a.get('activity_codes') or {}).items() if v},
+            'wbs_id':     str(a.get('wbs_id')) if a.get('wbs_id') is not None else '',
         })
         paths.append(path)
         costs.append((r.get('bac') or 0) > 0)
@@ -284,7 +302,7 @@ def wbs_views(records, data):
 
     def base():
         return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None,
-                'ef': None, 'lf': None, 'open': 0}
+                'ef': None, 'lf': None, 'open': 0, 'all': 0, 'b': 0.0, 'pv': 0.0, 'ev': 0.0, 'ps': None, 'pf': None}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     direct = defaultdict(base)
@@ -300,6 +318,13 @@ def wbs_views(records, data):
         d['ef'] = _mx(d['ef'], a.get('actual_finish') or a.get('remaining_early_finish'))
         d['lf'] = _mx(d['lf'], a.get('actual_finish') or a.get('remaining_late_finish'))
         d['open'] += 0 if a.get('actual_finish') else 1
+        d['all'] += 1
+        d['ps'] = _mn(d['ps'], a.get('planned_start'))   # P6's Original Duration of a band runs
+        d['pf'] = _mx(d['pf'], a.get('planned_finish'))  # from its earliest Planned Start to its latest Planned Finish
+        bac = r.get('bac') or 0.0                       # P6's Budgeted Total Cost / PV / EV
+        d['b'] += bac
+        d['pv'] += bac * (r.get('planned_pct') or 0.0)
+        d['ev'] += bac * (r.get('actual_pct') or 0.0)
         bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
         if bl:
             d['bs'] = _mn(d['bs'], bl.get('planned_start'))
@@ -330,6 +355,8 @@ def wbs_views(records, data):
             t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']; t['c'] += c['c']
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
             t['ef'] = _mx(t['ef'], c['ef']); t['lf'] = _mx(t['lf'], c['lf']); t['open'] += c['open']
+            t['all'] += c['all']; t['b'] += c['b']; t['pv'] += c['pv']; t['ev'] += c['ev']
+            t['ps'] = _mn(t['ps'], c['ps']); t['pf'] = _mx(t['pf'], c['pf'])
             t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
         sub[wid] = t
         return t
@@ -363,6 +390,12 @@ def wbs_views(records, data):
             # latest Early Finish - on the project's default calendar. None once all work is done.
             'delay':      working_delay(cal, t['lf'], t['ef']) if t['open'] else None,
             'total_float': (lambda d: None if d is None else -d)(working_delay(cal, t['lf'], t['ef']) if t['open'] else None),
+            # the other columns of P6's WBS band
+            'count':      t['all'],                                   # Activity Count
+            'orig_dur':   working_span(cal, t['ps'], t['pf']),        # Original Duration (working days)
+            'bac':        round(t['b'], 2),                           # Budgeted Total Cost
+            'pv':         round(t['pv'], 2),                          # Planned Value Cost
+            'ev':         round(t['ev'], 2),                          # Earned Value Cost
             'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
         })
         for k in sorted(childs, key=order):          # the order P6 itself lists them in
@@ -391,4 +424,5 @@ def build_views(records, data):
     'cost_loaded', 'progress_groups'}."""
     summary, main = wbs_views(records, data)
     return {'activities': gantt_activities(records, data.wbs, data), 'wbs_summary': summary, 'wbs_main': main,
+            'wbs_critical': wbs_views(critical_records(records), data)[0],
             'cost_loaded': cost_loaded_overview(records), 'progress_groups': progress_groups(records, data)}

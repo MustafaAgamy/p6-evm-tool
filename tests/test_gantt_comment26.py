@@ -130,7 +130,7 @@ def test_wbs_view_dates_are_current_dates_too():
     assert by['C']['finish'] == '2025-06-01'
     assert [m['name'] for m in main] == ['Engineering', 'Construction']      # the file's own (P6) order
     views = sv.build_views(_records(), data)
-    assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'cost_loaded', 'progress_groups'} and len(views['activities']) == 4
+    assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'wbs_critical', 'cost_loaded', 'progress_groups'} and len(views['activities']) == 4
 
 
 def test_views_are_stored_with_the_snapshot_and_removed_with_the_project(temp_db):
@@ -152,7 +152,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 3:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 4:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -295,3 +295,41 @@ def test_gantt_keeps_construction_rows_only_and_offers_a_code_column():
     assert [b['title'] for b in blocks] == ['Schedule Gantt (Critical activities)', 'Construction']
     assert blocks[1]['headers'][:3] == ['Activity ID', 'Type of Works', 'Activity Name']
     assert {r[0]: r[1] for r in blocks[1]['rows']} == {'C1': 'Civil', 'C2': 'Steel', 'C3': ''}
+
+
+def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
+    """Round 4 (owner's P6 example sheet): each WBS summarised over its CRITICAL activities only -
+    earliest Start, latest Finish, Activity Count, Budget / PV / EV, Schedule % and Performance %,
+    Original Duration from Planned Start to Planned Finish, Total Float from the summarised dates."""
+    wbs = {'P': {'name': 'Project', 'parent_object_id': None, 'seq': '0'},
+           'B': {'name': 'Phase B', 'parent_object_id': 'P', 'seq': '10'}}
+
+    def rec(i, tf, bac, pl, ac, es, ef, lf, **kw):
+        a = _act(i, 'B', D(2025, 1, 6, 8), D(2025, 1, 17, 17), remaining_early_start=es, remaining_early_finish=ef,
+                 remaining_late_finish=lf, calendar_id='c', is_critical=tf <= 0, **kw)
+        return {'activity': a, 'total_float': tf, 'bac': bac, 'planned_pct': pl, 'actual_pct': ac}
+    recs = [
+        rec('K1', -5.0, 100.0, 1.0, 0.5, D(2025, 1, 13, 8), D(2025, 1, 24, 17), D(2025, 1, 17, 17)),
+        rec('K2', -3.0, 300.0, 0.5, 0.0, D(2025, 1, 20, 8), D(2025, 1, 31, 17), D(2025, 1, 28, 17)),
+        rec('N1', 9.0, 600.0, 1.0, 1.0, D(2025, 1, 6, 8), D(2025, 2, 28, 17), D(2025, 3, 13, 17)),     # not critical
+    ]
+
+    class Cal:
+        def is_working_day(self, d):
+            return d.weekday() < 5
+    data = SimpleNamespace(wbs=wbs, calendars={'c': Cal()}, project={'default_calendar_id': 'c'}, baseline_by_id={})
+    crit = sv.critical_records(recs)
+    assert [r['activity']['id'] for r in crit] == ['K1', 'K2']
+    b = {n['name']: n for n in sv.wbs_views(crit, data)[0]}['Phase B']
+    assert b['count'] == 2 and b['start'] == '2025-01-13' and b['finish'] == '2025-01-31'
+    assert b['bac'] == 400.0 and b['pv'] == 250.0 and b['ev'] == 50.0
+    assert b['planned'] == 62.5 and b['actual'] == 12.5                     # PV / budget, EV / budget
+    assert b['total_float'] == -3 and b['delay'] == 3                       # late finish 28-Jan against early finish 31-Jan
+    assert b['orig_dur'] == 10                                              # Planned Start 06-Jan to Planned Finish 17-Jan
+    views = sv.build_views(recs, data)
+    assert [n['name'] for n in views['wbs_critical']] == ['Project', 'Phase B'] and views['wbs_summary'][1]['count'] == 3
+    rows = {r['id']: r for r in views['activities']}
+    assert rows['K1']['wbs_id'] == 'B'
+    gantt, ov = _read('ui', 'modules', 'gantt.js'), _read('ui', 'modules', 'overview.js')
+    assert 'result.wbs_critical' in gantt and 'g-band' in gantt
+    assert "data-mode=\"critical\"" in ov and 'Original Duration' in ov and 'Budgeted Total Cost' in ov

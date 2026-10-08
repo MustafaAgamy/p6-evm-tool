@@ -155,7 +155,17 @@ const WBS_COLS = [
   { key: 'planned',         label: 'Planned %',       w: 64, kind: 'pct'  },
   { key: 'actual',          label: 'Actual %',        w: 64, kind: 'pct'  },
   { key: 'delay',           label: 'Delay',           w: 74, kind: 'delay'},
+  // the other columns of P6's WBS band (off until ticked in ▦ Columns)
+  { key: 'total_float',     label: 'Total Float',     w: 70, kind: 'days',  opt: true },
+  { key: 'count',           label: 'Activity Count',  w: 70, kind: 'int',   opt: true },
+  { key: 'orig_dur',        label: 'Original Duration', w: 76, kind: 'days', opt: true },
+  { key: 'pv',              label: 'Planned Value Cost', w: 112, kind: 'money', opt: true },
+  { key: 'ev',              label: 'Earned Value Cost',  w: 112, kind: 'money', opt: true },
+  { key: 'bac',             label: 'Budgeted Total Cost', w: 112, kind: 'money', opt: true },
 ];
+const WBS_MODE_KEY = 'p6evm_wbs_mode';
+let wbsMode = null;               // 'all' | 'critical' — which activities the WBS summarises
+const money = (v) => (typeof v === 'number' ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
 const WBS_COLS_KEY = 'p6evm_wbs_cols';
 let wbsMainId = null;              // remembers the picked main branch across re-renders
 let wbsCols = null;               // Set of shown column keys (localStorage-backed)
@@ -167,7 +177,7 @@ const pctVal = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);   // backend alr
 
 function wbsShownCols() {
   if (!wbsCols) {
-    let shown = WBS_COLS.map((c) => c.key);           // default: all shown
+    let shown = WBS_COLS.filter((c) => !c.opt).map((c) => c.key);   // default: the standard set
     try { const s = JSON.parse(localStorage.getItem(WBS_COLS_KEY) || 'null'); if (Array.isArray(s)) shown = s; } catch { /* default */ }
     wbsCols = new Set(shown);
   }
@@ -199,6 +209,9 @@ const wbsHasPct = (n) => !wbsAnyCost || (n.cost_loaded || 0) > 0;
 function wbsCellVal(col, n) {
   if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : 'no cost';
   if (col.kind === 'date') { const ms = toMs(n[col.key]); return Number.isNaN(ms) ? '—' : fmtShort(ms); }
+  if (col.kind === 'money') return money(n[col.key]);
+  if (col.kind === 'int')   return n[col.key] == null ? '—' : String(n[col.key]);
+  if (col.kind === 'days')  return n[col.key] == null ? '—' : `${n[col.key]} d`;
   const d = wbsDelay(n);                                // delay
   return d == null ? '—' : `${d > 0 ? '+' : ''}${d} d`;
 }
@@ -207,8 +220,14 @@ export function renderWbs(result) {
   const el = document.getElementById('wbs-body');
   _wbsPrint = null;
   if (!el || !result) return;
-  const nodes = result.wbs_summary || [];
-  const mains = result.wbs_main || [];
+  // 'All activities' or 'Critical activities' — the second summarises each WBS over its critical
+  // activities only, exactly what P6 shows in its WBS bands with the Critical filter on.
+  if (wbsMode == null) { try { wbsMode = localStorage.getItem(WBS_MODE_KEY) || 'all'; } catch { wbsMode = 'all'; } }
+  const critNodes = result.wbs_critical || [];
+  const critical = wbsMode === 'critical' && critNodes.length > 0;
+  const nodes = critical ? critNodes : (result.wbs_summary || []);
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const mains = (result.wbs_main || []).filter((m) => nodeIds.has(m.id));
 
   if (!nodes.length) {
     el.innerHTML = `
@@ -345,11 +364,14 @@ ${wbsHasPct(branch) ? `
       <tr><td>Baseline</td><td>${escapeHtml(blLine.replace(/^Baseline: /, ''))}</td></tr>` : ''}
     </tbody></table>`;
   _wbsPrint = [
-    { key: 'overview', label: `WBS overview — ${branch.name || 'all'}`, html: _wbsOverview },
+    { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
     { key: 'table',    label: 'WBS summary table',
       html: `<table class="wbs-print"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>` },
   ];
 
+  const modeSeg = critNodes.length
+    ? `<div class="wbst-seg wbst-mode" id="wbst-mode"><button data-mode="all" class="${critical ? '' : 'on'}">All activities</button><button data-mode="critical" class="${critical ? 'on' : ''}">Critical activities</button></div>`
+    : '';
   const seg = mains.length > 1
     ? `<div class="wbst-seg" id="wbst-seg">${mains.map((m) =>
         `<button data-mw="${escapeAttr(m.id)}" class="${m.id === wbsMainId ? 'on' : ''}">${escapeHtml(m.name)}</button>`).join('')}</div>`
@@ -365,12 +387,13 @@ ${wbsHasPct(branch) ? `
       </div></div>`;
 
   el.innerHTML = `
-    <div class="ov-head"><div class="ov-title"><h2>WBS — summary</h2>
+    <div class="ov-head"><div class="ov-title"><h2>WBS — summary${critical ? ' (Critical activities)' : ''}</h2>
       <div class="ov-chips">
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : '<span class="ov-chip">not cost-loaded — no Planned % / Actual %</span>'}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
+    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %), costs, Activity Count and Total Float.</p>' : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
@@ -390,6 +413,14 @@ ${wbsHasPct(branch) ? `
     </div></div>
     <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> read as days late — a float of −60 d is a delay of 60 d (+ late / − ahead); it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
 
+  const modeEl = document.getElementById('wbst-mode');
+  if (modeEl) modeEl.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]');
+    if (!b || b.dataset.mode === (critical ? 'critical' : 'all')) return;
+    wbsMode = b.dataset.mode;
+    try { localStorage.setItem(WBS_MODE_KEY, wbsMode); } catch { /* non-fatal */ }
+    renderWbs(result);
+  });
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-mw]');

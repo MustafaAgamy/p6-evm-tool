@@ -2765,6 +2765,12 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-inner.wbst-fit { width: 100%; box-sizing: border-box; overflow: hidden; }
 .wbst-fit .wc-tl { width: auto; flex: 1 1 0; min-width: 0; }
 .wbst-fit .wbst-dd { top: 0; }
+.wbst-mode { margin-bottom: 10px; }
+.wbst-modenote { margin: 0 0 10px; font-style: normal; }
+/* Gantt WBS bands: P6's summary line of the critical activities under each WBS */
+.g-grp.g-band .g-grp-lbl { grid-template-columns: var(--g-bandcols) !important; }
+.g-grp.g-band .g-grp-lbl > i { font-style: normal; font-size: 10.5px; font-family: ui-monospace, monospace; font-weight: 700; white-space: nowrap; }
+.g-band-bar { position: absolute; top: 9px; height: 7px; background: var(--text); opacity: .55; border-radius: 2px; }
 /* WBS names are never cut: the column takes the width they need and a longer name wraps */
 .wbst-fit .wc-wbs { width: var(--wbsw, 260px); }
 .wbst-fit .wbst-row { height: auto; min-height: 34px; }

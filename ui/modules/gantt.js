@@ -148,9 +148,37 @@ export function renderSchedule(result) {
     blk += html; blkH += h; blkN++;
     if (blkN >= GANTT_BLOCK) { blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`); blk = ''; blkH = 0; blkN = 0; }
   };
-  for (const g of groups) {
-    push(`<div class="g-grp"><div class="g-lbl g-grp-lbl" style="grid-template-columns:minmax(0,1fr) auto" title="${attr(g.name)}"><span>${escapeHtml(g.name)}</span><em>${g.rows.length}</em></div><div class="g-track"></div></div>`, GRP_H);
-    for (const { a, sMs, fMs } of g.rows) {
+  // WBS bands the way P6 lays them out: every WBS level above the critical activities, in P6's
+  // order, each band carrying P6's summary of ITS critical activities — Expected Start (earliest),
+  // Expected Finish (latest), Delay (= −its Total Float) and the Activity Count. Built from the
+  // critical-only WBS summary the server stores; a result without it keeps the plain groups.
+  const tree = (result.wbs_critical || []);
+  const byWbs = new Map();
+  for (const a of acts) { if (!byWbs.has(a.wbs_id)) byWbs.set(a.wbs_id, []); byWbs.get(a.wbs_id).push(a); }
+  const nodeById = new Map(tree.map((n) => [n.id, n]));
+  const keep = new Set();                              // WBS that hold a shown activity, with their ancestors
+  for (const id of byWbs.keys()) { let n = nodeById.get(id); while (n && !keep.has(n.id)) { keep.add(n.id); n = nodeById.get(n.parent); } }
+  const banded = tree.length > 0 && acts.every((a) => a.wbs_id && nodeById.has(a.wbs_id));
+  const bands = banded ? tree.filter((n) => keep.has(n.id)) : [];
+  const baseDepth = bands.reduce((m, n) => Math.min(m, n.depth), Infinity);
+  const rowSets = banded
+    ? bands.map((n) => ({ band: n, rows: (byWbs.get(n.id) || []).map((a) => ({ a, sMs: toMs(a.start), fMs: toMs(a.finish) })).sort((x, y) => x.sMs - y.sMs) }))
+    : groups.map((g) => ({ group: g, rows: g.rows }));
+  const bandCols = `minmax(0,1fr) 82px 82px 60px`;
+  for (const set of rowSets) {
+    if (set.band) {
+      const n = set.band, d = n.depth - baseDepth;
+      const bs = toMs(n.start), bf = toMs(n.finish);
+      const dl = { delay: n.delay };
+      const bbar = (!Number.isNaN(bs) && !Number.isNaN(bf)) ? `<div class="g-band-bar" style="left:${xOf(bs).toFixed(1)}px;width:${Math.max(3, xOf(bf) - xOf(bs)).toFixed(1)}px"></div>` : '';
+      push(`<div class="g-grp g-band"><div class="g-lbl g-grp-lbl" style="--g-bandcols:${bandCols}" title="${attr(n.name)} — ${n.count} critical activities · Total Float ${n.total_float == null ? '—' : n.total_float + ' d'}">`
+        + `<span style="padding-left:${d * 14}px">${escapeHtml(n.name)} <em>${n.count}</em></span><i>${gShort(n.start)}</i><i>${gShort(n.finish)}</i><i class="g-delay${delayCls(dl)}">${delayText(dl)}</i></div>`
+        + `<div class="g-track">${bbar}</div></div>`, GRP_H);
+    } else {
+      const g = set.group;
+      push(`<div class="g-grp"><div class="g-lbl g-grp-lbl" style="grid-template-columns:minmax(0,1fr) auto" title="${attr(g.name)}"><span>${escapeHtml(g.name)}</span><em>${g.rows.length}</em></div><div class="g-track"></div></div>`, GRP_H);
+    }
+    for (const { a, sMs, fMs } of set.rows) {
       const left = xOf(sMs);
       const w = Math.max(3, xOf(fMs) - left);
       const tt = attr(tip(a));
@@ -168,7 +196,7 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the activity’s Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
