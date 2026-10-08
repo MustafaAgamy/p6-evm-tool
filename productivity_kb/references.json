@@ -15,6 +15,40 @@
       "url": "https://www.slideshare.net/slideshow/pdf-5418/265861968"
     },
     {
+      "key": "hegazy_2019",
+      "status": "loaded",
+      "title": "Optimizing Labor Productivity in Egypt Using Regression Prediction Models",
+      "author": "Hegazy, Abouhamad & Osman — Faculty of Engineering, Cairo University (CSCE Annual Conference)",
+      "country": "Egypt",
+      "year": 2019,
+      "kind": "Published research — productivity MEASURED on site",
+      "covers": "Slab reinforcement installation measured by activity sampling over 3 months on a 65,000 m2 administrative building in Egypt: 59 to 69 man-hours per tonne, median 63.4. Egyptian contractors' own figures were within 6-16 % of it; the international RS Means figure was 47 % more optimistic.",
+      "does_not_cover": "Any other activity.",
+      "url": "https://legacy.csce.ca/elf/apps/CONFERENCEVIEWER/conferences/2019/pdfs/PaperPDFversion_106_0421074738.pdf"
+    },
+    {
+      "key": "rezk_book",
+      "status": "listed",
+      "title": "معدلات الأداء فى أعمال مقاولات المباني (346 pages)",
+      "author": "Eng. Mostafa Rezk — First Deputy and Secretary-General, Egyptian Federation for Construction and Building Contractors",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Book — the fullest Egyptian reference found",
+      "covers": "Building materials, excavation and backfilling, plain and reinforced concrete, masonry, plaster and paint, carpentry, aluminium, tiles and marble, plumbing, electrical works. Distributed as a downloadable file only - not yet loaded.",
+      "url": "https://engineer-underconstruction.blogspot.com/2014/09/Mostafa-Rezk-book.html"
+    },
+    {
+      "key": "abdelrazek_2007",
+      "status": "context",
+      "title": "Labor productivity: Benchmarking and variability in Egyptian projects",
+      "author": "Abdel-Razek, Abd Elshakour & Abdel-Hamid — International Journal of Project Management",
+      "country": "Egypt",
+      "year": 2007,
+      "kind": "Published research — productivity MEASURED on site",
+      "covers": "Masonry measured on 11 Egyptian building projects: best (baseline) 0.61 work-hours per m2; project averages from 0.69 to 3.76 work-hours per m2. It shows the brick-masonry rate loaded from the Afifi reference (27 m2 per mason + helper day = 0.59 work-hours per m2) is a best-case figure.",
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S0263786306000986"
+    },
+    {
       "key": "scribd_rates_materials",
       "status": "listed",
       "title": "معدلات الأداء واستهلاك المواد الخام في الاعمال الانشائية",

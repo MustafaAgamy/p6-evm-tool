@@ -390,7 +390,7 @@ def test_rates_name_their_egyptian_reference_and_nothing_else_claims_one():
             p = c["provenance"]
             if p.get("reference"):
                 assert p["reference"] in refs and p["source_type"] == "Egyptian reference"
-                assert "Afifi" in p["basis"]
+                assert "Afifi" in p["basis"] or "Cairo University" in p["basis"]
                 eg += 1
             else:
                 assert p["source_type"].startswith("General estimate"), (it["item_id"], c["component_id"])
