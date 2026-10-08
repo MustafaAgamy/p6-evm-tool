@@ -418,9 +418,10 @@ def test_rates_name_their_egyptian_reference_and_nothing_else_claims_one():
     assert any(r["key"] == "afifi_2017" for r in src["references"])
     import server
     names = [sh["name"] for sh in server._prodintel_excel_sections(engine.query(RC, context={"Project type": "Commercial"}, quantity=100))]
-    assert "Sources & references" not in names                 # on screen only - not in the report / Excel
+    # the owner asked for Sources & references OUT of the screen, the report and Excel
+    assert "Sources & references" not in names
     js = open("ui/modules/prodintel.js", encoding="utf-8").read()
-    assert "pi-noprint" in js and ".pi-card:not(.pi-noprint)" in js
+    assert "Sources &amp; references" not in js and "renderSources" not in js
 
 
 def test_the_library_holds_complex_industrial_mep_items():
