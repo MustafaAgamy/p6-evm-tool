@@ -196,7 +196,7 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The red bar is the remaining work and its dark-red part is % complete; the black bar on a WBS line is that WBS’s span; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
@@ -224,7 +224,7 @@ export function renderSchedule(result) {
       <button class="btn-secondary" id="sched-excel-btn">Export to Excel</button>
     </div>`;
 
-  _print = printSections(result, acts, groups, counts, { min, max, dd }, note, code);
+  _print = printSections(result, acts, groups, counts, { min, max, dd }, note, code, banded ? rowSets : null, baseDepth);
 
   const sel = document.getElementById('g-code');
   if (sel) sel.addEventListener('change', () => {
@@ -238,7 +238,7 @@ export function renderSchedule(result) {
 // One 'Summary' section and one 'Gantt chart' section whose parts are the WBS groups (each a
 // table: ID, name, Start, Finish, %, float and the bar on a page-wide time scale), so the
 // Report Contents picker can tick whole groups in or out.
-function printSections(result, acts, groups, counts, sp, note, code) {
+function printSections(result, acts, groups, counts, sp, note, code, bandSets, baseDepth) {
   const total = Math.max(1, sp.max - sp.min);
   const pos = (ms) => Math.max(0, Math.min(100, ((ms - sp.min) / total) * 100));
   // month / quarter / year marks for the page-wide scale
@@ -254,7 +254,9 @@ function printSections(result, acts, groups, counts, sp, note, code) {
     scale += `<span style="left:${p.toFixed(2)}%">${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}</span>`;
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
-  const head = `<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
+  // every column has its own width, so adding / removing the code column never squeezes a name
+  const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:4%"><col style="width:5%"><col></colgroup>`;
+  const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
     + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
@@ -267,7 +269,27 @@ function printSections(result, acts, groups, counts, sp, note, code) {
       + `<td class="gp-n">${a.tf == null ? '—' : a.tf}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
 
-  const parts = groups.map((g) => {
+  // a WBS band line inside the table: P6's summary of the critical activities under that WBS
+  const bandHtml = (n) => {
+    const d = n.depth - baseDepth, bs = toMs(n.start), bf = toMs(n.finish);
+    const l = pos(bs), w = Math.max(0.6, pos(bf) - l);
+    const bar = (Number.isNaN(bs) || Number.isNaN(bf)) ? '' : `<b class="gp-band" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></b>`;
+    return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small>${n.count}</small></td>`
+      + `<td class="gp-d">${gShort(n.start)}</td><td class="gp-d">${gShort(n.finish)}</td><td class="gp-n">${delayText({ delay: n.delay })}</td><td></td>`
+      + `<td class="gp-n">${n.total_float == null ? '—' : n.total_float}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
+  };
+  // banded (P6 layout): one part per top band, its sub-bands and activities in P6's order
+  const bandParts = [];
+  if (bandSets) {
+    let cur = null;
+    for (const set of bandSets) {
+      if (set.band.depth === baseDepth || !cur) { cur = { n: set.band, html: '' }; bandParts.push(cur); }
+      cur.html += bandHtml(set.band) + set.rows.map(rowHtml).join('');
+    }
+  }
+  const parts = bandSets ? bandParts.map((bp) => `<div data-part="gantt.${attr(bp.n.id)}" data-part-label="${attr(bp.n.name)}" class="gp-grp">
+      <h3 class="gp-h">${escapeHtml(bp.n.name)} <small>${bp.n.count} critical activit${bp.n.count === 1 ? 'y' : 'ies'}</small></h3>
+      <table class="gp-table">${head}<tbody>${bp.html}</tbody></table></div>`).join('') : groups.map((g) => {
     const c = ganttCounts(g.rows.map((r) => r.a));
     return `<div data-part="gantt.${attr(g.key)}" data-part-label="${attr(g.name)}" class="gp-grp">
       <h3 class="gp-h">${escapeHtml(g.name)} <small>${c.total} activit${c.total === 1 ? 'y' : 'ies'} · ${c.crit} critical</small></h3>

@@ -325,8 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
     prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true,
                  excel: () => { const b = document.getElementById('pi-exp-xls'); if (b) b.click(); else showError('Open a work item first, then export.'); } },
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint, excel: exportOverviewExcel },
-    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel },
-    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel },
+    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel, landscape: true },
+    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel, landscape: true },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + dateText(String(r.data_date).slice(0, 10)) : ''].filter(Boolean).join(' · ');
-      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel,
+      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel, landscape: pv.landscape,
         meta: { project: r.project_name, data_date: r.data_date ? String(r.data_date).slice(0, 10) : '' } });
       return true;
     }

@@ -167,7 +167,7 @@ def test_the_gantt_prints_with_pdf_word_and_html():
     assert "import { renderSchedule, schedulePrint }" in app
     assert "if (e.target.closest('#sched-print-btn')) runReport('pdf');" in app
     pv = _read('ui', 'modules', 'printview.js')
-    assert 'export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel })' in pv
+    assert 'export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel, landscape })' in pv
     assert 'html, body { height:auto !important; overflow:visible !important; }' in pv    # a report longer than one page
     g = _read('ui', 'modules', 'gantt.js')
     assert 'data-part="gantt.' in g and 'data-part="summary.counts"' in g

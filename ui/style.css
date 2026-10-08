@@ -2707,7 +2707,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .g-grp-lbl em { font-style: normal; font-weight: 600; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
 .g-bar { position: absolute; top: 12px; height: 14px; border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
 .g-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
-.g-bar.crit { background: var(--danger-bg); } .g-bar.crit .g-fill { background: var(--danger); }
+.g-bar.crit { background: #ef4444; box-shadow: inset 0 0 0 1px #b91c1c; } .g-bar.crit .g-fill { background: #7f1d1d; }
 .g-plabel { position: absolute; top: 12px; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; line-height: 14px; white-space: nowrap; }
 .g-ms { position: absolute; top: 13px; width: 12px; height: 12px; background: var(--text); transform: rotate(45deg); }
 .g-ms.crit { background: var(--danger); }
@@ -2725,9 +2725,18 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .gp-table th { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border); }
 .gp-table thead { display: table-header-group; }
 .gp-table tr { break-inside: avoid; }
-.gp-table th:nth-child(1) { width: 19%; } .gp-table th:nth-child(2) { width: 24%; }
-.gp-table th:nth-child(3), .gp-table th:nth-child(4) { width: 9%; }
-.gp-table th:nth-child(5), .gp-table th:nth-child(6) { width: 6%; }
+/* column widths come from the table's own <colgroup> (gantt.js); headers and IDs wrap, never cut */
+.gp-table th { white-space: normal !important; line-height: 1.15; vertical-align: bottom; }
+.gp-table .gp-id { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.gp-bandrow td { font-weight: 700; background: var(--bg); border-bottom: 1px solid var(--border); }
+.gp-bandrow small { font-weight: 500; color: var(--muted); }
+.gp-band { position: absolute; top: 3px; height: 6px; background: #0f172a; opacity: 1; border-radius: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wbs-print-bars { font-size: 10.5px; }
+.wbs-print-bars .gp-bar { background: #3b82f6; box-shadow: inset 0 0 0 1px #1d4ed8; } .wbs-print-bars .gp-bar s { background: #1e3a8a; }
+.wbs-print-bars tr.sum .gp-bar { background: #f59e0b; box-shadow: inset 0 0 0 1px #b45309; } .wbs-print-bars tr.sum .gp-bar s { background: #92400e; }
+.wbs-print-bars th, .wbs-print-bars td { padding: 3px 5px; }
+.wbs-print-bars th.wp-bar { width: 27%; } .wbs-print-bars th:first-child { width: 24%; } .wbs-print-bars tr { break-inside: avoid; }
+.wbs-print-bars td.wp-date, .wbs-print-bars td.wp-num { white-space: nowrap; }
 .gp-table.gp-sum { table-layout: auto; max-width: 560px; }
 .gp-table.gp-sum th:nth-child(n) { width: auto; }
 .gp-id, .gp-d, .gp-n { font-family: ui-monospace, monospace; }
@@ -2740,7 +2749,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .gp-track u { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed var(--accent); text-decoration: none; }
 .gp-bar { position: absolute; top: 2px; height: 8px; border-radius: 2px; background: var(--accent-soft); overflow: hidden; min-width: 2px; }
 .gp-bar s { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); text-decoration: none; }
-.gp-bar.crit { background: var(--danger-bg); } .gp-bar.crit s { background: var(--danger); }
+.gp-bar.crit { background: #ef4444; box-shadow: inset 0 0 0 1px #b91c1c; } .gp-bar.crit s { background: #7f1d1d; }
+.gp-track { background: #e2e8f0 !important; }
 .gp-ms { position: absolute; top: 2px; width: 8px; height: 8px; margin-left: -4px; background: var(--text); transform: rotate(45deg); }
 .gp-ms.crit { background: var(--danger); }
 .gp-bar, .gp-bar s, .gp-ms, .gp-track { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -2770,7 +2780,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 /* Gantt WBS bands: P6's summary line of the critical activities under each WBS */
 .g-grp.g-band .g-grp-lbl { grid-template-columns: var(--g-bandcols) !important; }
 .g-grp.g-band .g-grp-lbl > i { font-style: normal; font-size: 10.5px; font-family: ui-monospace, monospace; font-weight: 700; white-space: nowrap; }
-.g-band-bar { position: absolute; top: 9px; height: 7px; background: var(--text); opacity: .55; border-radius: 2px; }
+.g-band-bar { position: absolute; top: 9px; height: 8px; background: #0f172a; border-radius: 2px; }
 /* WBS names are never cut: the column takes the width they need and a longer name wraps */
 .wbst-fit .wc-wbs { width: var(--wbsw, 260px); }
 .wbst-fit .wbst-row { height: auto; min-height: 34px; }

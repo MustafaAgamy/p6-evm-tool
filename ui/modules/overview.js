@@ -335,11 +335,36 @@ export function renderWbs(result) {
   // printable WBS: a clean static table of the visible columns (no scrolling timeline)
   const approx = baselineApprox(result, state.currentXmlPath);
   const blLine = approx ? baselineApproxLine(result, state.currentXmlPath) : '';
-  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('');
+  // the report carries the bar chart as well: each WBS bar on a page-wide time scale, the
+  // actual % as its darker fill and the cut-off date as the dashed line
+  const pPos = (ms) => Math.max(0, Math.min(100, ((ms - min) / (max - min)) * 100));
+  let pScale = '';
+  if (dated) {
+    const months = Math.max(1, Math.round((max - min) / DAY / 30.4));
+    const stepM = [1, 2, 3, 6, 12, 24].find((k2) => months / k2 <= 8) || 36;
+    const pt = new Date(min); pt.setDate(1); pt.setHours(0, 0, 0, 0); pt.setMonth(Math.ceil(pt.getMonth() / stepM) * stepM);
+    for (; pt.getTime() <= max; pt.setMonth(pt.getMonth() + stepM)) {
+      if (pt.getTime() < min) continue;
+      const pp = pPos(pt.getTime());
+      if (pp > 90) continue;
+      pScale += `<span style="left:${pp.toFixed(2)}%">${pt.toLocaleDateString('en-GB', { month: 'short' })} ${String(pt.getFullYear()).slice(2)}</span>`;
+    }
+  }
+  const pDd = (dated && !Number.isNaN(dd)) ? `<u style="left:${pPos(dd).toFixed(2)}%"></u>` : '';
+  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('')
+    + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale">${pScale}</div></th>` : '');
   const bodyRows = subset.map((n) => {
     const rd = n.depth - baseDepth;
     const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
-    return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${rd * 14}px">${escapeHtml(n.name)}</td>${cells}</tr>`;
+    const s0 = toMs(n.start), f0 = toMs(n.finish);
+    let pbar = '';
+    if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
+      const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
+      const ac = wbsHasPct(n) && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : 0;
+      pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${ac}%"></s></b>`;
+    }
+    const barCell = dated ? `<td class="gp-tl wp-bar" data-export="bar"><div class="gp-track">${pDd}${pbar}</div></td>` : '';
+    return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
   }).join('');
   // Printable WBS report split into individually-selectable sections for the
   // Report Contents picker (File ▸ Print): a headline Overview + the detailed table.
@@ -359,7 +384,7 @@ ${wbsHasPct(branch) ? `
   _wbsPrint = [
     { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
     { key: 'table',    label: 'WBS summary table',
-      html: `<table class="wbs-print"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>` },
+      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${dated && !Number.isNaN(dd) ? `<p class="ov-note">The dashed line is the cut-off date (${fmtShort(dd)}); amber bars are WBS summaries and blue bars the WBS that hold the activities; the darker part of each bar is the actual %.</p>` : ''}` },
   ];
 
   const modeSeg = critNodes.length
