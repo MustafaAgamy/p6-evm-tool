@@ -78,7 +78,7 @@ def test_wbs_main_lists_top_level_branches(tree_result):
     # in P6's own order (the file lists Engineering before Construction), not alphabetical.
     mains = tree_result['wbs_main']
     assert [m['name'] for m in mains] == ['Engineering', 'Construction']
-    assert [m['id'] for m in mains] == ['1200', '1100']
+    assert [m['id'] for m in mains] == ['1100', '1200']
 
 
 def test_wbs_summary_tree_shape_and_depths(tree_result):
