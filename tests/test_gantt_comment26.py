@@ -103,7 +103,8 @@ def test_excel_follows_the_same_groups_and_dates():
     con = {r[0]: r for r in blocks[1]['rows']}
     assert set(con) == {'A2', 'M1'}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
-    assert con['A2'][head.index('Total Float (d)')] == -12.3 and con['A2'][4] == '01-Mar.2025'
+    assert con['A2'][head.index('Delay (d)')] == 12 and con['A2'][4] == '01-Mar.2025'      # delay = -(total float)
+    assert 'Total Float (d)' not in head                                                  # one column, not two
     assert 'actual where the work has started' in blocks[0]['note']
     assert ['Activities in the schedule', 4] in blocks[0]['rows']
     # two WBS with the SAME name under different parents stay two groups
@@ -119,7 +120,7 @@ def test_excel_follows_the_same_groups_and_dates():
     old = [{'id': 'O1', 'name': 'Old', 'wbs': 'A', 'wbs_top': 'A', 'start': '2025-01-01', 'finish': '2025-01-02',
             'pct': 10, 'critical': True, 'milestone': False}]
     row = schedule_excel({'activities': old})[0]['blocks'][1]['rows'][0]
-    assert row[3] == '' and row[6] == '' and row[7] == '' and row[10] == ''
+    assert row[3] == '' and row[6] == '' and row[7] == ''
 
 
 def test_wbs_view_dates_are_current_dates_too():

@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Gantt and WBS reports no longer cut off in the PDF.** Both now print on an A4 landscape page at full width; the Gantt table has its own width for every column (headers and long Activity IDs wrap instead of being cut) and prints the WBS bands with their summary dates and delay; the WBS report now carries its bar chart too (bars on a time scale, actual % as the darker fill, cut-off date as the dashed line).
 - **Excel exports: every result sits in the middle of its cell — in every feature.** The shared Excel writer now centres data cells horizontally and vertically (wrapped) by default, with centred headers; report titles and notes stay left.
 - **Clearer bars.** Gantt bars are a solid red with a dark-red completed part (the pale pink vanished on paper); WBS span bars are black; the WBS report draws summary bars in amber and activity-level WBS bars in blue.
+- **Gantt report and Excel: one Delay column.** The separate Float column is gone — Delay is the total float read as days late, so the two said the same thing.
 - **Schedule (Gantt): Activity ID in its own column.** The chart now has separate *Activity ID* and *Activity name* columns instead of the ID stacked above the name.
 
 ### Changed — Productivity & Resources: the rate follows the Project type; no Location setting (comments 61, 62)

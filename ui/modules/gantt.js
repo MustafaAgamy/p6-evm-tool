@@ -255,8 +255,8 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
   // every column has its own width, so adding / removing the code column never squeezes a name
-  const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:4%"><col style="width:5%"><col></colgroup>`;
-  const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
+  const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:4%"><col></colgroup>`;
+  const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th>`
     + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
@@ -266,7 +266,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       : `<b class="gp-bar${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${Math.max(0, Math.min(100, a.pct))}%"></s></b>`;
     return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td>${code ? `<td>${escapeHtml((a.codes || {})[code] || '—')}</td>` : ''}<td>${escapeHtml(a.name)}</td>`
       + `<td class="gp-d">${gShort(a.start)}</td><td class="gp-d">${gShort(a.finish)}</td><td class="gp-n">${delayText(a)}</td><td class="gp-n">${a.pct}</td>`
-      + `<td class="gp-n">${a.tf == null ? '—' : a.tf}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
+      + `<td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
 
   // a WBS band line inside the table: P6's summary of the critical activities under that WBS
@@ -276,7 +276,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
     const bar = (Number.isNaN(bs) || Number.isNaN(bf)) ? '' : `<b class="gp-band" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></b>`;
     return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small>${n.count}</small></td>`
       + `<td class="gp-d">${gShort(n.start)}</td><td class="gp-d">${gShort(n.finish)}</td><td class="gp-n">${delayText({ delay: n.delay })}</td><td></td>`
-      + `<td class="gp-n">${n.total_float == null ? '—' : n.total_float}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
+      + `<td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
   // banded (P6 layout): one part per top band, its sub-bands and activities in P6's order
   const bandParts = [];
@@ -309,7 +309,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
       ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Float is total float in days; Delay = −(total float).</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Delay is the total float read as days late.</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },

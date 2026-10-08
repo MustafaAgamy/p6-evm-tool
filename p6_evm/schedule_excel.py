@@ -53,8 +53,8 @@ def _fmt_date(iso):
 
 
 _HEADERS = ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Expected Start', 'Expected Finish', 'Delay (d)',
-            'Planned Start', 'Planned Finish', '% Complete', 'Total Float (d)', 'Critical', 'Type']
-_WIDTHS = {0: 20, 1: 44, 2: 46, 3: 13, 4: 15, 5: 15, 6: 14, 7: 14, 8: 14, 9: 12, 10: 14, 11: 10, 12: 12}
+            'Planned Start', 'Planned Finish', '% Complete', 'Critical', 'Type']
+_WIDTHS = {0: 20, 1: 44, 2: 46, 3: 13, 4: 15, 5: 15, 6: 14, 7: 14, 8: 14, 9: 12, 10: 10, 11: 12}
 _NOTE = ('Expected Start / Expected Finish are the current dates, as P6 shows them: actual where the work has started '
          'or finished, the remaining early dates for the rest. Critical = total float of zero or '
          'less and not finished (milestones included). Delay = the Total Float on this update read as '
@@ -82,7 +82,6 @@ def _cells(a):
         _fmt_date(a.get('planned_start')) if a.get('planned_start') else '',
         _fmt_date(a.get('planned_finish')) if a.get('planned_finish') else '',
         a.get('pct') if isinstance(a.get('pct'), (int, float)) else 0,
-        a.get('tf') if isinstance(a.get('tf'), (int, float)) else '',
         'Yes' if a.get('critical') else 'No',
         'Milestone' if a.get('milestone') else 'Activity',
     ]
