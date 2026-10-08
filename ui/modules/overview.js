@@ -156,6 +156,7 @@ const WBS_COLS = [
   { key: 'actual',          label: 'Actual %',        w: 64, kind: 'pct'  },
   { key: 'delay',           label: 'Delay',           w: 74, kind: 'delay'},
 ];
+export function wbsCriticalMode() { try { return localStorage.getItem('p6evm_wbs_mode') === 'critical'; } catch { return false; } }
 const WBS_MODE_KEY = 'p6evm_wbs_mode';
 let wbsMode = null;               // 'all' | 'critical' — which activities the WBS summarises
 const money = (v) => (typeof v === 'number' ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
@@ -201,7 +202,12 @@ const wbsHasPct = (n) => !wbsAnyCost || (n.cost_loaded || 0) > 0;
 
 function wbsCellVal(col, n) {
   if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : 'no cost';
-  if (col.kind === 'date') { const ms = toMs(n[col.key]); return Number.isNaN(ms) ? '—' : fmtShort(ms); }
+  if (col.kind === 'date') {
+    const ms = toMs(n[col.key]);
+    if (Number.isNaN(ms)) return '—';
+    // an ACTUAL date carries an 'A' beside it, as P6 prints it
+    return fmtShort(ms) + ((col.key === 'start' && n.start_actual) || (col.key === 'finish' && n.finish_actual) ? ' A' : '');
+  }
   if (col.kind === 'money') return money(n[col.key]);
   if (col.kind === 'int')   return n[col.key] == null ? '—' : String(n[col.key]);
   if (col.kind === 'days')  return n[col.key] == null ? '—' : `${n[col.key]} d`;
@@ -281,13 +287,14 @@ export function renderWbs(result) {
 
   // month ticks / gridlines / year markers
   const monthPx = ppd * 30.4;
-  const step = monthPx >= 60 ? 1 : Math.ceil(60 / monthPx);
+  const step = 1;                                              // EVERY month is on the scale
   let ticks = '', grid = '', k = 0;
   const t = new Date(min); t.setDate(1); t.setHours(0, 0, 0, 0);
   for (; t.getTime() <= max; t.setMonth(t.getMonth() + 1), k++) {
     const x = xOf(t.getTime());
     if (x < -0.05 || x > 100.05) continue;
-    const lbl = k % step === 0 ? `<span>${t.toLocaleDateString('en-GB', { month: 'short' })}</span>` : '';
+    const mn = t.toLocaleDateString('en-GB', { month: 'short' });
+    const lbl = k % step === 0 ? `<span>${monthPx < 22 ? mn.charAt(0) : mn}</span>` : '';
     ticks += `<div class="wbst-tk" style="left:${x.toFixed(2)}%">${lbl}</div>`;
     grid  += `<div class="wbst-gl" style="left:${x.toFixed(2)}%"></div>`;
     if (t.getMonth() === 0) ticks += `<div class="wbst-yr" style="left:calc(${x.toFixed(2)}% + 3px)">${t.getFullYear()}</div>`;
@@ -340,19 +347,16 @@ export function renderWbs(result) {
   const pPos = (ms) => Math.max(0, Math.min(100, ((ms - min) / (max - min)) * 100));
   let pScale = '';
   if (dated) {
-    const months = Math.max(1, Math.round((max - min) / DAY / 30.4));
-    const stepM = [1, 2, 3, 6, 12, 24].find((k2) => months / k2 <= 8) || 36;
-    const pt = new Date(min); pt.setDate(1); pt.setHours(0, 0, 0, 0); pt.setMonth(Math.ceil(pt.getMonth() / stepM) * stepM);
+    const stepM = 1;                                           // EVERY month is on the scale
+    const pt = new Date(min); pt.setDate(1); pt.setHours(0, 0, 0, 0); if (pt.getTime() < min) pt.setMonth(pt.getMonth() + 1);
     for (; pt.getTime() <= max; pt.setMonth(pt.getMonth() + stepM)) {
-      if (pt.getTime() < min) continue;
       const pp = pPos(pt.getTime());
-      if (pp > 90) continue;
       pScale += `<span style="left:${pp.toFixed(2)}%">${pt.toLocaleDateString('en-GB', { month: 'short' })} ${String(pt.getFullYear()).slice(2)}</span>`;
     }
   }
   const pDd = (dated && !Number.isNaN(dd)) ? `<u style="left:${pPos(dd).toFixed(2)}%"></u>` : '';
   const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('')
-    + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale">${pScale}</div></th>` : '');
+    + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale gp-scale-m">${pScale}</div></th>` : '');
   const bodyRows = subset.map((n) => {
     const rd = n.depth - baseDepth;
     const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
@@ -360,8 +364,11 @@ export function renderWbs(result) {
     let pbar = '';
     if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
       const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
-      const ac = wbsHasPct(n) && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : 0;
-      pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${ac}%"></s></b>`;
+      const hp = wbsHasPct(n);
+      const ac = hp && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : null;
+      const pl = hp && n.planned != null ? Math.max(0, Math.min(100, n.planned)) : null;
+      const beh = ac != null && pl != null && pl > ac ? `<i style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></i>` : '';
+      pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%">${ac != null ? `<s style="width:${ac}%"></s>` : ''}${beh}${pl != null ? `<em style="left:${pl}%"></em>` : ''}</b>`;
     }
     const barCell = dated ? `<td class="gp-tl wp-bar" data-export="bar"><div class="gp-track">${pDd}${pbar}</div></td>` : '';
     return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
@@ -375,7 +382,7 @@ export function renderWbs(result) {
       <tr><td>Activities</td><td>${branch.activities ?? '—'}</td></tr>
       <tr><td>WBS nodes shown</td><td>${subset.length} (${_wbsLeaves} at activity level)</td></tr>
       <tr><td>Date span</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>
-      <tr><td>Data date</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
+      <tr><td>Cut-off date (data date)</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
 ${wbsHasPct(branch) ? `
       <tr><td>Overall planned${approx ? ' · approx' : ''}</td><td>${pctVal(branch.planned)}</td></tr>
       <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>` : ''}${approx ? `
@@ -384,7 +391,7 @@ ${wbsHasPct(branch) ? `
   _wbsPrint = [
     { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
     { key: 'table',    label: 'WBS summary table',
-      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${dated && !Number.isNaN(dd) ? `<p class="ov-note">The dashed line is the cut-off date (${fmtShort(dd)}); amber bars are WBS summaries and blue bars the WBS that hold the activities; the darker part of each bar is the actual %.</p>` : ''}` },
+      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span><span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span><span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span></div>` },
   ];
 
   const modeSeg = critNodes.length
@@ -409,6 +416,7 @@ ${wbsHasPct(branch) ? `
       <div class="ov-chips">
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
+        ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : '<span class="ov-chip">not cost-loaded — no Planned % / Actual %</span>'}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (the Delay column).</p>' : ''}

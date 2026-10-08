@@ -91,6 +91,11 @@ def _pct(node, key):
     return _num(node.get(key))
 
 
+def _d(iso, actual):
+    t = _fmt_date(iso)
+    return (t + ' A') if (actual and t and t != '—') else t
+
+
 def _row(node, base_depth):
     """One table row mirroring the on-screen WBS row, name indented by relative depth."""
     rel = max(0, (node.get('depth') or 0) - base_depth)
@@ -100,8 +105,8 @@ def _row(node, base_depth):
         name,
         _fmt_date(node.get('baseline_start')),
         _fmt_date(node.get('baseline_finish')),
-        _fmt_date(node.get('start')),
-        _fmt_date(node.get('finish')),
+        _d(node.get('start'), node.get('start_actual')),
+        _d(node.get('finish'), node.get('finish_actual')),
         _pct(node, 'planned'),
         _pct(node, 'actual'),
         delay if delay is not None else '—',
@@ -141,14 +146,20 @@ def _branch_note(subset):
 _BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (days)'}
 
 
-def _block(title, subset, approx=False):
+def _block(title, subset, approx=False, buckets=None, unit='month', cutoff=None):
+    """One WBS table; with `buckets` its Gantt is drawn in cells to the right - an amber cell
+    for every month a summary WBS runs, blue for a WBS that holds the activities, the Actual %
+    part of each bar in dark blue."""
+    from p6_evm.xlsx_writer import gantt_header, gantt_cells, BAR_BLUE, BAR_AMBER, BAR_BLUE_DONE
     base = subset[0].get('depth') or 0 if subset else 0
-    return {
-        'title': title,
-        'note': _branch_note(subset),
-        'headers': [f'{h} · approx' if approx and h in _BL_HEADERS else h for h in _HEADERS],
-        'rows': [_row(n, base) for n in subset],
-    }
+    headers = [f'{h} · approx' if approx and h in _BL_HEADERS else h for h in _HEADERS]
+    rows = [_row(n, base) for n in subset]
+    if buckets:
+        headers = headers + gantt_header(buckets, unit, cutoff)
+        rows = [r + gantt_cells(n.get('start'), n.get('finish'), buckets, BAR_BLUE if n.get('leaf') else BAR_AMBER,
+                                n.get('actual') if _has_pct(n) else 0, BAR_BLUE_DONE)
+                for r, n in zip(rows, subset)]
+    return {'title': title, 'note': _branch_note(subset), 'headers': headers, 'rows': rows}
 
 
 def wbs_excel(report):
@@ -169,18 +180,24 @@ def wbs_excel(report):
                              'rows': [['No data', '—', '—', '—', '—', '—', '—', '—']]}],
                  'col_widths': _COL_WIDTHS}]
 
+    from p6_evm.xlsx_writer import gantt_buckets
+    cutoff = report.get('data_date')
+    buckets, unit = gantt_buckets([n.get(k) for n in nodes for k in ('start', 'finish')] + [cutoff], max_cols=60)
+    widths = dict(_COL_WIDTHS)
+    for i in range(len(buckets)):
+        widths[len(_HEADERS) + i] = 6.5 if unit == 'week' else 8
     blocks = []
     # One block per main branch (the segmented control's tabs). Emit only mains that
     # actually resolve to a slice; fall back to the whole tree if none do.
     for m in mains:
         sub = _subset(nodes, m.get('id'))
         if sub:
-            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx))
+            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
-        blocks.append(_block('WBS Summary', nodes, approx))
+        blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
-    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': _COL_WIDTHS}]
+    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
 
 
 # WBS name column wide (it carries the indentation); dates/percent/delay comfortable.

@@ -59,12 +59,18 @@ def p6_order(wmap):
     return key
 
 
+def _p6_days(days):
+    """A day count the way P6 prints it: one decimal, no trailing .0 (-7.5, -72)."""
+    v = round(days + 0.0, 1)
+    return int(v) if v == int(v) else v
+
+
 def working_delay(cal, baseline_finish, finish):
-    """Delay in WORKING days on `cal`, finish against baseline finish (+ late / − early), the
-    way P6 works out its finish variance: the working HOURS between the two dates on the
-    calendar's own work times, divided by the calendar's hours per day, shown to the whole day.
-    A calendar with no work times falls back to counting whole working days. None when a date
-    or the calendar is missing."""
+    """Working days on `cal` from the first date to the second (+ when the second is later), the
+    way P6 works a variance / float out: the working HOURS between the two dates on the
+    calendar's own work times, divided by the calendar's hours per day - kept to one decimal
+    as P6 shows it (-7.5 d stays -7.5). A calendar with no work times falls back to counting
+    whole working days. None when a date or the calendar is missing."""
     if cal is None or baseline_finish is None or finish is None:
         return None
     try:
@@ -73,8 +79,7 @@ def working_delay(cal, baseline_finish, finish):
         if hours > 0 and callable(getattr(cal, 'has_intraday', None)) and cal.has_intraday():
             mins = signed_working_minutes(cal, baseline_finish, finish)
             if mins is not None:
-                days = mins / (hours * 60.0)
-                return int(days + 0.5) if days >= 0 else -int(-days + 0.5)
+                return _p6_days(mins / (hours * 60.0))
         return float_working_days(cal, baseline_finish, finish)
     except Exception:
         return None
@@ -98,12 +103,11 @@ def critical_records(records):
 
 
 def float_delay(tf):
-    """The Delay figure = the Total Float in days exactly as P6 shows it, to the whole day:
-    a float of -72 d is a delay of -72 (late is NEGATIVE, spare float positive)."""
+    """The Delay figure = the Total Float in days exactly as P6 shows it, to one decimal:
+    a float of -7.5 d is a delay of -7.5, -72 d is -72 (late is NEGATIVE, spare float positive)."""
     if not isinstance(tf, (int, float)):
         return None
-    d = tf
-    return int(d + 0.5) if d >= 0 else -int(-d + 0.5)
+    return _p6_days(tf)
 
 
 def _default_calendar(data):
@@ -266,6 +270,9 @@ def gantt_activities(records, wbs_map, data=None):
             # the activity's P6 activity codes, for the Gantt's pick-a-code column
             'codes':      {k: str(v) for k, v in (a.get('activity_codes') or {}).items() if v},
             'wbs_id':     str(a.get('wbs_id')) if a.get('wbs_id') is not None else '',
+            # P6 marks an actual date with an 'A' (19-Jun-26 A)
+            'start_actual':  bool(a.get('actual_start')),
+            'finish_actual': bool(a.get('actual_finish')),
         })
         paths.append(path)
         costs.append((r.get('bac') or 0) > 0)
@@ -303,7 +310,8 @@ def wbs_views(records, data):
 
     def base():
         return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None,
-                'ef': None, 'lf': None, 'open': 0, 'all': 0, 'b': 0.0, 'pv': 0.0, 'ev': 0.0, 'ps': None, 'pf': None}
+                'ef': None, 'lf': None, 'open': 0, 'all': 0, 'b': 0.0, 'pv': 0.0, 'ev': 0.0, 'ps': None, 'pf': None,
+                'sa': None, 'began': 0}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     direct = defaultdict(base)
@@ -313,7 +321,11 @@ def wbs_views(records, data):
         if wid is None:
             continue
         d = direct[wid]
-        d['s'] = _mn(d['s'], current_start(a))          # current schedule (expected)
+        cs = current_start(a)
+        if cs is not None and (d['s'] is None or cs < d['s']):
+            d['sa'] = bool(a.get('actual_start'))        # is the band's start an ACTUAL date?
+        d['began'] += 1 if a.get('actual_start') else 0
+        d['s'] = _mn(d['s'], cs)                        # current schedule (expected)
         d['f'] = _mx(d['f'], current_finish(a))
         # for the WBS's own Total Float: its latest early finish and latest late finish
         d['ef'] = _mx(d['ef'], a.get('actual_finish') or a.get('remaining_early_finish'))
@@ -354,6 +366,9 @@ def wbs_views(records, data):
         for k in kids.get(wid, []):
             c = _rollup(k)
             t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']; t['c'] += c['c']
+            if c['s'] is not None and (t['s'] is None or c['s'] < t['s']):
+                t['sa'] = c['sa']
+            t['began'] += c['began']
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
             t['ef'] = _mx(t['ef'], c['ef']); t['lf'] = _mx(t['lf'], c['lf']); t['open'] += c['open']
             t['all'] += c['all']; t['b'] += c['b']; t['pv'] += c['pv']; t['ev'] += c['ev']
@@ -392,6 +407,11 @@ def wbs_views(records, data):
             # shown with P6's own sign: late = negative (Total Float -72 → Delay -72)
             'delay':      working_delay(cal, t['ef'], t['lf']) if t['open'] else None,
             'total_float': working_delay(cal, t['ef'], t['lf']) if t['open'] else None,
+            # P6 status of the WBS and its 'A' marks: the start is actual when its earliest
+            # activity has started; the finish is actual only once every activity is finished
+            'status':     ('Completed' if t['all'] and not t['open'] else ('In Progress' if t['began'] else 'Not Started')),
+            'start_actual':  bool(t['sa']),
+            'finish_actual': bool(t['all'] and not t['open']),
             # the other columns of P6's WBS band
             'count':      t['all'],                                   # Activity Count
             'orig_dur':   working_span(cal, t['ps'], t['pf']),        # Original Duration (working days)

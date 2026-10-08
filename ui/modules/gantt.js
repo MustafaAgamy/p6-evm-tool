@@ -1,4 +1,4 @@
-// Project ▸ Schedule (Gantt). Renders a time-scaled bar chart from the slim activity list
+// Project ▸ Critical Activities (Gantt). Renders a time-scaled bar chart from the slim activity list
 // stored with the snapshot (result.activities — present after an import AND after re-opening
 // from Recent Projects). Bars use the CURRENT schedule dates (actual where the work has
 // started / finished, remaining early dates otherwise — P6's Start / Finish columns) with %
@@ -19,6 +19,25 @@ export function gDate(iso) {
   return m ? dateText(iso) : '—';
 }
 const gShort = (iso) => { const t = gDate(iso); return t === '—' ? t : `${t.slice(0, 7)}${t.slice(9)}`; };   // 09 Feb 26
+// an ACTUAL date carries an 'A' beside it, as P6 prints it (19-Jun.26 A)
+const dA = (iso, actual) => (gShort(iso) + (actual && gShort(iso) !== '—' ? ' A' : ''));
+const stCls = (st) => (st === 'Completed' ? 'done' : st === 'In Progress' ? 'prog' : '');
+const stTag = (st) => (st ? `<em class="g-st ${stCls(st)}">${escapeHtml(st)}</em>` : '');
+// the critical activities in numbers: how many, their share of the schedule, and their Planned % /
+// Actual % (budget-weighted over the top WBS of the critical-only summary)
+export function criticalFigures(result, acts, all) {
+  const roots = (result.wbs_critical || []).filter((n) => n.depth === 0);
+  const bac = roots.reduce((m, n) => m + (n.bac || 0), 0);
+  return {
+    n: acts.length, all: all.length,
+    share: all.length ? (100 * acts.length) / all.length : null,
+    planned: bac > 0 ? (100 * roots.reduce((m, n) => m + (n.pv || 0), 0)) / bac : null,
+    actual: bac > 0 ? (100 * roots.reduce((m, n) => m + (n.ev || 0), 0)) / bac : null,
+    prog: acts.filter((a) => a.status === 'In Progress').length,
+    notStarted: acts.filter((a) => a.status === 'Not Started').length,
+  };
+}
+const f1 = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);
 const tfText = (a) => (a.tf == null ? '—' : `${a.tf} d`);
 
 // Groups = the true top-level WBS (keyed by its id, so two WBS with the same name never merge),
@@ -84,14 +103,14 @@ export function renderSchedule(result) {
   const acts = all.filter((a) => a.critical && a.construction !== false);
   if (all.length && !acts.length) {
     el.innerHTML = `
-      <div class="ov-head"><div class="ov-title"><h2>Schedule Gantt (Critical activities)</h2>
+      <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
         <div class="ov-chips"><span class="ov-chip"><b>0</b> critical of <b>${all.length}</b> activities</span></div></div></div>
       <p class="ov-note">No construction activity of this schedule is critical at the data date, so there is nothing to draw.</p>`;
     return;
   }
   if (!acts.length) {
     el.innerHTML = `
-      <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt)</h2></div></div>
+      <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2></div></div>
       <p class="ov-note">No activity timeline is available.${result && result.activity_count
         ? ' The schedule file of this project is no longer on this computer, so its Gantt cannot be rebuilt — import the schedule again to show it.'
         : ''}</p>
@@ -172,7 +191,7 @@ export function renderSchedule(result) {
       const dl = { delay: n.delay };
       const bbar = (!Number.isNaN(bs) && !Number.isNaN(bf)) ? `<div class="g-band-bar" style="left:${xOf(bs).toFixed(1)}px;width:${Math.max(3, xOf(bf) - xOf(bs)).toFixed(1)}px"></div>` : '';
       push(`<div class="g-grp g-band"><div class="g-lbl g-grp-lbl" style="--g-bandcols:${bandCols}" title="${attr(n.name)} — ${n.count} critical activities · Total Float ${n.total_float == null ? '—' : n.total_float + ' d'}">`
-        + `<span style="padding-left:${d * 14}px">${escapeHtml(n.name)} <em>${n.count}</em></span><i>${gShort(n.start)}</i><i>${gShort(n.finish)}</i><i class="g-delay${delayCls(dl)}">${delayText(dl)}</i></div>`
+        + `<span style="padding-left:${d * 14}px">${escapeHtml(n.name)}${stTag(n.status)}</span><i>${dA(n.start, n.start_actual)}</i><i>${dA(n.finish, n.finish_actual)}</i><i class="g-delay${delayCls(dl)}">${delayText(dl)}</i></div>`
         + `<div class="g-track">${bbar}</div></div>`, GRP_H);
     } else {
       const g = set.group;
@@ -183,8 +202,8 @@ export function renderSchedule(result) {
       const w = Math.max(3, xOf(fMs) - left);
       const tt = attr(tip(a));
       const lbl = `<div class="g-lbl" title="${tt}"><b class="g-id">${escapeHtml(a.id)}</b>${code ? `<span class="g-code">${escapeHtml(codeOf(a))}</span>` : ''}`
-        + `<div class="g-nm"><span>${escapeHtml(a.name)}</span></div>`
-        + `<i>${gShort(a.start)}</i><i>${gShort(a.finish)}</i><i class="g-delay${delayCls(a)}">${delayText(a)}</i></div>`;
+        + `<div class="g-nm"><span>${escapeHtml(a.name)}${stTag(a.status)}</span></div>`
+        + `<i>${dA(a.start, a.start_actual)}</i><i>${dA(a.finish, a.finish_actual)}</i><i class="g-delay${delayCls(a)}">${delayText(a)}</i></div>`;
       const bar = a.milestone
         ? `<div class="g-ms${a.critical ? ' crit' : ''}" style="left:${Math.max(0, left - 6).toFixed(1)}px" title="${tt}"></div>`
         : `<div class="g-bar${a.critical ? ' crit' : ''}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px" title="${tt}">
@@ -196,7 +215,7 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the dashed vertical line is the cut-off date (data date). Grouped by WBS in P6’s own order.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
@@ -204,17 +223,17 @@ export function renderSchedule(result) {
     : '';
 
   el.innerHTML = `
-    <div class="ov-head"><div class="ov-title"><h2>Schedule Gantt (Critical activities)</h2>
+    <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
       <div class="ov-chips">
         <span class="ov-chip"><b>${counts.crit}</b> critical construction activities of <b>${all.length}</b> activities</span>
         <span class="ov-chip"><b>${counts.ms}</b> critical milestones</span>
-        <span class="ov-chip">data date <b>${gDate(result.data_date)}</b></span>
+        <span class="ov-chip">cut-off date <b>${gDate(result.data_date)}</b></span>
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
         ${codePick}
       </div></div></div>
     <div class="g-wrap" style="--g-lblw:${lblW}px;--g-cols:${lblCols}"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
       <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span>${code ? `<span>${escapeHtml(code)}</span>` : ''}<span>Activity name</span><i>Expected Start</i><i>Expected Finish</i><i>Delay</i></div>
-        <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>data date</span></div>` : ''}</div></div>
+        <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>Cut-off ${gShort(result.data_date)}</span></div>` : ''}</div></div>
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(var(--g-lblw) + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
       <div class="g-rows">${rows}</div>
     </div></div>
@@ -243,29 +262,26 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   const pos = (ms) => Math.max(0, Math.min(100, ((ms - sp.min) / total) * 100));
   // month / quarter / year marks for the page-wide scale
   let scale = '';
-  const months = Math.max(1, Math.round(total / DAY / 30.4));
-  const step = [1, 2, 3, 6, 12, 24, 60].find((n) => months / n <= 4) || 120;      // at most ~4 labels: the column is narrow
+  // EVERY month is on the scale (labels turned upright so they fit the column)
   const t = new Date(sp.min); t.setDate(1); t.setHours(0, 0, 0, 0);
-  t.setMonth(Math.ceil(t.getMonth() / step) * step);
-  for (; t.getTime() <= sp.max; t.setMonth(t.getMonth() + step)) {
-    if (t.getTime() < sp.min) continue;
+  if (t.getTime() < sp.min) t.setMonth(t.getMonth() + 1);
+  for (; t.getTime() <= sp.max; t.setMonth(t.getMonth() + 1)) {
     const p = pos(t.getTime());
-    if (p > 82) continue;
     scale += `<span style="left:${p.toFixed(2)}%">${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}</span>`;
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
   // every column has its own width, so adding / removing the code column never squeezes a name
   const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:5.5%"><col></colgroup>`;
   const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">Actual %</th>`
-    + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
+    + `<th class="gp-tl" data-export="bar"><div class="gp-scale gp-scale-m">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
     const l = pos(sMs), w = Math.max(0.6, pos(fMs) - l);
     const bar = a.milestone
       ? `<b class="gp-ms${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%"></b>`
       : `<b class="gp-bar${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${Math.max(0, Math.min(100, a.pct))}%"></s></b>`;
-    return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td>${code ? `<td>${escapeHtml((a.codes || {})[code] || '—')}</td>` : ''}<td>${escapeHtml(a.name)}</td>`
-      + `<td class="gp-d">${gShort(a.start)}</td><td class="gp-d">${gShort(a.finish)}</td><td class="gp-n">${delayText(a)}</td><td class="gp-n">${a.pct}</td>`
+    return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td>${code ? `<td>${escapeHtml((a.codes || {})[code] || '—')}</td>` : ''}<td>${escapeHtml(a.name)} <small class="gp-st ${stCls(a.status)}">${escapeHtml(a.status || '')}</small></td>`
+      + `<td class="gp-d">${dA(a.start, a.start_actual)}</td><td class="gp-d">${dA(a.finish, a.finish_actual)}</td><td class="gp-n">${delayText(a)}</td><td class="gp-n">${a.pct}</td>`
       + `<td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
 
@@ -274,8 +290,8 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
     const d = n.depth - baseDepth, bs = toMs(n.start), bf = toMs(n.finish);
     const l = pos(bs), w = Math.max(0.6, pos(bf) - l);
     const bar = (Number.isNaN(bs) || Number.isNaN(bf)) ? '' : `<b class="gp-band" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></b>`;
-    return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small>${n.count}</small></td>`
-      + `<td class="gp-d">${gShort(n.start)}</td><td class="gp-d">${gShort(n.finish)}</td><td class="gp-n">${delayText({ delay: n.delay })}</td><td></td>`
+    return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small class="gp-st ${stCls(n.status)}">${escapeHtml(n.status || '')}</small></td>`
+      + `<td class="gp-d">${dA(n.start, n.start_actual)}</td><td class="gp-d">${dA(n.finish, n.finish_actual)}</td><td class="gp-n">${delayText({ delay: n.delay })}</td><td></td>`
       + `<td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
   // banded (P6 layout): one part per top band, its sub-bands and activities in P6's order
@@ -288,7 +304,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
     }
   }
   const parts = bandSets ? bandParts.map((bp) => `<div data-part="gantt.${attr(bp.n.id)}" data-part-label="${attr(bp.n.name)}" class="gp-grp">
-      <h3 class="gp-h">${escapeHtml(bp.n.name)} <small>${bp.n.count} critical activit${bp.n.count === 1 ? 'y' : 'ies'}</small></h3>
+      <h3 class="gp-h">${escapeHtml(bp.n.name)} <small class="gp-st ${stCls(bp.n.status)}">${escapeHtml(bp.n.status || '')}</small></h3>
       <table class="gp-table">${head}<tbody>${bp.html}</tbody></table></div>`).join('') : groups.map((g) => {
     const c = ganttCounts(g.rows.map((r) => r.a));
     return `<div data-part="gantt.${attr(g.key)}" data-part-label="${attr(g.name)}" class="gp-grp">
@@ -297,19 +313,25 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   }).join('');
 
   const kv = (k, v) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`;
+  const whole = result.activities || [];
+  const wc = (st) => whole.filter((a) => a.status === st).length;
+  const cf = criticalFigures(result, acts, whole);
   const summary = `<div data-part="summary.counts" data-part-label="Schedule counts">
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
-      ${kv('Data date', gDate(result.data_date))}
-      ${kv('Critical construction activities shown (as P6 flags them, not finished)', counts.crit)}
-      ${kv('Activities in the schedule', result.activity_count ?? '—')}
-      ${kv('In progress', counts.prog)}${kv('Not started', counts.notStarted)}
+      ${kv('Cut-off date (data date)', gDate(result.data_date))}
+      ${kv('Activities in the schedule', whole.length || (result.activity_count ?? '—'))}
+      ${kv('Completed (whole schedule)', wc('Completed'))}
+      ${kv('In progress (whole schedule)', wc('In Progress'))}
+      ${kv('Not started (whole schedule)', wc('Not Started'))}
+      ${kv('Critical activities (construction, as P6 flags them, not finished)', cf.n)}
+      ${kv('Critical activities as a share of the schedule', f1(cf.share))}
+      ${kv('Critical activities in progress / not started', `${cf.prog} / ${cf.notStarted}`)}
+      ${kv('Planned % of the critical activities', f1(cf.planned))}
+      ${kv('Actual % of the critical activities', f1(cf.actual))}
       ${kv('Critical milestones', counts.ms)}
-      ${kv('WBS groups', groups.length)}
-      ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
-      ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Delay is the total float as P6 shows it (negative = late).</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; an A beside a date marks an actual date; Delay is the total float as P6 shows it (negative = late). The dashed line is the cut-off date ${gDate(result.data_date)}.</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },

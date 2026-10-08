@@ -61,6 +61,12 @@ _NOTE = ('Expected Start / Expected Finish are the current dates, as P6 shows th
          '(negative = late); not a comparison with the baseline. Grouped by top-level WBS, earliest first.')
 
 
+def _d(iso, actual):
+    """A date as P6 prints it: an ACTUAL date carries an 'A' (19-Jun.2026 A)."""
+    t = _fmt_date(iso)
+    return (t + ' A') if (actual and t) else t
+
+
 def _row(a, code=None):
     """One activity → a table row, mirroring the on-screen bar's data. `% Complete`
     stays NUMERIC; dates are formatted like the screen; critical/type read as labels."""
@@ -76,8 +82,8 @@ def _cells(a):
         a.get('name') or '',
         a.get('wbs') or '',
         a.get('status') or '',
-        _fmt_date(a.get('start')),
-        _fmt_date(a.get('finish')),
+        _d(a.get('start'), a.get('start_actual')),
+        _d(a.get('finish'), a.get('finish_actual')),
         a.get('delay') if isinstance(a.get('delay'), (int, float)) else '',
         _fmt_date(a.get('planned_start')) if a.get('planned_start') else '',
         _fmt_date(a.get('planned_finish')) if a.get('planned_finish') else '',
@@ -90,6 +96,18 @@ def _cells(a):
 def _start_ms(a):
     """Sort key = the activity's start (ISO strings sort chronologically); undated last."""
     return str(a.get('start') or '~')
+
+
+def _share(n, total):
+    return f'{100.0 * n / total:.1f}%' if total else '—'
+
+
+def _crit_pct(result, key):
+    """Planned % (pv) / Actual % (ev) of the critical activities: the top WBS of the critical-only
+    summary, weighted by budget."""
+    roots = [n for n in (result.get('wbs_critical') or []) if n.get('depth') == 0]
+    bac = sum(n.get('bac') or 0 for n in roots)
+    return f"{100.0 * sum(n.get(key) or 0 for n in roots) / bac:.1f}%" if bac > 0 else '—'
 
 
 def schedule_excel(result):
@@ -110,10 +128,19 @@ def schedule_excel(result):
         code = None
     headers = (_HEADERS[:1] + [code] + _HEADERS[1:]) if code else _HEADERS
     widths = ({0: 20, 1: 26, **{k + 1: v for k, v in _WIDTHS.items() if k}} if code else _WIDTHS)
+    # the Gantt itself, drawn in cells to the right of the table: one column per week (or month),
+    # a red cell for every week the activity runs, its Actual % part in dark red
+    from p6_evm.xlsx_writer import gantt_buckets, gantt_header, gantt_cells, BAR_RED, BAR_RED_DONE
+    buckets, unit = gantt_buckets([a.get('start') for a in acts] + [a.get('finish') for a in acts] + [result.get('data_date')])
+    if buckets:
+        headers = list(headers) + gantt_header(buckets, unit, result.get('data_date'))
+        widths = dict(widths)
+        for i in range(len(buckets)):
+            widths[len(headers) - len(buckets) + i] = 6.5 if unit == 'week' else 8
 
     if all_acts and not acts:
         return [{'name': 'Schedule',
-                 'blocks': [{'title': 'Schedule Gantt (Critical activities)',
+                 'blocks': [{'title': 'Critical Activities (Gantt)',
                              'note': 'No activity of this schedule is critical at the data date.',
                              'headers': _HEADERS, 'rows': [['No critical activities'] + [''] * (len(_HEADERS) - 1)]}],
                  'col_widths': _WIDTHS}]
@@ -121,9 +148,9 @@ def schedule_excel(result):
         note = ('No activity timeline is available. The schedule file of this project is no longer '
                 'on this computer, so its Gantt cannot be rebuilt — import the schedule again to '
                 'show it.') if result.get('activity_count') else \
-               'Import a P6 schedule and open Schedule (Gantt) first.'
+               'Import a P6 schedule and open Critical Activities (Gantt) first.'
         return [{'name': 'Schedule',
-                 'blocks': [{'title': 'Schedule (Gantt)', 'note': note,
+                 'blocks': [{'title': 'Critical Activities (Gantt)', 'note': note,
                              'headers': _HEADERS, 'rows': [['No data'] + [''] * (len(_HEADERS) - 1)]}],
                  'col_widths': _WIDTHS}]
 
@@ -140,25 +167,35 @@ def schedule_excel(result):
     crit = sum(1 for a in acts if a.get('critical'))
     ms = sum(1 for a in acts if a.get('milestone'))
     summary = {
-        'title': 'Schedule Gantt (Critical activities)',
+        'title': 'Critical Activities (Gantt)',
         'note': 'Only the critical activities of the construction works are listed - the activities P6 flags as Critical (work not finished). ' + _NOTE,
         'headers': ['Metric', 'Value'],
         'rows': [
             ['Critical construction activities listed', crit],
             ['Activities in the schedule', len(all_acts)],
+            # the whole schedule by P6 status - the same three figures as P6's own count
+            ['Completed (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'Completed')],
+            ['In progress (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'In Progress')],
+            ['Not started (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'Not Started')],
+            ['Cut-off date (data date)', _fmt_date(result.get('data_date'))],
+            ['Critical activities as a share of the schedule', _share(crit, len(all_acts))],
+            ['Critical activities in progress', sum(1 for a in acts if a.get('status') == 'In Progress')],
+            ['Critical activities not started', sum(1 for a in acts if a.get('status') == 'Not Started')],
+            ['Planned % of the critical activities', _crit_pct(result, 'pv')],
+            ['Actual % of the critical activities', _crit_pct(result, 'ev')],
             ['Critical milestones', ms],
             ['WBS groups', len(order)],
-            ['Data date', _fmt_date(result.get('data_date'))],
             ['Project', result.get('project_name') or 'Schedule'],
         ],
     }
 
     blocks = [summary]
     for g in order:
-        rows = [_row(a, code) for a in sorted(groups[g], key=_start_ms)]
+        rows = [_row(a, code) + (gantt_cells(a.get('start'), a.get('finish'), buckets, BAR_RED, a.get('pct'), BAR_RED_DONE) if buckets else [])
+                for a in sorted(groups[g], key=_start_ms)]
         blocks.append({
             'title': names[g],
-            'note': f'{len(rows)} activit{"y" if len(rows) == 1 else "ies"}',
+            'note': 'Red cells = the weeks the activity runs (dark red = its Actual % part). An A after a date = an actual date.',
             'headers': headers,
             'rows': rows,
         })
