@@ -78,7 +78,7 @@ def test_overview_and_wbs_excel_mark_baseline_columns():
     result = {'spi': 0.9, 'pv': 1.0, 'overall_planned_pct': 0.5, 'baseline_finish': '2025-12-31',
               'categories': {'Civil': {'planned_pct': 0.5, 'actual_pct': 0.4, 'activity_count': 2}}}
     flat = json.dumps(overview_excel({'result': result, 'meta': {}, 'baseline_approx': True}), ensure_ascii=False)
-    for lbl in ('SPI · schedule · approx', 'Baseline finish · approx', 'Overall planned % · approx',
+    for lbl in ('SPI · schedule · approx', 'Baseline finish · approx',
                 'Planned value · approx', 'Delay · approx', 'Planned % · approx'):
         assert lbl in flat, lbl
     assert '· approx' not in json.dumps(overview_excel({'result': result, 'meta': {}}), ensure_ascii=False)

@@ -130,7 +130,7 @@ export function renderSchedule(result) {
       const left = xOf(sMs);
       const w = Math.max(3, xOf(fMs) - left);
       const tt = attr(tip(a));
-      const lbl = `<div class="g-lbl" title="${tt}"><div class="g-nm"><b>${escapeHtml(a.id)}</b><span>${escapeHtml(a.name)}</span></div>`
+      const lbl = `<div class="g-lbl" title="${tt}"><b class="g-id">${escapeHtml(a.id)}</b><div class="g-nm"><span>${escapeHtml(a.name)}</span></div>`
         + `<i>${gShort(a.start)}</i><i>${gShort(a.finish)}</i></div>`;
       const bar = a.milestone
         ? `<div class="g-ms${a.critical ? ' crit' : ''}" style="left:${Math.max(0, left - 6).toFixed(1)}px" title="${tt}"></div>`
@@ -154,7 +154,7 @@ export function renderSchedule(result) {
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
       </div></div></div>
     <div class="g-wrap"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
-      <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity</span><i>Start</i><i>Finish</i></div>
+      <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span><span>Activity name</span><i>Start</i><i>Finish</i></div>
         <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>data date</span></div>` : ''}</div></div>
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(var(--g-lblw) + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
       <div class="g-rows">${rows}</div>

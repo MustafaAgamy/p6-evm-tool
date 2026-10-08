@@ -39,12 +39,13 @@ await test('blocks carry their exact height; every row and group is present once
   assert.equal(blocks.length, Math.ceil(132 / 60));
   assert.equal(blocks.reduce((a, b) => a + b, 0), rows * 30 + grps * 26, 'sum of block heights = laid-out height');
   assert.match(h, /class="g-inner g-lazy"/);
-  assert.doesNotMatch(h, /<b>N\d+<\/b>/, 'non-critical activities are not drawn');
+  assert.match(h, /<span>Activity ID<\/span><span>Activity name<\/span>/, 'Activity ID has its own column');
+  assert.doesNotMatch(h, /<b class="g-id">N\d+<\/b>/, 'non-critical activities are not drawn');
   assert.match(h, /<b>130<\/b> critical of <b>142<\/b> activities/);
 });
 await test('groups ordered by earliest start, rows by start (same order as before)', () => {
   const h = el.innerHTML;
-  const ids = [...h.matchAll(/<b>([AB]\d+)<\/b>/g)].map(m => m[1]);
+  const ids = [...h.matchAll(/<b class="g-id">([AB]\d+)<\/b>/g)].map(m => m[1]);
   assert.equal(ids[0], 'B0');
   assert.equal(ids[29], 'B29');
   assert.equal(ids[30], 'A99');           // A99 has the earliest start in group A
