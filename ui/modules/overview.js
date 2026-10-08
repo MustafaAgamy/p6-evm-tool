@@ -155,13 +155,6 @@ const WBS_COLS = [
   { key: 'planned',         label: 'Planned %',       w: 64, kind: 'pct'  },
   { key: 'actual',          label: 'Actual %',        w: 64, kind: 'pct'  },
   { key: 'delay',           label: 'Delay',           w: 74, kind: 'delay'},
-  // the other columns of P6's WBS band (off until ticked in ▦ Columns)
-  { key: 'total_float',     label: 'Total Float',     w: 70, kind: 'days',  opt: true },
-  { key: 'count',           label: 'Activity Count',  w: 70, kind: 'int',   opt: true },
-  { key: 'orig_dur',        label: 'Original Duration', w: 76, kind: 'days', opt: true },
-  { key: 'pv',              label: 'Planned Value Cost', w: 112, kind: 'money', opt: true },
-  { key: 'ev',              label: 'Earned Value Cost',  w: 112, kind: 'money', opt: true },
-  { key: 'bac',             label: 'Budgeted Total Cost', w: 112, kind: 'money', opt: true },
 ];
 const WBS_MODE_KEY = 'p6evm_wbs_mode';
 let wbsMode = null;               // 'all' | 'critical' — which activities the WBS summarises
@@ -177,7 +170,7 @@ const pctVal = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);   // backend alr
 
 function wbsShownCols() {
   if (!wbsCols) {
-    let shown = WBS_COLS.filter((c) => !c.opt).map((c) => c.key);   // default: the standard set
+    let shown = WBS_COLS.map((c) => c.key);           // default: all shown
     try { const s = JSON.parse(localStorage.getItem(WBS_COLS_KEY) || 'null'); if (Array.isArray(s)) shown = s; } catch { /* default */ }
     wbsCols = new Set(shown);
   }
@@ -393,7 +386,7 @@ ${wbsHasPct(branch) ? `
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : '<span class="ov-chip">not cost-loaded — no Planned % / Actual %</span>'}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
-    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %), costs, Activity Count and Total Float.</p>' : ''}
+    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (shown as Delay).</p>' : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>

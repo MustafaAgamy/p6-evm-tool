@@ -332,4 +332,5 @@ def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
     assert rows['K1']['wbs_id'] == 'B'
     gantt, ov = _read('ui', 'modules', 'gantt.js'), _read('ui', 'modules', 'overview.js')
     assert 'result.wbs_critical' in gantt and 'g-band' in gantt
-    assert "data-mode=\"critical\"" in ov and 'Original Duration' in ov and 'Budgeted Total Cost' in ov
+    assert "data-mode=\"critical\"" in ov
+    assert 'Original Duration' not in ov and 'Budgeted Total Cost' not in ov      # only the agreed columns are shown
