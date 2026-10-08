@@ -75,9 +75,9 @@ def _by_id(result):
 
 def test_wbs_main_lists_top_level_branches(tree_result):
     # sole root "Programme" -> its activity-bearing children are the branches,
-    # sorted by name (Construction before Engineering).
+    # in P6's own order (the file lists Engineering before Construction), not alphabetical.
     mains = tree_result['wbs_main']
-    assert [m['name'] for m in mains] == ['Construction', 'Engineering']
+    assert [m['name'] for m in mains] == ['Engineering', 'Construction']
     assert [m['id'] for m in mains] == ['1200', '1100']
 
 
