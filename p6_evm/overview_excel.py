@@ -106,8 +106,12 @@ def _summary_block(result, meta):
         ['Data date', _fmt_date(result.get('data_date') or meta.get('data_date'))],
         ['Activities', _num(result.get('activity_count'))],
         ['Calendars', _num(result.get('calendar_count'))],
-        ['WBS categories', len(cats)],
     ]
+    cl = result.get('cost_loaded') or None
+    if cl:
+        rows.append(['Cost-loaded activities', _num(cl.get('activities'))])
+    else:
+        rows.append(['WBS categories', len(cats)])
     if meta.get('source_file'):
         rows.append(['Source file', meta.get('source_file')])
     if meta.get('report_date'):
@@ -120,8 +124,14 @@ def _kpi_block(result, approx=False):
     (the update's own Planned dates stand in for its baseline) marks the baseline-derived rows
     '· approx', as the screen does."""
     ax = ' · approx' if approx else ''
-    spi = result.get('spi')
-    cpi = result.get('cpi')
+    # Owner comment 93: Planned %, Actual %, PV, EV and SPI come from the COST-LOADED
+    # activities only (budget-weighted, as P6 weights them); no CPI. A schedule with no cost
+    # loading keeps its duration-weighted figures.
+    cl = result.get('cost_loaded') or None
+    src = cl or {'planned_pct': result.get('overall_planned_pct'), 'actual_pct': result.get('overall_actual_pct'),
+                 'pv': result.get('pv'), 'ev': result.get('ev'), 'spi': result.get('spi')}
+    spi = src.get('spi')
+    tag = ' · cost-loaded' if cl else ''
     delay = _delay_days(result)
     delay_note = '' if delay is None else ('late' if delay > 0 else ('early' if delay < 0 else 'on time'))
     rows = [
@@ -129,18 +139,32 @@ def _kpi_block(result, approx=False):
         ['Forecast finish', _fmt_date(result.get('expected_finish')), ''],
         ['Delay' + ax, delay if delay is not None else '—', ('days ' + delay_note).strip() if delay is not None else ''],
         ['Baseline finish' + ax, _fmt_date(result.get('baseline_finish')), ''],
-        ['Overall planned %' + ax, _pct2(result.get('overall_planned_pct')), ''],
-        ['Overall actual %', _pct2(result.get('overall_actual_pct')), ''],
-        ['Planned value' + ax, _num(result.get('pv')), 'EGP'],
-        ['Earned value', _num(result.get('ev')), 'EGP'],
-        ['Actual cost', _num(result.get('ac')), 'EGP'],
-        ['CPI · cost', _round2(cpi) if cpi is not None else '—', ''],
+        ['Planned %' + tag + ax, _pct2(src.get('planned_pct')), ''],
+        ['Actual %' + tag, _pct2(src.get('actual_pct')), ''],
+        ['Planned value' + ax, _num(src.get('pv')), 'EGP'],
+        ['Earned value', _num(src.get('ev')), 'EGP'],
     ]
-    return {'title': 'Key Indicators', 'headers': ['Indicator', 'Value', 'Note'], 'rows': rows}
+    note = ('Taken from the %s cost-loaded activities only (of %s), each weighted by its budget as P6 weights it. '
+            'Activities with no cost - Engineering, Procurement - are not included. SPI = Actual %% / Planned %%.'
+            % (cl.get('activities'), cl.get('all_activities'))) if cl else \
+           'This schedule carries no cost loading, so Planned % and Actual % are weighted by activity duration.'
+    return {'title': 'Key Indicators', 'note': note, 'headers': ['Indicator', 'Value', 'Note'], 'rows': rows}
 
 
-def _category_block(result, approx=False):
-    """Progress by category — one row per WBS category (screen's ov-cats list)."""
+def _category_block(result, approx=False, group_key=None):
+    """Progress by WBS / by a P6 activity code (owner comment 94) for the cost-loaded
+    activities — the grouping picked on screen; else one row per WBS category."""
+    groups = result.get('progress_groups') or [] if result.get('cost_loaded') else []
+    group = next((g for g in groups if g.get('key') == group_key), groups[0] if groups else None)
+    if group:
+        label = 'WBS' if group.get('key') == 'wbs' else 'Activity code - %s' % group.get('label')
+        return {
+            'title': 'Progress by %s' % group.get('label'),
+            'note': 'Planned vs actual % of the cost-loaded activities, weighted by budget.',
+            'headers': [label, 'Activities', 'Planned % · approx' if approx else 'Planned %', 'Actual %', 'Budget'],
+            'rows': [[r.get('name'), _num(r.get('activities')), _pct2(r.get('planned_pct')),
+                      _pct2(r.get('actual_pct')), _num(r.get('bac'))] for r in group.get('rows') or []],
+        }
     cats = result.get('categories') or {}
     rows = []
     for name, c in cats.items():
@@ -183,6 +207,7 @@ def overview_excel(report):
 
     return [{
         'name': 'Project Overview',
-        'blocks': [_summary_block(result, meta), _kpi_block(result, approx), _category_block(result, approx)],
+        'blocks': [_summary_block(result, meta), _kpi_block(result, approx),
+                   _category_block(result, approx, report.get('progress_group'))],
         'col_widths': {0: 30, 1: 20, 2: 18, 3: 14, 4: 18},
     }]

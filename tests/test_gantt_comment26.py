@@ -94,26 +94,30 @@ def test_grouping_is_the_true_top_level_wbs_keyed_by_id():
 
 
 def test_excel_follows_the_same_groups_and_dates():
+    # owner comment 65: the sheet lists the CRITICAL activities only (A2 and the milestone M1)
     acts = sv.gantt_activities(_records(), WBS)
     blocks = schedule_excel({'activities': acts, 'data_date': '2025-03-15', 'project_name': 'T'})[0]['blocks']
-    assert [b['title'] for b in blocks] == ['Schedule (Gantt)', 'Engineering', 'Construction']   # earliest start first
+    assert [b['title'] for b in blocks] == ['Schedule (Gantt) - critical activities', 'Construction']
     head = blocks[1]['headers']
     assert head[:8] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Start', 'Finish', 'Planned Start', 'Planned Finish']
-    a1 = blocks[1]['rows'][0]
-    assert a1[0] == 'A1' and a1[3] == 'Completed' and a1[4] == '03-Feb.2025' and a1[6] == '01-Jan.2025'
-    con = {r[0]: r for r in blocks[2]['rows']}
+    con = {r[0]: r for r in blocks[1]['rows']}
+    assert set(con) == {'A2', 'M1'}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
-    assert con['A2'][head.index('Total Float (d)')] == -12.3
+    assert con['A2'][head.index('Total Float (d)')] == -12.3 and con['A2'][4] == '01-Mar.2025'
     assert 'actual where the work has started' in blocks[0]['note']
+    assert ['Activities in the schedule', 4] in blocks[0]['rows']
     # two WBS with the SAME name under different parents stay two groups
-    acts2 = [dict(a) for a in acts]
+    acts2 = [dict(a, critical=True) for a in acts]
     for a in acts2:
         a['wbs_top'] = 'Civil'
     titles = [b['title'] for b in schedule_excel({'activities': acts2})[0]['blocks']]
-    assert titles == ['Schedule (Gantt)', 'Civil', 'Civil']
+    assert titles == ['Schedule (Gantt) - critical activities', 'Civil', 'Civil']
+    # a schedule with nothing critical says so instead of listing every activity
+    none = schedule_excel({'activities': [dict(a, critical=False) for a in acts]})[0]['blocks']
+    assert len(none) == 1 and none[0]['rows'][0][0] == 'No critical activities'
     # an old stored result (no status / float / planned dates) still exports
     old = [{'id': 'O1', 'name': 'Old', 'wbs': 'A', 'wbs_top': 'A', 'start': '2025-01-01', 'finish': '2025-01-02',
-            'pct': 10, 'critical': False, 'milestone': False}]
+            'pct': 10, 'critical': True, 'milestone': False}]
     row = schedule_excel({'activities': old})[0]['blocks'][1]['rows'][0]
     assert row[3] == '' and row[6] == '' and row[9] == ''
 
@@ -126,7 +130,7 @@ def test_wbs_view_dates_are_current_dates_too():
     assert by['C']['finish'] == '2025-06-01'
     assert [m['name'] for m in main] == ['Construction', 'Engineering']
     views = sv.build_views(_records(), data)
-    assert set(views) == {'activities', 'wbs_summary', 'wbs_main'} and len(views['activities']) == 4
+    assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'cost_loaded', 'progress_groups'} and len(views['activities']) == 4
 
 
 def test_views_are_stored_with_the_snapshot_and_removed_with_the_project(temp_db):
@@ -148,7 +152,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and 'if views is None:' in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -173,3 +177,70 @@ def test_the_gantt_prints_with_pdf_word_and_html():
     css = _read('ui', 'style.css')
     assert '.g-wrap { --g-lblw: 400px; overflow: auto; max-height:' in css       # header + activity column stay in view
     assert 'position: sticky; left: 0;' in css and '.g-ms.crit { background: var(--danger); }' in css
+
+
+# ── owner comments 63 / 65 / 93 / 94 — cost-loaded figures, critical-only Gantt ──────────────
+def _cost_records():
+    def rec(i, wbs, bac, pl, ac, codes=None, **kw):
+        a = _act(i, wbs, D(2025, 1, 1), D(2025, 1, 10), activity_codes=codes or {}, **kw)
+        return {'activity': a, 'total_float': 5, 'bac': bac, 'planned_pct': pl, 'actual_pct': ac}
+    return [
+        rec('E1', 'EC', 0, 1.0, 1.0),                                   # engineering: no cost
+        rec('C1', 'CC', 300.0, 1.0, 0.5, {'Type of Works': 'Civil'}),
+        rec('C2', 'CC', 100.0, 0.2, 0.0, {'Type of Works': 'Steel'}),
+        rec('C3', 'C', 0, 0.6, 0.6),                                    # construction, no cost
+    ]
+
+
+class _Data:
+    wbs = WBS
+    baseline_by_id = {}
+    activity_code_types = ['Type of Works', 'Unused code']
+
+
+def test_overview_figures_come_from_cost_loaded_activities_only():
+    ov = sv.cost_loaded_overview(_cost_records())
+    assert ov['activities'] == 2 and ov['all_activities'] == 4 and ov['bac'] == 400.0
+    assert ov['pv'] == 320.0 and ov['ev'] == 150.0                     # 300*1.0+100*0.2 / 300*0.5
+    assert ov['planned_pct'] == 0.8 and ov['actual_pct'] == 0.375
+    assert abs(ov['spi'] - 0.46875) < 1e-9                              # = actual % / planned %
+    assert sv.cost_loaded_overview(_records()) is None                  # a schedule with no cost
+
+
+def test_progress_groups_by_wbs_and_by_each_used_activity_code():
+    groups = sv.progress_groups(_cost_records(), _Data())
+    assert [g['key'] for g in groups] == ['wbs', 'code:Type of Works']      # the unused code is not offered
+    by = {r['name']: r for r in groups[1]['rows']}
+    assert by['Civil']['planned_pct'] == 1.0 and by['Civil']['actual_pct'] == 0.5 and by['Civil']['activities'] == 1
+    assert by['Steel']['planned_pct'] == 0.2 and by['Steel']['bac'] == 100.0
+    assert sum(r['activities'] for r in groups[0]['rows']) == 2             # cost-loaded only
+    assert sv.progress_groups(_records(), _Data()) == []
+
+
+def test_wbs_without_cost_carries_no_percentages():
+    summary, _ = sv.wbs_views(_cost_records(), _Data())
+    by = {n['id']: n for n in summary}
+    assert by['EC']['cost_loaded'] == 0 and by['EC']['planned'] is None and by['EC']['actual'] is None
+    assert by['CC']['cost_loaded'] == 2 and by['CC']['planned'] == 80.0 and by['CC']['actual'] == 37.5
+    from p6_evm.wbs_excel import wbs_excel
+    rows = [r for b in wbs_excel({'wbs_summary': summary, 'wbs_main': []})[0]['blocks'] for r in b['rows']]
+    eng = next(r for r in rows if r[0].strip() == 'Engineering')
+    assert eng[5] == '' and eng[6] == ''
+
+
+def test_critical_follows_the_p6_flag_when_the_file_carries_it():
+    recs = _records()
+    recs[2]['activity']['is_critical'] = True          # P6 flags it (longest path) although float is 8
+    recs[1]['activity']['is_critical'] = False
+    rows = {r['id']: r for r in sv.gantt_activities(recs, WBS)}
+    assert rows['A3']['critical'] is True and rows['A2']['critical'] is False
+    assert rows['A1']['critical'] is False             # finished work is never critical
+
+
+def test_screens_show_cost_loaded_overview_critical_gantt_and_fitted_wbs():
+    ov, gantt = _read('ui', 'modules', 'overview.js'), _read('ui', 'modules', 'gantt.js')
+    assert 'CPI' not in ov[ov.index('export function renderOverview'):ov.index('// ── Project ▸ WBS summary timeline')]
+    assert 'result.cost_loaded' in ov and 'id="ov-group"' in ov
+    assert 'all.filter((a) => a.critical)' in gantt
+    assert 'wbst-fit' in ov and 'totalDays * 3' not in ov        # the timeline fits the screen: no sideways scroll
+    assert 'wbsHasPct' in ov

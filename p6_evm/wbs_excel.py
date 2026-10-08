@@ -75,6 +75,18 @@ def _num(v):
     return v if isinstance(v, (int, float)) else '—'
 
 
+def _has_pct(node):
+    """A WBS with no cost-loaded activity carries no Planned % / Actual % (owner comment 63).
+    Rows stored before the flag existed keep whatever they hold."""
+    return 'cost_loaded' not in node or (node.get('cost_loaded') or 0) > 0 or node.get('planned') is not None
+
+
+def _pct(node, key):
+    if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
+        return ''
+    return _num(node.get(key))
+
+
 def _row(node, base_depth):
     """One table row mirroring the on-screen WBS row, name indented by relative depth."""
     rel = max(0, (node.get('depth') or 0) - base_depth)
@@ -86,8 +98,8 @@ def _row(node, base_depth):
         _fmt_date(node.get('baseline_finish')),
         _fmt_date(node.get('start')),
         _fmt_date(node.get('finish')),
-        _num(node.get('planned')),
-        _num(node.get('actual')),
+        _pct(node, 'planned'),
+        _pct(node, 'actual'),
         delay if delay is not None else '—',
     ]
 
@@ -116,6 +128,8 @@ def _branch_note(subset):
     pl_s = f'{pl:.1f}%' if isinstance(pl, (int, float)) else '—'
     ac_s = f'{ac:.1f}%' if isinstance(ac, (int, float)) else '—'
     n = f'{acts} activities' if acts is not None else 'activities —'
+    if not _has_pct(root):
+        return f'{n} · not cost-loaded - no Planned % / Actual %'
     return f'{n} · overall {pl_s} planned · {ac_s} actual'
 
 

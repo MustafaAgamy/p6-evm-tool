@@ -21,12 +21,24 @@ const bar = (planned, actual) => {
     <div class="ovb-act" style="width:${a.toFixed(1)}%"></div></div>`;
 };
 
+const OV_GROUP_KEY = 'p6evm_ov_group';
+let ovGroupKey = null;             // the picked "Progress by" grouping (WBS or an activity code)
+export function overviewGroupKey() { return ovGroupKey; }
+
 export function renderOverview(result) {
   const el = document.getElementById('overview-body');
   _ovPrint = null;
   if (!el || !result) return;
-  const spi = result.spi != null ? result.spi.toFixed(2) : '—';
-  const cpi = result.cpi != null ? result.cpi.toFixed(2) : '—';
+  // Owner comment 93: every progress figure here comes from the COST-LOADED activities only
+  // (budget-weighted, as P6 weights them) — activities with no cost (Engineering /
+  // Procurement) take no part. A schedule with no cost at all keeps the duration-weighted
+  // figures and says so.
+  const cl = result.cost_loaded || null;
+  const plannedPct = cl ? cl.planned_pct : result.overall_planned_pct;
+  const actualPct = cl ? cl.actual_pct : result.overall_actual_pct;
+  const pv = cl ? cl.pv : result.pv, ev = cl ? cl.ev : result.ev;
+  const spiVal = cl ? cl.spi : result.spi;
+  const spi = spiVal != null ? spiVal.toFixed(2) : '—';
   // Delay in working days from the finish-milestone float; when the schedule
   // carries no milestone float, fall back to forecast-finish minus baseline-finish.
   let delayDays = result.delay_days;
@@ -41,32 +53,47 @@ export function renderOverview(result) {
   const approx = baselineApprox(result, state.currentXmlPath);
   const ax = approx ? ' · approx' : '';
   const blLine = approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(baselineApproxLine(result, state.currentXmlPath))}</p>` : '';
-  const cats = Object.entries(result.categories || {});
-  const catRows = cats.map(([name, c]) => `
-    <div class="ov-cat">
-      <div class="ov-cat-name">${name}<span>${c.activity_count} activities${c.overridden ? ' · manual override' : ''}</span></div>
-      ${bar(c.planned_pct, c.actual_pct)}
-      <div class="ov-cat-val"><b>${pct(c.actual_pct)}</b><span>plan ${pct(c.planned_pct)}${ax}</span></div>
-    </div>`).join('');
 
+  // Progress by WBS / by a P6 activity code (owner comment 94) — cost-loaded activities only
+  const groups = (cl && Array.isArray(result.progress_groups)) ? result.progress_groups : [];
+  if (ovGroupKey == null) { try { ovGroupKey = localStorage.getItem(OV_GROUP_KEY); } catch { /* default */ } }
+  const group = groups.find((g) => g.key === ovGroupKey) || groups[0] || null;
+  const row = (name, n, planned, actual, extra) => `
+    <div class="ov-cat">
+      <div class="ov-cat-name">${escapeHtml(name)}<span>${n} activities${extra || ''}</span></div>
+      ${bar(planned, actual)}
+      <div class="ov-cat-val"><b>${pct(actual)}</b><span>plan ${pct(planned)}${ax}</span></div>
+    </div>`;
+  const cats = Object.entries(result.categories || {});
+  const catRows = group
+    ? group.rows.map((r) => row(r.name, r.activities, r.planned_pct, r.actual_pct, '')).join('')
+    : cats.map(([name, c]) => row(name, c.activity_count, c.planned_pct, c.actual_pct, c.overridden ? ' · manual override' : '')).join('');
+  const byLabel = group ? group.label : 'category';
+
+  const basis = cl
+    ? `Planned %, Actual %, Planned value, Earned value and SPI are taken from the <b>${cl.activities}</b> cost-loaded activities only (of ${cl.all_activities}), each weighted by its budget as P6 weights it. Activities with no cost — Engineering, Procurement — are not included. SPI = Actual % ÷ Planned %.`
+    : 'This schedule carries no cost loading, so Planned % and Actual % are weighted by activity duration instead of budget.';
   const kpisHtml = `<div class="ov-kpis">
-      <div class="ov-kpi"><div class="k">SPI · schedule${ax}</div><div class="v ${result.spi != null && result.spi < 1 ? 'bad' : ''}">${spi}</div></div>
+      <div class="ov-kpi"><div class="k">SPI · schedule${ax}</div><div class="v ${spiVal != null && spiVal < 1 ? 'bad' : ''}">${spi}</div></div>
       <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
       <div class="ov-kpi"><div class="k">Delay${ax}</div><div class="v ${delayCls}">${delay}</div></div>
       <div class="ov-kpi"><div class="k">Baseline finish${ax}</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Overall planned${ax}</div><div class="v">${pct(result.overall_planned_pct)}</div></div>
-      <div class="ov-kpi"><div class="k">Overall actual</div><div class="v">${pct(result.overall_actual_pct)}</div></div>
-      <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(result.pv)}</div></div>
-      <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(result.ev)}</div></div>
-      <div class="ov-kpi"><div class="k">Actual cost</div><div class="v sm">${fmtEGP(result.ac)}</div></div>
-      <div class="ov-kpi"><div class="k">CPI · cost</div><div class="v">${cpi}</div></div>
-    </div>${blLine}`;
+      <div class="ov-kpi"><div class="k">Planned %${cl ? ' · cost-loaded' : ''}${ax}</div><div class="v">${pct(plannedPct)}</div></div>
+      <div class="ov-kpi"><div class="k">Actual %${cl ? ' · cost-loaded' : ''}</div><div class="v">${pct(actualPct)}</div></div>
+      <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(pv)}</div></div>
+      <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(ev)}</div></div>
+    </div><p class="ov-note ov-basis">${basis}</p>${blLine}`;
   const catsHtml = `<div class="ov-cats">${catRows || '<p class="ov-empty">No categories configured for this schedule.</p>'}</div>`;
 
   _ovPrint = [
     { key: 'kpis', label: 'Key indicators', html: kpisHtml },
-    { key: 'categories', label: 'Progress by category', html: catsHtml },
+    { key: 'categories', label: `Progress by ${byLabel}`, html: catsHtml },
   ];
+
+  const picker = groups.length > 1
+    ? `<label class="ov-groupby">Show by <select id="ov-group">${groups.map((g) =>
+        `<option value="${escapeAttr(g.key)}"${g === group ? ' selected' : ''}>${escapeHtml(g.key === 'wbs' ? 'WBS' : 'Activity code — ' + g.label)}</option>`).join('')}</select></label>`
+    : '';
 
   el.innerHTML = `
     <div class="ov-head">
@@ -75,15 +102,22 @@ export function renderOverview(result) {
         <div class="ov-chips">
           <span class="ov-chip">data date <b>${fmtDate(result.data_date)}</b></span>
           <span class="ov-chip"><b>${result.activity_count ?? '—'}</b> activities</span>
+          ${cl ? `<span class="ov-chip"><b>${cl.activities}</b> cost-loaded</span>` : ''}
           <span class="ov-chip"><b>${result.calendar_count ?? '—'}</b> calendars</span>
-          <span class="ov-chip"><b>${cats.length}</b> WBS categories</span>
         </div>
       </div>
     </div>
     ${kpisHtml}
-    <div class="ov-section-label">Progress by category <span class="ovl"><i class="dp"></i>planned <i class="da"></i>actual</span></div>
+    <div class="ov-section-label">Progress by ${escapeHtml(byLabel)} ${picker}<span class="ovl"><i class="dp"></i>planned <i class="da"></i>actual</span></div>
     ${catsHtml}
-    <p class="ov-note">A project summary from the imported update — the same figures the modules and PDF report use. Open a module from the navigator to drill in.</p>`;
+    <p class="ov-note">${group ? 'Pick <b>WBS</b> or any P6 <b>activity code</b> in “Show by” to see Planned % against Actual % for each value of that code — cost-loaded activities only, weighted by budget.' : 'A project summary from the imported update.'} Open a module from the navigator to drill in.</p>`;
+
+  const sel = document.getElementById('ov-group');
+  if (sel) sel.addEventListener('change', () => {
+    ovGroupKey = sel.value;
+    try { localStorage.setItem(OV_GROUP_KEY, ovGroupKey); } catch { /* non-fatal */ }
+    renderOverview(result);
+  });
 }
 
 // ── Project ▸ WBS summary timeline ──────────────────────────────────────
@@ -131,8 +165,13 @@ function wbsColLabel(col, approx) {
   return approx && WBS_BL_COLS.has(col.key) ? `${col.label} · approx` : col.label;
 }
 
+// Owner comment 63: a WBS with no cost-loaded activity has no Planned % / Actual % in P6, so
+// none is shown for it. (A schedule with no cost at all keeps its duration-weighted figures.)
+let wbsAnyCost = false;
+const wbsHasPct = (n) => !wbsAnyCost || (n.cost_loaded || 0) > 0;
+
 function wbsCellVal(col, n) {
-  if (col.kind === 'pct')  return pctVal(n[col.key]);
+  if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : '';
   if (col.kind === 'date') { const ms = toMs(n[col.key]); return Number.isNaN(ms) ? '—' : fmtShort(ms); }
   const d = wbsDelay(n);                                // delay
   return d == null ? '—' : `${d > 0 ? '+' : ''}${d} d`;
@@ -154,8 +193,7 @@ export function renderWbs(result) {
     return;
   }
 
-  const cols = wbsShownCols();
-  const leftW = WBS_WBS_W + cols.reduce((s, c) => s + c.w, 0);
+  wbsAnyCost = nodes.some((n) => (n.cost_loaded || 0) > 0);
 
   // pick the main branch (default to the first; keep the user's choice if still valid)
   const mainIds = mains.map((m) => m.id);
@@ -171,6 +209,10 @@ export function renderWbs(result) {
   }
   const baseDepth = subset.length ? subset[0].depth : 0;
   const branch = subset[0] || {};
+  // a branch with no cost-loaded WBS at all (e.g. Engineering) loses the two % columns
+  const branchPct = subset.some(wbsHasPct);
+  const cols = wbsShownCols().filter((c) => branchPct || c.kind !== 'pct');
+  const leftW = WBS_WBS_W + cols.reduce((s, c) => s + c.w, 0);
 
   // time scale over the branch's dated nodes — baseline and expected both, so
   // the track spans the wider of the two (+ data date)
@@ -187,9 +229,11 @@ export function renderWbs(result) {
   if (!dated) { min = Date.now(); max = min + DAY; }
 
   const totalDays = Math.max(1, Math.round((max - min) / DAY));
-  const trackW = Math.max(680, Math.min(Math.round(totalDays * 3), 3600));
+  // Owner comment 64: the timeline always fits the width of the screen (positions are a
+  // share of the track), so the whole WBS shows with no sideways scroll.
+  const trackW = Math.max(160, (el.clientWidth || 1180) - leftW - 4);
   const ppd = trackW / totalDays;
-  const xOf = (ms) => ((ms - min) / DAY) * ppd;
+  const xOf = (ms) => ((ms - min) / (max - min)) * 100;
 
   // month ticks / gridlines / year markers
   const monthPx = ppd * 30.4;
@@ -198,11 +242,11 @@ export function renderWbs(result) {
   const t = new Date(min); t.setDate(1); t.setHours(0, 0, 0, 0);
   for (; t.getTime() <= max; t.setMonth(t.getMonth() + 1), k++) {
     const x = xOf(t.getTime());
-    if (x < -0.5 || x > trackW + 0.5) continue;
+    if (x < -0.05 || x > 100.05) continue;
     const lbl = k % step === 0 ? `<span>${t.toLocaleDateString('en-GB', { month: 'short' })}</span>` : '';
-    ticks += `<div class="wbst-tk" style="left:${x.toFixed(1)}px">${lbl}</div>`;
-    grid  += `<div class="wbst-gl" style="left:calc(${leftW}px + ${x.toFixed(1)}px)"></div>`;
-    if (t.getMonth() === 0) ticks += `<div class="wbst-yr" style="left:${(x + 3).toFixed(1)}px">${t.getFullYear()}</div>`;
+    ticks += `<div class="wbst-tk" style="left:${x.toFixed(2)}%">${lbl}</div>`;
+    grid  += `<div class="wbst-gl" style="left:${x.toFixed(2)}%"></div>`;
+    if (t.getMonth() === 0) ticks += `<div class="wbst-yr" style="left:calc(${x.toFixed(2)}% + 3px)">${t.getFullYear()}</div>`;
   }
   const ddx = !Number.isNaN(dd) ? xOf(dd) : null;
 
@@ -214,13 +258,14 @@ export function renderWbs(result) {
     const hasBar = dated && !Number.isNaN(sMs) && !Number.isNaN(fMs);
     let bar = '';
     if (hasBar) {
-      const left = xOf(sMs), w = Math.max(5, xOf(fMs) - left);
-      const ac = n.actual == null ? null : Math.max(0, Math.min(100, n.actual));
-      const pl = n.planned == null ? null : Math.max(0, Math.min(100, n.planned));
+      const left = xOf(sMs), w = Math.max(0.6, xOf(fMs) - left);
+      const hp = wbsHasPct(n);
+      const ac = (!hp || n.actual == null) ? null : Math.max(0, Math.min(100, n.actual));
+      const pl = (!hp || n.planned == null) ? null : Math.max(0, Math.min(100, n.planned));
       const behind = ac != null && pl != null && pl > ac
         ? `<div class="wbst-behind" style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></div>` : '';
       const tick = pl != null ? `<div class="wbst-tick" style="left:${pl}%"></div>` : '';
-      bar = `<div class="wbst-bar${leaf ? '' : ' sum'}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px">
+      bar = `<div class="wbst-bar${leaf ? '' : ' sum'}" style="left:${left.toFixed(2)}%;width:${Math.min(w, 100 - left).toFixed(2)}%">
           ${ac != null ? `<div class="wbst-act" style="width:${ac}%"></div>` : ''}${behind}${tick}
           <div class="wbst-cap"></div></div>`;
     }
@@ -261,8 +306,9 @@ export function renderWbs(result) {
       <tr><td>WBS nodes shown</td><td>${subset.length} (${_wbsLeaves} at activity level)</td></tr>
       <tr><td>Date span</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>
       <tr><td>Data date</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
+${wbsHasPct(branch) ? `
       <tr><td>Overall planned${approx ? ' · approx' : ''}</td><td>${pctVal(branch.planned)}</td></tr>
-      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>${approx ? `
+      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>` : ''}${approx ? `
       <tr><td>Baseline</td><td>${escapeHtml(blLine.replace(/^Baseline: /, ''))}</td></tr>` : ''}
     </tbody></table>`;
   _wbsPrint = [
@@ -290,7 +336,7 @@ export function renderWbs(result) {
       <div class="ov-chips">
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
-        <span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>
+        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : '<span class="ov-chip">not cost-loaded — no Planned % / Actual %</span>'}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
@@ -299,16 +345,16 @@ export function renderWbs(result) {
         <span><i class="wbst-lg beh"></i>behind plan</span>
         <span><i class="wbst-lg tgt"></i>plan target</span>
       </div>${chooser}</div>
-    <div class="wbst-wrap"><div class="wbst-inner" style="--trackw:${trackW}px;width:calc(${leftW}px + ${trackW}px)">
+    <div class="wbst-wrap"><div class="wbst-inner wbst-fit" style="min-width:${leftW + 160}px">
       <div class="wbst-scale">
         <div class="wc-wbs wbst-h">WBS</div>
         ${cols.map((c) => `<div class="wc-cell wbst-h ${c.kind === 'date' ? 'wc-date' : 'wc-num'}" style="width:${c.w}px">${wbsColLabel(c, approx)}</div>`).join('')}
         <div class="wc-tl wbst-scale-track">${ticks}</div>
       </div>
-      <div class="wbst-grids">${grid}${ddx != null ? `<div class="wbst-dd" style="left:calc(${leftW}px + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
+      <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is Expected Finish − Baseline Finish (+ late / − early). Use <b>▦ Columns</b> to choose which columns appear. Weighted the same way as Overall % and SPI.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is Expected Finish − Baseline Finish (+ late / − early). Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS with no cost carries none.</p>`;
 
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {

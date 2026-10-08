@@ -1170,6 +1170,16 @@ class Handler(BaseHTTPRequestHandler):
                 safe_result['wbs_summary'] = []
                 safe_result['wbs_main'] = []
                 print(f'[wbs] summary skipped: {wbs_exc}', file=sys.stderr)
+            # Overview: Planned % / Actual % / PV / EV / SPI from the cost-loaded activities
+            # only, and the same activities grouped by WBS and by each activity code
+            try:
+                from p6_evm.schedule_view import cost_loaded_overview, progress_groups
+                safe_result['cost_loaded'] = cost_loaded_overview(result['records'])
+                safe_result['progress_groups'] = progress_groups(result['records'], data)
+            except Exception as cl_exc:
+                safe_result['cost_loaded'] = None
+                safe_result['progress_groups'] = []
+                print(f'[overview] cost-loaded figures skipped: {cl_exc}', file=sys.stderr)
 
             code_types = list(getattr(data, 'activity_code_types', []) or [])
             safe_result['activity_code_types'] = code_types
@@ -1265,8 +1275,10 @@ class Handler(BaseHTTPRequestHandler):
                 'has_embedded_baseline': safe_result.get('has_embedded_baseline'),
             })
             try:                                   # the Gantt / WBS views stay with the snapshot
-                db.save_snapshot_views(sid, {k: safe_result.get(k) or [] for k in
-                                             ('activities', 'wbs_summary', 'wbs_main')})
+                views = {k: safe_result.get(k) or [] for k in
+                         ('activities', 'wbs_summary', 'wbs_main', 'progress_groups')}
+                views['cost_loaded'] = safe_result.get('cost_loaded')
+                db.save_snapshot_views(sid, views)
             except Exception as view_exc:
                 print(f'[views] not stored: {view_exc}', file=sys.stderr)
             # ──────────────────────────────────────────────────────────────
@@ -2933,14 +2945,16 @@ class Handler(BaseHTTPRequestHandler):
         """The Schedule (Gantt) rows and WBS tree stored with a snapshot. A snapshot imported
         before these were stored is built ONCE from its cached file (parse + compute, metrics
         untouched) and stored, so every later open reads the DB only."""
-        empty = {'activities': [], 'wbs_summary': [], 'wbs_main': []}
+        empty = {'activities': [], 'wbs_summary': [], 'wbs_main': [], 'progress_groups': []}
         if not snapshot_id:
-            return empty
+            return dict(empty, cost_loaded=None)
         views = db.get_snapshot_views(snapshot_id)
-        if views is None:
+        stored = views
+        # a snapshot stored before the cost-loaded Overview figures existed is rebuilt once too
+        if views is None or 'cost_loaded' not in views:
             src = db.get_snapshot_source(snapshot_id)
             if not src:
-                return empty
+                return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
             try:
                 sys.path.insert(0, resource_path('.'))
                 from p6_evm.metrics import compute
@@ -2955,8 +2969,8 @@ class Handler(BaseHTTPRequestHandler):
                 db.save_snapshot_views(snapshot_id, views)
             except Exception as exc:
                 print(f'[views] snapshot {snapshot_id} not rebuilt: {exc}', file=sys.stderr)
-                return empty
-        return {k: views.get(k) or [] for k in empty}
+                return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
+        return dict({k: views.get(k) or [] for k in empty}, cost_loaded=views.get('cost_loaded'))
 
     def _handle_project_load(self, body):
         """Return stored metrics for a project without re-parsing the XML."""

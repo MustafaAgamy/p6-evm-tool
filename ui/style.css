@@ -2752,6 +2752,13 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 .wbst-wrap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
 .wbst-inner { position: relative; width: max-content; }   /* exact width set inline per render */
+/* the timeline takes whatever width is left, so the whole WBS fits with no sideways scroll */
+.wbst-inner.wbst-fit { width: 100%; box-sizing: border-box; overflow: hidden; }
+.wbst-fit .wc-tl { width: auto; flex: 1 1 0; min-width: 0; }
+.wbst-fit .wbst-dd { top: 0; }
+.ov-groupby { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.ov-groupby select { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); max-width: 340px; }
+.ov-basis { margin-top: -8px; margin-bottom: 18px; font-style: normal; }
 .wbst-scale { display: flex; position: sticky; top: 0; z-index: 3; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 40px; }
 .wbst-scale .wbst-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; display: flex; align-items: center; }
 .wc-wbs { width: 260px; flex-shrink: 0; padding: 0 12px; box-sizing: border-box; display: flex; align-items: center; min-width: 0; }

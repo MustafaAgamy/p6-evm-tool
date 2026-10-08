@@ -93,8 +93,16 @@ def schedule_excel(result):
     Empty/missing activities → a single 'No data' block (never raises).
     """
     result = result or {}
-    acts = result.get('activities') or []
+    all_acts = result.get('activities') or []
+    # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities only
+    acts = [a for a in all_acts if a.get('critical')]
 
+    if all_acts and not acts:
+        return [{'name': 'Schedule',
+                 'blocks': [{'title': 'Schedule (Gantt) - critical activities',
+                             'note': 'No activity of this schedule is critical at the data date.',
+                             'headers': _HEADERS, 'rows': [['No critical activities'] + [''] * (len(_HEADERS) - 1)]}],
+                 'col_widths': _WIDTHS}]
     if not acts:
         note = ('No activity timeline is available. The schedule file of this project is no longer '
                 'on this computer, so its Gantt cannot be rebuilt — import the schedule again to '
@@ -118,13 +126,13 @@ def schedule_excel(result):
     crit = sum(1 for a in acts if a.get('critical'))
     ms = sum(1 for a in acts if a.get('milestone'))
     summary = {
-        'title': 'Schedule (Gantt)',
-        'note': _NOTE,
+        'title': 'Schedule (Gantt) - critical activities',
+        'note': 'Only the critical activities are listed - the activities P6 flags as Critical (work not finished). ' + _NOTE,
         'headers': ['Metric', 'Value'],
         'rows': [
-            ['Activities', len(acts)],
-            ['Critical activities', crit],
-            ['Milestones', ms],
+            ['Critical activities listed', crit],
+            ['Activities in the schedule', len(all_acts)],
+            ['Critical milestones', ms],
             ['WBS groups', len(order)],
             ['Data date', _fmt_date(result.get('data_date'))],
             ['Project', result.get('project_name') or 'Schedule'],

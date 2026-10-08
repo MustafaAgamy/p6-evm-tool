@@ -7,6 +7,7 @@ import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult }      from './calenda
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
+import { overviewGroupKey }                                      from './overview.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -737,6 +738,7 @@ export async function exportOverviewExcel() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta(),
+        progress_group: overviewGroupKey(),       // the 'Show by' grouping picked on screen
         // '· approx' + the 'Baseline:' line exactly as the screen shows them (R2)
         baseline_approx: baselineApprox(state.currentResult, state.currentXmlPath),
         baseline_line: baselineApproxLine(state.currentResult, state.currentXmlPath) }, output_path: outputPath }),

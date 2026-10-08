@@ -69,7 +69,16 @@ export function renderSchedule(result) {
   const el = document.getElementById('schedule-body');
   _print = null;
   if (!el) return;
-  const acts = (result && result.activities) || [];
+  // Owner comment 65: the chart shows the CRITICAL activities only (P6's own Critical flag).
+  const all = (result && result.activities) || [];
+  const acts = all.filter((a) => a.critical);
+  if (all.length && !acts.length) {
+    el.innerHTML = `
+      <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt) — critical activities</h2>
+        <div class="ov-chips"><span class="ov-chip"><b>0</b> critical of <b>${all.length}</b> activities</span></div></div></div>
+      <p class="ov-note">No activity of this schedule is critical at the data date, so there is nothing to draw.</p>`;
+    return;
+  }
   if (!acts.length) {
     el.innerHTML = `
       <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt)</h2></div></div>
@@ -134,16 +143,15 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Bars run from each activity’s current Start to its current Finish, as P6 shows them: actual dates where the work has started or finished, the remaining early dates for the rest. The darker fill is % complete. Red = critical (total float of zero or less, work not finished); diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
+  const note = 'Only the critical activities are shown — the activities P6 flags as Critical (work not finished). Bars run from each activity’s current Start to its current Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
 
   el.innerHTML = `
-    <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt)</h2>
+    <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt) — critical activities</h2>
       <div class="ov-chips">
-        <span class="ov-chip"><b>${counts.total}</b> activities</span>
-        <span class="ov-chip"><b>${counts.crit}</b> critical</span>
-        <span class="ov-chip"><b>${counts.ms}</b> milestones</span>
+        <span class="ov-chip"><b>${counts.crit}</b> critical of <b>${all.length}</b> activities</span>
+        <span class="ov-chip"><b>${counts.ms}</b> critical milestones</span>
         <span class="ov-chip">data date <b>${gDate(result.data_date)}</b></span>
-        <span class="ov-chip"><i class="g-key"></i>not critical &nbsp;<i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
+        <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
       </div></div></div>
     <div class="g-wrap"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
       <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity</span><i>Start</i><i>Finish</i></div>
@@ -205,10 +213,10 @@ function printSections(result, acts, groups, counts, sp, note) {
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
       ${kv('Data date', gDate(result.data_date))}
-      ${kv('Activities shown', counts.total)}
-      ${kv('Completed', counts.done)}${kv('In progress', counts.prog)}${kv('Not started', counts.notStarted)}
-      ${kv('Critical (total float of zero or less, not finished)', counts.crit)}
-      ${kv('Milestones', counts.ms)}
+      ${kv('Critical activities shown (as P6 flags them, not finished)', counts.crit)}
+      ${kv('Activities in the schedule', result.activity_count ?? '—')}
+      ${kv('In progress', counts.prog)}${kv('Not started', counts.notStarted)}
+      ${kv('Critical milestones', counts.ms)}
       ${kv('WBS groups', groups.length)}
       ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
       ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}

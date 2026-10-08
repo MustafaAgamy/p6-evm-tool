@@ -45,6 +45,101 @@ def activity_status(a):
     return 'Not Started'
 
 
+def is_critical(a, status, tf):
+    """Critical the way P6 flags it: the parser's ``is_critical`` (total float within the
+    project's critical limit, or P6's Longest Path flag). Finished work is never critical.
+    A record with no flag falls back to total float of zero or less."""
+    if status == 'Completed':
+        return False
+    if 'is_critical' in a:
+        return bool(a.get('is_critical'))
+    return tf is not None and tf <= 0
+
+
+def _cost_loaded(records):
+    """The records that carry a budget in P6 (owner comments 63 / 93): only these have a
+    Planned % and an Actual % that P6 itself can weight."""
+    return [r for r in records if (r.get('bac') or 0) > 0 and r.get('planned_pct') is not None]
+
+
+def cost_loaded_overview(records):
+    """Project ▸ Overview figures from the COST-LOADED activities only (owner comment 93):
+    Planned % and Actual % weighted by each activity's budget, Planned Value and Earned Value
+    as those percentages of the total budget, SPI = Actual % / Planned %. Activities with no
+    cost (Engineering / Procurement) take no part. None when the schedule carries no cost."""
+    rows = _cost_loaded(records)
+    bac = sum(r['bac'] for r in rows)
+    if not rows or bac <= 0:
+        return None
+    pv = sum(r['bac'] * r['planned_pct'] for r in rows)
+    ev = sum(r['bac'] * (r.get('actual_pct') or 0.0) for r in rows)
+    return {
+        'activities': len(rows),
+        'all_activities': len(records),
+        'bac': bac,
+        'planned_pct': pv / bac,
+        'actual_pct': ev / bac,
+        'pv': pv,
+        'ev': ev,
+        'spi': (ev / pv) if pv else None,
+    }
+
+
+NO_CODE = '(No code assigned)'
+
+
+def _progress_rows(pairs):
+    """[(group name, record), …] → rows {name, activities, bac, planned_pct, actual_pct},
+    budget-weighted, largest budget first."""
+    b = {}
+    for name, r in pairs:
+        g = b.setdefault(name, {'name': name, 'activities': 0, 'bac': 0.0, 'pv': 0.0, 'ev': 0.0})
+        g['activities'] += 1
+        g['bac'] += r['bac']
+        g['pv'] += r['bac'] * r['planned_pct']
+        g['ev'] += r['bac'] * (r.get('actual_pct') or 0.0)
+    out = []
+    for g in b.values():
+        out.append({'name': g['name'], 'activities': g['activities'], 'bac': g['bac'],
+                    'planned_pct': g['pv'] / g['bac'], 'actual_pct': g['ev'] / g['bac']})
+    out.sort(key=lambda x: (x['name'] == NO_CODE, -x['bac']))
+    return out
+
+
+def progress_groups(records, data):
+    """Project ▸ Overview 'Progress by …' choices (owner comment 94): the cost-loaded
+    activities grouped by WBS and by every P6 activity code that is assigned to at least one of
+    them — Planned % vs Actual % per code value, weighted by budget as P6 does."""
+    rows = _cost_loaded(records)
+    if not rows:
+        return []
+    wmap = data.wbs
+    paths = [wbs_path(r['activity'].get('wbs_id'), wmap) for r in rows]
+    lvl = 0                                   # the first WBS level that really divides the work
+    while paths and all(len(p) > lvl + 1 for p in paths) and len({p[lvl][0] for p in paths}) == 1:
+        lvl += 1
+    names = {}
+    for p in paths:
+        if len(p) > lvl:
+            names.setdefault(p[lvl][0], p[lvl][1])
+    dup = len(set(names.values())) < len(names)   # two WBS with one name: show the parent too
+    def wname(p):
+        if len(p) <= lvl:
+            return '(No WBS)'
+        return ' > '.join(n for _, n in p[max(0, lvl - 1):lvl + 1]) if dup else p[lvl][1]
+    groups = [{'key': 'wbs', 'label': 'WBS', 'rows': _progress_rows([(wname(p), r) for p, r in zip(paths, rows)])}]
+    for dim in list(getattr(data, 'activity_code_types', []) or []):
+        pairs, coded = [], 0
+        for r in rows:
+            v = (r['activity'].get('activity_codes') or {}).get(dim)
+            if v:
+                coded += 1
+            pairs.append((str(v) if v else NO_CODE, r))
+        if coded:
+            groups.append({'key': 'code:' + dim, 'label': dim, 'rows': _progress_rows(pairs)})
+    return groups
+
+
 def wbs_path(wbs_id, wbs_map):
     """[(wbs_id, name), …] from the TOP level down to the activity's own WBS (P6 order)."""
     out, seen, cur = [], set(), wbs_id
@@ -91,8 +186,7 @@ def gantt_activities(records, wbs_map):
             'status':     status,
             'pct':        round((a.get('percent_complete') or 0) * 100),
             'tf':         round(tf, 1) if isinstance(tf, (int, float)) else None,
-            # finished work is never critical (P6 shows no float for it)
-            'critical':   status != 'Completed' and tf is not None and tf <= 0,
+            'critical':   is_critical(a, status, tf),
             'milestone':  a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
         })
         paths.append(path)
@@ -124,7 +218,7 @@ def wbs_views(records, data):
         return b if a is None else (a if b is None else max(a, b))
 
     def base():
-        return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 's': None, 'f': None, 'bs': None, 'bf': None}
+        return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     direct = defaultdict(base)
@@ -144,6 +238,7 @@ def wbs_views(records, data):
             continue
         w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)
         d['n'] += 1
+        d['c'] += 1 if (r.get('bac') or 0) > 0 else 0
         d['w'] += w
         d['wp'] += w * r['planned_pct']
         d['wa'] += w * (r.get('actual_pct') or 0.0)
@@ -160,7 +255,7 @@ def wbs_views(records, data):
         t = dict(direct.get(wid) or base())
         for k in kids.get(wid, []):
             c = _rollup(k)
-            t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']
+            t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']; t['c'] += c['c']
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
             t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
         sub[wid] = t
@@ -181,6 +276,9 @@ def wbs_views(records, data):
             'name':       wmap[wid].get('name') or '(WBS)',
             'depth':      depth,
             'activities': t['n'],
+            # activities under this WBS that carry a budget: a WBS with none has no Planned %
+            # / Actual % in P6, so the screen and the report leave them out (owner comment 63)
+            'cost_loaded': t['c'],
             'planned':    round(100 * t['wp'] / t['w'], 1) if t['w'] else None,
             'actual':     round(100 * t['wa'] / t['w'], 1) if t['w'] else None,
             'start':          _iso_day(t['s']),     # expected (current) start
@@ -211,6 +309,8 @@ def wbs_views(records, data):
 
 
 def build_views(records, data):
-    """Everything stored for the re-open path: {'activities', 'wbs_summary', 'wbs_main'}."""
+    """Everything stored for the re-open path: {'activities', 'wbs_summary', 'wbs_main',
+    'cost_loaded', 'progress_groups'}."""
     summary, main = wbs_views(records, data)
-    return {'activities': gantt_activities(records, data.wbs), 'wbs_summary': summary, 'wbs_main': main}
+    return {'activities': gantt_activities(records, data.wbs), 'wbs_summary': summary, 'wbs_main': main,
+            'cost_loaded': cost_loaded_overview(records), 'progress_groups': progress_groups(records, data)}
