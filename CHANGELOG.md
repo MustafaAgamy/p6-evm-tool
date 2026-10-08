@@ -21,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Excel exports: every result sits in the middle of its cell — in every feature.** The shared Excel writer now centres data cells horizontally and vertically (wrapped) by default, with centred headers; report titles and notes stay left.
 - **Clearer bars.** Gantt bars are a solid red with a dark-red completed part (the pale pink vanished on paper); WBS span bars are black; the WBS report draws summary bars in amber and activity-level WBS bars in blue.
 - **Gantt report and Excel: one Delay column.** The separate Float column is gone — Delay is the total float read as days late, so the two said the same thing.
+- **Delay carries P6's sign; the % column is named.** In the Gantt and the WBS, Delay is the Total Float exactly as P6 shows it — −72 d means 72 days late. The Gantt's percentage column and bar label now read *Actual %*.
 - **Schedule (Gantt): Activity ID in its own column.** The chart now has separate *Activity ID* and *Activity name* columns instead of the ID stacked above the name.
 
 ### Changed — Productivity & Resources: the rate follows the Project type; no Location setting (comments 61, 62)

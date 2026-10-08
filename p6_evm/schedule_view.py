@@ -98,10 +98,11 @@ def critical_records(records):
 
 
 def float_delay(tf):
-    """Days late from a Total Float in days: -(total float), to the whole day as P6 shows it."""
+    """The Delay figure = the Total Float in days exactly as P6 shows it, to the whole day:
+    a float of -72 d is a delay of -72 (late is NEGATIVE, spare float positive)."""
     if not isinstance(tf, (int, float)):
         return None
-    d = -tf
+    d = tf
     return int(d + 0.5) if d >= 0 else -int(-d + 0.5)
 
 
@@ -259,8 +260,8 @@ def gantt_activities(records, wbs_map, data=None):
             'critical':   is_critical(a, status, tf),
             'milestone':  a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
             'baseline_finish': _iso(bf),
-            # Delay = the UPDATE's own Total Float as P6 shows it, read as days late:
-            # float -12 d = 12 d late, float +5 d = -5 (ahead). Not a baseline comparison.
+            # Delay = the UPDATE's own Total Float exactly as P6 shows it (float -12 d = delay -12,
+            # late is negative). Not a baseline comparison.
             'delay':      float_delay(tf) if status != 'Completed' else None,
             # the activity's P6 activity codes, for the Gantt's pick-a-code column
             'codes':      {k: str(v) for k, v in (a.get('activity_codes') or {}).items() if v},
@@ -385,11 +386,12 @@ def wbs_views(records, data):
             'finish':         _iso_day(t['f']),     # expected (current) finish
             'baseline_start': _iso_day(t['bs']),
             'baseline_finish': _iso_day(t['bf']),
-            # Delay = the WBS's Total Float on the UPDATE, read as days late (owner, round 3):
+            # Delay = the WBS's Total Float on the UPDATE (owner, round 3):
             # P6 works a summary float out from the summarised dates - latest Late Finish against
             # latest Early Finish - on the project's default calendar. None once all work is done.
-            'delay':      working_delay(cal, t['lf'], t['ef']) if t['open'] else None,
-            'total_float': (lambda d: None if d is None else -d)(working_delay(cal, t['lf'], t['ef']) if t['open'] else None),
+            # shown with P6's own sign: late = negative (Total Float -72 → Delay -72)
+            'delay':      working_delay(cal, t['ef'], t['lf']) if t['open'] else None,
+            'total_float': working_delay(cal, t['ef'], t['lf']) if t['open'] else None,
             # the other columns of P6's WBS band
             'count':      t['all'],                                   # Activity Count
             'orig_dur':   working_span(cal, t['ps'], t['pf']),        # Original Duration (working days)

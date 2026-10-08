@@ -134,7 +134,7 @@ def _branch_note(subset):
     n = f'{acts} activities' if acts is not None else 'activities —'
     if not _has_pct(root):
         return f'{n} · not cost-loaded - no Planned % / Actual %'
-    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay = -(Total Float on the update)'
+    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay = Total Float on the update (negative = late)'
 
 
 # columns measured against the baseline — '· approx' when the update's own Planned dates stand in

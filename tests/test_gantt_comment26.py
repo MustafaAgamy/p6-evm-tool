@@ -103,7 +103,7 @@ def test_excel_follows_the_same_groups_and_dates():
     con = {r[0]: r for r in blocks[1]['rows']}
     assert set(con) == {'A2', 'M1'}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
-    assert con['A2'][head.index('Delay (d)')] == 12 and con['A2'][4] == '01-Mar.2025'      # delay = -(total float)
+    assert con['A2'][head.index('Delay (d)')] == -12 and con['A2'][4] == '01-Mar.2025'      # delay = -(total float)
     assert 'Total Float (d)' not in head                                                  # one column, not two
     assert 'actual where the work has started' in blocks[0]['note']
     assert ['Activities in the schedule', 4] in blocks[0]['rows']
@@ -153,7 +153,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 4:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 5:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -279,10 +279,10 @@ def test_wbs_follows_p6_order_and_delay_is_the_update_total_float():
     summary, main = sv.wbs_views(recs, data)
     assert [m['name'] for m in main] == ['Submittal', 'Approval', 'Done']   # P6 order, not A-Z
     by = {n['name']: n for n in summary}
-    assert by['Approval']['delay'] == 5 and by['Approval']['total_float'] == -5     # late finish 13-Jan, early finish 20-Jan
-    assert by['Submittal']['delay'] == -2 and by['Done']['delay'] is None           # 2 d of float; finished work has none
+    assert by['Approval']['delay'] == -5 and by['Approval']['total_float'] == -5     # late finish 13-Jan, early finish 20-Jan
+    assert by['Submittal']['delay'] == 2 and by['Done']['delay'] is None           # 2 d of float; finished work has none
     rows = {r['id']: r for r in sv.gantt_activities(recs, wbs, data)}
-    assert rows['X1']['delay'] == 5 and rows['X2']['delay'] == -2 and rows['X3']['delay'] is None
+    assert rows['X1']['delay'] == -5 and rows['X2']['delay'] == 2 and rows['X3']['delay'] is None
 
 
 def test_gantt_keeps_construction_rows_only_and_offers_a_code_column():
@@ -325,7 +325,7 @@ def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
     assert b['count'] == 2 and b['start'] == '2025-01-13' and b['finish'] == '2025-01-31'
     assert b['bac'] == 400.0 and b['pv'] == 250.0 and b['ev'] == 50.0
     assert b['planned'] == 62.5 and b['actual'] == 12.5                     # PV / budget, EV / budget
-    assert b['total_float'] == -3 and b['delay'] == 3                       # late finish 28-Jan against early finish 31-Jan
+    assert b['total_float'] == -3 and b['delay'] == -3                      # late finish 28-Jan against early finish 31-Jan
     assert b['orig_dur'] == 10                                              # Planned Start 06-Jan to Planned Finish 17-Jan
     views = sv.build_views(recs, data)
     assert [n['name'] for n in views['wbs_critical']] == ['Project', 'Phase B'] and views['wbs_summary'][1]['count'] == 3

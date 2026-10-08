@@ -177,14 +177,14 @@ function wbsShownCols() {
   return WBS_COLS.filter((c) => wbsCols.has(c.key));
 }
 
-// Delay = the WBS's Total Float on the update read as days late, −(total float), worked out by
+// Delay = the WBS's Total Float on the update with P6's own sign (−72 d = 72 days late), worked out by
 // the server from the WBS's latest Late Finish against its latest Early Finish on the project's
 // default calendar. A result stored before that figure existed falls back to calendar days.
 function wbsDelay(n) {
   if ('delay' in n) return n.delay;
   const ef = toMs(n.finish), bf = toMs(n.baseline_finish);
   if (Number.isNaN(ef) || Number.isNaN(bf)) return null;
-  return Math.round((ef - bf) / DAY);
+  return -Math.round((ef - bf) / DAY);
 }
 
 // Columns measured against the baseline — marked '· approx' when the update's own Planned dates
@@ -206,7 +206,7 @@ function wbsCellVal(col, n) {
   if (col.kind === 'int')   return n[col.key] == null ? '—' : String(n[col.key]);
   if (col.kind === 'days')  return n[col.key] == null ? '—' : `${n[col.key]} d`;
   const d = wbsDelay(n);                                // delay
-  return d == null ? '—' : `${d > 0 ? '+' : ''}${d} d`;
+  return d == null ? '—' : `${d} d`;
 }
 
 export function renderWbs(result) {
@@ -318,8 +318,8 @@ export function renderWbs(result) {
       let inner = wbsCellVal(c, n);
       if (c.kind === 'delay') {
         const d = wbsDelay(n);
-        if (d != null && d > 0) cls += ' wc-bad';
-        else if (d != null && d < 0) cls += ' wc-good';
+        if (d != null && d < 0) cls += ' wc-bad';          // negative float = late
+        else if (d != null && d > 0) cls += ' wc-good';
       }
       if (c.kind === 'pct' && !wbsHasPct(n)) cls += ' wc-nocost';
       else if (c.key === 'actual') inner = `<b>${inner}</b>`;
@@ -411,7 +411,7 @@ ${wbsHasPct(branch) ? `
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : '<span class="ov-chip">not cost-loaded — no Planned % / Actual %</span>'}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
-    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (shown as Delay).</p>' : ''}
+    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6, not finished) — the same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (the Delay column).</p>' : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
@@ -429,7 +429,7 @@ ${wbsHasPct(branch) ? `
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> read as days late — a float of −60 d is a delay of 60 d (+ late / − ahead); it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
 
   const modeEl = document.getElementById('wbst-mode');
   if (modeEl) modeEl.addEventListener('click', (e) => {

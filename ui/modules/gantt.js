@@ -59,7 +59,7 @@ function span(acts, dataDate) {
 }
 
 const tip = (a) => `${a.id} — ${a.name}\nStart ${gDate(a.start)} → Finish ${gDate(a.finish)}`
-  + `\n${a.status || ''}${a.status ? ' · ' : ''}${a.pct}% complete · Total float ${tfText(a)}${a.critical ? ' · Critical' : ''}`
+  + `\n${a.status || ''}${a.status ? ' · ' : ''}Actual ${a.pct}% complete · Total float ${tfText(a)}${a.critical ? ' · Critical' : ''}`
   + (a.wbs ? `\nWBS: ${a.wbs}` : '');
 
 let _print = null;
@@ -70,9 +70,9 @@ export function schedulePrint() { return _print; }
 const CODE_KEY = 'p6evm_gantt_code';
 let ganttCode = null;
 export function ganttCodeColumn() { return ganttCode || ''; }
-// Delay = the update's Total Float read as days late: −(total float) (+ late / − ahead)
-const delayText = (a) => (a.delay == null ? '—' : `${a.delay > 0 ? '+' : ''}${a.delay} d`);
-const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay > 0 ? ' late' : ' early'));
+// Delay = the update's Total Float with P6's own sign: −72 d is 72 days late, a positive figure is spare float
+const delayText = (a) => (a.delay == null ? '—' : `${a.delay} d`);
+const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay < 0 ? ' late' : ' early'));
 
 export function renderSchedule(result) {
   const el = document.getElementById('schedule-body');
@@ -150,7 +150,7 @@ export function renderSchedule(result) {
   };
   // WBS bands the way P6 lays them out: every WBS level above the critical activities, in P6's
   // order, each band carrying P6's summary of ITS critical activities — Expected Start (earliest),
-  // Expected Finish (latest), Delay (= −its Total Float) and the Activity Count. Built from the
+  // Expected Finish (latest), Delay (= its Total Float) and the Activity Count. Built from the
   // critical-only WBS summary the server stores; a result without it keeps the plain groups.
   const tree = (result.wbs_critical || []);
   const byWbs = new Map();
@@ -189,14 +189,14 @@ export function renderSchedule(result) {
         ? `<div class="g-ms${a.critical ? ' crit' : ''}" style="left:${Math.max(0, left - 6).toFixed(1)}px" title="${tt}"></div>`
         : `<div class="g-bar${a.critical ? ' crit' : ''}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px" title="${tt}">
              <span class="g-fill" style="width:${Math.max(0, Math.min(100, a.pct))}%"></span></div>
-           <span class="g-plabel" style="left:${(left + w + 6).toFixed(1)}px">${a.pct}%</span>`;
+           <span class="g-plabel" style="left:${(left + w + 6).toFixed(1)}px" title="Actual % complete">${a.pct}% actual</span>`;
       push(`<div class="g-row">${lbl}<div class="g-track">${bar}</div></div>`, ROW_H);
     }
   }
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The red bar is the remaining work and its dark-red part is % complete; the black bar on a WBS line is that WBS’s span; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and the number of critical activities. The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the vertical line is the data date. Grouped by WBS in P6’s own order.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
@@ -255,8 +255,8 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
   // every column has its own width, so adding / removing the code column never squeezes a name
-  const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:4%"><col></colgroup>`;
-  const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th>`
+  const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:5.5%"><col></colgroup>`;
+  const head = `${cg}<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">Actual %</th>`
     + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
@@ -309,7 +309,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
       ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Delay is the total float read as days late.</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Delay is the total float as P6 shows it (negative = late).</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },
