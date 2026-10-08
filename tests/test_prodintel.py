@@ -201,6 +201,10 @@ def test_every_work_item_has_a_rate_on_every_project_type():
     t, rows = engine.rates_database()
     assert t == types and len(rows) == len(items)
     assert all(set(r["rates"]) == set(types) and all(v for v in r["rates"].values()) for r in rows)
+    # no two project types share a productivity within a trade (owner: "how do residential,
+    # commercial, hospital and industrial have the same productivity - this is not logical")
+    for g in kb.project_type_factors()['groups']:
+        assert len(set(g['factors'].values())) == len(types), g['key']
     # every trade group's Commercial factor is the base
     assert all(g["factors"]["Commercial"] == 1.0 for g in kb.project_type_factors()["groups"])
 
@@ -256,7 +260,7 @@ def test_each_setting_factor_changes_rate_manhours_and_duration():
 def test_the_planners_factor_replaces_the_builtin_one():
     r = _q({"Project type": 1.4}, **{"Project type": "Oil & Gas"})
     row = r["context_ledger"][0]
-    assert r["context_net"] == 1.4 and row["source"] == "user" and row["builtin"] == 1.15
+    assert r["context_net"] == 1.4 and row["source"] == "user" and row["builtin"] == 1.18
 
 
 def test_factors_multiply_together_and_a_faster_factor_shortens():
