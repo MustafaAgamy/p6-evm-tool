@@ -175,7 +175,7 @@ def test_the_gantt_prints_with_pdf_word_and_html():
     assert 'id="sched-print-btn"' in g and g.count('id="sched-excel-btn"') == 2   # Excel button also in the empty state
     assert 'Re-import this schedule to build the Gantt' not in g
     css = _read('ui', 'style.css')
-    assert '.g-wrap { --g-lblw: 400px; overflow: auto; max-height:' in css       # header + activity column stay in view
+    assert '.g-wrap { --g-lblw: 560px; overflow: auto; max-height:' in css       # header + activity column stay in view
     assert 'position: sticky; left: 0;' in css and '.g-ms.crit { background: var(--danger); }' in css
 
 
