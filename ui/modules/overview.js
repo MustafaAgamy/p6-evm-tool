@@ -212,7 +212,13 @@ export function renderWbs(result) {
   // a branch with no cost-loaded WBS at all (e.g. Engineering) loses the two % columns
   const branchPct = subset.some(wbsHasPct);
   const cols = wbsShownCols().filter((c) => branchPct || c.kind !== 'pct');
-  const leftW = WBS_WBS_W + cols.reduce((s, c) => s + c.w, 0);
+  // The WBS column is as wide as its longest name at its level needs (indent included), so no
+  // level is cut short; a name longer than the room left wraps onto a second line instead.
+  const colsW = cols.reduce((s, c) => s + c.w, 0);
+  const need = subset.reduce((m, n) => Math.max(m, (n.depth - baseDepth) * 16 + String(n.name || '').length * 7.4 + 52), WBS_WBS_W);
+  const room = Math.max(WBS_WBS_W, (el.clientWidth || 1180) - colsW - 320);
+  const wbsW = Math.round(Math.min(need, room, 620));
+  const leftW = wbsW + colsW;
 
   // time scale over the branch's dated nodes — baseline and expected both, so
   // the track spans the wider of the two (+ data date)
@@ -345,7 +351,7 @@ ${wbsHasPct(branch) ? `
         <span><i class="wbst-lg beh"></i>behind plan</span>
         <span><i class="wbst-lg tgt"></i>plan target</span>
       </div>${chooser}</div>
-    <div class="wbst-wrap"><div class="wbst-inner wbst-fit" style="min-width:${leftW + 160}px">
+    <div class="wbst-wrap"><div class="wbst-inner wbst-fit" style="--wbsw:${wbsW}px;min-width:${leftW + 160}px">
       <div class="wbst-scale">
         <div class="wc-wbs wbst-h">WBS</div>
         ${cols.map((c) => `<div class="wc-cell wbst-h ${c.kind === 'date' ? 'wc-date' : 'wc-num'}" style="width:${c.w}px">${wbsColLabel(c, approx)}</div>`).join('')}

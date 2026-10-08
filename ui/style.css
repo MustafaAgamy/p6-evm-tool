@@ -2758,6 +2758,11 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-inner.wbst-fit { width: 100%; box-sizing: border-box; overflow: hidden; }
 .wbst-fit .wc-tl { width: auto; flex: 1 1 0; min-width: 0; }
 .wbst-fit .wbst-dd { top: 0; }
+/* WBS names are never cut: the column takes the width they need and a longer name wraps */
+.wbst-fit .wc-wbs { width: var(--wbsw, 260px); }
+.wbst-fit .wbst-row { height: auto; min-height: 34px; }
+.wbst-fit .wbst-nm { padding-top: 4px; padding-bottom: 4px; }
+.wbst-fit .wbst-nm .nm { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; overflow-wrap: anywhere; }
 .ov-groupby { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
 .ov-groupby select { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); max-width: 340px; }
 .ov-basis { margin-top: -8px; margin-bottom: 18px; font-style: normal; }
