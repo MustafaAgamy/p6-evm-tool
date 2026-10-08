@@ -104,9 +104,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - primary frame erection with a single crane crew",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Primary frame erection with a single crane crew",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -173,9 +173,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - light piece-heavy secondary steel erection",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Light piece-heavy secondary steel erection",
         "confidence": "draft",
         "records": 0,
         "projects": [],

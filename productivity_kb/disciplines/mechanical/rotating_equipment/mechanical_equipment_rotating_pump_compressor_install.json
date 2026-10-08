@@ -75,9 +75,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - setting rotating equipment per unit",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Setting rotating equipment per unit",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -131,9 +131,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - precision coupling alignment per unit",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Precision coupling alignment per unit",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -181,9 +181,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - baseplate epoxy grouting per unit",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Baseplate epoxy grouting per unit",
         "confidence": "draft",
         "records": 0,
         "projects": [],

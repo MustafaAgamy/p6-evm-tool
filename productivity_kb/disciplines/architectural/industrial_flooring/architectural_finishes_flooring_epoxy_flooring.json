@@ -102,9 +102,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — self-levelling epoxy floor system",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Self-levelling epoxy floor system",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

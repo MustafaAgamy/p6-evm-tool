@@ -85,9 +85,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — concealed FCU set and mechanical connection",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Concealed FCU set and mechanical connection",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

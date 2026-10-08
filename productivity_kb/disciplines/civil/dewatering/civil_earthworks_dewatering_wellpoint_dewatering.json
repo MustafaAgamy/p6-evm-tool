@@ -80,9 +80,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — well-point dewatering attendance per system-day",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Well-point dewatering attendance per system-day",
         "confidence": "draft",
         "records": 0,
         "projects": [],

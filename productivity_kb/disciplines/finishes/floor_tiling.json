@@ -42,12 +42,12 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.8,
-        "low": 0.6,
-        "likely": 0.8,
-        "high": 1.1,
-        "output_per_day": 20,
-        "output_unit": "m2/tiler·day"
+        "mh_per_unit": 0.64,
+        "low": 0.512,
+        "likely": 0.64,
+        "high": 0.8,
+        "output_per_day": 25.0,
+        "output_unit": "m2/crew·day"
       },
       "gang": [
         {
@@ -80,14 +80,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — floor tiling",
-        "confidence": "draft",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — سيراميك أرضيات 25 م2/يوم (crew: tradesman + helper).",
+        "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "normal access & conditions — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

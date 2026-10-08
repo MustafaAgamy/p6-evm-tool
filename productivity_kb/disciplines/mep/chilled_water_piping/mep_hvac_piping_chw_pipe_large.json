@@ -94,9 +94,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — large-bore CHW mains, welded, with lifting gear",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Large-bore CHW mains, welded, with lifting gear",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -148,9 +148,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — large-bore pipe support at ~4 m spacing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Large-bore pipe support at ~4 m spacing",
         "confidence": "draft",
         "records": 0,
         "projects": [],

@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.electrical_network.mv_cable_joints_terminations",
+  "discipline": "Infrastructure",
+  "work_type": "Electrical Network",
+  "system": "Electrical Network",
+  "item": "MV Cable Joints & Terminations",
+  "aliases": [
+    "cable joint",
+    "termination",
+    "heat shrink"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Making a straight-through joint or an indoor / outdoor termination on MV cable.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "joint",
+      "name": "Joint / termination",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 5.33,
+        "low": 4.26,
+        "likely": 5.33,
+        "high": 6.66,
+        "output_per_day": 3,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Cable Jointer",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Jointing tent & tools",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Joint / termination kit",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

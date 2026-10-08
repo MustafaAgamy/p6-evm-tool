@@ -1,0 +1,72 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.instrumentation_control.instrument_cable_pulling",
+  "discipline": "MEP",
+  "work_type": "Instrumentation",
+  "system": "Instrumentation & Control",
+  "item": "Instrument Cable Pulling",
+  "aliases": [
+    "multi-pair cable",
+    "signal cable"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "m",
+  "why": "Pulling multi-pair / multi-core instrument cables on tray, dressing, tagging and insulation testing.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "cable",
+      "name": "Cable pulling & dressing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.133,
+        "low": 0.107,
+        "likely": 0.133,
+        "high": 0.167,
+        "output_per_day": 300,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 4
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

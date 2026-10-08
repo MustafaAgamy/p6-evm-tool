@@ -86,9 +86,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - shop cutting, beveling and fit-up of CS spools",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Shop cutting, beveling and fit-up of CS spools",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -147,9 +147,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - shop CS butt welding per diameter-inch",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Shop CS butt welding per diameter-inch",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

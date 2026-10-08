@@ -98,9 +98,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - profiled composite floor decking",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Profiled composite floor decking",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

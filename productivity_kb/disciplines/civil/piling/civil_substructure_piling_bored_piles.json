@@ -95,9 +95,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — rotary bored pile drilling, medium ground ~800 mm dia",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Rotary bored pile drilling, medium ground ~800 mm dia",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -112,17 +112,21 @@
       "qty_per_primary": 0.09,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 24,
-        "low": 20,
-        "likely": 24,
-        "high": 30,
-        "output_per_day": 1,
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
         "output_unit": "t/crew·day"
       },
       "gang": [
         {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
           "trade": "Steel Fixer",
-          "count": 1
+          "count": 2
         },
         {
           "trade": "Steel Fixer Helper",
@@ -161,14 +165,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — pile cage fabrication and placing",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "welded/tied pile reinforcement cages — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -227,9 +232,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — tremie pile concreting; qty_per_primary includes overbreak for ~800 mm dia",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Tremie pile concreting; qty_per_primary includes overbreak for ~800 mm dia",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.drainage.manholes.precast_manhole",
-  "discipline": "Civil",
-  "work_type": "Drainage",
-  "system": "Manholes",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
   "item": "Precast Concrete Manhole",
   "aliases": [
     "manhole",
@@ -88,9 +88,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — cast-in-place manhole base slab & blinding",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Cast-in-place manhole base slab & blinding",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -147,9 +147,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — setting precast manhole rings and cover slab with crane",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Setting precast manhole rings and cover slab with crane",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -202,9 +202,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — manhole benching and cover/frame installation",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Manhole benching and cover/frame installation",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -97,9 +97,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — gypsum ceiling suspension grid",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Gypsum ceiling suspension grid",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -158,9 +158,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — ceiling board fixing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Ceiling board fixing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -219,9 +219,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — ceiling jointing to flush finish",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Ceiling jointing to flush finish",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

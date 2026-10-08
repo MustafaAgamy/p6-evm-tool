@@ -108,3 +108,86 @@ def _component_mix(item):
         else:
             k += 1
     return {"validated": v, "draft": k, "none": n}
+
+
+# ── built-in project-type factors (owner comment 62) ─────────────────────────────
+_PT_FACTORS = None
+
+
+def project_type_factors():
+    """The bundled table of man-hour factors by project type and trade group
+    (``productivity_kb/project_type_factors.json``); an overlay copy in the user's data folder
+    replaces it. ``{}``-shaped (no groups) when the file is missing or damaged."""
+    global _PT_FACTORS
+    if _PT_FACTORS is None:
+        data = {}
+        for base in (overlay_dir(), bundled_dir()):
+            path = os.path.join(base, "project_type_factors.json") if base else ""
+            if path and os.path.isfile(path):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        data = json.load(f)
+                    break
+                except (OSError, ValueError):
+                    continue
+        _PT_FACTORS = data if isinstance(data, dict) and isinstance(data.get("groups"), list) else {"groups": []}
+    return _PT_FACTORS
+
+
+def trade_group(item):
+    """The trade group a work item belongs to (by discipline / work type), or None. The most
+    specific rule wins: an exact (discipline, work type) pair before a wildcard."""
+    disc, wt = (item or {}).get("discipline"), (item or {}).get("work_type")
+    best, best_score = None, -1
+    for g in project_type_factors().get("groups", []):
+        for d, w in g.get("match") or []:
+            if d in ("*", disc) and w in ("*", wt):
+                score = (d != "*") + (w != "*") + (0.5 if w != "*" else 0)   # a named work type beats a named discipline
+                if score > best_score:
+                    best, best_score = g, score
+    return best
+
+
+def builtin_project_factor(item, project_type):
+    """(factor, trade-group label) for a work item on a project type; (None, None) when the
+    table has no number for it."""
+    g = trade_group(item)
+    if not g or not project_type:
+        return None, None
+    # a number given for this very work item wins over its trade group's number
+    own = ((project_type_factors().get("items") or {}).get((item or {}).get("item_id")) or {})
+    v = own.get(project_type, (g.get("factors") or {}).get(project_type))
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None, g.get("label")
+    return (v, g.get("label")) if 0.2 <= v <= 5 else (None, g.get("label"))
+
+
+def project_types():
+    """The project types the factors table covers, in display order."""
+    return list(project_type_factors().get("project_types") or [])
+
+
+# ── the references behind the rates (owner: "add these references to the feature") ─────────
+_REFS = None
+
+
+def references():
+    """``productivity_kb/references.json``: the Egyptian references found, what each covers and
+    its status - 'loaded' (its rates are in the library), 'listed' (known, not yet loaded) or
+    'context' (research with no rate table). ``{'references': []}`` when the file is missing."""
+    global _REFS
+    if _REFS is None:
+        data = {}
+        for base in (overlay_dir(), bundled_dir()):
+            path = os.path.join(base, "references.json") if base else ""
+            if path and os.path.isfile(path):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        data = json.load(f)
+                    break
+                except (OSError, ValueError):
+                    continue
+        _REFS = data if isinstance(data, dict) and isinstance(data.get("references"), list) else {"references": []}
+    return _REFS

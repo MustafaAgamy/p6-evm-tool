@@ -103,9 +103,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — metal-stud partition framing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Metal-stud partition framing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -164,9 +164,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — plasterboard fixing both faces",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Plasterboard fixing both faces",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -225,9 +225,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — drywall jointing to level-4 finish",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Drywall jointing to level-4 finish",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.pavement.aggregate_base_course",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Pavement Layers",
+  "system": "Roads",
   "item": "Aggregate Road Base Course",
   "aliases": [
     "road base",
@@ -100,9 +100,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — grader/roller placement of crushed road base",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Grader/roller placement of crushed road base",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

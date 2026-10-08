@@ -86,8 +86,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Industry reference norm — integrated (multi-system) testing; scale with interface count",
         "confidence": "draft",
         "records": 0,

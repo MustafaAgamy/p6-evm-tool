@@ -82,9 +82,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - thermal insulation application per m2",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Thermal insulation application per m2",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -137,9 +137,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - metal jacketing/cladding per m2",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Metal jacketing/cladding per m2",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

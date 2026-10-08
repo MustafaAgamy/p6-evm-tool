@@ -86,9 +86,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - through-deck shear stud welding",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Through-deck shear stud welding",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -47,11 +47,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.24,
-        "low": 0.18,
-        "likely": 0.24,
-        "high": 0.35,
-        "output_per_day": 100,
+        "mh_per_unit": 0.16,
+        "low": 0.128,
+        "likely": 0.16,
+        "high": 0.2,
+        "output_per_day": 100.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -61,7 +61,7 @@
         },
         {
           "trade": "Helper",
-          "count": 2
+          "count": 1
         }
       ],
       "equipment": [
@@ -96,14 +96,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — torch-on/self-adhesive membrane, includes overlap allowance",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — فرد ميمبرين أفقي 100 م2/يوم (crew: tradesman + helper).",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "single/double-layer bituminous tanking — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -151,9 +152,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — protection board to membrane before backfill",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Protection board to membrane before backfill",
         "confidence": "draft",
         "records": 0,
         "projects": [],

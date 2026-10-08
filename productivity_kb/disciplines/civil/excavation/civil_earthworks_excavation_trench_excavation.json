@@ -46,11 +46,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.133,
-        "low": 0.1,
-        "likely": 0.133,
-        "high": 0.18,
-        "output_per_day": 180,
+        "mh_per_unit": 0.1,
+        "low": 0.08,
+        "likely": 0.1,
+        "high": 0.125,
+        "output_per_day": 160.0,
         "output_unit": "m3/crew·day"
       },
       "gang": [
@@ -59,8 +59,8 @@
           "count": 1
         },
         {
-          "trade": "Labourer",
-          "count": 2
+          "trade": "Banksman/Helper",
+          "count": 1
         }
       ],
       "equipment": [
@@ -73,14 +73,15 @@
       ],
       "material": [],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — machine trench excavation with hand trimming, common soil",
-        "confidence": "moderate",
+        "source": "egyptian_reference",
+        "source_type": "Derived from an Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — حفر بالحفار في تربة متماسكة 20 م3/ساعة (crew: tradesman + helper). Worked out for this item: trench taken at the reference's excavator output, 8 hours.",
+        "confidence": "draft",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "Narrow trench ≤3 m deep in common soil — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

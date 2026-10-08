@@ -1,0 +1,151 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.water_network.hdpe_water_pipeline_dn110_dn315",
+  "discipline": "Infrastructure",
+  "work_type": "Water Network",
+  "system": "Water Network",
+  "item": "HDPE Water Pipeline DN110–DN315",
+  "aliases": [
+    "water main",
+    "potable water pipe",
+    "HDPE"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying butt-fused HDPE potable-water pipe in an open trench on sand bedding, with surround.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "bedding",
+      "name": "Sand bedding & surround",
+      "unit": "m3",
+      "qty_per_primary": 0.2,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.914,
+        "low": 0.731,
+        "likely": 0.914,
+        "high": 1.143,
+        "output_per_day": 35,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Sand",
+          "qty_per_unit": 1.15,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "laying",
+      "name": "Pipe fusion, laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.4,
+        "low": 0.32,
+        "likely": 0.4,
+        "high": 0.5,
+        "output_per_day": 120,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Fusion Welder",
+          "count": 1
+        },
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Butt-fusion machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "HDPE pipe",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

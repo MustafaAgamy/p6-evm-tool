@@ -89,9 +89,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — fire cabinet fixing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Fire cabinet fixing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -155,9 +155,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — cabinet equipment fit-out & connection",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Cabinet equipment fit-out & connection",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

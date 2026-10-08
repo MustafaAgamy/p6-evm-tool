@@ -83,9 +83,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - preparation and masking ahead of SFRM spray",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Preparation and masking ahead of SFRM spray",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -148,9 +148,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - cementitious SFRM spray to a standard rating; material mass scales strongly with required thickness",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Cementitious SFRM spray to a standard rating; material mass scales strongly with required thickness",
         "confidence": "draft",
         "records": 0,
         "projects": [],

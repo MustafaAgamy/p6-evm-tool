@@ -42,16 +42,16 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.35,
-        "low": 0.25,
-        "likely": 0.35,
-        "high": 0.5,
-        "output_per_day": 45,
+        "mh_per_unit": 0.16,
+        "low": 0.128,
+        "likely": 0.16,
+        "high": 0.2,
+        "output_per_day": 100.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
         {
-          "trade": "Applicator",
+          "trade": "Waterproofing Applicator",
           "count": 1
         },
         {
@@ -80,14 +80,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — waterproofing membrane",
-        "confidence": "draft",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — فرد ميمبرين أفقي 100 م2/يوم (رأسي 30 م2/يوم) (crew: tradesman + helper).",
+        "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "normal access & conditions — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

@@ -88,9 +88,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — small-bore black steel CHW pipe, threaded/socket-weld",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Small-bore black steel CHW pipe, threaded/socket-weld",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -138,9 +138,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — small-bore pipe support at ~2.5 m spacing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Small-bore pipe support at ~2.5 m spacing",
         "confidence": "draft",
         "records": 0,
         "projects": [],

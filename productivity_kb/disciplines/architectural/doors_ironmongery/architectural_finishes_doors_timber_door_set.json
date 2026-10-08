@@ -98,9 +98,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — timber door frame fixing and hanging",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Timber door frame fixing and hanging",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -160,9 +160,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — door ironmongery fitting",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Door ironmongery fitting",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

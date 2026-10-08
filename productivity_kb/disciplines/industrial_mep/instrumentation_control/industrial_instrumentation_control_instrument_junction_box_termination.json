@@ -1,0 +1,72 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.instrumentation_control.instrument_junction_box_termination",
+  "discipline": "MEP",
+  "work_type": "Instrumentation",
+  "system": "Instrumentation & Control",
+  "item": "Instrument Junction Box & Termination",
+  "aliases": [
+    "JB",
+    "marshalling"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Fixing the junction box, glanding the cables and terminating all cores with ferrules and tags.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "jb",
+      "name": "Junction box fixing & termination",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 5.33,
+        "low": 4.27,
+        "likely": 5.33,
+        "high": 6.67,
+        "output_per_day": 3,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

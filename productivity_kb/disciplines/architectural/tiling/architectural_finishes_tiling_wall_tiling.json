@@ -46,11 +46,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 3,
       "rate": {
-        "mh_per_unit": 1.33,
-        "low": 1.1,
-        "likely": 1.33,
-        "high": 1.7,
-        "output_per_day": 12,
+        "mh_per_unit": 1.07,
+        "low": 0.856,
+        "likely": 1.07,
+        "high": 1.34,
+        "output_per_day": 15.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -95,14 +95,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — ceramic wall tiling",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — سيراميك حوائط 15 م2/يوم (crew: tradesman + helper).",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "wall tiles up to 300x600 on adhesive — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

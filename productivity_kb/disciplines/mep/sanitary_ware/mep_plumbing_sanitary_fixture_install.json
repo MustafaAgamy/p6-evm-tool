@@ -98,9 +98,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — second-fix sanitary ware",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Second-fix sanitary ware",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -148,9 +148,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — fixture commissioning",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Fixture commissioning",
         "confidence": "draft",
         "records": 0,
         "projects": [],

@@ -96,9 +96,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — curtain wall stick framing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Curtain wall stick framing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -168,9 +168,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — curtain wall glazing & sealing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Curtain wall glazing & sealing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -1,0 +1,118 @@
+{
+  "schema": "productivity_kb.references/1.0",
+  "note": "Three tiers, in this order: (1) a rate taken from an Egyptian reference; (2) where the reference does not list the item, the normal Egyptian productivity worked out from it (the nearest element it lists, or its per-coat rates); (3) where there is no Egyptian reference at all, an international / general industry norm. Egypt has no single official productivity standard, and measured Egyptian figures can be lower than international ones (slab reinforcement: the international RS Means figure was 47 % more optimistic than the Egyptian measurement).",
+  "references": [
+    {
+      "key": "afifi_2017",
+      "status": "loaded",
+      "title": "معدلات الأداء و الإنتاجية و أسعار الخامات و المصنعيات — Approximate performance and productivity rates of labour and equipment",
+      "author": "Eng. Mostafa Afifi — Technical Office (Benaa Academy)",
+      "country": "Egypt",
+      "year": 2017,
+      "kind": "Engineer's compilation (not an official standard)",
+      "covers": "Reinforced-concrete formwork and reinforcement (footings, tie beams, raft, columns, solid and flat slabs, walls), brick masonry, plaster, putty and paint, ceramic floor and wall tiles, marble, bitumen and membrane waterproofing, concrete mixer and pump, excavation, dozing and backfilling.",
+      "does_not_cover": "Roads, water / sewer / stormwater / irrigation / electrical / telecom / gas networks, bridges, MEP, structural steel, piping, commissioning.",
+      "url": "https://www.slideshare.net/slideshow/pdf-5418/265861968"
+    },
+    {
+      "key": "hegazy_2019",
+      "status": "loaded",
+      "title": "Optimizing Labor Productivity in Egypt Using Regression Prediction Models",
+      "author": "Hegazy, Abouhamad & Osman — Faculty of Engineering, Cairo University (CSCE Annual Conference)",
+      "country": "Egypt",
+      "year": 2019,
+      "kind": "Published research — productivity MEASURED on site",
+      "covers": "Slab reinforcement installation measured by activity sampling over 3 months on a 65,000 m2 administrative building in Egypt: 59 to 69 man-hours per tonne, median 63.4. Egyptian contractors' own figures were within 6-16 % of it; the international RS Means figure was 47 % more optimistic.",
+      "does_not_cover": "Any other activity.",
+      "url": "https://legacy.csce.ca/elf/apps/CONFERENCEVIEWER/conferences/2019/pdfs/PaperPDFversion_106_0421074738.pdf"
+    },
+    {
+      "key": "rezk_book",
+      "status": "listed",
+      "title": "معدلات الأداء فى أعمال مقاولات المباني (346 pages)",
+      "author": "Eng. Mostafa Rezk — First Deputy and Secretary-General, Egyptian Federation for Construction and Building Contractors",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Book — the fullest Egyptian reference found",
+      "covers": "Building materials, excavation and backfilling, plain and reinforced concrete, masonry, plaster and paint, carpentry, aluminium, tiles and marble, plumbing, electrical works. Distributed as a downloadable file only - not yet loaded.",
+      "url": "https://engineer-underconstruction.blogspot.com/2014/09/Mostafa-Rezk-book.html"
+    },
+    {
+      "key": "abdelrazek_2007",
+      "status": "context",
+      "title": "Labor productivity: Benchmarking and variability in Egyptian projects",
+      "author": "Abdel-Razek, Abd Elshakour & Abdel-Hamid — International Journal of Project Management",
+      "country": "Egypt",
+      "year": 2007,
+      "kind": "Published research — productivity MEASURED on site",
+      "covers": "Masonry measured on 11 Egyptian building projects: best (baseline) 0.61 work-hours per m2; project averages from 0.69 to 3.76 work-hours per m2. It shows the brick-masonry rate loaded from the Afifi reference (27 m2 per mason + helper day = 0.59 work-hours per m2) is a best-case figure.",
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S0263786306000986"
+    },
+    {
+      "key": "scribd_rates_materials",
+      "status": "listed",
+      "title": "معدلات الأداء واستهلاك المواد الخام في الاعمال الانشائية",
+      "author": "—",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Performance rates and material consumption in construction works.",
+      "url": "https://www.scribd.com/document/692351350/"
+    },
+    {
+      "key": "scribd_labour_equipment",
+      "status": "listed",
+      "title": "معدلات إنتاجية العمالة والمعدات (معدلات الاداء الانشائيه)",
+      "author": "—",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Labour and equipment productivity, including excavation and backfilling.",
+      "url": "https://www.scribd.com/document/535673335/"
+    },
+    {
+      "key": "arab_contractors_training",
+      "status": "listed",
+      "title": "اعمال التنفيذ — المقاولون العرب — حدادة و نجارة مسلحة",
+      "author": "The Arab Contractors (training notes)",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Contractor training notes",
+      "covers": "Execution of reinforcement and formwork.",
+      "url": "https://www.slideshare.net/slideshow/ss-65357828/65357828"
+    },
+    {
+      "key": "almohandes_standard_rates",
+      "status": "listed",
+      "title": "معدلات الأداء القياسية للعمالة والمعدات فى الاعمال المدنية والمعمارية",
+      "author": "منتدى المهندس",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Standard labour and equipment rates in civil and architectural works.",
+      "url": "https://almohandes.org/t/29511"
+    },
+    {
+      "key": "elgohary_aziz_2014",
+      "status": "context",
+      "title": "Factors Influencing Construction Labor Productivity in Egypt",
+      "author": "El-Gohary & Aziz — ASCE Journal of Management in Engineering",
+      "country": "Egypt",
+      "year": 2014,
+      "kind": "Published research",
+      "covers": "What drives labour productivity on Egyptian sites; states that Egypt lacks unified productivity figures. No rate table.",
+      "url": "https://doi.org/10.1061/(asce)me.1943-5479.0000168"
+    },
+    {
+      "key": "nu_field_study",
+      "status": "context",
+      "title": "Labour productivity in building construction: a field study",
+      "author": "Nile University, Cairo",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Published research",
+      "covers": "11-month field study of formwork, masonry and HVAC duct crews on a Cairo campus (about 34 % productive time). No rate table.",
+      "url": "https://nu.edu.eg/publications/labour-productivity-building-construction-field-study"
+    }
+  ]
+}

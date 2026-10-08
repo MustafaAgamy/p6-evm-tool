@@ -94,9 +94,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — NFPA 20 pump set placement",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "NFPA 20 pump set placement",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -176,9 +176,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — pump room header and test-line pipework",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Pump room header and test-line pipework",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -236,9 +236,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — NFPA 20 flow/churn commissioning",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "NFPA 20 flow/churn commissioning",
         "confidence": "draft",
         "records": 0,
         "projects": [],

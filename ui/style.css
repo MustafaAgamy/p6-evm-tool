@@ -3570,6 +3570,36 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-fbox{display:inline-flex;align-items:center;gap:5px;border:1px dashed var(--border);border-radius:8px;padding:0 6px 0 8px;height:34px;font-size:11px;color:var(--muted);background:var(--bg);white-space:nowrap}
 .pi-fbox.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
 .pi-fbox input.pi-factor{width:52px;height:24px;border:0;background:transparent;text-align:right;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text);padding:0 2px}
+/* This work item on every project type (owner comment 62) */
+.pi-ptcard{padding:14px 16px}
+.pi-pthead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.pi-pthead h3{margin:0;font-size:14px}
+.pi-ptsub{font-size:11.5px;color:var(--muted)}
+.pi-pttbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.pi-pttbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
+.pi-pttbl td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.pi-pttbl .n{text-align:right;font-variant-numeric:tabular-nums}
+.pi-ptrow{cursor:pointer}
+.pi-ptrow:hover td{background:var(--row-hover)}
+.pi-ptrow.on td{background:rgba(59,130,246,.10);font-weight:700}
+.pi-ptna{font-size:10px;color:var(--warning);font-weight:600;margin-left:6px}
+.pi-ptfoot{font-size:11px;color:var(--muted);margin-top:8px}
+.pi-srcpill{display:inline-block;border-radius:10px;padding:0 9px;font-size:11px;font-weight:700;white-space:nowrap}
+.pi-srcpill.eg{color:var(--success);background:rgba(74,222,128,.16)}
+
+.pi-srcpill.dv{color:var(--accent);background:rgba(59,130,246,.14)}
+.pi-srcpill.est{color:var(--warning);background:rgba(251,191,36,.16)}
+.pi-srcbasis{font-size:12px;color:var(--ink-soft)}
+.pi-srcsub{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;overflow-wrap:anywhere}
+.pi-estrow{cursor:pointer}
+.pi-estrow:hover td{background:var(--row-hover)}
+.pi-estrow.on td{background:rgba(59,130,246,.10);font-weight:700}
+.pi-estpill{display:inline-block;border-radius:10px;padding:0 9px;font-size:11.5px;font-weight:700}
+.pi-estpill.o{color:var(--success);background:rgba(74,222,128,.16)}
+.pi-estpill.m{color:var(--accent);background:rgba(59,130,246,.14)}
+.pi-estpill.p{color:var(--danger);background:rgba(248,113,113,.14)}
+.pi-estused{font-size:11px;color:var(--accent)}
+.pi-estwhen{font-weight:400;color:var(--ink-soft);font-size:12px}
 .pi-fhelp{flex-basis:100%;font-size:11.5px;color:var(--ink-soft);line-height:1.45;border-top:1px solid var(--border);padding-top:9px}
 .pi-note{display:none;margin:0 0 10px;padding:8px 12px;border-radius:9px;background:var(--accent-soft);color:var(--text);font-size:12.5px;border:1px solid var(--border)}
 .pi-note.on{display:block}

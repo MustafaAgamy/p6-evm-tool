@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.kerbs_channels.precast_channels",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Kerbs & Channels",
+  "system": "Roads",
   "item": "Precast Concrete Channels (dished/slot)",
   "aliases": [
     "precast channels",
@@ -79,9 +79,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — hand-placed channel bed concrete",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Hand-placed channel bed concrete",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -134,9 +134,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — precast channel laying to drainage falls",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Precast channel laying to drainage falls",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

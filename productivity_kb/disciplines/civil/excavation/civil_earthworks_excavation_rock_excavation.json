@@ -45,11 +45,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.2,
-        "low": 0.15,
-        "likely": 0.2,
-        "high": 0.3,
-        "output_per_day": 120,
+        "mh_per_unit": 0.4,
+        "low": 0.32,
+        "likely": 0.4,
+        "high": 0.5,
+        "output_per_day": 40.0,
         "output_unit": "m3/crew·day"
       },
       "gang": [
@@ -58,11 +58,7 @@
           "count": 1
         },
         {
-          "trade": "Breaker Operator",
-          "count": 1
-        },
-        {
-          "trade": "Banksman",
+          "trade": "Banksman/Helper",
           "count": 1
         }
       ],
@@ -88,14 +84,15 @@
       ],
       "material": [],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — hydraulic hammer rock breaking (soft–medium rock)",
-        "confidence": "draft",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — حفر بالشاكوش في تربة صخرية 5 م3/ساعة (crew: tradesman + helper).",
+        "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "Rippable to medium-hard rock, hammer method (no blasting) — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

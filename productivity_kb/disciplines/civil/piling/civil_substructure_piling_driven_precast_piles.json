@@ -100,9 +100,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — precast pile driving production",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Precast pile driving production",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -155,9 +155,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — precast pile supply, offloading and stacking (material-dominant)",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Precast pile supply, offloading and stacking (material-dominant)",
         "confidence": "draft",
         "records": 0,
         "projects": [],

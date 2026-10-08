@@ -1,0 +1,182 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.bridges.bridge_deck_slab",
+  "discipline": "Infrastructure",
+  "work_type": "Bridges",
+  "system": "Bridges",
+  "item": "Bridge Deck Slab",
+  "aliases": [
+    "deck slab",
+    "bridge deck"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Deck slab on girders: formwork or precast planks, reinforcement and concrete with curing.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Deck formwork",
+      "unit": "m2",
+      "qty_per_primary": 3.5,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.52,
+        "low": 1.22,
+        "likely": 1.52,
+        "high": 1.9,
+        "output_per_day": 10.5,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Plywood & timber",
+          "qty_per_unit": 1,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "egyptian_reference",
+        "source_type": "Derived from an Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 3.5 m2 of formwork per m3 of concrete. Worked out for this item: bridge deck taken as the reference's solid slab.",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
+      }
+    },
+    {
+      "component_id": "rebar",
+      "name": "Reinforcement",
+      "unit": "t",
+      "qty_per_primary": 0.18,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
+          "trade": "Steel Fixer",
+          "count": 2
+        },
+        {
+          "trade": "Steel Fixer Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Rebar",
+          "qty_per_unit": 1.03,
+          "unit": "t/t"
+        }
+      ],
+      "provenance": {
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
+        "confidence": "moderate",
+        "records": 0,
+        "projects": [],
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete pouring",
+      "unit": "m3",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.72,
+        "low": 0.576,
+        "likely": 0.72,
+        "high": 0.9,
+        "output_per_day": 100,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 3
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        },
+        {
+          "trade": "Vibrator operator",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete",
+          "qty_per_unit": 1.03,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

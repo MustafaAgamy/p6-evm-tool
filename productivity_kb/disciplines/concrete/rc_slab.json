@@ -42,11 +42,11 @@
       "qty_per_primary": 6.5,
       "default_gangs": 4,
       "rate": {
-        "mh_per_unit": 1.33,
-        "low": 1.09,
-        "likely": 1.33,
-        "high": 1.67,
-        "output_per_day": 12,
+        "mh_per_unit": 0.821,
+        "low": 0.657,
+        "likely": 0.821,
+        "high": 1.03,
+        "output_per_day": 19.5,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -80,14 +80,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — formwork / carpentry",
-        "confidence": "draft",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 6.5 m2 of formwork per m3 of concrete.",
+        "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "normal access & conditions — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -97,11 +98,11 @@
       "qty_per_primary": 0.12,
       "default_gangs": 2,
       "rate": {
-        "mh_per_unit": 23,
-        "low": 20,
-        "likely": 23,
-        "high": 26,
-        "output_per_day": 0.7,
+        "mh_per_unit": 63.36,
+        "low": 59.0,
+        "likely": 63.36,
+        "high": 69.0,
+        "output_per_day": 0.25,
         "output_unit": "t/crew·day"
       },
       "gang": [
@@ -135,14 +136,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — rft / steel fixing",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Hegazy, Abouhamad & Osman, Cairo University (Egypt, 2019) — slab reinforcement MEASURED on an Egyptian administrative building: 59 to 69 man-hours per tonne, median 63.4.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "normal access & conditions — validate with your XER to promote"
+        "period": "2019",
+        "valid_for": "Measured on one commercial / administrative building - validate with your own records",
+        "reference": "hegazy_2019"
       }
     },
     {
@@ -195,9 +197,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — concrete pouring",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Concrete pouring",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

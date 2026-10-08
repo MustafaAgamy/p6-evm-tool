@@ -1,0 +1,146 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.sewer_network.grp_sewer_dn600_dn1200",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
+  "item": "GRP Sewer DN600–DN1200",
+  "aliases": [
+    "GRP pipe",
+    "trunk sewer"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying large-diameter GRP sewer pipes with couplings, to line and level in a deep trench.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "bedding",
+      "name": "Granular bedding & surround",
+      "unit": "m3",
+      "qty_per_primary": 0.6,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.07,
+        "low": 0.86,
+        "likely": 1.07,
+        "high": 1.34,
+        "output_per_day": 30,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Granular bedding",
+          "qty_per_unit": 1.15,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "laying",
+      "name": "Pipe laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.33,
+        "low": 1.86,
+        "likely": 2.33,
+        "high": 2.91,
+        "output_per_day": 24,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 2
+        },
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe laser",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "GRP pipe & couplings",
+          "qty_per_unit": 1.0,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

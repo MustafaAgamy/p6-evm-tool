@@ -1,0 +1,79 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_power.heavy_duty_cable_ladder_industrial",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Industrial Power",
+  "item": "Heavy-Duty Cable Ladder (industrial)",
+  "aliases": [
+    "cable ladder",
+    "cable rack"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "m",
+  "why": "Fabricating and fixing supports, then installing heavy-duty cable ladder with bends, tees and earthing links.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "ladder",
+      "name": "Supports & ladder installation",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.33,
+        "low": 1.07,
+        "likely": 1.33,
+        "high": 1.67,
+        "output_per_day": 24,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Scaffold / man-lift",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_fire_protection.fire_water_ring_main_underground",
+  "discipline": "MEP",
+  "work_type": "Fire Fighting",
+  "system": "Industrial Fire Protection",
+  "item": "Fire Water Ring Main (underground)",
+  "aliases": [
+    "fire main",
+    "ring main"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "m",
+  "why": "Laying the underground fire-water main in trench with thrust blocks, valves and risers.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "main",
+      "name": "Pipe laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.667,
+        "low": 0.533,
+        "likely": 0.667,
+        "high": 0.833,
+        "output_per_day": 60,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

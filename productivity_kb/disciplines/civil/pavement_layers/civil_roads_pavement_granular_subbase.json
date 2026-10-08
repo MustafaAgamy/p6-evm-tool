@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.pavement.granular_subbase",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Pavement Layers",
+  "system": "Roads",
   "item": "Granular Subbase Course",
   "aliases": [
     "subbase",
@@ -99,9 +99,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — grader/roller placement of granular subbase",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Grader/roller placement of granular subbase",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

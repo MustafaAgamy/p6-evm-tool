@@ -98,9 +98,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — lighting/small power point wiring",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Lighting/small power point wiring",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -159,9 +159,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — luminaire/wiring accessory install",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Luminaire/wiring accessory install",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -209,9 +209,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — point testing and labelling",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Point testing and labelling",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -1,0 +1,90 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.street_lighting.lighting_pole_foundation",
+  "discipline": "Infrastructure",
+  "work_type": "Street Lighting",
+  "system": "Street Lighting",
+  "item": "Lighting Pole Foundation",
+  "aliases": [
+    "pole base",
+    "lighting foundation"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Excavating and casting the pole foundation with anchor bolts and the cable duct.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "foundation",
+      "name": "Foundation construction",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 6.67,
+        "low": 5.34,
+        "likely": 6.67,
+        "high": 8.34,
+        "output_per_day": 6,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 1
+        },
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Small excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Concrete & anchor bolts",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

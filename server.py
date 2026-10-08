@@ -120,7 +120,7 @@ def _prodintel_excel_sections(r):
     dash = lambda x: x if x is not None else '—'
 
     summ = [['Item', r.get('item')], ['Discipline', r.get('discipline')], ['System', r.get('system')],
-            ['Project type', ctx.get('Project type')], ['Location', ctx.get('Location')],
+            ['Project type', ctx.get('Project type')],
             ['Methodology', ctx.get('Methodology')], ['Shift (hr/day)', shift]]
     if hasq:
         summ += [['Quantity', '%s %s' % (r.get('quantity'), r.get('primary_unit') or '')],
@@ -133,7 +133,9 @@ def _prodintel_excel_sections(r):
     for row in (r.get('context_ledger') or []):
         if not (row.get('choice') or row.get('applied')):
             continue
-        if row.get('applied') or row.get('source') == 'user':
+        if row.get('source') == 'estimate':
+            txt = row.get('evidence') or ''
+        elif row.get('applied') or row.get('source') in ('user', 'builtin'):
             txt = 'x%s — %s' % (row.get('multiplier'), row.get('evidence') or '')
         else:
             txt = row.get('evidence') or 'not adjusted'
@@ -144,6 +146,12 @@ def _prodintel_excel_sections(r):
         summ.append(['Note', 'This work item is not normally part of %s projects' % (ctx.get('Project type') or '')])
     summ += [['Overall confidence', r.get('overall_confidence')]]
 
+    # this work item on every project type (owner comment 62)
+    pt_rows = [[x.get('project_type') + (' (chosen)' if x.get('chosen') else ''), dash(x.get('factor')),
+                dash(x.get('output_per_day')), dash(x.get('mh_per_unit')),
+                dash(x.get('total_mh')) if hasq else '—', dash(x.get('duration_days')) if hasq else '—']
+               for x in (r.get('project_type_rates') or [])]
+    pt_lead = next((x for x in (r.get('project_type_rates') or []) if x.get('component')), {})
     prod_h = ['Work component', 'Unit', 'Productivity rate (MH/unit)', 'Output/day', 'Library norm (MH/unit)', 'Crew', 'Quantity', 'Man-hours']
     prod_r = []
     for c in comps:
@@ -199,8 +207,24 @@ def _prodintel_excel_sections(r):
                 p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
         if p6_r:
             sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
-    # shape into the shared write_sections_xlsx contract: one sheet per section, one titled block each
-    return [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+    est_rows = [[x.get('estimate') + (' (used)' if x.get('chosen') else ''), x.get('when'), dash(x.get('output_per_day')),
+                 dash(x.get('mh_per_unit')), dash(x.get('total_mh')) if hasq else '—',
+                 dash(x.get('duration_days')) if hasq else '—'] for x in (r.get('estimates') or [])]
+    if est_rows:
+        el = next((x for x in (r.get('estimates') or []) if x.get('component')), {})
+        sections.insert(2, ('Methodology',
+                            ['Estimate', 'When it applies',
+                             'Output per day - %s (%s)' % (el.get('component') or 'leading component', el.get('output_unit') or ''),
+                             'Man-hours per %s' % (el.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], est_rows))
+    if pt_rows:
+        sections.insert(2, ('By project type',
+                            ['Project type', 'Built-in factor',
+                             'Output per day - %s (%s)' % (pt_lead.get('component') or 'leading component', pt_lead.get('output_unit') or ''),
+                             'Man-hours per %s' % (pt_lead.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], pt_rows))
+    out = [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
+    # (no 'Rates database' sheet: the owner asked for it to be left out of the Excel export)
+    # (no 'Sources & references' sheet either: on screen only, by the owner's request)
+    return out
 
 
 # ── Project Setup (EVM category weights + Actual Cost) ─────────────────────

@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.roads.prime_coat_tack_coat",
+  "discipline": "Infrastructure",
+  "work_type": "Roads",
+  "system": "Roads",
+  "item": "Prime Coat & Tack Coat",
+  "aliases": [
+    "prime coat",
+    "tack coat",
+    "MC-70"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Spraying bituminous prime coat on the base course and tack coat between asphalt layers.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "spray",
+      "name": "Bitumen spraying",
+      "unit": "m2",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.005,
+        "low": 0.004,
+        "likely": 0.005,
+        "high": 0.006,
+        "output_per_day": 6000,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Distributor Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Bitumen distributor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bitumen emulsion / cut-back",
+          "qty_per_unit": 1.0,
+          "unit": "l/m2"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

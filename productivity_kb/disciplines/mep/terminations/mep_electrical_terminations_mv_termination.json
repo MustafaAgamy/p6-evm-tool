@@ -116,9 +116,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — MV termination per cable end (specialist jointer)",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "MV termination per cable end (specialist jointer)",
         "confidence": "draft",
         "records": 0,
         "projects": [],

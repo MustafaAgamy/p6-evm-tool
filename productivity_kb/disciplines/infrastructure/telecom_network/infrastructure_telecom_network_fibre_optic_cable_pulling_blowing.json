@@ -1,0 +1,93 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.telecom_network.fibre_optic_cable_pulling_blowing",
+  "discipline": "Infrastructure",
+  "work_type": "Telecom Network",
+  "system": "Telecom Network",
+  "item": "Fibre Optic Cable Pulling / Blowing",
+  "aliases": [
+    "FOC",
+    "fiber optic",
+    "cable blowing"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Installing fibre-optic cable in ducts by blowing or pulling, with slack loops at chambers.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "fibre",
+      "name": "Cable blowing / pulling",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.021,
+        "low": 0.017,
+        "likely": 0.021,
+        "high": 0.026,
+        "output_per_day": 1500,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Telecom Technician",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cable blowing machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Compressor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fibre optic cable",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

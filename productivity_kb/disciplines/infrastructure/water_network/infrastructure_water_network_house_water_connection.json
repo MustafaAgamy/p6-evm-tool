@@ -1,0 +1,86 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.water_network.house_water_connection",
+  "discipline": "Infrastructure",
+  "work_type": "Water Network",
+  "system": "Water Network",
+  "item": "House Water Connection",
+  "aliases": [
+    "service connection",
+    "water meter connection"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Saddle tapping on the main, service pipe to the plot boundary and meter box.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "connection",
+      "name": "Service connection",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 4.0,
+        "low": 3.2,
+        "likely": 4.0,
+        "high": 5.0,
+        "output_per_day": 6,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Tapping machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Saddle, service pipe & meter box",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

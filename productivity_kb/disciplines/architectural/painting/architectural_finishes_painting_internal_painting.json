@@ -46,11 +46,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 2,
       "rate": {
-        "mh_per_unit": 0.5,
-        "low": 0.4,
-        "likely": 0.5,
-        "high": 0.65,
-        "output_per_day": 32,
+        "mh_per_unit": 0.773,
+        "low": 0.618,
+        "likely": 0.773,
+        "high": 0.966,
+        "output_per_day": 20.7,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -95,14 +95,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — internal emulsion system",
-        "confidence": "moderate",
+        "source": "egyptian_reference",
+        "source_type": "Derived from an Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — سكينة معجون + صنفرة 60 م2/يوم · دهان وجه بلاستيك 200 م2/يوم (crew: tradesman + helper). Worked out for this item: a full system = 2 putty coats at 60 m2/day + 3 paint coats at 200 m2/day.",
+        "confidence": "draft",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "internal emulsion on plastered surfaces — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

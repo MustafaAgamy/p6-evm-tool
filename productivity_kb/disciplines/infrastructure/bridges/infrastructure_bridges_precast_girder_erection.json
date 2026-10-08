@@ -1,0 +1,91 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.bridges.precast_girder_erection",
+  "discipline": "Infrastructure",
+  "work_type": "Bridges",
+  "system": "Bridges",
+  "item": "Precast Girder Erection",
+  "aliases": [
+    "bridge girder",
+    "beam erection",
+    "I-girder"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Lifting and placing precast / prestressed bridge girders on their bearings.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "erection",
+      "name": "Girder lifting & placing",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 10.67,
+        "low": 8.54,
+        "likely": 10.67,
+        "high": 13.34,
+        "output_per_day": 6,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Rigger",
+          "count": 4
+        },
+        {
+          "trade": "Crane Operator",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "2 x mobile cranes",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Precast girder",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

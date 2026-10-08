@@ -1,0 +1,77 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.utility_piping.pipe_supports_fabrication_installation",
+  "discipline": "Piping",
+  "work_type": "Erection",
+  "system": "Utility Piping",
+  "item": "Pipe Supports — Fabrication & Installation",
+  "aliases": [
+    "pipe support",
+    "hanger",
+    "shoe"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "kg",
+  "why": "Cutting, welding and painting pipe supports, then fixing them to steel or concrete.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "supports",
+      "name": "Support fabrication & fixing",
+      "unit": "kg",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.096,
+        "low": 0.077,
+        "likely": 0.096,
+        "high": 0.12,
+        "output_per_day": 250,
+        "output_unit": "kg/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Welder",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

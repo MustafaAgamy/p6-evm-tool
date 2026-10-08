@@ -90,9 +90,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - bolted structural steel erection per ton",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Bolted structural steel erection per ton",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

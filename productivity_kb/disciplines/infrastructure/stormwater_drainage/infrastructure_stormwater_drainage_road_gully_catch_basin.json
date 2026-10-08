@@ -1,0 +1,91 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.stormwater_drainage.road_gully_catch_basin",
+  "discipline": "Infrastructure",
+  "work_type": "Stormwater Drainage",
+  "system": "Stormwater Drainage",
+  "item": "Road Gully / Catch Basin",
+  "aliases": [
+    "catch basin",
+    "gully pot",
+    "road inlet"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Precast or in-situ gully pot with grating and the connection to the storm line.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "gully",
+      "name": "Gully construction & connection",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 13.33,
+        "low": 10.66,
+        "likely": 13.33,
+        "high": 16.66,
+        "output_per_day": 3,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Small excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Gully pot, grating & frame",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

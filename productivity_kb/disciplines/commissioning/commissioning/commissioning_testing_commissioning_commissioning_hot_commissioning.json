@@ -80,8 +80,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Industry reference norm — hot commissioning of a subsystem; adjust to complexity",
         "confidence": "draft",
         "records": 0,

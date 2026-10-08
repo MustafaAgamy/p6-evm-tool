@@ -46,11 +46,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 1,
       "rate": {
-        "mh_per_unit": 0.032,
-        "low": 0.025,
-        "likely": 0.032,
-        "high": 0.05,
-        "output_per_day": 500,
+        "mh_per_unit": 0.1,
+        "low": 0.08,
+        "likely": 0.1,
+        "high": 0.125,
+        "output_per_day": 160.0,
         "output_unit": "m3/crew·day"
       },
       "gang": [
@@ -79,14 +79,15 @@
       ],
       "material": [],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — hydraulic excavator mass excavation in common soil",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — حفر بالحفار في تربة متماسكة 20 م3/ساعة (crew: tradesman + helper).",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "Common/soft soil, normal haul, single excavator gang — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.drainage.pipelines.gravity_drainage_pipeline",
-  "discipline": "Civil",
-  "work_type": "Drainage",
-  "system": "Pipelines",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
   "item": "Gravity Drainage Pipeline (sanitary/storm)",
   "aliases": [
     "drainage pipeline",
@@ -87,9 +87,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — granular bedding placed & levelled to invert",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Granular bedding placed & levelled to invert",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -152,9 +152,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — gravity pipe laying & jointing to line and level (DN300–600)",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Gravity pipe laying & jointing to line and level (DN300–600)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -207,9 +207,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — pipe surround and compacted trench backfill",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Pipe surround and compacted trench backfill",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

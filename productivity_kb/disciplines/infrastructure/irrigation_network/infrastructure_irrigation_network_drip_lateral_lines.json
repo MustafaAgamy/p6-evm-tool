@@ -1,0 +1,79 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.irrigation_network.drip_lateral_lines",
+  "discipline": "Infrastructure",
+  "work_type": "Irrigation Network",
+  "system": "Irrigation Network",
+  "item": "Drip & Lateral Lines",
+  "aliases": [
+    "drip irrigation",
+    "laterals"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying lateral and drip lines with emitters along the planting.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "laterals",
+      "name": "Lateral / drip line laying",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.053,
+        "low": 0.042,
+        "likely": 0.053,
+        "high": 0.066,
+        "output_per_day": 600,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Irrigation Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Drip line with emitters",
+          "qty_per_unit": 1.03,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

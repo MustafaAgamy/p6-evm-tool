@@ -1,0 +1,86 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.roads.traffic_signs",
+  "discipline": "Infrastructure",
+  "work_type": "Roads",
+  "system": "Roads",
+  "item": "Traffic Signs",
+  "aliases": [
+    "road signs",
+    "sign posts"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Excavating and concreting the post foundation, then erecting the post and sign plate.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "sign",
+      "name": "Sign erection (foundation + post + plate)",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.67,
+        "low": 2.14,
+        "likely": 2.67,
+        "high": 3.34,
+        "output_per_day": 12,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Erector",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Small excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Sign post & plate",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

@@ -101,9 +101,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — conduit first fix with boxes and fittings",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Conduit first fix with boxes and fittings",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

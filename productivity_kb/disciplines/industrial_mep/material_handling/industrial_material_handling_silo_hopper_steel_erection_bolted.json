@@ -1,0 +1,84 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.material_handling.silo_hopper_steel_erection_bolted",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Material Handling",
+  "item": "Silo / Hopper Steel Erection (bolted)",
+  "aliases": [
+    "steel silo",
+    "hopper",
+    "bin"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "ton",
+  "why": "Assembling and erecting bolted steel silo or hopper sections with their support structure.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "silo",
+      "name": "Section assembly & erection",
+      "unit": "ton",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 13.33,
+        "low": 10.67,
+        "likely": 13.33,
+        "high": 16.67,
+        "output_per_day": 3,
+        "output_unit": "ton/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Erector",
+          "count": 1
+        },
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

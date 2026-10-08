@@ -116,9 +116,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — instrument installation and hook-up per instrument",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Instrument installation and hook-up per instrument",
         "confidence": "draft",
         "records": 0,
         "projects": [],

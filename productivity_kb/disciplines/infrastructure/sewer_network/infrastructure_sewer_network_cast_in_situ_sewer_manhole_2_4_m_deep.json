@@ -1,0 +1,138 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.sewer_network.cast_in_situ_sewer_manhole_2_4_m_deep",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
+  "item": "Cast In-Situ Sewer Manhole (2–4 m deep)",
+  "aliases": [
+    "manhole",
+    "inspection chamber",
+    "sewer chamber"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Reinforced-concrete manhole cast in place: base, benching, walls, cover slab, lining and cover.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "structure",
+      "name": "Manhole base, walls & slab",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 256.0,
+        "low": 204.8,
+        "likely": 256.0,
+        "high": 320.0,
+        "output_per_day": 0.25,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 2
+        },
+        {
+          "trade": "Steel Fixer",
+          "count": 2
+        },
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete mixer truck (shared)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Concrete",
+          "qty_per_unit": 8,
+          "unit": "m3/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "finishing",
+      "name": "Benching, lining, cover & ladder",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24.0,
+        "low": 19.2,
+        "likely": 24.0,
+        "high": 30.0,
+        "output_per_day": 1,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "GRP lining / cover & frame",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

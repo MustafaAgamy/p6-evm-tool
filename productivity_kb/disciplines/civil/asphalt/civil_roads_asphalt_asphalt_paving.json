@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.asphalt.asphalt_paving",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Asphalt",
+  "system": "Roads",
   "item": "Asphalt Paving (binder + wearing course)",
   "aliases": [
     "asphalt",
@@ -111,9 +111,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — paver-laid binder course, standard paving train",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Paver-laid binder course, standard paving train",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -192,9 +192,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — paver-laid wearing course, finish tolerance",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Paver-laid wearing course, finish tolerance",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

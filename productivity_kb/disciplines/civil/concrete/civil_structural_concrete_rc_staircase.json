@@ -94,9 +94,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — stair formwork (complex, slow)",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Stair formwork (complex, slow)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -111,21 +111,25 @@
       "qty_per_primary": 0.13,
       "default_gangs": 2,
       "rate": {
-        "mh_per_unit": 24.6,
-        "low": 21,
-        "likely": 24.6,
-        "high": 28,
-        "output_per_day": 0.65,
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
         "output_unit": "t/crew·day"
       },
       "gang": [
         {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
           "trade": "Steel Fixer",
-          "count": 1
+          "count": 2
         },
         {
           "trade": "Steel Fixer Helper",
-          "count": 1
+          "count": 2
         }
       ],
       "equipment": [
@@ -160,14 +164,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — stair steel (bent bars, congested)",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "waist-slab stairs ~110–150 kg/m3 — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -229,9 +234,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — small awkward stair pour, hand finishing",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Small awkward stair pour, hand finishing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -1,0 +1,91 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.water_network.pressure_testing_disinfection",
+  "discipline": "Infrastructure",
+  "work_type": "Water Network",
+  "system": "Water Network",
+  "item": "Pressure Testing & Disinfection",
+  "aliases": [
+    "hydrotest",
+    "chlorination",
+    "flushing"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Filling, hydrostatic pressure testing, flushing and chlorination of a completed water main section.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "testing",
+      "name": "Pressure test & chlorination",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.053,
+        "low": 0.042,
+        "likely": 0.053,
+        "high": 0.066,
+        "output_per_day": 600,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Technician",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Test pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Water tanker",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

@@ -91,9 +91,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - cutting, drilling and end preparation of structural sections",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Cutting, drilling and end preparation of structural sections",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -152,9 +152,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - fitting and tack assembly of built-up members and connections",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Fitting and tack assembly of built-up members and connections",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -213,9 +213,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - manual/semi-automatic welding of connections and built-up sections",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Manual/semi-automatic welding of connections and built-up sections",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -274,9 +274,9 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - Sa2.5 blast + single shop primer coat; ~22 m2 painted surface per tonne of typical sections",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Sa2.5 blast + single shop primer coat; ~22 m2 painted surface per tonne of typical sections",
         "confidence": "draft",
         "records": 0,
         "projects": [],
