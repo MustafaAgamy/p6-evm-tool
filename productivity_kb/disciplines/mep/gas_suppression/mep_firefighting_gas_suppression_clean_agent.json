@@ -92,8 +92,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Clean-agent cylinder bank install",
         "confidence": "draft",
         "records": 0,
@@ -158,8 +158,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Clean-agent discharge network",
         "confidence": "draft",
         "records": 0,
@@ -223,8 +223,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Suppression detection & release integration",
         "confidence": "draft",
         "records": 0,
@@ -279,8 +279,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Suppression cause-and-effect + integrity test",
         "confidence": "draft",
         "records": 0,

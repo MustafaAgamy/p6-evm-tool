@@ -375,13 +375,19 @@ def rate_sources(result):
     for c in result.get("components") or []:
         prov = c.get("provenance") or {}
         ref = by_key.get(prov.get("reference"))
+        st = prov.get("source_type") or ""
+        # the owner's three tiers: an Egyptian reference - normal Egyptian productivity worked
+        # out from one - otherwise an international norm
+        tier = ("egyptian" if (ref and st == "Egyptian reference") else
+                "derived" if (ref and st.startswith("Derived")) else "international")
         comps.append({
-            "component": c.get("name"), "source_type": prov.get("source_type") or "",
-            "basis": prov.get("basis") or "", "egyptian": bool(ref),
+            "component": c.get("name"), "source_type": st, "basis": prov.get("basis") or "",
+            "tier": tier, "egyptian": tier == "egyptian",
             "reference": ref.get("title") if ref else None,
         })
-    n = sum(1 for x in comps if x["egyptian"])
-    return {"components": comps, "egyptian_count": n, "total": len(comps),
+    n = sum(1 for x in comps if x["tier"] == "egyptian")
+    d = sum(1 for x in comps if x["tier"] == "derived")
+    return {"components": comps, "egyptian_count": n, "derived_count": d, "total": len(comps),
             "note": refs.get("note") or "", "references": refs.get("references", [])}
 
 

@@ -497,15 +497,15 @@ function renderSources(r) {
   if (!(src.components || []).length) return '';
   const rows = src.components.map(c => `<tr>
       <td><b>${escapeHtml(c.component || '')}</b></td>
-      <td><span class="pi-srcpill ${c.egyptian ? 'eg' : 'est'}">${c.egyptian ? 'Egyptian reference' : 'General estimate'}</span></td>
-      <td class="pi-srcbasis">${escapeHtml(c.egyptian ? c.basis : (c.source_type + (c.basis ? ' · ' + c.basis : '')))}</td></tr>`).join('');
+      <td><span class="pi-srcpill ${c.tier === 'egyptian' ? 'eg' : c.tier === 'derived' ? 'dv' : 'est'}">${c.tier === 'egyptian' ? 'Egyptian reference' : c.tier === 'derived' ? 'Derived from an Egyptian reference' : 'International norm'}</span></td>
+      <td class="pi-srcbasis">${escapeHtml(c.tier === 'international' ? (c.source_type + (c.basis ? ' · ' + c.basis : '')) : c.basis)}</td></tr>`).join('');
   const st = { loaded: 'Rates loaded in the library', listed: 'Known reference — rates not yet loaded', context: 'Research — no rate table' };
   const refs = (src.references || []).map(x => `<tr>
       <td><b>${escapeHtml(x.title || '')}</b><div class="pi-srcsub">${escapeHtml([x.author, x.country, x.year].filter(Boolean).join(' · '))}</div></td>
       <td><span class="pi-srcpill ${x.status === 'loaded' ? 'eg' : 'est'}">${escapeHtml(st[x.status] || x.status || '')}</span></td>
       <td class="pi-srcbasis">${escapeHtml(x.covers || '')}${x.does_not_cover ? `<div class="pi-srcsub">Does not cover: ${escapeHtml(x.does_not_cover)}</div>` : ''}<div class="pi-srcsub">${escapeHtml(x.url || '')}</div></td></tr>`).join('');
   return `<div class="pi-card pi-ptcard"><div class="pi-pthead"><h3>Sources &amp; references</h3>
-      <span class="pi-ptsub">${src.egyptian_count || 0} of ${src.total || 0} rates of this work item are taken from an Egyptian reference</span></div>
+      <span class="pi-ptsub">of the ${src.total || 0} rates of this work item: ${src.egyptian_count || 0} from an Egyptian reference · ${src.derived_count || 0} derived from one · ${(src.total || 0) - (src.egyptian_count || 0) - (src.derived_count || 0)} international norm</span></div>
     <table class="pi-pttbl"><thead><tr><th>Rate</th><th>Source</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="pi-ptfoot" style="margin:10px 0 6px"><b>Egyptian references</b> — ${escapeHtml(src.note || '')}</div>
     <table class="pi-pttbl"><thead><tr><th>Reference</th><th>Status</th><th>What it covers</th></tr></thead><tbody>${refs}</tbody></table></div>`;

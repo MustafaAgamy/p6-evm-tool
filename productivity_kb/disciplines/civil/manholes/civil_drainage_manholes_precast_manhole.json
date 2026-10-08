@@ -88,8 +88,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Cast-in-place manhole base slab & blinding",
         "confidence": "moderate",
         "records": 0,
@@ -147,8 +147,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Setting precast manhole rings and cover slab with crane",
         "confidence": "moderate",
         "records": 0,
@@ -202,8 +202,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Manhole benching and cover/frame installation",
         "confidence": "moderate",
         "records": 0,

@@ -87,8 +87,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Mass concrete side forms only",
         "confidence": "moderate",
         "records": 0,
@@ -104,21 +104,25 @@
       "qty_per_primary": 0.05,
       "default_gangs": 3,
       "rate": {
-        "mh_per_unit": 14.5,
-        "low": 12.5,
-        "likely": 14.5,
-        "high": 17,
-        "output_per_day": 1.1,
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
         "output_unit": "t/crew·day"
       },
       "gang": [
         {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
           "trade": "Steel Fixer",
-          "count": 1
+          "count": 2
         },
         {
           "trade": "Steel Fixer Helper",
-          "count": 1
+          "count": 2
         }
       ],
       "equipment": [
@@ -153,14 +157,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
-        "basis": "Light/heavy-bar mass concrete steel",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "mass sections ~30–60 kg/m3 — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -224,8 +229,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "High-output continuous mass pour",
         "confidence": "moderate",
         "records": 0,

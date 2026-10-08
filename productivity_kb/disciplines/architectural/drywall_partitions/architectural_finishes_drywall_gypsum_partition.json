@@ -103,8 +103,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Metal-stud partition framing",
         "confidence": "moderate",
         "records": 0,
@@ -164,8 +164,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Plasterboard fixing both faces",
         "confidence": "moderate",
         "records": 0,
@@ -225,8 +225,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Drywall jointing to level-4 finish",
         "confidence": "moderate",
         "records": 0,

@@ -228,10 +228,10 @@ def _prodintel_excel_sections(r):
         st = {'loaded': 'Rates loaded in the library', 'listed': 'Known reference - rates not yet loaded', 'context': 'Research - no rate table'}
         out.append({'name': 'Sources & references', 'blocks': [
             {'title': 'Where each rate of this work item comes from',
-             'note': '%s of %s rates are taken from an Egyptian reference.' % (src.get('egyptian_count', 0), src.get('total', 0)),
+             'note': 'Of the %s rates: %s from an Egyptian reference, %s derived from one, the rest international norms.' % (src.get('total', 0), src.get('egyptian_count', 0), src.get('derived_count', 0)),
              'headers': ['Rate', 'Source', 'Basis'],
-             'rows': [[x.get('component'), 'Egyptian reference' if x.get('egyptian') else 'General estimate',
-                       x.get('basis') if x.get('egyptian') else ' · '.join(v for v in (x.get('source_type'), x.get('basis')) if v)]
+             'rows': [[x.get('component'), {'egyptian': 'Egyptian reference', 'derived': 'Derived from an Egyptian reference'}.get(x.get('tier'), 'International norm'),
+                       x.get('basis') if x.get('tier') != 'international' else ' · '.join(v for v in (x.get('source_type'), x.get('basis')) if v)]
                       for x in src['components']]},
             {'title': 'Egyptian references', 'note': src.get('note') or None,
              'headers': ['Reference', 'Author / country / year', 'Status', 'What it covers', 'Link'],

@@ -1,0 +1,84 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.material_handling.chain_screw_conveyor_installation",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Material Handling",
+  "item": "Chain / Screw Conveyor Installation",
+  "aliases": [
+    "chain conveyor",
+    "drag conveyor",
+    "screw conveyor"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "m",
+  "why": "Setting trough sections, chain or screw flights and the drive unit, then alignment.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "conveyor",
+      "name": "Trough, flights & drive",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 3.2,
+        "low": 2.56,
+        "likely": 3.2,
+        "high": 4.0,
+        "output_per_day": 10,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright",
+          "count": 1
+        },
+        {
+          "trade": "Mechanical Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Crane / forklift",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

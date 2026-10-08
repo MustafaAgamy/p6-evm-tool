@@ -1,0 +1,88 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.process_utility_equipment.water_treatment_ro_skid_installation",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Process & Utility Equipment",
+  "item": "Water Treatment / RO Skid Installation",
+  "aliases": [
+    "RO unit",
+    "WTP skid",
+    "demin plant"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Placing a packaged water-treatment or reverse-osmosis skid and connecting its piping and power.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "skid",
+      "name": "Skid placing & hook-up",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 121.21,
+        "low": 96.97,
+        "likely": 121.21,
+        "high": 151.52,
+        "output_per_day": 0.33,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright",
+          "count": 1
+        },
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Crane / forklift",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

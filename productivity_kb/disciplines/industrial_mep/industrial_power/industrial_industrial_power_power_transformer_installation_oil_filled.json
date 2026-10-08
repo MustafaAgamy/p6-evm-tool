@@ -1,0 +1,137 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_power.power_transformer_installation_oil_filled",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Industrial Power",
+  "item": "Power Transformer Installation (oil-filled)",
+  "aliases": [
+    "power transformer",
+    "main transformer"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Offloading and skidding the transformer onto its foundation, fitting radiators, conservator and bushings, then oil filling and testing.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "erection",
+      "name": "Positioning & assembly",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 280.0,
+        "low": 224.0,
+        "likely": 280.0,
+        "high": 350.0,
+        "output_per_day": 0.2,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Rigger",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Jacks & skates",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    },
+    {
+      "component_id": "oil_test",
+      "name": "Oil filling, filtration & testing",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 72.73,
+        "low": 58.18,
+        "likely": 72.73,
+        "high": 90.91,
+        "output_per_day": 0.33,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Testing Engineer",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Oil filtration plant",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.process_utility_equipment.cooling_tower_erection",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Process & Utility Equipment",
+  "item": "Cooling Tower Erection",
+  "aliases": [
+    "cooling tower"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "cell",
+  "why": "Assembling the structure, casing, fill, drift eliminators, fan stack and drive of one cooling-tower cell.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "cell",
+      "name": "Cell assembly",
+      "unit": "cell",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 560.0,
+        "low": 448.0,
+        "likely": 560.0,
+        "high": 700.0,
+        "output_per_day": 0.1,
+        "output_unit": "cell/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 2
+        },
+        {
+          "trade": "Rigger",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

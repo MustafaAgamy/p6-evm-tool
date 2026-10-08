@@ -1,0 +1,125 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_power.diesel_generator_set_installation",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Industrial Power",
+  "item": "Diesel Generator Set Installation",
+  "aliases": [
+    "genset",
+    "standby generator",
+    "emergency generator"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Placing and aligning the generator set, then exhaust, fuel, cooling and cable connections.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "placing",
+      "name": "Placing & alignment",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 96.0,
+        "low": 76.8,
+        "likely": 96.0,
+        "high": 120.0,
+        "output_per_day": 0.5,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 2
+        },
+        {
+          "trade": "Rigger",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    },
+    {
+      "component_id": "connections",
+      "name": "Exhaust, fuel & cable connections",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 96.97,
+        "low": 77.58,
+        "likely": 96.97,
+        "high": 121.21,
+        "output_per_day": 0.33,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mechanical Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

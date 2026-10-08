@@ -1,0 +1,134 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.material_handling.belt_conveyor_installation",
+  "discipline": "Mechanical",
+  "work_type": "Installation",
+  "system": "Material Handling",
+  "item": "Belt Conveyor Installation",
+  "aliases": [
+    "conveyor",
+    "belt conveyor",
+    "BC"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "m",
+  "why": "Erecting the conveyor stringers, trestles, idlers and pulleys, then pulling and splicing the belt.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "structure",
+      "name": "Stringers, idlers & pulleys",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 4.0,
+        "low": 3.2,
+        "likely": 4.0,
+        "high": 5.0,
+        "output_per_day": 12,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Millwright",
+          "count": 1
+        },
+        {
+          "trade": "Mechanical Fitter",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    },
+    {
+      "component_id": "belt",
+      "name": "Belt pulling & splicing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.64,
+        "likely": 0.8,
+        "high": 1.0,
+        "output_per_day": 40,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Belt Splicer",
+          "count": 1
+        },
+        {
+          "trade": "Helper",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Belt winch",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Vulcanising press",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

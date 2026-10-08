@@ -42,11 +42,11 @@
       "qty_per_primary": 10.5,
       "default_gangs": 6,
       "rate": {
-        "mh_per_unit": 2,
-        "low": 1.7,
-        "likely": 2,
-        "high": 2.4,
-        "output_per_day": 8,
+        "mh_per_unit": 0.508,
+        "low": 0.406,
+        "likely": 0.508,
+        "high": 0.635,
+        "output_per_day": 31.5,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -97,14 +97,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
-        "basis": "Industry norm — waffle pan setting/striking (slower than flat soffit)",
+        "source": "egyptian_reference",
+        "source_type": "Derived from an Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 10.5 m2 of formwork per m3 of concrete. Worked out for this item: waffle slab taken as the reference's solid slab.",
         "confidence": "draft",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "recoverable pan systems, standard modules — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -114,21 +115,25 @@
       "qty_per_primary": 0.11,
       "default_gangs": 4,
       "rate": {
-        "mh_per_unit": 17.8,
-        "low": 15.5,
-        "likely": 17.8,
-        "high": 20,
-        "output_per_day": 0.9,
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
         "output_unit": "t/crew·day"
       },
       "gang": [
         {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
           "trade": "Steel Fixer",
-          "count": 1
+          "count": 2
         },
         {
           "trade": "Steel Fixer Helper",
-          "count": 1
+          "count": 2
         }
       ],
       "equipment": [
@@ -163,14 +168,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
-        "basis": "Industry norm — waffle rib + topping steel",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "two-way ribbed slabs ~90–120 kg/m3 net — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -232,8 +238,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Industry norm — waffle pour (ribs slow the spread)",
         "confidence": "moderate",
         "records": 0,

@@ -1,0 +1,106 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.instrumentation_control.dcs_plc_cabinet_installation",
+  "discipline": "MEP",
+  "work_type": "Instrumentation",
+  "system": "Instrumentation & Control",
+  "item": "DCS / PLC Cabinet Installation",
+  "aliases": [
+    "DCS",
+    "PLC",
+    "control system cabinet"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Placing system and marshalling cabinets in the control room, then terminating the field cables.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "placing",
+      "name": "Cabinet placing & fixing",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 16.0,
+        "low": 12.8,
+        "likely": 16.0,
+        "high": 20.0,
+        "output_per_day": 2,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    },
+    {
+      "component_id": "termination",
+      "name": "Field cable termination",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 32.0,
+        "low": 25.6,
+        "likely": 32.0,
+        "high": 40.0,
+        "output_per_day": 0.5,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Instrument Technician",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

@@ -384,19 +384,25 @@ def test_rates_name_their_egyptian_reference_and_nothing_else_claims_one():
     refs = {r["key"]: r for r in kb.references()["references"]}
     assert refs["afifi_2017"]["status"] == "loaded" and refs["afifi_2017"]["country"] == "Egypt"
     assert sum(1 for r in refs.values() if r["status"] == "listed") >= 3
-    eg = est = 0
+    eg = dv = intl = 0
     for it in kb.load_items():
         for c in it["components"]:
             p = c["provenance"]
             if p.get("reference"):
-                assert p["reference"] in refs and p["source_type"] == "Egyptian reference"
+                assert p["reference"] in refs
+                assert p["source_type"] in ("Egyptian reference", "Derived from an Egyptian reference")
                 assert "Afifi" in p["basis"] or "Cairo University" in p["basis"]
-                eg += 1
+                eg += p["source_type"] == "Egyptian reference"; dv += p["source_type"].startswith("Derived")
             else:
-                assert p["source_type"].startswith("General estimate"), (it["item_id"], c["component_id"])
+                # the owner's third tier: no Egyptian reference -> an international norm, and it says so
+                assert p["source_type"].startswith("International / general industry norm"), (it["item_id"], c["component_id"])
                 assert not p["basis"].lower().startswith("egypt"), (it["item_id"], p["basis"])
-                est += 1
-    assert eg >= 35 and est > 0
+                intl += 1
+    assert eg >= 50 and dv >= 10 and intl > 0
+    # tier 1 from the reference's general note: reinforcement = 1 t/day for 6 men = 48 man-hours/t
+    beam = {c["component_id"]: c for c in engine.query("civil.structural.concrete.rc_beam", context={"Project type": "Commercial"})["components"]}
+    assert beam["reinforcement"]["rate"]["mh_per_unit"] == 48 and beam["reinforcement"]["gang_persons"] == 6
+    assert beam["formwork"]["provenance"]["source_type"] == "Derived from an Egyptian reference"
     # the reference's own figures, exactly
     tile = engine.query("architectural.finishes.tiling.floor_tiling", context={"Project type": "Commercial"})
     assert tile["components"][0]["rate"]["output_per_day"] == 25
@@ -407,9 +413,33 @@ def test_rates_name_their_egyptian_reference_and_nothing_else_claims_one():
     assert col["formwork"]["gang"] == [{"trade": "Carpenter", "count": 1}, {"trade": "Helper", "count": 1}]
     # ... and the feature shows it
     src = engine.query(RC, context={"Project type": "Commercial"}, quantity=100)["sources"]
-    assert src["egyptian_count"] == 2 and src["total"] == 3
-    assert [x["egyptian"] for x in src["components"]] == [True, True, False]
+    assert src["egyptian_count"] == 2 and src["derived_count"] == 0 and src["total"] == 3
+    assert [x["tier"] for x in src["components"]] == ["egyptian", "egyptian", "international"]
     assert any(r["key"] == "afifi_2017" for r in src["references"])
     import server
     names = [sh["name"] for sh in server._prodintel_excel_sections(engine.query(RC, context={"Project type": "Commercial"}, quantity=100))]
     assert names[-1] == "Sources & references"
+
+
+def test_the_library_holds_complex_industrial_mep_items():
+    """Owner: "add new items to the knowledge base to include all complex items, especially those
+    MEP works in industrial projects" - industrial power, instrumentation & control, material
+    handling, process & utility equipment, utility piping, industrial fire protection."""
+    items = [i for i in kb.load_items() if i["item_id"].startswith("industrial.")]
+    systems = {i["system"] for i in items}
+    assert systems == {"Industrial Power", "Instrumentation & Control", "Material Handling",
+                       "Process & Utility Equipment", "Utility Piping", "Industrial Fire Protection"}
+    assert len(items) >= 45
+    for it in items:
+        assert "Industrial" in it["project_types"] and "Residential" not in it["project_types"]
+        assert kb.trade_group(it), it["item_id"]                         # the project-type factor applies
+        for c in it["components"]:
+            r = c["rate"]
+            assert 0 < r["low"] < r["likely"] < r["high"] and r["output_per_day"] > 0 and c["gang"], it["item_id"]
+            # no Egyptian reference covers these: by the owner's rule they are international norms
+            assert c["provenance"]["source_type"].startswith("International / general industry norm")
+    r = engine.query("industrial.material_handling.belt_conveyor_installation",
+                     context={"Project type": "Industrial"}, quantity=300)
+    est = {x["estimate"]: x["duration_days"] for x in r["estimates"]}
+    assert est["Optimistic"] < est["Most likely"] < est["Pessimistic"]
+    assert all(x["tier"] == "international" for x in r["sources"]["components"])

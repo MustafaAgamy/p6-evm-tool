@@ -1,0 +1,72 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_power.ups_battery_system_installation",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Industrial Power",
+  "item": "UPS & Battery System Installation",
+  "aliases": [
+    "UPS",
+    "battery bank"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Placing UPS cabinets and battery racks, installing the batteries and inter-connections.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "UPS, racks & batteries",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 64.0,
+        "low": 51.2,
+        "likely": 64.0,
+        "high": 80.0,
+        "output_per_day": 0.5,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

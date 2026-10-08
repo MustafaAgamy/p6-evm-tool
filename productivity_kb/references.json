@@ -1,6 +1,6 @@
 {
   "schema": "productivity_kb.references/1.0",
-  "note": "Egypt has no single official productivity standard (the published research says so); the references below are the Egyptian sources found. A rate in the library names the reference it is taken from; a rate with no reference is a general estimate, not yet verified against Egyptian rates.",
+  "note": "Three tiers, in this order: (1) a rate taken from an Egyptian reference; (2) where the reference does not list the item, the normal Egyptian productivity worked out from it (the nearest element it lists, or its per-coat rates); (3) where there is no Egyptian reference at all, an international / general industry norm. Egypt has no single official productivity standard, and measured Egyptian figures can be lower than international ones (slab reinforcement: the international RS Means figure was 47 % more optimistic than the Egyptian measurement).",
   "references": [
     {
       "key": "afifi_2017",

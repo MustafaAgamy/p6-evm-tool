@@ -1,0 +1,128 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "industrial.industrial_power.mv_switchgear_installation",
+  "discipline": "MEP",
+  "work_type": "Electrical",
+  "system": "Industrial Power",
+  "item": "MV Switchgear Installation",
+  "aliases": [
+    "11kV switchgear",
+    "MV panel",
+    "RMU line-up"
+  ],
+  "project_types": [
+    "Industrial",
+    "Oil & Gas",
+    "Power Plant",
+    "Marine/Port",
+    "Infrastructure",
+    "Airport"
+  ],
+  "primary_unit": "no",
+  "why": "Setting medium-voltage switchgear panels on the base frame, coupling the busbars, then inspection and testing before energisation.",
+  "assumptions": [
+    "Industrial plant under construction (not live)",
+    "Equipment and materials delivered to the work front",
+    "Cranage / lifting available when needed",
+    "Single 8 hr/day shift"
+  ],
+  "exclusions": [
+    "Civil foundations",
+    "Vendor supervision",
+    "Commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "placing",
+      "name": "Panel placing & levelling",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 24.0,
+        "low": 19.2,
+        "likely": 24.0,
+        "high": 30.0,
+        "output_per_day": 2,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Rigger",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Forklift / skates",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    },
+    {
+      "component_id": "busbar_test",
+      "name": "Busbar coupling, checks & testing",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 16.0,
+        "low": 12.8,
+        "likely": 16.0,
+        "high": 20.0,
+        "output_per_day": 1.5,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Testing Engineer",
+          "count": 1
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Primary / secondary injection set",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
+        "basis": "Typical crew output for this operation on an industrial project",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal access, single 8 hr shift, materials at the work front - validate with your own records"
+      }
+    }
+  ]
+}

@@ -42,11 +42,11 @@
       "qty_per_primary": 10.0,
       "default_gangs": 5,
       "rate": {
-        "mh_per_unit": 1.78,
-        "low": 1.5,
-        "likely": 1.78,
-        "high": 2.1,
-        "output_per_day": 9,
+        "mh_per_unit": 0.533,
+        "low": 0.426,
+        "likely": 0.533,
+        "high": 0.666,
+        "output_per_day": 30.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -91,14 +91,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
-        "basis": "Hollow-block slab full soffit form",
-        "confidence": "moderate",
+        "source": "egyptian_reference",
+        "source_type": "Derived from an Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 10.0 m2 of formwork per m3 of concrete. Worked out for this item: ribbed slab taken as the reference's solid slab.",
+        "confidence": "draft",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "block-and-rib slabs on props — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "Approximate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -141,8 +142,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Hordi block laying between ribs",
         "confidence": "moderate",
         "records": 0,
@@ -158,21 +159,25 @@
       "qty_per_primary": 0.09,
       "default_gangs": 3,
       "rate": {
-        "mh_per_unit": 16,
-        "low": 14,
-        "likely": 16,
-        "high": 18.5,
-        "output_per_day": 1,
+        "mh_per_unit": 48.0,
+        "low": 38.4,
+        "likely": 48.0,
+        "high": 60.0,
+        "output_per_day": 1.0,
         "output_unit": "t/crew·day"
       },
       "gang": [
         {
+          "trade": "Steel Fixer (cut & bend)",
+          "count": 2
+        },
+        {
           "trade": "Steel Fixer",
-          "count": 1
+          "count": 2
         },
         {
           "trade": "Steel Fixer Helper",
-          "count": 1
+          "count": 2
         }
       ],
       "equipment": [
@@ -207,14 +212,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
-        "basis": "Rib bars + topping mesh",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملحوظة: لتشغيل 1 طن حديد/يوم يلزم فريق مكون من (2 حداد توضيب + 2 حداد تركيب + 2 مساعد) = 48 man-hours per tonne.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "hollow-block ribbed slabs ~80–100 kg/m3 net concrete — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's general reinforcement rate - validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -276,8 +282,8 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "source": "international_norm",
+        "source_type": "International / general industry norm — no Egyptian reference found",
         "basis": "Ribbed slab pour (blocks slow spreading)",
         "confidence": "moderate",
         "records": 0,
