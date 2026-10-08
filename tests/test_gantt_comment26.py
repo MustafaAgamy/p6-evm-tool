@@ -225,7 +225,7 @@ def test_wbs_without_cost_carries_no_percentages():
     from p6_evm.wbs_excel import wbs_excel
     rows = [r for b in wbs_excel({'wbs_summary': summary, 'wbs_main': []})[0]['blocks'] for r in b['rows']]
     eng = next(r for r in rows if r[0].strip() == 'Engineering')
-    assert eng[5] == '' and eng[6] == ''
+    assert eng[5] == 'no cost' and eng[6] == 'no cost'
 
 
 def test_critical_follows_the_p6_flag_when_the_file_carries_it():

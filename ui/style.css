@@ -2776,6 +2776,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wc-cell b { color: var(--text); font-weight: 700; }
 .wc-cell.wc-bad { color: var(--danger); font-weight: 700; }
 .wc-cell.wc-good { color: var(--success); font-weight: 700; }
+.wc-cell.wc-nocost { color: var(--muted); font-style: italic; font-family: inherit; font-size: 10.5px; }
 .wbst-scale .wc-cell.wbst-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em; font-weight: 700; color: var(--muted); white-space: normal; line-height: 1.05; }
 .wc-tl { width: var(--trackw); flex-shrink: 0; position: relative; }
 .wbst-scale-track { height: 40px; }

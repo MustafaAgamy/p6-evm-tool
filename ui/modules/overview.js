@@ -171,7 +171,7 @@ let wbsAnyCost = false;
 const wbsHasPct = (n) => !wbsAnyCost || (n.cost_loaded || 0) > 0;
 
 function wbsCellVal(col, n) {
-  if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : '';
+  if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : 'no cost';
   if (col.kind === 'date') { const ms = toMs(n[col.key]); return Number.isNaN(ms) ? '—' : fmtShort(ms); }
   const d = wbsDelay(n);                                // delay
   return d == null ? '—' : `${d > 0 ? '+' : ''}${d} d`;
@@ -283,7 +283,8 @@ export function renderWbs(result) {
         if (d != null && d > 0) cls += ' wc-bad';
         else if (d != null && d < 0) cls += ' wc-good';
       }
-      if (c.key === 'actual') inner = `<b>${inner}</b>`;
+      if (c.kind === 'pct' && !wbsHasPct(n)) cls += ' wc-nocost';
+      else if (c.key === 'actual') inner = `<b>${inner}</b>`;
       return `<div class="${cls}" style="width:${c.w}px">${inner}</div>`;
     }).join('');
     return `<div class="wbst-row ${leaf ? 'leaf' : 'sum'} d${rd}">
@@ -360,7 +361,7 @@ ${wbsHasPct(branch) ? `
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is Expected Finish − Baseline Finish (+ late / − early). Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS with no cost carries none.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is Expected Finish − Baseline Finish (+ late / − early). Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
 
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {

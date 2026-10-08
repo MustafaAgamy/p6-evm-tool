@@ -83,7 +83,7 @@ def _has_pct(node):
 
 def _pct(node, key):
     if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
-        return ''
+        return 'no cost'
     return _num(node.get(key))
 
 
