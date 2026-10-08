@@ -504,7 +504,7 @@ function renderSources(r) {
       <td><b>${escapeHtml(x.title || '')}</b><div class="pi-srcsub">${escapeHtml([x.author, x.country, x.year].filter(Boolean).join(' · '))}</div></td>
       <td><span class="pi-srcpill ${x.status === 'loaded' ? 'eg' : 'est'}">${escapeHtml(st[x.status] || x.status || '')}</span></td>
       <td class="pi-srcbasis">${escapeHtml(x.covers || '')}${x.does_not_cover ? `<div class="pi-srcsub">Does not cover: ${escapeHtml(x.does_not_cover)}</div>` : ''}<div class="pi-srcsub">${escapeHtml(x.url || '')}</div></td></tr>`).join('');
-  return `<div class="pi-card pi-ptcard"><div class="pi-pthead"><h3>Sources &amp; references</h3>
+  return `<div class="pi-card pi-ptcard pi-noprint"><div class="pi-pthead"><h3>Sources &amp; references</h3>
       <span class="pi-ptsub">of the ${src.total || 0} rates of this work item: ${src.egyptian_count || 0} from an Egyptian reference · ${src.derived_count || 0} derived from one · ${(src.total || 0) - (src.egyptian_count || 0) - (src.derived_count || 0)} international norm</span></div>
     <table class="pi-pttbl"><thead><tr><th>Rate</th><th>Source</th><th>Basis</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="pi-ptfoot" style="margin:10px 0 6px"><b>Egyptian references</b> — ${escapeHtml(src.note || '')}</div>
@@ -636,6 +636,7 @@ function buildPrint(r) {
   if (!r || r.found === false) { _print = null; return; }
   const main = document.getElementById('pi-main'); const sec = [];
   sec.push({ key: 'header', label: 'Work item & settings', html: `<h1 style="font-size:18px;margin:0 0 4px">${escapeHtml(r.item)}</h1><div style="color:#555;font-size:12px">${escapeHtml(r.discipline || '')} › ${escapeHtml(r.system || '')} · ${escapeHtml((r.context || {})['Project type'] || '')}${r.has_quantity ? ' · Quantity ' + num(r.quantity) + ' ' + escapeHtml(r.primary_unit || '') : ' · Knowledge lookup'}</div>` });
-  (main ? main.querySelectorAll('.pi-card') : []).forEach((card, i) => { const h = card.querySelector('h3,h4'); sec.push({ key: 'card' + i, label: h ? h.textContent : (i === 0 ? 'Rates by trade — summary' : 'Section ' + (i + 1)), html: card.outerHTML }); });
+  // the Sources & references card is on screen only - the owner asked for it out of the report
+  (main ? main.querySelectorAll('.pi-card:not(.pi-noprint)') : []).forEach((card, i) => { const h = card.querySelector('h3,h4'); sec.push({ key: 'card' + i, label: h ? h.textContent : (i === 0 ? 'Rates by trade — summary' : 'Section ' + (i + 1)), html: card.outerHTML }); });
   _print = sec;
 }
