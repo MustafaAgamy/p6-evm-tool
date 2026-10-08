@@ -1159,7 +1159,7 @@ class Handler(BaseHTTPRequestHandler):
             # from Recent Projects shows the same Gantt / WBS with no re-parse.
             try:
                 from p6_evm.schedule_view import gantt_activities
-                safe_result['activities'] = gantt_activities(result['records'], data.wbs)
+                safe_result['activities'] = gantt_activities(result['records'], data.wbs, data)
             except Exception as gantt_exc:
                 safe_result['activities'] = []
                 print(f'[gantt] slim activities skipped: {gantt_exc}', file=sys.stderr)
@@ -1278,6 +1278,7 @@ class Handler(BaseHTTPRequestHandler):
                 views = {k: safe_result.get(k) or [] for k in
                          ('activities', 'wbs_summary', 'wbs_main', 'progress_groups')}
                 views['cost_loaded'] = safe_result.get('cost_loaded')
+                views['v'] = 2                      # layout of the stored views (see _snapshot_views)
                 db.save_snapshot_views(sid, views)
             except Exception as view_exc:
                 print(f'[views] not stored: {view_exc}', file=sys.stderr)
@@ -2951,7 +2952,7 @@ class Handler(BaseHTTPRequestHandler):
         views = db.get_snapshot_views(snapshot_id)
         stored = views
         # a snapshot stored before the cost-loaded Overview figures existed is rebuilt once too
-        if views is None or 'cost_loaded' not in views:
+        if views is None or 'cost_loaded' not in views or views.get('v') != 2:
             src = db.get_snapshot_source(snapshot_id)
             if not src:
                 return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
@@ -2966,6 +2967,7 @@ class Handler(BaseHTTPRequestHandler):
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 views = build_views(rr['records'], data)
+                views['v'] = 2
                 db.save_snapshot_views(snapshot_id, views)
             except Exception as exc:
                 print(f'[views] snapshot {snapshot_id} not rebuilt: {exc}', file=sys.stderr)

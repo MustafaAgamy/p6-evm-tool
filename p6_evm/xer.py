@@ -230,6 +230,7 @@ def _parse_xer(path):
         data.wbs[w.get('wbs_id')] = {
             'name': w.get('wbs_name'),
             'parent_object_id': None if (root_id and parent == root_id) else parent,
+            'seq': w.get('seq_num'),                    # P6's own order among siblings
         }
 
     # ── Activity codes: dimension names + per-task assignments ──────────────

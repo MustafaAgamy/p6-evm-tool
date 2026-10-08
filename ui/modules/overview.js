@@ -24,6 +24,21 @@ const bar = (planned, actual) => {
 const OV_GROUP_KEY = 'p6evm_ov_group';
 let ovGroupKey = null;             // the picked "Progress by" grouping (WBS or an activity code)
 export function overviewGroupKey() { return ovGroupKey; }
+const OV_HIDE0_KEY = 'p6evm_ov_hide0';
+let ovHideZero = null;             // hide the values whose Planned % and Actual % are both 0
+export function overviewHideZero() { return !!ovHideZero; }
+const isZero = (v) => !(Math.abs(v || 0) >= 0.00005);          // shows as 0.00 %
+// One histogram pair: a Planned column and an Actual column side by side, value on top.
+const histGroup = (name, n, planned, actual, extra, ax) => {
+  const h = (v) => Math.max(0, Math.min(100, (v || 0) * 100));
+  return `<div class="ovh-g" title="${escapeAttr(name)} — planned ${pct(planned)} · actual ${pct(actual)}">
+      <div class="ovh-bars">
+        <div class="ovh-col p"><em>${pct(planned)}</em><i style="height:${h(planned).toFixed(1)}%"></i></div>
+        <div class="ovh-col a"><em>${pct(actual)}</em><i style="height:${h(actual).toFixed(1)}%"></i></div>
+      </div>
+      <div class="ovh-lbl">${escapeHtml(name)}<span>${n} activities${extra || ''}</span></div>
+    </div>`;
+};
 
 export function renderOverview(result) {
   const el = document.getElementById('overview-body');
@@ -58,16 +73,14 @@ export function renderOverview(result) {
   const groups = (cl && Array.isArray(result.progress_groups)) ? result.progress_groups : [];
   if (ovGroupKey == null) { try { ovGroupKey = localStorage.getItem(OV_GROUP_KEY); } catch { /* default */ } }
   const group = groups.find((g) => g.key === ovGroupKey) || groups[0] || null;
-  const row = (name, n, planned, actual, extra) => `
-    <div class="ov-cat">
-      <div class="ov-cat-name">${escapeHtml(name)}<span>${n} activities${extra || ''}</span></div>
-      ${bar(planned, actual)}
-      <div class="ov-cat-val"><b>${pct(actual)}</b><span>plan ${pct(planned)}${ax}</span></div>
-    </div>`;
+  if (ovHideZero == null) { try { ovHideZero = localStorage.getItem(OV_HIDE0_KEY) === '1'; } catch { ovHideZero = false; } }
   const cats = Object.entries(result.categories || {});
-  const catRows = group
-    ? group.rows.map((r) => row(r.name, r.activities, r.planned_pct, r.actual_pct, '')).join('')
-    : cats.map(([name, c]) => row(name, c.activity_count, c.planned_pct, c.actual_pct, c.overridden ? ' · manual override' : '')).join('');
+  const allRows = group
+    ? group.rows.map((r) => ({ name: r.name, n: r.activities, planned: r.planned_pct, actual: r.actual_pct, extra: '' }))
+    : cats.map(([name, c]) => ({ name, n: c.activity_count, planned: c.planned_pct, actual: c.actual_pct, extra: c.overridden ? ' · manual override' : '' }));
+  const zeroN = allRows.filter((r) => isZero(r.planned) && isZero(r.actual)).length;
+  const shown = ovHideZero ? allRows.filter((r) => !(isZero(r.planned) && isZero(r.actual))) : allRows;
+  const catRows = shown.map((r) => histGroup(r.name, r.n, r.planned, r.actual, r.extra, ax)).join('');
   const byLabel = group ? group.label : 'category';
 
   const basis = cl
@@ -78,12 +91,15 @@ export function renderOverview(result) {
       <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
       <div class="ov-kpi"><div class="k">Delay${ax}</div><div class="v ${delayCls}">${delay}</div></div>
       <div class="ov-kpi"><div class="k">Baseline finish${ax}</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Planned %${cl ? ' · cost-loaded' : ''}${ax}</div><div class="v">${pct(plannedPct)}</div></div>
-      <div class="ov-kpi"><div class="k">Actual %${cl ? ' · cost-loaded' : ''}</div><div class="v">${pct(actualPct)}</div></div>
+      <div class="ov-kpi"><div class="k">Planned %${ax}</div><div class="v">${pct(plannedPct)}</div></div>
+      <div class="ov-kpi"><div class="k">Actual %</div><div class="v">${pct(actualPct)}</div></div>
       <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(pv)}</div></div>
       <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(ev)}</div></div>
     </div><p class="ov-note ov-basis">${basis}</p>${blLine}`;
-  const catsHtml = `<div class="ov-cats">${catRows || '<p class="ov-empty">No categories configured for this schedule.</p>'}</div>`;
+  const legend = `<div class="ovh-legend"><span><i class="p"></i>Planned %${ax}</span><span><i class="a"></i>Actual %</span>${ovHideZero && zeroN ? `<span class="ovh-hid">${zeroN} with Planned 0 % and Actual 0 % hidden</span>` : ''}</div>`;
+  const catsHtml = catRows
+    ? `${legend}<div class="ovh" data-export="image">${catRows}</div>`
+    : `<p class="ov-empty">${allRows.length ? 'Every value has Planned 0 % and Actual 0 % — untick “Hide 0 %” to show them.' : 'No categories configured for this schedule.'}</p>`;
 
   _ovPrint = [
     { key: 'kpis', label: 'Key indicators', html: kpisHtml },
@@ -108,10 +124,17 @@ export function renderOverview(result) {
       </div>
     </div>
     ${kpisHtml}
-    <div class="ov-section-label">Progress by ${escapeHtml(byLabel)} ${picker}<span class="ovl"><i class="dp"></i>planned <i class="da"></i>actual</span></div>
+    <div class="ov-section-label">Progress by ${escapeHtml(byLabel)} ${picker}
+      <label class="ov-groupby ov-hide0"><input type="checkbox" id="ov-hide0"${ovHideZero ? ' checked' : ''}> Hide Planned 0 % and Actual 0 %${zeroN ? ` (${zeroN})` : ''}</label></div>
     ${catsHtml}
-    <p class="ov-note">${group ? 'Pick <b>WBS</b> or any P6 <b>activity code</b> in “Show by” to see Planned % against Actual % for each value of that code — cost-loaded activities only, weighted by budget.' : 'A project summary from the imported update.'} Open a module from the navigator to drill in.</p>`;
+    <p class="ov-note">${group ? 'Pick <b>WBS</b> or any P6 <b>activity code</b> in “Show by” to see a Planned % column beside an Actual % column for each value of that code — cost-loaded activities only, weighted by budget. Tick “Hide Planned 0 % and Actual 0 %” to drop the values with no progress planned or achieved yet.' : 'A project summary from the imported update.'} Open a module from the navigator to drill in.</p>`;
 
+  const h0 = document.getElementById('ov-hide0');
+  if (h0) h0.addEventListener('change', () => {
+    ovHideZero = h0.checked;
+    try { localStorage.setItem(OV_HIDE0_KEY, ovHideZero ? '1' : '0'); } catch { /* non-fatal */ }
+    renderOverview(result);
+  });
   const sel = document.getElementById('ov-group');
   if (sel) sel.addEventListener('change', () => {
     ovGroupKey = sel.value;
@@ -151,8 +174,11 @@ function wbsShownCols() {
   return WBS_COLS.filter((c) => wbsCols.has(c.key));
 }
 
-// Delay (calendar days) = expected finish − baseline finish. +late / −early.
+// Delay = Expected Finish against Baseline Finish in WORKING days on the project's default
+// calendar (+ late / − early), counted by the server the way P6 counts it. A result stored
+// before that figure existed falls back to calendar days.
 function wbsDelay(n) {
+  if ('delay' in n) return n.delay;
   const ef = toMs(n.finish), bf = toMs(n.baseline_finish);
   if (Number.isNaN(ef) || Number.isNaN(bf)) return null;
   return Math.round((ef - bf) / DAY);
@@ -351,17 +377,18 @@ ${wbsHasPct(branch) ? `
         <span><i class="wbst-lg act"></i>actual %</span>
         <span><i class="wbst-lg beh"></i>behind plan</span>
         <span><i class="wbst-lg tgt"></i>plan target</span>
+        <span><i class="wbst-lg cut"></i>cut-off date</span>
       </div>${chooser}</div>
     <div class="wbst-wrap"><div class="wbst-inner wbst-fit" style="--wbsw:${wbsW}px;min-width:${leftW + 160}px">
       <div class="wbst-scale">
         <div class="wc-wbs wbst-h">WBS</div>
         ${cols.map((c) => `<div class="wc-cell wbst-h ${c.kind === 'date' ? 'wc-date' : 'wc-num'}" style="width:${c.w}px">${wbsColLabel(c, approx)}</div>`).join('')}
-        <div class="wc-tl wbst-scale-track">${ticks}</div>
+        <div class="wc-tl wbst-scale-track">${ticks}${ddx != null ? `<div class="wbst-ddl${ddx > 78 ? ' r' : ''}" style="left:${ddx.toFixed(2)}%"><span>Cut-off date ${fmtShort(dd)}</span></div>` : ''}</div>
       </div>
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is Expected Finish − Baseline Finish (+ late / − early). Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the Expected Finish against the Baseline Finish in <b>working days</b> on the project calendar, as P6 counts it (+ late / − early). The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
 
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {

@@ -463,6 +463,7 @@ def _parse_xml(path) -> ScheduleData:
         data.wbs[object_id] = {
             'name': text(wbs_el, 'Name'),
             'parent_object_id': text(wbs_el, 'ParentObjectId'),
+            'seq': text(wbs_el, 'SequenceNumber'),      # P6's own order among siblings
         }
 
     baseline_bac_by_id = {}   # baseline activity Id (code) -> baseline BAC; mapped to object ids below

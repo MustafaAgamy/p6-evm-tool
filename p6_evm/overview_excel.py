@@ -131,7 +131,7 @@ def _kpi_block(result, approx=False):
     src = cl or {'planned_pct': result.get('overall_planned_pct'), 'actual_pct': result.get('overall_actual_pct'),
                  'pv': result.get('pv'), 'ev': result.get('ev'), 'spi': result.get('spi')}
     spi = src.get('spi')
-    tag = ' · cost-loaded' if cl else ''
+    tag = ''
     delay = _delay_days(result)
     delay_note = '' if delay is None else ('late' if delay > 0 else ('early' if delay < 0 else 'on time'))
     rows = [
@@ -151,7 +151,11 @@ def _kpi_block(result, approx=False):
     return {'title': 'Key Indicators', 'note': note, 'headers': ['Indicator', 'Value', 'Note'], 'rows': rows}
 
 
-def _category_block(result, approx=False, group_key=None):
+def _zero(v):
+    return not (abs(v or 0) >= 0.00005)
+
+
+def _category_block(result, approx=False, group_key=None, hide_zero=False):
     """Progress by WBS / by a P6 activity code (owner comment 94) for the cost-loaded
     activities — the grouping picked on screen; else one row per WBS category."""
     groups = result.get('progress_groups') or [] if result.get('cost_loaded') else []
@@ -163,7 +167,9 @@ def _category_block(result, approx=False, group_key=None):
             'note': 'Planned vs actual % of the cost-loaded activities, weighted by budget.',
             'headers': [label, 'Activities', 'Planned % · approx' if approx else 'Planned %', 'Actual %', 'Budget'],
             'rows': [[r.get('name'), _num(r.get('activities')), _pct2(r.get('planned_pct')),
-                      _pct2(r.get('actual_pct')), _num(r.get('bac'))] for r in group.get('rows') or []],
+                      _pct2(r.get('actual_pct')), _num(r.get('bac'))] for r in group.get('rows') or []
+                     if not (hide_zero and _zero(r.get('planned_pct')) and _zero(r.get('actual_pct')))]
+                    or [['Every value has Planned 0 % and Actual 0 %.', '', '', '', '']],
         }
     cats = result.get('categories') or {}
     rows = []
@@ -208,6 +214,6 @@ def overview_excel(report):
     return [{
         'name': 'Project Overview',
         'blocks': [_summary_block(result, meta), _kpi_block(result, approx),
-                   _category_block(result, approx, report.get('progress_group'))],
+                   _category_block(result, approx, report.get('progress_group'), bool(report.get('hide_zero')))],
         'col_widths': {0: 30, 1: 20, 2: 18, 3: 14, 4: 18},
     }]

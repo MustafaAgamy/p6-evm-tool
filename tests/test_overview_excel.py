@@ -130,8 +130,18 @@ def test_overview_uses_the_cost_loaded_figures_and_the_picked_grouping(tmp_path)
          'rows': [{'name': 'Civil Works', 'activities': 4, 'bac': 900.0, 'planned_pct': 0.65, 'actual_pct': 0.43}]}]
     blocks = overview_excel({'result': r, 'progress_group': 'code:Type of Works'})[0]['blocks']
     kpi = {row[0]: row[1] for row in blocks[1]['rows']}
-    assert kpi['Planned % · cost-loaded'] == 61.42 and kpi['Actual % · cost-loaded'] == 40.43
+    assert kpi['Planned %'] == 61.42 and kpi['Actual %'] == 40.43
     assert kpi['SPI · schedule'] == 0.66 and kpi['Planned value'] == 614.2
     assert '794 cost-loaded activities' in blocks[1]['note']
     assert blocks[2]['title'] == 'Progress by Type of Works' and blocks[2]['rows'][0][:4] == ['Civil Works', 4, 65.0, 43.0]
     assert overview_excel({'result': r})[0]['blocks'][2]['title'] == 'Progress by WBS'
+
+
+def test_overview_hide_zero_drops_the_values_with_no_planned_and_no_actual():
+    r = _result()
+    r['cost_loaded'] = {'activities': 2, 'all_activities': 2, 'bac': 2.0, 'planned_pct': 0.5, 'actual_pct': 0.2, 'pv': 1.0, 'ev': 0.4, 'spi': 0.4}
+    r['progress_groups'] = [{'key': 'wbs', 'label': 'WBS', 'rows': [
+        {'name': 'Started', 'activities': 1, 'bac': 1.0, 'planned_pct': 1.0, 'actual_pct': 0.4},
+        {'name': 'Future', 'activities': 1, 'bac': 1.0, 'planned_pct': 0.0, 'actual_pct': 0.0}]}]
+    assert [x[0] for x in overview_excel({'result': r})[0]['blocks'][2]['rows']] == ['Started', 'Future']
+    assert [x[0] for x in overview_excel({'result': r, 'hide_zero': True})[0]['blocks'][2]['rows']] == ['Started']

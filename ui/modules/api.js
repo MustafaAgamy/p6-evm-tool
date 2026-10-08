@@ -7,7 +7,8 @@ import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult }      from './calenda
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
-import { overviewGroupKey }                                      from './overview.js';
+import { overviewGroupKey, overviewHideZero }                    from './overview.js';
+import { ganttCodeColumn }                                       from './gantt.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -739,6 +740,7 @@ export async function exportOverviewExcel() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta(),
         progress_group: overviewGroupKey(),       // the 'Show by' grouping picked on screen
+        hide_zero: overviewHideZero(),            // 'Hide Planned 0 % and Actual 0 %' as ticked on screen
         // '· approx' + the 'Baseline:' line exactly as the screen shows them (R2)
         baseline_approx: baselineApprox(state.currentResult, state.currentXmlPath),
         baseline_line: baselineApproxLine(state.currentResult, state.currentXmlPath) }, output_path: outputPath }),
@@ -802,7 +804,7 @@ export async function exportScheduleExcel() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ result: { activities: r.activities, data_date: r.data_date, project_name: r.project_name,
-        activity_count: r.activity_count }, output_path: outputPath }),
+        activity_count: r.activity_count, code_column: ganttCodeColumn() }, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }

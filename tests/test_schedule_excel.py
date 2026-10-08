@@ -48,7 +48,7 @@ def test_schedule_excel_writes_valid_workbook_mirroring_wbs_groups(tmp_path):
     titles = [b['title'] for b in sheets[0]['blocks']]
     # Summary first, then WBS groups ordered by earliest start (Construction 05-Jan
     # before Engineering 01-Mar).
-    assert titles[0] == 'Schedule (Gantt) - critical activities' and set(titles[1:]) <= {'Construction', 'Engineering'}
+    assert titles[0] == 'Schedule Gantt (Critical activities)' and set(titles[1:]) <= {'Construction', 'Engineering'}
 
     out = tmp_path / 'schedule.xlsx'
     write_sections_xlsx(str(out), sheets)

@@ -52,17 +52,25 @@ def _fmt_date(iso):
     return parsed.strftime('%d-%b.%Y') if parsed else s[:11]
 
 
-_HEADERS = ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Start', 'Finish',
+_HEADERS = ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Expected Start', 'Expected Finish', 'Delay (working days)',
             'Planned Start', 'Planned Finish', '% Complete', 'Total Float (d)', 'Critical', 'Type']
-_WIDTHS = {0: 18, 1: 44, 2: 46, 3: 13, 4: 14, 5: 14, 6: 14, 7: 14, 8: 12, 9: 14, 10: 10, 11: 12}
-_NOTE = ('Start / Finish are the current dates, as P6 shows them: actual where the work has started '
+_WIDTHS = {0: 20, 1: 44, 2: 46, 3: 13, 4: 15, 5: 15, 6: 14, 7: 14, 8: 14, 9: 12, 10: 14, 11: 10, 12: 12}
+_NOTE = ('Expected Start / Expected Finish are the current dates, as P6 shows them: actual where the work has started '
          'or finished, the remaining early dates for the rest. Critical = total float of zero or '
-         'less and not finished (milestones included). Grouped by top-level WBS, earliest first.')
+         'less and not finished (milestones included). Delay = Expected Finish against Baseline Finish in '
+         'working days on the activity calendar (+ late / - early). Grouped by top-level WBS, earliest first.')
 
 
-def _row(a):
+def _row(a, code=None):
     """One activity → a table row, mirroring the on-screen bar's data. `% Complete`
     stays NUMERIC; dates are formatted like the screen; critical/type read as labels."""
+    row = _cells(a)
+    if code:                                    # the picked activity code sits beside the Activity ID
+        row.insert(1, (a.get('codes') or {}).get(code) or '')
+    return row
+
+
+def _cells(a):
     return [
         a.get('id') or '',
         a.get('name') or '',
@@ -70,6 +78,7 @@ def _row(a):
         a.get('status') or '',
         _fmt_date(a.get('start')),
         _fmt_date(a.get('finish')),
+        a.get('delay') if isinstance(a.get('delay'), (int, float)) else '',
         _fmt_date(a.get('planned_start')) if a.get('planned_start') else '',
         _fmt_date(a.get('planned_finish')) if a.get('planned_finish') else '',
         a.get('pct') if isinstance(a.get('pct'), (int, float)) else 0,
@@ -94,12 +103,18 @@ def schedule_excel(result):
     """
     result = result or {}
     all_acts = result.get('activities') or []
-    # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities only
-    acts = [a for a in all_acts if a.get('critical')]
+    # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities
+    # of the construction works only (the WBS branches that hold cost-loaded work)
+    acts = [a for a in all_acts if a.get('critical') and a.get('construction') is not False]
+    code = result.get('code_column') or None
+    if code and not any((a.get('codes') or {}).get(code) for a in acts):
+        code = None
+    headers = (_HEADERS[:1] + [code] + _HEADERS[1:]) if code else _HEADERS
+    widths = ({0: 20, 1: 26, **{k + 1: v for k, v in _WIDTHS.items() if k}} if code else _WIDTHS)
 
     if all_acts and not acts:
         return [{'name': 'Schedule',
-                 'blocks': [{'title': 'Schedule (Gantt) - critical activities',
+                 'blocks': [{'title': 'Schedule Gantt (Critical activities)',
                              'note': 'No activity of this schedule is critical at the data date.',
                              'headers': _HEADERS, 'rows': [['No critical activities'] + [''] * (len(_HEADERS) - 1)]}],
                  'col_widths': _WIDTHS}]
@@ -126,11 +141,11 @@ def schedule_excel(result):
     crit = sum(1 for a in acts if a.get('critical'))
     ms = sum(1 for a in acts if a.get('milestone'))
     summary = {
-        'title': 'Schedule (Gantt) - critical activities',
-        'note': 'Only the critical activities are listed - the activities P6 flags as Critical (work not finished). ' + _NOTE,
+        'title': 'Schedule Gantt (Critical activities)',
+        'note': 'Only the critical activities of the construction works are listed - the activities P6 flags as Critical (work not finished). ' + _NOTE,
         'headers': ['Metric', 'Value'],
         'rows': [
-            ['Critical activities listed', crit],
+            ['Critical construction activities listed', crit],
             ['Activities in the schedule', len(all_acts)],
             ['Critical milestones', ms],
             ['WBS groups', len(order)],
@@ -141,12 +156,12 @@ def schedule_excel(result):
 
     blocks = [summary]
     for g in order:
-        rows = [_row(a) for a in sorted(groups[g], key=_start_ms)]
+        rows = [_row(a, code) for a in sorted(groups[g], key=_start_ms)]
         blocks.append({
             'title': names[g],
             'note': f'{len(rows)} activit{"y" if len(rows) == 1 else "ies"}',
-            'headers': _HEADERS,
+            'headers': headers,
             'rows': rows,
         })
 
-    return [{'name': 'Schedule', 'blocks': blocks, 'col_widths': _WIDTHS}]
+    return [{'name': 'Schedule', 'blocks': blocks, 'col_widths': widths}]

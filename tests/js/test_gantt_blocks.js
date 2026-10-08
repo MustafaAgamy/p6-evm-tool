@@ -37,11 +37,11 @@ await test('blocks carry their exact height; every row and group is present once
   assert.equal(rows, 130);
   assert.equal(grps, 2);
   assert.equal(blocks.length, Math.ceil(132 / 60));
-  assert.equal(blocks.reduce((a, b) => a + b, 0), rows * 30 + grps * 26, 'sum of block heights = laid-out height');
+  assert.equal(blocks.reduce((a, b) => a + b, 0), rows * 38 + grps * 26, 'sum of block heights = laid-out height');
   assert.match(h, /class="g-inner g-lazy"/);
-  assert.match(h, /<span>Activity ID<\/span><span>Activity name<\/span>/, 'Activity ID has its own column');
+  assert.match(h, /<span>Activity ID<\/span><span>Activity name<\/span><i>Expected Start<\/i><i>Expected Finish<\/i><i>Delay<\/i>/, 'Activity ID has its own column');
   assert.doesNotMatch(h, /<b class="g-id">N\d+<\/b>/, 'non-critical activities are not drawn');
-  assert.match(h, /<b>130<\/b> critical of <b>142<\/b> activities/);
+  assert.match(h, /<b>130<\/b> critical construction activities of <b>142<\/b> activities/);
 });
 await test('groups ordered by earliest start, rows by start (same order as before)', () => {
   const h = el.innerHTML;
@@ -60,7 +60,7 @@ await test('an empty schedule still shows the note (no blocks)', () => {
 await test('a schedule with nothing critical says so', () => {
   renderSchedule({ activities: acts().map((a) => ({ ...a, critical: false })), activity_count: 142 });
   assert.doesNotMatch(el.innerHTML, /g-blk/);
-  assert.match(el.innerHTML, /No activity of this schedule is critical/);
+  assert.match(el.innerHTML, /No construction activity of this schedule is critical/);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

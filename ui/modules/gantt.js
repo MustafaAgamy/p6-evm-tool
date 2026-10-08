@@ -7,7 +7,7 @@
 import { escapeHtml, dateText } from './format.js';
 
 const DAY = 86400000;
-const ROW_H = 30, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
+const ROW_H = 38, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
 const GANTT_BLOCK = 60;         // rows per lazily laid-out block
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -65,18 +65,28 @@ const tip = (a) => `${a.id} — ${a.name}\nStart ${gDate(a.start)} → Finish ${
 let _print = null;
 export function schedulePrint() { return _print; }
 
+// The pick-a-code column: the planner chooses one P6 activity code and the column shows each
+// critical activity's value of it. Remembered between sessions.
+const CODE_KEY = 'p6evm_gantt_code';
+let ganttCode = null;
+export function ganttCodeColumn() { return ganttCode || ''; }
+// Delay = Expected Finish against Baseline Finish, working days (+ late / − early)
+const delayText = (a) => (a.delay == null ? '—' : `${a.delay > 0 ? '+' : ''}${a.delay} d`);
+const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay > 0 ? ' late' : ' early'));
+
 export function renderSchedule(result) {
   const el = document.getElementById('schedule-body');
   _print = null;
   if (!el) return;
-  // Owner comment 65: the chart shows the CRITICAL activities only (P6's own Critical flag).
+  // Owner comment 65: the chart shows the CRITICAL activities only (P6's own Critical flag),
+  // and only those of the CONSTRUCTION works (the WBS branches that hold cost-loaded work).
   const all = (result && result.activities) || [];
-  const acts = all.filter((a) => a.critical);
+  const acts = all.filter((a) => a.critical && a.construction !== false);
   if (all.length && !acts.length) {
     el.innerHTML = `
-      <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt) — critical activities</h2>
+      <div class="ov-head"><div class="ov-title"><h2>Schedule Gantt (Critical activities)</h2>
         <div class="ov-chips"><span class="ov-chip"><b>0</b> critical of <b>${all.length}</b> activities</span></div></div></div>
-      <p class="ov-note">No activity of this schedule is critical at the data date, so there is nothing to draw.</p>`;
+      <p class="ov-note">No construction activity of this schedule is critical at the data date, so there is nothing to draw.</p>`;
     return;
   }
   if (!acts.length) {
@@ -115,6 +125,20 @@ export function renderSchedule(result) {
   const groups = ganttGroups(acts);
   const counts = ganttCounts(acts);
 
+  // activity codes assigned to the shown activities → the choices of the code column
+  const codeTypes = [...new Set(acts.flatMap((a) => Object.keys(a.codes || {})))].sort((x, y) => x.localeCompare(y));
+  if (ganttCode == null) { try { ganttCode = localStorage.getItem(CODE_KEY) || ''; } catch { ganttCode = ''; } }
+  const code = codeTypes.includes(ganttCode) ? ganttCode : '';
+  const codeOf = (a) => (code ? ((a.codes || {})[code] || '—') : '');
+  // column widths follow the longest text they hold, so no Activity ID / name / code is cut
+  // (a longer name wraps onto a second line)
+  const longest = (f) => acts.reduce((m, a) => Math.max(m, String(f(a) || '').length), 0);
+  const idW = Math.min(230, Math.max(110, Math.round(longest((a) => a.id) * 7.4 + 14)));
+  const nameW = Math.min(360, Math.max(190, Math.round(longest((a) => a.name) * 6.3 / 1.9 + 16)));
+  const codeW = code ? Math.min(200, Math.max(110, Math.round(Math.max(longest(codeOf), code.length) * 6.4 + 14))) : 0;
+  const lblCols = `${idW}px ${code ? codeW + 'px ' : ''}${nameW}px 82px 82px 60px`;
+  const lblW = idW + codeW + nameW + 82 + 82 + 60 + (code ? 5 : 4) * 8 + 22;
+
   // Rows are built in blocks of GANTT_BLOCK lines; each block carries its exact height, so
   // the browser lays out only the blocks on screen (content-visibility) — a 6,000-activity
   // schedule then opens without a long freeze of the Run bar (owner comment 36).
@@ -125,13 +149,14 @@ export function renderSchedule(result) {
     if (blkN >= GANTT_BLOCK) { blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`); blk = ''; blkH = 0; blkN = 0; }
   };
   for (const g of groups) {
-    push(`<div class="g-grp"><div class="g-lbl g-grp-lbl" title="${attr(g.name)}"><span>${escapeHtml(g.name)}</span><em>${g.rows.length}</em></div><div class="g-track"></div></div>`, GRP_H);
+    push(`<div class="g-grp"><div class="g-lbl g-grp-lbl" style="grid-template-columns:minmax(0,1fr) auto" title="${attr(g.name)}"><span>${escapeHtml(g.name)}</span><em>${g.rows.length}</em></div><div class="g-track"></div></div>`, GRP_H);
     for (const { a, sMs, fMs } of g.rows) {
       const left = xOf(sMs);
       const w = Math.max(3, xOf(fMs) - left);
       const tt = attr(tip(a));
-      const lbl = `<div class="g-lbl" title="${tt}"><b class="g-id">${escapeHtml(a.id)}</b><div class="g-nm"><span>${escapeHtml(a.name)}</span></div>`
-        + `<i>${gShort(a.start)}</i><i>${gShort(a.finish)}</i></div>`;
+      const lbl = `<div class="g-lbl" title="${tt}"><b class="g-id">${escapeHtml(a.id)}</b>${code ? `<span class="g-code">${escapeHtml(codeOf(a))}</span>` : ''}`
+        + `<div class="g-nm"><span>${escapeHtml(a.name)}</span></div>`
+        + `<i>${gShort(a.start)}</i><i>${gShort(a.finish)}</i><i class="g-delay${delayCls(a)}">${delayText(a)}</i></div>`;
       const bar = a.milestone
         ? `<div class="g-ms${a.critical ? ' crit' : ''}" style="left:${Math.max(0, left - 6).toFixed(1)}px" title="${tt}"></div>`
         : `<div class="g-bar${a.critical ? ' crit' : ''}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px" title="${tt}">
@@ -143,18 +168,24 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities are shown — the activities P6 flags as Critical (work not finished). Bars run from each activity’s current Start to its current Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Expected Finish against the Baseline Finish in working days on the activity’s calendar (+ late / − early). The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
+
+  const codePick = codeTypes.length
+    ? `<label class="g-codepick">Activity code column <select id="g-code">
+        <option value="">— none —</option>${codeTypes.map((c) => `<option value="${attr(c)}"${c === code ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select></label>`
+    : '';
 
   el.innerHTML = `
-    <div class="ov-head"><div class="ov-title"><h2>Schedule (Gantt) — critical activities</h2>
+    <div class="ov-head"><div class="ov-title"><h2>Schedule Gantt (Critical activities)</h2>
       <div class="ov-chips">
-        <span class="ov-chip"><b>${counts.crit}</b> critical of <b>${all.length}</b> activities</span>
+        <span class="ov-chip"><b>${counts.crit}</b> critical construction activities of <b>${all.length}</b> activities</span>
         <span class="ov-chip"><b>${counts.ms}</b> critical milestones</span>
         <span class="ov-chip">data date <b>${gDate(result.data_date)}</b></span>
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
+        ${codePick}
       </div></div></div>
-    <div class="g-wrap"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
-      <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span><span>Activity name</span><i>Start</i><i>Finish</i></div>
+    <div class="g-wrap" style="--g-lblw:${lblW}px;--g-cols:${lblCols}"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
+      <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span>${code ? `<span>${escapeHtml(code)}</span>` : ''}<span>Activity name</span><i>Expected Start</i><i>Expected Finish</i><i>Delay</i></div>
         <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>data date</span></div>` : ''}</div></div>
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(var(--g-lblw) + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
       <div class="g-rows">${rows}</div>
@@ -165,14 +196,21 @@ export function renderSchedule(result) {
       <button class="btn-secondary" id="sched-excel-btn">Export to Excel</button>
     </div>`;
 
-  _print = printSections(result, acts, groups, counts, { min, max, dd }, note);
+  _print = printSections(result, acts, groups, counts, { min, max, dd }, note, code);
+
+  const sel = document.getElementById('g-code');
+  if (sel) sel.addEventListener('change', () => {
+    ganttCode = sel.value;
+    try { localStorage.setItem(CODE_KEY, ganttCode); } catch { /* non-fatal */ }
+    renderSchedule(result);
+  });
 }
 
 // ── File ▸ Print / PDF / Word / HTML — the same rows as the screen, laid out for a page ──
 // One 'Summary' section and one 'Gantt chart' section whose parts are the WBS groups (each a
 // table: ID, name, Start, Finish, %, float and the bar on a page-wide time scale), so the
 // Report Contents picker can tick whole groups in or out.
-function printSections(result, acts, groups, counts, sp, note) {
+function printSections(result, acts, groups, counts, sp, note, code) {
   const total = Math.max(1, sp.max - sp.min);
   const pos = (ms) => Math.max(0, Math.min(100, ((ms - sp.min) / total) * 100));
   // month / quarter / year marks for the page-wide scale
@@ -188,7 +226,7 @@ function printSections(result, acts, groups, counts, sp, note) {
     scale += `<span style="left:${p.toFixed(2)}%">${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}</span>`;
   }
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
-  const head = `<thead><tr><th>Activity ID</th><th>Activity name</th><th>Start</th><th>Finish</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
+  const head = `<thead><tr><th>Activity ID</th>${code ? `<th>${escapeHtml(code)}</th>` : ''}<th>Activity name</th><th>Expected Start</th><th>Expected Finish</th><th class="gp-n">Delay</th><th class="gp-n">%</th><th class="gp-n">Float</th>`
     + `<th class="gp-tl" data-export="bar"><div class="gp-scale">${scale}</div></th></tr></thead>`;
 
   const rowHtml = ({ a, sMs, fMs }) => {
@@ -196,8 +234,8 @@ function printSections(result, acts, groups, counts, sp, note) {
     const bar = a.milestone
       ? `<b class="gp-ms${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%"></b>`
       : `<b class="gp-bar${a.critical ? ' crit' : ''}" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"><s style="width:${Math.max(0, Math.min(100, a.pct))}%"></s></b>`;
-    return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td><td>${escapeHtml(a.name)}</td>`
-      + `<td class="gp-d">${gShort(a.start)}</td><td class="gp-d">${gShort(a.finish)}</td><td class="gp-n">${a.pct}</td>`
+    return `<tr${a.critical ? ' class="gp-crit"' : ''}><td class="gp-id">${escapeHtml(a.id)}${a.milestone ? ' ◆' : ''}</td>${code ? `<td>${escapeHtml((a.codes || {})[code] || '—')}</td>` : ''}<td>${escapeHtml(a.name)}</td>`
+      + `<td class="gp-d">${gShort(a.start)}</td><td class="gp-d">${gShort(a.finish)}</td><td class="gp-n">${delayText(a)}</td><td class="gp-n">${a.pct}</td>`
       + `<td class="gp-n">${a.tf == null ? '—' : a.tf}</td><td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
 
@@ -213,7 +251,7 @@ function printSections(result, acts, groups, counts, sp, note) {
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
       ${kv('Data date', gDate(result.data_date))}
-      ${kv('Critical activities shown (as P6 flags them, not finished)', counts.crit)}
+      ${kv('Critical construction activities shown (as P6 flags them, not finished)', counts.crit)}
       ${kv('Activities in the schedule', result.activity_count ?? '—')}
       ${kv('In progress', counts.prog)}${kv('Not started', counts.notStarted)}
       ${kv('Critical milestones', counts.ms)}
@@ -221,7 +259,7 @@ function printSections(result, acts, groups, counts, sp, note) {
       ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
       ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Float is total float in days.</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Float is total float in days; Delay is in working days.</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },

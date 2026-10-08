@@ -45,6 +45,47 @@ def activity_status(a):
     return 'Not Started'
 
 
+def p6_order(wmap):
+    """Sort key that lists WBS siblings the way P6 does: by the WBS Sequence Number the file
+    carries, then by their order in the file (a file with no sequence keeps its own order)."""
+    pos = {wid: i for i, wid in enumerate(wmap)}
+
+    def key(wid):
+        try:
+            seq = float(wmap[wid].get('seq'))
+        except (TypeError, ValueError):
+            seq = float('inf')
+        return (seq, pos.get(wid, 0))
+    return key
+
+
+def working_delay(cal, baseline_finish, finish):
+    """Delay in WORKING days on `cal`, finish against baseline finish (+ late / − early), the
+    way P6 works out its finish variance: the working HOURS between the two dates on the
+    calendar's own work times, divided by the calendar's hours per day, shown to the whole day.
+    A calendar with no work times falls back to counting whole working days. None when a date
+    or the calendar is missing."""
+    if cal is None or baseline_finish is None or finish is None:
+        return None
+    try:
+        from p6_evm.calendars import float_working_days, signed_working_minutes
+        hours = float(getattr(cal, 'day_hours', 0) or 0)
+        if hours > 0 and callable(getattr(cal, 'has_intraday', None)) and cal.has_intraday():
+            mins = signed_working_minutes(cal, baseline_finish, finish)
+            if mins is not None:
+                days = mins / (hours * 60.0)
+                return int(days + 0.5) if days >= 0 else -int(-days + 0.5)
+        return float_working_days(cal, baseline_finish, finish)
+    except Exception:
+        return None
+
+
+def _default_calendar(data):
+    cals = getattr(data, 'calendars', None) or {}
+    cid = (getattr(data, 'project', None) or {}).get('default_calendar_id')
+    return cals.get(cid) or (next(iter(cals.values())) if cals else None)
+
+
 def is_critical(a, status, tf):
     """Critical the way P6 flags it: the parser's ``is_critical`` (total float within the
     project's critical limit, or P6's Longest Path flag). Finished work is never critical.
@@ -154,11 +195,13 @@ def wbs_path(wbs_id, wbs_map):
     return out
 
 
-def gantt_activities(records, wbs_map):
+def gantt_activities(records, wbs_map, data=None):
     """Slim, JSON-safe activity list for the Schedule (Gantt): one row per activity that has a
     start and a finish. `wbs` is the full path top → own WBS; `wbs_top` / `wbs_top_id` the true
     top-level WBS the row is grouped under."""
-    out, paths = [], []
+    out, paths, costs = [], [], []
+    bl_by_id = (getattr(data, 'baseline_by_id', None) or {}) if data is not None else {}
+    cals = (getattr(data, 'calendars', None) or {}) if data is not None else {}
     for r in records:
         a = r['activity']
         s, f = current_start(a), current_finish(a)
@@ -173,6 +216,8 @@ def gantt_activities(records, wbs_map):
         status = activity_status(a)
         tf = r.get('total_float')
         ps, pf = a.get('planned_start'), a.get('planned_finish')
+        bl = bl_by_id.get(a.get('id'))
+        bf = bl.get('planned_finish') if bl else None
         out.append({
             'id':         a.get('id') or '',
             'name':       a.get('name') or '',
@@ -188,8 +233,14 @@ def gantt_activities(records, wbs_map):
             'tf':         round(tf, 1) if isinstance(tf, (int, float)) else None,
             'critical':   is_critical(a, status, tf),
             'milestone':  a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
+            # finish against the baseline finish, in working days on the activity's own calendar
+            'baseline_finish': _iso(bf),
+            'delay':      working_delay(cals.get(a.get('calendar_id')), bf, current_finish(a)),
+            # the activity's P6 activity codes, for the Gantt's pick-a-code column
+            'codes':      {k: str(v) for k, v in (a.get('activity_codes') or {}).items() if v},
         })
         paths.append(path)
+        costs.append((r.get('bac') or 0) > 0)
     # A schedule whose whole WBS hangs under ONE node (a 'Project' root) would give a single
     # band: group one level down instead, repeating until the level really divides the work.
     lvl = 0
@@ -198,6 +249,11 @@ def gantt_activities(records, wbs_map):
     if lvl:
         for row, p in zip(out, paths):
             row['wbs_top'], row['wbs_top_id'] = p[lvl][1], str(p[lvl][0])
+    # Construction = the main WBS branches that hold cost-loaded activities (Engineering /
+    # Procurement / key-date branches carry no cost). A schedule with no cost keeps every row.
+    built = {row['wbs_top_id'] for row, c in zip(out, costs) if c}
+    for row in out:
+        row['construction'] = (row['wbs_top_id'] in built) if built else True
     out.sort(key=lambda x: x['start'])
     return out
 
@@ -243,6 +299,8 @@ def wbs_views(records, data):
         d['wp'] += w * r['planned_pct']
         d['wa'] += w * (r.get('actual_pct') or 0.0)
 
+    order = p6_order(wmap)
+    cal = _default_calendar(data)
     kids = defaultdict(list)
     for wid, node in wmap.items():
         kids[node.get('parent_object_id')].append(wid)
@@ -285,11 +343,14 @@ def wbs_views(records, data):
             'finish':         _iso_day(t['f']),     # expected (current) finish
             'baseline_start': _iso_day(t['bs']),
             'baseline_finish': _iso_day(t['bf']),
+            # Expected Finish against Baseline Finish in WORKING days on the project's default
+            # calendar (+ late / − early) — the unit P6 reports its finish variance in
+            'delay':      working_delay(cal, t['bf'], t['f']),
             'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
         })
-        for k in sorted(childs, key=lambda x: (wmap[x].get('name') or '').lower()):
+        for k in sorted(childs, key=order):          # the order P6 itself lists them in
             _emit(k, depth + 1, wid)
-    for rt in sorted(roots, key=lambda x: (wmap[x].get('name') or '').lower()):
+    for rt in sorted(roots, key=order):
         _emit(rt, 0, None)
 
     # Selectable top-level branches: the activity-bearing roots when there are several, else
@@ -303,7 +364,7 @@ def wbs_views(records, data):
         main_ids = ch if len(ch) >= 2 else [roots_act[0]]
     else:
         main_ids = []
-    main_ids = sorted(main_ids, key=lambda x: (wmap[x].get('name') or '').lower())
+    main_ids = sorted(main_ids, key=order)
     wbs_main = [{'id': str(w), 'name': wmap[w].get('name') or '(WBS)'} for w in main_ids]
     return wbs_summary, wbs_main
 
@@ -312,5 +373,5 @@ def build_views(records, data):
     """Everything stored for the re-open path: {'activities', 'wbs_summary', 'wbs_main',
     'cost_loaded', 'progress_groups'}."""
     summary, main = wbs_views(records, data)
-    return {'activities': gantt_activities(records, data.wbs), 'wbs_summary': summary, 'wbs_main': main,
+    return {'activities': gantt_activities(records, data.wbs, data), 'wbs_summary': summary, 'wbs_main': main,
             'cost_loaded': cost_loaded_overview(records), 'progress_groups': progress_groups(records, data)}

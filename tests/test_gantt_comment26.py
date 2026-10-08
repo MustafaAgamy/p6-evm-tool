@@ -97,9 +97,9 @@ def test_excel_follows_the_same_groups_and_dates():
     # owner comment 65: the sheet lists the CRITICAL activities only (A2 and the milestone M1)
     acts = sv.gantt_activities(_records(), WBS)
     blocks = schedule_excel({'activities': acts, 'data_date': '2025-03-15', 'project_name': 'T'})[0]['blocks']
-    assert [b['title'] for b in blocks] == ['Schedule (Gantt) - critical activities', 'Construction']
+    assert [b['title'] for b in blocks] == ['Schedule Gantt (Critical activities)', 'Construction']
     head = blocks[1]['headers']
-    assert head[:8] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Start', 'Finish', 'Planned Start', 'Planned Finish']
+    assert head[:9] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Expected Start', 'Expected Finish', 'Delay (working days)', 'Planned Start', 'Planned Finish']
     con = {r[0]: r for r in blocks[1]['rows']}
     assert set(con) == {'A2', 'M1'}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
@@ -111,7 +111,7 @@ def test_excel_follows_the_same_groups_and_dates():
     for a in acts2:
         a['wbs_top'] = 'Civil'
     titles = [b['title'] for b in schedule_excel({'activities': acts2})[0]['blocks']]
-    assert titles == ['Schedule (Gantt) - critical activities', 'Civil', 'Civil']
+    assert titles == ['Schedule Gantt (Critical activities)', 'Civil', 'Civil']
     # a schedule with nothing critical says so instead of listing every activity
     none = schedule_excel({'activities': [dict(a, critical=False) for a in acts]})[0]['blocks']
     assert len(none) == 1 and none[0]['rows'][0][0] == 'No critical activities'
@@ -119,7 +119,7 @@ def test_excel_follows_the_same_groups_and_dates():
     old = [{'id': 'O1', 'name': 'Old', 'wbs': 'A', 'wbs_top': 'A', 'start': '2025-01-01', 'finish': '2025-01-02',
             'pct': 10, 'critical': True, 'milestone': False}]
     row = schedule_excel({'activities': old})[0]['blocks'][1]['rows'][0]
-    assert row[3] == '' and row[6] == '' and row[9] == ''
+    assert row[3] == '' and row[6] == '' and row[7] == '' and row[10] == ''
 
 
 def test_wbs_view_dates_are_current_dates_too():
@@ -128,7 +128,7 @@ def test_wbs_view_dates_are_current_dates_too():
     by = {n['id']: n for n in summary}
     assert by['EC']['start'] == '2025-02-03' and by['EC']['finish'] == '2025-02-14'
     assert by['C']['finish'] == '2025-06-01'
-    assert [m['name'] for m in main] == ['Construction', 'Engineering']
+    assert [m['name'] for m in main] == ['Engineering', 'Construction']      # the file's own (P6) order
     views = sv.build_views(_records(), data)
     assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'cost_loaded', 'progress_groups'} and len(views['activities']) == 4
 
@@ -152,11 +152,11 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 2:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
-    assert 'gantt_activities(result[\'records\'], data.wbs)' in pipe and 'wbs_views(result[\'records\'], data)' in pipe
+    assert 'gantt_activities(result[\'records\'], data.wbs, data)' in pipe and 'wbs_views(result[\'records\'], data)' in pipe
     assert 'db.save_snapshot_views(sid,' in pipe
     assert "a.get('planned_start'), a.get('planned_finish')" not in pipe      # no Planned-date bars left behind
 
@@ -175,7 +175,7 @@ def test_the_gantt_prints_with_pdf_word_and_html():
     assert 'id="sched-print-btn"' in g and g.count('id="sched-excel-btn"') == 2   # Excel button also in the empty state
     assert 'Re-import this schedule to build the Gantt' not in g
     css = _read('ui', 'style.css')
-    assert '.g-wrap { --g-lblw: 560px; overflow: auto; max-height:' in css       # header + activity column stay in view
+    assert '.g-wrap { --g-lblw: 560px; overflow: auto; max-height:' in css and 'var(--g-cols,' in css       # header + activity column stay in view
     assert 'position: sticky; left: 0;' in css and '.g-ms.crit { background: var(--danger); }' in css
 
 
@@ -241,6 +241,54 @@ def test_screens_show_cost_loaded_overview_critical_gantt_and_fitted_wbs():
     ov, gantt = _read('ui', 'modules', 'overview.js'), _read('ui', 'modules', 'gantt.js')
     assert 'CPI' not in ov[ov.index('export function renderOverview'):ov.index('// ── Project ▸ WBS summary timeline')]
     assert 'result.cost_loaded' in ov and 'id="ov-group"' in ov
-    assert 'all.filter((a) => a.critical)' in gantt
+    assert 'all.filter((a) => a.critical && a.construction !== false)' in gantt
+    assert 'Schedule Gantt (Critical activities)' in gantt and '<i>Expected Start</i><i>Expected Finish</i><i>Delay</i>' in gantt
+    assert 'id="g-code"' in gantt and 'ovh-col p' in ov and 'id="ov-hide0"' in ov and 'cost-loaded\' : \'\'}' not in ov
+    assert 'Cut-off date' in ov and "if ('delay' in n) return n.delay;" in ov
     assert 'wbst-fit' in ov and 'totalDays * 3' not in ov        # the timeline fits the screen: no sideways scroll
     assert 'wbsHasPct' in ov
+
+
+def test_wbs_follows_p6_order_and_counts_delay_in_working_days():
+    """Second round: WBS siblings in P6's own order (Sequence Number), not alphabetical; Delay in
+    working days on the project's default calendar."""
+    from p6_evm.calendars import Calendar
+    wbs = {
+        'P': {'name': 'Project', 'parent_object_id': None, 'seq': '0'},
+        'S': {'name': 'Submittal', 'parent_object_id': 'P', 'seq': '10'},
+        'A': {'name': 'Approval', 'parent_object_id': 'P', 'seq': '20'},
+    }
+    recs = [
+        {'activity': _act('X1', 'A', D(2025, 1, 1), D(2025, 1, 10), remaining_early_start=D(2025, 1, 6, 8),
+                          remaining_early_finish=D(2025, 1, 20, 17), calendar_id='c'),
+         'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
+        {'activity': _act('X2', 'S', D(2025, 1, 1), D(2025, 1, 10), remaining_early_start=D(2025, 1, 6, 8),
+                          remaining_early_finish=D(2025, 1, 13, 17), calendar_id='c'),
+         'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
+    ]
+
+    class Cal:                                           # Monday-Friday
+        def is_working_day(self, d):
+            return d.weekday() < 5
+    data = SimpleNamespace(wbs=wbs, calendars={'c': Cal()}, project={'default_calendar_id': 'c'},
+                           baseline_by_id={'X1': {'planned_start': D(2025, 1, 1, 8), 'planned_finish': D(2025, 1, 13, 17)},
+                                           'X2': {'planned_start': D(2025, 1, 1, 8), 'planned_finish': D(2025, 1, 13, 17)}})
+    summary, main = sv.wbs_views(recs, data)
+    assert [m['name'] for m in main] == ['Submittal', 'Approval']          # P6 order, not A-Z
+    by = {n['name']: n for n in summary}
+    assert by['Approval']['delay'] == 5 and by['Submittal']['delay'] == 0  # 13-Jan → 20-Jan = 5 working days
+    rows = {r['id']: r for r in sv.gantt_activities(recs, wbs, data)}
+    assert rows['X1']['delay'] == 5 and rows['X2']['delay'] == 0 and rows['X1']['baseline_finish'].startswith('2025-01-13')
+
+
+def test_gantt_keeps_construction_rows_only_and_offers_a_code_column():
+    recs = _cost_records()
+    for r in recs:
+        r['activity']['is_critical'] = True
+    rows = {r['id']: r for r in sv.gantt_activities(recs, WBS, None)}
+    assert rows['C1']['construction'] and rows['C3']['construction'] and rows['E1']['construction'] is False
+    assert rows['C1']['codes'] == {'Type of Works': 'Civil'}
+    blocks = schedule_excel({'activities': list(rows.values()), 'code_column': 'Type of Works'})[0]['blocks']
+    assert [b['title'] for b in blocks] == ['Schedule Gantt (Critical activities)', 'Construction']
+    assert blocks[1]['headers'][:3] == ['Activity ID', 'Type of Works', 'Activity Name']
+    assert {r[0]: r[1] for r in blocks[1]['rows']} == {'C1': 'Civil', 'C2': 'Steel', 'C3': ''}

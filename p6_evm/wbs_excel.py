@@ -62,7 +62,11 @@ def _fmt_date(iso):
 
 
 def _delay_days(node):
-    """Expected Finish − Baseline Finish in calendar days (+late / −early), or None."""
+    """Expected Finish against Baseline Finish (+late / −early): the WORKING days the server
+    counted on the project calendar, as P6 counts it; calendar days only for a result stored
+    before that figure existed."""
+    if 'delay' in node:
+        return node.get('delay')
     ef = _parse_date(node.get('finish'))
     bf = _parse_date(node.get('baseline_finish'))
     if ef is None or bf is None:
@@ -130,7 +134,7 @@ def _branch_note(subset):
     n = f'{acts} activities' if acts is not None else 'activities —'
     if not _has_pct(root):
         return f'{n} · not cost-loaded - no Planned % / Actual %'
-    return f'{n} · overall {pl_s} planned · {ac_s} actual'
+    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay in working days'
 
 
 # columns measured against the baseline — '· approx' when the update's own Planned dates stand in
