@@ -94,7 +94,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — profiled deck laying and fixing to steel frame",
         "confidence": "draft",
         "records": 0,
@@ -149,7 +149,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — through-deck stud welding rate",
         "confidence": "draft",
         "records": 0,
@@ -209,7 +209,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — light mesh + local bars over composite deck",
         "confidence": "moderate",
         "records": 0,
@@ -284,7 +284,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — fast topping pour over deck (deck acts as form)",
         "confidence": "moderate",
         "records": 0,

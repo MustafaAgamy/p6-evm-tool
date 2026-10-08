@@ -103,8 +103,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - architectural precast/cladding panel erection",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Architectural precast/cladding panel erection",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -164,8 +164,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - two-stage weatherproof joint sealing per m2 of panel face",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Two-stage weatherproof joint sealing per m2 of panel face",
         "confidence": "draft",
         "records": 0,
         "projects": [],

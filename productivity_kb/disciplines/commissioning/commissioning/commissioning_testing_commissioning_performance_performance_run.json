@@ -79,7 +79,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry reference norm — supervised performance/reliability run, per run-day; multiply by contract run duration",
         "confidence": "draft",
         "records": 0,

@@ -98,7 +98,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — waffle pan setting/striking (slower than flat soffit)",
         "confidence": "draft",
         "records": 0,
@@ -164,7 +164,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — waffle rib + topping steel",
         "confidence": "moderate",
         "records": 0,
@@ -233,7 +233,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — waffle pour (ribs slow the spread)",
         "confidence": "moderate",
         "records": 0,

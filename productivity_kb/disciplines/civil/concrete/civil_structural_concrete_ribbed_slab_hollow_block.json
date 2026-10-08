@@ -92,8 +92,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — hollow-block slab full soffit form",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Hollow-block slab full soffit form",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -142,8 +142,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — hordi block laying between ribs",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Hordi block laying between ribs",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -208,8 +208,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — rib bars + topping mesh",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Rib bars + topping mesh",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -277,8 +277,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — ribbed slab pour (blocks slow spreading)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Ribbed slab pour (blocks slow spreading)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -21,7 +21,7 @@ Design rules baked in here (never bypassed):
 - A factor changes the man-hours per unit AND the output per day (and so the duration).
 - Overall confidence is the weakest link across the priced components.
 """
-from .kb import by_id, load_items, builtin_project_factor, project_types
+from .kb import by_id, load_items, builtin_project_factor, project_types, references
 
 PERCENTILE_MIN_RECORDS = 5
 DEFAULT_SHIFT_HOURS = 8.0
@@ -361,7 +361,28 @@ def query(item_id, context=None, quantity=None, items=None, component_quantities
                                                    component_quantities=component_quantities)
     res["estimates"] = estimate_rows(item, context=context, quantity=quantity,
                                      component_quantities=component_quantities)
+    res["sources"] = rate_sources(res)
     return res
+
+
+def rate_sources(result):
+    """Where each rate of this work item comes from (owner: the rates must be based on Egyptian
+    references, and the references must show in the feature): one line per component - its
+    source type, the basis and the named reference - then the library's reference list."""
+    refs = references()
+    by_key = {r.get("key"): r for r in refs.get("references", [])}
+    comps = []
+    for c in result.get("components") or []:
+        prov = c.get("provenance") or {}
+        ref = by_key.get(prov.get("reference"))
+        comps.append({
+            "component": c.get("name"), "source_type": prov.get("source_type") or "",
+            "basis": prov.get("basis") or "", "egyptian": bool(ref),
+            "reference": ref.get("title") if ref else None,
+        })
+    n = sum(1 for x in comps if x["egyptian"])
+    return {"components": comps, "egyptian_count": n, "total": len(comps),
+            "note": refs.get("note") or "", "references": refs.get("references", [])}
 
 
 def estimate_rows(item, context=None, quantity=None, component_quantities=None):

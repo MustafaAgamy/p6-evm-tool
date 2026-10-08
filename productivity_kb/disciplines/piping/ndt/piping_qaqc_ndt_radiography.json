@@ -88,8 +88,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - RT-dominant weld inspection per diameter-inch",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "RT-dominant weld inspection per diameter-inch",
         "confidence": "draft",
         "records": 0,
         "projects": [],

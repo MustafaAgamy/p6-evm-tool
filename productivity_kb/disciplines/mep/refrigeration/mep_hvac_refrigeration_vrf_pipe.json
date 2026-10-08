@@ -86,8 +86,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — VRF copper refrigerant pipe, brazed with N2 purge",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "VRF copper refrigerant pipe, brazed with N2 purge",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -136,8 +136,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — refrigerant pipe support at ~2.5 m spacing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Refrigerant pipe support at ~2.5 m spacing",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -191,8 +191,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — closed-cell elastomeric refrigerant pipe insulation",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Closed-cell elastomeric refrigerant pipe insulation",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

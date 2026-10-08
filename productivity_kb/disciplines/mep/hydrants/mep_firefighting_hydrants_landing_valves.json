@@ -100,8 +100,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — landing valve / hydrant install",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Landing valve / hydrant install",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -150,8 +150,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — hydrant/landing valve testing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Hydrant/landing valve testing",
         "confidence": "draft",
         "records": 0,
         "projects": [],

@@ -109,8 +109,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — CCTV/access control field device installation",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "CCTV/access control field device installation",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

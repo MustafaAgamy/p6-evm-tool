@@ -107,8 +107,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — single deep well install ~1 well/rig·day in drillable ground",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Single deep well install ~1 well/rig·day in drillable ground",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -173,8 +173,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — pump set drop-in and commissioning per well",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Pump set drop-in and commissioning per well",
         "confidence": "draft",
         "records": 0,
         "projects": [],

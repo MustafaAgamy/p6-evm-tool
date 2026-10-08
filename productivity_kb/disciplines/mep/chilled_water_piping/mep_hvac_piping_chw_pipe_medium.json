@@ -93,8 +93,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — medium-bore black steel CHW pipe, welded",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Medium-bore black steel CHW pipe, welded",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -143,8 +143,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf MEP norm — medium-bore pipe support at ~3 m spacing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Medium-bore pipe support at ~3 m spacing",
         "confidence": "draft",
         "records": 0,
         "projects": [],

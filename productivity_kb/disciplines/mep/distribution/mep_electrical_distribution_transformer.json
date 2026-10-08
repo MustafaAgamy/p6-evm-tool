@@ -107,8 +107,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — distribution transformer mechanical installation/setting",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Distribution transformer mechanical installation/setting",
         "confidence": "draft",
         "records": 0,
         "projects": [],

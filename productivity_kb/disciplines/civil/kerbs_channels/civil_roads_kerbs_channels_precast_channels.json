@@ -80,8 +80,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — hand-placed channel bed concrete",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Hand-placed channel bed concrete",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -135,8 +135,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — precast channel laying to drainage falls",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Precast channel laying to drainage falls",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

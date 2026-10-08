@@ -93,8 +93,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — earth/LPS conductor laying",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Earth/LPS conductor laying",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -158,8 +158,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — earth electrode/pit installation",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Earth electrode/pit installation",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -218,8 +218,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — earth bonding and test joints",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Earth bonding and test joints",
         "confidence": "draft",
         "records": 0,
         "projects": [],

@@ -87,8 +87,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - setting static equipment per ton",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Setting static equipment per ton",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -142,8 +142,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - leveling, alignment and grouting per ton",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Leveling, alignment and grouting per ton",
         "confidence": "draft",
         "records": 0,
         "projects": [],

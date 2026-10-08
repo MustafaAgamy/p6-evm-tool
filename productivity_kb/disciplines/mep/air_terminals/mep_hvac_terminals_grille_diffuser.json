@@ -78,8 +78,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — ceiling/wall air terminal device fixing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Ceiling/wall air terminal device fixing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

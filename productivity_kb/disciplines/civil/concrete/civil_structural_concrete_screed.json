@@ -106,8 +106,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — sand-cement screed laid to level (~50 mm)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Sand-cement screed laid to level (~50 mm)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -89,8 +89,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - non-shrink grouting under steel base plates",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Non-shrink grouting under steel base plates",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

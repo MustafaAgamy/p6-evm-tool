@@ -93,7 +93,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — PT slab soffit (thinner section, edge pockets)",
         "confidence": "moderate",
         "records": 0,
@@ -159,7 +159,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — reduced passive steel in PT slabs (~50–80 kg/m3)",
         "confidence": "moderate",
         "records": 0,
@@ -236,7 +236,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — specialist PT install + stress + grout per tonne of strand",
         "confidence": "draft",
         "records": 0,
@@ -311,7 +311,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — higher-grade PT slab pour, careful compaction round tendons",
         "confidence": "moderate",
         "records": 0,

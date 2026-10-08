@@ -43,11 +43,13 @@ def test_rc_column_numbers():
     assert comps["formwork"]["component_qty"] == 900
     assert comps["reinforcement"]["component_qty"] == 15
     assert comps["concrete"]["component_qty"] == 100
-    assert comps["formwork"]["man_hours"] == 1440
-    assert comps["reinforcement"]["man_hours"] == 345
+    # rates from the Egyptian reference: formwork 1.5 m3/day x 9 m2/m3 = 13.5 m2 per crew-day;
+    # reinforcement 2.5 m3/day x 0.15 t/m3 = 0.38 t per crew-day
+    assert comps["formwork"]["man_hours"] == 1071
+    assert comps["reinforcement"]["man_hours"] == 632
     assert comps["concrete"]["man_hours"] == 72
-    assert r["rollup"]["total_mh"] == 1857
-    assert r["rollup"]["blended_mh_per_primary"] == 18.6
+    assert r["rollup"]["total_mh"] == 1775
+    assert r["rollup"]["blended_mh_per_primary"] == 17.8
     assert r["rollup"]["controlling_component"] == "Formwork / carpentry"
     assert comps["formwork"]["controls"] is True
 
@@ -126,9 +128,9 @@ def test_component_quantity_override():
                      component_quantities={"reinforcement": 20})
     comps = {c["component_id"]: c for c in r["components"]}
     assert r["has_quantity"] is True
-    # reinforcement uses the entered 20 t (not derived); 20 t x 23 MH/t = 460 MH
+    # reinforcement uses the entered 20 t (not derived); 20 t x 42.11 MH/t = 842 MH
     assert comps["reinforcement"]["component_qty"] == 20
-    assert comps["reinforcement"]["man_hours"] == 460
+    assert comps["reinforcement"]["man_hours"] == 842
     # a component with no override and no primary quantity stays knowledge-only
     assert comps["formwork"].get("man_hours") is None
 
@@ -242,7 +244,7 @@ def test_methodology_is_the_estimate_optimistic_most_likely_pessimistic():
     assert o["rollup"]["total_mh"] < m["rollup"]["total_mh"] < p["rollup"]["total_mh"]
     fw = lambda r: {c["component_id"]: c for c in r["components"]}["formwork"]["rate"]
     # each estimate is the work item's OWN low / likely / high rate from the library
-    assert (fw(o)["mh_per_unit"], fw(m)["mh_per_unit"], fw(p)["mh_per_unit"]) == (1.3, 1.6, 2.0)
+    assert (fw(o)["mh_per_unit"], fw(m)["mh_per_unit"], fw(p)["mh_per_unit"]) == (0.95, 1.19, 1.49)
     assert fw(o)["output_per_day"] > fw(m)["output_per_day"] > fw(p)["output_per_day"]
     assert m["context_net"] == 1.0 and all(c["rate"]["adjusted"] is False for c in m["components"] if c.get("rate"))
     # Most likely = exactly the totals the range already showed as low / high
@@ -271,8 +273,8 @@ def test_estimate_and_project_type_work_together():
     r = _q(Methodology="Pessimistic", **{"Project type": "Industrial"})          # x1.10 on the hard case
     fw0 = {c["component_id"]: c for c in base["components"]}["formwork"]
     fw = {c["component_id"]: c for c in r["components"]}["formwork"]
-    assert fw["rate"]["mh_per_unit"] == round(2.0 * 1.1, 2)
-    assert fw["man_hours"] == round(fw0["man_hours"] * 2.0 / 1.6 * 1.1)
+    assert fw["rate"]["mh_per_unit"] == round(1.49 * 1.1, 2)
+    assert abs(fw["man_hours"] - fw0["man_hours"] * 1.49 / 1.19 * 1.1) <= 2
     # the project-type table keeps the chosen estimate; the estimate table keeps the project type
     assert {x["project_type"]: x for x in r["project_type_rates"]}["Industrial"]["total_mh"] == r["rollup"]["total_mh"]
     assert {x["estimate"]: x for x in r["estimates"]}["Pessimistic"]["total_mh"] == r["rollup"]["total_mh"]
@@ -289,7 +291,7 @@ def test_the_project_type_factor_changes_rate_manhours_and_duration():
     assert fw["rate"]["mh_per_unit"] == round(fw0["rate"]["mh_per_unit"] * 1.25, 2)
     assert fw["rate"]["output_per_day_base"] == fw0["rate"]["output_per_day"]                # the norm is kept
     assert fw["man_hours"] == round(fw0["man_hours"] * 1.25)
-    assert fw["duration_days"] == round(fw0["duration_days"] * 1.25, 1)                      # duration follows
+    assert abs(fw["duration_days"] - fw0["duration_days"] * 1.25) <= 0.1                     # duration follows
     row = r["context_ledger"][0]
     assert row["applied"] is True and row["source"] == "user" and "entered by you" in row["evidence"]
 
@@ -328,7 +330,7 @@ def test_a_factor_inside_a_library_item_needs_evidence():
         for dim, choices in (it.get("context_factors") or {}).items():
             for choice, entry in (choices or {}).items():
                 assert entry.get("evidence"), (it["item_id"], dim, choice)
-    assert "general construction practice" in kb.project_type_factors()["note"].lower()
+    assert "not yet verified against an egyptian reference" in kb.project_type_factors()["note"].lower()
 
 
 def test_excel_summary_lists_the_factors_and_has_no_rates_database_sheet():
@@ -373,3 +375,41 @@ def test_the_library_has_an_infrastructure_discipline():
     # fastest on an infrastructure corridor, slower inside a port
     pt = {x["project_type"]: x["output_per_day"] for x in r["project_type_rates"]}
     assert pt["Infrastructure"] > pt["Commercial"] > pt["Marine/Port"]
+
+
+def test_rates_name_their_egyptian_reference_and_nothing_else_claims_one():
+    """Owner: "the productivity rates must be based on the productivity rates in Egypt" and "add
+    these references to the feature". A rate either names the Egyptian reference it is taken
+    from, or says plainly that it is a general estimate not yet verified against one."""
+    refs = {r["key"]: r for r in kb.references()["references"]}
+    assert refs["afifi_2017"]["status"] == "loaded" and refs["afifi_2017"]["country"] == "Egypt"
+    assert sum(1 for r in refs.values() if r["status"] == "listed") >= 3
+    eg = est = 0
+    for it in kb.load_items():
+        for c in it["components"]:
+            p = c["provenance"]
+            if p.get("reference"):
+                assert p["reference"] in refs and p["source_type"] == "Egyptian reference"
+                assert "Afifi" in p["basis"]
+                eg += 1
+            else:
+                assert p["source_type"].startswith("General estimate"), (it["item_id"], c["component_id"])
+                assert not p["basis"].lower().startswith("egypt"), (it["item_id"], p["basis"])
+                est += 1
+    assert eg >= 35 and est > 0
+    # the reference's own figures, exactly
+    tile = engine.query("architectural.finishes.tiling.floor_tiling", context={"Project type": "Commercial"})
+    assert tile["components"][0]["rate"]["output_per_day"] == 25
+    plaster = engine.query(PLASTER, context={"Project type": "Commercial"})
+    assert plaster["components"][0]["rate"]["output_per_day"] == 40
+    col = {c["component_id"]: c for c in engine.query(RC, context={"Project type": "Commercial"})["components"]}
+    assert col["formwork"]["rate"]["output_per_day"] == 13.5            # 1.5 m3/day x 9 m2 per m3
+    assert col["formwork"]["gang"] == [{"trade": "Carpenter", "count": 1}, {"trade": "Helper", "count": 1}]
+    # ... and the feature shows it
+    src = engine.query(RC, context={"Project type": "Commercial"}, quantity=100)["sources"]
+    assert src["egyptian_count"] == 2 and src["total"] == 3
+    assert [x["egyptian"] for x in src["components"]] == [True, True, False]
+    assert any(r["key"] == "afifi_2017" for r in src["references"])
+    import server
+    names = [sh["name"] for sh in server._prodintel_excel_sections(engine.query(RC, context={"Project type": "Commercial"}, quantity=100))]
+    assert names[-1] == "Sources & references"

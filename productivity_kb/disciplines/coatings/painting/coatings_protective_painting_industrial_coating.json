@@ -84,8 +84,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - abrasive blasting per m2",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Abrasive blasting per m2",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -139,8 +139,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - 3-coat protective coating application per m2",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "3-coat protective coating application per m2",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

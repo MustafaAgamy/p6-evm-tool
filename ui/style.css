@@ -3584,6 +3584,11 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .pi-ptrow.on td{background:rgba(59,130,246,.10);font-weight:700}
 .pi-ptna{font-size:10px;color:var(--warning);font-weight:600;margin-left:6px}
 .pi-ptfoot{font-size:11px;color:var(--muted);margin-top:8px}
+.pi-srcpill{display:inline-block;border-radius:10px;padding:0 9px;font-size:11px;font-weight:700;white-space:nowrap}
+.pi-srcpill.eg{color:var(--success);background:rgba(74,222,128,.16)}
+.pi-srcpill.est{color:var(--warning);background:rgba(251,191,36,.16)}
+.pi-srcbasis{font-size:12px;color:var(--ink-soft)}
+.pi-srcsub{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;overflow-wrap:anywhere}
 .pi-estrow{cursor:pointer}
 .pi-estrow:hover td{background:var(--row-hover)}
 .pi-estrow.on td{background:rgba(59,130,246,.10);font-weight:700}

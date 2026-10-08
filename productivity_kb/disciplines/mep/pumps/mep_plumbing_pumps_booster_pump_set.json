@@ -94,8 +94,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — packaged booster set placement",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Packaged booster set placement",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -165,8 +165,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — booster set header connection",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Booster set header connection",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -215,8 +215,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — booster set commissioning (excl. power supply)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Booster set commissioning (excl. power supply)",
         "confidence": "draft",
         "records": 0,
         "projects": [],

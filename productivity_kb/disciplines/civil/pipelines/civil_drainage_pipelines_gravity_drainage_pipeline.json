@@ -88,8 +88,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — granular bedding placed & levelled to invert",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Granular bedding placed & levelled to invert",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -153,8 +153,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — gravity pipe laying & jointing to line and level (DN300–600)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Gravity pipe laying & jointing to line and level (DN300–600)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -208,8 +208,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — pipe surround and compacted trench backfill",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Pipe surround and compacted trench backfill",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

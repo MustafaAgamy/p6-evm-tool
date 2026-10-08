@@ -104,8 +104,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — fire alarm field device installation",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Fire alarm field device installation",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

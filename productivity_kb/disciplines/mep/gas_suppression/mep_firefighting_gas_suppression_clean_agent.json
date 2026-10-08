@@ -93,8 +93,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — clean-agent cylinder bank install",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Clean-agent cylinder bank install",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -159,8 +159,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — clean-agent discharge network",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Clean-agent discharge network",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -224,8 +224,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — suppression detection & release integration",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Suppression detection & release integration",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -280,8 +280,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — suppression cause-and-effect + integrity test",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Suppression cause-and-effect + integrity test",
         "confidence": "draft",
         "records": 0,
         "projects": [],

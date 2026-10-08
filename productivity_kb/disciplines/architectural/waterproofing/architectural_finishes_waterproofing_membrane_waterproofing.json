@@ -92,8 +92,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — torch/liquid-applied membrane waterproofing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Torch/liquid-applied membrane waterproofing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

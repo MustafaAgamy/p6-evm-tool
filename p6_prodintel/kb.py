@@ -167,3 +167,27 @@ def builtin_project_factor(item, project_type):
 def project_types():
     """The project types the factors table covers, in display order."""
     return list(project_type_factors().get("project_types") or [])
+
+
+# ── the references behind the rates (owner: "add these references to the feature") ─────────
+_REFS = None
+
+
+def references():
+    """``productivity_kb/references.json``: the Egyptian references found, what each covers and
+    its status - 'loaded' (its rates are in the library), 'listed' (known, not yet loaded) or
+    'context' (research with no rate table). ``{'references': []}`` when the file is missing."""
+    global _REFS
+    if _REFS is None:
+        data = {}
+        for base in (overlay_dir(), bundled_dir()):
+            path = os.path.join(base, "references.json") if base else ""
+            if path and os.path.isfile(path):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        data = json.load(f)
+                    break
+                except (OSError, ValueError):
+                    continue
+        _REFS = data if isinstance(data, dict) and isinstance(data.get("references"), list) else {"references": []}
+    return _REFS

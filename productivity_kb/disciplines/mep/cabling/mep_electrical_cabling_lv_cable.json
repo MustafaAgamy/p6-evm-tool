@@ -108,8 +108,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — LV cable pulling and laying on tray",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "LV cable pulling and laying on tray",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

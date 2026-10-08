@@ -77,8 +77,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — single-duct VAV box set and connect",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Single-duct VAV box set and connect",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

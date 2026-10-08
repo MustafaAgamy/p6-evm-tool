@@ -108,8 +108,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — BMS field device installation and termination",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "BMS field device installation and termination",
         "confidence": "draft",
         "records": 0,
         "projects": [],

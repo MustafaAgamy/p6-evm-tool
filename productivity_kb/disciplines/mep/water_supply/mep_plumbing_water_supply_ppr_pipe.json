@@ -94,8 +94,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — small-bore PPR distribution, fusion welded",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Small-bore PPR distribution, fusion welded",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -144,8 +144,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — hydrostatic testing of water piping",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Hydrostatic testing of water piping",
         "confidence": "draft",
         "records": 0,
         "projects": [],

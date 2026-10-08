@@ -223,6 +223,20 @@ def _prodintel_excel_sections(r):
                              'Man-hours per %s' % (pt_lead.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], pt_rows))
     out = [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
     # (no 'Rates database' sheet: the owner asked for it to be left out of the Excel export)
+    src = r.get('sources') or {}
+    if src.get('components'):
+        st = {'loaded': 'Rates loaded in the library', 'listed': 'Known reference - rates not yet loaded', 'context': 'Research - no rate table'}
+        out.append({'name': 'Sources & references', 'blocks': [
+            {'title': 'Where each rate of this work item comes from',
+             'note': '%s of %s rates are taken from an Egyptian reference.' % (src.get('egyptian_count', 0), src.get('total', 0)),
+             'headers': ['Rate', 'Source', 'Basis'],
+             'rows': [[x.get('component'), 'Egyptian reference' if x.get('egyptian') else 'General estimate',
+                       x.get('basis') if x.get('egyptian') else ' · '.join(v for v in (x.get('source_type'), x.get('basis')) if v)]
+                      for x in src['components']]},
+            {'title': 'Egyptian references', 'note': src.get('note') or None,
+             'headers': ['Reference', 'Author / country / year', 'Status', 'What it covers', 'Link'],
+             'rows': [[x.get('title'), ' · '.join(str(v) for v in (x.get('author'), x.get('country'), x.get('year')) if v),
+                       st.get(x.get('status'), x.get('status')), x.get('covers'), x.get('url')] for x in src.get('references') or []]}]})
     return out
 
 

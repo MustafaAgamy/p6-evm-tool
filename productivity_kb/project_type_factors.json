@@ -1,6 +1,6 @@
 {
   "schema": "productivity_kb.project_type_factors/1.0",
-  "note": "Built-in man-hour factors by PROJECT TYPE and TRADE GROUP (owner comment 62): the productivity of a trade is not the same on a residential, an industrial or an oil & gas project. 1.00 = the library norm; 1.20 = 20 % more man-hours per unit (lower output per day, longer duration); 0.90 = 10 % fewer. Every project type has its own number for every trade. General construction practice for work in Egypt - not measured on a specific project. The planner's own factor, typed on the screen, replaces the built-in one.",
+  "note": "Built-in man-hour factors by PROJECT TYPE and TRADE GROUP (owner comment 62): the productivity of a trade is not the same on a residential, an industrial or an oil & gas project. 1.00 = the library norm; 1.20 = 20 % more man-hours per unit (lower output per day, longer duration); 0.90 = 10 % fewer. Every project type has its own number for every trade. A general estimate of how the trades compare between project types - not yet verified against an Egyptian reference. The planner's own factor, typed on the screen, replaces the built-in one.",
   "project_types": [
     "Residential",
     "Commercial",

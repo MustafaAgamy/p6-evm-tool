@@ -104,8 +104,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - precast column/beam erection with a single crane crew",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Precast column/beam erection with a single crane crew",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -170,8 +170,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - grouted sleeve / pocket / corbel connection per element",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Grouted sleeve / pocket / corbel connection per element",
         "confidence": "draft",
         "records": 0,
         "projects": [],

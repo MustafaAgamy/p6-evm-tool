@@ -1,0 +1,84 @@
+{
+  "schema": "productivity_kb.references/1.0",
+  "note": "Egypt has no single official productivity standard (the published research says so); the references below are the Egyptian sources found. A rate in the library names the reference it is taken from; a rate with no reference is a general estimate, not yet verified against Egyptian rates.",
+  "references": [
+    {
+      "key": "afifi_2017",
+      "status": "loaded",
+      "title": "معدلات الأداء و الإنتاجية و أسعار الخامات و المصنعيات — Approximate performance and productivity rates of labour and equipment",
+      "author": "Eng. Mostafa Afifi — Technical Office (Benaa Academy)",
+      "country": "Egypt",
+      "year": 2017,
+      "kind": "Engineer's compilation (not an official standard)",
+      "covers": "Reinforced-concrete formwork and reinforcement (footings, tie beams, raft, columns, solid and flat slabs, walls), brick masonry, plaster, putty and paint, ceramic floor and wall tiles, marble, bitumen and membrane waterproofing, concrete mixer and pump, excavation, dozing and backfilling.",
+      "does_not_cover": "Roads, water / sewer / stormwater / irrigation / electrical / telecom / gas networks, bridges, MEP, structural steel, piping, commissioning.",
+      "url": "https://www.slideshare.net/slideshow/pdf-5418/265861968"
+    },
+    {
+      "key": "scribd_rates_materials",
+      "status": "listed",
+      "title": "معدلات الأداء واستهلاك المواد الخام في الاعمال الانشائية",
+      "author": "—",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Performance rates and material consumption in construction works.",
+      "url": "https://www.scribd.com/document/692351350/"
+    },
+    {
+      "key": "scribd_labour_equipment",
+      "status": "listed",
+      "title": "معدلات إنتاجية العمالة والمعدات (معدلات الاداء الانشائيه)",
+      "author": "—",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Labour and equipment productivity, including excavation and backfilling.",
+      "url": "https://www.scribd.com/document/535673335/"
+    },
+    {
+      "key": "arab_contractors_training",
+      "status": "listed",
+      "title": "اعمال التنفيذ — المقاولون العرب — حدادة و نجارة مسلحة",
+      "author": "The Arab Contractors (training notes)",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Contractor training notes",
+      "covers": "Execution of reinforcement and formwork.",
+      "url": "https://www.slideshare.net/slideshow/ss-65357828/65357828"
+    },
+    {
+      "key": "almohandes_standard_rates",
+      "status": "listed",
+      "title": "معدلات الأداء القياسية للعمالة والمعدات فى الاعمال المدنية والمعمارية",
+      "author": "منتدى المهندس",
+      "country": "Egypt / Arabic region",
+      "year": null,
+      "kind": "Shared compilation",
+      "covers": "Standard labour and equipment rates in civil and architectural works.",
+      "url": "https://almohandes.org/t/29511"
+    },
+    {
+      "key": "elgohary_aziz_2014",
+      "status": "context",
+      "title": "Factors Influencing Construction Labor Productivity in Egypt",
+      "author": "El-Gohary & Aziz — ASCE Journal of Management in Engineering",
+      "country": "Egypt",
+      "year": 2014,
+      "kind": "Published research",
+      "covers": "What drives labour productivity on Egyptian sites; states that Egypt lacks unified productivity figures. No rate table.",
+      "url": "https://doi.org/10.1061/(asce)me.1943-5479.0000168"
+    },
+    {
+      "key": "nu_field_study",
+      "status": "context",
+      "title": "Labour productivity in building construction: a field study",
+      "author": "Nile University, Cairo",
+      "country": "Egypt",
+      "year": null,
+      "kind": "Published research",
+      "covers": "11-month field study of formwork, masonry and HVAC duct crews on a Cairo campus (about 34 % productive time). No rate table.",
+      "url": "https://nu.edu.eg/publications/labour-productivity-building-construction-field-study"
+    }
+  ]
+}

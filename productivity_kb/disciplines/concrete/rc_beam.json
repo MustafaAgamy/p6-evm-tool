@@ -80,8 +80,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — formwork / carpentry",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Formwork / carpentry",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -135,8 +135,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — rft / steel fixing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Rft / steel fixing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -195,8 +195,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt / industry standard norm — concrete pouring",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Concrete pouring",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

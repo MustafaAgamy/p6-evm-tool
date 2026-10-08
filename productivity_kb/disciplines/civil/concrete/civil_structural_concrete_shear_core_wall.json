@@ -45,11 +45,11 @@
       "qty_per_primary": 8.0,
       "default_gangs": 5,
       "rate": {
-        "mh_per_unit": 1.45,
-        "low": 1.2,
-        "likely": 1.45,
-        "high": 1.75,
-        "output_per_day": 11,
+        "mh_per_unit": 0.667,
+        "low": 0.534,
+        "likely": 0.667,
+        "high": 0.834,
+        "output_per_day": 24.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -94,14 +94,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — crane-handled wall gang-form",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الحوائط الخرسانية 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 8.0 m2 of formwork per m3 of concrete.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "conventional panel/gang forms, ~3 m lifts — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -111,11 +112,11 @@
       "qty_per_primary": 0.12,
       "default_gangs": 4,
       "rate": {
-        "mh_per_unit": 17.8,
-        "low": 15.5,
-        "likely": 17.8,
-        "high": 20,
-        "output_per_day": 0.9,
+        "mh_per_unit": 44.44,
+        "low": 35.55,
+        "likely": 44.44,
+        "high": 55.55,
+        "output_per_day": 0.36,
         "output_unit": "t/crew·day"
       },
       "gang": [
@@ -160,14 +161,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — wall two-curtain steel fixing",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — حدادة مسلحة — الحوائط الخرسانية 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 0.12 t of steel per m3 of concrete.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "shear/core walls ~90–150 kg/m3 — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -226,8 +228,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — wall pour in lifts, careful compaction",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Wall pour in lifts, careful compaction",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

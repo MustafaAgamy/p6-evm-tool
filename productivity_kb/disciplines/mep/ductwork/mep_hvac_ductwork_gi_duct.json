@@ -90,8 +90,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — GI rectangular duct shop fabrication with powered machinery",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "GI rectangular duct shop fabrication with powered machinery",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -151,8 +151,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — rectangular duct site installation at normal height",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Rectangular duct site installation at normal height",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -87,8 +87,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - SS spool cutting, beveling and fit-up",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "SS spool cutting, beveling and fit-up",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -148,8 +148,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - SS TIG butt welding per diameter-inch",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "SS TIG butt welding per diameter-inch",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

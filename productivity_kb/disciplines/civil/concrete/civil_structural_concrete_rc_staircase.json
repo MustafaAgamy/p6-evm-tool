@@ -95,8 +95,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — stair formwork (complex, slow)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Stair formwork (complex, slow)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -161,8 +161,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — stair steel (bent bars, congested)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Stair steel (bent bars, congested)",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -230,8 +230,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — small awkward stair pour, hand finishing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Small awkward stair pour, hand finishing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

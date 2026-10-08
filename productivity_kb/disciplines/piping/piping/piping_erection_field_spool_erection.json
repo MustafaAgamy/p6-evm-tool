@@ -91,8 +91,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industrial norm - field erection of pre-fab spools per diameter-inch",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Field erection of pre-fab spools per diameter-inch",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

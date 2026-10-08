@@ -88,8 +88,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — mass concrete side forms only",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Mass concrete side forms only",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -154,8 +154,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — light/heavy-bar mass concrete steel",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Light/heavy-bar mass concrete steel",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -225,8 +225,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — high-output continuous mass pour",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "High-output continuous mass pour",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

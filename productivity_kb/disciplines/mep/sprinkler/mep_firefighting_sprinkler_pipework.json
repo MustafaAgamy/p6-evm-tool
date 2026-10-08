@@ -99,8 +99,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — threaded small-bore sprinkler pipe",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Threaded small-bore sprinkler pipe",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -170,8 +170,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — grooved medium sprinkler mains",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Grooved medium sprinkler mains",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -241,8 +241,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — large grooved/flanged sprinkler mains",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Large grooved/flanged sprinkler mains",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -291,8 +291,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — NFPA 200 psi hydrostatic test",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "NFPA 200 psi hydrostatic test",
         "confidence": "draft",
         "records": 0,
         "projects": [],

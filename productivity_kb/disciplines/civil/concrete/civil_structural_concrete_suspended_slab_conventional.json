@@ -46,11 +46,11 @@
       "qty_per_primary": 5.25,
       "default_gangs": 5,
       "rate": {
-        "mh_per_unit": 1.33,
-        "low": 1.1,
-        "likely": 1.33,
-        "high": 1.6,
-        "output_per_day": 12,
+        "mh_per_unit": 1.02,
+        "low": 0.816,
+        "likely": 1.02,
+        "high": 1.27,
+        "output_per_day": 15.75,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -100,14 +100,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — suspended slab soffit formwork on props",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — نجارة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 5.25 m2 of formwork per m3 of concrete.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "prop-and-ply or table-form soffit, floor-to-floor ≤ 3.5 m — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -117,11 +118,11 @@
       "qty_per_primary": 0.1,
       "default_gangs": 4,
       "rate": {
-        "mh_per_unit": 16,
-        "low": 14,
-        "likely": 16,
-        "high": 18.5,
-        "output_per_day": 1,
+        "mh_per_unit": 53.33,
+        "low": 42.66,
+        "likely": 53.33,
+        "high": 66.66,
+        "output_per_day": 0.3,
         "output_unit": "t/crew·day"
       },
       "gang": [
@@ -166,14 +167,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — slab steel fixing (top + bottom mats)",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — حدادة مسلحة — الأسقف السوليد 3 م3/يوم (crew: tradesman + helper). Converted with this work item's 0.1 t of steel per m3 of concrete.",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "solid two-way/one-way slabs, ~80–120 kg/m3 — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     },
     {
@@ -247,8 +249,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — pumped slab pour with float finish",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Pumped slab pour with float finish",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

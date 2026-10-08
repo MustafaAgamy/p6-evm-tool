@@ -94,8 +94,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm - field installation and tensioning of high-strength bolts",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Field installation and tensioning of high-strength bolts",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

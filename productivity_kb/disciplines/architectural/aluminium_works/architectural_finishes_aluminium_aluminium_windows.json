@@ -102,8 +102,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — aluminium window installation",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Aluminium window installation",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

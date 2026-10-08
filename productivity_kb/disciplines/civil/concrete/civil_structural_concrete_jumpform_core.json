@@ -97,7 +97,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — specialist climbing-form crew per m2 of formed face",
         "confidence": "draft",
         "records": 0,
@@ -169,7 +169,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — core-wall steel fixing on cycle (working at height)",
         "confidence": "moderate",
         "records": 0,
@@ -234,7 +234,7 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
         "basis": "Industry norm — core lift pour via placing boom on cycle",
         "confidence": "moderate",
         "records": 0,

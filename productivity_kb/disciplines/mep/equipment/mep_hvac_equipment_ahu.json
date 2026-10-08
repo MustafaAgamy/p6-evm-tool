@@ -84,8 +84,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — medium modular AHU rig and assembly",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Medium modular AHU rig and assembly",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

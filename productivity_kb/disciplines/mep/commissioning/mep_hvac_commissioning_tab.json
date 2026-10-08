@@ -84,8 +84,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf HVAC norm — proportional air/water balancing per terminal point",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Proportional air/water balancing per terminal point",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

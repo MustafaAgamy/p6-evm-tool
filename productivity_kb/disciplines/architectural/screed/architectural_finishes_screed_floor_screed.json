@@ -91,8 +91,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — 50 mm floor screed",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "50 mm floor screed",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

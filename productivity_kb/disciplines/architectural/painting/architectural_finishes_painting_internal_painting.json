@@ -96,8 +96,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — internal emulsion system",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Internal emulsion system",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

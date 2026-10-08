@@ -100,8 +100,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — layered placement & roller compaction of select fill",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Layered placement & roller compaction of select fill",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

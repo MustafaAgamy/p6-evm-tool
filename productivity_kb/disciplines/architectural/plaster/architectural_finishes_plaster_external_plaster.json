@@ -46,11 +46,11 @@
       "qty_per_primary": 1.0,
       "default_gangs": 3,
       "rate": {
-        "mh_per_unit": 1.33,
-        "low": 1.1,
-        "likely": 1.33,
-        "high": 1.7,
-        "output_per_day": 18,
+        "mh_per_unit": 0.64,
+        "low": 0.512,
+        "likely": 0.64,
+        "high": 0.8,
+        "output_per_day": 25.0,
         "output_unit": "m2/crew·day"
       },
       "gang": [
@@ -60,7 +60,7 @@
         },
         {
           "trade": "Helper",
-          "count": 2
+          "count": 1
         }
       ],
       "equipment": [
@@ -90,14 +90,15 @@
         }
       ],
       "provenance": {
-        "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry standard norm — external three-coat render",
+        "source": "egyptian_reference",
+        "source_type": "Egyptian reference",
+        "basis": "Eng. Mostafa Afifi, Technical Office (Egypt, 2017) — ملو حوائط خارجي 25 م2/يوم (crew: tradesman + helper).",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
-        "period": "Built-in reference",
-        "valid_for": "external cement render on masonry/concrete facades — validate with your XER to promote"
+        "period": "2017",
+        "valid_for": "The reference's rates are approximate and move up or down with the nature of the work — validate with your own records",
+        "reference": "afifi_2017"
       }
     }
   ]

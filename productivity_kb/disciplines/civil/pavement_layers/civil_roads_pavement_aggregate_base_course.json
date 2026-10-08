@@ -101,8 +101,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — grader/roller placement of crushed road base",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Grader/roller placement of crushed road base",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

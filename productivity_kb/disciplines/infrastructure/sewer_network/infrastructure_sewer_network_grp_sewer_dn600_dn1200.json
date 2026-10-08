@@ -73,8 +73,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "General construction practice for infrastructure work in Egypt",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Typical crew output for this operation",
         "confidence": "draft",
         "records": 0,
         "projects": [],
@@ -133,8 +133,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "General construction practice for infrastructure work in Egypt",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Typical crew output for this operation",
         "confidence": "draft",
         "records": 0,
         "projects": [],

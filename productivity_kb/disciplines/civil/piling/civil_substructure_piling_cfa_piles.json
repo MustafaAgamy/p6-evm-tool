@@ -89,8 +89,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — CFA drill-and-cast production, ~500 mm dia",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "CFA drill-and-cast production, ~500 mm dia",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -150,8 +150,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — plunged CFA cage; often only partial-length reinforcement",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Plunged CFA cage; often only partial-length reinforcement",
         "confidence": "draft",
         "records": 0,
         "projects": [],

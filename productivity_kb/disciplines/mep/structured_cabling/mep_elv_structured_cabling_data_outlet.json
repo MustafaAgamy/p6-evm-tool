@@ -99,8 +99,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — structured cabling horizontal pull per drop",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Structured cabling horizontal pull per drop",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -155,8 +155,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — data outlet termination",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Data outlet termination",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -217,8 +217,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — patch panel termination and certification",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Patch panel termination and certification",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -96,8 +96,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — rotary bored pile drilling, medium ground ~800 mm dia",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Rotary bored pile drilling, medium ground ~800 mm dia",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -162,8 +162,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — pile cage fabrication and placing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Pile cage fabrication and placing",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -228,8 +228,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/industry norm — tremie pile concreting; qty_per_primary includes overbreak for ~800 mm dia",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Tremie pile concreting; qty_per_primary includes overbreak for ~800 mm dia",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

@@ -100,8 +100,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf industry norm — grader/roller placement of granular subbase",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Grader/roller placement of granular subbase",
         "confidence": "moderate",
         "records": 0,
         "projects": [],

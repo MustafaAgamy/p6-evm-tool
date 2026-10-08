@@ -99,8 +99,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — domestic electric heater second-fix",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Domestic electric heater second-fix",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -149,8 +149,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — heater commissioning (excl. electrical)",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Heater commissioning (excl. electrical)",
         "confidence": "draft",
         "records": 0,
         "projects": [],

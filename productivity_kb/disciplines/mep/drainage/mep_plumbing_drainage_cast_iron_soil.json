@@ -100,8 +100,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — no-hub cast iron soil/waste",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "No-hub cast iron soil/waste",
         "confidence": "moderate",
         "records": 0,
         "projects": [],
@@ -150,8 +150,8 @@
       ],
       "provenance": {
         "source": "built_in_kb",
-        "source_type": "Industry reference",
-        "basis": "Egypt/Gulf standard norm — gravity drainage testing",
+        "source_type": "General estimate — not yet verified against an Egyptian reference",
+        "basis": "Gravity drainage testing",
         "confidence": "draft",
         "records": 0,
         "projects": [],
