@@ -80,6 +80,14 @@ def working_delay(cal, baseline_finish, finish):
         return None
 
 
+def float_delay(tf):
+    """Days late from a Total Float in days: -(total float), to the whole day as P6 shows it."""
+    if not isinstance(tf, (int, float)):
+        return None
+    d = -tf
+    return int(d + 0.5) if d >= 0 else -int(-d + 0.5)
+
+
 def _default_calendar(data):
     cals = getattr(data, 'calendars', None) or {}
     cid = (getattr(data, 'project', None) or {}).get('default_calendar_id')
@@ -233,9 +241,10 @@ def gantt_activities(records, wbs_map, data=None):
             'tf':         round(tf, 1) if isinstance(tf, (int, float)) else None,
             'critical':   is_critical(a, status, tf),
             'milestone':  a.get('task_type') in ('StartMilestone', 'FinishMilestone'),
-            # finish against the baseline finish, in working days on the activity's own calendar
             'baseline_finish': _iso(bf),
-            'delay':      working_delay(cals.get(a.get('calendar_id')), bf, current_finish(a)),
+            # Delay = the UPDATE's own Total Float as P6 shows it, read as days late:
+            # float -12 d = 12 d late, float +5 d = -5 (ahead). Not a baseline comparison.
+            'delay':      float_delay(tf) if status != 'Completed' else None,
             # the activity's P6 activity codes, for the Gantt's pick-a-code column
             'codes':      {k: str(v) for k, v in (a.get('activity_codes') or {}).items() if v},
         })
@@ -274,7 +283,8 @@ def wbs_views(records, data):
         return b if a is None else (a if b is None else max(a, b))
 
     def base():
-        return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None}
+        return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None,
+                'ef': None, 'lf': None, 'open': 0}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     direct = defaultdict(base)
@@ -286,6 +296,10 @@ def wbs_views(records, data):
         d = direct[wid]
         d['s'] = _mn(d['s'], current_start(a))          # current schedule (expected)
         d['f'] = _mx(d['f'], current_finish(a))
+        # for the WBS's own Total Float: its latest early finish and latest late finish
+        d['ef'] = _mx(d['ef'], a.get('actual_finish') or a.get('remaining_early_finish'))
+        d['lf'] = _mx(d['lf'], a.get('actual_finish') or a.get('remaining_late_finish'))
+        d['open'] += 0 if a.get('actual_finish') else 1
         bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
         if bl:
             d['bs'] = _mn(d['bs'], bl.get('planned_start'))
@@ -315,6 +329,7 @@ def wbs_views(records, data):
             c = _rollup(k)
             t['n'] += c['n']; t['w'] += c['w']; t['wp'] += c['wp']; t['wa'] += c['wa']; t['c'] += c['c']
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
+            t['ef'] = _mx(t['ef'], c['ef']); t['lf'] = _mx(t['lf'], c['lf']); t['open'] += c['open']
             t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
         sub[wid] = t
         return t
@@ -343,9 +358,11 @@ def wbs_views(records, data):
             'finish':         _iso_day(t['f']),     # expected (current) finish
             'baseline_start': _iso_day(t['bs']),
             'baseline_finish': _iso_day(t['bf']),
-            # Expected Finish against Baseline Finish in WORKING days on the project's default
-            # calendar (+ late / − early) — the unit P6 reports its finish variance in
-            'delay':      working_delay(cal, t['bf'], t['f']),
+            # Delay = the WBS's Total Float on the UPDATE, read as days late (owner, round 3):
+            # P6 works a summary float out from the summarised dates - latest Late Finish against
+            # latest Early Finish - on the project's default calendar. None once all work is done.
+            'delay':      working_delay(cal, t['lf'], t['ef']) if t['open'] else None,
+            'total_float': (lambda d: None if d is None else -d)(working_delay(cal, t['lf'], t['ef']) if t['open'] else None),
             'leaf':       (direct.get(wid) or base())['n'] > 0 and not childs,
         })
         for k in sorted(childs, key=order):          # the order P6 itself lists them in

@@ -174,9 +174,9 @@ function wbsShownCols() {
   return WBS_COLS.filter((c) => wbsCols.has(c.key));
 }
 
-// Delay = Expected Finish against Baseline Finish in WORKING days on the project's default
-// calendar (+ late / − early), counted by the server the way P6 counts it. A result stored
-// before that figure existed falls back to calendar days.
+// Delay = the WBS's Total Float on the update read as days late, −(total float), worked out by
+// the server from the WBS's latest Late Finish against its latest Early Finish on the project's
+// default calendar. A result stored before that figure existed falls back to calendar days.
 function wbsDelay(n) {
   if ('delay' in n) return n.delay;
   const ef = toMs(n.finish), bf = toMs(n.baseline_finish);
@@ -388,7 +388,7 @@ ${wbsHasPct(branch) ? `
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the Expected Finish against the Baseline Finish in <b>working days</b> on the project calendar, as P6 counts it (+ late / − early). The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> read as days late — a float of −60 d is a delay of 60 d (+ late / − ahead); it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows <b>no cost</b> instead.</p>`;
 
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {

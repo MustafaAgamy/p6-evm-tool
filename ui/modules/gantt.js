@@ -70,7 +70,7 @@ export function schedulePrint() { return _print; }
 const CODE_KEY = 'p6evm_gantt_code';
 let ganttCode = null;
 export function ganttCodeColumn() { return ganttCode || ''; }
-// Delay = Expected Finish against Baseline Finish, working days (+ late / − early)
+// Delay = the update's Total Float read as days late: −(total float) (+ late / − ahead)
 const delayText = (a) => (a.delay == null ? '—' : `${a.delay > 0 ? '+' : ''}${a.delay} d`);
 const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay > 0 ? ' late' : ' early'));
 
@@ -168,7 +168,7 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Expected Finish against the Baseline Finish in working days on the activity’s calendar (+ late / − early). The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
+  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the activity’s Total Float on this update read as days late: a float of −12 d is a delay of 12 d (it is not a comparison with the baseline). The darker fill is % complete; diamonds are milestones; the vertical line is the data date. Grouped by top-level WBS, earliest first.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
@@ -259,7 +259,7 @@ function printSections(result, acts, groups, counts, sp, note, code) {
       ${kv('Earliest start', gDate(acts.reduce((m, a) => (a.start < m ? a.start : m), acts[0].start)))}
       ${kv('Latest finish', gDate(acts.reduce((m, a) => (a.finish > m ? a.finish : m), acts[0].finish)))}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Float is total float in days; Delay is in working days.</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; Float is total float in days; Delay = −(total float).</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },

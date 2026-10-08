@@ -99,7 +99,7 @@ def test_excel_follows_the_same_groups_and_dates():
     blocks = schedule_excel({'activities': acts, 'data_date': '2025-03-15', 'project_name': 'T'})[0]['blocks']
     assert [b['title'] for b in blocks] == ['Schedule Gantt (Critical activities)', 'Construction']
     head = blocks[1]['headers']
-    assert head[:9] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Expected Start', 'Expected Finish', 'Delay (working days)', 'Planned Start', 'Planned Finish']
+    assert head[:9] == ['Activity ID', 'Activity Name', 'WBS', 'Status', 'Expected Start', 'Expected Finish', 'Delay (d)', 'Planned Start', 'Planned Finish']
     con = {r[0]: r for r in blocks[1]['rows']}
     assert set(con) == {'A2', 'M1'}
     assert con['M1'][head.index('Critical')] == 'Yes' and con['M1'][head.index('Type')] == 'Milestone'
@@ -152,7 +152,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 2:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 3:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -249,36 +249,39 @@ def test_screens_show_cost_loaded_overview_critical_gantt_and_fitted_wbs():
     assert 'wbsHasPct' in ov
 
 
-def test_wbs_follows_p6_order_and_counts_delay_in_working_days():
-    """Second round: WBS siblings in P6's own order (Sequence Number), not alphabetical; Delay in
-    working days on the project's default calendar."""
-    from p6_evm.calendars import Calendar
+def test_wbs_follows_p6_order_and_delay_is_the_update_total_float():
+    """WBS siblings in P6's own order (Sequence Number), not alphabetical. Delay = the update's
+    Total Float read as days late: per activity -(total float); per WBS its latest Late Finish
+    against its latest Early Finish on the project's default calendar."""
     wbs = {
         'P': {'name': 'Project', 'parent_object_id': None, 'seq': '0'},
         'S': {'name': 'Submittal', 'parent_object_id': 'P', 'seq': '10'},
         'A': {'name': 'Approval', 'parent_object_id': 'P', 'seq': '20'},
+        'Z': {'name': 'Done', 'parent_object_id': 'P', 'seq': '30'},
     }
     recs = [
         {'activity': _act('X1', 'A', D(2025, 1, 1), D(2025, 1, 10), remaining_early_start=D(2025, 1, 6, 8),
-                          remaining_early_finish=D(2025, 1, 20, 17), calendar_id='c'),
-         'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
+                          remaining_early_finish=D(2025, 1, 20, 17), remaining_late_finish=D(2025, 1, 13, 17), calendar_id='c'),
+         'total_float': -5.0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
         {'activity': _act('X2', 'S', D(2025, 1, 1), D(2025, 1, 10), remaining_early_start=D(2025, 1, 6, 8),
-                          remaining_early_finish=D(2025, 1, 13, 17), calendar_id='c'),
-         'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
+                          remaining_early_finish=D(2025, 1, 13, 17), remaining_late_finish=D(2025, 1, 15, 17), calendar_id='c'),
+         'total_float': 2.0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0},
+        {'activity': _act('X3', 'Z', D(2025, 1, 1), D(2025, 1, 3), actual_start=D(2025, 1, 1, 8), actual_finish=D(2025, 1, 3, 17),
+                          percent_complete=1.0, calendar_id='c'),
+         'total_float': None, 'bac': 0, 'planned_pct': 1.0, 'actual_pct': 1.0},
     ]
 
     class Cal:                                           # Monday-Friday
         def is_working_day(self, d):
             return d.weekday() < 5
-    data = SimpleNamespace(wbs=wbs, calendars={'c': Cal()}, project={'default_calendar_id': 'c'},
-                           baseline_by_id={'X1': {'planned_start': D(2025, 1, 1, 8), 'planned_finish': D(2025, 1, 13, 17)},
-                                           'X2': {'planned_start': D(2025, 1, 1, 8), 'planned_finish': D(2025, 1, 13, 17)}})
+    data = SimpleNamespace(wbs=wbs, calendars={'c': Cal()}, project={'default_calendar_id': 'c'}, baseline_by_id={})
     summary, main = sv.wbs_views(recs, data)
-    assert [m['name'] for m in main] == ['Submittal', 'Approval']          # P6 order, not A-Z
+    assert [m['name'] for m in main] == ['Submittal', 'Approval', 'Done']   # P6 order, not A-Z
     by = {n['name']: n for n in summary}
-    assert by['Approval']['delay'] == 5 and by['Submittal']['delay'] == 0  # 13-Jan → 20-Jan = 5 working days
+    assert by['Approval']['delay'] == 5 and by['Approval']['total_float'] == -5     # late finish 13-Jan, early finish 20-Jan
+    assert by['Submittal']['delay'] == -2 and by['Done']['delay'] is None           # 2 d of float; finished work has none
     rows = {r['id']: r for r in sv.gantt_activities(recs, wbs, data)}
-    assert rows['X1']['delay'] == 5 and rows['X2']['delay'] == 0 and rows['X1']['baseline_finish'].startswith('2025-01-13')
+    assert rows['X1']['delay'] == 5 and rows['X2']['delay'] == -2 and rows['X3']['delay'] is None
 
 
 def test_gantt_keeps_construction_rows_only_and_offers_a_code_column():
