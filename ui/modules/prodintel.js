@@ -9,20 +9,22 @@ import { escapeHtml } from './format.js';
 import { printView } from './printview.js';
 
 let _tree = null, _flat = [];
-let _ctx = { 'Project type': 'Industrial', 'Methodology': 'Conventional', 'shift_hours': 8 };
+let _ctx = { 'Project type': 'Industrial', 'Methodology': 'Most likely', 'shift_hours': 8 };
 let _quantity = 100;
 let _itemId = null, _result = null, _print = null;
 let _compQty = {}, _compQtyItem = null;   // planner's per-component quantity overrides (own units)
 
 const PROJECT_TYPES = ['Industrial', 'Commercial', 'Residential', 'Hospital', 'Infrastructure', 'Oil & Gas', 'Marine/Port', 'Airport', 'Power Plant'];
-const METHODS = ['Conventional', 'Jump-form', 'Climbing form', 'Precast'];
+// Methodology = which estimate the result uses (owner, on comment 62): Optimistic needs the
+// lowest duration, Pessimistic the highest, Most likely is the middle one (the library norm).
+export const METHODS = ['Optimistic', 'Most likely', 'Pessimistic'];
 
 // The planner's OWN man-hour factors, one per choice of each setting (owner comment 37):
-// { 'Methodology': { 'Jump-form': 0.8 }, 'Project type': {…} }. There is no Location setting:
+// { 'Project type': { 'Oil & Gas': 1.4 } }. There is no Location setting:
 // the tool is for planning engineers working in Egypt (owner comment 61).
 // Controlyx ships NO factor of its own — the library norm is used until he types one. Kept on
 // this computer (localStorage) so a method / project type keeps its factor.
-export const FACTOR_DIMS = ['Project type', 'Methodology'];
+export const FACTOR_DIMS = ['Project type'];
 export const FACTOR_MIN = 0.2, FACTOR_MAX = 5;
 const FACTOR_KEY = 'p6evm_pi_factors';
 let _factors = loadFactors();
@@ -148,15 +150,16 @@ function renderSelRow() {
       </div></div>
     <div class="pi-selg"><span class="pi-l">Project type</span>
       <div class="pi-ptchips">${PROJECT_TYPES.map(p => `<span class="pi-ptchip ${p === _ctx['Project type'] ? 'on' : ''}" data-pt="${escapeHtml(p)}">${escapeHtml(p)}</span>`).join('')}${fbox('Project type')}</div></div>
-    <div class="pi-selg"><span class="pi-l">Methodology</span><div class="pi-setf"><select id="pi-meth">${opt(METHODS, _ctx['Methodology'])}</select>${fbox('Methodology')}</div></div>
+    <div class="pi-selg"><span class="pi-l">Methodology — estimate</span>
+      <div class="pi-ptchips">${METHODS.map(m => `<span class="pi-ptchip pi-estchip ${m === _ctx['Methodology'] ? 'on' : ''}" data-est="${escapeHtml(m)}" title="${m === 'Optimistic' ? 'Best case — the lowest duration' : m === 'Pessimistic' ? 'Hard case — the highest duration' : 'Normal conditions — the library norm'}">${escapeHtml(m)}</span>`).join('')}</div></div>
     <div class="pi-selg"><span class="pi-l">Quantity ${_result ? '(' + escapeHtml(_result.primary_unit || '') + ')' : ''}</span>
       <input id="pi-qty" type="number" placeholder="optional" value="${_quantity != null ? _quantity : ''}" style="width:96px;text-align:right"></div>
-    <div class="pi-fhelp"><b>How the settings change the rate:</b> pick the <b>Project type</b> and the rate changes by itself — Controlyx holds a built-in factor for every project type and trade (the same trade is not equally productive on a residential, an industrial or an oil &amp; gas project); the table <b>This work item on every project type</b> below shows them all. A factor multiplies the man-hours (1.20 = 20% more man-hours, so a lower output per day and a longer duration; 0.90 = faster). Type <b>your own factor</b> in the box to replace the built-in one — it is remembered for that choice on this computer. Methodology has no built-in factor: empty = the library norm.</div>`;
+    <div class="pi-fhelp"><b>How the settings change the rate:</b> the <b>Project type</b> changes the rate by itself — Controlyx holds a built-in factor for every project type and trade (the table <b>This work item on every project type</b> shows them all; type <b>your own factor</b> in the box to replace it). The <b>Methodology</b> is the estimate you want: <b>Optimistic</b> = best case, the lowest duration · <b>Most likely</b> = normal site conditions, the library norm · <b>Pessimistic</b> = hard case, the highest duration. The table <b>Methodology — Optimistic, Most likely, Pessimistic</b> shows the three side by side.</div>`;
   el.querySelector('#pi-disc').onchange = (e) => { const d = _tree.find(x => x.name === e.target.value); const s = d.systems[0]; _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-sys').onchange = (e) => { const d = _tree.find(x => x.name === curItem().discipline); const s = d.systems.find(y => y.name === e.target.value); _itemId = s.items[0].item_id; renderSelRow(); selectItem(_itemId); };
   el.querySelector('#pi-item').onchange = (e) => { _itemId = e.target.value; selectItem(_itemId); };
-  el.querySelectorAll('.pi-ptchip').forEach(c => c.onclick = () => { _ctx['Project type'] = c.dataset.pt; renderSelRow(); selectItem(_itemId); });
-  el.querySelector('#pi-meth').onchange = (e) => { _ctx['Methodology'] = e.target.value; renderSelRow(); selectItem(_itemId); };
+  el.querySelectorAll('.pi-ptchip[data-pt]').forEach(c => c.onclick = () => { _ctx['Project type'] = c.dataset.pt; renderSelRow(); selectItem(_itemId); });
+  el.querySelectorAll('.pi-estchip').forEach(c => c.onclick = () => { _ctx['Methodology'] = c.dataset.est; renderSelRow(); selectItem(_itemId); });
   el.querySelectorAll('.pi-factor').forEach(inp => inp.onchange = () => {
     const dim = inp.dataset.dim, choice = _ctx[dim], { value, error } = parseFactor(inp.value);
     if (error) { piNote(error); inp.value = factorFor(_factors, dim, choice) ?? ''; return; }
@@ -227,19 +230,6 @@ async function selectItem(id) {
 // ---- helpers for the smart visuals + P6 ----
 const CONF = { high: ['pi-good', 'High'], moderate: ['pi-warn', 'Moderate'], draft: ['pi-warn', 'Draft'], none: ['pi-mut', 'Insufficient'] };
 const SEG = ['pi-s-ctrl', 'pi-s-a', 'pi-s-b', 'pi-s-c', 'pi-s-d'];
-const METHOD_ROWS = [
-  ['Conventional', 'Plywood / timber panels + props, built and stripped each pour', 'Carpenters + helpers; little plant', 'Flexible, slower per m²; low-rise / irregular'],
-  ['Jump-form', 'Large forms crane-lifted floor to floor', 'Carpenters + tower crane', 'Fast on repetitive cores / walls / tall columns'],
-  ['Climbing form', 'Form climbs on rails (often self-climbing, hydraulic)', 'Specialist crew + hydraulics', 'Fastest vertical cycle; tall cores / piers'],
-  ['Precast', 'Elements cast off-site, then erected on site', 'Erectors + heavy crane', 'Very fast erection; different resource profile'],
-];
-const METHOD_INFO = {
-  'Conventional': 'Plywood / timber panels with props, hand-built and stripped for each pour. Crew is carpenters + helpers with minimal plant. Flexible for any shape and low mobilisation, but slower per m² — best for low-rise, irregular or small-quantity work.',
-  'Jump-form': 'Large panel / table forms lifted by tower crane from one lift to the next. Fast on repetitive vertical elements (cores, walls, tall columns); higher mobilisation and needs a crane; productivity improves with repetition.',
-  'Climbing form': 'Form that climbs on embedded rails, often hydraulically self-climbing so it does not tie up the crane each lift. Fastest repetitive vertical cycle; highest equipment / mobilisation; for tall cores, piers and pylons.',
-  'Precast': 'Elements are cast off-site (or in a site yard) and erected on site, so site work becomes crane erection + connections rather than forming, fixing and pouring in place. Very fast on-site; labour shifts to the casting yard; needs heavy craneage.',
-  '_default': 'Select a methodology to see how it is built and how it affects crew, plant and speed.',
-};
 function stateChip(st, conf) {
   if (st === 'no_reference') return `<span class="pi-st pi-mut">○ No reference</span>`;
   if (st === 'validated') return `<span class="pi-st pi-good">● Validated</span>`;
@@ -387,12 +377,8 @@ function renderResult() {
 
   // Productivity-rate bar (shown under the toolbar): per-crew rate for each component
   const rateBar = `<div class="pi-ratebar"><span class="pi-rblbl">Productivity rate</span>${comps.filter(c => c.rate).map(c => { const rp = ratePhrase(c); return `<span class="pi-rchip ${c.controls ? 'ctrl' : ''}"><b>${escapeHtml(c.name)}</b> ${escapeHtml(rp.big)}${c.controls ? ' <span class="cf">controls</span>' : ''}</span>`; }).join('')}${hasQ && roll ? `<span class="pi-rarrow mono">→ ${num(roll.total_mh)} MH · ~${roll.duration_days} days</span>` : ''}</div>`;
-  // Methodology explainer
-  const meth = (r.context || {}).Methodology || 'Conventional';
-  const methodCard = `<div class="pi-card pi-pad"><div class="pi-ch"><h3>Methodology — ${escapeHtml(meth)}</h3><span class="m">what it is &amp; how the options differ</span></div>
-    <div class="pi-methdesc">${escapeHtml(METHOD_INFO[meth] || METHOD_INFO._default)}</div>
-    <table class="pi-methtable"><thead><tr><th>Method</th><th>What it is</th><th>Crew / plant</th><th>Speed / use</th></tr></thead><tbody>${METHOD_ROWS.map(m => `<tr class="${m[0] === meth ? 'on' : ''}"><td><b>${escapeHtml(m[0])}</b></td><td>${escapeHtml(m[1])}</td><td>${escapeHtml(m[2])}</td><td>${escapeHtml(m[3])}</td></tr>`).join('')}</tbody></table>
-    <div class="pi-methnote">The library holds one norm per work item, not one per methodology. To price a method, type <b>your factor</b> beside Methodology above — the rates, man-hours and duration follow it. (The Project type already changes the rate by itself.)</div></div>`;
+  // Methodology — the three estimates side by side; click one to use it
+  const methodCard = renderEstimates(r);
 
   main.innerHTML = `
     <div class="pi-card pi-pad">
@@ -414,6 +400,7 @@ function renderResult() {
 
   wireCompQty();
   renderRail(r);
+  document.querySelectorAll('.pi-estrow').forEach(tr => tr.onclick = () => { _ctx['Methodology'] = tr.dataset.est; renderSelRow(); selectItem(_itemId); });
   document.querySelectorAll('.pi-ptrow').forEach(tr => tr.onclick = () => { _ctx['Project type'] = tr.dataset.pt; renderSelRow(); selectItem(_itemId); });
   wireWhatIf(r);
   buildPrint(r);
@@ -421,9 +408,10 @@ function renderResult() {
 
 // One line under the item title: what each setting did to the rate.
 function settingsLine(r) {
-  const rows = (r.context_ledger || []).filter(f => FACTOR_DIMS.includes(f.factor));
+  const rows = (r.context_ledger || []).filter(f => FACTOR_DIMS.includes(f.factor) || f.source === 'estimate');
   const chips = rows.map(f => f.source === 'user' && f.multiplier !== 1
     ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${f.multiplier}</b> your factor${typeof f.builtin === 'number' ? ` (built-in ×${f.builtin.toFixed(2)})` : ''}</span>`
+    : f.source === 'estimate' ? `<span class="pi-setchip ${f.applied ? 'on' : ''}">${escapeHtml(f.factor)} · <b>${escapeHtml(f.choice || '')}</b> estimate</span>`
     : f.source === 'builtin' ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${Number(f.multiplier).toFixed(2)}</b> built-in · ${escapeHtml(f.group || '')}</span>`
     : f.applied ? `<span class="pi-setchip on">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} <b>×${f.multiplier}</b> ${escapeHtml(f.evidence || '')}</span>`
     : `<span class="pi-setchip">${escapeHtml(f.factor)} · ${escapeHtml(f.choice || '')} — no factor, library norm</span>`).join('');
@@ -499,6 +487,30 @@ function renderP6(r) {
     </div></div>`;
 }
 
+// Methodology — Optimistic / Most likely / Pessimistic side by side (owner, on comment 62: the
+// method that needs the higher duration is Pessimistic, the lower one Optimistic, the middle one
+// Most likely). Click a row to use that estimate.
+export function estimateRows(r) { return (r && r.estimates || []).filter(x => x && x.estimate); }
+function renderEstimates(r) {
+  const rows = estimateRows(r);
+  if (!rows.length) return '';
+  const hasQ = r.has_quantity, lead = rows.find(x => x.component) || {};
+  const cls = { 'Optimistic': 'o', 'Most likely': 'm', 'Pessimistic': 'p' };
+  const body = rows.map(x => `<tr class="pi-estrow ${x.chosen ? 'on' : ''}" data-est="${escapeHtml(x.estimate)}" title="Click to use the ${escapeHtml(x.estimate)} estimate">
+      <td><span class="pi-estpill ${cls[x.estimate] || 'm'}">${escapeHtml(x.estimate)}</span>${x.chosen ? ' <span class="pi-estused">◀ used</span>' : ''}</td>
+      <td class="pi-estwhen">${escapeHtml(x.when || '')}</td>
+      <td class="n">${x.output_per_day != null ? num(x.output_per_day) : '—'}</td>
+      <td class="n">${x.mh_per_unit != null ? x.mh_per_unit : '—'}</td>
+      ${hasQ ? `<td class="n">${num(x.total_mh)}</td><td class="n">${x.duration_days != null ? x.duration_days + ' days' : '—'}</td>` : ''}</tr>`).join('');
+  return `<div class="pi-card pi-ptcard"><div class="pi-pthead"><h3>Methodology — Optimistic, Most likely, Pessimistic</h3>
+      <span class="pi-ptsub">the estimate in use: <b>${escapeHtml(r.estimate || 'Most likely')}</b> · click a row to use another</span></div>
+    <table class="pi-pttbl"><thead><tr><th>Estimate</th><th>When it applies</th>
+      <th class="n">Output per day${lead.component ? ` — ${escapeHtml(lead.component)} (${escapeHtml(lead.output_unit || '')})` : ''}</th>
+      <th class="n">Man-hours per ${escapeHtml(lead.unit || 'unit')}</th>
+      ${hasQ ? `<th class="n">Total man-hours</th><th class="n">Duration</th>` : ''}</tr></thead><tbody>${body}</tbody></table>
+    <div class="pi-ptfoot">Optimistic needs the lowest duration, Pessimistic the highest, Most likely is the library norm. The three rates are this work item's own figures from the library; the project-type factor is already inside them.</div></div>`;
+}
+
 // The same work item on EVERY project type (owner comment 62): the built-in factor and what it
 // does to the output per day, the man-hours per unit, the total man-hours and the duration.
 // Click a row to switch the project type.
@@ -527,7 +539,7 @@ function renderByProjectType(r) {
 }
 
 function renderBasis(r) {
-  const ledger = (r.context_ledger || []).filter(f => f.choice || f.applied).map(f => `<div class="pi-lrow ${f.applied ? '' : 'na'}"><span>${escapeHtml(f.factor)}${f.choice ? ' · ' + escapeHtml(f.choice) : ''}</span><span>${f.applied ? '×' + f.multiplier + ' — ' + escapeHtml(f.evidence || '') : escapeHtml(f.source === 'user' ? '×1 — your factor' : (f.evidence || 'not adjusted'))}</span></div>`).join('')
+  const ledger = (r.context_ledger || []).filter(f => f.choice || f.applied).map(f => `<div class="pi-lrow ${f.applied ? '' : 'na'}"><span>${escapeHtml(f.factor)}${f.choice ? ' · ' + escapeHtml(f.choice) : ''}</span><span>${f.source === 'estimate' ? escapeHtml(f.evidence || '') : f.applied ? '×' + f.multiplier + ' — ' + escapeHtml(f.evidence || '') : escapeHtml(f.source === 'user' ? '×1 — your factor' : f.source === 'builtin' ? '×1.00 — ' + (f.evidence || '') : (f.evidence || 'not adjusted'))}</span></div>`).join('')
     + (r.context_net != null && r.context_net !== 1 ? `<div class="pi-lrow"><span><b>All factors together</b></span><span><b>×${r.context_net}</b> on man-hours · output per day ÷ ${r.context_net}</span></div>` : '');
   const pi = `<div class="pi-card pi-pad"><h3 class="pi-h3">Productivity intelligence</h3>
     <div class="pi-dl"><span>Primary unit</span><b>${escapeHtml(r.primary_unit || '')}</b></div>

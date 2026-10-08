@@ -133,7 +133,9 @@ def _prodintel_excel_sections(r):
     for row in (r.get('context_ledger') or []):
         if not (row.get('choice') or row.get('applied')):
             continue
-        if row.get('applied') or row.get('source') in ('user', 'builtin'):
+        if row.get('source') == 'estimate':
+            txt = row.get('evidence') or ''
+        elif row.get('applied') or row.get('source') in ('user', 'builtin'):
             txt = 'x%s — %s' % (row.get('multiplier'), row.get('evidence') or '')
         else:
             txt = row.get('evidence') or 'not adjusted'
@@ -205,6 +207,15 @@ def _prodintel_excel_sections(r):
                 p6_r.append([name, 'Material', '%s %s' % (round(val['qty']), (val['unit'] or '').split('/')[0]), '—'])
         if p6_r:
             sections.append(('Assign in P6', ['Resource', 'P6 type', 'Budgeted units', 'Units/time'], p6_r))
+    est_rows = [[x.get('estimate') + (' (used)' if x.get('chosen') else ''), x.get('when'), dash(x.get('output_per_day')),
+                 dash(x.get('mh_per_unit')), dash(x.get('total_mh')) if hasq else '—',
+                 dash(x.get('duration_days')) if hasq else '—'] for x in (r.get('estimates') or [])]
+    if est_rows:
+        el = next((x for x in (r.get('estimates') or []) if x.get('component')), {})
+        sections.insert(2, ('Methodology',
+                            ['Estimate', 'When it applies',
+                             'Output per day - %s (%s)' % (el.get('component') or 'leading component', el.get('output_unit') or ''),
+                             'Man-hours per %s' % (el.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], est_rows))
     if pt_rows:
         sections.insert(2, ('By project type',
                             ['Project type', 'Built-in factor',

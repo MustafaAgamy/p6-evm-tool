@@ -143,14 +143,15 @@ def test_primary_quantity_still_derives_all():
 # ── Owner comments 37 / 61 / 62: the settings change the rate ───────────────────────────
 #   61  there is no Location setting (the tool is used in Egypt)
 #   62  the Project type changes the rate BY ITSELF: a built-in factor per project type and trade
-#   37  the planner's own factor (Project type / Methodology) replaces it and is labelled as his
+#   62  Methodology = the estimate used: Optimistic (lowest duration) / Most likely / Pessimistic
+#   37  the planner's own Project-type factor replaces the built-in one and is labelled as his
 
 RC = "civil.structural.concrete.rc_column"
 PLASTER = "architectural.finishes.plaster.internal_plaster"
 
 
 def _q(factors=None, item=RC, **ctx):
-    c = {"Project type": "Commercial", "Methodology": "Jump-form"}
+    c = {"Project type": "Commercial", "Methodology": "Most likely"}
     c.update(ctx)
     if factors is not None:
         c["factors"] = factors
@@ -232,29 +233,65 @@ def test_an_item_can_carry_its_own_number_instead_of_its_trade_groups(monkeypatc
     assert kb.builtin_project_factor(it, "Hospital")[0] == 1.2            # the group's
 
 
-def test_methodology_has_no_builtin_factor_and_says_so():
-    r = _q()
-    row = {x["factor"]: x for x in r["context_ledger"]}["Methodology"]
-    assert row["applied"] is False and row["source"] == "none" and "insufficient evidence" in row["evidence"]
-    assert all(c["rate"]["adjusted"] is False for c in r["components"] if c.get("rate"))   # Commercial x1.00
+def test_methodology_is_the_estimate_optimistic_most_likely_pessimistic():
+    """Owner: "the method that needs the higher duration is Pessimistic, the one that needs the
+    lower duration is Optimistic, and the average one is Most likely"."""
+    assert [n for n, _, _ in engine.ESTIMATES] == ["Optimistic", "Most likely", "Pessimistic"]
+    o, m, p = (_q(Methodology=n) for n in ("Optimistic", "Most likely", "Pessimistic"))
+    assert o["rollup"]["duration_days"] < m["rollup"]["duration_days"] < p["rollup"]["duration_days"]
+    assert o["rollup"]["total_mh"] < m["rollup"]["total_mh"] < p["rollup"]["total_mh"]
+    fw = lambda r: {c["component_id"]: c for c in r["components"]}["formwork"]["rate"]
+    # each estimate is the work item's OWN low / likely / high rate from the library
+    assert (fw(o)["mh_per_unit"], fw(m)["mh_per_unit"], fw(p)["mh_per_unit"]) == (1.3, 1.6, 2.0)
+    assert fw(o)["output_per_day"] > fw(m)["output_per_day"] > fw(p)["output_per_day"]
+    assert m["context_net"] == 1.0 and all(c["rate"]["adjusted"] is False for c in m["components"] if c.get("rate"))
+    # Most likely = exactly the totals the range already showed as low / high
+    assert o["rollup"]["total_mh"] == m["rollup"]["total_mh_low"]
+    assert p["rollup"]["total_mh"] == m["rollup"]["total_mh_high"]
+    row = {x["factor"]: x for x in p["context_ledger"]}["Methodology"]
+    assert row["choice"] == "Pessimistic" and row["source"] == "estimate" and "longest duration" in row["evidence"]
+    # an old saved 'Conventional' / blank reads as Most likely
+    for old in ("Conventional", "Jump-form", "", None):
+        r = _q(Methodology=old)
+        assert r["estimate"] == "Most likely" and r["rollup"]["total_mh"] == m["rollup"]["total_mh"]
 
 
-def test_each_setting_factor_changes_rate_manhours_and_duration():
+def test_the_three_estimates_are_shown_side_by_side():
+    r = _q(Methodology="Optimistic")
+    rows = {x["estimate"]: x for x in r["estimates"]}
+    assert list(rows) == ["Optimistic", "Most likely", "Pessimistic"]
+    assert rows["Optimistic"]["chosen"] and not rows["Most likely"]["chosen"]
+    assert rows["Optimistic"]["total_mh"] == r["rollup"]["total_mh"]
+    assert rows["Optimistic"]["duration_days"] < rows["Most likely"]["duration_days"] < rows["Pessimistic"]["duration_days"]
+    assert all(x["when"] for x in rows.values())
+
+
+def test_estimate_and_project_type_work_together():
+    base = _q()
+    r = _q(Methodology="Pessimistic", **{"Project type": "Industrial"})          # x1.10 on the hard case
+    fw0 = {c["component_id"]: c for c in base["components"]}["formwork"]
+    fw = {c["component_id"]: c for c in r["components"]}["formwork"]
+    assert fw["rate"]["mh_per_unit"] == round(2.0 * 1.1, 2)
+    assert fw["man_hours"] == round(fw0["man_hours"] * 2.0 / 1.6 * 1.1)
+    # the project-type table keeps the chosen estimate; the estimate table keeps the project type
+    assert {x["project_type"]: x for x in r["project_type_rates"]}["Industrial"]["total_mh"] == r["rollup"]["total_mh"]
+    assert {x["estimate"]: x for x in r["estimates"]}["Pessimistic"]["total_mh"] == r["rollup"]["total_mh"]
+
+
+def test_the_project_type_factor_changes_rate_manhours_and_duration():
     base = _q()
     fw0 = {c["component_id"]: c for c in base["components"]}["formwork"]
-    for dim in ("Project type", "Methodology"):
-        r = _q({dim: 1.25})
-        fw = {c["component_id"]: c for c in r["components"]}["formwork"]
-        assert r["context_net"] == 1.25, dim
-        assert fw["rate"]["adjusted"] is True and fw["rate"]["factor"] == 1.25
-        assert fw["rate"]["output_per_day"] == round(fw0["rate"]["output_per_day"] / 1.25, 2)     # slower crew
-        assert fw["rate"]["mh_per_unit"] == round(fw0["rate"]["mh_per_unit"] * 1.25, 2)
-        assert fw["rate"]["output_per_day_base"] == fw0["rate"]["output_per_day"]                # the norm is kept
-        assert fw["man_hours"] == round(fw0["man_hours"] * 1.25)
-        assert fw["duration_days"] == round(fw0["duration_days"] * 1.25, 1)                      # duration follows
-        assert r["rollup"]["total_mh"] > base["rollup"]["total_mh"]
-        row = {x["factor"]: x for x in r["context_ledger"]}[dim]
-        assert row["applied"] is True and row["source"] == "user" and "entered by you" in row["evidence"]
+    r = _q({"Project type": 1.25})
+    fw = {c["component_id"]: c for c in r["components"]}["formwork"]
+    assert r["context_net"] == 1.25
+    assert fw["rate"]["adjusted"] is True and fw["rate"]["factor"] == 1.25
+    assert fw["rate"]["output_per_day"] == round(fw0["rate"]["output_per_day"] / 1.25, 2)     # slower crew
+    assert fw["rate"]["mh_per_unit"] == round(fw0["rate"]["mh_per_unit"] * 1.25, 2)
+    assert fw["rate"]["output_per_day_base"] == fw0["rate"]["output_per_day"]                # the norm is kept
+    assert fw["man_hours"] == round(fw0["man_hours"] * 1.25)
+    assert fw["duration_days"] == round(fw0["duration_days"] * 1.25, 1)                      # duration follows
+    row = r["context_ledger"][0]
+    assert row["applied"] is True and row["source"] == "user" and "entered by you" in row["evidence"]
 
 
 def test_the_planners_factor_replaces_the_builtin_one():
@@ -263,24 +300,16 @@ def test_the_planners_factor_replaces_the_builtin_one():
     assert r["context_net"] == 1.4 and row["source"] == "user" and row["builtin"] == 1.18
 
 
-def test_factors_multiply_together_and_a_faster_factor_shortens():
-    r = _q({"Project type": 1.25, "Methodology": 0.8})
-    assert r["context_net"] == 1.0                               # 1.25 x 0.8
-    fast = _q({"Methodology": 0.8})
-    assert fast["rollup"]["duration_days"] < _q()["rollup"]["duration_days"]
-    assert fast["rollup"]["total_mh"] < _q()["rollup"]["total_mh"]
-    both = _q({"Methodology": 0.8}, **{"Project type": "Industrial"})     # built-in x your factor
-    assert both["context_net"] == round(1.1 * 0.8, 3)
-
-
 def test_a_bad_factor_is_ignored_and_reported_never_applied():
     for bad in (9, 0.05, "abc", -1):
-        r = _q({"Methodology": bad})
-        row = {x["factor"]: x for x in r["context_ledger"]}["Methodology"]
+        r = _q({"Project type": bad})
+        row = r["context_ledger"][0]
         assert r["context_net"] == 1.0 and row["applied"] is False, bad
         assert "ignored" in row["evidence"], bad
-    assert _q({"Methodology": ""})["context_net"] == 1.0
-    assert _q({"Methodology": 1})["context_net"] == 1.0
+    assert _q({"Project type": ""})["context_net"] == 1.0
+    assert _q({"Project type": 1})["context_net"] == 1.0
+    # a typed factor for Methodology (older saved settings) is no longer a thing: it is ignored
+    assert _q({"Methodology": 0.5})["rollup"]["total_mh"] == _q()["rollup"]["total_mh"]
 
 
 def test_project_type_applicability_is_reported():
@@ -304,14 +333,16 @@ def test_a_factor_inside_a_library_item_needs_evidence():
 
 def test_excel_summary_lists_the_factors_and_the_rates_database():
     import server
-    r = _q({"Methodology": 0.9}, **{"Project type": "Industrial"})
+    r = _q(Methodology="Optimistic", **{"Project type": "Industrial"})
     sheets = server._prodintel_excel_sections(r)
     summary = dict((row[0], row[1]) for row in sheets[0]["blocks"][0]["rows"])
     assert summary["Factor · Project type (Industrial)"].startswith("x1.1 — built-in factor for Concrete structure")
-    assert summary["Factor · Methodology (Jump-form)"].startswith("x0.9")
-    assert summary["All factors together"].startswith("x0.99")
+    assert summary["Factor · Methodology (Optimistic)"].startswith("Optimistic estimate")
+    assert summary["All factors together"].startswith("x1.1")
     names = [sh["name"] for sh in sheets]
-    assert "By project type" in names and names[-1] == "Rates database"
+    assert "By project type" in names and "Methodology" in names and names[-1] == "Rates database"
+    meth = next(sh for sh in sheets if sh["name"] == "Methodology")["blocks"][0]
+    assert [row[0] for row in meth["rows"]] == ["Optimistic (used)", "Most likely", "Pessimistic"]
     bpt = next(sh for sh in sheets if sh["name"] == "By project type")["blocks"][0]
     assert [row[0] for row in bpt["rows"]][:2] == ["Residential", "Commercial"]
     assert any(row[0] == "Industrial (chosen)" for row in bpt["rows"])
