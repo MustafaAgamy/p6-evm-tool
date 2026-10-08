@@ -1,0 +1,176 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.stormwater_drainage.rc_box_culvert_cast_in_situ",
+  "discipline": "Infrastructure",
+  "work_type": "Stormwater Drainage",
+  "system": "Stormwater Drainage",
+  "item": "RC Box Culvert (cast in-situ)",
+  "aliases": [
+    "box culvert",
+    "culvert"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m3",
+  "why": "Reinforced-concrete box culvert cast in place: base slab, walls and top slab.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "formwork",
+      "name": "Formwork",
+      "unit": "m2",
+      "qty_per_primary": 4.0,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 2.29,
+        "low": 1.83,
+        "likely": 2.29,
+        "high": 2.86,
+        "output_per_day": 14,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Carpenter",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Plywood & timber",
+          "qty_per_unit": 1,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "rebar",
+      "name": "Reinforcement",
+      "unit": "t",
+      "qty_per_primary": 0.13,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 35.56,
+        "low": 28.45,
+        "likely": 35.56,
+        "high": 44.45,
+        "output_per_day": 0.9,
+        "output_unit": "t/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Fixer",
+          "count": 2
+        },
+        {
+          "trade": "Helper",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Rebar",
+          "qty_per_unit": 1.03,
+          "unit": "t/t"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "concrete",
+      "name": "Concrete pouring",
+      "unit": "m3",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.9,
+        "low": 0.72,
+        "likely": 0.9,
+        "high": 1.125,
+        "output_per_day": 80,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Mason",
+          "count": 3
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        },
+        {
+          "trade": "Vibrator operator",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete pump",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ready-mix concrete",
+          "qty_per_unit": 1.03,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

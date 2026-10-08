@@ -1,0 +1,147 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.sewer_network.upvc_gravity_sewer_dn200_dn400",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
+  "item": "uPVC Gravity Sewer DN200–DN400",
+  "aliases": [
+    "sewer line",
+    "gravity sewer",
+    "foul sewer"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying uPVC gravity sewer to line and level on granular bedding in an open trench.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "bedding",
+      "name": "Granular bedding & surround",
+      "unit": "m3",
+      "qty_per_primary": 0.18,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.8,
+        "low": 0.64,
+        "likely": 0.8,
+        "high": 1.0,
+        "output_per_day": 30,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Granular bedding",
+          "qty_per_unit": 1.15,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "laying",
+      "name": "Pipe laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.667,
+        "low": 0.534,
+        "likely": 0.667,
+        "high": 0.834,
+        "output_per_day": 60,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Pipe laser",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "uPVC sewer pipe",
+          "qty_per_unit": 1.0,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

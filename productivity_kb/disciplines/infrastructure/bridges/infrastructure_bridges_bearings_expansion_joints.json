@@ -1,0 +1,83 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.bridges.bearings_expansion_joints",
+  "discipline": "Infrastructure",
+  "work_type": "Bridges",
+  "system": "Bridges",
+  "item": "Bearings & Expansion Joints",
+  "aliases": [
+    "expansion joint",
+    "bridge bearing"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Setting bridge bearings and installing the expansion joint with its nosing.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "joint",
+      "name": "Expansion joint installation",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 5.0,
+        "low": 4.0,
+        "likely": 5.0,
+        "high": 6.25,
+        "output_per_day": 8,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Steel Erector",
+          "count": 2
+        },
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [],
+      "material": [
+        {
+          "name": "Expansion joint",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

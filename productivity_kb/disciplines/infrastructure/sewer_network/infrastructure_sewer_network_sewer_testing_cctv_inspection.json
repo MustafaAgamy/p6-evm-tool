@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.sewer_network.sewer_testing_cctv_inspection",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
+  "item": "Sewer Testing & CCTV Inspection",
+  "aliases": [
+    "CCTV",
+    "air test",
+    "leak test"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Air / water tightness test and CCTV survey of a completed sewer length.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "testing",
+      "name": "Leak test & CCTV",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.08,
+        "low": 0.064,
+        "likely": 0.08,
+        "high": 0.1,
+        "output_per_day": 400,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Technician",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "CCTV crawler unit",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Test plugs & blower",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

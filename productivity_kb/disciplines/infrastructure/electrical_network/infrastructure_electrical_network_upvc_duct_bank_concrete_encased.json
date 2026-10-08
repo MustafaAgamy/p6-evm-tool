@@ -1,0 +1,90 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.electrical_network.upvc_duct_bank_concrete_encased",
+  "discipline": "Infrastructure",
+  "work_type": "Electrical Network",
+  "system": "Electrical Network",
+  "item": "uPVC Duct Bank (concrete encased)",
+  "aliases": [
+    "duct bank",
+    "road crossing ducts"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying uPVC ducts on spacers and encasing them in concrete, with draw wire.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "ducts",
+      "name": "Duct laying & concrete encasement",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.96,
+        "low": 0.768,
+        "likely": 0.96,
+        "high": 1.2,
+        "output_per_day": 50,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 1
+        },
+        {
+          "trade": "Mason",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Concrete mixer truck (shared)",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "uPVC ducts & spacers",
+          "qty_per_unit": 4,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

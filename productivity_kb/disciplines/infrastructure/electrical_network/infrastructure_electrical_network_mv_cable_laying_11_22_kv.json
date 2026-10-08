@@ -1,0 +1,103 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.electrical_network.mv_cable_laying_11_22_kv",
+  "discipline": "Infrastructure",
+  "work_type": "Electrical Network",
+  "system": "Electrical Network",
+  "item": "MV Cable Laying 11 / 22 kV",
+  "aliases": [
+    "medium voltage cable",
+    "11kV cable",
+    "22kV cable"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Pulling medium-voltage XLPE cable in a trench or duct on rollers, with dressing.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "pulling",
+      "name": "Cable pulling & dressing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.18,
+        "low": 0.144,
+        "likely": 0.18,
+        "high": 0.225,
+        "output_per_day": 400,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Cable Jointer",
+          "count": 1
+        },
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 6
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Cable winch",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Cable rollers",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Drum jack",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "MV cable",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.water_network.fire_hydrant",
+  "discipline": "Infrastructure",
+  "work_type": "Water Network",
+  "system": "Water Network",
+  "item": "Fire Hydrant",
+  "aliases": [
+    "pillar hydrant",
+    "hydrant"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Hydrant tee, riser, hydrant and thrust block on the water main.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "hydrant",
+      "name": "Hydrant installation",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 10.67,
+        "low": 8.54,
+        "likely": 10.67,
+        "high": 13.34,
+        "output_per_day": 3,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipe Fitter",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Small excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Fire hydrant set",
+          "qty_per_unit": 1,
+          "unit": "no/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

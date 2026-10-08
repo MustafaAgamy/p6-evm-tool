@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.asphalt.asphalt_paving",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Asphalt",
+  "system": "Roads",
   "item": "Asphalt Paving (binder + wearing course)",
   "aliases": [
     "asphalt",

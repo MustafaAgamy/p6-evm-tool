@@ -1,0 +1,141 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.water_network.ductile_iron_water_main_dn300_dn600",
+  "discipline": "Infrastructure",
+  "work_type": "Water Network",
+  "system": "Water Network",
+  "item": "Ductile Iron Water Main DN300–DN600",
+  "aliases": [
+    "DI pipe",
+    "water main",
+    "transmission main"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying push-fit ductile iron water main in an open trench with bedding, jointing and thrust blocks.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "bedding",
+      "name": "Sand bedding & surround",
+      "unit": "m3",
+      "qty_per_primary": 0.35,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.914,
+        "low": 0.731,
+        "likely": 0.914,
+        "high": 1.143,
+        "output_per_day": 35,
+        "output_unit": "m3/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Sand",
+          "qty_per_unit": 1.15,
+          "unit": "m3/m3"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "laying",
+      "name": "Pipe laying & jointing",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 1.17,
+        "low": 0.94,
+        "likely": 1.17,
+        "high": 1.46,
+        "output_per_day": 48,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Pipelayer",
+          "count": 2
+        },
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator / side boom",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Ductile iron pipe",
+          "qty_per_unit": 1.0,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

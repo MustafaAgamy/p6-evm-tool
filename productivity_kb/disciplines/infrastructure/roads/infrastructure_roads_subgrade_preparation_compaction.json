@@ -1,0 +1,97 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.roads.subgrade_preparation_compaction",
+  "discipline": "Infrastructure",
+  "work_type": "Roads",
+  "system": "Roads",
+  "item": "Subgrade Preparation & Compaction",
+  "aliases": [
+    "subgrade",
+    "formation level",
+    "road bed"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Trimming, watering and compacting the road subgrade to level and density before the pavement layers.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "subgrade",
+      "name": "Subgrade trimming & compaction",
+      "unit": "m2",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.016,
+        "low": 0.013,
+        "likely": 0.016,
+        "high": 0.02,
+        "output_per_day": 2500,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Grader Operator",
+          "count": 1
+        },
+        {
+          "trade": "Roller Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Motor grader",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Vibratory roller",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Water tanker",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

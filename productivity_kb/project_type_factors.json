@@ -15,20 +15,12 @@
   "groups": [
     {
       "key": "earthworks",
-      "label": "Earthworks, roads & drainage",
-      "why": "Machine-driven work: fastest on open infrastructure sites and simple housing plots; slower inside working plants, beside the sea and on airside.",
+      "label": "Earthworks",
+      "why": "Machine-driven work: fastest on open sites and simple housing plots; slower inside working plants, beside the sea and on airside.",
       "match": [
         [
           "Civil",
           "Earthworks"
-        ],
-        [
-          "Civil",
-          "Roads"
-        ],
-        [
-          "Civil",
-          "Drainage"
         ]
       ],
       "factors": {
@@ -41,6 +33,28 @@
         "Marine/Port": 1.2,
         "Airport": 1.08,
         "Power Plant": 1.1
+      }
+    },
+    {
+      "key": "infrastructure",
+      "label": "Infrastructure — roads, networks & bridges",
+      "why": "Road and utility-network work is fastest on open infrastructure corridors; slower inside built-up plots, live plants, ports and airside, where space, permits and existing services slow the crews.",
+      "match": [
+        [
+          "Infrastructure",
+          "*"
+        ]
+      ],
+      "factors": {
+        "Residential": 0.97,
+        "Commercial": 1.0,
+        "Hospital": 1.04,
+        "Industrial": 1.06,
+        "Infrastructure": 0.92,
+        "Oil & Gas": 1.16,
+        "Marine/Port": 1.2,
+        "Airport": 1.1,
+        "Power Plant": 1.12
       }
     },
     {

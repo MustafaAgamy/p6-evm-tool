@@ -1,0 +1,97 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.gas_network.pe_gas_pipeline_dn63_dn180",
+  "discipline": "Infrastructure",
+  "work_type": "Gas Network",
+  "system": "Gas Network",
+  "item": "PE Gas Pipeline DN63–DN180",
+  "aliases": [
+    "gas main",
+    "PE pipe",
+    "natural gas network"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Laying electro-fused PE natural-gas distribution pipe in a trench with sand bedding and warning tape.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "laying",
+      "name": "Pipe fusion & laying",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.267,
+        "low": 0.214,
+        "likely": 0.267,
+        "high": 0.334,
+        "output_per_day": 150,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Fusion Welder",
+          "count": 1
+        },
+        {
+          "trade": "Pipelayer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Electro-fusion machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Small excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "PE gas pipe",
+          "qty_per_unit": 1.02,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

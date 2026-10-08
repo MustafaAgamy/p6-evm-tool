@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.drainage.manholes.precast_manhole",
-  "discipline": "Civil",
-  "work_type": "Drainage",
-  "system": "Manholes",
+  "discipline": "Infrastructure",
+  "work_type": "Sewer Network",
+  "system": "Sewer Network",
   "item": "Precast Concrete Manhole",
   "aliases": [
     "manhole",

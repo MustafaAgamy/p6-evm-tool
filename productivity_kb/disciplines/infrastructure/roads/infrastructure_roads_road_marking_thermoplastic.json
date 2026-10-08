@@ -1,0 +1,87 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.roads.road_marking_thermoplastic",
+  "discipline": "Infrastructure",
+  "work_type": "Roads",
+  "system": "Roads",
+  "item": "Road Marking (thermoplastic)",
+  "aliases": [
+    "lane marking",
+    "thermoplastic",
+    "road lines"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Thermoplastic road lines applied by machine after setting out and surface cleaning.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "marking",
+      "name": "Line marking",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.013,
+        "low": 0.01,
+        "likely": 0.013,
+        "high": 0.016,
+        "output_per_day": 2500,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Marking Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Thermoplastic marking machine",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Thermoplastic paint",
+          "qty_per_unit": 0.5,
+          "unit": "kg/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

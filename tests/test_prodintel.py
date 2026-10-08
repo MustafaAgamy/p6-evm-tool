@@ -331,7 +331,7 @@ def test_a_factor_inside_a_library_item_needs_evidence():
     assert "general construction practice" in kb.project_type_factors()["note"].lower()
 
 
-def test_excel_summary_lists_the_factors_and_the_rates_database():
+def test_excel_summary_lists_the_factors_and_has_no_rates_database_sheet():
     import server
     r = _q(Methodology="Optimistic", **{"Project type": "Industrial"})
     sheets = server._prodintel_excel_sections(r)
@@ -340,11 +340,36 @@ def test_excel_summary_lists_the_factors_and_the_rates_database():
     assert summary["Factor · Methodology (Optimistic)"].startswith("Optimistic estimate")
     assert summary["All factors together"].startswith("x1.1")
     names = [sh["name"] for sh in sheets]
-    assert "By project type" in names and "Methodology" in names and names[-1] == "Rates database"
+    assert "By project type" in names and "Methodology" in names
+    assert "Rates database" not in names                       # left out of the Excel export (owner)
     meth = next(sh for sh in sheets if sh["name"] == "Methodology")["blocks"][0]
     assert [row[0] for row in meth["rows"]] == ["Optimistic (used)", "Most likely", "Pessimistic"]
     bpt = next(sh for sh in sheets if sh["name"] == "By project type")["blocks"][0]
     assert [row[0] for row in bpt["rows"]][:2] == ["Residential", "Commercial"]
     assert any(row[0] == "Industrial (chosen)" for row in bpt["rows"])
-    db = sheets[-1]["blocks"][0]
-    assert db["headers"][-9:] == kb.project_types() and len(db["rows"]) == len(kb.load_items())
+
+
+def test_the_library_has_an_infrastructure_discipline():
+    """Owner: "there is no productivity rates for infrastructure works" - roads and every utility
+    network are work items of their own discipline, each with rates and the three estimates."""
+    tree = {d["name"]: d for d in kb.build_tree()}
+    inf = tree["Infrastructure"]
+    systems = {s["name"]: len(s["items"]) for s in inf["systems"]}
+    for name in ("Roads", "Water Network", "Sewer Network", "Stormwater Drainage", "Irrigation Network",
+                 "Electrical Network", "Street Lighting", "Telecom Network", "Gas Network", "Bridges"):
+        assert systems.get(name), name
+    assert inf["count"] >= 45
+    for it in (i for i in kb.load_items() if i["discipline"] == "Infrastructure"):
+        assert kb.trade_group(it)["key"] == "infrastructure", it["item_id"]
+        for c in it["components"]:
+            r = c["rate"]
+            assert 0 < r["low"] < r["likely"] < r["high"] and r["output_per_day"] > 0, (it["item_id"], c["component_id"])
+            assert c["gang"], it["item_id"]
+    r = engine.query("infrastructure.water_network.hdpe_water_pipeline_dn110_dn315",
+                     context={"Project type": "Infrastructure"}, quantity=1000)
+    assert r["found"] and r["rollup"]["total_mh"] > 0 and r["rollup"]["duration_days"] > 0
+    est = {x["estimate"]: x["duration_days"] for x in r["estimates"]}
+    assert est["Optimistic"] < est["Most likely"] < est["Pessimistic"]
+    # fastest on an infrastructure corridor, slower inside a port
+    pt = {x["project_type"]: x["output_per_day"] for x in r["project_type_rates"]}
+    assert pt["Infrastructure"] > pt["Commercial"] > pt["Marine/Port"]

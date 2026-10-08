@@ -1,0 +1,91 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.electrical_network.distribution_substation_rmu_transformer",
+  "discipline": "Infrastructure",
+  "work_type": "Electrical Network",
+  "system": "Electrical Network",
+  "item": "Distribution Substation (RMU + transformer)",
+  "aliases": [
+    "kiosk substation",
+    "RMU",
+    "transformer"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Placing the ring main unit, transformer and LV panel on the prepared base, with cabling and earthing.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "install",
+      "name": "Equipment placing & connection",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 256.0,
+        "low": 204.8,
+        "likely": 256.0,
+        "high": 320.0,
+        "output_per_day": 0.25,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 3
+        },
+        {
+          "trade": "Rigger",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Mobile crane",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "RMU, transformer & LV panel",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

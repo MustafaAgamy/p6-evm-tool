@@ -1,0 +1,143 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.roads.interlock_paving_sidewalks_parking",
+  "discipline": "Infrastructure",
+  "work_type": "Roads",
+  "system": "Roads",
+  "item": "Interlock Paving (sidewalks & parking)",
+  "aliases": [
+    "interlock",
+    "paving blocks",
+    "sidewalk paving"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m2",
+  "why": "Laying interlocking concrete pavers on a sand bed, with edge restraints, cutting and joint sanding.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "sand_bed",
+      "name": "Sand bedding",
+      "unit": "m2",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.096,
+        "low": 0.077,
+        "likely": 0.096,
+        "high": 0.12,
+        "output_per_day": 250,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Paver Layer",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Bedding sand",
+          "qty_per_unit": 0.05,
+          "unit": "m3/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    },
+    {
+      "component_id": "pavers",
+      "name": "Paver laying & jointing",
+      "unit": "m2",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.667,
+        "low": 0.534,
+        "likely": 0.667,
+        "high": 0.834,
+        "output_per_day": 60,
+        "output_unit": "m2/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Paver Layer",
+          "count": 2
+        },
+        {
+          "trade": "Labourer",
+          "count": 3
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Block cutter",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Interlock pavers",
+          "qty_per_unit": 1.03,
+          "unit": "m2/m2"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

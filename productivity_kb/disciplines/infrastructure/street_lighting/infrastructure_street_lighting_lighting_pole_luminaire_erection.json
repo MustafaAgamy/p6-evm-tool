@@ -1,0 +1,91 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.street_lighting.lighting_pole_luminaire_erection",
+  "discipline": "Infrastructure",
+  "work_type": "Street Lighting",
+  "system": "Street Lighting",
+  "item": "Lighting Pole & Luminaire Erection",
+  "aliases": [
+    "street light",
+    "lighting column",
+    "luminaire"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "no",
+  "why": "Erecting the pole on its foundation, fixing the bracket and luminaire, wiring and connection.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "pole",
+      "name": "Pole erection & luminaire",
+      "unit": "no",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 4.0,
+        "low": 3.2,
+        "likely": 4.0,
+        "high": 5.0,
+        "output_per_day": 10,
+        "output_unit": "no/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Electrician",
+          "count": 2
+        },
+        {
+          "trade": "Crane Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 2
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Crane truck",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Pole, bracket & luminaire",
+          "qty_per_unit": 1,
+          "unit": "set/no"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}

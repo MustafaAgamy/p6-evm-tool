@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.kerbs_channels.precast_kerbs",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Kerbs & Channels",
+  "system": "Roads",
   "item": "Precast Concrete Kerbs",
   "aliases": [
     "kerbs",

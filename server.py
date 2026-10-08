@@ -222,22 +222,7 @@ def _prodintel_excel_sections(r):
                              'Output per day - %s (%s)' % (pt_lead.get('component') or 'leading component', pt_lead.get('output_unit') or ''),
                              'Man-hours per %s' % (pt_lead.get('unit') or 'unit'), 'Total man-hours', 'Duration (days)'], pt_rows))
     out = [{'name': n, 'blocks': [{'title': n, 'headers': h, 'rows': rows}]} for (n, h, rows) in sections]
-    # the whole library on every project type (owner comment 62) - one row per work item
-    try:
-        import p6_prodintel
-        types, db_rows = p6_prodintel.rates_database()
-        if db_rows:
-            out.append({'name': 'Rates database', 'blocks': [{
-                'title': 'Productivity rates of every work item, by project type',
-                'note': ('Output per crew-day of the leading component of each work item. Library norm x the built-in '
-                         'factor of its trade for the project type (general construction practice for work in Egypt, '
-                         'not measured on a specific project). A lower output = more man-hours per unit.'),
-                'headers': ['Discipline', 'Work type', 'Work item', 'Leading component', 'Unit', 'Trade group',
-                            'Library norm (output/day)'] + types,
-                'rows': [[x['discipline'], x['work_type'], x['item'], x['component'], x['output_unit'] or x['unit'],
-                          x['group'], dash(x['norm'])] + [dash(x['rates'].get(t)) for t in types] for x in db_rows]}]})
-    except Exception:
-        pass
+    # (no 'Rates database' sheet: the owner asked for it to be left out of the Excel export)
     return out
 
 

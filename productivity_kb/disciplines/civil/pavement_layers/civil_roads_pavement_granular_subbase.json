@@ -1,9 +1,9 @@
 {
   "schema": "productivity_kb.item/2.0",
   "item_id": "civil.roads.pavement.granular_subbase",
-  "discipline": "Civil",
+  "discipline": "Infrastructure",
   "work_type": "Roads",
-  "system": "Pavement Layers",
+  "system": "Roads",
   "item": "Granular Subbase Course",
   "aliases": [
     "subbase",

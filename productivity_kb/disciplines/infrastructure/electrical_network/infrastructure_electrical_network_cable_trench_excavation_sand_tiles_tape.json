@@ -1,0 +1,92 @@
+{
+  "schema": "productivity_kb.item/2.0",
+  "item_id": "infrastructure.electrical_network.cable_trench_excavation_sand_tiles_tape",
+  "discipline": "Infrastructure",
+  "work_type": "Electrical Network",
+  "system": "Electrical Network",
+  "item": "Cable Trench (excavation, sand, tiles, tape)",
+  "aliases": [
+    "cable trench",
+    "direct buried"
+  ],
+  "project_types": [
+    "Infrastructure",
+    "Industrial",
+    "Commercial",
+    "Residential",
+    "Hospital",
+    "Oil & Gas",
+    "Marine/Port",
+    "Airport",
+    "Power Plant"
+  ],
+  "primary_unit": "m",
+  "why": "Trench for buried cables: excavation, sand bedding, protection tiles, warning tape and backfilling.",
+  "assumptions": [
+    "Normal ground and access",
+    "Single 8 hr/day shift",
+    "Materials delivered beside the work"
+  ],
+  "exclusions": [
+    "Design, permits and traffic management",
+    "Testing & commissioning unless stated"
+  ],
+  "components": [
+    {
+      "component_id": "trench",
+      "name": "Trench, bedding & protection",
+      "unit": "m",
+      "qty_per_primary": 1,
+      "default_gangs": 1,
+      "rate": {
+        "mh_per_unit": 0.5,
+        "low": 0.4,
+        "likely": 0.5,
+        "high": 0.625,
+        "output_per_day": 80,
+        "output_unit": "m/crew·day"
+      },
+      "gang": [
+        {
+          "trade": "Excavator Operator",
+          "count": 1
+        },
+        {
+          "trade": "Labourer",
+          "count": 4
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Excavator",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        },
+        {
+          "name": "Plate compactor",
+          "basis": "count",
+          "value": 1,
+          "unit": "no"
+        }
+      ],
+      "material": [
+        {
+          "name": "Sand & cable tiles",
+          "qty_per_unit": 1,
+          "unit": "m/m"
+        }
+      ],
+      "provenance": {
+        "source": "built_in_kb",
+        "source_type": "Industry reference",
+        "basis": "General construction practice for infrastructure work in Egypt",
+        "confidence": "draft",
+        "records": 0,
+        "projects": [],
+        "period": "Built-in reference",
+        "valid_for": "Normal site conditions, single 8 hr shift - validate with your own records"
+      }
+    }
+  ]
+}
