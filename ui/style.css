@@ -4337,8 +4337,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wg .wg-dm { top: 11px; width: 9px; height: 9px; margin-left: -5px; transform: rotate(45deg); background: #1f3a68; }
 .wg .wg-lb { top: 9px; font: 700 10.5px/14px ui-monospace, monospace; color: #b91c1c; white-space: nowrap; }
 .wg .wg-lb.t { right: 3px; top: -3px; font-size: 9.5px; }
-:root:not(.light) .wg .wg-ln, :root:not(.light) .wg .wg-dm { background: #93b4ee; }
-:root:not(.light) .wg .wg-lb { color: #f87171; }
+:root:is([data-appearance="dark"], [data-appearance="midnight"], [data-appearance="blueprint"]) .wg:not(.gp-track) :is(.wg-ln, .wg-dm) { background: #93b4ee; }
+:root:is([data-appearance="dark"], [data-appearance="midnight"], [data-appearance="blueprint"]) .wg:not(.gp-track) .wg-lb { color: #f87171; }
 .gp-track.wg { height: 20px; background: #f8fafc !important; border-radius: 0; }
 .gp-track.wg .wg-bl { top: 2px; height: 4px; } .gp-track.wg .wg-ex, .gp-track.wg .wg-sl { top: 9px; height: 8px; }
 .gp-track.wg .wg-ln { top: 12px; } .gp-track.wg .wg-dm { top: 9px; width: 7px; height: 7px; margin-left: -4px; background: #1f3a68; }
