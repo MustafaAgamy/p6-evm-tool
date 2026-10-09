@@ -4197,3 +4197,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-howto ul { margin: 4px 0 0; padding-left: 0; list-style: none; } .uc-howto li { margin: 3px 0; display: flex; gap: 8px; align-items: baseline; }
 .uc-k { display: inline-block; width: 12px; height: 8px; border-radius: 2px; flex: 0 0 12px; } .uc-k.p { background: #f59e0b; } .uc-k.a { background: #1d4ed8; } .uc-k.t { background: #64748b; }
 .uc-tag { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: #dbeafe; color: #1e3a8a; padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: middle; }
+
+/* the dashboard tables fit the page (no sideways scroll): fixed layout, wrapped words, bordered cells */
+.uc-table { table-layout: fixed; width: 100%; border: 1px solid var(--border); border-collapse: collapse; }
+.uc-table th, .uc-table td { border: 1px solid var(--hair); white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.uc-table th { line-height: 1.2; } .uc-table th:first-child, .uc-table td:first-child { width: 15%; }
+.uc-table .uc-n { white-space: normal; overflow-wrap: anywhere; }
+.uc-panel { overflow-x: hidden; max-width: 100%; }
+.uc-badge.cl { border-color: #15803d; background: #f0fdf4; } .uc-badge.cl b { color: #14532d; } .uc-badge.cl em { color: #166534; } .uc-badge.cl .uc-seal { background: #15803d; }
+
+.g-banner { background: #fef3c7; border: 1px solid #f59e0b; color: #78350f; border-radius: 8px; padding: 8px 12px; margin: 8px 0 6px; font-size: 12.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.g-note { margin: 0 0 10px; }
+.gp-banner { background: #fef3c7; border: 1px solid #f59e0b; color: #78350f; border-radius: 6px; padding: 4px 10px; margin: 0 0 8px; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

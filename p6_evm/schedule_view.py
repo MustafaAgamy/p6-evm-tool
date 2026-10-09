@@ -474,6 +474,7 @@ def wbs_views(records, data):
 
 
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
+COST_LOADED_SHARE = 0.95      # a main WBS with this share of its activities cost loaded is measured by cost, not by count
 _STAGE_ORDER = ['Schematic', 'Detailed design', 'IFC', 'Shop Drawing', 'Shop drawing', 'As-Built']
 _STAGE_ALIAS = {'Detailed': 'Detailed design', 'Detailed Design': 'Detailed design', 'Material Submital': 'Material Submittal'}
 
@@ -513,6 +514,15 @@ def uncosted_progress(records, data):
             path_cache[wid] = [n for _, n in wbs_path(wid, wmap)] or ['(no WBS)']
         return path_cache[wid]
 
+    # a main WBS whose activities are (almost) all cost loaded is measured by COST, not by count: its
+    # Planned % / Actual % are the cost-loaded %, so it is left out of the count-based progress
+    tot_top = {}
+    for r in records:
+        t = tot_top.setdefault(names_of(r)[0], [0, 0])
+        t[0] += 1
+        t[1] += 1 if (r.get('bac') or 0) > 0 else 0
+    cost_wbs = sorted(k for k, (n, c) in tot_top.items() if n and c / n >= COST_LOADED_SHARE)
+    nocost = [r for r in nocost if names_of(r)[0] not in cost_wbs]
     by_top = {}
     for r in nocost:
         t = by_top.setdefault(names_of(r)[0], [0, 0])
@@ -617,7 +627,7 @@ def uncosted_progress(records, data):
                        'rows': [fin(k, rows[k]) for k in keys], 'total': fin('Total — ' + t.split(' — ')[0], tt)})
     head = fin('All activities without cost', total)
     head.update({'share': round(100.0 * total['n'] / len(records), 1) if records else None,
-                 'excluded_wbs': excluded_wbs, 'excluded_activities': excluded_n, 'milestones_excluded': ms_n})
+                 'cost_loaded_wbs': cost_wbs, 'excluded_wbs': excluded_wbs, 'excluded_activities': excluded_n, 'milestones_excluded': ms_n})
     return {'summary': head, 'tables': tables}
 
 

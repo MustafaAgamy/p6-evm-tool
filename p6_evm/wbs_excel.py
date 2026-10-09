@@ -193,6 +193,7 @@ def wbs_excel(report):
     for m in mains:
         sub = _subset(nodes, m.get('id'))
         if sub:
+            blocks.extend(_cost_blocks(nodes, m, _fmt_date(cutoff) if cutoff else ''))
             blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), _fmt_date(cutoff) if cutoff else ''))
             blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
     if not blocks:
@@ -223,6 +224,32 @@ def _uc_row(r, t):
             f"{r['actual_pct']:.1f}%" if r.get('actual_pct') is not None else '—',
             f"{r['behind']} behind" if r['behind'] else 'On plan']
     return row
+
+
+def _cost_blocks(nodes, m, cut=''):
+    """The EXECUTION DASHBOARD of a main WBS that is (almost) all cost loaded (95%+): its Planned % / Actual %
+    are the cost-loaded %, budget weighted - not counted by number of activities."""
+    i0 = next((i for i, n in enumerate(nodes) if str(n.get('id')) == str(m.get('id'))), -1)
+    if i0 < 0:
+        return []
+    root = nodes[i0]
+    all_n = root.get('count') or root.get('activities') or 0
+    if not all_n or (root.get('cost_loaded') or 0) / all_n < 0.95:
+        return []
+    ct = f' till {cut}' if cut else ''
+    pc = lambda v: f'{v:.1f}%' if isinstance(v, (int, float)) else '—'
+    rows = [[root.get('name'), all_n, root.get('cost_loaded'), pc(root.get('planned')), pc(root.get('actual'))]]
+    for j in range(i0 + 1, len(nodes)):
+        if (nodes[j].get('depth') or 0) <= (root.get('depth') or 0):
+            break
+        if nodes[j].get('depth') == (root.get('depth') or 0) + 1:
+            k = nodes[j]
+            rows.append(['    ' + str(k.get('name')), k.get('count') or k.get('activities'), k.get('cost_loaded'),
+                         pc(k.get('planned')) if k.get('cost_loaded') else '—', pc(k.get('actual')) if k.get('cost_loaded') else '—'])
+    return [{'title': f"Execution dashboard - {m.get('name')} Progress Planned VS Actual",
+             'note': ('COST-LOADED PROGRESS - weighted by the budget of each activity (P6 cost): Planned % = Planned value / budget of the cost-loaded activities; '
+                      'Actual % = Earned value / budget. This WBS has ' + f"{100.0 * (root.get('cost_loaded') or 0) / all_n:.1f}" + '% of its activities cost loaded, so it is not counted by number of activities.'),
+             'headers': ['WBS', 'Activities', 'Cost loaded', f'Planned %{ct}', f'Actual %{ct}'], 'rows': rows}]
 
 
 def _uncosted_blocks(u, branch, cut=''):

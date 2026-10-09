@@ -8,7 +8,7 @@ import { lagExportFilter }                                       from './audit.j
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
 import { overviewGroupKey, overviewHideZero, wbsCriticalMode }   from './overview.js';
-import { ganttCodeColumn }                                       from './gantt.js';
+import { ganttCodeColumn, ganttCodeFilter }                      from './gantt.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -807,7 +807,7 @@ export async function exportScheduleExcel() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ result: { activities: r.activities, data_date: r.data_date, project_name: r.project_name,
-        activity_count: r.activity_count, code_column: ganttCodeColumn(), wbs_critical: r.wbs_critical }, output_path: outputPath }),
+        activity_count: r.activity_count, code_column: ganttCodeColumn(), code_filter: ganttCodeFilter(r), wbs_critical: r.wbs_critical }, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }

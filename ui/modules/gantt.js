@@ -94,7 +94,7 @@ export function ganttScope(result) {
   const byId = new Map(tree.map((n) => [n.id, n]));
   const rootOf = (id) => { let n = byId.get(id), g = 0; while (n && n.parent && byId.has(n.parent) && g++ < 60) n = byId.get(n.parent); return n ? n.id : null; };
   // the results cover the WHOLE project until a major WBS is picked; a newly opened project starts on 'All'
-  if (ganttMain == null || ganttMainFor !== result) { ganttMain = ''; ganttMainFor = result; }
+  if (ganttMain == null || ganttMainFor !== result) { ganttMain = ''; ganttCodeVal = ''; ganttMainFor = result; }
   const counts = new Map();
   for (const a of all) if (a.critical) { const r = rootOf(a.wbs_id); if (r) counts.set(r, (counts.get(r) || 0) + 1); }
   const roots = tree.filter((n) => counts.has(n.id)).map((n) => ({ id: n.id, name: n.name, n: counts.get(n.id) }));
@@ -105,8 +105,14 @@ export function ganttScope(result) {
 // The pick-a-code column: the planner chooses one P6 activity code and the column shows each
 // critical activity's value of it. Remembered between sessions.
 const CODE_KEY = 'p6evm_gantt_code';
-let ganttCode = null;
+let ganttCode = null, ganttCodeVal = '';                 // the picked activity code, and the value of it to show ('' = every value)
 export function ganttCodeColumn() { return ganttCode || ''; }
+// {code, value} when the planner narrowed the Gantt to one value of an activity code (Silos Area Name = Silo 3)
+export function ganttCodeFilter(result) {
+  const gs = ganttScope(result);
+  const types = new Set(gs.all.filter((a) => a.critical).flatMap((a) => Object.keys(a.codes || {})));
+  return ganttCode && ganttCodeVal && types.has(ganttCode) ? { code: ganttCode, value: ganttCodeVal } : null;
+}
 // Delay = the update's Total Float with P6's own sign: −72 d is 72 days late, a positive figure is spare float
 const delayText = (a) => (a.delay == null ? '—' : `${a.delay} d`);
 const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay < 0 ? ' late' : ' early'));
@@ -119,15 +125,15 @@ export function renderSchedule(result) {
   // as Critical whose work is not finished (P6's own count); completed activities are hidden.
   const gs = ganttScope(result);
   const all = gs.scope;                                    // the activities of the chosen major WBS (or all)
-  const acts = all.filter((a) => a.critical);
-  if (all.length && !acts.length) {
+  const acts0 = all.filter((a) => a.critical);
+  if (all.length && !acts0.length) {
     el.innerHTML = `
       <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
         <div class="ov-chips"><span class="ov-chip"><b>0</b> critical of <b>${all.length}</b> activities</span></div></div></div>
       <p class="ov-note">No remaining activity of this schedule is critical at the data date, so there is nothing to draw (completed activities are hidden).</p>`;
     return;
   }
-  if (!acts.length) {
+  if (!acts0.length) {
     el.innerHTML = `
       <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2></div></div>
       <p class="ov-note">No activity timeline is available.${result && result.activity_count
@@ -138,9 +144,15 @@ export function renderSchedule(result) {
   }
 
   // activity codes assigned to the shown activities → the choices of the code column
-  const codeTypes = [...new Set(acts.flatMap((a) => Object.keys(a.codes || {})))].sort((x, y) => x.localeCompare(y));
+  const codeTypes = [...new Set(acts0.flatMap((a) => Object.keys(a.codes || {})))].sort((x, y) => x.localeCompare(y));
   if (ganttCode == null) { try { ganttCode = localStorage.getItem(CODE_KEY) || ''; } catch { ganttCode = ''; } }
   const code = codeTypes.includes(ganttCode) ? ganttCode : '';
+  // the values of the picked code among the critical activities (Silo 1, Silo 2, Silo 3 ...), with their counts
+  const valCount = new Map();
+  if (code) for (const a of acts0) { const v = (a.codes || {})[code]; if (v) valCount.set(v, (valCount.get(v) || 0) + 1); }
+  const codeVals = [...valCount.keys()].sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+  if (!code || !valCount.has(ganttCodeVal)) ganttCodeVal = '';
+  const acts = ganttCodeVal ? acts0.filter((a) => (a.codes || {})[code] === ganttCodeVal) : acts0;
   const codeOf = (a) => (code ? ((a.codes || {})[code] || '—') : '');
   // column widths follow the longest text they hold, so no Activity ID / name / code is cut
   // (a longer name wraps onto a second line)
@@ -244,6 +256,10 @@ export function renderSchedule(result) {
 
   const note = 'This shows the CRITICAL REMAINING activities only — every activity P6 flags as Critical whose work is not finished; completed activities are hidden. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and its status (Completed / In Progress / Not Started). The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the dashed vertical line is the cut-off date (data date). Grouped by WBS in P6’s own order.';
 
+  const valPick = code && codeVals.length
+    ? `<label class="g-codepick">Show only <select id="g-codeval"><option value="">All ${escapeHtml(code)} (${acts0.length})</option>${codeVals.map((v) =>
+        `<option value="${attr(v)}"${v === ganttCodeVal ? ' selected' : ''}>${escapeHtml(v)} (${valCount.get(v)})</option>`).join('')}</select></label>`
+    : '';
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
         <option value="">— none —</option>${codeTypes.map((c) => `<option value="${attr(c)}"${c === code ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select></label>`
@@ -263,8 +279,10 @@ export function renderSchedule(result) {
         <span class="ov-chip"><b>${counts.ms}</b> critical milestones</span>
         <span class="ov-chip">cut-off date <b>${gDate(result.data_date)}</b></span>
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
-        ${codePick}
+        ${codePick}${valPick}
       </div></div></div>
+    <div class="g-banner"><b>CRITICAL REMAINING ACTIVITIES ONLY</b> — every activity P6 flags as Critical whose work is not finished; completed activities are hidden.</div>
+    <p class="ov-note g-note">${note}</p>
     ${mainPick}
     <div class="g-wrap" style="--g-lblw:${lblW}px;--g-cols:${lblCols}"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
       <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span>${code ? `<span>${escapeHtml(code)}</span>` : ''}<span>Activity name</span><i>Expected Start</i><i>Expected Finish</i><i>Delay</i></div>
@@ -272,19 +290,20 @@ export function renderSchedule(result) {
       <div class="g-grids">${grid}${ddx != null ? `<div class="g-dd-line" style="left:calc(var(--g-lblw) + ${ddx.toFixed(1)}px)"></div>` : ''}</div>
       <div class="g-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">${note}</p>
     <div class="action-buttons">
       <button class="btn-secondary" id="sched-print-btn">Print / PDF / Word</button>
       <button class="btn-secondary" id="sched-excel-btn">Export to Excel</button>
     </div>`;
 
-  const allCrit = gs.all.filter((a) => a.critical);
+  const allCrit = gs.all.filter((a) => a.critical && (!ganttCodeVal || (a.codes || {})[code] === ganttCodeVal));
   const printRoots = tree.length ? gs.roots.map((r) => {
     const list = allCrit.filter((a) => gs.rootOf(a.wbs_id) === r.id);
     return { id: r.id, name: r.name, n: list.length, model: bandModel(list) };
   }).filter((r) => r.model.banded) : [];
   const spAll = span(allCrit, result.data_date);
   _print = printSections(result, allCrit, ganttGroups(allCrit), ganttCounts(allCrit), spAll, note, code, null, 0, gs.all, { ...gs, main: '' }, printRoots);
+  const valSel = document.getElementById('g-codeval');
+  if (valSel) valSel.addEventListener('change', () => { ganttCodeVal = valSel.value; renderSchedule(result); });
   const segG = document.getElementById('g-mainseg');
   if (segG) segG.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-gm]');
@@ -295,7 +314,7 @@ export function renderSchedule(result) {
 
   const sel = document.getElementById('g-code');
   if (sel) sel.addEventListener('change', () => {
-    ganttCode = sel.value;
+    ganttCode = sel.value; ganttCodeVal = '';
     try { localStorage.setItem(CODE_KEY, ganttCode); } catch { /* non-fatal */ }
     renderSchedule(result);
   });
@@ -361,6 +380,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   const summary = `<div data-part="summary.counts" data-part-label="Schedule counts">
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
+      ${ganttCodeVal ? kv('Shown only', `${escapeHtml(code)} = ${escapeHtml(ganttCodeVal)}`) : ''}
       ${kv('Cut-off date (data date)', gDate(result.data_date))}
       ${kv(gs && gs.main ? 'Activities in this WBS' : 'Activities in the schedule', whole.length || (result.activity_count ?? '—'))}
       ${kv(gs && gs.main ? 'Completed (this WBS)' : 'Completed (whole schedule)', wc('Completed'))}
@@ -381,7 +401,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       { key: 'summary', label: 'Summary', html: summary },
       ...printRoots.map((r) => ({
         key: `gantt.${r.id}`, label: `${r.name} (${r.n} critical)`,
-        html: `<div data-part="gantt.${attr(r.id)}" data-part-label="${attr(r.name)}" class="gp-grp"><h3 class="gp-h">${escapeHtml(r.name)} <small>${r.n} critical remaining activities</small></h3>`
+        html: `<div data-part="gantt.${attr(r.id)}" data-part-label="${attr(r.name)}" class="gp-grp"><p class="gp-banner"><b>Critical remaining activities only</b> — completed activities are hidden.</p><h3 class="gp-h">${escapeHtml(r.name)} <small>${r.n} critical remaining activities</small></h3>`
           + `<table class="gp-table">${head}<tbody>${r.model.sets.map((set) => bandHtml(set.band, r.model.baseDepth) + set.rows.map(rowHtml).join('')).join('')}</tbody></table></div>`,
       })),
     ];

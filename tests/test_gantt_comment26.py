@@ -153,7 +153,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 10:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 11:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -333,7 +333,7 @@ def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
     assert rows['K1']['wbs_id'] == 'B'
     gantt, ov = _read('ui', 'modules', 'gantt.js'), _read('ui', 'modules', 'overview.js')
     assert 'result.wbs_critical' in gantt and 'g-band' in gantt
-    assert "data-mode=\"critical\"" in ov
+    assert "data-mode=\"critical\"" not in ov and "wbst-mode" not in ov                 # the WBS screen has no Critical switch (critical activities have their own Gantt)
     assert 'Original Duration' not in ov and 'Budgeted Total Cost' not in ov      # only the agreed columns are shown
 
 
@@ -377,7 +377,7 @@ def test_uncosted_progress_counts_by_stage_with_the_e1_started_rule():
 
 def test_each_wbs_branch_shows_its_own_count_tables_before_its_table():
     ov = _read('ui', 'modules', 'overview.js')
-    assert "(t.branches || []).includes(branch)" in ov and 'executionDashboard(result.uncosted, ucCut, m.name)' in ov
+    assert "(t.branches || []).includes(branch)" in ov and 'executionPanel(result, m, ucCut)' in ov
     # the main-WBS selector sits ABOVE the Execution dashboard, which sits above the WBS table
     scr = ov[ov.index('<h2>WBS — summary'):]
     assert scr.index('wbst-mainsel') < scr.index('${execHtml}') < scr.index('<div class="wbst-wrap">')
@@ -410,3 +410,22 @@ def test_count_tables_keep_planned_per_type_and_the_default_procurement_order():
     gantt = _read('ui', 'modules', 'gantt.js')
     assert 'ganttScope' in gantt and 'id="g-mainseg"' in gantt and 'Critical activities of' in gantt       # critical activities per major WBS
     assert 'el.clientWidth' in gantt and 'class="g-yr"' in gantt                                            # every month visible, year row
+
+
+def test_cost_loaded_wbs_are_left_out_of_the_count_and_the_gantt_filters_by_code_value():
+    wbs = {'C': {'name': 'Construction', 'parent_object_id': None}, 'D': {'name': 'Design', 'parent_object_id': None}}
+
+    def act(i, w, bac):
+        return {'activity': _act(i, w, D(2025, 1, 1), D(2025, 1, 10), status='Not Started'), 'total_float': 0, 'bac': bac, 'planned_pct': 0.0, 'actual_pct': 0.0}
+    recs = [act('C%d' % i, 'C', 100.0) for i in range(19)] + [act('C19', 'C', 0), act('D1', 'D', 0), act('D2', 'D', 0)]
+    u = sv.uncosted_progress(recs, SimpleNamespace(wbs=wbs, project={'data_date': D(2025, 3, 1)}, baseline_by_id={}))
+    assert u['summary']['cost_loaded_wbs'] == ['Construction'] and u['summary']['n'] == 2      # 19 of 20 = 95% cost loaded -> measured by cost
+    gantt, ov = _read('ui', 'modules', 'gantt.js'), _read('ui', 'modules', 'overview.js')
+    assert 'id="g-codeval"' in gantt and 'Show only' in gantt and 'ganttCodeFilter' in gantt and 'class="g-banner"' in gantt
+    assert gantt.index('class="g-banner"') < gantt.index('<div class="g-wrap"')                  # the note sits ABOVE the table
+    assert 'COST-LOADED PROGRESS' in ov and 'COST_SHARE = 0.95' in ov
+    from p6_evm.schedule_excel import schedule_excel
+    acts = [dict(id='A1', name='a', start='2025-01-01', finish='2025-01-02', critical=True, codes={'Silos Area Name': 'Silo 3'}, wbs_top='X', wbs_top_id='x'),
+            dict(id='A2', name='b', start='2025-01-01', finish='2025-01-02', critical=True, codes={'Silos Area Name': 'Silo 4'}, wbs_top='X', wbs_top_id='x')]
+    blocks = schedule_excel({'activities': acts, 'code_filter': {'code': 'Silos Area Name', 'value': 'Silo 3'}})[0]['blocks']
+    assert [r[0] for r in blocks[1]['rows']] == ['A1'] and ['Shown only', 'Silos Area Name = Silo 3'] in blocks[0]['rows']

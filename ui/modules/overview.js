@@ -96,6 +96,50 @@ export function executionDashboard(u, cutoffText, branch) {
   return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(branch || 'Project')} Progress Planned VS Actual</p></div>${badge}</div>${howto}${head}${rule}${legend}${tabsOf.map((t) => uTable(t, cutoffText)).join('')}</div>`;
 }
 
+// A main WBS with at least 95% of its activities cost loaded (Construction) is NOT measured by count:
+// its Execution dashboard gives the Planned % / Actual % of its cost-loaded activities (budget weighted).
+const COST_SHARE = 0.95;
+function costNode(result, id) { return (result.wbs_summary || []).find((n) => n.id === id) || null; }
+export function costShare(result, id) {
+  const n = costNode(result, id);
+  const all = n ? (n.count || n.activities || 0) : 0;
+  return all ? (n.cost_loaded || 0) / all : 0;
+}
+function costDashboard(result, id, name, cutoffText) {
+  const n = costNode(result, id);
+  if (!n) return '';
+  const all = n.count || n.activities || 0, cl = n.cost_loaded || 0;
+  const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
+  const pl = n.planned, ac = n.actual, gap = pl != null && ac != null ? Math.max(0, pl - ac) : null;
+  const sub = (result.wbs_summary || []);
+  const i0 = sub.findIndex((x) => x.id === id);
+  const kids = [];
+  if (i0 >= 0) for (let j = i0 + 1; j < sub.length && sub[j].depth > sub[i0].depth; j++) if (sub[j].depth === sub[i0].depth + 1) kids.push(sub[j]);
+  const w = (v) => Math.max(0, Math.min(100, v || 0)).toFixed(1);
+  const rows = kids.map((k) => `<tr><td>${escapeHtml(k.name)}</td><td class="uc-n">${k.count || k.activities || 0}</td><td class="uc-n">${k.cost_loaded || 0}</td>`
+    + `<td data-export="bar"><div class="uc-pair"><i class="p" style="width:${w(k.planned)}%"></i><i class="a" style="width:${w(k.actual)}%"></i></div></td>`
+    + `<td class="uc-n">${k.cost_loaded ? pctVal(k.planned) : '—'}</td><td class="uc-n"><b>${k.cost_loaded ? pctVal(k.actual) : '—'}</b></td>`
+    + `<td class="uc-c">${k.cost_loaded && k.planned != null && k.actual != null ? uChip(Math.round(Math.max(0, k.planned - k.actual))).replace(/behind/, 'pts behind') : '—'}</td></tr>`).join('');
+  const table = rows ? `<div class="uc-block" data-part="exec.cost.${escapeAttr(id)}" data-part-label="${escapeAttr(name)} — by WBS"><h4>${escapeHtml(name)} — by WBS <span class="uc-tag">cost-loaded activities</span></h4>
+      <table class="uc-table"><thead><tr><th>WBS</th><th class="uc-n">Activities</th><th class="uc-n">Cost loaded</th><th>Planned vs Actual</th><th class="uc-n">Planned % till ${cut}</th><th class="uc-n">Actual % till ${cut}</th><th class="uc-c">Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : '';
+  const badge = '<div class="uc-badge cl"><span class="uc-seal">$</span><div><b>COST-LOADED PROGRESS</b><em>weighted by the budget of each activity (P6 cost)</em></div></div>';
+  const howto = `<div class="uc-howto"><b>How to read this progress</b><ul>
+      <li><span class="uc-k p"></span><b>Planned % till ${cut}</b> = Planned value ÷ budget of the cost-loaded activities</li>
+      <li><span class="uc-k a"></span><b>Actual % till ${cut}</b> = Earned value ÷ budget of the cost-loaded activities</li>
+      <li><span class="uc-k t"></span>${cl} of the ${all} activities of this WBS (${(100 * cl / all).toFixed(1)}%) are cost loaded, so it is measured by cost, not by the number of activities</li></ul></div>`;
+  const tiles = `<div class="uc-tiles">
+      <div><span>Cost-loaded activities</span><b>${cl}</b><em>of ${all} activities · ${(100 * cl / all).toFixed(1)}%</em></div>
+      <div><span>Planned % till ${cut}</span><b>${pctVal(pl)}</b><em>Planned value ${fmtEGP(n.pv)}</em></div>
+      <div><span>Actual % till ${cut}</span><b>${pctVal(ac)}</b><em>Earned value ${fmtEGP(n.ev)}</em></div>
+      <div><span>Behind plan</span><b class="${gap > 0 ? 'bad' : ''}">${gap == null ? '—' : gap.toFixed(1) + ' pts'}</b><em>Planned % − Actual %</em></div></div>`;
+  const legend = '<div class="uc-legend"><span><i class="p"></i>Planned % till the cut-off date</span><span><i class="a"></i>Actual % till the cut-off date</span></div>';
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${badge}</div>${howto}${tiles}${legend}${table}</div>`;
+}
+// the Execution dashboard of one main WBS: by COST when it is (almost) all cost loaded, else by COUNT
+function executionPanel(result, m, cutoffText) {
+  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : executionDashboard(result.uncosted, cutoffText, m.name);
+}
+
 export function renderOverview(result) {
   const el = document.getElementById('overview-body');
   _ovPrint = null;
@@ -213,7 +257,7 @@ const WBS_COLS = [
   { key: 'actual',          label: 'Actual %',        w: 84, kind: 'pct'  },
   { key: 'delay',           label: 'Delay',           w: 74, kind: 'delay'},
 ];
-export function wbsCriticalMode() { try { return localStorage.getItem('p6evm_wbs_mode') === 'critical'; } catch { return false; } }
+export function wbsCriticalMode() { return false; }
 const WBS_MODE_KEY = 'p6evm_wbs_mode';
 let wbsMode = null;               // 'all' | 'critical' — which activities the WBS summarises
 const money = (v) => (typeof v === 'number' ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
@@ -339,7 +383,7 @@ function buildWbsPrint(result, nodes, mains, ctx) {
       return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
     }).join('');
     const legend = `<div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span>${branchPct ? '<span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span>' : ''}<span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>`;
-    const dash = executionDashboard(result.uncosted, ucCut, m.name);
+    const dash = executionPanel(result, m, ucCut);
     const table = `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${legend}`;
     sections.push({
       key: `wbs.${m.id}`, label: `${m.name}${critical ? ' (critical activities)' : ''}`,
@@ -362,7 +406,7 @@ export function renderWbs(result) {
   // activities only, exactly what P6 shows in its WBS bands with the Critical filter on.
   if (wbsMode == null) { try { wbsMode = localStorage.getItem(WBS_MODE_KEY) || 'all'; } catch { wbsMode = 'all'; } }
   const critNodes = result.wbs_critical || [];
-  const critical = wbsMode === 'critical' && critNodes.length > 0;
+  const critical = false;                                  // the WBS screen shows every activity; the critical ones have their own Gantt
   const nodes = critical ? critNodes : (result.wbs_summary || []);
   const nodeIds = new Set(nodes.map((n) => n.id));
   const mains = (result.wbs_main || []).filter((m) => nodeIds.has(m.id));
@@ -488,12 +532,9 @@ export function renderWbs(result) {
   const approx = baselineApprox(result, state.currentXmlPath);
   const blLine = approx ? baselineApproxLine(result, state.currentXmlPath) : '';
   const ucCut = !Number.isNaN(dd) ? fmtShort(dd) : '';
-  const execHtml = executionDashboard(result.uncosted, ucCut, branch.name);       // the dashboard of the WBS shown
+  const execHtml = executionPanel(result, { id: branch.id, name: branch.name }, ucCut);       // the dashboard of the WBS shown
   _wbsPrint = buildWbsPrint(result, nodes, mains, { approx, blLine, dd, critical, ucCut });
 
-  const modeSeg = critNodes.length
-    ? `<div class="wbst-seg wbst-mode" id="wbst-mode"><button data-mode="all" class="${critical ? '' : 'on'}">All activities</button><button data-mode="critical" class="${critical ? 'on' : ''}">Critical activities</button></div>`
-    : '';
   const seg = mains.length > 1
     ? `<div class="wbst-seg" id="wbst-seg">${mains.map((m) =>
         `<button data-mw="${escapeAttr(m.id)}" class="${m.id === wbsMainId ? 'on' : ''}">${escapeHtml(m.name)}</button>`).join('')}</div>`
@@ -516,7 +557,6 @@ export function renderWbs(result) {
         ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : ''}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
-    ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6) — <b>critical remaining activities only: completed activities are hidden</b>. The same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (the Delay column).</p>' : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
     ${execHtml}
     <div class="wbst-toolbar">
@@ -539,14 +579,6 @@ export function renderWbs(result) {
     </div></div>
     <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`;
 
-  const modeEl = document.getElementById('wbst-mode');
-  if (modeEl) modeEl.addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-mode]');
-    if (!b || b.dataset.mode === (critical ? 'critical' : 'all')) return;
-    wbsMode = b.dataset.mode;
-    try { localStorage.setItem(WBS_MODE_KEY, wbsMode); } catch { /* non-fatal */ }
-    renderWbs(result);
-  });
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-mw]');

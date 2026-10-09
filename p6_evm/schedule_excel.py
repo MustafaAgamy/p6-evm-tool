@@ -123,6 +123,11 @@ def schedule_excel(result):
     # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities
     # of the construction works only (the WBS branches that hold cost-loaded work)
     acts = [a for a in all_acts if a.get('critical')]
+    cf = result.get('code_filter') or None             # the planner picked one value of an activity code (Silo 3)
+    if cf and cf.get('code') and cf.get('value'):
+        acts = [a for a in acts if (a.get('codes') or {}).get(cf['code']) == cf['value']]
+    else:
+        cf = None
     code = result.get('code_column') or None
     if code and not any((a.get('codes') or {}).get(code) for a in acts):
         code = None
@@ -178,6 +183,7 @@ def schedule_excel(result):
             ['In progress (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'In Progress')],
             ['Not started (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'Not Started')],
             ['Cut-off date (data date)', _fmt_date(result.get('data_date'))],
+            *([['Shown only', '%s = %s' % (cf['code'], cf['value'])]] if cf else []),
             ['Critical activities in progress', sum(1 for a in acts if a.get('status') == 'In Progress')],
             ['Critical activities not started', sum(1 for a in acts if a.get('status') == 'Not Started')],
             ['Current % of the critical activities', '%s (%d of %d activities)' % (_share(crit, len(all_acts)), crit, len(all_acts))],
