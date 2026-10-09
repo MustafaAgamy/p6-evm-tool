@@ -53,16 +53,22 @@ function uRow(r, total) {
     + `<td data-export="bar"><div class="uc-pair"><i class="p" style="width:${w(r.planned_pct)}%"></i><i class="a" style="width:${w(r.actual_pct)}%"></i></div></td>`
     + `<td class="uc-n"><b>${upct(r.actual_pct)}</b></td><td class="uc-n">${upct(r.planned_pct)}</td><td class="uc-c">${uChip(r.behind)}</td></tr>`;
 }
-export function uncostedHtml(u, cutoffText) {
-  if (!u || !(u.tables || []).length) return '';
-  const s = u.summary || {};
+// The count tables of ONE main WBS branch, shown in front of that branch's WBS table (each
+// summary sits in its own WBS): its headline, then one table per area with a Total row.
+export function uncostedHtml(u, cutoffText, branch) {
+  const tabsOf = ((u && u.tables) || []).filter((t) => !branch || (t.branches || []).includes(branch));
+  if (!tabsOf.length) return '';
+  const sum = tabsOf.reduce((m, t) => { for (const k of ['n', 'started', 'done', 'prog', 'ns', 'due', 'due_prog', 'due_ns']) m[k] += t.total[k] || 0; return m; },
+    { n: 0, started: 0, done: 0, prog: 0, ns: 0, due: 0, due_prog: 0, due_ns: 0 });
+  const ap = sum.n ? (100 * sum.started) / sum.n : null, pp = sum.n ? (100 * sum.due) / sum.n : null, behind = Math.max(0, sum.due - sum.started);
   const head = `<div class="uc-tiles">
-      <div><span>Activities without cost</span><b>${s.n}</b><em>${s.share == null ? '' : s.share + '% of the schedule'} · milestones excluded</em></div>
-      <div><span>Actual — started</span><b>${upct(s.actual_pct)}</b><em>${s.started} started (${s.done} completed, ${s.prog} in progress) · ${s.ns} not started</em></div>
-      <div><span>Planned — due by cut-off${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(s.planned_pct)}</b><em>${s.due} due · ${s.due_prog} should be in progress · ${s.due_ns} not yet due</em></div>
-      <div><span>Behind plan</span><b class="${s.behind > 0 ? 'bad' : ''}">${s.behind}</b><em>planned due but not started (${s.due} − ${s.started})</em></div></div>`;
-  const rule = `<p class="ov-note uc-rule">Counted by <b>number of activities</b>, as in the E1 log: <b>Actual</b> = activities that have <b>started</b> (in progress or completed) ÷ activities; <b>Planned</b> = activities whose baseline finish is on or before the cut-off date ÷ activities. Milestone activities are excluded${(s.excluded_wbs || []).length ? `, and the WBS made of milestones (${s.excluded_wbs.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
-  const tabs = u.tables.map((t) => `<div class="uc-block" data-part="uncosted.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)}</h4>
+      <div><span>Activities without cost</span><b>${sum.n}</b><em>${branch ? escapeHtml(branch) : 'all branches'} · milestones excluded</em></div>
+      <div><span>Actual — started</span><b>${upct(ap)}</b><em>${sum.started} started (${sum.done} completed, ${sum.prog} in progress) · ${sum.ns} not started</em></div>
+      <div><span>Planned — due by cut-off${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(pp)}</b><em>${sum.due} due · ${sum.due_prog} should be in progress · ${sum.due_ns} not yet due</em></div>
+      <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned due but not started (${sum.due} − ${sum.started})</em></div></div>`;
+  const ex = ((u.summary || {}).excluded_wbs) || [];
+  const rule = `<p class="ov-note uc-rule">Counted by <b>number of activities</b>, as in the E1 log: <b>Actual</b> = activities that have <b>started</b> (in progress or completed) ÷ activities; <b>Planned</b> = activities whose baseline finish is on or before the cut-off date ÷ activities. Milestone activities are excluded${ex.length ? `, and the WBS made of milestones (${ex.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
+  const tabs = tabsOf.map((t) => `<div class="uc-block" data-part="uncosted.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)}</h4>
       <table class="uc-table"><thead><tr><th>${t.first}</th><th class="uc-n">Activities</th><th class="uc-n">Submittals<br>started / total</th><th class="uc-n">Approvals<br>started / total</th><th class="uc-n">Started</th><th class="uc-n">In progress</th><th class="uc-n">Completed</th><th class="uc-n">Not started</th><th class="uc-n">Due by cut-off</th><th>Planned vs Actual</th><th class="uc-n">Actual %</th><th class="uc-n">Planned %</th><th class="uc-c">Status</th></tr></thead>
       <tbody>${t.rows.map((r) => uRow(r, false)).join('')}${uRow(t.total, true)}</tbody></table></div>`).join('');
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned %</span><span><i class="a"></i>Actual % (started)</span></div>';
@@ -436,13 +442,13 @@ ${wbsHasPct(branch) ? `
       <tr><td>Baseline</td><td>${escapeHtml(blLine.replace(/^Baseline: /, ''))}</td></tr>` : ''}
     </tbody></table>`;
   const ucCut = !Number.isNaN(dd) ? fmtShort(dd) : '';
-  const ucHtml = uncostedHtml(result.uncosted, ucCut);
+  const ucHtml = uncostedHtml(result.uncosted, ucCut, branch.name);
   _wbsPrint = [
     { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
+    ...(ucHtml ? [{ key: 'uncosted', label: `Progress by count — ${branch.name || 'activities without cost'}`, html: ucHtml }] : []),
     { key: 'table',    label: 'WBS summary table',
       html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span>${branchPct ? '<span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span>' : ''}<span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>` },
   ];
-  if (ucHtml) _wbsPrint.push({ key: 'uncosted', label: 'Progress by count — activities without cost', html: ucHtml });
 
   const modeSeg = critNodes.length
     ? `<div class="wbst-seg wbst-mode" id="wbst-mode"><button data-mode="all" class="${critical ? '' : 'on'}">All activities</button><button data-mode="critical" class="${critical ? 'on' : ''}">Critical activities</button></div>`
@@ -470,6 +476,7 @@ ${wbsHasPct(branch) ? `
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">no cost loaded — ${escapeHtml(ncText(branch, 'a'))} (actual)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6) — <b>critical remaining activities only: completed activities are hidden</b>. The same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (the Delay column).</p>' : ''}
+    ${ucHtml ? `<div class="uc-panel"><h3>Progress by count — ${escapeHtml(branch.name || 'activities without cost')}</h3>${ucHtml}</div>` : ''}
     <div class="wbst-toolbar">${seg}
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
@@ -488,7 +495,6 @@ ${wbsHasPct(branch) ? `
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    ${ucHtml ? `<div class="uc-panel"><h3>Progress by count — activities without cost</h3>${ucHtml}</div>` : ''}
     <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`;
 
   const modeEl = document.getElementById('wbst-mode');

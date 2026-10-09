@@ -193,16 +193,13 @@ def wbs_excel(report):
     for m in mains:
         sub = _subset(nodes, m.get('id'))
         if sub:
+            blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name')))
             blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
         blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
-    sheets = [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
-    u = report.get('uncosted')
-    if u and u.get('tables'):
-        sheets.append(uncosted_sheet(u))
-    return sheets
+    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
 
 
 _UC_HEAD = ['Activities', 'Submittals started / total', 'Approvals started / total', 'Started', 'In progress', 'Completed',
@@ -217,24 +214,16 @@ def _uc_row(r):
             f"{r['behind']} behind" if r['behind'] else 'On plan']
 
 
-def uncosted_sheet(u):
-    """'Progress by count' - the activities without cost, one block per WBS area, a row per stage and
-    a Total row at the end of each (E1-log style; Actual = started, Planned = due by cut-off)."""
-    sm = u.get('summary') or {}
-    blocks = [{'title': 'Progress by count - activities without cost',
-               'note': 'Counted by number of activities, as in the E1 log: Actual = activities that have STARTED / activities; '
-                       'Planned = baseline finish on or before the cut-off date / activities. Milestone activities are excluded'
-                       + (('; WBS made of milestones left out: ' + ', '.join(sm.get('excluded_wbs') or [])) if sm.get('excluded_wbs') else '') + '.',
-               'headers': ['Item', 'Value'],
-               'rows': [['Activities without cost (milestones excluded)', sm.get('n')],
-                        ['Actual % (started)', f"{sm.get('actual_pct')}%" if sm.get('actual_pct') is not None else '—'],
-                        ['Planned % (due by cut-off)', f"{sm.get('planned_pct')}%" if sm.get('planned_pct') is not None else '—'],
-                        ['Behind plan (due but not started)', sm.get('behind')]]}]
-    for t in u['tables']:
-        blocks.append({'title': t['title'], 'headers': [t.get('first') or 'Stage'] + _UC_HEAD,
-                       'rows': [_uc_row(r) for r in t['rows']] + [_uc_row(t['total'])]})
-    return {'name': 'Progress by count', 'blocks': blocks, 'col_widths': {0: 34, **{i: 14 for i in range(1, 13)}}}
+def _uncosted_blocks(u, branch):
+    """The 'Progress by count' tables of ONE main WBS branch (E1-log style: a row per stage, a Total row
+    at the end; Actual = started, Planned = due by the cut-off date) - they sit in front of that
+    branch's WBS table."""
+    tabs = [t for t in ((u or {}).get('tables') or []) if not branch or branch in (t.get('branches') or [])]
+    return [{'title': t['title'] + ' - progress by count',
+             'note': 'Actual = started / activities (E1 rule) - Planned = baseline finish on or before the cut-off / activities - milestone activities excluded',
+             'headers': [t.get('first') or 'Stage'] + _UC_HEAD,
+             'rows': [_uc_row(r) for r in t['rows']] + [_uc_row(t['total'])]} for t in tabs]
 
 
 # WBS name column wide (it carries the indentation); dates/percent/delay comfortable.
-_COL_WIDTHS = {0: 46, 1: 15, 2: 15, 3: 15, 4: 15, 5: 11, 6: 11, 7: 12}
+_COL_WIDTHS = {0: 46, 1: 15, 2: 15, 3: 15, 4: 15, 5: 30, 6: 30, 7: 12}

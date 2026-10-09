@@ -545,10 +545,11 @@ def uncosted_progress(records, data):
     def counter():
         return {'n': 0, 'sd': 0, 'st': 0, 'ad': 0, 'at': 0, 'done': 0, 'prog': 0, 'ns': 0, 'started': 0,
                 'due': 0, 'due_prog': 0, 'due_ns': 0}
-    tabs, total = {}, counter()
+    tabs, total, branches = {}, counter(), {}
     for r in rows_in:
         a = r['activity']
         title, row = where(r)
+        branches.setdefault(title, set()).add(names_of(r)[0])        # the main WBS branch(es) a table belongs to
         st = activity_status(a)
         bl = bl_by_id.get(a.get('id')) or {}
         ps, pf = bl.get('planned_start') or a.get('planned_start'), bl.get('planned_finish') or a.get('planned_finish')
@@ -591,7 +592,7 @@ def uncosted_progress(records, data):
         for c in rows.values():
             for k2 in tt:
                 tt[k2] += c[k2]
-        tables.append({'title': t, 'first': 'Area' if t.startswith('As-Built') else ('WBS' if t.startswith('Other') else 'Stage'),
+        tables.append({'title': t, 'branches': sorted(branches.get(t, ())), 'first': 'Area' if t.startswith('As-Built') else ('WBS' if t.startswith('Other') else 'Stage'),
                        'rows': [fin(k, rows[k]) for k in keys], 'total': fin('Total — ' + t.split(' — ')[0], tt)})
     head = fin('All activities without cost', total)
     head.update({'share': round(100.0 * total['n'] / len(records), 1) if records else None,

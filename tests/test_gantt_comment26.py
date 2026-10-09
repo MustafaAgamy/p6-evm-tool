@@ -373,3 +373,14 @@ def test_uncosted_progress_counts_by_stage_with_the_e1_started_rule():
     assert sv.build_views(recs, data)['uncosted']['summary']['n'] == 4
     ov = _read('ui', 'modules', 'overview.js')
     assert 'uncostedHtml' in ov and 'Progress by count' in ov and 'uc-total' in ov
+
+
+def test_each_wbs_branch_shows_its_own_count_tables_before_its_table():
+    ov = _read('ui', 'modules', 'overview.js')
+    assert "(t.branches || []).includes(branch)" in ov and 'uncostedHtml(result.uncosted, ucCut, branch.name)' in ov
+    assert ov.index("key: 'overview'") < ov.index("key: 'uncosted'") < ov.index("key: 'table'")      # summary first, then the WBS table
+    from p6_evm.wbs_excel import _uncosted_blocks
+    u = {'summary': {}, 'tables': [{'title': 'MCC Room - MCC Design & Engineering', 'branches': ['MCC Design & Engineering'], 'first': 'Stage',
+                                    'rows': [], 'total': {'label': 'Total - MCC Room', 'n': 0, 'sd': 0, 'st': 0, 'ad': 0, 'at': 0, 'started': 0, 'prog': 0,
+                                                           'done': 0, 'ns': 0, 'due': 0, 'actual_pct': None, 'planned_pct': None, 'behind': 0}}]}
+    assert len(_uncosted_blocks(u, 'MCC Design & Engineering')) == 1 and _uncosted_blocks(u, 'Phase I Procurement') == []
