@@ -230,7 +230,7 @@ def _uncosted_blocks(u, branch, cut=''):
     other activities counted apart, a Total row at the end) - in front of that WBS's table."""
     tabs = [t for t in ((u or {}).get('tables') or []) if not branch or branch in (t.get('branches') or [])]
     return [{'title': f"Execution dashboard - {branch} Progress Planned VS Actual - {t['title']}",
-             'note': 'COUNT-BASED PROGRESS - every activity counts as one (no cost weighting). Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Actual till cut-off date = activities that have started by the cut-off date (E1 rule); milestone activities excluded',
+             'note': 'COUNT-BASED PROGRESS - every activity counts as one (no cost weighting). Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Actual till cut-off date = number of activities till the cut-off date that are in progress or completed (E1 rule); milestone activities excluded',
              'headers': _uc_head(t, cut),
              'rows': [_uc_row(r, t) for r in t['rows']] + [_uc_row(t['total'], t)]} for t in tabs]
 

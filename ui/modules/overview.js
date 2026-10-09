@@ -81,17 +81,17 @@ export function executionDashboard(u, cutoffText, branch) {
   const ap = sum.n ? (100 * sum.started) / sum.n : null, pp = sum.n ? (100 * sum.due) / sum.n : null, behind = Math.max(0, sum.due - sum.started);
   const head = `<div class="uc-tiles">
       <div><span>Activities</span><b>${sum.n}</b><em>${branch ? escapeHtml(branch) : 'all branches'} · milestones excluded</em></div>
-      <div><span>Actual till cut-off date${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(ap)}</b><em>${sum.started} started by the cut-off date (${sum.done} completed, ${sum.prog} in progress) · ${sum.ns} not started</em></div>
+      <div><span>Actual till cut-off date${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(ap)}</b><em>${sum.started} activities till the cut-off date (${sum.done} completed, ${sum.prog} in progress) · ${sum.ns} not started</em></div>
       <div><span>Planned till cut-off date${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(pp)}</b><em>${sum.due} planned · ${sum.due_prog} should be in progress · ${sum.due_ns} not yet due</em></div>
       <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned till the cut-off date but not started (${sum.due} − ${sum.started})</em></div></div>`;
   const ex = ((u.summary || {}).excluded_wbs) || [];
-  const rule = `<p class="ov-note uc-rule">Counted by <b>number of activities</b>, as in the E1 log: <b>Planned till cut-off date</b> = the activities whose baseline finish is on or before the cut-off date, counted for Submittals, Approvals and the other activities each; <b>Actual till cut-off date</b> = the activities that have <b>started</b> by the cut-off date (in progress or completed). Milestone activities are excluded${ex.length ? `, and the WBS made of milestones (${ex.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
+  const rule = `<p class="ov-note uc-rule">Counted <b>by number of activities</b>, as in the E1 log: <b>Planned till cut-off date</b> = the activities whose baseline finish is on or before the cut-off date, counted for Submittals, Approvals and the other activities each; <b>Actual till cut-off date</b> = the number of activities <b>till the cut-off date</b> that are in progress or completed. Milestone activities are excluded${ex.length ? `, and the WBS made of milestones (${ex.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned % till the cut-off date</span><span><i class="a"></i>Actual % till the cut-off date</span></div>';
   const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
   const badge = `<div class="uc-badge"><span class="uc-seal">#</span><div><b>COUNT-BASED PROGRESS</b><em>every activity counts as one — no cost weighting</em></div></div>`;
   const howto = `<div class="uc-howto"><b>How to read this progress</b>
       <ul><li><span class="uc-k p"></span><b>Planned % till ${cut}</b> = number of activities whose baseline finish is on or before ${cut} ÷ total number of activities</li>
-      <li><span class="uc-k a"></span><b>Actual % till ${cut}</b> = number of activities that have started by ${cut} (in progress or completed) ÷ total number of activities</li>
+      <li><span class="uc-k a"></span><b>Actual % till ${cut}</b> = number of activities till ${cut} (in progress or completed) ÷ total number of activities</li>
       <li><span class="uc-k t"></span><b>Submittals · Approvals · Other activities</b> are counted apart; the Total row adds up each column</li></ul></div>`;
   return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(branch || 'Project')} Progress Planned VS Actual</p></div>${badge}</div>${howto}${head}${rule}${legend}${tabsOf.map((t) => uTable(t, cutoffText)).join('')}</div>`;
 }
