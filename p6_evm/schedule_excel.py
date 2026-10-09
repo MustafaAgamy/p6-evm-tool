@@ -181,7 +181,7 @@ def schedule_excel(result):
             ['Critical activities as a share of the schedule', _share(crit, len(all_acts))],
             ['Critical activities in progress', sum(1 for a in acts if a.get('status') == 'In Progress')],
             ['Critical activities not started', sum(1 for a in acts if a.get('status') == 'Not Started')],
-            ['Actual % of the critical activities', _crit_pct(result, 'ev')],
+            ['Current % of the critical activities (Actual %)', _crit_pct(result, 'ev')],
             ['A beside a date', 'Actual date (the work has started / finished on that date)'],
             ['Critical milestones', ms],
             ['WBS groups', len(order)],

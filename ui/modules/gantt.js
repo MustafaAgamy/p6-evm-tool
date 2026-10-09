@@ -327,7 +327,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       ${kv('Critical activities (construction, as P6 flags them, not finished)', cf.n)}
       ${kv('Critical activities as a share of the schedule', f1(cf.share))}
       ${kv('Critical activities in progress / not started', `${cf.prog} / ${cf.notStarted}`)}
-      ${kv('Actual % of the critical activities', f1(cf.actual))}
+      ${kv('Current % of the critical activities (Actual %)', f1(cf.actual))}
       ${kv('A beside a date', 'Actual date (the work has started / finished on that date)')}
       ${kv('Critical milestones', counts.ms)}
       </tbody></table></div>
