@@ -173,6 +173,15 @@ def _cell_margins(cell, top=40, bottom=40, left=80, right=80):
     tcPr.append(mar)
 
 
+def _darker(hexcol, k=0.55):
+    """A darker shade of an RRGGBB colour (the outline of a Gantt bar in Word)."""
+    try:
+        r, g, b = (int(hexcol[i:i + 2], 16) for i in (0, 2, 4))
+        return '%02X%02X%02X' % (int(r * k), int(g * k), int(b * k))
+    except Exception:
+        return '1F4E79'
+
+
 def _cell_width(cell, emu):
     tcPr = cell._tc.get_or_add_tcPr()
     for old in tcPr.findall(qn('w:tcW')):
@@ -708,12 +717,12 @@ class _Writer:
         prims = []
         if 'scale' in bar:
             rows = bar.get('scale_rows') or [0] * len(bar['scale'])
-            row_h = 8.4                                  # one line of the scale (months alternate lines, years have their own)
+            row_h = 9.6                                  # one line of the scale (months alternate lines, years have their own)
             h = row_h * (max(rows) + 1) + 1.0
             for (left, label, col), r in zip(bar['scale'], rows):
                 x0, y0 = x(left), 0.5 + r * row_h
                 prims.append(rect(x0, y0, x0 + 0.75, h, self.hair))
-                size = 6.6
+                size = 7.4
                 is_year = label.isdigit() and len(label) == 4
                 prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
                               'bold': is_year, 'italic': False, 'font': 'Consolas', 'vert': False,
@@ -724,7 +733,9 @@ class _Writer:
             if bar.get('bar'):
                 left, width, col = bar['bar']
                 x0, x1 = x(left), x(min(100.0, left + width))
-                prims.append(rect(x0, 1.5, max(x1, x0 + 1.5), 7.5, _hex(col) or 'D6E4F5'))
+                fillc = _hex(col) or 'D6E4F5'
+                prims.append({'k': 'path', 'segs': [], 'fill': fillc, 'stroke': _darker(fillc), 'width': 0.75, 'rect': True,
+                              'bbox': (x0, 1.5, max(x1, x0 + 1.5), 7.5)})     # an outline, so a light bar still shows on the track
                 f = bar.get('fill')
                 if f and f[0] > 0:
                     prims.append(rect(x0, 1.5, x0 + (max(x1, x0 + 1.5) - x0) * f[0] / 100.0, 7.5,

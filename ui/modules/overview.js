@@ -315,7 +315,8 @@ const ncActual = (n) => `<b>Actual</b> ${ncText(n, 'a')}`;
 const ncPlanned = (n) => `<b>Planned</b> ${ncText(n, 'p')}`;
 
 function wbsCellVal(col, n) {
-  if (col.kind === 'pct')  return wbsHasPct(n) ? pctVal(n[col.key]) : (col.key === 'actual' ? ncActual(n) : ncPlanned(n)).replace(/<\/?b>/g, '');
+  // a WBS with no cost: the COUNT-BASED Planned % / Actual % of its activities (see the Execution dashboard)
+  if (col.kind === 'pct')  return pctVal(wbsHasPct(n) ? n[col.key] : (col.key === 'planned' ? n.planned_count_pct : n.actual_count_pct));
   if (col.kind === 'date') {
     const ms = toMs(n[col.key]);
     if (Number.isNaN(ms)) return '—';
@@ -347,7 +348,7 @@ function buildWbsPrint(result, nodes, mains, ctx) {
     if (!subset.length) continue;
     const baseDepth = subset[0].depth, branch = subset[0];
     const branchPct = subset.some(wbsHasPct);
-    const cols = wbsShownCols().filter((c) => branchPct || c.kind !== 'pct');
+    const cols = wbsShownCols();
     let min = Infinity, max = -Infinity;
     for (const n of subset) for (const v of [n.start, n.finish, n.baseline_start, n.baseline_finish]) {
       const t = toMs(v);
@@ -360,15 +361,9 @@ function buildWbsPrint(result, nodes, mains, ctx) {
     const pDd = (dated && !Number.isNaN(dd)) ? `<u style="left:${pPos(dd).toFixed(2)}%"></u>` : '';
     const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('')
       + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale gp-scale-m">${pScale}</div></th>` : '');
-    const bothP = cols.some((c) => c.key === 'planned') && cols.some((c) => c.key === 'actual');
     const bodyRows = subset.map((n) => {
       const rd = n.depth - baseDepth;
-      const cells = cols.map((c) => {
-        if (!wbsHasPct(n) && bothP && c.key === 'actual') return '';
-        if (!wbsHasPct(n) && bothP && c.key === 'planned') return `<td class="wp-nc" colspan="2">${ncActual(n)}<br>${ncPlanned(n)}</td>`;
-        if (c.kind === 'pct' && !wbsHasPct(n)) return `<td class="wp-nc">${c.key === 'actual' ? ncActual(n) : ncPlanned(n)}</td>`;
-        return `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`;
-      }).join('');
+      const cells = cols.map((c) => `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`).join('');
       const s0 = toMs(n.start), f0 = toMs(n.finish);
       let pbar = '';
       if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
@@ -390,11 +385,13 @@ function buildWbsPrint(result, nodes, mains, ctx) {
       html: (dash ? `<div data-part="wbs.${escapeAttr(m.id)}.dash" data-part-label="Execution dashboard — ${escapeAttr(m.name)}">${dash}</div>` : '')
         + `<div data-part="wbs.${escapeAttr(m.id)}.table" data-part-label="WBS table — ${escapeAttr(m.name)}">${table}</div>`,
     });
-    ovRows.push(`<tr><td>${escapeHtml(m.name)}</td><td class="wp-num">${branch.activities ?? '—'}</td><td class="wp-num">${wbsHasPct(branch) ? pctVal(branch.planned) : '—'}</td>`
-      + `<td class="wp-num">${wbsHasPct(branch) ? pctVal(branch.actual) : '—'}</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>`);
+    const byCost = wbsHasPct(branch);
+    ovRows.push(`<tr><td>${escapeHtml(m.name)}</td><td class="wp-num">${branch.count ?? branch.activities ?? '—'}</td>`
+      + `<td class="wp-num">${pctVal(byCost ? branch.planned : branch.planned_count_pct)}</td><td class="wp-num">${pctVal(byCost ? branch.actual : branch.actual_count_pct)}</td>`
+      + `<td>${byCost ? 'by cost' : 'by count of activities'}</td></tr>`);
   }
-  const overview = `<table class="wbs-print"><thead><tr><th>Main WBS</th><th class="wp-num">Activities</th><th class="wp-num">Planned %${approx ? ' · approx' : ''}</th><th class="wp-num">Actual %</th><th>Date span</th></tr></thead><tbody>${ovRows.join('')}</tbody></table>`
-    + `<p class="ov-note">Cut-off date (data date): <b>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</b>. <b>A</b> beside a date = <b>Actual</b> date.${approx ? ` Baseline: ${escapeHtml(blLine.replace(/^Baseline: /, ''))}` : ''}</p>`;
+  const overview = `<table class="wbs-print"><thead><tr><th>Main WBS</th><th class="wp-num">Activities</th><th class="wp-num">Planned %${ucCut ? ' till ' + escapeHtml(ucCut) : ''}${approx ? ' · approx' : ''}</th><th class="wp-num">Actual %${ucCut ? ' till ' + escapeHtml(ucCut) : ''}</th><th>Basis</th></tr></thead><tbody>${ovRows.join('')}</tbody></table>`
+    + `<p class="ov-note">Cut-off date (data date): <b>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</b>. <b>A</b> beside a date = <b>Actual</b> date. Planned % / Actual % of a WBS with no cost are counted by number of activities (see its Execution dashboard).${approx ? ` Baseline: ${escapeHtml(blLine.replace(/^Baseline: /, ''))}` : ''}</p>`;
   return [{ key: 'overview', label: `WBS overview${critical ? ' — critical activities' : ''}`, html: overview }, ...sections];
 }
 
@@ -438,7 +435,7 @@ export function renderWbs(result) {
   const branch = subset[0] || {};
   // a branch with no cost-loaded WBS at all (e.g. Engineering) loses the two % columns
   const branchPct = subset.some(wbsHasPct);
-  const cols = wbsShownCols().filter((c) => branchPct || c.kind !== 'pct');
+  const cols = wbsShownCols();
   // The WBS column is as wide as its longest name at its level needs (indent included), so no
   // level is cut short; a name longer than the room left wraps onto a second line instead.
   const colsW = cols.reduce((s, c) => s + c.w, 0);
@@ -503,13 +500,7 @@ export function renderWbs(result) {
           ${ac != null ? `<div class="wbst-act" style="width:${ac}%"></div>` : ''}${behind}${tick}
           <div class="wbst-cap"></div></div>`;
     }
-    const bothPct = cols.some((c) => c.key === 'planned') && cols.some((c) => c.key === 'actual');
     const dataCells = cols.map((c) => {
-      if (!wbsHasPct(n) && bothPct && c.key === 'actual') return '';
-      if (!wbsHasPct(n) && bothPct && c.key === 'planned') {
-        const w2 = cols.filter((x) => x.kind === 'pct').reduce((m, x) => m + x.w, 0);
-        return `<div class="wc-cell wc-nocost wc-nc2" style="width:${w2}px"><span>${ncActual(n)}</span><span>${ncPlanned(n)}</span></div>`;
-      }
       let cls = 'wc-cell ' + (c.kind === 'date' ? 'wc-date' : 'wc-num');
       let inner = wbsCellVal(c, n);
       if (c.kind === 'delay') {
@@ -517,8 +508,7 @@ export function renderWbs(result) {
         if (d != null && d < 0) cls += ' wc-bad';          // negative float = late
         else if (d != null && d > 0) cls += ' wc-good';
       }
-      if (c.kind === 'pct' && !wbsHasPct(n)) { cls += ' wc-nocost wc-nc2'; inner = `<span>${c.key === 'actual' ? ncActual(n) : ncPlanned(n)}</span>`; }
-      else if (c.key === 'actual') inner = `<b>${inner}</b>`;
+      if (c.key === 'actual') inner = `<b>${inner}</b>`;
       return `<div class="${cls}" style="width:${c.w}px">${inner}</div>`;
     }).join('');
     return `<div class="wbst-row ${leaf ? 'leaf' : 'sum'} d${rd}">
@@ -555,7 +545,7 @@ export function renderWbs(result) {
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
-        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : ''}
+        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
     ${execHtml}

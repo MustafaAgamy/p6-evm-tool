@@ -122,6 +122,8 @@ def schedule_excel(result):
     all_acts = result.get('activities') or []
     # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities
     # of the construction works only (the WBS branches that hold cost-loaded work)
+    # Critical remaining activities only — is_critical() already returns False for Completed activities,
+    # so this matches the HTML report / gantt.js which also hides completed critical work.
     acts = [a for a in all_acts if a.get('critical')]
     cf = result.get('code_filter') or None             # the planner picked one value of an activity code (Silo 3)
     if cf and cf.get('code') and cf.get('value'):
@@ -134,8 +136,8 @@ def schedule_excel(result):
     headers = (_HEADERS[:1] + [code] + _HEADERS[1:]) if code else _HEADERS
     widths = ({0: 20, 1: 26, **{k + 1: v for k, v in _WIDTHS.items() if k}} if code else _WIDTHS)
     # the Gantt itself, drawn in cells to the right of the table: one column per week (or month),
-    # a red cell for every week the activity runs, its Actual % part in dark red
-    from p6_evm.xlsx_writer import gantt_buckets, gantt_header, gantt_cells, BAR_RED, BAR_RED_DONE
+    # one solid red cell for every bucket the remaining-critical activity runs
+    from p6_evm.xlsx_writer import gantt_buckets, gantt_header, gantt_cells, BAR_RED
     buckets, unit = gantt_buckets([a.get('start') for a in acts] + [a.get('finish') for a in acts] + [result.get('data_date')])
     if buckets:
         headers = list(headers) + gantt_header(buckets, unit, result.get('data_date'))
@@ -196,11 +198,11 @@ def schedule_excel(result):
 
     blocks = [summary]
     for g in order:
-        rows = [_row(a, code) + (gantt_cells(a.get('start'), a.get('finish'), buckets, BAR_RED, a.get('pct'), BAR_RED_DONE) if buckets else [])
+        rows = [_row(a, code) + (gantt_cells(a.get('start'), a.get('finish'), buckets, BAR_RED) if buckets else [])
                 for a in sorted(groups[g], key=_start_ms)]
         blocks.append({
             'title': names[g],
-            'note': 'Red cells = the weeks the activity runs (dark red = its Actual % part). A after a date = Actual date.',
+            'note': 'Red cells = the weeks the activity runs (remaining critical only; completed hidden). A after a date = Actual date.',
             'headers': headers,
             'rows': rows,
         })

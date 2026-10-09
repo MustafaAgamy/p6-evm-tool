@@ -2731,7 +2731,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .gp-bandrow td { font-weight: 700; background: var(--bg); border-bottom: 1px solid var(--border); }
 .gp-bandrow small { font-weight: 500; color: var(--muted); }
 .gp-band { position: absolute; top: 3px; height: 6px; background: #0f172a; opacity: 1; border-radius: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.wbs-print-bars { font-size: 10.5px; }
+.wbs-print-bars { font-size: 11.5px; }
 .wbs-print-bars .gp-bar { top: 1px; height: 10px; background: #bfdbfe; box-shadow: inset 0 0 0 1px #2563eb; overflow: hidden; }
 .wbs-print-bars .gp-bar s { background: #1d4ed8; z-index: 1; }
 .wbs-print-bars .gp-bar i { position: absolute; top: 0; bottom: 0; background: #f59e0b; z-index: 1; }
@@ -2757,7 +2757,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .g-st.done, .gp-st.done { color: #15803d; } .g-st.prog, .gp-st.prog { color: #b45309; }
 .gp-st { font-weight: 600; font-size: 8.5px; color: var(--muted); margin-left: 4px; }
 .wbs-print-bars th, .wbs-print-bars td { padding: 3px 5px; }
-.wbs-print-bars th.wp-bar { width: 27%; } .wbs-print-bars th:first-child { width: 24%; } .wbs-print-bars tr { break-inside: avoid; }
+.wbs-print-bars th.wp-bar { width: 34%; } .wbs-print-bars th:first-child { width: 22%; } .wbs-print-bars tr { break-inside: avoid; }
 .wbs-print-bars td.wp-date, .wbs-print-bars td.wp-num { white-space: nowrap; }
 .gp-table.gp-sum { table-layout: auto; max-width: 560px; }
 .gp-table.gp-sum th:nth-child(n) { width: auto; }

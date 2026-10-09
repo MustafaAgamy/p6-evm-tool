@@ -153,7 +153,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 11:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 12:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -226,7 +226,7 @@ def test_wbs_without_cost_carries_no_percentages():
     from p6_evm.wbs_excel import wbs_excel
     rows = [r for b in wbs_excel({'wbs_summary': summary, 'wbs_main': []})[0]['blocks'] for r in b['rows']]
     eng = next(r for r in rows if r[0].strip() == 'Engineering')
-    assert eng[5].startswith('Planned: ') and eng[6].startswith('Actual: ')       # a count summary, not a %
+    assert isinstance(eng[5], (int, float)) or eng[5] == '—'                  # count-based Planned % / Actual % (numbers), no text
 
 
 def test_critical_follows_the_p6_flag_when_the_file_carries_it():

@@ -86,9 +86,10 @@ def _has_pct(node):
 
 
 def _pct(node, key):
+    """Planned % / Actual % of a WBS: the cost-loaded % when it carries cost, else the COUNT-BASED % of
+    its activities (planned = baseline finish on/before the cut-off, actual = started)."""
     if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
-        from p6_evm.schedule_view import nocost_text
-        return ('Actual: ' if key == 'actual' else 'Planned: ') + nocost_text(node, 'a' if key == 'actual' else 'p')
+        return _num(node.get('planned_count_pct' if key == 'planned' else 'actual_count_pct'))
     return _num(node.get(key))
 
 
@@ -135,11 +136,11 @@ def _branch_note(subset):
     root = subset[0]
     acts = root.get('activities')
     pl, ac = root.get('planned'), root.get('actual')
+    if not _has_pct(root):                              # no cost: the count-based %
+        pl, ac = root.get('planned_count_pct'), root.get('actual_count_pct')
     pl_s = f'{pl:.1f}%' if isinstance(pl, (int, float)) else '—'
     ac_s = f'{ac:.1f}%' if isinstance(ac, (int, float)) else '—'
     n = f'{acts} activities' if acts is not None else 'activities —'
-    if not _has_pct(root):
-        return f'{n} · not cost-loaded - no Planned % / Actual %'
     return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay = Total Float on the update (negative = late)'
 
 

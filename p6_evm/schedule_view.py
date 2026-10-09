@@ -334,8 +334,8 @@ def wbs_views(records, data):
         if wid is None:
             continue
         d = direct[wid]
-        if not (r.get('bac') or 0) > 0:
-            # an activity with no cost: counted by its ACTUAL status and by where its BASELINE
+        if not (r.get('bac') or 0) > 0 and a.get('task_type') not in ('StartMilestone', 'FinishMilestone'):
+            # an activity with no cost (a milestone is never counted): counted by its ACTUAL status and by where its BASELINE
             # dates put it at the cut-off date (completed / in progress / not started)
             d['nc'] += 1
             st = activity_status(a)
@@ -442,6 +442,10 @@ def wbs_views(records, data):
             'finish_actual': bool(t['all'] and not t['open']),
             # the activities of this WBS that carry NO cost, counted (a WBS with no cost has no %)
             'nc_total':   t['nc'],
+            # COUNT-BASED Planned % / Actual % of a WBS with no cost: planned = activities whose baseline
+            # finish is on/before the cut-off date, actual = activities started (in progress / completed)
+            'planned_count_pct': round(100.0 * t['pd'] / t['nc'], 1) if t['nc'] else None,
+            'actual_count_pct':  round(100.0 * (t['ad'] + t['ap']) / t['nc'], 1) if t['nc'] else None,
             'nc_a_done':  t['ad'], 'nc_a_prog': t['ap'], 'nc_a_ns': t['an'],      # by actual status
             'nc_p_done':  t['pd'], 'nc_p_prog': t['pp'], 'nc_p_ns': t['pn'],      # by baseline dates at the cut-off
             # the other columns of P6's WBS band
