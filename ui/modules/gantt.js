@@ -86,14 +86,15 @@ export function schedulePrint() { return _print; }
 
 // The CRITICAL activities per major WBS of P6 (Phase I Construction Works, Phase I Key Dates ...):
 // the planner picks one major WBS, or all of them. Remembered between sessions.
-let ganttMain = null;
+let ganttMain = null, ganttMainFor = null;
 export function ganttScope(result) {
   const all = (result && result.activities) || [];
   // the WBS tree of ALL activities (so a WBS without a critical activity still maps to its major WBS)
   const tree = (result && ((result.wbs_summary || []).length ? result.wbs_summary : result.wbs_critical)) || [];
   const byId = new Map(tree.map((n) => [n.id, n]));
   const rootOf = (id) => { let n = byId.get(id), g = 0; while (n && n.parent && byId.has(n.parent) && g++ < 60) n = byId.get(n.parent); return n ? n.id : null; };
-  if (ganttMain == null) ganttMain = '';                   // the results cover the WHOLE project until a major WBS is picked
+  // the results cover the WHOLE project until a major WBS is picked; a newly opened project starts on 'All'
+  if (ganttMain == null || ganttMainFor !== result) { ganttMain = ''; ganttMainFor = result; }
   const counts = new Map();
   for (const a of all) if (a.critical) { const r = rootOf(a.wbs_id); if (r) counts.set(r, (counts.get(r) || 0) + 1); }
   const roots = tree.filter((n) => counts.has(n.id)).map((n) => ({ id: n.id, name: n.name, n: counts.get(n.id) }));
