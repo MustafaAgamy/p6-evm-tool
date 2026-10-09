@@ -136,8 +136,57 @@ function costDashboard(result, id, name, cutoffText) {
   return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${badge}</div>${howto}${tiles}${legend}${table}</div>`;
 }
 // the Execution dashboard of one main WBS: by COST when it is (almost) all cost loaded, else by COUNT
+// Milestone-only WBS: a table of every milestone in that branch with Actual % vs Planned %
+// Planned % = 100 when the baseline finish is on/before the data date, 0 otherwise (P6 logic).
+function milestoneTable(result, branchId, branchName, cutoffText) {
+  const dd = result.data_date ? new Date(result.data_date) : null;
+  const acts = (result.activities || []).filter((a) => a.milestone && (a.wbs_top_id === branchId || a.wbs_top === branchName));
+  if (!acts.length) return '';
+  const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
+  const rows = acts.map((a) => {
+    const plannedPct = (dd && a.planned_finish && new Date(a.planned_finish) <= dd) ? 100 : 0;
+    const actualPct = typeof a.pct === 'number' ? a.pct : 0;
+    const behind = plannedPct > actualPct;
+    const status = actualPct === 100 ? '<span class="uc-chip g">Completed</span>'
+      : behind ? '<span class="uc-chip r">Not completed</span>'
+      : '<span class="uc-chip y">Not yet due</span>';
+    return `<tr>
+      <td>${escapeHtml(a.id || '')}</td>
+      <td>${escapeHtml(a.name || '')}</td>
+      <td class="uc-n">${a.planned_finish ? fmtDate(a.planned_finish) : '—'}</td>
+      <td class="uc-n">${a.finish ? fmtDate(a.finish) + (a.finish_actual ? ' A' : '') : '—'}</td>
+      <td class="uc-n"><b>${plannedPct}%</b></td>
+      <td class="uc-n"><b>${actualPct}%</b></td>
+      <td class="uc-c">${status}</td>
+    </tr>`;
+  }).join('');
+  const done = acts.filter((a) => (typeof a.pct === 'number' ? a.pct : 0) === 100).length;
+  const due = acts.filter((a) => dd && a.planned_finish && new Date(a.planned_finish) <= dd).length;
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution Dashboard — Milestones</h3><p class="uc-sub">${escapeHtml(branchName)} — Milestone Progress</p></div></div>
+    <div class="uc-tiles">
+      <div><span>Milestones</span><b>${acts.length}</b><em>${escapeHtml(branchName)}</em></div>
+      <div><span>Completed</span><b>${done}</b><em>${acts.length ? ((100 * done / acts.length).toFixed(1) + '% of milestones') : '—'}</em></div>
+      <div><span>Planned till ${cut}</span><b>${due}</b><em>should be complete by the cut-off date</em></div>
+      <div><span>Behind plan</span><b class="${due > done ? 'bad' : ''}">${Math.max(0, due - done)}</b><em>planned but not yet completed</em></div>
+    </div>
+    <div class="uc-block" style="margin-top:10px">
+      <table class="uc-table"><thead><tr>
+        <th>Activity ID</th><th>Name</th>
+        <th class="uc-n">Baseline Finish</th><th class="uc-n">Expected/Actual Finish</th>
+        <th class="uc-n">Planned % till ${cut}</th><th class="uc-n">Actual %</th>
+        <th class="uc-c">Status</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <p class="ov-note">Planned % = 100 when the baseline finish is on or before the cut-off date, 0 otherwise. Actual % = P6 % complete (100 when completed, 0 otherwise). <b>A</b> beside a date = Actual date.</p>
+  </div>`;
+}
+
 function executionPanel(result, m, cutoffText) {
-  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : executionDashboard(result.uncosted, cutoffText, m.name);
+  if (costShare(result, m.id) >= COST_SHARE) return costDashboard(result, m.id, m.name, cutoffText);
+  // if every activity in this branch is a milestone, show the milestone table instead
+  const branchActs = (result.activities || []).filter((a) => a.wbs_top_id === m.id || a.wbs_top === m.name);
+  if (branchActs.length > 0 && branchActs.every((a) => a.milestone)) return milestoneTable(result, m.id, m.name, cutoffText);
+  return executionDashboard(result.uncosted, cutoffText, m.name);
 }
 
 export function renderOverview(result) {
