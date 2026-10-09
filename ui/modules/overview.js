@@ -163,12 +163,14 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
   const due  = acts.filter((a) => dd && blFinish(a) && new Date(blFinish(a)) <= dd).length;
   const behind = Math.max(0, due - done);
 
-  // time scale: span all baseline + expected dates + data date, padded 15 days each side
-  const allT = acts.flatMap((a) => [toMs(a.planned_finish), toMs(a.finish)]).filter((t) => !Number.isNaN(t));
+  // time scale: span all baseline + expected dates + data date, padded so edge labels stay readable
+  const allT = acts.flatMap((a) => [toMs(a.baseline_finish), toMs(a.planned_finish), toMs(a.finish)]).filter((t) => !Number.isNaN(t));
   if (dd) allT.push(dd.getTime());
   if (!allT.length) return '';
-  const minT = Math.min(...allT) - 15 * 86400000;
-  const maxT = Math.max(...allT) + 15 * 86400000;
+  const rawMin = Math.min(...allT), rawMax = Math.max(...allT);
+  const pad = Math.max(20 * 86400000, (rawMax - rawMin) * 0.06);
+  const minT = rawMin - pad;
+  const maxT = rawMax + pad;
   const span = maxT - minT;
   const pctPos = (t) => (((t - minT) / span) * 100).toFixed(3) + '%';
 
@@ -223,8 +225,10 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
       const w   = Math.abs(parseFloat(exX) - parseFloat(blX)).toFixed(3) + '%';
       const midX = ((parseFloat(blX) + parseFloat(exX)) / 2).toFixed(3) + '%';
       const cls = slipped ? 'slip' : 'early';
+      // a short connector has no room for the variance label between the two date labels
+      const roomy = Math.abs(parseFloat(exX) - parseFloat(blX)) >= 14;
       connHtml = `<div class="mg-conn ${cls}" style="left:${lft.toFixed(3)}%;width:${w}"></div>
-        <div class="mg-varlbl ${cls}" style="left:${midX}">${escapeHtml(varTxt)}</div>`;
+        ${roomy ? `<div class="mg-varlbl ${cls}" style="left:${midX}">${escapeHtml(varTxt)}</div>` : ''}`;
       if (slipped) connHtml += `<div class="mg-arrow" style="left:${exX}"></div>`;
     }
 
@@ -681,7 +685,9 @@ export function renderWbs(result) {
   const execHtml = executionPanel(result, { id: branch.id, name: branch.name }, ucCut);       // the dashboard of the WBS shown
   // milestone-only branch: all activities in this branch are milestones — hide the WBS tree table
   const branchActs = (result.activities || []).filter((a) => a.wbs_top_id === branch.id || a.wbs_top === branch.name);
-  const allMilestone = branchActs.length > 0 && branchActs.every((a) => a.milestone);
+  const msWbs = (((result.uncosted || {}).summary || {}).excluded_wbs) || [];
+  const allMilestone = msWbs.includes(branch.name)
+    || (branchActs.length > 0 && branchActs.every((a) => a.milestone));
   _wbsPrint = buildWbsPrint(result, nodes, mains, { approx, blLine, dd, critical, ucCut });
 
   const seg = mains.length > 1

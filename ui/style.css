@@ -4201,8 +4201,10 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-tag { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: #dbeafe; color: #1e3a8a; padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: middle; }
 
 /* the dashboard tables fit the page (no sideways scroll): fixed layout, wrapped words, bordered cells */
-.uc-table { table-layout: fixed; width: 100%; border: 1px solid var(--border); border-collapse: collapse; }
-.uc-table th, .uc-table td { border: 1px solid var(--hair); white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.uc-table { table-layout: fixed; width: 100%; border: 2px solid var(--uc-grid); border-collapse: collapse; border-radius: 0; overflow: visible; --uc-grid: #64748b; }
+.uc-table th, .uc-table td { border: 1.5px solid var(--uc-grid); white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.uc-table tr.uc-total td { border-top: 2px solid var(--uc-grid); }
+.uc-table th.uc-gh { border-bottom: 1.5px solid var(--uc-grid); }
 .uc-table th { line-height: 1.2; } .uc-table th:first-child, .uc-table td:first-child { width: 15%; }
 .uc-table .uc-n { white-space: normal; overflow-wrap: anywhere; }
 .uc-panel { overflow-x: hidden; max-width: 100%; }
@@ -4212,7 +4214,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mg-wrap { overflow-x: auto; margin: 10px 0 4px; }
 .mg-gantt { min-width: 600px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 /* fixed column widths */
-.mg-id   { width: 88px;  flex-shrink: 0; }
+.mg-id   { width: 128px; flex-shrink: 0; }
 .mg-name { width: 180px; flex-shrink: 0; }
 .mg-var  { width: 68px;  flex-shrink: 0; }
 .mg-chip { width: 112px; flex-shrink: 0; }
@@ -4229,7 +4231,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mg-row:last-child { border-bottom: none; }
 .mg-row:hover { background: var(--row-hover); }
 .mg-cell { padding: 6px 8px; display: flex; align-items: center; font-size: 11.5px; }
-.mg-cell.mg-id   { font-size: 10.5px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; }
+.mg-cell.mg-id   { font-size: 10.5px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
 .mg-cell.mg-name { font-size: 11.5px; font-weight: 600; line-height: 1.3; }
 .mg-cell.mg-var  { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; justify-content: flex-end; }
 .mg-cell.mg-chip { justify-content: center; }
@@ -4239,7 +4241,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mg-early { color: var(--accent); }
 .mg-same  { color: var(--success); }
 /* track */
-.mg-track { position: absolute; inset: 0; }
+.mg-track { position: absolute; inset: 0 44px; }
+.mg-scale { margin: 0 44px; width: auto; flex: 1; }
 .mg-gl    { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--hair); }
 .mg-gl.yr { background: var(--border); }
 .mg-dd    { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: .5; z-index: 3; }
