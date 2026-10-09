@@ -38,23 +38,23 @@ _TREE_XML = (
     '    <Activity><ObjectId>O1</ObjectId><Id>ENG-1</Id><Name>Design work</Name>'
     '<CalendarObjectId>CAL1</CalendarObjectId><WBSObjectId>1110</WBSObjectId>'
     '<PercentComplete>0.60</PercentComplete><PlannedDuration>240</PlannedDuration>'
-    '<PlannedStartDate>2025-12-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-10-30T00:00:00</PlannedFinishDate></Activity>\n'
+    '<PlannedStartDate>2025-12-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-10-30T16:00:00</PlannedFinishDate></Activity>\n'
     '    <Activity><ObjectId>O2</ObjectId><Id>QW-1</Id><Name>Piling</Name>'
     '<CalendarObjectId>CAL1</CalendarObjectId><WBSObjectId>1211</WBSObjectId>'
     '<PercentComplete>0.50</PercentComplete><PlannedDuration>160</PlannedDuration>'
-    '<PlannedStartDate>2026-02-02T00:00:00</PlannedStartDate><PlannedFinishDate>2026-07-15T00:00:00</PlannedFinishDate></Activity>\n'
+    '<PlannedStartDate>2026-02-02T00:00:00</PlannedStartDate><PlannedFinishDate>2026-07-15T16:00:00</PlannedFinishDate></Activity>\n'
     '    <Activity><ObjectId>O3</ObjectId><Id>QW-2</Id><Name>Capping</Name>'
     '<CalendarObjectId>CAL1</CalendarObjectId><WBSObjectId>1211</WBSObjectId>'
     '<PercentComplete>0.30</PercentComplete><PlannedDuration>180</PlannedDuration>'
-    '<PlannedStartDate>2026-06-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-11-30T00:00:00</PlannedFinishDate></Activity>\n'
+    '<PlannedStartDate>2026-06-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-11-30T16:00:00</PlannedFinishDate></Activity>\n'
     '    <ResourceAssignment><ActivityObjectId>O1</ActivityObjectId><PlannedCost>1000000</PlannedCost><ActualCost>600000</ActualCost></ResourceAssignment>\n'
     '    <ResourceAssignment><ActivityObjectId>O2</ActivityObjectId><PlannedCost>2000000</PlannedCost><ActualCost>1000000</ActualCost></ResourceAssignment>\n'
     '    <ResourceAssignment><ActivityObjectId>O3</ActivityObjectId><PlannedCost>1000000</PlannedCost><ActualCost>300000</ActualCost></ResourceAssignment>\n'
     '  </Project>\n'
     '  <BaselineProject>\n'
-    '    <Activity><Id>ENG-1</Id><PlannedStartDate>2026-01-01T00:00:00</PlannedStartDate><PlannedFinishDate>2027-06-30T00:00:00</PlannedFinishDate></Activity>\n'
-    '    <Activity><Id>QW-1</Id><PlannedStartDate>2026-01-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-09-30T00:00:00</PlannedFinishDate></Activity>\n'
-    '    <Activity><Id>QW-2</Id><PlannedStartDate>2026-03-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-10-31T00:00:00</PlannedFinishDate></Activity>\n'
+    '    <Activity><Id>ENG-1</Id><PlannedStartDate>2026-01-01T00:00:00</PlannedStartDate><PlannedFinishDate>2027-06-30T16:00:00</PlannedFinishDate></Activity>\n'
+    '    <Activity><Id>QW-1</Id><PlannedStartDate>2026-01-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-09-30T16:00:00</PlannedFinishDate></Activity>\n'
+    '    <Activity><Id>QW-2</Id><PlannedStartDate>2026-03-01T00:00:00</PlannedStartDate><PlannedFinishDate>2026-10-31T16:00:00</PlannedFinishDate></Activity>\n'
     '  </BaselineProject>\n'
     '</APIBusinessObjects>\n'
 )
@@ -158,3 +158,15 @@ def test_pre_order_branch_precedes_descendants(tree_result):
     order = [n['id'] for n in tree_result['wbs_summary']]
     # Construction appears before its Marine/Quay Wall descendants
     assert order.index('1200') < order.index('1210') < order.index('1211')
+
+
+def test_a_finish_saved_at_midnight_is_the_day_before_as_p6_shows_it():
+    """P6 stores some finishes as the next day 00:00 (the END of the day): P6 shows 02-Jun for a
+    finish saved as 03-Jun 00:00, and so do the WBS and the Gantt."""
+    from datetime import datetime
+    from p6_evm.schedule_view import p6_finish_day
+    assert p6_finish_day(datetime(2025, 6, 3, 0, 0)).date().isoformat() == '2025-06-02'
+    assert p6_finish_day(datetime(2025, 6, 2, 16, 0)).date().isoformat() == '2025-06-02'
+    # never before its own start (a zero-length activity keeps its day)
+    assert p6_finish_day(datetime(2025, 6, 3), datetime(2025, 6, 3)).date().isoformat() == '2025-06-03'
+    assert p6_finish_day(None) is None

@@ -12,6 +12,7 @@ Planned dates only where the file carries neither (owner comment 26 — the bars
 from Planned dates, so a progressed update showed finished work in the wrong place).
 """
 from collections import defaultdict
+from datetime import timedelta
 
 
 def _iso(x):
@@ -20,6 +21,19 @@ def _iso(x):
 
 def _iso_day(x):
     return x.date().isoformat() if hasattr(x, 'date') else (str(x)[:10] if x else None)
+
+
+def p6_finish_day(f, s=None):
+    """A FINISH P6 stores at 00:00 is the END of the day before (P6 shows 02-Jun for a finish saved
+    as 03-Jun 00:00) - so it is read one second earlier, never before the start `s`."""
+    try:
+        if f is not None and (f.hour, f.minute, f.second) == (0, 0, 0):
+            g = f - timedelta(seconds=1)
+            if s is None or g >= s:
+                return g
+    except (AttributeError, TypeError):
+        pass
+    return f
 
 
 def current_start(a):
@@ -260,6 +274,8 @@ def gantt_activities(records, wbs_map, data=None):
         ps, pf = a.get('planned_start'), a.get('planned_finish')
         bl = bl_by_id.get(a.get('id'))
         bf = bl.get('planned_finish') if bl else None
+        if a.get('task_type') != 'StartMilestone':      # the day P6 shows for a finish saved at 00:00
+            f, pf, bf = p6_finish_day(f, s), p6_finish_day(pf, ps), p6_finish_day(bf)
         out.append({
             'id':         a.get('id') or '',
             'name':       a.get('name') or '',
@@ -352,7 +368,7 @@ def wbs_views(records, data):
             d['sa'] = bool(a.get('actual_start'))        # is the band's start an ACTUAL date?
         d['began'] += 1 if a.get('actual_start') else 0
         d['s'] = _mn(d['s'], cs)                        # current schedule (expected)
-        d['f'] = _mx(d['f'], current_finish(a))
+        d['f'] = _mx(d['f'], current_finish(a) if a.get('task_type') == 'StartMilestone' else p6_finish_day(current_finish(a), cs))
         # for the WBS's own Total Float: its latest early finish and latest late finish
         d['ef'] = _mx(d['ef'], a.get('actual_finish') or a.get('remaining_early_finish'))
         d['lf'] = _mx(d['lf'], a.get('actual_finish') or a.get('remaining_late_finish'))
@@ -367,7 +383,7 @@ def wbs_views(records, data):
         bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
         if bl:
             d['bs'] = _mn(d['bs'], bl.get('planned_start'))
-            d['bf'] = _mx(d['bf'], bl.get('planned_finish'))
+            d['bf'] = _mx(d['bf'], p6_finish_day(bl.get('planned_finish'), bl.get('planned_start')))
         if r.get('planned_pct') is None:
             continue
         w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)

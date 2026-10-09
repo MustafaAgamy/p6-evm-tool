@@ -43,17 +43,17 @@ def _act(i, wbs, ps, pf, **kw):
 def _records():
     return [
         # finished: drawn on its ACTUAL dates, never critical
-        {'activity': _act('A1', 'EC', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 2, 3),
-                          actual_finish=D(2025, 2, 14), percent_complete=1.0),
+        {'activity': _act('A1', 'EC', D(2025, 1, 1), D(2025, 1, 10, 16), actual_start=D(2025, 2, 3),
+                          actual_finish=D(2025, 2, 14, 16), percent_complete=1.0),
          'total_float': 0, 'bac': 0, 'planned_pct': 1.0, 'actual_pct': 1.0},
         # in progress: actual start → remaining early finish
-        {'activity': _act('A2', 'CC', D(2025, 2, 1), D(2025, 2, 20), actual_start=D(2025, 3, 1),
-                          remaining_early_start=D(2025, 3, 10), remaining_early_finish=D(2025, 4, 2),
+        {'activity': _act('A2', 'CC', D(2025, 2, 1), D(2025, 2, 20, 16), actual_start=D(2025, 3, 1),
+                          remaining_early_start=D(2025, 3, 10), remaining_early_finish=D(2025, 4, 2, 16),
                           percent_complete=0.4),
          'total_float': -12.34, 'bac': 0, 'planned_pct': 1.0, 'actual_pct': 0.4},
         # not started: remaining early dates
-        {'activity': _act('A3', 'CC', D(2025, 3, 1), D(2025, 3, 20),
-                          remaining_early_start=D(2025, 5, 1), remaining_early_finish=D(2025, 5, 20)),
+        {'activity': _act('A3', 'CC', D(2025, 3, 1), D(2025, 3, 20, 16),
+                          remaining_early_start=D(2025, 5, 1), remaining_early_finish=D(2025, 5, 20, 16)),
          'total_float': 8.0, 'bac': 0, 'planned_pct': 0.5, 'actual_pct': 0.0},
         # a critical finish milestone with only Planned dates
         {'activity': _act('M1', 'C', D(2025, 6, 1), D(2025, 6, 1), task_type='FinishMilestone'),
@@ -351,7 +351,7 @@ def test_uncosted_progress_counts_by_stage_with_the_e1_started_rule():
         a = _act(i, w, ps, pf, status=status, **kw)
         return {'activity': a, 'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0}
     recs = [
-        act('A1', 'S1SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9)),
+        act('A1', 'S1SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9, 16)),
         act('A2', 'S1SA', 'In Progress', D(2025, 2, 1), D(2025, 2, 20), actual_start=D(2025, 2, 3)),
         act('A3', 'S1AA', 'Not Started', D(2025, 2, 1), D(2025, 2, 20)),                     # due, not started
         act('A4', 'S1AA', 'Not Started', D(2025, 4, 1), D(2025, 4, 20)),                     # not yet due
@@ -401,7 +401,7 @@ def test_count_tables_keep_planned_per_type_and_the_default_procurement_order():
 
     def act(i, w, status, ps, pf, **kw):
         return {'activity': _act(i, w, ps, pf, status=status, **kw), 'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0}
-    recs = [act('S1', 'SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9)),
+    recs = [act('S1', 'SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9, 16)),
             act('S2', 'SA', 'Not Started', D(2025, 2, 1), D(2025, 2, 10)), act('S3', 'SA', 'Not Started', D(2025, 5, 1), D(2025, 5, 10)),
             act('A1', 'AA', 'Not Started', D(2025, 2, 1), D(2025, 2, 10))]
     t = sv.uncosted_progress(recs, SimpleNamespace(wbs=wbs, project={'data_date': D(2025, 3, 1)}, baseline_by_id={}))['tables'][0]['total']

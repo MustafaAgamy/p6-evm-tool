@@ -2860,7 +2860,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wbst-nm .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wbst-mk { width: 14px; text-align: center; flex-shrink: 0; color: var(--muted); font-size: 10px; }
-.wbst-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+/* the dot takes the same room as the group arrow, so a WBS and its sister WBS line up (same level = same indent) */
+.wbst-dot { width: 7px; height: 7px; margin: 0 3.5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
 .wbst-bar { position: absolute; top: 8px; height: 18px; border-radius: 6px; overflow: visible;
   background: #bfdbfe; border: 1px solid #2563eb; }
