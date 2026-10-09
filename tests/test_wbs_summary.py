@@ -170,3 +170,16 @@ def test_a_finish_saved_at_midnight_is_the_day_before_as_p6_shows_it():
     # never before its own start (a zero-length activity keeps its day)
     assert p6_finish_day(datetime(2025, 6, 3), datetime(2025, 6, 3)).date().isoformat() == '2025-06-03'
     assert p6_finish_day(None) is None
+
+
+def test_baseline_dates_are_p6_bl_project_start_and_finish():
+    """P6 lists a baseline activity by its own Start / Finish (BL Project Start / Finish), not
+    by its Planned dates; a schedule that holds no such dates falls back to the Planned ones."""
+    from datetime import datetime
+    from types import SimpleNamespace
+    from p6_evm.schedule_view import baseline_shown
+    bl = {'planned_start': datetime(2024, 12, 8, 8), 'planned_finish': datetime(2025, 1, 8, 16)}
+    data = SimpleNamespace(baseline_dates_by_id={'A1': {'start': datetime(2024, 12, 7, 20), 'finish': datetime(2025, 1, 7, 16)}})
+    assert baseline_shown(data, 'A1', bl) == (datetime(2024, 12, 7, 20), datetime(2025, 1, 7, 16))
+    assert baseline_shown(data, 'A2', bl) == (bl['planned_start'], bl['planned_finish'])
+    assert baseline_shown(SimpleNamespace(), 'A1', bl) == (bl['planned_start'], bl['planned_finish'])

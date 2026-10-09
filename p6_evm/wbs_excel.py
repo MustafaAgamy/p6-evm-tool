@@ -224,6 +224,9 @@ def wbs_excel(report):
             widths[len(_HEADERS) + i] = 8
         blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
+    pname = str(report.get('project_name') or '').strip()     # the name on the report (the planner's own, else P6's)
+    if pname and blocks:
+        blocks[0] = dict(blocks[0], note=('Project: %s · %s' % (pname, blocks[0].get('note') or '')).rstrip(' ·'))
     return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
 
 
@@ -262,7 +265,7 @@ def _milestone_blocks(milestones, m, cutoff, cut=''):
     for a in acts:
         bl = _parse_date(a.get('baseline_finish') or a.get('planned_finish'))
         done = bool(a.get('finish_actual'))
-        ex = _parse_date(a.get('finish') if done else a.get('planned_finish'))
+        ex = _parse_date(a.get('finish') or a.get('planned_finish'))   # expected = current P6 Finish
         diff = (ex - bl).days if bl and ex else None
         data.append((a, bl, ex, done, diff))
     n_done = sum(1 for x in data if x[3])
@@ -278,9 +281,8 @@ def _milestone_blocks(milestones, m, cutoff, cut=''):
                      bl.strftime('%d-%b.%Y') if bl else '—',
                      (ex.strftime('%d-%b.%Y') + (' A' if done else '')) if ex else '—']
                     + gantt_cells(lo, hi, buckets, style))
-    pct = f'{100.0 * n_done / len(data):.1f}%'
     return [{'title': f"Milestone Progress - {m.get('name')}",
-             'note': (f'{len(data)} milestones · {n_done} completed ({pct}) · {due} planned till {cut or "the cut-off date"} · '
+             'note': (f'{len(data)} milestones · {n_done} completed · {due} planned till {cut or "the cut-off date"} · '
                       f'{max(0, due - n_done)} behind plan (planned but not completed). Planned = baseline finish date; Expected / Actual = '
                       'current finish in P6; Variance = days slipped (+) or early (-); A beside a date = Actual date.'),
              'headers': _MS_HEADERS + gantt_header(buckets, unit, cutoff), 'rows': rows}]

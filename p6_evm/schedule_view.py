@@ -36,6 +36,15 @@ def p6_finish_day(f, s=None):
     return f
 
 
+def baseline_shown(data, aid, bl=None):
+    """(start, finish) of one activity in the baseline as P6 lists them - BL Project Start /
+    BL Project Finish, i.e. the baseline activity's own Start / Finish; its Planned dates when
+    the file holds no such dates (a schedule with no baseline of its own)."""
+    bl = bl or {}
+    own = (getattr(data, 'baseline_dates_by_id', None) or {}).get(aid) or {} if data is not None else {}
+    return own.get('start') or bl.get('planned_start'), own.get('finish') or bl.get('planned_finish')
+
+
 def current_start(a):
     """P6 'Start': Actual Start once started, else the remaining early start, else Planned."""
     return a.get('actual_start') or a.get('remaining_early_start') or a.get('planned_start')
@@ -273,7 +282,7 @@ def gantt_activities(records, wbs_map, data=None):
         tf = r.get('total_float')
         ps, pf = a.get('planned_start'), a.get('planned_finish')
         bl = bl_by_id.get(a.get('id'))
-        bf = bl.get('planned_finish') if bl else None
+        bf = baseline_shown(data, a.get('id'), bl)[1] if bl else None
         if a.get('task_type') != 'StartMilestone':      # the day P6 shows for a finish saved at 00:00
             f, pf, bf = p6_finish_day(f, s), p6_finish_day(pf, ps), p6_finish_day(bf)
         out.append({
@@ -382,8 +391,10 @@ def wbs_views(records, data):
         d['ev'] += bac * (r.get('actual_pct') or 0.0)
         bl = bl_by_id.get(a.get('id'))                  # embedded baseline, when present
         if bl:
-            d['bs'] = _mn(d['bs'], bl.get('planned_start'))
-            d['bf'] = _mx(d['bf'], p6_finish_day(bl.get('planned_finish'), bl.get('planned_start')))
+            # P6's BL Project Start / Finish: the baseline's own Start / Finish (its Planned dates when absent)
+            b_s, b_f = baseline_shown(data, a.get('id'), bl)
+            d['bs'] = _mn(d['bs'], b_s)
+            d['bf'] = _mx(d['bf'], p6_finish_day(b_f, b_s))
         if r.get('planned_pct') is None:
             continue
         w = (r.get('bac') or 0.0) if any_bac else float(a.get('planned_duration') or 1.0)

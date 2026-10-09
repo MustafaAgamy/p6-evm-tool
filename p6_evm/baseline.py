@@ -27,6 +27,7 @@ def apply_baseline(data, baseline_data):
     """
     # Baseline planned dates + object-id → Activity-Id map, keyed by the baseline's Activity Id (code).
     bl_dates = {}
+    bl_view = {}
     bl_oid_to_id = {}
     for oid, a in (baseline_data.activities or {}).items():
         aid = a.get('id')
@@ -35,6 +36,10 @@ def apply_baseline(data, baseline_data):
         bl_oid_to_id[oid] = aid
         bl_dates[aid] = {'planned_start': a.get('planned_start'),
                          'planned_finish': a.get('planned_finish')}
+        # P6's BL Project Start / Finish: the baseline activity's own Start / Finish (view-only)
+        bl_view[aid] = {
+            'start': a.get('actual_start') or a.get('remaining_early_start') or a.get('planned_start'),
+            'finish': a.get('actual_finish') or a.get('remaining_early_finish') or a.get('planned_finish')}
 
     # Baseline budget per Activity Id — only where the baseline actually carries cost (mirrors the
     # XML path, where an activity with no baseline resource assignment falls back to the current BAC).
@@ -45,6 +50,7 @@ def apply_baseline(data, baseline_data):
             bl_bac_by_id[aid] = bl_bac_by_id.get(aid, 0.0) + cost
 
     data.baseline_by_id = bl_dates
+    data.baseline_dates_by_id = bl_view
     data.baseline_bac_by_code = bl_bac_by_id
     new_bac = {}
     matched = 0

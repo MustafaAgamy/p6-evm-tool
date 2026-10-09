@@ -2625,6 +2625,11 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* ── Project ▸ Overview & WBS views ─────────────────────────────────────────── */
 .ov-head { margin-bottom: 16px; }
+/* the planner's own report name (WBS / Critical Activities) */
+.rn-field { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.rn-input { flex: 0 1 420px; min-width: 200px; padding: 6px 10px; font: inherit; font-weight: 600; color: var(--text); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; }
+.rn-input:focus { outline: none; border-color: var(--accent, #2563eb); }
+.rn-hint { font-style: normal; font-weight: 500; opacity: 0.8; }
 .ov-title h2 { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: var(--text); }
 .ov-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .ov-chip { font-size: 11px; font-family: ui-monospace, monospace; color: var(--ink-soft);
@@ -2791,10 +2796,11 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbst-lg.beh { background: #f59e0b; }
 .wbst-lg.tgt { width: 3px; height: 14px; background: var(--text); border-radius: 2px; }
 
-.wbst-wrap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
+/* the table scrolls INSIDE .wbst-wrap, so its heading row (columns + months) stays at the top */
+.wbst-wrap { overflow: auto; max-height: calc(100vh - 150px); border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
 .wbst-inner { position: relative; width: max-content; }   /* exact width set inline per render */
 /* the timeline takes whatever width is left, so the whole WBS fits with no sideways scroll */
-.wbst-inner.wbst-fit { width: 100%; box-sizing: border-box; overflow: hidden; }
+.wbst-inner.wbst-fit { width: 100%; box-sizing: border-box; overflow: clip; }   /* clip, not hidden: the frozen heading row sticks to .wbst-wrap */
 .wbst-fit .wc-tl { width: auto; flex: 1 1 0; min-width: 0; }
 .wbst-fit .wbst-dd { top: 0; }
 .wbst-mode { margin-bottom: 10px; }
@@ -4215,6 +4221,10 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* ── Milestone Gantt (milestone-only WBS execution dashboard) ─────────────── */
 .mg-wrap { overflow-x: auto; margin: 10px 0 4px; }
+/* on screen the milestone chart scrolls inside its frame and its heading row (columns + months) stays at the top */
+#wbs-body .mg-wrap { overflow: auto; max-height: calc(100vh - 150px); }
+#wbs-body .mg-gantt { overflow: visible; }
+#wbs-body .mg-head { position: sticky; top: 0; z-index: 5; }
 .mg-gantt { min-width: 600px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 /* fixed column widths */
 .mg-id   { width: 128px; flex-shrink: 0; }

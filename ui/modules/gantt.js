@@ -5,6 +5,7 @@
 // complete, critical highlighting, month gridlines and a data-date line, grouped by top-level
 // WBS. schedulePrint() hands the same rows to File ▸ Print / PDF / Word / HTML.
 import { escapeHtml, dateText, monthScaleHtml } from './format.js';
+import { reportNameField, onReportName } from './reportname.js';
 
 const DAY = 86400000;
 const ROW_H = 38, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
@@ -122,6 +123,7 @@ const delayText = (a) => (a.delay == null ? '—' : `${a.delay} d`);
 const delayCls = (a) => (a.delay == null || a.delay === 0 ? '' : (a.delay < 0 ? ' late' : ' early'));
 
 export function renderSchedule(result) {
+  onReportName(() => renderSchedule(result));     // a new report name: the report parts are rebuilt with it
   const el = document.getElementById('schedule-body');
   _print = null;
   if (!el) return;
@@ -277,6 +279,7 @@ export function renderSchedule(result) {
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
+      ${reportNameField()}
       <div class="ov-chips">
         <span class="ov-chip"><b>${counts.crit}</b> critical remaining activities of <b>${all.length}</b> · completed activities hidden</span>
         <span class="ov-chip"><b>A</b> beside a date = Actual date</span>

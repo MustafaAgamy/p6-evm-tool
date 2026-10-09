@@ -7,6 +7,7 @@
 import { fmtEGP, fmtDate, dateText, monthScaleHtml } from './format.js';
 import { state } from './state.js';
 import { baselineApprox, baselineApproxLine } from './baseline.js';
+import { reportNameField, onReportName } from './reportname.js';
 
 // printable sections for the global File ▸ Print flow
 let _ovPrint = null, _wbsPrint = null;
@@ -202,8 +203,8 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
   // rows
   const rows = acts.map((a) => {
     const blT = toMs(a.baseline_finish || a.planned_finish);
-    // completed → use actual finish; incomplete → use P6 planned finish (= forecast in current schedule)
-    const exT = a.finish_actual ? toMs(a.finish) : toMs(a.planned_finish);
+    // the expected date is the milestone's current P6 Finish (actual when completed) - never a planned / baseline date
+    const exT = toMs(a.finish || a.planned_finish);
     const hasBl = !Number.isNaN(blT), hasEx = !Number.isNaN(exT);
     const blX = hasBl ? pctPos(blT) : null;
     const exX = hasEx ? pctPos(exT) : null;
@@ -239,7 +240,7 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
     }
 
     // markers
-    const blMark  = blX ? `<div class="mg-dm bl"  style="left:${blX}" title="Baseline: ${a.planned_finish}"></div><div class="mg-lbl bl" style="left:${blX}">${fmtD(new Date(blT))}</div>` : '';
+    const blMark  = blX ? `<div class="mg-dm bl"  style="left:${blX}" title="Baseline: ${a.baseline_finish || a.planned_finish}"></div><div class="mg-lbl bl" style="left:${blX}">${fmtD(new Date(blT))}</div>` : '';
     const exClass = isDone ? 'done' : slipped ? 'slip' : early ? 'early' : 'same';
     const exMark  = exX ? `<div class="mg-dm ex ${exClass}" style="left:${exX}" title="${isDone ? 'Actual' : 'Expected'}: ${a.finish}"></div><div class="mg-lbl ex ${exClass}" style="left:${exX}">${fmtD(new Date(exT))}${isDone ? ' A' : ''}</div>` : '';
 
@@ -256,7 +257,7 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
 
   const tiles = `<div class="uc-tiles">
     <div><span>Milestones</span><b>${acts.length}</b><em>${escapeHtml(branchName)}</em></div>
-    <div><span>Completed</span><b>${done}</b><em>${acts.length ? ((100 * done / acts.length).toFixed(1) + '%') : '—'} of milestones</em></div>
+    <div><span>Completed</span><b>${done}</b><em>completed milestones</em></div>
     <div><span>Planned till ${cut}</span><b>${due}</b><em>should be done by cut-off date</em></div>
     <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned but not completed</em></div>
   </div>`;
@@ -583,6 +584,7 @@ function buildWbsPrint(result, nodes, mains, ctx) {
 }
 
 export function renderWbs(result) {
+  onReportName(() => renderWbs(result));          // a new report name: the report parts are rebuilt with it
   const el = document.getElementById('wbs-body');
   _wbsPrint = null;
   if (!el || !result) return;
@@ -734,6 +736,7 @@ export function renderWbs(result) {
 
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title"><h2>WBS — summary${critical ? ' (Critical activities)' : ''}</h2>
+      ${reportNameField()}
       <div class="ov-chips">
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
@@ -741,7 +744,7 @@ export function renderWbs(result) {
         ${allMilestone ? '' : wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
-    ${execHtml ? `<div class="uc-section-name">Execution Dashboard</div>${execHtml}` : ''}
+    ${execHtml}
     ${allMilestone ? '' : `<div class="wbst-toolbar">
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>

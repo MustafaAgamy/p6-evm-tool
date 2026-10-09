@@ -96,6 +96,25 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
     return {'app': APP_NAME, 'title': title, 'context': ctx}
 
 
+def _report_name(snapshot_id):
+    """The planner's own report name for a schedule ('' when none) - its own, else the one
+    last saved for another update of the same project."""
+    try:
+        v, _src = db.get_snapshot_ui_state_inherited(snapshot_id, 'report_name')
+        return str(v.get('name') or '') if isinstance(v, dict) else ''
+    except Exception:
+        return ''
+
+
+def _apply_report_name(result, snapshot_id):
+    """Show the planner's own name in place of the P6 project name: ``project_name`` is what
+    every screen and report prints, ``p6_project_name`` keeps the name in the P6 file."""
+    result['p6_project_name'] = result.get('project_name') or ''
+    result['report_name'] = _report_name(snapshot_id) if snapshot_id else ''
+    if result['report_name']:
+        result['project_name'] = result['report_name']
+
+
 def _schedule_for(path, body=None, snapshot_key='snapshot_id', cached_key='cached_path',
                   fallback_baseline=None):
     """The open schedule with its baseline resolved the ONE way every feature uses
@@ -527,6 +546,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/report-name':               # the planner's own report name (DB)
+            self._handle_report_name(body)
         elif self.path == '/api/narrative/setup':           # Narrative project setup (DB)
             self._handle_narrative_setup(body)
         elif self.path == '/api/narrative/choices':
@@ -1291,6 +1312,7 @@ class Handler(BaseHTTPRequestHandler):
                 print(f'[views] not stored: {view_exc}', file=sys.stderr)
             # ──────────────────────────────────────────────────────────────
 
+            _apply_report_name(safe_result, sid)
             return {'ok': True, 'result': safe_result, 'cached_path': cached_path,
                     'previous_import': prior_import, 'snapshot_id': sid}
 
@@ -3076,6 +3098,7 @@ class Handler(BaseHTTPRequestHandler):
         if e1_rows:                          # re-apply E1 rollup so a re-opened project matches
             from p6_evm.e1_rollup import e1_extras
             result['e1_extras'] = e1_extras(e1_rows, list((result.get('categories') or {}).keys()))
+        _apply_report_name(result, snapshot_id)
         self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
@@ -3834,6 +3857,20 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/narrative/setup ────────────────────────────────────────────────
     _NARRATIVE_SETUP_MAX = 40 * 1024 * 1024      # JSON chars: logos + a large layout drawing
+
+    def _handle_report_name(self, body):
+        """The name the planner typed for one imported schedule - shown in place of the P6
+        project name on screen and in the PDF, Word and Excel reports. {snapshot_id} -> {ok, name};
+        {snapshot_id, name} saves ('' clears). Kept per schedule in snapshot_ui_state and
+        carried to the project's next update; projects.name and the P6 file are untouched."""
+        sid = body.get('snapshot_id') if isinstance(body, dict) else None
+        if not sid or not db.get_project_id_for_snapshot(sid):
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        if 'name' in body:
+            name = ' '.join(str(body.get('name') or '').split())[:120]
+            db.save_snapshot_ui_state(sid, 'report_name', {'name': name})
+        self._json(200, {'ok': True, 'name': _report_name(sid)})
 
     def _handle_narrative_setup(self, body):
         """The Baseline Narrative project setup (parties, contract details, logos, layout
