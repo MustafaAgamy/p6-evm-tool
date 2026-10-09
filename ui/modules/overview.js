@@ -158,7 +158,9 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
   if (!acts.length) return '';
   const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
   const done = acts.filter((a) => a.finish_actual).length;
-  const due  = acts.filter((a) => dd && a.planned_finish && new Date(a.planned_finish) <= dd).length;
+  // use baseline_finish for "due by cut-off" count (planned_finish = current schedule, not baseline)
+  const blFinish = (a) => a.baseline_finish || a.planned_finish;
+  const due  = acts.filter((a) => dd && blFinish(a) && new Date(blFinish(a)) <= dd).length;
   const behind = Math.max(0, due - done);
 
   // time scale: span all baseline + expected dates + data date, padded 15 days each side
@@ -191,7 +193,9 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
 
   // rows
   const rows = acts.map((a) => {
-    const blT = toMs(a.planned_finish), exT = toMs(a.finish);
+    const blT = toMs(a.baseline_finish || a.planned_finish);
+    // completed → use actual finish; incomplete → use P6 planned finish (= forecast in current schedule)
+    const exT = a.finish_actual ? toMs(a.finish) : toMs(a.planned_finish);
     const hasBl = !Number.isNaN(blT), hasEx = !Number.isNaN(exT);
     const blX = hasBl ? pctPos(blT) : null;
     const exX = hasEx ? pctPos(exT) : null;
@@ -232,8 +236,8 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
     return `<div class="mg-row">
       <div class="mg-cell mg-id">${escapeHtml(a.id || '')}</div>
       <div class="mg-cell mg-name">${escapeHtml(a.name || '')}</div>
-      <div class="mg-cell mg-var ${varCls}">${escapeHtml(varTxt)}</div>
       <div class="mg-cell mg-chip">${chip}</div>
+      <div class="mg-cell mg-var ${varCls}">${escapeHtml(varTxt)}</div>
       <div class="mg-cell mg-tl">
         <div class="mg-track">${gridsHtml}${ddX ? `<div class="mg-dd" style="left:${ddX}"></div>` : ''}${connHtml}${blMark}${exMark}</div>
       </div>
@@ -261,8 +265,8 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
       <div class="mg-head">
         <div class="mg-hcell mg-id">Act. ID</div>
         <div class="mg-hcell mg-name">Milestone</div>
-        <div class="mg-hcell mg-var">Variance</div>
         <div class="mg-hcell mg-chip">Status</div>
+        <div class="mg-hcell mg-var">Variance</div>
         <div class="mg-hcell mg-tl"><div class="mg-scale">${scaleHtml}</div></div>
       </div>
       ${rows}
@@ -675,6 +679,9 @@ export function renderWbs(result) {
   const blLine = approx ? baselineApproxLine(result, state.currentXmlPath) : '';
   const ucCut = !Number.isNaN(dd) ? fmtShort(dd) : '';
   const execHtml = executionPanel(result, { id: branch.id, name: branch.name }, ucCut);       // the dashboard of the WBS shown
+  // milestone-only branch: all activities in this branch are milestones — hide the WBS tree table
+  const branchActs = (result.activities || []).filter((a) => a.wbs_top_id === branch.id || a.wbs_top === branch.name);
+  const allMilestone = branchActs.length > 0 && branchActs.every((a) => a.milestone);
   _wbsPrint = buildWbsPrint(result, nodes, mains, { approx, blLine, dd, critical, ucCut });
 
   const seg = mains.length > 1
@@ -701,7 +708,7 @@ export function renderWbs(result) {
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
     ${execHtml ? `<div class="uc-section-name">Execution Dashboard</div>${execHtml}` : ''}
-    <div class="wbst-toolbar">
+    ${allMilestone ? '' : `<div class="wbst-toolbar">
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
         ${branchPct ? `<span><i class="wbst-lg act"></i>actual %</span>
@@ -719,7 +726,8 @@ export function renderWbs(result) {
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`;
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
+`;
 
   const segEl = document.getElementById('wbst-seg');
   if (segEl) segEl.addEventListener('click', (e) => {
