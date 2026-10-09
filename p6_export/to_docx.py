@@ -635,6 +635,21 @@ class _Writer:
         tblPr.append(_borders('w:tblBorders', {
             'top': (4, hair), 'bottom': (4, hair), 'left': side, 'right': side,
             'insideH': (4, hair), 'insideV': side}))
+        # the table GRID carries the same column widths as the cells (python-docx writes equal columns):
+        # Word / viewers that lay a fixed table out from the grid then agree with the cells, so a wide
+        # table (a Gantt, a WBS timeline) keeps its text columns readable and its bar column wide
+        try:
+            grid_el = table._tbl.find(qn('w:tblGrid'))
+            if grid_el is not None:
+                for gc, w in zip(grid_el.findall(qn('w:gridCol')), widths):
+                    gc.set(qn('w:w'), str(int(w / 635)))
+            tw = tblPr.find(qn('w:tblW'))
+            if tw is not None:
+                tw.set(qn('w:type'), 'dxa')
+                tw.set(qn('w:w'), str(int(sum(widths) / 635)))
+        except Exception:
+            if os.environ.get('CX_EXPORT_DEBUG'):
+                raise
         trs = table.rows
         for ri in range(nrows):
             if ri < t.header_rows:

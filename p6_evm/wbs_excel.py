@@ -202,27 +202,36 @@ def wbs_excel(report):
     return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
 
 
-_UC_HEAD = ['Activities', 'Submittals started / total', 'Approvals started / total', 'Started', 'In progress', 'Completed',
-            'Not started', 'Due by cut-off', 'Actual %', 'Planned %', 'Status']
+def _uc_groups(t):
+    tot = t.get('total') or {}
+    return [g for g in (('Submittals', 'st', 'sdue', 'sd'), ('Approvals', 'at', 'adue', 'ad'), ('Other activities', 'ot', 'odue', 'os')) if tot.get(g[1])]
 
 
-def _uc_row(r):
-    pair = lambda a, b: f'{a} / {b}' if b else '—'
-    return [r['label'], r['n'], pair(r['sd'], r['st']), pair(r['ad'], r['at']), r['started'], r['prog'], r['done'], r['ns'], r['due'],
+def _uc_head(t):
+    cols = [t.get('first') or 'Stage']
+    for g in _uc_groups(t):
+        cols += [f'{g[0]} - Total', f'{g[0]} - Planned till cut-off date', f'{g[0]} - Started']
+    return cols + ['Planned %', 'Actual %', 'Status']
+
+
+def _uc_row(r, t):
+    row = [r['label']]
+    for g in _uc_groups(t):
+        row += [r.get(g[1]) or '—', (r.get(g[2]) if r.get(g[1]) else '—'), (r.get(g[3]) if r.get(g[1]) else '—')]
+    row += [f"{r['planned_pct']:.1f}%" if r.get('planned_pct') is not None else '—',
             f"{r['actual_pct']:.1f}%" if r.get('actual_pct') is not None else '—',
-            f"{r['planned_pct']:.1f}%" if r.get('planned_pct') is not None else '—',
             f"{r['behind']} behind" if r['behind'] else 'On plan']
+    return row
 
 
 def _uncosted_blocks(u, branch):
-    """The 'Progress by count' tables of ONE main WBS branch (E1-log style: a row per stage, a Total row
-    at the end; Actual = started, Planned = due by the cut-off date) - they sit in front of that
-    branch's WBS table."""
+    """The EXECUTION DASHBOARD of ONE main WBS (E1-log style: a row per stage, Submittals / Approvals /
+    other activities counted apart, a Total row at the end) - in front of that WBS's table."""
     tabs = [t for t in ((u or {}).get('tables') or []) if not branch or branch in (t.get('branches') or [])]
-    return [{'title': t['title'] + ' - progress by count',
-             'note': 'Actual = started / activities (E1 rule) - Planned = baseline finish on or before the cut-off / activities - milestone activities excluded',
-             'headers': [t.get('first') or 'Stage'] + _UC_HEAD,
-             'rows': [_uc_row(r) for r in t['rows']] + [_uc_row(t['total'])]} for t in tabs]
+    return [{'title': f"Execution dashboard - {branch} Progress Planned VS Actual - {t['title']}",
+             'note': 'Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Started = activities that have started (E1 rule); milestone activities excluded',
+             'headers': _uc_head(t),
+             'rows': [_uc_row(r, t) for r in t['rows']] + [_uc_row(t['total'], t)]} for t in tabs]
 
 
 # WBS name column wide (it carries the indentation); dates/percent/delay comfortable.

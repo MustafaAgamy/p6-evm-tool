@@ -153,7 +153,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 8:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 10:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -372,15 +372,41 @@ def test_uncosted_progress_counts_by_stage_with_the_e1_started_rule():
     assert (t['total']['sd'], t['total']['st'], t['total']['ad'], t['total']['at']) == (2, 2, 0, 2)    # started / total, submittals vs approvals
     assert sv.build_views(recs, data)['uncosted']['summary']['n'] == 4
     ov = _read('ui', 'modules', 'overview.js')
-    assert 'uncostedHtml' in ov and 'Progress by count' in ov and 'uc-total' in ov
+    assert 'executionDashboard' in ov and 'Execution dashboard' in ov and 'uc-total' in ov and 'Planned till cut-off date' in ov
 
 
 def test_each_wbs_branch_shows_its_own_count_tables_before_its_table():
     ov = _read('ui', 'modules', 'overview.js')
-    assert "(t.branches || []).includes(branch)" in ov and 'uncostedHtml(result.uncosted, ucCut, branch.name)' in ov
-    assert ov.index("key: 'overview'") < ov.index("key: 'uncosted'") < ov.index("key: 'table'")      # summary first, then the WBS table
+    assert "(t.branches || []).includes(branch)" in ov and 'executionDashboard(result.uncosted, ucCut, m.name)' in ov
+    # the main-WBS selector sits ABOVE the Execution dashboard, which sits above the WBS table
+    scr = ov[ov.index('<h2>WBS — summary'):]
+    assert scr.index('wbst-mainsel') < scr.index('${execHtml}') < scr.index('<div class="wbst-wrap">')
+    # EVERY main WBS is a section of the Report Contents picker, with its own parts
+    assert 'key: `wbs.${m.id}`' in ov and 'data-part="wbs.' in ov and 'Progress Planned VS Actual' in ov
+    assert 'no cost loaded' not in ov
     from p6_evm.wbs_excel import _uncosted_blocks
     u = {'summary': {}, 'tables': [{'title': 'MCC Room - MCC Design & Engineering', 'branches': ['MCC Design & Engineering'], 'first': 'Stage',
                                     'rows': [], 'total': {'label': 'Total - MCC Room', 'n': 0, 'sd': 0, 'st': 0, 'ad': 0, 'at': 0, 'started': 0, 'prog': 0,
                                                            'done': 0, 'ns': 0, 'due': 0, 'actual_pct': None, 'planned_pct': None, 'behind': 0}}]}
     assert len(_uncosted_blocks(u, 'MCC Design & Engineering')) == 1 and _uncosted_blocks(u, 'Phase I Procurement') == []
+
+
+def test_count_tables_keep_planned_per_type_and_the_default_procurement_order():
+    assert [sv._row_rank(x) for x in ('Material Submittal', 'Material Approval', "PO's", 'Material Delivery')] == [20, 21, 22, 23]
+    assert sorted(['Material Delivery', "PO's", 'Material Approval', 'Material Submittal'], key=sv._row_rank) == ['Material Submittal', 'Material Approval', "PO's", 'Material Delivery']
+    assert sorted(['Shop Drawing', 'IFC', 'Detailed design', 'Schematic'], key=sv._row_rank) == ['Schematic', 'Detailed design', 'IFC', 'Shop Drawing']
+    wbs = {'M': {'name': 'MCC Design & Engineering', 'parent_object_id': None},
+           'S': {'name': 'Schematic', 'parent_object_id': 'M'}, 'SS': {'name': 'Submittal', 'parent_object_id': 'S'}, 'SA': {'name': 'MCC Room', 'parent_object_id': 'SS'},
+           'A': {'name': 'Approval', 'parent_object_id': 'S'}, 'AA': {'name': 'MCC Room', 'parent_object_id': 'A'}}
+
+    def act(i, w, status, ps, pf, **kw):
+        return {'activity': _act(i, w, ps, pf, status=status, **kw), 'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0}
+    recs = [act('S1', 'SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9)),
+            act('S2', 'SA', 'Not Started', D(2025, 2, 1), D(2025, 2, 10)), act('S3', 'SA', 'Not Started', D(2025, 5, 1), D(2025, 5, 10)),
+            act('A1', 'AA', 'Not Started', D(2025, 2, 1), D(2025, 2, 10))]
+    t = sv.uncosted_progress(recs, SimpleNamespace(wbs=wbs, project={'data_date': D(2025, 3, 1)}, baseline_by_id={}))['tables'][0]['total']
+    assert (t['st'], t['sdue'], t['sd']) == (3, 2, 1)       # Submittals: total / planned till cut-off / started
+    assert (t['at'], t['adue'], t['ad']) == (1, 1, 0)       # Approvals counted apart, not added into the submittals
+    gantt = _read('ui', 'modules', 'gantt.js')
+    assert 'ganttScope' in gantt and 'id="g-mainseg"' in gantt and 'Critical activities of' in gantt       # critical activities per major WBS
+    assert 'el.clientWidth' in gantt and 'class="g-yr"' in gantt                                            # every month visible, year row

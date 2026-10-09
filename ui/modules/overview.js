@@ -40,39 +40,53 @@ const histGroup = (name, n, planned, actual, extra, ax) => {
     </div>`;
 };
 
-// ── Progress BY COUNT of the activities without cost (E1-log style) ─────────────────────────────
+// ── Execution dashboard: progress BY COUNT of the activities (E1-log style) ──────────────────────
 // One table per WBS area, one row per stage, a Total row at the end of each. Actual follows the
-// E1 rule (an activity counts once it has STARTED); Planned = baseline finish on/before the cut-off.
+// E1 rule (an activity counts once it has STARTED); "Planned till cut-off date" = the activities whose
+// baseline finish is on/before the cut-off date. Submittals, Approvals and the other activities
+// (PO, delivery ...) are counted in their own columns.
 const upct = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);
-function uPair(sd, st) { return st ? `${sd} / ${st}` : '—'; }
 function uChip(behind) { return behind > 0 ? `<span class="uc-chip ${behind <= 5 ? 'y' : 'r'}">${behind} behind</span>` : '<span class="uc-chip g">On plan</span>'; }
-function uRow(r, total) {
-  const w = (v) => Math.max(0, Math.min(100, v || 0)).toFixed(1);
-  return `<tr class="${total ? 'uc-total' : ''}"><td>${escapeHtml(r.label)}</td><td class="uc-n">${r.n}</td><td class="uc-n">${uPair(r.sd, r.st)}</td><td class="uc-n">${uPair(r.ad, r.at)}</td>`
-    + `<td class="uc-n">${r.started}</td><td class="uc-n">${r.prog}</td><td class="uc-n">${r.done}</td><td class="uc-n">${r.ns}</td><td class="uc-n">${r.due}</td>`
-    + `<td data-export="bar"><div class="uc-pair"><i class="p" style="width:${w(r.planned_pct)}%"></i><i class="a" style="width:${w(r.actual_pct)}%"></i></div></td>`
-    + `<td class="uc-n"><b>${upct(r.actual_pct)}</b></td><td class="uc-n">${upct(r.planned_pct)}</td><td class="uc-c">${uChip(r.behind)}</td></tr>`;
+function uGroups(t) {
+  const tot = t.total || {};
+  return [
+    ...(tot.st ? [{ key: 's', label: 'Submittals', n: 'st', due: 'sdue', start: 'sd' }] : []),
+    ...(tot.at ? [{ key: 'a', label: 'Approvals', n: 'at', due: 'adue', start: 'ad' }] : []),
+    ...(tot.ot ? [{ key: 'o', label: 'Other activities', n: 'ot', due: 'odue', start: 'os' }] : []),
+  ];
 }
-// The count tables of ONE main WBS branch, shown in front of that branch's WBS table (each
-// summary sits in its own WBS): its headline, then one table per area with a Total row.
-export function uncostedHtml(u, cutoffText, branch) {
+function uRow(r, total, groups) {
+  const w = (v) => Math.max(0, Math.min(100, v || 0)).toFixed(1);
+  const g = groups.map((x) => `<td class="uc-n">${r[x.n] || '—'}</td><td class="uc-n">${r[x.n] ? r[x.due] : '—'}</td><td class="uc-n">${r[x.n] ? r[x.start] : '—'}</td>`).join('');
+  return `<tr class="${total ? 'uc-total' : ''}"><td>${escapeHtml(r.label)}</td>${g}`
+    + `<td data-export="bar"><div class="uc-pair"><i class="p" style="width:${w(r.planned_pct)}%"></i><i class="a" style="width:${w(r.actual_pct)}%"></i></div></td>`
+    + `<td class="uc-n">${upct(r.planned_pct)}</td><td class="uc-n"><b>${upct(r.actual_pct)}</b></td><td class="uc-c">${uChip(r.behind)}</td></tr>`;
+}
+function uTable(t) {
+  const groups = uGroups(t);
+  const h1 = groups.map((x) => `<th colspan="3" class="uc-gh">${x.label}</th>`).join('');
+  const h2 = groups.map(() => '<th class="uc-n">Total</th><th class="uc-n">Planned till cut-off date</th><th class="uc-n">Started</th>').join('');
+  return `<div class="uc-block" data-part="exec.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)}</h4>
+      <table class="uc-table"><thead><tr><th rowspan="2">${t.first}</th>${h1}<th rowspan="2">Planned vs Actual</th><th rowspan="2" class="uc-n">Planned %</th><th rowspan="2" class="uc-n">Actual %</th><th rowspan="2" class="uc-c">Status</th></tr><tr>${h2}</tr></thead>
+      <tbody>${t.rows.map((r) => uRow(r, false, groups)).join('')}${uRow(t.total, true, groups)}</tbody></table></div>`;
+}
+// The Execution dashboard of ONE main WBS (shown above that WBS's table): its headline, the rule, then
+// one table per area with a Total row. '' when the WBS has no such activities.
+export function executionDashboard(u, cutoffText, branch) {
   const tabsOf = ((u && u.tables) || []).filter((t) => !branch || (t.branches || []).includes(branch));
   if (!tabsOf.length) return '';
   const sum = tabsOf.reduce((m, t) => { for (const k of ['n', 'started', 'done', 'prog', 'ns', 'due', 'due_prog', 'due_ns']) m[k] += t.total[k] || 0; return m; },
     { n: 0, started: 0, done: 0, prog: 0, ns: 0, due: 0, due_prog: 0, due_ns: 0 });
   const ap = sum.n ? (100 * sum.started) / sum.n : null, pp = sum.n ? (100 * sum.due) / sum.n : null, behind = Math.max(0, sum.due - sum.started);
   const head = `<div class="uc-tiles">
-      <div><span>Activities without cost</span><b>${sum.n}</b><em>${branch ? escapeHtml(branch) : 'all branches'} · milestones excluded</em></div>
+      <div><span>Activities</span><b>${sum.n}</b><em>${branch ? escapeHtml(branch) : 'all branches'} · milestones excluded</em></div>
       <div><span>Actual — started</span><b>${upct(ap)}</b><em>${sum.started} started (${sum.done} completed, ${sum.prog} in progress) · ${sum.ns} not started</em></div>
-      <div><span>Planned — due by cut-off${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(pp)}</b><em>${sum.due} due · ${sum.due_prog} should be in progress · ${sum.due_ns} not yet due</em></div>
-      <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned due but not started (${sum.due} − ${sum.started})</em></div></div>`;
+      <div><span>Planned till cut-off date${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span><b>${upct(pp)}</b><em>${sum.due} planned · ${sum.due_prog} should be in progress · ${sum.due_ns} not yet due</em></div>
+      <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned till cut-off but not started (${sum.due} − ${sum.started})</em></div></div>`;
   const ex = ((u.summary || {}).excluded_wbs) || [];
-  const rule = `<p class="ov-note uc-rule">Counted by <b>number of activities</b>, as in the E1 log: <b>Actual</b> = activities that have <b>started</b> (in progress or completed) ÷ activities; <b>Planned</b> = activities whose baseline finish is on or before the cut-off date ÷ activities. Milestone activities are excluded${ex.length ? `, and the WBS made of milestones (${ex.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
-  const tabs = tabsOf.map((t) => `<div class="uc-block" data-part="uncosted.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)}</h4>
-      <table class="uc-table"><thead><tr><th>${t.first}</th><th class="uc-n">Activities</th><th class="uc-n">Submittals<br>started / total</th><th class="uc-n">Approvals<br>started / total</th><th class="uc-n">Started</th><th class="uc-n">In progress</th><th class="uc-n">Completed</th><th class="uc-n">Not started</th><th class="uc-n">Due by cut-off</th><th>Planned vs Actual</th><th class="uc-n">Actual %</th><th class="uc-n">Planned %</th><th class="uc-c">Status</th></tr></thead>
-      <tbody>${t.rows.map((r) => uRow(r, false)).join('')}${uRow(t.total, true)}</tbody></table></div>`).join('');
+  const rule = `<p class="ov-note uc-rule">Counted by <b>number of activities</b>, as in the E1 log: <b>Planned till cut-off date</b> = the activities whose baseline finish is on or before the cut-off date, counted for Submittals, Approvals and the other activities each; <b>Actual</b> = the activities that have <b>started</b> (in progress or completed). Milestone activities are excluded${ex.length ? `, and the WBS made of milestones (${ex.map(escapeHtml).join(', ')}) are left out completely` : ''}.</p>`;
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned %</span><span><i class="a"></i>Actual % (started)</span></div>';
-  return `${head}${rule}${legend}${tabs}`;
+  return `<div class="uc-panel"><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(branch || 'Project')} Progress Planned VS Actual</p>${head}${rule}${legend}${tabsOf.map(uTable).join('')}</div>`;
 }
 
 export function renderOverview(result) {
@@ -130,7 +144,7 @@ export function renderOverview(result) {
       <div class="ov-kpi"><div class="k">Actual %</div><div class="v">${pct(actualPct)}</div></div>
       <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(pv)}</div></div>
       <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(ev)}</div></div>
-      ${result.uncosted && result.uncosted.summary ? `<div class="ov-kpi"><div class="k">Without cost · by count${ax}</div><div class="v sm">${upct(result.uncosted.summary.actual_pct)} actual · ${upct(result.uncosted.summary.planned_pct)} planned</div></div>` : ''}
+      ${result.uncosted && result.uncosted.summary ? `<div class="ov-kpi"><div class="k">Execution · by count${ax}</div><div class="v sm">${upct(result.uncosted.summary.actual_pct)} actual · ${upct(result.uncosted.summary.planned_pct)} planned</div></div>` : ''}
     </div><p class="ov-note ov-basis">${basis}</p>${blLine}`;
   const legend = `<div class="ovh-legend"><span><i class="p"></i>Planned %${ax}</span><span><i class="a"></i>Actual %</span>${ovHideZero && zeroN ? `<span class="ovh-hid">${zeroN} with Planned 0 % and Actual 0 % hidden</span>` : ''}</div>`;
   const catsHtml = catRows
@@ -264,6 +278,75 @@ function wbsCellVal(col, n) {
   return d == null ? '—' : `${d} d`;
 }
 
+// ── The WBS report: EVERY main WBS is a section of the Report Contents picker, each with its own
+// parts (its Execution dashboard, its WBS table) so any WBS can be ticked in or out ───────────────
+function sliceBranch(nodes, id) {
+  const i = nodes.findIndex((n) => n.id === id);
+  if (i < 0) return nodes;
+  const bd = nodes[i].depth, out = [nodes[i]];
+  for (let j = i + 1; j < nodes.length && nodes[j].depth > bd; j++) out.push(nodes[j]);
+  return out;
+}
+function buildWbsPrint(result, nodes, mains, ctx) {
+  const { approx, blLine, dd, critical, ucCut } = ctx;
+  const list = mains.length ? mains : (nodes[0] ? [{ id: nodes[0].id, name: nodes[0].name }] : []);
+  const sections = [], ovRows = [];
+  for (const m of list) {
+    const subset = sliceBranch(nodes, m.id);
+    if (!subset.length) continue;
+    const baseDepth = subset[0].depth, branch = subset[0];
+    const branchPct = subset.some(wbsHasPct);
+    const cols = wbsShownCols().filter((c) => branchPct || c.kind !== 'pct');
+    let min = Infinity, max = -Infinity;
+    for (const n of subset) for (const v of [n.start, n.finish, n.baseline_start, n.baseline_finish]) {
+      const t = toMs(v);
+      if (!Number.isNaN(t)) { min = Math.min(min, t); max = Math.max(max, t); }
+    }
+    if (!Number.isNaN(dd)) { min = Math.min(min, dd); max = Math.max(max, dd); }
+    const dated = Number.isFinite(min) && Number.isFinite(max) && max > min;
+    const pPos = (ms) => Math.max(0, Math.min(100, ((ms - min) / (max - min)) * 100));
+    const pScale = dated ? monthScaleHtml(min, max, pPos) : '';          // EVERY month, written out (Jan, Feb, ...)
+    const pDd = (dated && !Number.isNaN(dd)) ? `<u style="left:${pPos(dd).toFixed(2)}%"></u>` : '';
+    const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('')
+      + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale gp-scale-m">${pScale}</div></th>` : '');
+    const bothP = cols.some((c) => c.key === 'planned') && cols.some((c) => c.key === 'actual');
+    const bodyRows = subset.map((n) => {
+      const rd = n.depth - baseDepth;
+      const cells = cols.map((c) => {
+        if (!wbsHasPct(n) && bothP && c.key === 'actual') return '';
+        if (!wbsHasPct(n) && bothP && c.key === 'planned') return `<td class="wp-nc" colspan="2">${ncActual(n)}<br>${ncPlanned(n)}</td>`;
+        if (c.kind === 'pct' && !wbsHasPct(n)) return `<td class="wp-nc">${c.key === 'actual' ? ncActual(n) : ncPlanned(n)}</td>`;
+        return `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`;
+      }).join('');
+      const s0 = toMs(n.start), f0 = toMs(n.finish);
+      let pbar = '';
+      if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
+        const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
+        const hp = wbsHasPct(n);
+        const ac = hp && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : null;
+        const pl = hp && n.planned != null ? Math.max(0, Math.min(100, n.planned)) : null;
+        const beh = ac != null && pl != null && pl > ac ? `<i style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></i>` : '';
+        pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%">${ac != null ? `<s style="width:${ac}%"></s>` : ''}${beh}${pl != null ? `<em style="left:${pl}%"></em>` : ''}</b>`;
+      }
+      const barCell = dated ? `<td class="gp-tl wp-bar" data-export="bar"><div class="gp-track">${pDd}${pbar}</div></td>` : '';
+      return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
+    }).join('');
+    const legend = `<div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span>${branchPct ? '<span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span>' : ''}<span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>`;
+    const dash = executionDashboard(result.uncosted, ucCut, m.name);
+    const table = `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${legend}`;
+    sections.push({
+      key: `wbs.${m.id}`, label: `${m.name}${critical ? ' (critical activities)' : ''}`,
+      html: (dash ? `<div data-part="wbs.${escapeAttr(m.id)}.dash" data-part-label="Execution dashboard — ${escapeAttr(m.name)}">${dash}</div>` : '')
+        + `<div data-part="wbs.${escapeAttr(m.id)}.table" data-part-label="WBS table — ${escapeAttr(m.name)}">${table}</div>`,
+    });
+    ovRows.push(`<tr><td>${escapeHtml(m.name)}</td><td class="wp-num">${branch.activities ?? '—'}</td><td class="wp-num">${wbsHasPct(branch) ? pctVal(branch.planned) : '—'}</td>`
+      + `<td class="wp-num">${wbsHasPct(branch) ? pctVal(branch.actual) : '—'}</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>`);
+  }
+  const overview = `<table class="wbs-print"><thead><tr><th>Main WBS</th><th class="wp-num">Activities</th><th class="wp-num">Planned %${approx ? ' · approx' : ''}</th><th class="wp-num">Actual %</th><th>Date span</th></tr></thead><tbody>${ovRows.join('')}</tbody></table>`
+    + `<p class="ov-note">Cut-off date (data date): <b>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</b>. <b>A</b> beside a date = <b>Actual</b> date.${approx ? ` Baseline: ${escapeHtml(blLine.replace(/^Baseline: /, ''))}` : ''}</p>`;
+  return [{ key: 'overview', label: `WBS overview${critical ? ' — critical activities' : ''}`, html: overview }, ...sections];
+}
+
 export function renderWbs(result) {
   const el = document.getElementById('wbs-body');
   _wbsPrint = null;
@@ -394,61 +477,12 @@ export function renderWbs(result) {
     </div>`;
   }).join('');
 
-  // printable WBS: a clean static table of the visible columns (no scrolling timeline)
+  // printable WBS: EVERY main WBS is a section of the Report Contents picker (see buildWbsPrint)
   const approx = baselineApprox(result, state.currentXmlPath);
   const blLine = approx ? baselineApproxLine(result, state.currentXmlPath) : '';
-  // the report carries the bar chart as well: each WBS bar on a page-wide time scale, the
-  // actual % as its darker fill and the cut-off date as the dashed line
-  const pPos = (ms) => Math.max(0, Math.min(100, ((ms - min) / (max - min)) * 100));
-  const pScale = dated ? monthScaleHtml(min, max, pPos) : '';        // EVERY month, written out (Jan, Feb, ...)
-  const pDd = (dated && !Number.isNaN(dd)) ? `<u style="left:${pPos(dd).toFixed(2)}%"></u>` : '';
-  const headCells = cols.map((c) => `<th class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsColLabel(c, approx)}</th>`).join('')
-    + (dated ? `<th class="gp-tl wp-bar" data-export="bar"><div class="gp-scale gp-scale-m">${pScale}</div></th>` : '');
-  const bodyRows = subset.map((n) => {
-    const rd = n.depth - baseDepth;
-    const bothP = cols.some((c) => c.key === 'planned') && cols.some((c) => c.key === 'actual');
-    const cells = cols.map((c) => {
-      if (!wbsHasPct(n) && bothP && c.key === 'actual') return '';
-      if (!wbsHasPct(n) && bothP && c.key === 'planned') return `<td class="wp-nc" colspan="2">${ncActual(n)}<br>${ncPlanned(n)}</td>`;
-      if (c.kind === 'pct' && !wbsHasPct(n)) return `<td class="wp-nc">${c.key === 'actual' ? ncActual(n) : ncPlanned(n)}</td>`;
-      return `<td class="${c.kind === 'date' ? 'wp-date' : 'wp-num'}">${wbsCellVal(c, n)}</td>`;
-    }).join('');
-    const s0 = toMs(n.start), f0 = toMs(n.finish);
-    let pbar = '';
-    if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
-      const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
-      const hp = wbsHasPct(n);
-      const ac = hp && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : null;
-      const pl = hp && n.planned != null ? Math.max(0, Math.min(100, n.planned)) : null;
-      const beh = ac != null && pl != null && pl > ac ? `<i style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></i>` : '';
-      pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%">${ac != null ? `<s style="width:${ac}%"></s>` : ''}${beh}${pl != null ? `<em style="left:${pl}%"></em>` : ''}</b>`;
-    }
-    const barCell = dated ? `<td class="gp-tl wp-bar" data-export="bar"><div class="gp-track">${pDd}${pbar}</div></td>` : '';
-    return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
-  }).join('');
-  // Printable WBS report split into individually-selectable sections for the
-  // Report Contents picker (File ▸ Print): a headline Overview + the detailed table.
-  // (Both plain wbs-print tables, so they inherit the existing report styling.)
-  const _wbsLeaves = subset.filter((n) => n.leaf).length;
-  const _wbsOverview = `<table class="wbs-print"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>
-      <tr><td>Main WBS branch</td><td>${escapeHtml(branch.name || 'all')}</td></tr>
-      <tr><td>Activities</td><td>${branch.activities ?? '—'}</td></tr>
-      <tr><td>WBS nodes shown</td><td>${subset.length} (${_wbsLeaves} at activity level)</td></tr>
-      <tr><td>Date span</td><td>${dated ? `${fmtShort(min)} → ${fmtShort(max)}` : '—'}</td></tr>
-      <tr><td>Cut-off date (data date)</td><td>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</td></tr>
-${wbsHasPct(branch) ? `
-      <tr><td>Overall planned${approx ? ' · approx' : ''}</td><td>${pctVal(branch.planned)}</td></tr>
-      <tr><td>Overall actual</td><td>${pctVal(branch.actual)}</td></tr>` : ''}${approx ? `
-      <tr><td>Baseline</td><td>${escapeHtml(blLine.replace(/^Baseline: /, ''))}</td></tr>` : ''}
-    </tbody></table>`;
   const ucCut = !Number.isNaN(dd) ? fmtShort(dd) : '';
-  const ucHtml = uncostedHtml(result.uncosted, ucCut, branch.name);
-  _wbsPrint = [
-    { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
-    ...(ucHtml ? [{ key: 'uncosted', label: `Progress by count — ${branch.name || 'activities without cost'}`, html: ucHtml }] : []),
-    { key: 'table',    label: 'WBS summary table',
-      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span>${branchPct ? '<span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span>' : ''}<span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>` },
-  ];
+  const execHtml = executionDashboard(result.uncosted, ucCut, branch.name);       // the dashboard of the WBS shown
+  _wbsPrint = buildWbsPrint(result, nodes, mains, { approx, blLine, dd, critical, ucCut });
 
   const modeSeg = critNodes.length
     ? `<div class="wbst-seg wbst-mode" id="wbst-mode"><button data-mode="all" class="${critical ? '' : 'on'}">All activities</button><button data-mode="critical" class="${critical ? 'on' : ''}">Critical activities</button></div>`
@@ -473,11 +507,12 @@ ${wbsHasPct(branch) ? `
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
-        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">no cost loaded — ${escapeHtml(ncText(branch, 'a'))} (actual)</span>`}
+        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : ''}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${modeSeg}${critical ? '<p class="ov-note wbst-modenote">Each WBS is summarised over its <b>critical activities only</b> (flagged Critical in P6) — <b>critical remaining activities only: completed activities are hidden</b>. The same figures P6 shows in its WBS bands with the Critical filter on: Start, Finish, BL dates, Schedule % (Planned %), Performance % (Actual %) and Total Float (the Delay column).</p>' : ''}
-    ${ucHtml ? `<div class="uc-panel"><h3>Progress by count — ${escapeHtml(branch.name || 'activities without cost')}</h3>${ucHtml}</div>` : ''}
-    <div class="wbst-toolbar">${seg}
+    ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
+    ${execHtml}
+    <div class="wbst-toolbar">
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>
         ${branchPct ? `<span><i class="wbst-lg act"></i>actual %</span>

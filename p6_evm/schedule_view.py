@@ -478,6 +478,19 @@ _STAGE_ORDER = ['Schematic', 'Detailed design', 'IFC', 'Shop Drawing', 'Shop dra
 _STAGE_ALIAS = {'Detailed': 'Detailed design', 'Detailed Design': 'Detailed design', 'Material Submital': 'Material Submittal'}
 
 
+def _row_rank(label):
+    """The order of the rows of a count table, the same in every project: the design stages in their
+    own order (Schematic, Detailed design, IFC, Shop drawing, As-Built) and a procurement chain as
+    Submittal, then Approval, then PO, then Delivery."""
+    if label in _STAGE_ORDER:
+        return _STAGE_ORDER.index(label)
+    low = str(label).lower()
+    for i, key in enumerate(('submit', 'approv', 'po', 'deliver')):
+        if (key == 'po' and (low.startswith('po') or ' po' in low)) or (key != 'po' and key in low):
+            return 20 + i
+    return 99
+
+
 def uncosted_progress(records, data):
     """Progress BY COUNT of the activities that carry no cost (design, engineering, procurement,
     client inputs ...), E1-log style: one table per WBS area, one row per stage (Schematic, Detailed
@@ -532,7 +545,7 @@ def uncosted_progress(records, data):
         names = names_of(r)
         top = names[0]
         if top not in staged or len(names) < 3:
-            return 'Other activities without cost', ' › '.join(names[:2])
+            return 'Other activities', ' › '.join(names[:2])
         stage = _STAGE_ALIAS.get(names[1], names[1])
         if stage == 'As-Built':
             return 'As-Built — per area', (names[3] if len(names) > 3 else names[-1])
@@ -543,8 +556,10 @@ def uncosted_progress(records, data):
         return '%s — %s' % (area, group), stage
 
     def counter():
-        return {'n': 0, 'sd': 0, 'st': 0, 'ad': 0, 'at': 0, 'done': 0, 'prog': 0, 'ns': 0, 'started': 0,
-                'due': 0, 'due_prog': 0, 'due_ns': 0}
+        # st/sd/sdue = Submittal activities: total / started / planned till the cut-off date;
+        # at/ad/adue = Approvals; ot/os/odue = the others (PO, delivery ...). n/started/due = all.
+        return {'n': 0, 'sd': 0, 'st': 0, 'sdue': 0, 'ad': 0, 'at': 0, 'adue': 0, 'ot': 0, 'os': 0, 'odue': 0,
+                'done': 0, 'prog': 0, 'ns': 0, 'started': 0, 'due': 0, 'due_prog': 0, 'due_ns': 0}
     tabs, total, branches = {}, counter(), {}
     for r in rows_in:
         a = r['activity']
@@ -569,9 +584,15 @@ def uncosted_progress(records, data):
             if k == 'S':
                 c['st'] += 1
                 c['sd'] += 1 if started else 0
+                c['sdue'] += 1 if due == 'd' else 0
             elif k == 'A':
                 c['at'] += 1
                 c['ad'] += 1 if started else 0
+                c['adue'] += 1 if due == 'd' else 0
+            else:
+                c['ot'] += 1
+                c['os'] += 1 if started else 0
+                c['odue'] += 1 if due == 'd' else 0
 
     def fin(label, c):
         n = c['n']
@@ -587,7 +608,7 @@ def uncosted_progress(records, data):
     tables = []
     for t in sorted(tabs, key=title_key):
         rows = tabs[t]
-        keys = sorted(rows, key=lambda k: (_STAGE_ORDER.index(k) if k in _STAGE_ORDER else 99, k))
+        keys = sorted(rows, key=lambda k: (_row_rank(k), k))
         tt = counter()
         for c in rows.values():
             for k2 in tt:

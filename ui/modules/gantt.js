@@ -84,6 +84,24 @@ const tip = (a) => `${a.id} — ${a.name}\nStart ${gDate(a.start)} → Finish ${
 let _print = null;
 export function schedulePrint() { return _print; }
 
+// The CRITICAL activities per major WBS of P6 (Phase I Construction Works, Phase I Key Dates ...):
+// the planner picks one major WBS, or all of them. Remembered between sessions.
+const MAIN_KEY = 'p6evm_gantt_main';
+let ganttMain = null;
+export function ganttScope(result) {
+  const all = (result && result.activities) || [];
+  // the WBS tree of ALL activities (so a WBS without a critical activity still maps to its major WBS)
+  const tree = (result && ((result.wbs_summary || []).length ? result.wbs_summary : result.wbs_critical)) || [];
+  const byId = new Map(tree.map((n) => [n.id, n]));
+  const rootOf = (id) => { let n = byId.get(id), g = 0; while (n && n.parent && byId.has(n.parent) && g++ < 60) n = byId.get(n.parent); return n ? n.id : null; };
+  if (ganttMain == null) { try { ganttMain = localStorage.getItem(MAIN_KEY) || ''; } catch { ganttMain = ''; } }
+  const counts = new Map();
+  for (const a of all) if (a.critical) { const r = rootOf(a.wbs_id); if (r) counts.set(r, (counts.get(r) || 0) + 1); }
+  const roots = tree.filter((n) => counts.has(n.id)).map((n) => ({ id: n.id, name: n.name, n: counts.get(n.id) }));
+  const main = roots.some((r) => r.id === ganttMain) ? ganttMain : '';
+  return { all, roots, main, rootOf, scope: main ? all.filter((a) => rootOf(a.wbs_id) === main) : all };
+}
+
 // The pick-a-code column: the planner chooses one P6 activity code and the column shows each
 // critical activity's value of it. Remembered between sessions.
 const CODE_KEY = 'p6evm_gantt_code';
@@ -99,7 +117,8 @@ export function renderSchedule(result) {
   if (!el) return;
   // Owner comment 65: the chart shows the CRITICAL REMAINING activities - everything P6 flags
   // as Critical whose work is not finished (P6's own count); completed activities are hidden.
-  const all = (result && result.activities) || [];
+  const gs = ganttScope(result);
+  const all = gs.scope;                                    // the activities of the chosen major WBS (or all)
   const acts = all.filter((a) => a.critical);
   if (all.length && !acts.length) {
     el.innerHTML = `
@@ -118,32 +137,6 @@ export function renderSchedule(result) {
     return;
   }
 
-  const { min, max, dd } = span(acts, result.data_date);
-  const totalDays = Math.max(1, Math.round((max - min) / DAY));
-  const trackW = Math.max(720, Math.min(Math.round(totalDays * 4), 4400));
-  const ppd = trackW / totalDays;
-  const xOf = (ms) => ((ms - min) / DAY) * ppd;
-
-  // month ticks + full-height gridlines (the first, partial month is labelled too)
-  let ticks = '', grid = '';
-  const t = new Date(min); t.setDate(1); t.setHours(0, 0, 0, 0);
-  for (; t.getTime() <= max; t.setMonth(t.getMonth() + 1)) {
-    const raw = xOf(t.getTime());
-    if (raw > trackW + 0.5) continue;
-    const x = Math.max(0, raw);
-    if (raw < 0) {                                         // a first month with only a few days left: its
-      const nx = new Date(t); nx.setMonth(nx.getMonth() + 1);   // label would sit under the next month's
-      if (xOf(nx.getTime()) < 46) continue;
-    }
-    const lbl = `${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}`;
-    ticks += `<div class="g-tick" style="left:${x.toFixed(1)}px"><span>${lbl}</span></div>`;
-    if (raw >= 0) grid += `<div class="g-grid-line" style="left:calc(var(--g-lblw) + ${x.toFixed(1)}px)"></div>`;
-  }
-  const ddx = dd != null ? xOf(dd) : null;
-
-  const groups = ganttGroups(acts);
-  const counts = ganttCounts(acts);
-
   // activity codes assigned to the shown activities → the choices of the code column
   const codeTypes = [...new Set(acts.flatMap((a) => Object.keys(a.codes || {})))].sort((x, y) => x.localeCompare(y));
   if (ganttCode == null) { try { ganttCode = localStorage.getItem(CODE_KEY) || ''; } catch { ganttCode = ''; } }
@@ -157,6 +150,35 @@ export function renderSchedule(result) {
   const codeW = code ? Math.min(200, Math.max(110, Math.round(Math.max(longest(codeOf), code.length) * 6.4 + 14))) : 0;
   const lblCols = `${idW}px ${code ? codeW + 'px ' : ''}${nameW}px 82px 82px 60px`;
   const lblW = idW + codeW + nameW + 82 + 82 + 60 + (code ? 5 : 4) * 8 + 22;
+
+  const { min, max, dd } = span(acts, result.data_date);
+  const totalDays = Math.max(1, Math.round((max - min) / DAY));
+  // the time line takes the width of the screen, so EVERY month shows with no sideways scrolling
+  const trackW = Math.max(420, (el.clientWidth || 1300) - lblW - 64);
+  const ppd = trackW / totalDays;
+  const xOf = (ms) => ((ms - min) / DAY) * ppd;
+
+  // month ticks + full-height gridlines (the first, partial month is labelled too)
+  let ticks = '', grid = '';
+  const t = new Date(min); t.setDate(1); t.setHours(0, 0, 0, 0);
+  for (; t.getTime() <= max; t.setMonth(t.getMonth() + 1)) {
+    const raw = xOf(t.getTime());
+    if (raw > trackW + 0.5) continue;
+    const x = Math.max(0, raw);
+    if (raw < 0) {                                         // a first month with only a few days left: its
+      const nx = new Date(t); nx.setMonth(nx.getMonth() + 1);   // label would sit under the next month's
+      if (xOf(nx.getTime()) < 18) continue;
+    }
+    // every month by name (Jan, Feb ...); alternate rows when they would touch; the year on its own row
+    const lo = ppd * 30.4 < 34 && t.getMonth() % 2 === 1;
+    ticks += `<div class="g-tick" style="left:${x.toFixed(1)}px"><span${lo ? ' class="lo"' : ''}>${MON[t.getMonth()]}</span></div>`;
+    if (t.getMonth() === 0 || !ticks.includes('g-yr')) ticks += `<div class="g-yr" style="left:${(x + 3).toFixed(1)}px">${t.getFullYear()}</div>`;
+    if (raw >= 0) grid += `<div class="g-grid-line" style="left:calc(var(--g-lblw) + ${x.toFixed(1)}px)"></div>`;
+  }
+  const ddx = dd != null ? xOf(dd) : null;
+
+  const groups = ganttGroups(acts);
+  const counts = ganttCounts(acts);
 
   // Rows are built in blocks of GANTT_BLOCK lines; each block carries its exact height, so
   // the browser lays out only the blocks on screen (content-visibility) — a 6,000-activity
@@ -172,17 +194,22 @@ export function renderSchedule(result) {
   // Expected Finish (latest), Delay (= its Total Float) and the Activity Count. Built from the
   // critical-only WBS summary the server stores; a result without it keeps the plain groups.
   const tree = (result.wbs_critical || []);
-  const byWbs = new Map();
-  for (const a of acts) { if (!byWbs.has(a.wbs_id)) byWbs.set(a.wbs_id, []); byWbs.get(a.wbs_id).push(a); }
   const nodeById = new Map(tree.map((n) => [n.id, n]));
-  const keep = new Set();                              // WBS that hold a shown activity, with their ancestors
-  for (const id of byWbs.keys()) { let n = nodeById.get(id); while (n && !keep.has(n.id)) { keep.add(n.id); n = nodeById.get(n.parent); } }
-  const banded = tree.length > 0 && acts.every((a) => a.wbs_id && nodeById.has(a.wbs_id));
-  const bands = banded ? tree.filter((n) => keep.has(n.id)) : [];
-  const baseDepth = bands.reduce((m, n) => Math.min(m, n.depth), Infinity);
-  const rowSets = banded
-    ? bands.map((n) => ({ band: n, rows: (byWbs.get(n.id) || []).map((a) => ({ a, sMs: toMs(a.start), fMs: toMs(a.finish) })).sort((x, y) => x.sMs - y.sMs) }))
-    : groups.map((g) => ({ group: g, rows: g.rows }));
+  const bandModel = (list) => {
+    const byWbs = new Map();
+    for (const a of list) { if (!byWbs.has(a.wbs_id)) byWbs.set(a.wbs_id, []); byWbs.get(a.wbs_id).push(a); }
+    const keep = new Set();                              // WBS that hold a shown activity, with their ancestors
+    for (const id of byWbs.keys()) { let n = nodeById.get(id); while (n && !keep.has(n.id)) { keep.add(n.id); n = nodeById.get(n.parent); } }
+    const banded = tree.length > 0 && list.every((a) => a.wbs_id && nodeById.has(a.wbs_id));
+    const bands = banded ? tree.filter((n) => keep.has(n.id)) : [];
+    return {
+      banded, baseDepth: bands.reduce((m, n) => Math.min(m, n.depth), Infinity),
+      sets: banded ? bands.map((n) => ({ band: n, rows: (byWbs.get(n.id) || []).map((a) => ({ a, sMs: toMs(a.start), fMs: toMs(a.finish) })).sort((x, y) => x.sMs - y.sMs) })) : null,
+    };
+  };
+  const bm = bandModel(acts);
+  const banded = bm.banded, baseDepth = bm.baseDepth;
+  const rowSets = banded ? bm.sets : groups.map((g) => ({ group: g, rows: g.rows }));
   const bandCols = `minmax(0,1fr) 82px 82px 60px`;
   for (const set of rowSets) {
     if (set.band) {
@@ -222,6 +249,12 @@ export function renderSchedule(result) {
         <option value="">— none —</option>${codeTypes.map((c) => `<option value="${attr(c)}"${c === code ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select></label>`
     : '';
 
+  const mainPick = gs.roots.length > 1
+    ? `<div class="wbst-mainsel"><span>Critical activities of</span><div class="wbst-seg" id="g-mainseg">
+        <button data-gm="" class="${gs.main === '' ? 'on' : ''}">All major WBS (${gs.all.filter((a) => a.critical).length})</button>${gs.roots.map((r) =>
+          `<button data-gm="${attr(r.id)}" class="${r.id === gs.main ? 'on' : ''}">${escapeHtml(r.name)} (${r.n})</button>`).join('')}</div></div>`
+    : '';
+
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
       <div class="ov-chips">
@@ -232,6 +265,7 @@ export function renderSchedule(result) {
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
         ${codePick}
       </div></div></div>
+    ${mainPick}
     <div class="g-wrap" style="--g-lblw:${lblW}px;--g-cols:${lblCols}"><div class="g-inner g-lazy" style="--trackw:${trackW}px">
       <div class="g-scale"><div class="g-lbl g-scale-lbl"><span>Activity ID</span>${code ? `<span>${escapeHtml(code)}</span>` : ''}<span>Activity name</span><i>Expected Start</i><i>Expected Finish</i><i>Delay</i></div>
         <div class="g-track g-scale-track">${ticks}${ddx != null ? `<div class="g-dd" style="left:${ddx.toFixed(1)}px"><span>Cut-off ${gShort(result.data_date)}</span></div>` : ''}</div></div>
@@ -244,7 +278,21 @@ export function renderSchedule(result) {
       <button class="btn-secondary" id="sched-excel-btn">Export to Excel</button>
     </div>`;
 
-  _print = printSections(result, acts, groups, counts, { min, max, dd }, note, code, banded ? rowSets : null, baseDepth);
+  const allCrit = gs.all.filter((a) => a.critical);
+  const printRoots = tree.length ? gs.roots.map((r) => {
+    const list = allCrit.filter((a) => gs.rootOf(a.wbs_id) === r.id);
+    return { id: r.id, name: r.name, n: list.length, model: bandModel(list) };
+  }).filter((r) => r.model.banded) : [];
+  const spAll = span(allCrit, result.data_date);
+  _print = printSections(result, allCrit, ganttGroups(allCrit), ganttCounts(allCrit), spAll, note, code, null, 0, gs.all, { ...gs, main: '' }, printRoots);
+  const segG = document.getElementById('g-mainseg');
+  if (segG) segG.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-gm]');
+    if (!b || b.dataset.gm === gs.main) return;
+    ganttMain = b.dataset.gm;
+    try { localStorage.setItem(MAIN_KEY, ganttMain); } catch { /* non-fatal */ }
+    renderSchedule(result);
+  });
 
   const sel = document.getElementById('g-code');
   if (sel) sel.addEventListener('change', () => {
@@ -258,7 +306,7 @@ export function renderSchedule(result) {
 // One 'Summary' section and one 'Gantt chart' section whose parts are the WBS groups (each a
 // table: ID, name, Start, Finish, %, float and the bar on a page-wide time scale), so the
 // Report Contents picker can tick whole groups in or out.
-function printSections(result, acts, groups, counts, sp, note, code, bandSets, baseDepth) {
+function printSections(result, acts, groups, counts, sp, note, code, bandSets, baseDepth, scope, gs, printRoots) {
   const total = Math.max(1, sp.max - sp.min);
   const pos = (ms) => Math.max(0, Math.min(100, ((ms - sp.min) / total) * 100));
   // month / quarter / year marks for the page-wide scale
@@ -281,8 +329,8 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   };
 
   // a WBS band line inside the table: P6's summary of the critical activities under that WBS
-  const bandHtml = (n) => {
-    const d = n.depth - baseDepth, bs = toMs(n.start), bf = toMs(n.finish);
+  const bandHtml = (n, base = baseDepth) => {
+    const d = n.depth - base, bs = toMs(n.start), bf = toMs(n.finish);
     const l = pos(bs), w = Math.max(0.6, pos(bf) - l);
     const bar = (Number.isNaN(bs) || Number.isNaN(bf)) ? '' : `<b class="gp-band" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></b>`;
     return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small class="gp-st ${stCls(n.status)}">${escapeHtml(n.status || '')}</small></td>`
@@ -308,17 +356,18 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   }).join('');
 
   const kv = (k, v) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`;
-  const whole = result.activities || [];
+  const whole = scope || result.activities || [];
   const wc = (st) => whole.filter((a) => a.status === st).length;
   const cf = criticalFigures(result, acts, whole);
   const summary = `<div data-part="summary.counts" data-part-label="Schedule counts">
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
+      ${kv('Major WBS', gs && gs.main ? escapeHtml((gs.roots.find((r) => r.id === gs.main) || {}).name || '') : 'All major WBS')}
       ${kv('Cut-off date (data date)', gDate(result.data_date))}
-      ${kv('Activities in the schedule', whole.length || (result.activity_count ?? '—'))}
-      ${kv('Completed (whole schedule)', wc('Completed'))}
-      ${kv('In progress (whole schedule)', wc('In Progress'))}
-      ${kv('Not started (whole schedule)', wc('Not Started'))}
+      ${kv(gs && gs.main ? 'Activities in this WBS' : 'Activities in the schedule', whole.length || (result.activity_count ?? '—'))}
+      ${kv(gs && gs.main ? 'Completed (this WBS)' : 'Completed (whole schedule)', wc('Completed'))}
+      ${kv(gs && gs.main ? 'In progress (this WBS)' : 'In progress (whole schedule)', wc('In Progress'))}
+      ${kv(gs && gs.main ? 'Not started (this WBS)' : 'Not started (whole schedule)', wc('Not Started'))}
       ${kv('Critical activities shown (as P6 flags them) — remaining only, completed activities are hidden', cf.n)}
       ${kv('Critical activities in progress / not started', `${cf.prog} / ${cf.notStarted}`)}
       ${kv('Current % of the critical activities', `${f1(cf.share)} (${cf.n} of ${cf.all} activities)`)}
@@ -327,6 +376,18 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       </tbody></table></div>
     <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; <b>A</b> beside a date = <b>Actual</b> date (a date without A is an expected date); Delay is the total float as P6 shows it (negative = late). The dashed line is the cut-off date ${gDate(result.data_date)}.</p></div>`;
 
+  // one section per MAJOR WBS (Phase I Construction Works, Phase I Key Dates ...): the Report Contents
+  // picker lists each of them, so any can be ticked in or out
+  if (printRoots && printRoots.length) {
+    return [
+      { key: 'summary', label: 'Summary', html: summary },
+      ...printRoots.map((r) => ({
+        key: `gantt.${r.id}`, label: `${r.name} (${r.n} critical)`,
+        html: `<div data-part="gantt.${attr(r.id)}" data-part-label="${attr(r.name)}" class="gp-grp"><h3 class="gp-h">${escapeHtml(r.name)} <small>${r.n} critical remaining activities</small></h3>`
+          + `<table class="gp-table">${head}<tbody>${r.model.sets.map((set) => bandHtml(set.band, r.model.baseDepth) + set.rows.map(rowHtml).join('')).join('')}</tbody></table></div>`,
+      })),
+    ];
+  }
   return [
     { key: 'summary', label: 'Summary', html: summary },
     { key: 'gantt', label: 'Gantt chart by WBS', html: parts },

@@ -2668,7 +2668,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
    activity column (ID, name, Start, Finish) stays at the left however far it is scrolled. */
 .g-wrap { --g-lblw: 560px; overflow: auto; max-height: calc(100vh - 250px); min-height: 240px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
 .g-inner { position: relative; width: calc(var(--g-lblw) + var(--trackw)); }
-.g-scale { display: flex; position: sticky; top: 0; z-index: 4; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 34px; }
+.g-scale { display: flex; position: sticky; top: 0; z-index: 4; background: var(--card-bg); border-bottom: 1px solid var(--border); height: 42px; }
 .g-lbl { width: var(--g-lblw); flex-shrink: 0; padding: 0 10px 0 12px; box-sizing: border-box; overflow: hidden; position: sticky; left: 0; z-index: 2;
   background: var(--card-bg); border-right: 1px solid var(--border); display: grid; grid-template-columns: var(--g-cols, 160px minmax(0, 1fr) 82px 82px 60px); column-gap: 8px; align-items: center; }
 /* column widths are set per render from the longest ID / code / name, so nothing is cut */
@@ -2684,14 +2684,14 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .g-scale-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; z-index: 5; }
 .g-scale-lbl > i { font-size: 10px; color: var(--muted); font-family: inherit; }
 .g-track { width: var(--trackw); flex-shrink: 0; position: relative; }
-.g-scale-track { height: 34px; }
+.g-scale-track { height: 42px; }
 .g-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
-.g-tick span { position: absolute; top: 10px; left: 5px; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
-.g-grids { position: absolute; left: 0; right: 0; top: 34px; bottom: 0; z-index: 0; pointer-events: none; }
+.g-tick span { position: absolute; top: 4px; left: 4px; font-size: 9.5px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
+.g-grids { position: absolute; left: 0; right: 0; top: 42px; bottom: 0; z-index: 0; pointer-events: none; }
 .g-grid-line { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
 .g-dd { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--accent); }
-.g-dd span { position: absolute; top: 3px; left: 4px; font-size: 9px; color: var(--accent); font-family: ui-monospace, monospace; font-weight: 700; }
-.g-dd-line { position: absolute; top: 34px; bottom: 0; width: 0; border-left: 2px dashed var(--accent); opacity: 0.55; z-index: 0; pointer-events: none; }
+.g-dd span { position: absolute; top: 28px; left: 4px; white-space: nowrap; background: var(--card-bg); padding: 0 3px; font-size: 9px; color: var(--accent); font-family: ui-monospace, monospace; font-weight: 700; }
+.g-dd-line { position: absolute; top: 42px; bottom: 0; width: 0; border-left: 2px dashed var(--accent); opacity: 0.55; z-index: 0; pointer-events: none; }
 .g-rows { position: relative; z-index: 1; }
 /* Blocks of rows off screen are not laid out until scrolled to (gantt.js sets each block's
    exact height). The extra 48px on .g-inner keeps the last bars' "%" labels inside it. */
@@ -4177,3 +4177,14 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-pair i.p { top: 0; } .uc-pair i.a { top: 8px; }
 .uc-chip { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .uc-chip.g { background: #dcfce7; color: #166534; } .uc-chip.y { background: #fef3c7; color: #92400e; } .uc-chip.r { background: #fee2e2; color: #991b1b; }
+
+.wbst-mainsel { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; flex-wrap: wrap; }
+.wbst-mainsel > span { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.uc-sub { margin: -4px 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.uc-table th.uc-gh { text-align: center; border-bottom: 1px solid var(--border); color: var(--text); }
+.wbs-branch-h { font-size: 15px; margin: 0 0 8px; } .wbs-branch-h small { font-weight: 500; font-size: 11px; color: var(--muted); }
+
+.g-tick span.lo { top: 16px; }
+.g-yr { position: absolute; top: 28px; font-size: 10px; font-weight: 700; color: var(--text); font-family: ui-monospace, monospace; }
+
+.uc-rule, .uc-legend { break-after: avoid; } .uc-sub { break-after: avoid; }
