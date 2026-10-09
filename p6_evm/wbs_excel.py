@@ -23,7 +23,7 @@ The client posts `report` = {
 Nothing is computed from the schedule here — it only re-presents the rolled-up
 figures the WBS view already resolved (DB is the read path; no XML re-parse).
 Columns mirror ui/modules/overview.js WBS_COLS + the indented WBS name, and Delay
-= Expected Finish − Baseline Finish in calendar days (+late / −early), matching
+= Baseline Finish − Expected Finish in calendar days (−late / +early), matching
 overview.js `wbsDelay`. Never raises on empty/missing data: a 'No data' sheet is
 returned instead.
 """
@@ -31,7 +31,7 @@ from datetime import datetime, date
 
 # Column order mirrors overview.js WBS_COLS (all columns, as the print table shows them).
 _HEADERS = ['WBS', 'Baseline Start', 'Baseline Finish', 'Expected Start',
-            'Expected Finish', 'Planned %', 'Actual %', 'Delay (days)']
+            'Expected Finish', 'Planned %', 'Actual %', 'Delay (Calendar days)']
 _INDENT = '    '                                  # 4 spaces per relative level
 
 
@@ -62,16 +62,13 @@ def _fmt_date(iso):
 
 
 def _delay_days(node):
-    """Expected Finish against Baseline Finish (+late / −early): the WORKING days the server
-    counted on the project calendar, as P6 counts it; calendar days only for a result stored
-    before that figure existed."""
-    if 'delay' in node:
-        return node.get('delay')
+    """Delay (Calendar days) = Baseline Finish - Expected Finish, the two dates on the row, in
+    calendar days (negative = later than the baseline) - the same figure as the screen."""
     ef = _parse_date(node.get('finish'))
     bf = _parse_date(node.get('baseline_finish'))
     if ef is None or bf is None:
         return None
-    return (ef - bf).days
+    return (bf - ef).days
 
 
 def _num(v):
@@ -141,11 +138,11 @@ def _branch_note(subset):
     pl_s = f'{pl:.1f}%' if isinstance(pl, (int, float)) else '—'
     ac_s = f'{ac:.1f}%' if isinstance(ac, (int, float)) else '—'
     n = f'{acts} activities' if acts is not None else 'activities —'
-    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay = Total Float on the update (negative = late)'
+    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay (Calendar days) = Baseline Finish − Expected Finish (negative = late)'
 
 
 # columns measured against the baseline — '· approx' when the update's own Planned dates stand in
-_BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (days)'}
+_BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (Calendar days)'}
 
 
 def _block(title, subset, approx=False, buckets=None, unit='month', cutoff=None):

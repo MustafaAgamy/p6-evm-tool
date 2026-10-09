@@ -45,13 +45,60 @@ def baseline_shown(data, aid, bl=None):
     return own.get('start') or bl.get('planned_start'), own.get('finish') or bl.get('planned_finish')
 
 
-def current_start(a):
-    """P6 'Start': Actual Start once started, else the remaining early start, else Planned."""
+def rescheduled_dates(data):
+    """{activity ObjectId: (start, finish)} for the unfinished activities whose saved Finish lies
+    BEFORE the data date. P6 never shows such a date - when it schedules, work that is not done
+    moves to the data date or later - but an export can still carry the old one (seen on Grain
+    Bulk: four 'Piles' submittals saved in May 2025 against a data date of 09-Aug.2026, which P6
+    lists as 22 / 24 / 27 / 31-Aug.2026). Those activities, and only those, are given the dates
+    of the in-tool forward pass; every other activity keeps the dates the file holds.
+    View-only (WBS / Gantt dates); worked out once per schedule; never raises."""
+    if data is None:
+        return {}
+    got = getattr(data, '_rescheduled_dates', None)
+    if got is not None:
+        return got
+    out = {}
+    try:
+        acts = getattr(data, 'activities', None) or {}
+        dd = (getattr(data, 'project', None) or {}).get('data_date')
+        stale = set()
+        if dd is not None and isinstance(acts, dict):
+            for oid, a in acts.items():
+                f = a.get('remaining_early_finish')      # only a date P6 itself scheduled and saved
+                if not a.get('actual_finish') and f is not None and f < dd \
+                        and a.get('task_type') not in ('LevelOfEffort', 'WBSSummary'):
+                    stale.add(oid)
+        if stale:
+            from p6_compare.schedule import forward_pass
+            es = {}
+            ef = forward_pass(data, keep=set(acts) - stale, starts=es)
+            for oid in stale:
+                if ef.get(oid) is not None and ef[oid] >= dd:
+                    out[oid] = (acts[oid].get('actual_start') or es.get(oid), ef[oid])
+    except Exception:
+        out = {}
+    try:
+        data._rescheduled_dates = out
+    except Exception:
+        pass
+    return out
+
+
+def current_start(a, moved=None):
+    """P6 'Start': Actual Start once started, else the remaining early start, else Planned.
+    ``moved`` = rescheduled_dates(data): a not-done activity saved before the data date."""
+    m = (moved or {}).get(a.get('object_id'))
+    if m and m[0] is not None:
+        return m[0]
     return a.get('actual_start') or a.get('remaining_early_start') or a.get('planned_start')
 
 
-def current_finish(a):
+def current_finish(a, moved=None):
     """P6 'Finish': Actual Finish once finished, else the remaining early finish, else Planned."""
+    m = (moved or {}).get(a.get('object_id'))
+    if m and m[1] is not None:
+        return m[1]
     return a.get('actual_finish') or a.get('remaining_early_finish') or a.get('planned_finish')
 
 
@@ -267,9 +314,10 @@ def gantt_activities(records, wbs_map, data=None):
     out, paths, costs = [], [], []
     bl_by_id = (getattr(data, 'baseline_by_id', None) or {}) if data is not None else {}
     cals = (getattr(data, 'calendars', None) or {}) if data is not None else {}
+    moved = rescheduled_dates(data)
     for r in records:
         a = r['activity']
-        s, f = current_start(a), current_finish(a)
+        s, f = current_start(a, moved), current_finish(a, moved)
         if not s or not f:
             continue
         try:
@@ -353,6 +401,7 @@ def wbs_views(records, data):
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     dd0 = (getattr(data, 'project', None) or {}).get('data_date')
     direct = defaultdict(base)
+    moved = rescheduled_dates(data)                # not-done work saved before the data date
     for r in records:
         a = r['activity']
         wid = a.get('wbs_id')
@@ -372,12 +421,12 @@ def wbs_views(records, data):
                     d['pd' if pf0 <= dd0 else 'pp' if ps0 <= dd0 else 'pn'] += 1
             except TypeError:
                 pass
-        cs = current_start(a)
+        cs = current_start(a, moved)
         if cs is not None and (d['s'] is None or cs < d['s']):
             d['sa'] = bool(a.get('actual_start'))        # is the band's start an ACTUAL date?
         d['began'] += 1 if a.get('actual_start') else 0
         d['s'] = _mn(d['s'], cs)                        # current schedule (expected)
-        d['f'] = _mx(d['f'], current_finish(a) if a.get('task_type') == 'StartMilestone' else p6_finish_day(current_finish(a), cs))
+        d['f'] = _mx(d['f'], current_finish(a, moved) if a.get('task_type') == 'StartMilestone' else p6_finish_day(current_finish(a, moved), cs))
         # for the WBS's own Total Float: its latest early finish and latest late finish
         d['ef'] = _mx(d['ef'], a.get('actual_finish') or a.get('remaining_early_finish'))
         d['lf'] = _mx(d['lf'], a.get('actual_finish') or a.get('remaining_late_finish'))

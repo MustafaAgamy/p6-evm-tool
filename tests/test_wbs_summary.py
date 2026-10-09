@@ -183,3 +183,34 @@ def test_baseline_dates_are_p6_bl_project_start_and_finish():
     assert baseline_shown(data, 'A1', bl) == (datetime(2024, 12, 7, 20), datetime(2025, 1, 7, 16))
     assert baseline_shown(data, 'A2', bl) == (bl['planned_start'], bl['planned_finish'])
     assert baseline_shown(SimpleNamespace(), 'A1', bl) == (bl['planned_start'], bl['planned_finish'])
+
+
+def test_not_done_work_saved_before_the_data_date_takes_the_scheduled_dates(monkeypatch):
+    """An export can carry a not-started activity with dates BEFORE the data date (Grain Bulk:
+    'Piles IFC App.' saved 19-May.2025 against a data date of 09-Aug.2026). P6 shows such work
+    at the data date or later, so the view takes the forward-pass dates for it - and for it only."""
+    from datetime import datetime
+    from types import SimpleNamespace
+    import p6_compare.schedule as sched
+    from p6_evm.schedule_view import rescheduled_dates, current_start, current_finish
+    acts = {
+        'old': {'object_id': 'old', 'remaining_early_start': datetime(2025, 5, 18, 8), 'remaining_early_finish': datetime(2025, 5, 19, 16)},
+        'ok':  {'object_id': 'ok', 'remaining_early_start': datetime(2026, 9, 1, 8), 'remaining_early_finish': datetime(2026, 9, 5, 16)},
+        'done': {'object_id': 'done', 'actual_start': datetime(2025, 5, 1, 8), 'actual_finish': datetime(2025, 5, 3, 16)},
+    }
+    data = SimpleNamespace(activities=acts, project={'data_date': datetime(2026, 8, 9, 8)})
+    seen = {}
+
+    def fake(d, keep=None, starts=None):
+        seen['keep'] = keep
+        starts.update({'old': datetime(2026, 8, 23, 8)})
+        return {'old': datetime(2026, 8, 24, 16), 'ok': datetime(2030, 1, 1), 'done': datetime(2030, 1, 1)}
+    monkeypatch.setattr(sched, 'forward_pass', fake)
+    moved = rescheduled_dates(data)
+    assert moved == {'old': (datetime(2026, 8, 23, 8), datetime(2026, 8, 24, 16))}
+    assert seen['keep'] == {'ok', 'done'}                     # every other activity keeps P6's own dates
+    assert current_finish(acts['old'], moved) == datetime(2026, 8, 24, 16)
+    assert current_start(acts['old'], moved) == datetime(2026, 8, 23, 8)
+    assert current_finish(acts['ok'], moved) == datetime(2026, 9, 5, 16)
+    assert current_finish(acts['done'], moved) == datetime(2025, 5, 3, 16)
+    assert rescheduled_dates(SimpleNamespace(activities={'ok': acts['ok']}, project={'data_date': datetime(2026, 8, 9, 8)})) == {}

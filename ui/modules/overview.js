@@ -418,7 +418,7 @@ const WBS_COLS = [
   { key: 'finish',          label: 'Expected Finish', w: 96, kind: 'date' },
   { key: 'planned',         label: 'Planned %',       w: 84, kind: 'pct'  },
   { key: 'actual',          label: 'Actual %',        w: 84, kind: 'pct'  },
-  { key: 'delay',           label: 'Delay',           w: 74, kind: 'delay'},
+  { key: 'delay',           label: 'Delay (Calendar days)', w: 96, kind: 'delay'},
 ];
 export function wbsCriticalMode() { return false; }
 const WBS_MODE_KEY = 'p6evm_wbs_mode';
@@ -442,14 +442,12 @@ function wbsShownCols() {
   return WBS_COLS.filter((c) => wbsCols.has(c.key));
 }
 
-// Delay = the WBS's Total Float on the update with P6's own sign (−72 d = 72 days late), worked out by
-// the server from the WBS's latest Late Finish against its latest Early Finish on the project's
-// default calendar. A result stored before that figure existed falls back to calendar days.
+// Delay (Calendar days) = Baseline Finish - Expected Finish, the two dates shown on the row, in
+// calendar days (owner): a negative figure is days LATE against the baseline, a positive one early.
 function wbsDelay(n) {
-  if ('delay' in n) return n.delay;
   const ef = toMs(n.finish), bf = toMs(n.baseline_finish);
   if (Number.isNaN(ef) || Number.isNaN(bf)) return null;
-  return -Math.round((ef - bf) / DAY);
+  return Math.round((bf - ef) / DAY);
 }
 
 // Columns measured against the baseline — marked '· approx' when the update's own Planned dates
@@ -695,7 +693,7 @@ export function renderWbs(result) {
       let inner = wbsCellVal(c, n);
       if (c.kind === 'delay') {
         const d = wbsDelay(n);
-        if (d != null && d < 0) cls += ' wc-bad';          // negative float = late
+        if (d != null && d < 0) cls += ' wc-bad';          // negative = later than the baseline
         else if (d != null && d > 0) cls += ' wc-good';
       }
       if (c.key === 'actual') inner = `<b>${inner}</b>`;
@@ -763,7 +761,7 @@ export function renderWbs(result) {
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay</b> is the WBS’s <b>Total Float on this update</b> with the same sign as in P6 — −72 d means 72 days late, a positive figure is spare float; it is not a comparison with the baseline. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay (Calendar days)</b> = <b>Baseline Finish − Expected Finish</b> in calendar days — −72 d means the WBS finishes 72 days later than its baseline, a positive figure means earlier. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
 `;
 
   const segEl = document.getElementById('wbst-seg');

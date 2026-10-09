@@ -86,7 +86,7 @@ def test_overview_and_wbs_excel_mark_baseline_columns():
               'planned': 50.0, 'actual': 40.0}]
     hdr = wbs_excel({'wbs_summary': nodes, 'wbs_main': [], 'baseline_approx': True})[0]['blocks'][0]['headers']
     assert hdr[:8] == ['WBS', 'Baseline Start · approx', 'Baseline Finish · approx', 'Expected Start',
-                       'Expected Finish', 'Planned % · approx', 'Actual %', 'Delay (days) · approx']   # then the Gantt's month columns
+                       'Expected Finish', 'Planned % · approx', 'Actual %', 'Delay (Calendar days) · approx']   # then the Gantt's month columns
 
 
 def test_critical_path_and_update_vs_update_reports(tmp_path):

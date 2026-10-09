@@ -233,7 +233,7 @@ export function renderSchedule(result) {
     if (set.band) {
       const n = set.band, d = n.depth - baseDepth;
       const bs = toMs(n.start), bf = toMs(n.finish);
-      const dl = { delay: n.delay };
+      const dl = { delay: n.total_float !== undefined ? n.total_float : n.delay };
       const bbar = (!Number.isNaN(bs) && !Number.isNaN(bf)) ? `<div class="g-band-bar" style="left:${xOf(bs).toFixed(1)}px;width:${Math.max(3, xOf(bf) - xOf(bs)).toFixed(1)}px"></div>` : '';
       push(`<div class="g-grp g-band"><div class="g-lbl g-grp-lbl" style="--g-bandcols:${bandCols}" title="${attr(n.name)} — ${n.count} critical activities · Total Float ${n.total_float == null ? '—' : n.total_float + ' d'}">`
         + `<span style="padding-left:${d * 14}px">${escapeHtml(n.name)}${stTag(n.status)}</span><i>${dA(n.start, n.start_actual)}</i><i>${dA(n.finish, n.finish_actual)}</i><i class="g-delay${delayCls(dl)}">${delayText(dl)}</i></div>`
@@ -359,7 +359,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
     const l = pos(bs), w = Math.max(0.6, pos(bf) - l);
     const bar = (Number.isNaN(bs) || Number.isNaN(bf)) ? '' : `<b class="gp-band" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></b>`;
     return `<tr class="gp-bandrow"><td colspan="${code ? 3 : 2}" style="padding-left:${5 + d * 10}px">${escapeHtml(n.name)} <small class="gp-st ${stCls(n.status)}">${escapeHtml(n.status || '')}</small></td>`
-      + `<td class="gp-d">${dA(n.start, n.start_actual)}</td><td class="gp-d">${dA(n.finish, n.finish_actual)}</td><td class="gp-n">${delayText({ delay: n.delay })}</td><td></td>`
+      + `<td class="gp-d">${dA(n.start, n.start_actual)}</td><td class="gp-d">${dA(n.finish, n.finish_actual)}</td><td class="gp-n">${delayText({ delay: n.total_float !== undefined ? n.total_float : n.delay })}</td><td></td>`
       + `<td class="gp-tl" data-export="bar"><div class="gp-track">${ddLine}${bar}</div></td></tr>`;
   };
   // banded (P6 layout): one part per top band, its sub-bands and activities in P6's order

@@ -245,7 +245,7 @@ def test_screens_show_cost_loaded_overview_critical_gantt_and_fitted_wbs():
     assert 'all.filter((a) => a.critical)' in gantt                       # every critical REMAINING activity (P6's count)
     assert 'Critical Activities (Gantt)' in gantt and '<i>Expected Start</i><i>Expected Finish</i><i>Delay</i>' in gantt
     assert 'id="g-code"' in gantt and 'ovh-col p' in ov and 'id="ov-hide0"' in ov and 'cost-loaded\' : \'\'}' not in ov
-    assert 'Cut-off date' in ov and "if ('delay' in n) return n.delay;" in ov
+    assert 'Cut-off date' in ov and 'return Math.round((bf - ef) / DAY);' in ov
     assert 'wbst-fit' in ov and 'totalDays * 3' not in ov        # the timeline fits the screen: no sideways scroll
     assert 'wbsHasPct' in ov
 
