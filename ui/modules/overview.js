@@ -391,7 +391,7 @@ ${wbsHasPct(branch) ? `
   _wbsPrint = [
     { key: 'overview', label: `WBS overview — ${branch.name || 'all'}${critical ? ' (critical activities)' : ''}`, html: _wbsOverview },
     { key: 'table',    label: 'WBS summary table',
-      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span><span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span><span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span></div>` },
+      html: `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span><span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span><span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>` },
   ];
 
   const modeSeg = critNodes.length

@@ -181,8 +181,8 @@ def schedule_excel(result):
             ['Critical activities as a share of the schedule', _share(crit, len(all_acts))],
             ['Critical activities in progress', sum(1 for a in acts if a.get('status') == 'In Progress')],
             ['Critical activities not started', sum(1 for a in acts if a.get('status') == 'Not Started')],
-            ['Planned % of the critical activities', _crit_pct(result, 'pv')],
             ['Actual % of the critical activities', _crit_pct(result, 'ev')],
+            ['A beside a date', 'Actual date (the work has started / finished on that date)'],
             ['Critical milestones', ms],
             ['WBS groups', len(order)],
             ['Project', result.get('project_name') or 'Schedule'],
@@ -195,7 +195,7 @@ def schedule_excel(result):
                 for a in sorted(groups[g], key=_start_ms)]
         blocks.append({
             'title': names[g],
-            'note': 'Red cells = the weeks the activity runs (dark red = its Actual % part). An A after a date = an actual date.',
+            'note': 'Red cells = the weeks the activity runs (dark red = its Actual % part). A after a date = Actual date.',
             'headers': headers,
             'rows': rows,
         })

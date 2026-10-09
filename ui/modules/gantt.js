@@ -23,8 +23,8 @@ const gShort = (iso) => { const t = gDate(iso); return t === '—' ? t : `${t.sl
 const dA = (iso, actual) => (gShort(iso) + (actual && gShort(iso) !== '—' ? ' A' : ''));
 const stCls = (st) => (st === 'Completed' ? 'done' : st === 'In Progress' ? 'prog' : '');
 const stTag = (st) => (st ? `<em class="g-st ${stCls(st)}">${escapeHtml(st)}</em>` : '');
-// the critical activities in numbers: how many, their share of the schedule, and their Planned % /
-// Actual % (budget-weighted over the top WBS of the critical-only summary)
+// the critical activities in numbers: how many, their share of the schedule, and their Actual %
+// (budget-weighted over the top WBS of the critical-only summary)
 export function criticalFigures(result, acts, all) {
   const roots = (result.wbs_critical || []).filter((n) => n.depth === 0);
   const bac = roots.reduce((m, n) => m + (n.bac || 0), 0);
@@ -327,11 +327,11 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       ${kv('Critical activities (construction, as P6 flags them, not finished)', cf.n)}
       ${kv('Critical activities as a share of the schedule', f1(cf.share))}
       ${kv('Critical activities in progress / not started', `${cf.prog} / ${cf.notStarted}`)}
-      ${kv('Planned % of the critical activities', f1(cf.planned))}
       ${kv('Actual % of the critical activities', f1(cf.actual))}
+      ${kv('A beside a date', 'Actual date (the work has started / finished on that date)')}
       ${kv('Critical milestones', counts.ms)}
       </tbody></table></div>
-    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; an A beside a date marks an actual date; Delay is the total float as P6 shows it (negative = late). The dashed line is the cut-off date ${gDate(result.data_date)}.</p></div>`;
+    <div data-part="summary.note" data-part-label="How to read the chart"><p class="ov-note">${note} A ◆ after the Activity ID marks a milestone; <b>A</b> beside a date = <b>Actual</b> date (a date without A is an expected date); Delay is the total float as P6 shows it (negative = late). The dashed line is the cut-off date ${gDate(result.data_date)}.</p></div>`;
 
   return [
     { key: 'summary', label: 'Summary', html: summary },
