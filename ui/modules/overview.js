@@ -738,7 +738,7 @@ export function renderWbs(result) {
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
-        ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
+        ${allMilestone ? '' : wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
     ${execHtml ? `<div class="uc-section-name">Execution Dashboard</div>${execHtml}` : ''}
