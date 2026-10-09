@@ -119,7 +119,7 @@ function costDashboard(result, id, name, cutoffText) {
   const rows = kids.map((k) => `<tr><td>${escapeHtml(k.name)}</td><td class="uc-n">${k.count || k.activities || 0}</td><td class="uc-n">${k.cost_loaded || 0}</td>`
     + `<td data-export="bar"><div class="uc-pair"><i class="p" style="width:${w(k.planned)}%"></i><i class="a" style="width:${w(k.actual)}%"></i></div></td>`
     + `<td class="uc-n">${k.cost_loaded ? pctVal(k.planned) : '—'}</td><td class="uc-n"><b>${k.cost_loaded ? pctVal(k.actual) : '—'}</b></td>`
-    + `<td class="uc-c">${k.cost_loaded && k.planned != null && k.actual != null ? uChip(Math.round(Math.max(0, k.planned - k.actual))).replace(/behind/, 'pts behind') : '—'}</td></tr>`).join('');
+    + `<td class="uc-c">${(() => { if (!k.cost_loaded || k.planned == null || k.actual == null) return '—'; const g = Math.max(0, k.planned - k.actual); return g > 0 ? `<span class="uc-chip ${g <= 5 ? 'y' : 'r'}">${g.toFixed(1)}% behind</span>` : '<span class="uc-chip g">On plan</span>'; })()}</td></tr>`).join('');
   const table = rows ? `<div class="uc-block" data-part="exec.cost.${escapeAttr(id)}" data-part-label="${escapeAttr(name)} — by WBS"><h4>${escapeHtml(name)} — by WBS <span class="uc-tag">cost-loaded activities</span></h4>
       <table class="uc-table"><thead><tr><th>WBS</th><th class="uc-n">Activities</th><th class="uc-n">Cost loaded</th><th>Planned vs Actual</th><th class="uc-n">Planned % till ${cut}</th><th class="uc-n">Actual % till ${cut}</th><th class="uc-c">Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : '';
   const badge = '<div class="uc-badge cl"><span class="uc-seal">$</span><div><b>COST-LOADED PROGRESS</b><em>weighted by the budget of each activity (P6 cost)</em></div></div>';
@@ -131,13 +131,13 @@ function costDashboard(result, id, name, cutoffText) {
       <div><span>Cost-loaded activities</span><b>${cl}</b><em>of ${all} activities · ${(100 * cl / all).toFixed(1)}%</em></div>
       <div><span>Planned % till ${cut}</span><b>${pctVal(pl)}</b><em>Planned value ${fmtEGP(n.pv)}</em></div>
       <div><span>Actual % till ${cut}</span><b>${pctVal(ac)}</b><em>Earned value ${fmtEGP(n.ev)}</em></div>
-      <div><span>Behind plan</span><b class="${gap > 0 ? 'bad' : ''}">${gap == null ? '—' : gap.toFixed(1) + ' pts'}</b><em>Planned % − Actual %</em></div></div>`;
+      <div><span>Behind plan</span><b class="${gap > 0 ? 'bad' : ''}">${gap == null ? '—' : gap.toFixed(1) + '%'}</b><em>Planned % − Actual %</em></div></div>`;
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned % till the cut-off date</span><span><i class="a"></i>Actual % till the cut-off date</span></div>';
   return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${badge}</div>${howto}${tiles}${legend}${table}</div>`;
 }
-// the Execution dashboard of one main WBS: by COST when it is (almost) all cost loaded, else by COUNT
+// the Execution dashboard of one main WBS: shown only when it is (almost) all cost loaded
 function executionPanel(result, m, cutoffText) {
-  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : executionDashboard(result.uncosted, cutoffText, m.name);
+  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : '';
 }
 
 export function renderOverview(result) {
@@ -187,15 +187,14 @@ export function renderOverview(result) {
     ? `Planned %, Actual %, Planned value, Earned value and SPI are taken from the <b>${cl.activities}</b> cost-loaded activities only (of ${cl.all_activities}), each weighted by its budget as P6 weights it. Activities with no cost — Engineering, Procurement — are not included. SPI = Actual % ÷ Planned %.`
     : 'This schedule carries no cost loading, so Planned % and Actual % are weighted by activity duration instead of budget.';
   const kpisHtml = `<div class="ov-kpis">
-      <div class="ov-kpi"><div class="k">SPI · schedule${ax}</div><div class="v ${spiVal != null && spiVal < 1 ? 'bad' : ''}">${spi}</div></div>
       <div class="ov-kpi"><div class="k">Forecast finish</div><div class="v sm">${result.expected_finish ? fmtDate(result.expected_finish) : '—'}</div></div>
-      <div class="ov-kpi"><div class="k">Delay${ax}</div><div class="v ${delayCls}">${delay}</div></div>
       <div class="ov-kpi"><div class="k">Baseline finish${ax}</div><div class="v sm">${result.baseline_finish ? fmtDate(result.baseline_finish) : '—'}</div></div>
+      <div class="ov-kpi"><div class="k">SPI · schedule${ax}</div><div class="v ${spiVal != null && spiVal < 1 ? 'bad' : ''}">${spi}</div></div>
+      <div class="ov-kpi"><div class="k">Delay${ax}</div><div class="v ${delayCls}">${delay}</div></div>
       <div class="ov-kpi"><div class="k">Planned %${ax}</div><div class="v">${pct(plannedPct)}</div></div>
       <div class="ov-kpi"><div class="k">Actual %</div><div class="v">${pct(actualPct)}</div></div>
       <div class="ov-kpi"><div class="k">Planned value${ax}</div><div class="v sm">${fmtEGP(pv)}</div></div>
       <div class="ov-kpi"><div class="k">Earned value</div><div class="v sm">${fmtEGP(ev)}</div></div>
-      ${result.uncosted && result.uncosted.summary ? `<div class="ov-kpi"><div class="k">Execution · by count${ax}</div><div class="v sm">${upct(result.uncosted.summary.actual_pct)} actual · ${upct(result.uncosted.summary.planned_pct)} planned</div></div>` : ''}
     </div><p class="ov-note ov-basis">${basis}</p>${blLine}`;
   const legend = `<div class="ovh-legend"><span><i class="p"></i>Planned %${ax}</span><span><i class="a"></i>Actual %</span>${ovHideZero && zeroN ? `<span class="ovh-hid">${zeroN} with Planned 0 % and Actual 0 % hidden</span>` : ''}</div>`;
   const catsHtml = catRows
@@ -316,7 +315,11 @@ const ncPlanned = (n) => `<b>Planned</b> ${ncText(n, 'p')}`;
 
 function wbsCellVal(col, n) {
   // a WBS with no cost: the COUNT-BASED Planned % / Actual % of its activities (see the Execution dashboard)
-  if (col.kind === 'pct')  return pctVal(wbsHasPct(n) ? n[col.key] : (col.key === 'planned' ? n.planned_count_pct : n.actual_count_pct));
+  // a WBS whose expected finish is an actual date (all work done) shows 100% actual
+  if (col.kind === 'pct') {
+    if (col.key === 'actual' && n.finish_actual) return '100.0%';
+    return pctVal(wbsHasPct(n) ? n[col.key] : (col.key === 'planned' ? n.planned_count_pct : n.actual_count_pct));
+  }
   if (col.kind === 'date') {
     const ms = toMs(n[col.key]);
     if (Number.isNaN(ms)) return '—';
@@ -548,7 +551,7 @@ export function renderWbs(result) {
         ${wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
-    ${execHtml}
+    ${execHtml ? `<div class="uc-section-name">Execution Dashboard</div>${execHtml}` : ''}
     <div class="wbst-toolbar">
       <div class="wbst-legend">
         <span><i class="wbst-lg dur"></i>duration → finish</span>

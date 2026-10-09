@@ -4167,7 +4167,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-rule { font-style: normal; margin: 4px 0 8px; }
 .uc-legend { display: flex; gap: 16px; font-size: 11px; margin: 0 0 8px; } .uc-legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 5px; }
 .uc-legend i.p, .uc-pair i.p { background: #f59e0b; } .uc-legend i.a, .uc-pair i.a { background: #1d4ed8; }
-.uc-block { margin: 0 0 14px; break-inside: avoid; } .uc-block h4 { font-size: 12.5px; margin: 0 0 4px; }
+.uc-block { margin: 0 0 14px; break-inside: avoid; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; } .uc-block h4 { font-size: 12.5px; margin: 0 0 6px; }
+.uc-section-name { font-size: 13px; font-weight: 700; color: var(--text); padding: 6px 0 2px; margin: 12px 0 4px; border-bottom: 2px solid var(--border); }
 .uc-table { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: auto; }
 .uc-table th, .uc-table td { padding: 4px 7px; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: middle; }
 .uc-table th { font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); vertical-align: bottom; }
