@@ -193,7 +193,7 @@ def wbs_excel(report):
     for m in mains:
         sub = _subset(nodes, m.get('id'))
         if sub:
-            blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name')))
+            blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), _fmt_date(cutoff) if cutoff else ''))
             blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
@@ -207,11 +207,12 @@ def _uc_groups(t):
     return [g for g in (('Submittals', 'st', 'sdue', 'sd'), ('Approvals', 'at', 'adue', 'ad'), ('Other activities', 'ot', 'odue', 'os')) if tot.get(g[1])]
 
 
-def _uc_head(t):
+def _uc_head(t, cut=''):
+    ct = f' ({cut})' if cut else ''
     cols = [t.get('first') or 'Stage']
     for g in _uc_groups(t):
-        cols += [f'{g[0]} - Total', f'{g[0]} - Planned till cut-off date', f'{g[0]} - Started']
-    return cols + ['Planned %', 'Actual %', 'Status']
+        cols += [f'{g[0]} - Total', f'{g[0]} - Planned till cut-off date{ct}', f'{g[0]} - Actual till cut-off date{ct}']
+    return cols + [f'Planned %{" till " + cut if cut else ""}', f'Actual %{" till " + cut if cut else ""}', 'Status']
 
 
 def _uc_row(r, t):
@@ -224,13 +225,13 @@ def _uc_row(r, t):
     return row
 
 
-def _uncosted_blocks(u, branch):
+def _uncosted_blocks(u, branch, cut=''):
     """The EXECUTION DASHBOARD of ONE main WBS (E1-log style: a row per stage, Submittals / Approvals /
     other activities counted apart, a Total row at the end) - in front of that WBS's table."""
     tabs = [t for t in ((u or {}).get('tables') or []) if not branch or branch in (t.get('branches') or [])]
     return [{'title': f"Execution dashboard - {branch} Progress Planned VS Actual - {t['title']}",
-             'note': 'Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Started = activities that have started (E1 rule); milestone activities excluded',
-             'headers': _uc_head(t),
+             'note': 'COUNT-BASED PROGRESS - every activity counts as one (no cost weighting). Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Actual till cut-off date = activities that have started by the cut-off date (E1 rule); milestone activities excluded',
+             'headers': _uc_head(t, cut),
              'rows': [_uc_row(r, t) for r in t['rows']] + [_uc_row(t['total'], t)]} for t in tabs]
 
 

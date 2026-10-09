@@ -146,7 +146,7 @@ def _kpi_block(result, approx=False):
     ]
     u = (result.get('uncosted') or {}).get('summary')
     if u:
-        rows.append(['Execution - by count' + ax, '%s%% actual (started) · %s%% planned (due by cut-off)' % (u.get('actual_pct'), u.get('planned_pct')),
+        rows.append(['Execution - by count' + ax, '%s%% actual till cut-off date · %s%% planned till cut-off date' % (u.get('actual_pct'), u.get('planned_pct')),
                      '%s activities, milestones excluded' % u.get('n')])
     note = ('Taken from the %s cost-loaded activities only (of %s), each weighted by its budget as P6 weights it. '
             'Activities with no cost - Engineering, Procurement - are not included. SPI = Actual %% / Planned %%.'

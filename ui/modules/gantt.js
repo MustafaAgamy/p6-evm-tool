@@ -86,7 +86,6 @@ export function schedulePrint() { return _print; }
 
 // The CRITICAL activities per major WBS of P6 (Phase I Construction Works, Phase I Key Dates ...):
 // the planner picks one major WBS, or all of them. Remembered between sessions.
-const MAIN_KEY = 'p6evm_gantt_main';
 let ganttMain = null;
 export function ganttScope(result) {
   const all = (result && result.activities) || [];
@@ -94,7 +93,7 @@ export function ganttScope(result) {
   const tree = (result && ((result.wbs_summary || []).length ? result.wbs_summary : result.wbs_critical)) || [];
   const byId = new Map(tree.map((n) => [n.id, n]));
   const rootOf = (id) => { let n = byId.get(id), g = 0; while (n && n.parent && byId.has(n.parent) && g++ < 60) n = byId.get(n.parent); return n ? n.id : null; };
-  if (ganttMain == null) { try { ganttMain = localStorage.getItem(MAIN_KEY) || ''; } catch { ganttMain = ''; } }
+  if (ganttMain == null) ganttMain = '';                   // the results cover the WHOLE project until a major WBS is picked
   const counts = new Map();
   for (const a of all) if (a.critical) { const r = rootOf(a.wbs_id); if (r) counts.set(r, (counts.get(r) || 0) + 1); }
   const roots = tree.filter((n) => counts.has(n.id)).map((n) => ({ id: n.id, name: n.name, n: counts.get(n.id) }));
@@ -290,7 +289,6 @@ export function renderSchedule(result) {
     const b = e.target.closest('button[data-gm]');
     if (!b || b.dataset.gm === gs.main) return;
     ganttMain = b.dataset.gm;
-    try { localStorage.setItem(MAIN_KEY, ganttMain); } catch { /* non-fatal */ }
     renderSchedule(result);
   });
 
@@ -362,7 +360,6 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   const summary = `<div data-part="summary.counts" data-part-label="Schedule counts">
       <table class="gp-table gp-sum"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
       ${kv('Project', escapeHtml(result.project_name || 'Schedule'))}
-      ${kv('Major WBS', gs && gs.main ? escapeHtml((gs.roots.find((r) => r.id === gs.main) || {}).name || '') : 'All major WBS')}
       ${kv('Cut-off date (data date)', gDate(result.data_date))}
       ${kv(gs && gs.main ? 'Activities in this WBS' : 'Activities in the schedule', whole.length || (result.activity_count ?? '—'))}
       ${kv(gs && gs.main ? 'Completed (this WBS)' : 'Completed (whole schedule)', wc('Completed'))}
