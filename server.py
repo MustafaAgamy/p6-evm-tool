@@ -97,10 +97,10 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
 
 
 def _report_name(snapshot_id):
-    """The planner's own report name for a schedule ('' when none) - its own, else the one
-    last saved for another update of the same project."""
+    """The planner's own report name for a schedule ('' when none). It belongs to that one
+    import only: a re-import or the next update starts with the name in the P6 file (owner)."""
     try:
-        v, _src = db.get_snapshot_ui_state_inherited(snapshot_id, 'report_name')
+        v = db.get_snapshot_ui_state(snapshot_id, 'report_name')
         return str(v.get('name') or '') if isinstance(v, dict) else ''
     except Exception:
         return ''

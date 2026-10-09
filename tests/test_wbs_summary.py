@@ -214,3 +214,12 @@ def test_not_done_work_saved_before_the_data_date_takes_the_scheduled_dates(monk
     assert current_finish(acts['ok'], moved) == datetime(2026, 9, 5, 16)
     assert current_finish(acts['done'], moved) == datetime(2025, 5, 3, 16)
     assert rescheduled_dates(SimpleNamespace(activities={'ok': acts['ok']}, project={'data_date': datetime(2026, 8, 9, 8)})) == {}
+
+
+def test_planned_pct_of_a_wbs_follows_its_baseline_dates():
+    from datetime import datetime as D
+    from p6_evm.schedule_view import planned_by_dates as p
+    assert p(D(2026, 1, 1), D(2026, 1, 10), D(2026, 1, 5)) == 50.0      # the owner's example
+    assert p(D(2026, 1, 1), D(2026, 1, 10), D(2025, 12, 20)) == 0.0     # cut-off before the baseline start
+    assert p(D(2026, 1, 1), D(2026, 1, 10), D(2026, 3, 1)) == 100.0     # cut-off after the baseline finish
+    assert p(None, D(2026, 1, 10), D(2026, 1, 5)) is None

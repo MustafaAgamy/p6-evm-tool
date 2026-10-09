@@ -378,6 +378,21 @@ def gantt_activities(records, wbs_map, data=None):
     return out
 
 
+def planned_by_dates(bs, bf, dd):
+    """Planned % of a WBS from its BASELINE dates alone (owner): the calendar days of the
+    baseline that have passed at the cut-off date / all its calendar days, both ends counted -
+    baseline 01-Jan to 10-Jan, cut-off 05-Jan = 5 of 10 days = 50 %. None without the dates."""
+    try:
+        d = lambda x: x.date() if hasattr(x, 'date') else x
+        s, f, c = d(bs), d(bf), d(dd)
+        total = (f - s).days + 1
+        if total <= 0:
+            return 100.0 if c >= f else 0.0
+        return round(100.0 * max(0, min(total, (c - s).days + 1)) / total, 1)
+    except Exception:
+        return None
+
+
 def wbs_views(records, data):
     """→ (wbs_summary, wbs_main). Pre-order list of the WBS nodes whose subtree holds activities
     (with depth), each carrying weighted planned/actual %, an activity count and the rolled-up
@@ -520,6 +535,8 @@ def wbs_views(records, data):
             'nc_total':   t['nc'],
             # COUNT-BASED Planned % / Actual % of a WBS with no cost: planned = activities whose baseline
             # finish is on/before the cut-off date, actual = activities started (in progress / completed)
+            # Planned % by the baseline dates; a WBS of milestones only carries no %
+            'planned_time': planned_by_dates(t['bs'], t['bf'], dd0) if (t['c'] or t['nc']) else None,
             'planned_count_pct': round(100.0 * t['pd'] / t['nc'], 1) if t['nc'] else None,
             'actual_count_pct':  round(100.0 * (t['ad'] + t['ap']) / t['nc'], 1) if t['nc'] else None,
             'nc_a_done':  t['ad'], 'nc_a_prog': t['ap'], 'nc_a_ns': t['an'],      # by actual status

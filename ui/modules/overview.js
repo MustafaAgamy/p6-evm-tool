@@ -480,6 +480,7 @@ function wbsCellVal(col, n) {
   // a WBS whose expected finish is an actual date (all work done) shows 100% actual
   if (col.kind === 'pct') {
     if (col.key === 'actual' && n.finish_actual) return '100.0%';
+    if (col.key === 'planned' && n.planned_time != null) return pctVal(n.planned_time);   // by the baseline dates (owner)
     return pctVal(wbsHasPct(n) ? n[col.key] : (col.key === 'planned' ? n.planned_count_pct : n.actual_count_pct));
   }
   if (col.kind === 'date') {
@@ -549,7 +550,8 @@ function buildWbsPrint(result, nodes, mains, ctx) {
         const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
         const hp = wbsHasPct(n);
         const ac = hp && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : null;
-        const pl = hp && n.planned != null ? Math.max(0, Math.min(100, n.planned)) : null;
+        const plv = n.planned_time != null ? n.planned_time : (hp ? n.planned : null);
+        const pl = plv != null ? Math.max(0, Math.min(100, plv)) : null;
         const beh = ac != null && pl != null && pl > ac ? `<i style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></i>` : '';
         pbar = `<b class="gp-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%">${ac != null ? `<s style="width:${ac}%"></s>` : ''}${beh}${pl != null ? `<em style="left:${pl}%"></em>` : ''}</b>`;
       }
@@ -680,7 +682,8 @@ export function renderWbs(result) {
       const left = xOf(sMs), w = Math.max(0.6, xOf(fMs) - left);
       const hp = wbsHasPct(n);
       const ac = (!hp || n.actual == null) ? null : Math.max(0, Math.min(100, n.actual));
-      const pl = (!hp || n.planned == null) ? null : Math.max(0, Math.min(100, n.planned));
+      const plv = n.planned_time != null ? n.planned_time : (hp ? n.planned : null);
+      const pl = plv == null ? null : Math.max(0, Math.min(100, plv));
       const behind = ac != null && pl != null && pl > ac
         ? `<div class="wbst-behind" style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></div>` : '';
       const tick = pl != null ? `<div class="wbst-tick" style="left:${pl}%"></div>` : '';
@@ -761,7 +764,7 @@ export function renderWbs(result) {
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay (Calendar days)</b> = <b>Baseline Finish − Expected Finish</b> in calendar days — −72 d means the WBS finishes 72 days later than its baseline, a positive figure means earlier. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> and <b>Actual %</b> are shown only for a WBS that holds cost-loaded activities, weighted by their budget; a WBS whose activities carry no cost in P6 shows a count instead — its activities and how many are completed / in progress / not started, by actual status and by the baseline dates at the cut-off date. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay (Calendar days)</b> = <b>Baseline Finish − Expected Finish</b> in calendar days — −72 d means the WBS finishes 72 days later than its baseline, a positive figure means earlier. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> = the calendar days of the WBS’s baseline (Baseline Start to Baseline Finish) that have passed at the cut-off date ÷ all its calendar days — baseline 01-Jan to 10-Jan with a cut-off of 05-Jan is 50%. <b>Actual %</b> = the earned value ÷ the budget of the cost-loaded activities under the WBS (each activity’s % complete weighted by its budget); a WBS whose activities carry no cost in P6 is counted instead — activities started ÷ all its activities. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
 `;
 
   const segEl = document.getElementById('wbst-seg');

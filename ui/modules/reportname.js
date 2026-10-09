@@ -1,7 +1,7 @@
 // The report name the planner types. It is shown IN PLACE OF the P6 project name (often an
 // export name such as "Update Till 09 Aug.2026- Weekly Report") on screen and in every PDF /
-// Word / Excel, is saved with the project in the app database (POST /api/report-name) and is
-// carried to the project's next update. Emptied, the name in the P6 file is back. The P6 file
+// Word / Excel, is kept with that one import (POST /api/report-name); a re-import or the
+// next update starts with the P6 name again. Emptied, the name in the P6 file is back. The P6 file
 // itself is never changed.
 import { state } from './state.js';
 

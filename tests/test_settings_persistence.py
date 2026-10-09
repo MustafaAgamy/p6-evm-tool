@@ -519,7 +519,7 @@ def test_narrative_setup_clear_is_not_undone_by_inheritance(test_server):
 
 # ── Report name (shown in place of the P6 project name) ────────────────────
 
-def test_report_name_replaces_the_project_name_and_survives_reopen_and_reimport(test_server, xml_path):
+def test_report_name_replaces_the_project_name_for_that_import_only(test_server, xml_path):
     d = _import(test_server, xml_path)
     p6_name = d['result']['project_name']
     assert d['result']['report_name'] == '' and d['result']['p6_project_name'] == p6_name
@@ -527,9 +527,9 @@ def test_report_name_replaces_the_project_name_and_survives_reopen_and_reimport(
     assert saved == {'ok': True, 'name': 'Silos Project'}
     r = _reopen(test_server)['result']
     assert (r['project_name'], r['report_name'], r['p6_project_name']) == ('Silos Project', 'Silos Project', p6_name)
-    d2 = _import(test_server, xml_path)                       # the next update of the project keeps it
-    assert d2['result']['project_name'] == 'Silos Project'
-    # emptied: the name in the P6 file is back (and stays back on the next import)
-    _post(test_server, '/api/report-name', {'snapshot_id': d2['snapshot_id'], 'name': ''})
+    d2 = _import(test_server, xml_path)                       # a re-import / the next update starts with the P6 name (owner)
+    assert (d2['result']['project_name'], d2['result']['report_name']) == (p6_name, '')
+    # emptied: the name in the P6 file is back
+    _post(test_server, '/api/report-name', {'snapshot_id': d['snapshot_id'], 'name': ''})
     assert _reopen(test_server)['result']['project_name'] == p6_name
     assert _post(test_server, '/api/report-name', {'name': 'x'})['ok'] is False

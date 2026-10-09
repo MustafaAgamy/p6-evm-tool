@@ -85,6 +85,8 @@ def _has_pct(node):
 def _pct(node, key):
     """Planned % / Actual % of a WBS: the cost-loaded % when it carries cost, else the COUNT-BASED % of
     its activities (planned = baseline finish on/before the cut-off, actual = started)."""
+    if key == 'planned' and node.get('planned_time') is not None:      # by the baseline dates (owner)
+        return _num(node.get('planned_time'))
     if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
         return _num(node.get('planned_count_pct' if key == 'planned' else 'actual_count_pct'))
     return _num(node.get(key))
