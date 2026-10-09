@@ -252,21 +252,36 @@ def test_procurement_actual_is_the_equal_weight_of_its_stages_without_cost():
     assert [s['weight'] for s in four[0]['stages']] == [25.0] * 4 and four[0]['actual_stage'] == 79.2
 
 
-def test_every_pct_of_the_wbs_table_is_explained_by_a_table():
+def test_the_actual_pct_without_cost_is_reached_stage_by_stage():
+    """Owner: only the Actual % of a WBS WITHOUT cost is broken down - the stages as tiles ending in the
+    WBS Actual %, then a column per stage; the cost-loaded stage is named as left out, never worked out."""
     from p6_evm.schedule_view import stage_weighted_actual, wbs_explain
     from datetime import datetime
     nodes = _stage_nodes()
     stage_weighted_actual(nodes, '1')
     tabs = wbs_explain(nodes, '1', datetime(2026, 1, 5))
-    assert [t['kind'] for t in tabs] == ['stages', 'explain'] and tabs[1]['title'] == 'Summary — Procurement'
-    rows = {r['name']: r for r in tabs[1]['rows']}
-    assert (rows['Fabrication']['total'], rows['Fabrication']['achieved'], rows['Fabrication']['actual']) == (3, 2, 66.7)
-    assert (rows['PO Issuance']['basis'], rows['PO Issuance']['total'], rows['PO Issuance']['achieved']) == ('Budget (cost)', 200.0, 144.2)
-    assert (rows['Fabrication']['days'], rows['Fabrication']['elapsed'], rows['Fabrication']['planned']) == (10, 5, 50.0)
-    assert tabs[1]['total']['actual'] == 88.9 and tabs[1]['total']['total_row']
+    assert [t['kind'] for t in tabs] == ['stages', 'matrix']
+    st, mx = tabs
+    assert [p['name'] for p in st['parts']] == ['Material Submittal', 'Material Approval', 'Fabrication']
+    assert st['left_out'] == ['PO Issuance'] and st['result']['pct'] == 88.9 and st['formula'].endswith('= 88.9%')
+    fab = st['parts'][2]
+    assert (fab['done'], fab['total'], fab['pct'], fab['frac'], fab['weight'], fab['weighted']) == (2, 3, 66.7, '2 ÷ 3', 33.33, 22.23)
+    assert mx['cols'] == ['Material Submittal', 'Material Approval', 'Fabrication'] and mx['result']['pct'] == 88.9
+    assert mx['weights'] == ['33.33%'] * 3 and mx['weighted'][-1] == '22.23%'
+    assert 'planned' not in json.dumps(tabs).lower()            # Planned % is by the baseline dates - never broken down
 
 
-def test_explain_tables_reach_the_screen_and_the_excel():
+def test_a_wbs_of_milestones_only_still_has_an_actual_pct():
+    """Owner: 'put an actual % even it is milestone' - milestones achieved / all its milestones."""
+    from p6_evm.schedule_view import wbs_actual_shown
+    n = {'cost_loaded': 0, 'actual': None, 'actual_count_pct': None, 'finish_actual': False,
+         'ms_total': 14, 'ms_done': 2, 'milestone_only': True, 'actual_ms': 14.3}
+    assert wbs_actual_shown(n) == 14.3
+    from p6_evm.wbs_excel import _pct, _measure
+    assert _pct(n, 'actual') == 14.3 and _measure(n) == 'milestones achieved ÷ all'
+
+
+def test_explain_panels_reach_the_screen_the_report_and_the_excel():
     import pathlib
     from p6_evm.schedule_view import stage_weighted_actual, wbs_explain
     from p6_evm.wbs_excel import _explain_blocks
@@ -274,6 +289,24 @@ def test_explain_tables_reach_the_screen_and_the_excel():
     nodes = _stage_nodes()
     stage_weighted_actual(nodes, '1')
     blocks = _explain_blocks({'explain': wbs_explain(nodes, '1', datetime(2026, 1, 5))}, '05-Jan.2026')
-    assert blocks[0]['rows'][-1][3] == '88.9%' and blocks[1]['rows'][-1][9] == '88.9%'
+    assert blocks[0]['rows'][-1][3] == '88.9%' and 'PO Issuance is cost loaded' in blocks[0]['note']
+    assert blocks[1]['headers'] == ['WBS', 'Material Submittal', 'Material Approval', 'Fabrication']
+    assert blocks[1]['rows'][-1][1].endswith('= 88.9%')
+    assert _explain_blocks({'explain': [{'kind': 'explain', 'rows': [{}]}, None]}) is not None     # an older shape never raises
     js = pathlib.Path(__file__).resolve().parents[1].joinpath('ui/modules/overview.js').read_text(encoding='utf-8')
-    assert '${main ? main.body : \'\'}${explain}${msSection}' in js and 'n.actual_stage != null' in js
+    assert '${main ? main.body : \'\'}${explain}${msSection}' in js and 'explainPanels(result, m.id)' in js
+    assert 'How the Actual % is reached' in js and 'not part of the stage weights' in js
+    # the report: page 1 = every main WBS in one table, last page = the reading notes
+    assert "key: 'overview'" in js and 'wbsSummaryTable(nodes, list, ctx' in js and "key: 'notes'" in js
+    # the chart: baseline over expected, the slip after the Baseline Finish, months written out by name
+    for tag in ('data-g="base"', 'data-g="slip"', 'data-g="line"', 'data-g="label"', 'WBS_MON[d.getMonth()]'):
+        assert tag in js
+
+
+def test_word_draws_the_two_bars_of_a_wbs_row():
+    """The Word export reads the same tags the PDF prints: baseline, expected bar + fill, slip, label."""
+    from p6_export import html_model, to_docx
+    import inspect
+    src = inspect.getsource(html_model) + inspect.getsource(to_docx)
+    for k in ("'base', 'slip', 'line'", "out['label']", "bar.get('base')", "bar.get('mss')"):
+        assert k in src

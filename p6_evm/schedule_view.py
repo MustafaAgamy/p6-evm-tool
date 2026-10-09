@@ -411,7 +411,7 @@ def wbs_views(records, data):
     def base():
         return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None,
                 'ef': None, 'lf': None, 'open': 0, 'all': 0, 'b': 0.0, 'pv': 0.0, 'ev': 0.0, 'ps': None, 'pf': None,
-                'sa': None, 'began': 0, 'nc': 0, 'ad': 0, 'ap': 0, 'an': 0, 'pd': 0, 'pp': 0, 'pn': 0}
+                'sa': None, 'began': 0, 'nc': 0, 'ad': 0, 'ap': 0, 'an': 0, 'pd': 0, 'pp': 0, 'pn': 0, 'ms': 0, 'msd': 0}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
     dd0 = (getattr(data, 'project', None) or {}).get('data_date')
@@ -436,6 +436,9 @@ def wbs_views(records, data):
                     d['pd' if pf0 <= dd0 else 'pp' if ps0 <= dd0 else 'pn'] += 1
             except TypeError:
                 pass
+        if a.get('task_type') in ('StartMilestone', 'FinishMilestone'):
+            d['ms'] += 1                                 # milestones, and the ones achieved
+            d['msd'] += 1 if activity_status(a) == 'Completed' else 0
         cs = current_start(a, moved)
         if cs is not None and (d['s'] is None or cs < d['s']):
             d['sa'] = bool(a.get('actual_start'))        # is the band's start an ACTUAL date?
@@ -489,7 +492,7 @@ def wbs_views(records, data):
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
             t['ef'] = _mx(t['ef'], c['ef']); t['lf'] = _mx(t['lf'], c['lf']); t['open'] += c['open']
             t['all'] += c['all']; t['b'] += c['b']; t['pv'] += c['pv']; t['ev'] += c['ev']
-            for k in ('nc', 'ad', 'ap', 'an', 'pd', 'pp', 'pn'):
+            for k in ('nc', 'ad', 'ap', 'an', 'pd', 'pp', 'pn', 'ms', 'msd'):
                 t[k] += c[k]
             t['ps'] = _mn(t['ps'], c['ps']); t['pf'] = _mx(t['pf'], c['pf'])
             t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
@@ -541,6 +544,10 @@ def wbs_views(records, data):
             'actual_count_pct':  round(100.0 * (t['ad'] + t['ap']) / t['nc'], 1) if t['nc'] else None,
             'nc_a_done':  t['ad'], 'nc_a_prog': t['ap'], 'nc_a_ns': t['an'],      # by actual status
             'nc_p_done':  t['pd'], 'nc_p_prog': t['pp'], 'nc_p_ns': t['pn'],      # by baseline dates at the cut-off
+            # a WBS of milestones only (nothing to count, no cost): Actual % = milestones achieved / all (owner)
+            'ms_total':   t['ms'], 'ms_done': t['msd'],
+            'milestone_only': bool(t['ms'] and not t['nc'] and not t['c']),
+            'actual_ms':  round(100.0 * t['msd'] / t['ms'], 1) if (t['ms'] and not t['nc'] and not t['c']) else None,
             # the other columns of P6's WBS band
             'count':      t['all'],                                   # Activity Count
             'orig_dur':   working_span(cal, t['ps'], t['pf']),        # Original Duration (working days)
@@ -604,6 +611,8 @@ def wbs_actual_shown(n):
         return 100.0
     if _by_cost(n):
         return n.get('actual')
+    if n.get('actual_count_pct') is None and n.get('actual_ms') is not None:
+        return n['actual_ms']                        # milestones only: achieved / all
     return n.get('actual_count_pct')
 
 
@@ -628,72 +637,225 @@ def stage_weighted_actual(nodes, wid):
     top['actual_stage'] = round(sum(w * wbs_actual_shown(n) / 100.0 for n in free), 1)
 
 
-def wbs_explain(nodes, wid, dd):
-    """The tables that show where EVERY Planned % and Actual % of a main WBS's table comes from (owner):
-    a Summary table (a row per WBS right under the main WBS, Total row = the main WBS) and one table per
-    WBS that has WBS below it (Total row = that WBS). A row gives the baseline dates, the baseline days
-    and the days till the cut-off date behind the Planned %, and what the Actual % is measured by with
-    its total and achieved figures. A Procurement WBS gets its stage-weight table first."""
+def wbs_milestone_only(n):
+    """A WBS that holds milestones only (no activity to count, no cost): its Actual % = milestones
+    achieved / all its milestones, and it gets no 'how it is reached' table (owner) - its milestone
+    chart is its analysis."""
+    return not (n.get('nc_total') or n.get('cost_loaded'))
+
+
+_STAGE_RE = None
+
+
+def _stageish(name):
+    """A WBS named after a stage of the work: Submittal, Approval, PO, Fabrication, Delivery ..."""
+    global _STAGE_RE
+    if _STAGE_RE is None:
+        import re
+        _STAGE_RE = re.compile(r'\b(submitt?als?|approvals?|po|purchase|issuance|fabrication|manufacturing|deliver\w*|deliever\w*)\b', re.I)
+    return bool(_STAGE_RE.search(str(name or '')))
+
+
+def _amount(v):
+    v = float(v or 0)
+    return '%.2f M' % (v / 1e6) if abs(v) >= 1e6 else '%.1f K' % (v / 1e3) if abs(v) >= 1e3 else '%.0f' % v
+
+
+def _cell(n):
+    """One figure of the 'how the Actual % is reached' panels = one Actual % of the WBS table, with what
+    it is measured by: started / all activities (count) or Earned value / Budget (cost)."""
+    pct = wbs_actual_shown(n)
+    if n.get('actual_stage') is not None:
+        return {'basis': 'stages', 'done': None, 'total': None, 'pct': pct, 'frac': 'by stage weights'}
+    if _by_cost(n):
+        ev, bac = n.get('ev') or 0, n.get('bac') or 0
+        big = abs(bac) >= 1e6
+        frac = ('%.2f ÷ %.2f M' % (ev / 1e6, bac / 1e6)) if big else '%s ÷ %s' % (_amount(ev), _amount(bac))
+        return {'basis': 'cost', 'done': ev, 'total': bac, 'pct': pct, 'frac': frac}
+    tot = n.get('nc_total') or 0
+    got = (n.get('nc_a_done') or 0) + (n.get('nc_a_prog') or 0)
+    return {'basis': 'count', 'done': got, 'total': tot, 'pct': pct, 'frac': '%d ÷ %d' % (got, tot)}
+
+
+def _pct_txt(v):
+    return '—' if v is None else '%.1f%%' % v
+
+
+def _no_cost(ps):
+    """Owner: a cost-loaded Actual % needs no clarification - a cost-loaded WBS gets no panel, and the
+    cost-loaded stages of Procurement leave the strip and the table (one line names them)."""
+    if not ps or ps[0]['result']['basis'] == 'cost':
+        return []
+    out = []
+    for p in ps:
+        p = dict(p)
+        if p['kind'] == 'stages':
+            p['left_out'] = [x['name'] for x in p['parts'] if x.get('weight') is None]
+            p['parts'] = [x for x in p['parts'] if x.get('weight') is not None]
+        elif p['kind'] == 'matrix':
+            keep = list(range(len(p['cols'])))
+            if p.get('weights'):
+                keep = [i for i in keep if p['weights'][i]]
+            if p.get('total'):
+                keep = [i for i in keep if p['total'][i]['basis'] != 'cost']
+            pick = lambda L: [L[i] for i in keep]
+            p['cols'] = pick(p['cols'])
+            p['rows'] = [dict(r_, cells=pick(r_['cells'])) for r_ in p['rows']]
+            p['rows'] = [r_ for r_ in p['rows'] if r_.get('span') or any(r_['cells'])]
+            for k in ('total', 'weights', 'weighted'):
+                if p.get(k):
+                    p[k] = pick(p[k])
+            if not p['cols']:
+                continue
+        elif p['kind'] == 'list':
+            p['rows'] = [r_ for r_ in p['rows'] if r_['basis'] != 'cost']
+        out.append(p)
+    return out
+
+
+def wbs_explain(nodes, wid, dd=None):
+    """How every ACTUAL % of a main WBS's table is reached - only what is NOT measured by cost."""
+    return _no_cost(_explain_panels(nodes, wid))
+
+
+def _explain_panels(nodes, wid):
+    """The panels that show how every ACTUAL % of a main WBS's table is reached (owner) - stage by
+    stage, not as one total. Planned % is by the baseline dates and is not broken down. A WBS of
+    milestones only gets nothing. Panels, in order:
+      'stages' / 'sum' - the WBS right under the main WBS as tiles ending in the main WBS's Actual %
+                         (a Procurement WBS: with the equal weights of its stages without cost);
+      'matrix'         - a row per WBS below, a COLUMN per stage (Actual Submittal % beside Actual
+                         Approval % ...), each cell = one Actual % of the WBS table;
+      'list'           - when the WBS below are not stages: one row per WBS, done / total and Actual %."""
     blk = _wbs_block(nodes, wid)
-    if not blk:
+    if not blk or wbs_milestone_only(blk[0]):
         return []
     top, d0 = blk[0], blk[0].get('depth') or 0
-    if not (top.get('nc_total') or top.get('cost_loaded')):
-        return []                                    # a WBS of milestones: its milestone chart says it all
+    name = top.get('name') or ''
+    kids = [i for i, n in enumerate(blk) if n.get('depth') == d0 + 1 and not wbs_milestone_only(n)]
 
-    def day(x):
-        from datetime import date
-        return date.fromisoformat(str(x)[:10]) if x else None
-
-    def row(n, indent=0, label=None):
-        bs, bf, c = day(n.get('baseline_start')), day(n.get('baseline_finish')), (dd.date() if hasattr(dd, 'date') else dd)
-        tot = ((bf - bs).days + 1) if bs and bf else None
-        el = max(0, min(tot, (c - bs).days + 1)) if tot and tot > 0 and c else None
-        if n.get('actual_stage') is not None:
-            k = [s for s in n.get('stages') or [] if s.get('weight') is not None]
-            basis, total, got = 'Stage weights', '%d stages' % len(k), None
-            how = 'sum of weight × stage Actual % (stage weights table)'
-        elif _by_cost(n):
-            basis, total, got, how = 'Budget (cost)', n.get('bac'), n.get('ev'), 'Earned value ÷ Budget'
-            if n.get('finish_actual'):
-                how = 'all work finished'
-        elif n.get('nc_total'):
-            got = (n.get('nc_a_done') or 0) + (n.get('nc_a_prog') or 0)
-            basis, total = 'Activity count', n['nc_total']
-            how = '%d started ÷ %d activities' % (got, total)
-            if n.get('finish_actual'):
-                how = 'all %d activities finished' % total
-        else:
-            done = bool(n.get('finish_actual'))
-            basis, total, got = 'Milestones', n.get('count'), (n.get('count') if done else None)
-            how = 'all milestones achieved — not counted in the total' if done else 'milestones — not counted in the total'
-        return {'name': label or n.get('name'), 'indent': indent, 'total_row': bool(label),
-                'baseline_start': n.get('baseline_start'), 'baseline_finish': n.get('baseline_finish'),
-                'days': tot, 'elapsed': el, 'planned': n.get('planned_time'),
-                'basis': basis, 'total': total, 'achieved': got, 'actual': wbs_actual_shown(n), 'how': how}
-
-    tables = []
-    if top.get('stages'):
-        tables.append({'kind': 'stages', 'title': 'Actual %% by stage weights — %s' % top.get('name'),
-                       'rows': top['stages'], 'actual': top.get('actual_stage'),
-                       'stages': len([s for s in top['stages'] if s.get('weight') is not None])})
-    kids = [n for n in blk[1:] if n.get('depth') == d0 + 1]
-    if kids:
-        tables.append({'kind': 'explain', 'title': 'Summary — %s' % top.get('name'),
-                       'rows': [row(n) for n in kids], 'total': row(top, 0, 'Total — %s' % top.get('name'))})
-    for i, n in enumerate(blk):
-        if n.get('depth') != d0 + 1:
-            continue
-        below = []
+    def below(i):
+        out = []
         for m in blk[i + 1:]:
-            if (m.get('depth') or 0) <= d0 + 1:
+            if (m.get('depth') or 0) <= (blk[i].get('depth') or 0):
                 break
-            below.append(m)
-        if below:
-            tables.append({'kind': 'explain', 'title': '%s — %s' % (n.get('name'), top.get('name')),
-                           'rows': [row(m, (m.get('depth') or 0) - d0 - 2) for m in below],
-                           'total': row(n, 0, 'Total — %s' % n.get('name'))})
-    return tables
+            if not wbs_milestone_only(m):
+                out.append(m)
+        return out
+
+    res = _cell(top)
+    parts = [dict(_cell(blk[i]), name=blk[i].get('name')) for i in kids]
+    if top.get('stages'):
+        by = {s.get('name'): s for s in top['stages']}
+        for p in parts:
+            p['weight'], p['weighted'] = (by.get(p['name']) or {}).get('weight'), (by.get(p['name']) or {}).get('weighted')
+            p['tag'] = ('weight %.2f%%' % p['weight']) if p['weight'] is not None else 'cost loaded — no weight'
+        w = [p for p in parts if p.get('weight') is not None]
+        formula = '%s = %s = %s' % (' + '.join('%.2f%% × %s' % (p['weight'], _pct_txt(p['pct'])) for p in w),
+                                    ' + '.join('%.2f' % p['weighted'] for p in w), _pct_txt(res['pct']))
+        head = {'kind': 'stages', 'title': 'The stages of %s, in order' % name, 'tag': 'equal weight for the stages without cost',
+                'parts': parts, 'result': res, 'formula': formula, 'adds': False, 'name': name}
+    else:
+        same = bool(parts) and all(p['basis'] == res['basis'] for p in parts)
+        adds = same and abs(sum(p['done'] or 0 for p in parts) - (res['done'] or 0)) < 1 \
+            and abs(sum(p['total'] or 0 for p in parts) - (res['total'] or 0)) < 1
+        if res['basis'] == 'count' and adds and len(parts) > 1:
+            formula = '(%s) ÷ (%s) = %d ÷ %d = %s' % (' + '.join('%d' % p['done'] for p in parts), ' + '.join('%d' % p['total'] for p in parts),
+                                                      res['done'], res['total'], _pct_txt(res['pct']))
+        elif res['basis'] == 'cost':
+            formula = 'Earned value ÷ Budget = %s = %s' % (res['frac'], _pct_txt(res['pct']))
+        else:
+            formula = 'activities started ÷ all activities = %s = %s' % (res['frac'], _pct_txt(res['pct']))
+        head = {'kind': 'sum', 'title': 'How the %s of %s is reached' % (_pct_txt(res['pct']), name),
+                'tag': 'Earned value ÷ Budget' if res['basis'] == 'cost' else 'activities started ÷ all activities',
+                'parts': parts, 'result': res, 'formula': formula, 'adds': adds, 'name': name}
+    panels = [head]
+    if not kids:
+        return panels
+    result = {'pct': res['pct'], 'text': head['formula'], 'label': '%s Actual %%' % name}
+
+    stage_kids = sum(1 for i in kids if _stageish(blk[i].get('name')))
+    if len(kids) >= 2 and (top.get('stages') or stage_kids >= 2):
+        # the WBS right under the main WBS are the stages = the columns
+        toks = [set(str(blk[i].get('name') or '').lower().split()) for i in kids]
+        common = set.intersection(*toks) if toks else set()
+
+        def norm(s, drop):
+            keep = [t for t in str(s or '').split() if t.lower().strip('.,') not in drop]
+            return ' '.join(keep) or str(s or '')
+
+        root, lone = {'kids': {}}, []
+        for ci, i in enumerate(kids):
+            drop = toks[ci] - common
+            desc = below(i)
+            if not desc:
+                lone.append({'name': blk[i].get('name'), 'indent': 0, 'has_kids': False,
+                             'cells': [(_cell(blk[i]) if c == ci else None) for c in range(len(kids))]})
+                continue
+            stack = []
+            for m in desc:
+                rel = min(max(0, (m.get('depth') or 0) - d0 - 2), len(stack))
+                label = norm(m.get('name'), drop)
+                par = root if rel == 0 else stack[rel - 1]
+                key, k = label.lower(), 2
+                while key in par['kids'] and ci in par['kids'][key]['cells']:
+                    key, k = '%s #%d' % (label.lower(), k), k + 1
+                node = par['kids'].setdefault(key, {'name': label, 'cells': {}, 'kids': {}})
+                node['cells'][ci] = _cell(m)
+                stack[rel:] = [node]
+        rows = []
+
+        def walk(node, indent):
+            for ch in node['kids'].values():
+                rows.append({'name': ch['name'], 'indent': indent, 'has_kids': bool(ch['kids']),
+                             'cells': [ch['cells'].get(c) for c in range(len(kids))]})
+                walk(ch, indent + 1)
+        walk(root, 0)
+        mat = {'kind': 'matrix', 'title': 'Actual %% of every stage — %s' % name, 'tag': 'each cell = one row of the WBS table',
+               'first': 'WBS', 'cols': [blk[i].get('name') for i in kids], 'rows': rows + lone,
+               'total': [_cell(blk[i]) for i in kids], 'total_label': 'Stage Actual %' if top.get('stages') else 'Total — %s' % name,
+               'result': result}
+        if top.get('stages'):
+            mat['weights'] = [('%.2f%%' % p['weight']) if p.get('weight') is not None else None for p in parts]
+            mat['weighted'] = [('%.2f%%' % p['weighted']) if p.get('weighted') is not None else None for p in parts]
+        panels.append(mat)
+        return panels
+
+    deep = any((m.get('depth') or 0) > d0 + 2 for i in kids for m in below(i))
+    split = sum(1 for i in kids for m in below(i) if _stageish(m.get('name')))
+    if not deep and split >= 2:
+        # the stages sit one level lower (Design: a package, then its Submittal and its Approval)
+        cols, rows = [], []
+        for i in kids:
+            drop = set(str(blk[i].get('name') or '').lower().split())
+            got = {}
+            for m in below(i):
+                label = ' '.join(t for t in str(m.get('name') or '').split() if t.lower() not in drop) or str(m.get('name') or '')
+                if label not in cols:
+                    cols.append(label)
+                got[label] = _cell(m)
+            rows.append({'name': blk[i].get('name'), 'indent': 0, 'has_kids': False, 'got': got, 'own': _cell(blk[i])})
+        for r in rows:
+            got, own = r.pop('got'), r.pop('own')
+            r['cells'] = [got.get(c) for c in cols]
+            if not got:
+                r['span'] = own
+        panels.append({'kind': 'matrix', 'title': 'Actual %% of every stage — %s' % name, 'tag': 'each cell = one row of the WBS table',
+                       'first': 'WBS', 'cols': cols, 'rows': rows, 'total': None, 'total_label': 'Total — %s' % name, 'result': result})
+        return panels
+
+    rows = []
+    for i in kids:
+        sub_ = below(i)
+        rows.append(dict(_cell(blk[i]), name=blk[i].get('name'), indent=0, has_kids=bool(sub_)))
+        for j, m in enumerate(sub_):
+            ind = (m.get('depth') or 0) - d0 - 1
+            nxt = sub_[j + 1] if j + 1 < len(sub_) else None
+            rows.append(dict(_cell(m), name=m.get('name'), indent=ind, has_kids=bool(nxt and (nxt.get('depth') or 0) > (m.get('depth') or 0))))
+    panels.append({'kind': 'list', 'title': 'Actual %% by WBS — %s' % name, 'tag': 'each row = one row of the WBS table',
+                   'measure': 'Earned ÷ Budget' if res['basis'] == 'cost' else 'Started ÷ Total',
+                   'rows': rows, 'total': dict(res, name='Total — %s' % name), 'result': result})
+    return panels
 
 
 _MILESTONES = ('StartMilestone', 'FinishMilestone')

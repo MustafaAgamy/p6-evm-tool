@@ -819,8 +819,10 @@ class _Walker:
     def bar_of(self, c):
         """A Gantt time-line cell → {'scale': [(left %, label, hex)]} for the header, or
         {'track', 'bar': (left %, width %, hex), 'fill': (width % of the bar, hex),
-         'ms': (left %, hex), 'dd': (left %, hex)} for a row.  Colours come from the report's
-        own CSS, so Word draws what the PDF prints.  Never raises."""
+         'ms': (left %, hex), 'dd': (left %, hex)} for a row.  A row drawn as two bars (the WBS
+        report) adds 'base' / 'slip' / 'line': (left %, width %, hex) from its <i data-g>, 'mss':
+        every diamond, and 'label': (text, side) from its <em data-g="label">.  Colours come from
+        the report's own CSS, so Word draws what the PDF prints.  Never raises."""
         out = {}
         try:
             if C.tag_of(c) == 'th' or c.find('.//span') is not None and c.find('.//b') is None:
@@ -845,10 +847,16 @@ class _Walker:
                     width = self._pct(el, 'width')
                     if width is None:
                         out['ms'] = (left, self.own_bg_hex(el) or self.color_hex(el))
+                        out.setdefault('mss', []).append(out['ms'])
                     else:
                         out['bar'] = (left, width, self.own_bg_hex(el))
                 elif tag == 's':
                     out['fill'] = (self._pct(el, 'width') or 0.0, self.own_bg_hex(el))
+                elif tag == 'i' and el.get('data-g') in ('base', 'slip', 'line'):
+                    out[el.get('data-g')] = (self._pct(el, 'left') or 0.0, self._pct(el, 'width') or 0.0,
+                                             self.own_bg_hex(el))
+                elif tag == 'em' and el.get('data-g') == 'label':
+                    out['label'] = (_norm_ws(el.text_content()).strip(), el.get('data-side') or 'r')
         except Exception:
             return out or {}
         return out

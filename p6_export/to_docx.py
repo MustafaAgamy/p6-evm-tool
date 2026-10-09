@@ -731,6 +731,50 @@ class _Writer:
                 prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
                               'bold': is_year, 'italic': False, 'font': 'Consolas', 'vert': False,
                               'base': y0 + 6.7, 'bbox': (x0 + 1.5, y0, x0 + 1.5 + len(label) * size * 0.6, y0 + row_h)})
+        elif bar.get('base') or bar.get('line') or bar.get('slip') or bar.get('label'):
+            # the WBS report's row: the baseline as a thin bar on top, the expected bar (filled with
+            # the Actual %) under it, the slip after the Baseline Finish, its days late beside it
+            h = 15.0
+            prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F8FAFC'))
+            if bar.get('base'):
+                left, width, col = bar['base']
+                prims.append(rect(x(left), 2.0, max(x(min(100.0, left + width)), x(left) + 1.5), 5.0, _hex(col) or '94A3B8'))
+            x0 = x1 = None
+            if bar.get('bar'):
+                left, width, col = bar['bar']
+                x0, x1 = x(left), max(x(min(100.0, left + width)), x(left) + 1.5)
+                fillc = _hex(col) or 'CFE0FB'
+                prims.append({'k': 'path', 'segs': [], 'fill': fillc, 'stroke': '7EA6E6', 'width': 0.75, 'rect': True,
+                              'bbox': (x0, 7.0, x1, 13.0)})
+                f = bar.get('fill')
+                if f and f[0] > 0:
+                    prims.append(rect(x0, 7.0, x0 + (x1 - x0) * f[0] / 100.0, 13.0, _hex(f[1]) or self.accent))
+            if bar.get('slip'):
+                left, width, _c = bar['slip']
+                prims.append({'k': 'path', 'segs': [], 'fill': 'F3B4B4', 'stroke': 'DC2626', 'width': 0.75, 'rect': True,
+                              'bbox': (x(left), 7.0, max(x(min(100.0, left + width)), x(left) + 1.5), 13.0)})
+            if bar.get('line'):
+                left, width, col = bar['line']
+                x0, x1 = x(left), max(x(min(100.0, left + width)), x(left) + 1.5)
+                prims.append(rect(x0, 9.6, x1, 10.4, _hex(col) or '1F3A68'))
+            for left, col in bar.get('mss') or []:
+                cx, r = x(left), 3.2
+                prims.append({'k': 'path', 'fill': _hex(col) or '1F3A68', 'stroke': None, 'width': 0, 'rect': False,
+                              'segs': [('M', (cx, 10.0 - r)), ('L', (cx + r, 10.0)), ('L', (cx, 10.0 + r)),
+                                       ('L', (cx - r, 10.0)), ('Z',)],
+                              'bbox': (cx - r, 10.0 - r, cx + r, 10.0 + r)})
+            if bar.get('dd'):
+                dx = x(bar['dd'][0])
+                prims.append(rect(dx - 0.375, 0, dx + 0.375, h, _hex(bar['dd'][1]) or self.accent))
+            if bar.get('label') and bar['label'][0] and x0 is not None:
+                text, side = bar['label']
+                size = 6.5
+                tw = len(text) * size * 0.6
+                lx = x1 + 3.0 if side == 'r' else x0 - 3.0 - tw if side == 'l' else w_pt - tw - 2.0
+                lx = max(0.0, min(lx, w_pt - tw - 1.0))
+                y0 = 0.0 if side == 't' else 6.5
+                prims.append({'k': 'text', 'text': text, 'size': size, 'color': 'B91C1C', 'bold': True, 'italic': False,
+                              'font': 'Consolas', 'vert': False, 'base': y0 + 5.8, 'bbox': (lx, y0, lx + tw, y0 + 7.5)})
         else:
             h = 9.0
             prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F1F4F8'))
