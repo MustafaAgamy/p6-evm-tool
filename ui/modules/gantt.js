@@ -74,6 +74,10 @@ function span(acts, dataDate) {
   const dd = dataDate ? toMs(dataDate) : null;
   const ddOk = dd != null && !Number.isNaN(dd);
   if (ddOk) { min = Math.min(min, dd); max = Math.max(max, dd); }
+  // the scale opens on the 1st of its first month, so that month is whole and always labelled
+  if (Number.isFinite(min)) { const m0 = new Date(min); m0.setDate(1); m0.setHours(0, 0, 0, 0); min = m0.getTime(); }
+  // ... and closes on the last day of its last month, so the name of that month fits too
+  if (Number.isFinite(max)) { const m1 = new Date(max); m1.setMonth(m1.getMonth() + 1, 1); m1.setHours(0, 0, 0, 0); max = m1.getTime() - 1; }
   return { min, max, dd: ddOk ? dd : null };
 }
 

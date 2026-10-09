@@ -4207,6 +4207,8 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-table th.uc-gh { border-bottom: 1.5px solid var(--uc-grid); }
 .uc-table th { line-height: 1.2; } .uc-table th:first-child, .uc-table td:first-child { width: 15%; }
 .uc-table .uc-n { white-space: normal; overflow-wrap: anywhere; }
+/* the Planned-vs-Actual bars always stay inside their own cell, however narrow the column gets */
+.uc-table .uc-pair { min-width: 0; width: 100%; overflow: hidden; }
 .uc-panel { overflow-x: hidden; max-width: 100%; }
 .uc-badge.cl { border-color: #15803d; background: #f0fdf4; } .uc-badge.cl b { color: #14532d; } .uc-badge.cl em { color: #166534; } .uc-badge.cl .uc-seal { background: #15803d; }
 
@@ -4220,12 +4222,13 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .mg-chip { width: 112px; flex-shrink: 0; }
 .mg-tl   { flex: 1; min-width: 240px; }
 /* header */
-.mg-head { display: flex; align-items: stretch; background: var(--hair); border-bottom: 2px solid var(--border); min-height: 34px; }
+.mg-head { display: flex; align-items: stretch; background: var(--hair); border-bottom: 2px solid var(--border); min-height: 46px; }
 .mg-hcell { padding: 6px 8px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; align-items: flex-end; }
 .mg-hcell.mg-tl { padding: 0; position: relative; overflow: hidden; }
 .mg-scale { width: 100%; height: 100%; position: relative; }
 .mg-month { position: absolute; bottom: 4px; font-size: 9.5px; font-weight: 600; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
-.mg-yr    { position: absolute; top: 2px; font-size: 9px; font-weight: 700; color: var(--border); transform: translateX(-50%); }
+.mg-month.lo { bottom: 17px; }
+.mg-yr    { position: absolute; top: 2px; font-size: 9px; font-weight: 700; color: var(--muted); transform: translateX(-50%); }
 /* data rows */
 .mg-row { display: flex; align-items: center; min-height: 58px; border-bottom: 1px solid var(--hair); }
 .mg-row:last-child { border-bottom: none; }

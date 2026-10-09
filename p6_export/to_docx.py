@@ -679,6 +679,8 @@ class _Writer:
             p = dcell.paragraphs[0]
             p.paragraph_format.space_after = Pt(0)
             p.alignment = _ALIGN.get(cell.align, WD_ALIGN_PARAGRAPH.LEFT)
+            if getattr(cell, 'indent_pt', 0):
+                p.paragraph_format.left_indent = Pt(min(cell.indent_pt, 90.0))
             first = True
             chunks = [[]]
             for r in cell.runs:
@@ -723,10 +725,12 @@ class _Writer:
                 x0, y0 = x(left), 0.5 + r * row_h
                 prims.append(rect(x0, y0, x0 + 0.75, h, self.hair))
                 size = 7.4
+                # a label never runs past the right edge (it would wrap and push the other lines down)
+                x0 = max(0.0, min(x0, w_pt - 1.5 - len(label) * size * 0.6))
                 is_year = label.isdigit() and len(label) == 4
                 prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
                               'bold': is_year, 'italic': False, 'font': 'Consolas', 'vert': False,
-                              'base': 7.2, 'bbox': (x0 + 1.5, y0, x0 + 1.5 + len(label) * size * 0.6, y0 + row_h)})
+                              'base': y0 + 6.7, 'bbox': (x0 + 1.5, y0, x0 + 1.5 + len(label) * size * 0.6, y0 + row_h)})
         else:
             h = 9.0
             prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F1F4F8'))

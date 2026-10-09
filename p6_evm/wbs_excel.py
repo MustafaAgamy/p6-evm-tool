@@ -182,26 +182,108 @@ def wbs_excel(report):
                              'rows': [['No data', '—', '—', '—', '—', '—', '—', '—']]}],
                  'col_widths': _COL_WIDTHS}]
 
-    from p6_evm.xlsx_writer import gantt_buckets
     cutoff = report.get('data_date')
-    buckets, unit = gantt_buckets([n.get(k) for n in nodes for k in ('start', 'finish')] + [cutoff], max_cols=60)
+    cut = _fmt_date(cutoff) if cutoff else ''
     widths = dict(_COL_WIDTHS)
-    for i in range(len(buckets)):
-        widths[len(_HEADERS) + i] = 6.5 if unit == 'week' else 8
-    blocks = []
+    # the WBS made of milestones: reported by their milestone chart only, and not listed in the overview
+    ms_wbs = set((((report.get('uncosted') or {}).get('summary') or {}).get('excluded_wbs')) or [])
+    blocks, ov_rows = [], []
     # One block per main branch (the segmented control's tabs). Emit only mains that
     # actually resolve to a slice; fall back to the whole tree if none do.
     for m in mains:
         sub = _subset(nodes, m.get('id'))
-        if sub:
-            blocks.extend(_cost_blocks(nodes, m, _fmt_date(cutoff) if cutoff else ''))
-            blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), _fmt_date(cutoff) if cutoff else ''))
+        if not sub:
+            continue
+        ms_only = m.get('name') in ms_wbs
+        # every WBS has its OWN month scale, opening on its first month (as the report prints it)
+        buckets, unit = _month_buckets([n.get(k) for n in sub for k in ('start', 'finish', 'baseline_start', 'baseline_finish')] + [cutoff])
+        for i in range(len(buckets)):
+            widths[len(_HEADERS) + i] = 8
+        blocks.extend(_cost_blocks(nodes, m, cut))
+        blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), cut))
+        blocks.extend(_milestone_blocks(report.get('milestones'), m, cutoff, cut))
+        if not ms_only:
             blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
+            root = sub[0]
+            by_cost = _has_pct(root)
+            ov_rows.append([m.get('name') or '(WBS)', root.get('count') or root.get('activities') or '—',
+                            _pct_text(root.get('planned') if by_cost else root.get('planned_count_pct')),
+                            _pct_text(root.get('actual') if by_cost else root.get('actual_count_pct')),
+                            'by cost' if by_cost else 'by count of activities'])
+    if ov_rows:
+        ct = f' till {cut}' if cut else ''
+        blocks.insert(0, {'title': 'WBS overview',
+                          'note': (f'Cut-off date (data date): {cut or "—"}. A beside a date = Actual date. Planned % / Actual % of a WBS '
+                                   'with no cost are counted by number of activities (see its Execution dashboard).'),
+                          'headers': ['Main WBS', 'Activities', f'Planned %{ct}' + (' · approx' if approx else ''), f'Actual %{ct}', 'Basis'],
+                          'rows': ov_rows})
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
+        buckets, unit = _month_buckets([n.get(k) for n in nodes for k in ('start', 'finish', 'baseline_start', 'baseline_finish')] + [cutoff])
+        for i in range(len(buckets)):
+            widths[len(_HEADERS) + i] = 8
         blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
     return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
+
+
+def _pct_text(v):
+    return f'{v:.1f}%' if isinstance(v, (int, float)) else '—'
+
+
+def _month_buckets(dates):
+    """One time column per MONTH, from the first month of the given ISO dates to the last - every
+    month is there and named, as the report's month scale writes them."""
+    ds = [d for d in (_parse_date(x) for x in dates) if d]
+    if not ds:
+        return [], 'month'
+    lo, hi = min(ds), max(ds)
+    out, cur = [], date(lo.year, lo.month, 1)
+    while cur <= hi and len(out) < 240:
+        out.append(cur)
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    return out, 'month'
+
+
+_MS_HEADERS = ['Act. ID', 'Milestone', 'Status', 'Variance', 'Planned (baseline) date', 'Expected / Actual date']
+
+
+def _milestone_blocks(milestones, m, cutoff, cut=''):
+    """MILESTONE PROGRESS of one main WBS, as its chart in the report: a row per milestone with its
+    status, variance, planned (baseline) and expected / actual dates, and the months between the two
+    dates filled in the month columns (red = slipped, blue = early / on time, dark blue = completed)."""
+    from p6_evm.xlsx_writer import gantt_header, gantt_cells, BAR_BLUE, BAR_RED, BAR_BLUE_DONE
+    acts = [a for a in (milestones or [])
+            if str(a.get('wbs_top_id')) == str(m.get('id')) or a.get('wbs_top') == m.get('name')]
+    if not acts:
+        return []
+    dd = _parse_date(cutoff)
+    data = []
+    for a in acts:
+        bl = _parse_date(a.get('baseline_finish') or a.get('planned_finish'))
+        done = bool(a.get('finish_actual'))
+        ex = _parse_date(a.get('finish') if done else a.get('planned_finish'))
+        diff = (ex - bl).days if bl and ex else None
+        data.append((a, bl, ex, done, diff))
+    n_done = sum(1 for x in data if x[3])
+    due = sum(1 for x in data if dd and x[1] and x[1] <= dd)
+    buckets, unit = _month_buckets([d for x in data for d in (x[1], x[2])] + [dd])
+    rows = []
+    for a, bl, ex, done, diff in data:
+        status = 'Completed' if done else ('Not Completed' if (dd and bl and bl <= dd) else 'Not Yet Due')
+        var = '—' if diff is None else ('On time' if abs(diff) <= 1 else f'{diff:+d}d')
+        lo, hi = (min(bl, ex), max(bl, ex)) if bl and ex else (bl or ex, bl or ex)
+        style = BAR_BLUE_DONE if done else (BAR_RED if (diff or 0) > 1 else BAR_BLUE)
+        rows.append([a.get('id') or '', a.get('name') or '', status, var,
+                     bl.strftime('%d-%b.%Y') if bl else '—',
+                     (ex.strftime('%d-%b.%Y') + (' A' if done else '')) if ex else '—']
+                    + gantt_cells(lo, hi, buckets, style))
+    pct = f'{100.0 * n_done / len(data):.1f}%'
+    return [{'title': f"Milestone Progress - {m.get('name')}",
+             'note': (f'{len(data)} milestones · {n_done} completed ({pct}) · {due} planned till {cut or "the cut-off date"} · '
+                      f'{max(0, due - n_done)} behind plan (planned but not completed). Planned = baseline finish date; Expected / Actual = '
+                      'current finish in P6; Variance = days slipped (+) or early (-); A beside a date = Actual date.'),
+             'headers': _MS_HEADERS + gantt_header(buckets, unit, cutoff), 'rows': rows}]
 
 
 def _uc_groups(t):

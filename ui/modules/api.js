@@ -774,6 +774,10 @@ export async function exportWbsExcel() {
       project_name: r.project_name,
       data_date:   r.data_date,
       uncosted:    r.uncosted,
+      // the milestones of each main WBS (its Milestone Progress chart in the report)
+      milestones:  (r.activities || []).filter((x) => x.milestone).map((x) => ({
+        id: x.id, name: x.name, wbs_top: x.wbs_top, wbs_top_id: x.wbs_top_id, baseline_finish: x.baseline_finish,
+        planned_finish: x.planned_finish, finish: x.finish, finish_actual: x.finish_actual })),
       baseline_approx: baselineApprox(r, state.currentXmlPath),        // as the screen marks it (R2)
       baseline_line: baselineApproxLine(r, state.currentXmlPath),
     };

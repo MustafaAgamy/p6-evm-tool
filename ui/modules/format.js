@@ -59,6 +59,7 @@ export function monthScaleHtml(minMs, maxMs, posFn) {
     html += `<span data-r="${stagger && i % 2 ? 1 : 0}" style="left:${left}%">${_MON[d.getMonth()]}</span>`;
     if (d.getFullYear() !== lastYear) {
       lastYear = d.getFullYear();
+      if (i === 0 && d.getMonth() >= 10 && list.length > 2) return;
       html += `<span class="yr" data-r="${stagger ? 2 : 1}" style="left:${left}%">${lastYear}</span>`;
     }
   });

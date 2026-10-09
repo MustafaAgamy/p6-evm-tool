@@ -169,18 +169,24 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
   if (!allT.length) return '';
   const rawMin = Math.min(...allT), rawMax = Math.max(...allT);
   const pad = Math.max(20 * 86400000, (rawMax - rawMin) * 0.06);
-  const minT = rawMin - pad;
+  // open on the 1st of a month so the first month is whole and labelled like every other
+  const m0 = new Date(rawMin - pad); m0.setDate(1); m0.setHours(0, 0, 0, 0);
+  const minT = m0.getTime();
   const maxT = rawMax + pad;
   const span = maxT - minT;
   const pctPos = (t) => (((t - minT) / span) * 100).toFixed(3) + '%';
 
   // month scale header
   const cur = new Date(minT); cur.setDate(1); cur.setHours(0, 0, 0, 0);
-  let scaleHtml = '';
+  // every month is written; they alternate between two rows when the months are too narrow to sit side by side
+  const nMonths = Math.max(1, Math.round(span / (30.4 * 86400000)));
+  const hostW = (document.getElementById('wbs-body') || {}).clientWidth || 1180;
+  const stagger = (Math.max(240, hostW - 640) / nMonths) < 30;
+  let scaleHtml = '', mi = 0;
   while (cur.getTime() <= maxT) {
     const x = pctPos(cur.getTime());
-    scaleHtml += `<div class="mg-month" style="left:${x}">${MO[cur.getMonth()]}</div>`;
-    if (cur.getMonth() === 0) scaleHtml += `<div class="mg-yr" style="left:${x}">${cur.getFullYear()}</div>`;
+    scaleHtml += `<div class="mg-month${stagger && mi++ % 2 ? ' lo' : ''}" style="left:${x}">${MO[cur.getMonth()]}</div>`;
+    if (cur.getMonth() === 0 || (cur.getTime() === minT && cur.getMonth() < 10)) scaleHtml += `<div class="mg-yr" style="left:${x}">${cur.getFullYear()}</div>`;
     cur.setMonth(cur.getMonth() + 1);
   }
 
@@ -492,6 +498,19 @@ function wbsCellVal(col, n) {
 
 // ── The WBS report: EVERY main WBS is a section of the Report Contents picker, each with its own
 // parts (its Execution dashboard, its WBS table) so any WBS can be ticked in or out ───────────────
+// the 1st of the month a time scale opens in — so its first month is whole and always labelled
+const WBS_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function monthEnd(ms) {
+  if (!Number.isFinite(ms)) return ms;
+  const d = new Date(ms); d.setMonth(d.getMonth() + 1, 1); d.setHours(0, 0, 0, 0);
+  return d.getTime() - 1;
+}
+function monthStart(ms) {
+  if (!Number.isFinite(ms)) return ms;
+  const d = new Date(ms); d.setDate(1); d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 function sliceBranch(nodes, id) {
   const i = nodes.findIndex((n) => n.id === id);
   if (i < 0) return nodes;
@@ -515,6 +534,7 @@ function buildWbsPrint(result, nodes, mains, ctx) {
       if (!Number.isNaN(t)) { min = Math.min(min, t); max = Math.max(max, t); }
     }
     if (!Number.isNaN(dd)) { min = Math.min(min, dd); max = Math.max(max, dd); }
+    min = monthStart(min); max = monthEnd(max);
     const dated = Number.isFinite(min) && Number.isFinite(max) && max > min;
     const pPos = (ms) => Math.max(0, Math.min(100, ((ms - min) / (max - min)) * 100));
     const pScale = dated ? monthScaleHtml(min, max, pPos) : '';          // EVERY month, written out (Jan, Feb, ...)
@@ -538,13 +558,20 @@ function buildWbsPrint(result, nodes, mains, ctx) {
       return `<tr class="${n.leaf ? 'leaf' : 'sum'}"><td style="padding-left:${8 + rd * 12}px">${escapeHtml(n.name)}</td>${cells}${barCell}</tr>`;
     }).join('');
     const legend = `<div class="wbs-legend" data-export="skip"><span><i class="dur"></i>duration → finish</span>${branchPct ? '<span><i class="act"></i>actual %</span><span><i class="beh"></i>behind plan</span><span><i class="tgt"></i>plan target</span>' : ''}<span><i class="cut"></i>cut-off date${!Number.isNaN(dd) ? ' ' + fmtShort(dd) : ''}</span><span><b>A</b> beside a date = Actual date</span></div>`;
-    const dash = executionPanel(result, m, ucCut);
-    const table = `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${legend}`;
+    // Word draws each designed block of the dashboard (badge, how-to box, tiles, count table with its
+    // Planned-vs-Actual bars, milestone chart, legends) exactly as the PDF prints it
+    const dash = executionPanel(result, m, ucCut)
+      .replace(/<div class="(uc-titlerow|uc-howto|uc-tiles|uc-legend|uc-block|mg-wrap|mg-legend)"/g, '<div class="$1" data-export="image"');
+    // a WBS made of milestones is reported by its milestone chart only — no WBS table (as on screen)
+    const msOnly = dash && ((((result.uncosted || {}).summary || {}).excluded_wbs) || []).includes(m.name);
+    const table = msOnly ? '' : `<table class="wbs-print wbs-print-bars"><thead><tr><th>WBS</th>${headCells}</tr></thead><tbody>${bodyRows}</tbody></table>${legend}`;
     sections.push({
       key: `wbs.${m.id}`, label: `${m.name}${critical ? ' (critical activities)' : ''}`,
       html: (dash ? `<div data-part="wbs.${escapeAttr(m.id)}.dash" data-part-label="Execution dashboard — ${escapeAttr(m.name)}">${dash}</div>` : '')
-        + `<div data-part="wbs.${escapeAttr(m.id)}.table" data-part-label="WBS table — ${escapeAttr(m.name)}">${table}</div>`,
+        + (table ? `<div data-part="wbs.${escapeAttr(m.id)}.table" data-part-label="WBS table — ${escapeAttr(m.name)}">${table}</div>` : ''),
     });
+    // the WBS made of milestones are not listed in the overview (they have their own milestone chart)
+    if (((((result.uncosted || {}).summary || {}).excluded_wbs) || []).includes(m.name)) continue;
     const byCost = wbsHasPct(branch);
     ovRows.push(`<tr><td>${escapeHtml(m.name)}</td><td class="wp-num">${branch.count ?? branch.activities ?? '—'}</td>`
       + `<td class="wp-num">${pctVal(byCost ? branch.planned : branch.planned_count_pct)}</td><td class="wp-num">${pctVal(byCost ? branch.actual : branch.actual_count_pct)}</td>`
@@ -615,6 +642,7 @@ export function renderWbs(result) {
   }
   const dd = toMs(result.data_date);
   if (!Number.isNaN(dd)) { min = Math.min(min, dd); max = Math.max(max, dd); }
+  min = monthStart(min); max = monthEnd(max);
   const dated = Number.isFinite(min) && Number.isFinite(max) && max > min;
   if (!dated) { min = Date.now(); max = min + DAY; }
 
@@ -633,7 +661,7 @@ export function renderWbs(result) {
   for (; t.getTime() <= max; t.setMonth(t.getMonth() + 1), k++) {
     const x = xOf(t.getTime());
     if (x < -0.05 || x > 100.05) continue;
-    const mn = t.toLocaleDateString('en-GB', { month: 'short' });                   // Jan, Feb, ... never a single letter
+    const mn = WBS_MON[t.getMonth()];                // Jan, Feb, ... never a single letter
     const lbl = k % step === 0 ? `<span${monthPx < 30 && k % 2 ? ' class="lo"' : ''}>${mn}</span>` : '';
     ticks += `<div class="wbst-tk" style="left:${x.toFixed(2)}%">${lbl}</div>`;
     grid  += `<div class="wbst-gl" style="left:${x.toFixed(2)}%"></div>`;
