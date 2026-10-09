@@ -135,9 +135,9 @@ function costDashboard(result, id, name, cutoffText) {
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned % till the cut-off date</span><span><i class="a"></i>Actual % till the cut-off date</span></div>';
   return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${badge}</div>${howto}${tiles}${legend}${table}</div>`;
 }
-// the Execution dashboard of one main WBS: shown only when it is (almost) all cost loaded
+// the Execution dashboard of one main WBS: by COST when it is (almost) all cost loaded, else by COUNT
 function executionPanel(result, m, cutoffText) {
-  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : '';
+  return costShare(result, m.id) >= COST_SHARE ? costDashboard(result, m.id, m.name, cutoffText) : executionDashboard(result.uncosted, cutoffText, m.name);
 }
 
 export function renderOverview(result) {
