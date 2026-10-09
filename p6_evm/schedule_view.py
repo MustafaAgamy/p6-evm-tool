@@ -535,8 +535,8 @@ def wbs_views(records, data):
             'nc_total':   t['nc'],
             # COUNT-BASED Planned % / Actual % of a WBS with no cost: planned = activities whose baseline
             # finish is on/before the cut-off date, actual = activities started (in progress / completed)
-            # Planned % by the baseline dates; a WBS of milestones only carries no %
-            'planned_time': planned_by_dates(t['bs'], t['bf'], dd0) if (t['c'] or t['nc']) else None,
+            # Planned % by the baseline dates (owner): every WBS with baseline dates carries one
+            'planned_time': planned_by_dates(t['bs'], t['bf'], dd0),
             'planned_count_pct': round(100.0 * t['pd'] / t['nc'], 1) if t['nc'] else None,
             'actual_count_pct':  round(100.0 * (t['ad'] + t['ap']) / t['nc'], 1) if t['nc'] else None,
             'nc_a_done':  t['ad'], 'nc_a_prog': t['ap'], 'nc_a_ns': t['an'],      # by actual status
@@ -652,7 +652,8 @@ def uncosted_progress(records, data):
         names = names_of(r)
         top = names[0]
         if top not in staged or len(names) < 3:
-            return 'Other activities', ' › '.join(names[:2])
+            # one table per main WBS: a main WBS's dashboard counts its OWN activities only (owner)
+            return 'Other activities — %s' % top, ' › '.join(names[:2])
         stage = _STAGE_ALIAS.get(names[1], names[1])
         if stage == 'As-Built':
             return 'As-Built — per area', (names[3] if len(names) > 3 else names[-1])
