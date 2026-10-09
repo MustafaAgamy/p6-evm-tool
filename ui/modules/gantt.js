@@ -169,7 +169,10 @@ export function renderSchedule(result) {
   const lblCols = `${idW}px ${code ? codeW + 'px ' : ''}${nameW}px 82px 82px 60px`;
   const lblW = idW + codeW + nameW + 82 + 82 + 60 + (code ? 5 : 4) * 8 + 22;
 
-  const { min, max, dd } = span(acts, result.data_date);
+  // ONE time scale for every main WBS (owner): the months run over all the critical activities of the
+  // project, so Construction, Procurement ... are drawn on the same scale and can be compared
+  const scaleActs = (gs.all || []).filter((a) => a.critical);
+  const { min, max, dd } = span(scaleActs.length ? scaleActs : acts, result.data_date);
   const totalDays = Math.max(1, Math.round((max - min) / DAY));
   // the time line takes the width of the screen, so EVERY month shows with no sideways scrolling
   const trackW = Math.max(420, (el.clientWidth || 1300) - lblW - 64);
