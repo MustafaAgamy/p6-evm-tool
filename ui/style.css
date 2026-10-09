@@ -4077,3 +4077,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* how the Lag Report charts are counted (comment 55) */
 .lag-basis { margin-top:8px; font-size:11px; line-height:1.45; color:var(--muted); }
+
+/* ── Update vs Update — c68 comments ───────────────────────────────────────── */
+/* #73 Critical-path movement summary tiles */
+.per-crit-summary { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.per-cs-tile { flex: 1 1 120px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--card-bg); }
+.per-cs-tile span { display: block; font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+.per-cs-tile em { display: block; font-size: 11px; font-style: normal; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+.per-cs-tile.new  span { color: var(--danger); }
+.per-cs-tile.slip span { color: var(--warning); }
+.per-cs-tile.stayed span { color: var(--muted); }
+/* #69 Critical-path style help line */
+.per-style-help { font-size: 11.5px; color: var(--muted); margin: 4px 0 10px; line-height: 1.4; font-style: italic; min-height: 1.5em; }

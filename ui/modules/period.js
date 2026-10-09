@@ -422,16 +422,29 @@ function _criticalCompareHtml(report) {
   let modeOpts = `<option value="leaf-parent">WBS — floor / zone (default)</option>`;
   for (let i = 1; i < maxDepth; i++) modeOpts += `<option value="wbs${i}">WBS level ${i + 1}</option>`;
   (report.code_types || []).forEach(t => { modeOpts += `<option value="code:${escapeHtml(t)}">Activity code: ${escapeHtml(t)}</option>`; });
+  // comment #69: explain each style so the planner knows which to pick
+  const styleHelp = {
+    chain:    'Connected chain — the activities are listed as a chain (predecessor → successor → …), with the new part of the route shown in red. Best for reading the logic of the path.',
+    timeline: 'Date-axis timeline — the same chain laid out on a date axis so you can see WHEN each activity happens and how the current path compares with the previous update.',
+    table:    'Compact table — a side-by-side list of the previous and current critical path activities, showing what was added, removed or moved. Best when you need the raw numbers.',
+  };
   const so = (v, l) => `<option value="${v}"${_cpStyle === v ? ' selected' : ''}>${l}</option>`;
   const styleSel = `<select id="per-cp-style">${so('chain', 'Connected chain')}${so('timeline', 'Date-axis timeline')}${so('table', 'Compact table')}</select>`;
   return `<div class="per-slicer"><span class="per-slicer-lbl">Critical-path style</span>${styleSel}<span class="per-slicer-lbl" style="margin-left:16px">Group by</span><select id="per-cp-mode">${modeOpts}</select></div>
+    <div id="per-cp-style-help" class="per-style-help">${escapeHtml(styleHelp[_cpStyle] || '')}</div>
     <div id="per-cp-chains">${_cpCompareBody(report, _cpMode, _cpStyle)}</div>`;
 }
 function _wireCriticalCompare(report) {
   const styleSel = document.getElementById('per-cp-style'), modeSel = document.getElementById('per-cp-mode'), box = document.getElementById('per-cp-chains');
   if (!box) return;
   const rerender = () => { box.innerHTML = _cpCompareBody(report, _cpMode, _cpStyle); };
-  if (styleSel) styleSel.addEventListener('change', () => { _cpStyle = styleSel.value; try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ } rerender(); });
+  if (styleSel) styleSel.addEventListener('change', () => {
+    _cpStyle = styleSel.value; try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ }
+    const helpEl = document.getElementById('per-cp-style-help');
+    const styleHelp = {chain:'Connected chain — the activities are listed as a chain (predecessor → successor → …), with the new part of the route shown in red. Best for reading the logic of the path.',timeline:'Date-axis timeline — the same chain laid out on a date axis so you can see WHEN each activity happens and how the current path compares with the previous update.',table:'Compact table — a side-by-side list of the previous and current critical path activities, showing what was added, removed or moved. Best when you need the raw numbers.'};
+    if (helpEl) helpEl.textContent = styleHelp[_cpStyle] || '';
+    rerender();
+  });
   if (modeSel) modeSel.addEventListener('change', () => { _cpMode = modeSel.value; rerender(); });
 }
 
@@ -509,8 +522,10 @@ function _milestoneDriftSvg(rows, approx = false) {
   if (all.length < 2) return '<span class="mut">Not enough milestone dates to draw the drift chart.</span>';
   let tmin = Math.min(...all), tmax = Math.max(...all);
   if (tmin === tmax) { tmin -= 8.64e7 * 15; tmax += 8.64e7 * 15; }
-  const x0 = 150, x1 = 590, rowh = 30, top = 14, n = rows.length, h = top + n * rowh + 26;
+  // comment #71: left margin is now 220 px — enough for milestone names up to ~28 chars at 11 px
+  const x0 = 220, x1 = 620, rowh = 32, top = 14, n = rows.length, h = top + n * rowh + 26;
   const xAt = t => x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin));
+  const _trunc = (s, max) => s.length > max ? s.slice(0, max - 1) + '…' : s;
   let parts = '';
   for (let k = 0; k < 5; k++) {
     const t = tmin + (tmax - tmin) * k / 4, x = xAt(t), d = new Date(t);
@@ -518,8 +533,8 @@ function _milestoneDriftSvg(rows, approx = false) {
     parts += `<line x1="${x.toFixed(0)}" y1="${top}" x2="${x.toFixed(0)}" y2="${top + n * rowh}" stroke="var(--border)"/><text x="${x.toFixed(0)}" y="${top + n * rowh + 15}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${lab}</text>`;
   }
   rows.forEach((r, i) => {
-    const y = top + i * rowh + 15;
-    parts += `<text x="${x0 - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(r.name)}</text>`;
+    const y = top + i * rowh + 16;
+    parts += `<text x="${x0 - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(_trunc(r.name || '', 30))}</text>`;
     const xs = ['baseline_iso', 'prev_iso', 'curr_iso'].filter(k => r[k]).map(k => xAt(od(r[k])));
     if (xs.length >= 2) parts += `<line x1="${Math.min(...xs).toFixed(0)}" y1="${y}" x2="${Math.max(...xs).toFixed(0)}" y2="${y}" stroke="var(--border)"/>`;
     if (r.baseline_iso) parts += `<circle cx="${xAt(od(r.baseline_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--card-bg)" stroke="var(--muted)" stroke-width="2"/>`;
@@ -527,7 +542,7 @@ function _milestoneDriftSvg(rows, approx = false) {
     if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--danger)"/>`;
   });
   return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline${approx ? ' · approx' : ''}</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
-    <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
+    <svg viewBox="0 0 640 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
 // Recovery outlook (planning-manager projection — indicative, not a P6 CPM result).
@@ -580,21 +595,23 @@ function _verdictBanner(report) {
 }
 
 // Next-period watch list table.
+// Comment #70: clarify what "Next-period watch list" means.
 function _watchTable(report) {
   const rows = (report.watch_list || {}).rows || [];
-  if (!rows.length) return '<p class="cmp-empty">No near-critical work is queued for the next window.</p>';
+  const heading = `<div class="per-def" style="margin:0 0 8px;font-size:12.5px"><b>What is this?</b> The activities most likely to affect the <b>next reporting window</b> — those not yet finished with very little spare time (near-critical). These are the activities that need a site manager's attention <em>right now</em> so the project finish date does not slip further.</div>`;
+  if (!rows.length) return heading + '<p class="cmp-empty">No near-critical work is queued for the next window.</p>';
   const body = rows.map(r => `<tr><td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td><td class="num">${r.float_days} wd</td>
     <td class="num mono">${escapeHtml(r.due_to_start)}</td><td>${escapeHtml(r.reason)}</td></tr>`).join('');
-  return `<div class="cmp-foot" style="margin:0 0 6px">The near-critical construction activities <b>most likely to drive the next reporting window</b> — not yet finished, with little spare time — tightest float first. Watch these to protect the finish date.</div>
+  return `${heading}<div class="cmp-foot" style="margin:0 0 6px">Near-critical construction activities tightest in float — tightest float first. Watch these to protect the finish date.</div>
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Float</th>
+    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Float (spare time)</th>
       <th class="num">Due to start</th><th>Why watch it</th></tr></thead>
     <tbody>${body}</tbody></table></div>
-    <div class="per-defs"><div class="per-defs-h">Columns</div>
-      <div class="per-def"><b>Float</b> — spare working days before this activity would delay the project finish (0 = on the critical path; ≤ 10 wd = near-critical).</div>
-      <div class="per-def"><b>Due to start</b> — the activity's forecast start date, from the current update.</div>
-      <div class="per-def"><b>Why watch it</b> — why it's near-critical: on the critical path, a successor to something slipping, or newly near-critical.</div></div>`;
+    <div class="per-defs"><div class="per-defs-h">Column guide</div>
+      <div class="per-def"><b>Float (spare time)</b> — working days before this activity would delay the project finish. 0 wd = on the critical path; ≤ 10 wd = near-critical and included in this list.</div>
+      <div class="per-def"><b>Due to start</b> — forecast start date from the current update.</div>
+      <div class="per-def"><b>Why watch it</b> — it is on the critical path, a direct successor to an activity that slipped this period, or it newly became near-critical this window.</div></div>`;
 }
 
 function _progressRows(rows) {
@@ -709,11 +726,20 @@ function _critStatus(st) {
 
 function _criticalTable(cm, codeTypesArg) {
   const rows = (cm && cm.rows) || [];
-  const newTxt = (cm && cm.new_critical)
-    ? `<div class="cmp-foot"><b>${cm.new_critical}</b> activit${cm.new_critical === 1 ? 'y' : 'ies'} entered the critical path this window.</div>` : '';
-  if (!rows.length) return `<p class="cmp-empty">No critical or near-critical activity moved this window.</p>${newTxt}`;
+  // comment #73: summary block BEFORE the table
+  const total = rows.length, newCrit = (cm && cm.new_critical) || 0, stayed = total - newCrit;
+  const slipped = rows.filter(r => r.slip_days > 0).length;
+  const summaryHtml = total > 0 ? `<div class="per-crit-summary">
+    <div class="per-cs-tile"><span>${total}</span><em>activities on the<br>critical path this window</em></div>
+    <div class="per-cs-tile new"><span>${newCrit}</span><em>newly entered<br>the critical path</em></div>
+    <div class="per-cs-tile stayed"><span>${stayed}</span><em>were already<br>on the critical path</em></div>
+    <div class="per-cs-tile slip"><span>${slipped}</span><em>slipped their<br>finish this period</em></div>
+  </div>` : '';
+  if (!rows.length) return `${summaryHtml}<p class="cmp-empty">No critical or near-critical activity moved this window.</p>`;
   const codeTypes = codeTypesArg || [];
-  const body = rows.map(r => `<tr data-codes="${escapeHtml(JSON.stringify(r.codes || {}))}">
+  // comment #72: serial # as first column
+  const body = rows.map((r, idx) => `<tr data-codes="${escapeHtml(JSON.stringify(r.codes || {}))}">
+    <td class="num mut">${idx + 1}</td>
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
     <td>${escapeHtml(r.wbs || '')}</td>
@@ -728,12 +754,12 @@ function _criticalTable(cm, codeTypesArg) {
       <span class="per-slicer-lbl">Filter by activity code</span>
       <select id="per-crit-type"><option value="">— all activities —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
       <span id="per-crit-chips" class="per-chips"></span></div>` : '';
-  return `${slicer}<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-crit-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th>WBS</th><th class="num">Finish (prev)</th>
+  return `${summaryHtml}${slicer}<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-crit-table">
+    <thead><tr><th class="num">#</th><th>Activity ID</th><th>Activity name</th><th>WBS</th><th class="num">Finish (prev)</th>
       <th class="num">Finish (now)</th><th class="num">Slip</th><th class="num">Float</th>
       <th>Driver this period</th><th>Critical</th></tr></thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Construction / execution activities only. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>${newTxt}`;
+    <div class="cmp-foot">Construction / execution activities only. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>`;
 }
 
 // Generic activity-code slicer wiring for a table with data-codes rows.
@@ -815,6 +841,27 @@ export function renderPeriodReport(report) {
   if (epdf) epdf.addEventListener('click', exportPeriodPdf);
   const exls = document.getElementById('per-export-xlsx');
   if (exls) exls.addEventListener('click', exportPeriodExcel);
+  // comment #68: wire the inline "Change last-period file" button
+  const chgPrev = document.getElementById('per-change-prev-inline');
+  if (chgPrev) chgPrev.addEventListener('click', async () => {
+    const path = await window.pywebview.api.choose_file();
+    if (!path) return;
+    _prev = { prev_path: path };
+    _prevName = path.split(/[\\/]/).pop() || 'selected file';
+    _markPrevAssigned(_prevName);
+    const body = document.getElementById('period-body');
+    const rep = document.getElementById('per-report');
+    if (rep) rep.innerHTML = `<div class="cmp-loading">Re-running comparison with the new file…</div>`;
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/compare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ..._prev, update_path: state.currentXmlPath, cached_path: state.currentCachedPath }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { if (rep) rep.innerHTML = `<div class="cmp-warn">${escapeHtml(data.error || 'Comparison failed.')}</div>`; return; }
+      renderPeriodReport(data.report);
+    } catch { if (rep) rep.innerHTML = `<div class="cmp-warn">Could not reach the local server.</div>`; }
+  });
   _wireSlicer();
   _wireCodeSlicer('per-crit-type', 'per-crit-chips', 'per-crit-table');
   _wireByCode(report);
@@ -985,12 +1032,15 @@ async function _fetchTrend() {
   }
 }
 
+// comment #68: show a "Change last-period file" button inside the result so the planner can
+// pick a different second file and re-run without navigating away from the results.
 function _fileBar(report) {
   return `<div class="cmp-files">
-    <span class="cmp-file"><span class="k">Previous</span> <b>${escapeHtml(report.prev_file || '—')}</b> · ${escapeHtml(report.data_date_prev || '')}</span>
+    <span class="cmp-file"><span class="k">Previous (last period)</span> <b>${escapeHtml(report.prev_file || ‘—‘)}</b> · ${escapeHtml(report.data_date_prev || ‘’)}</span>
     <span class="cmp-vs">→</span>
-    <span class="cmp-file"><span class="k">Current</span> <b>${escapeHtml(report.update_file || '—')}</b> · ${escapeHtml(report.data_date_now || '')}</span>
-  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : ''}`;
+    <span class="cmp-file"><span class="k">Current (this period)</span> <b>${escapeHtml(report.update_file || ‘—‘)}</b> · ${escapeHtml(report.data_date_now || ‘’)}</span>
+    <button class="btn-mini" id="per-change-prev-inline">Change last-period file…</button>
+  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || ‘not in the file and none attached — the update’s own Planned dates stand in (approximate)’)}</div>` : ‘’}`;
 }
 
 // Pure helpers exposed for unit tests.
