@@ -4216,6 +4216,7 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .uc-table .uc-n { white-space: normal; overflow-wrap: anywhere; }
 /* the Planned-vs-Actual bars always stay inside their own cell, however narrow the column gets */
 .uc-table .uc-pair { min-width: 0; width: 100%; overflow: hidden; }
+.uc-table.uc-explain th:first-child, .uc-table.uc-explain td:first-child { width: 20%; } .uc-table .uc-wbs { text-align: left; font-weight: 600; } .uc-table .uc-how { text-align: left; color: var(--muted); font-size: 10.5px; }
 .uc-panel { overflow-x: hidden; max-width: 100%; }
 .uc-badge.cl { border-color: #15803d; background: #f0fdf4; } .uc-badge.cl b { color: #14532d; } .uc-badge.cl em { color: #166534; } .uc-badge.cl .uc-seal { background: #15803d; }
 

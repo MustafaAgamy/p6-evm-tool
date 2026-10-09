@@ -289,19 +289,51 @@ function milestoneGantt(result, branchId, branchName, cutoffText) {
   return { tiles, ganttBody, behind };
 }
 
+// Where every Planned % / Actual % of the WBS table comes from (owner): the tables the server built for
+// this main WBS (wbs_main[].explain) - a Summary table, one table per WBS, and the stage weights of a
+// Procurement WBS - in the same block / table style as the rest of the Execution dashboard.
+const exNum = (v) => (v == null ? '—' : (typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : escapeHtml(String(v))));
+const exDate = (iso) => { const ms = toMs(iso); return Number.isNaN(ms) ? '—' : fmtShort(ms); };
+function explainTables(result, id, cutoffText) {
+  const m = (result.wbs_main || []).find((x) => x.id === id);
+  const tabs = (m && m.explain) || [];
+  if (!tabs.length) return '';
+  const cut = cutoffText ? ` till ${escapeHtml(cutoffText)}` : '';
+  const row = (r) => `<tr class="${r.total_row ? 'uc-total' : ''}"><td class="uc-wbs" style="padding-left:${7 + (r.indent || 0) * 14}px">${escapeHtml(r.name || '')}</td>`
+    + `<td class="uc-n">${exDate(r.baseline_start)}</td><td class="uc-n">${exDate(r.baseline_finish)}</td><td class="uc-n">${exNum(r.days)}</td><td class="uc-n">${exNum(r.elapsed)}</td><td class="uc-n"><b>${pctVal(r.planned)}</b></td>`
+    + `<td>${escapeHtml(r.basis || '')}</td><td class="uc-n">${exNum(r.total)}</td><td class="uc-n">${exNum(r.achieved)}</td><td class="uc-n"><b>${pctVal(r.actual)}</b></td><td class="uc-how">${escapeHtml(r.how || '')}</td></tr>`;
+  const one = (t) => {
+    if (t.kind === 'stages') {
+      const rows = t.rows.map((s) => `<tr><td class="uc-wbs">${escapeHtml(s.name || '')}</td><td class="uc-n">${s.weight == null ? (s.cost ? '— (cost loaded)' : '—') : `${s.weight.toFixed(2)}%`}</td><td class="uc-n"><b>${pctVal(s.pct)}</b></td>`
+        + `<td class="uc-n">${s.weighted == null ? '—' : `${s.weighted.toFixed(2)}%`}</td><td class="uc-how">${s.cost ? 'by cost (Earned value ÷ Budget) — not in the weight' : s.weight == null ? 'milestones — not in the weight' : 'no cost — equal share of the weight'}</td></tr>`).join('');
+      return `<div class="uc-block" data-part="exec.x.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)} <span class="uc-tag">equal weight per stage</span></h4>
+      <table class="uc-table uc-explain"><thead><tr><th>Stage</th><th class="uc-n">Weight</th><th class="uc-n">Stage Actual %${cut}</th><th class="uc-n">Weight × Actual %</th><th>Basis</th></tr></thead>
+      <tbody>${rows}<tr class="uc-total"><td class="uc-wbs">Total</td><td class="uc-n">100.00%</td><td></td><td class="uc-n"><b>${pctVal(t.actual)}</b></td><td class="uc-how">${t.stages} stages with no cost share the weight equally; cost-loaded stages are left out of the weight</td></tr></tbody></table></div>`;
+    }
+    return `<div class="uc-block" data-part="exec.x.${escapeAttr(t.title)}" data-part-label="${escapeAttr(t.title)}"><h4>${escapeHtml(t.title)} <span class="uc-tag">how each % of the WBS table is worked out</span></h4>
+      <table class="uc-table uc-explain"><thead><tr><th rowspan="2">WBS</th><th colspan="5" class="uc-gh">Planned % — by the baseline dates</th><th colspan="5" class="uc-gh">Actual %${cut}</th></tr>
+      <tr><th class="uc-n">Baseline Start</th><th class="uc-n">Baseline Finish</th><th class="uc-n">Baseline days</th><th class="uc-n">Days till cut-off date</th><th class="uc-n">Planned %</th>
+      <th>Measured by</th><th class="uc-n">Total</th><th class="uc-n">Achieved</th><th class="uc-n">Actual %</th><th>How</th></tr></thead>
+      <tbody>${t.rows.map(row).join('')}${row(t.total)}</tbody></table></div>`;
+  };
+  return `<div class="mg-section-divider">WBS table figures — where each Planned % and Actual % comes from</div>
+    <p class="ov-note uc-rule"><b>Planned %</b> = days from the Baseline Start till the cut-off date ÷ baseline days (100% once the Baseline Finish has passed). <b>Actual %</b> = Earned value ÷ Budget for a WBS that carries cost; activities started ÷ all activities for a WBS with no cost (milestones are not counted); 100% once all its work is finished.</p>${tabs.map(one).join('')}`;
+}
+
 function executionPanel(result, m, cutoffText) {
   const isCost = costShare(result, m.id) >= COST_SHARE;
   const main = isCost
     ? _costDashboardBody(result, m.id, m.name, cutoffText)
     : _countDashboardBody(result.uncosted, cutoffText, m.name);
   const ms = milestoneGantt(result, m.id, m.name, cutoffText);
-  if (!main && !ms) return '';
+  const explain = explainTables(result, m.id, cutoffText);
+  if (!main && !ms && !explain) return '';
   const badge = main ? main.badge : '';
   const title = isCost ? 'Execution Dashboard' : 'Execution Dashboard';
   const msSection = ms
     ? `<div class="mg-section-divider">Milestone Progress</div>${ms.tiles}${ms.ganttBody}`
     : '';
-  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>${title}</h3><p class="uc-sub">${escapeHtml(m.name)} — Progress Planned VS Actual</p></div>${badge}</div>${main ? main.body : ''}${msSection}</div>`;
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>${title}</h3><p class="uc-sub">${escapeHtml(m.name)} — Progress Planned VS Actual</p></div>${badge}</div>${main ? main.body : ''}${explain}${msSection}</div>`;
 }
 
 export function renderOverview(result) {
@@ -479,6 +511,7 @@ function wbsCellVal(col, n) {
   // a WBS with no cost: the COUNT-BASED Planned % / Actual % of its activities (see the Execution dashboard)
   // a WBS whose expected finish is an actual date (all work done) shows 100% actual
   if (col.kind === 'pct') {
+    if (col.key === 'actual' && n.actual_stage != null) return pctVal(n.actual_stage);   // Procurement: by its stage weights (owner)
     if (col.key === 'actual' && n.finish_actual) return '100.0%';
     if (col.key === 'planned' && n.planned_time != null) return pctVal(n.planned_time);   // by the baseline dates (owner)
     return pctVal(wbsHasPct(n) ? n[col.key] : (col.key === 'planned' ? n.planned_count_pct : n.actual_count_pct));
@@ -549,7 +582,8 @@ function buildWbsPrint(result, nodes, mains, ctx) {
       if (dated && !Number.isNaN(s0) && !Number.isNaN(f0)) {
         const l = pPos(s0), w = Math.max(0.6, pPos(f0) - l);
         const hp = wbsHasPct(n);
-        const ac = hp && n.actual != null ? Math.max(0, Math.min(100, n.actual)) : null;
+        const av = n.actual_stage != null ? n.actual_stage : (hp ? n.actual : null);
+        const ac = av != null ? Math.max(0, Math.min(100, av)) : null;
         const plv = n.planned_time != null ? n.planned_time : (hp ? n.planned : null);
         const pl = plv != null ? Math.max(0, Math.min(100, plv)) : null;
         const beh = ac != null && pl != null && pl > ac ? `<i style="left:${ac}%;width:${(pl - ac).toFixed(1)}%"></i>` : '';
@@ -575,8 +609,8 @@ function buildWbsPrint(result, nodes, mains, ctx) {
     if (((((result.uncosted || {}).summary || {}).excluded_wbs) || []).includes(m.name)) continue;
     const byCost = wbsHasPct(branch);
     ovRows.push(`<tr><td>${escapeHtml(m.name)}</td><td class="wp-num">${branch.count ?? branch.activities ?? '—'}</td>`
-      + `<td class="wp-num">${pctVal(byCost ? branch.planned : branch.planned_count_pct)}</td><td class="wp-num">${pctVal(byCost ? branch.actual : branch.actual_count_pct)}</td>`
-      + `<td>${byCost ? 'by cost' : 'by count of activities'}</td></tr>`);
+      + `<td class="wp-num">${pctVal(byCost ? branch.planned : branch.planned_count_pct)}</td><td class="wp-num">${pctVal(branch.actual_stage != null ? branch.actual_stage : byCost ? branch.actual : branch.actual_count_pct)}</td>`
+      + `<td>${branch.actual_stage != null ? 'planned by cost · actual by stage weights' : byCost ? 'by cost' : 'by count of activities'}</td></tr>`);
   }
   const overview = `<table class="wbs-print"><thead><tr><th>Main WBS</th><th class="wp-num">Activities</th><th class="wp-num">Planned %${ucCut ? ' till ' + escapeHtml(ucCut) : ''}${approx ? ' · approx' : ''}</th><th class="wp-num">Actual %${ucCut ? ' till ' + escapeHtml(ucCut) : ''}</th><th>Basis</th></tr></thead><tbody>${ovRows.join('')}</tbody></table>`
     + `<p class="ov-note">Cut-off date (data date): <b>${!Number.isNaN(dd) ? fmtShort(dd) : '—'}</b>. <b>A</b> beside a date = <b>Actual</b> date. Planned % / Actual % of a WBS with no cost are counted by number of activities (see its Execution dashboard).${approx ? ` Baseline: ${escapeHtml(blLine.replace(/^Baseline: /, ''))}` : ''}</p>`;
@@ -681,7 +715,8 @@ export function renderWbs(result) {
     if (hasBar) {
       const left = xOf(sMs), w = Math.max(0.6, xOf(fMs) - left);
       const hp = wbsHasPct(n);
-      const ac = (!hp || n.actual == null) ? null : Math.max(0, Math.min(100, n.actual));
+      const av = n.actual_stage != null ? n.actual_stage : (hp ? n.actual : null);
+      const ac = av == null ? null : Math.max(0, Math.min(100, av));
       const plv = n.planned_time != null ? n.planned_time : (hp ? n.planned : null);
       const pl = plv == null ? null : Math.max(0, Math.min(100, plv));
       const behind = ac != null && pl != null && pl > ac
@@ -742,7 +777,7 @@ export function renderWbs(result) {
         <span class="ov-chip"><b>${branch.activities ?? '—'}</b> activities</span>
         ${dated ? `<span class="ov-chip">${fmtShort(min)} → ${fmtShort(max)}</span>` : ''}
         ${!Number.isNaN(dd) ? `<span class="ov-chip">cut-off date <b>${fmtShort(dd)}</b></span>` : ''}
-        ${allMilestone ? '' : wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual)}</b> actual</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
+        ${allMilestone ? '' : wbsHasPct(branch) ? `<span class="ov-chip">overall <b>${pctVal(branch.planned)}</b> planned${approx ? ' (approx)' : ''} · <b>${pctVal(branch.actual_stage != null ? branch.actual_stage : branch.actual)}</b> actual${branch.actual_stage != null ? ' (by stage weights)' : ''}</span>` : `<span class="ov-chip">overall <b>${pctVal(branch.planned_count_pct)}</b> planned · <b>${pctVal(branch.actual_count_pct)}</b> actual (by count of activities)</span>`}
       </div></div></div>${approx ? `<p class="ov-note" data-baseline-approx>${escapeHtml(blLine)}</p>` : ''}
     ${seg ? `<div class="wbst-mainsel"><span>Main WBS</span>${seg}</div>` : ''}
     ${execHtml}
@@ -764,7 +799,7 @@ export function renderWbs(result) {
       <div class="wbst-grids" style="left:${leftW}px">${grid}${ddx != null ? `<div class="wbst-dd" style="left:${ddx.toFixed(2)}%"></div>` : ''}</div>
       <div class="wbst-rows">${rows}</div>
     </div></div>
-    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay (Calendar days)</b> = <b>Baseline Finish − Expected Finish</b> in calendar days — −72 d means the WBS finishes 72 days later than its baseline, a positive figure means earlier. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> = the calendar days of the WBS’s baseline (Baseline Start to Baseline Finish) that have passed at the cut-off date ÷ all its calendar days — baseline 01-Jan to 10-Jan with a cut-off of 05-Jan is 50%. <b>Actual %</b> = the earned value ÷ the budget of the cost-loaded activities under the WBS (each activity’s % complete weighted by its budget); a WBS whose activities carry no cost in P6 is counted instead — activities started ÷ all its activities. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
+    <p class="ov-note">Pick the <b>main WBS</b> — every branch beneath it is shown, expanded to the level that holds activities (●). Each bar is the full rolled-up <b>duration</b>: its right edge lands on the <b>Expected Finish</b>. The deep fill is actual % complete, the amber segment is the gap still behind plan, and the tick marks the plan target. <b>Delay (Calendar days)</b> = <b>Baseline Finish − Expected Finish</b> in calendar days — −72 d means the WBS finishes 72 days later than its baseline, a positive figure means earlier. The dashed line is the <b>cut-off date</b> (data date). WBS are listed in the same order as in P6. Use <b>▦ Columns</b> to choose which columns appear. <b>Planned %</b> = the calendar days of the WBS’s baseline (Baseline Start to Baseline Finish) that have passed at the cut-off date ÷ all its calendar days — baseline 01-Jan to 10-Jan with a cut-off of 05-Jan is 50%. <b>Actual %</b> = the earned value ÷ the budget of the cost-loaded activities under the WBS (each activity’s % complete weighted by its budget); a WBS whose activities carry no cost in P6 is counted instead — activities started ÷ all its activities. <b>Procurement</b> total = its stages that carry no cost share the weight equally (stage weight × stage Actual %); cost-loaded stages are left out of the weight. Every figure is worked out in the tables above. <b>A</b> beside a date = <b>Actual</b> date.</p>`}
 `;
 
   const segEl = document.getElementById('wbst-seg');

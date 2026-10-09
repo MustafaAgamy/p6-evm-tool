@@ -223,3 +223,57 @@ def test_planned_pct_of_a_wbs_follows_its_baseline_dates():
     assert p(D(2026, 1, 1), D(2026, 1, 10), D(2025, 12, 20)) == 0.0     # cut-off before the baseline start
     assert p(D(2026, 1, 1), D(2026, 1, 10), D(2026, 3, 1)) == 100.0     # cut-off after the baseline finish
     assert p(None, D(2026, 1, 10), D(2026, 1, 5)) is None
+
+
+# --- Procurement by stage weights + the tables that explain every % of the WBS table (owner) ----------
+def _stage_nodes(cost_po=True):
+    n = lambda i, name, depth, **k: dict({'id': i, 'name': name, 'depth': depth, 'cost_loaded': 0, 'actual': None, 'nc_total': 0,
+                                          'nc_a_done': 0, 'nc_a_prog': 0, 'actual_count_pct': None, 'finish_actual': False, 'count': 0,
+                                          'baseline_start': '2026-01-01', 'baseline_finish': '2026-01-10', 'planned_time': 50.0}, **k)
+    po = dict(cost_loaded=2, actual=72.1, bac=200.0, ev=144.2, count=2) if cost_po else dict(nc_total=2, nc_a_done=1, actual_count_pct=50.0, count=2)
+    return [n('1', 'Procurement', 0, cost_loaded=2 if cost_po else 0, actual=72.1 if cost_po else None, nc_total=9, nc_a_done=7, actual_count_pct=77.8, count=11),
+            n('2', 'Material Submittal', 1, nc_total=4, nc_a_done=4, actual_count_pct=100.0, finish_actual=True, count=4),
+            n('3', 'Material Approval', 1, nc_total=2, nc_a_done=2, actual_count_pct=100.0, count=2),
+            n('4', 'PO Issuance', 1, **po),
+            n('5', 'Fabrication', 1, nc_total=3, nc_a_done=1, nc_a_prog=1, actual_count_pct=66.7, count=3),
+            n('6', 'Engineering', 0, nc_total=4, nc_a_done=1, actual_count_pct=25.0, count=4)]
+
+
+def test_procurement_actual_is_the_equal_weight_of_its_stages_without_cost():
+    from p6_evm.schedule_view import stage_weighted_actual
+    nodes = _stage_nodes()
+    stage_weighted_actual(nodes, '1')
+    stage_weighted_actual(nodes, '6')
+    assert nodes[0]['actual_stage'] == 88.9                       # (100 + 100 + 66.7) / 3; the cost-loaded PO stage is left out
+    assert [s['weight'] for s in nodes[0]['stages']] == [33.33, 33.33, None, 33.33]
+    assert 'actual_stage' not in nodes[5]                         # only a Procurement WBS
+    four = _stage_nodes(cost_po=False)
+    stage_weighted_actual(four, '1')
+    assert [s['weight'] for s in four[0]['stages']] == [25.0] * 4 and four[0]['actual_stage'] == 79.2
+
+
+def test_every_pct_of_the_wbs_table_is_explained_by_a_table():
+    from p6_evm.schedule_view import stage_weighted_actual, wbs_explain
+    from datetime import datetime
+    nodes = _stage_nodes()
+    stage_weighted_actual(nodes, '1')
+    tabs = wbs_explain(nodes, '1', datetime(2026, 1, 5))
+    assert [t['kind'] for t in tabs] == ['stages', 'explain'] and tabs[1]['title'] == 'Summary — Procurement'
+    rows = {r['name']: r for r in tabs[1]['rows']}
+    assert (rows['Fabrication']['total'], rows['Fabrication']['achieved'], rows['Fabrication']['actual']) == (3, 2, 66.7)
+    assert (rows['PO Issuance']['basis'], rows['PO Issuance']['total'], rows['PO Issuance']['achieved']) == ('Budget (cost)', 200.0, 144.2)
+    assert (rows['Fabrication']['days'], rows['Fabrication']['elapsed'], rows['Fabrication']['planned']) == (10, 5, 50.0)
+    assert tabs[1]['total']['actual'] == 88.9 and tabs[1]['total']['total_row']
+
+
+def test_explain_tables_reach_the_screen_and_the_excel():
+    import pathlib
+    from p6_evm.schedule_view import stage_weighted_actual, wbs_explain
+    from p6_evm.wbs_excel import _explain_blocks
+    from datetime import datetime
+    nodes = _stage_nodes()
+    stage_weighted_actual(nodes, '1')
+    blocks = _explain_blocks({'explain': wbs_explain(nodes, '1', datetime(2026, 1, 5))}, '05-Jan.2026')
+    assert blocks[0]['rows'][-1][3] == '88.9%' and blocks[1]['rows'][-1][9] == '88.9%'
+    js = pathlib.Path(__file__).resolve().parents[1].joinpath('ui/modules/overview.js').read_text(encoding='utf-8')
+    assert '${main ? main.body : \'\'}${explain}${msSection}' in js and 'n.actual_stage != null' in js

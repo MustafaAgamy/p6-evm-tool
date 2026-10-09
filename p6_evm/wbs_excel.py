@@ -87,6 +87,8 @@ def _pct(node, key):
     its activities (planned = baseline finish on/before the cut-off, actual = started)."""
     if key == 'planned' and node.get('planned_time') is not None:      # by the baseline dates (owner)
         return _num(node.get('planned_time'))
+    if key == 'actual' and node.get('actual_stage') is not None:       # Procurement: by its stage weights (owner)
+        return _num(node.get('actual_stage'))
     if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
         return _num(node.get('planned_count_pct' if key == 'planned' else 'actual_count_pct'))
     return _num(node.get(key))
@@ -200,6 +202,7 @@ def wbs_excel(report):
             widths[len(_HEADERS) + i] = 8
         blocks.extend(_cost_blocks(nodes, m, cut))
         blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), cut))
+        blocks.extend(_explain_blocks(m, cut))
         blocks.extend(_milestone_blocks(report.get('milestones'), m, cutoff, cut))
         if not ms_only:
             blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
@@ -207,8 +210,8 @@ def wbs_excel(report):
             by_cost = _has_pct(root)
             ov_rows.append([m.get('name') or '(WBS)', root.get('count') or root.get('activities') or '—',
                             _pct_text(root.get('planned') if by_cost else root.get('planned_count_pct')),
-                            _pct_text(root.get('actual') if by_cost else root.get('actual_count_pct')),
-                            'by cost' if by_cost else 'by count of activities'])
+                            _pct_text(root.get('actual_stage') if root.get('actual_stage') is not None else root.get('actual') if by_cost else root.get('actual_count_pct')),
+                            'planned by cost · actual by stage weights' if root.get('actual_stage') is not None else 'by cost' if by_cost else 'by count of activities'])
     if ov_rows:
         ct = f' till {cut}' if cut else ''
         blocks.insert(0, {'title': 'WBS overview',
@@ -334,6 +337,33 @@ def _cost_blocks(nodes, m, cut=''):
              'note': ('COST-LOADED PROGRESS - weighted by the budget of each activity (P6 cost): Planned % = Planned value / budget of the cost-loaded activities; '
                       'Actual % = Earned value / budget. This WBS has ' + f"{100.0 * (root.get('cost_loaded') or 0) / all_n:.1f}" + '% of its activities cost loaded, so it is not counted by number of activities.'),
              'headers': ['WBS', 'Activities', 'Cost loaded', f'Planned %{ct}', f'Actual %{ct}'], 'rows': rows}]
+
+
+def _explain_blocks(m, cut=''):
+    """Where every Planned % / Actual % of the WBS table comes from - the tables of wbs_main[].explain
+    (schedule_view.wbs_explain), the same ones the screen and the report show."""
+    ct = f' till {cut}' if cut else ''
+    n = lambda v: '—' if v is None else (round(v) if isinstance(v, float) else v)
+    out = []
+    for t in (m.get('explain') or []):
+        if t.get('kind') == 'stages':
+            rows = [[s.get('name'), f"{s['weight']:.2f}%" if s.get('weight') is not None else '— (cost loaded)' if s.get('cost') else '—',
+                     _pct_text(s.get('pct')), '—' if s.get('weighted') is None else f"{s['weighted']:.2f}%",
+                     'by cost (Earned value / Budget) - not in the weight' if s.get('cost') else 'no cost - equal share of the weight'] for s in t['rows']]
+            rows.append(['Total', '100.00%', '', _pct_text(t.get('actual')), f"{t.get('stages')} stages with no cost share the weight equally"])
+            out.append({'title': f"Execution dashboard - {t['title']}",
+                        'note': 'The stages with no cost share the weight equally; Actual % = sum of weight x stage Actual %. Cost-loaded stages are left out of the weight.',
+                        'headers': ['Stage', 'Weight', f'Stage Actual %{ct}', 'Weight x Actual %', 'Basis'], 'rows': rows})
+            continue
+        r_ = lambda r: [('    ' * (r.get('indent') or 0)) + str(r.get('name') or ''), _fmt_date(r.get('baseline_start')), _fmt_date(r.get('baseline_finish')),
+                        n(r.get('days')), n(r.get('elapsed')), _pct_text(r.get('planned')), r.get('basis') or '', n(r.get('total')), n(r.get('achieved')),
+                        _pct_text(r.get('actual')), r.get('how') or '']
+        out.append({'title': f"Execution dashboard - how each % is worked out - {t['title']}",
+                    'note': 'Planned % = days from the Baseline Start till the cut-off date / baseline days. Actual % = Earned value / Budget for a WBS with cost; activities started / all activities for a WBS with no cost (milestones not counted); 100% once all its work is finished.',
+                    'headers': ['WBS', 'Baseline Start', 'Baseline Finish', 'Baseline days', 'Days till cut-off date', 'Planned %',
+                                'Measured by', 'Total', 'Achieved', f'Actual %{ct}', 'How'],
+                    'rows': [r_(r) for r in t['rows']] + [r_(t['total'])]})
+    return out
 
 
 def _uncosted_blocks(u, branch, cut=''):
