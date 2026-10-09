@@ -73,7 +73,7 @@ function uTable(t, cut) {
 }
 // The Execution dashboard of ONE main WBS (shown above that WBS's table): its headline, the rule, then
 // one table per area with a Total row. '' when the WBS has no such activities.
-export function executionDashboard(u, cutoffText, branch) {
+function _countDashboardBody(u, cutoffText, branch) {
   const tabsOf = ((u && u.tables) || []).filter((t) => !branch || (t.branches || []).includes(branch));
   if (!tabsOf.length) return '';
   const sum = tabsOf.reduce((m, t) => { for (const k of ['n', 'started', 'done', 'prog', 'ns', 'due', 'due_prog', 'due_ns']) m[k] += t.total[k] || 0; return m; },
@@ -93,7 +93,12 @@ export function executionDashboard(u, cutoffText, branch) {
       <ul><li><span class="uc-k p"></span><b>Planned % till ${cut}</b> = number of activities whose baseline finish is on or before ${cut} ÷ total number of activities</li>
       <li><span class="uc-k a"></span><b>Actual % till ${cut}</b> = number of activities till ${cut} (in progress or completed) ÷ total number of activities</li>
       <li><span class="uc-k t"></span><b>Submittals · Approvals · Other activities</b> are counted apart; the Total row adds up each column</li></ul></div>`;
-  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(branch || 'Project')} Progress Planned VS Actual</p></div>${badge}</div>${howto}${head}${rule}${legend}${tabsOf.map((t) => uTable(t, cutoffText)).join('')}</div>`;
+  return { badge, body: `${howto}${head}${rule}${legend}${tabsOf.map((t) => uTable(t, cutoffText)).join('')}` };
+}
+export function executionDashboard(u, cutoffText, branch) {
+  const r = _countDashboardBody(u, cutoffText, branch);
+  if (!r) return '';
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(branch || 'Project')} Progress Planned VS Actual</p></div>${r.badge}</div>${r.body}</div>`;
 }
 
 // A main WBS with at least 95% of its activities cost loaded (Construction) is NOT measured by count:
@@ -105,9 +110,9 @@ export function costShare(result, id) {
   const all = n ? (n.count || n.activities || 0) : 0;
   return all ? (n.cost_loaded || 0) / all : 0;
 }
-function costDashboard(result, id, name, cutoffText) {
+function _costDashboardBody(result, id, name, cutoffText) {
   const n = costNode(result, id);
-  if (!n) return '';
+  if (!n) return null;
   const all = n.count || n.activities || 0, cl = n.cost_loaded || 0;
   const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
   const pl = n.planned, ac = n.actual, gap = pl != null && ac != null ? Math.max(0, pl - ac) : null;
@@ -133,60 +138,155 @@ function costDashboard(result, id, name, cutoffText) {
       <div><span>Actual % till ${cut}</span><b>${pctVal(ac)}</b><em>Earned value ${fmtEGP(n.ev)}</em></div>
       <div><span>Behind plan</span><b class="${gap > 0 ? 'bad' : ''}">${gap == null ? '—' : gap.toFixed(1) + '%'}</b><em>Planned % − Actual %</em></div></div>`;
   const legend = '<div class="uc-legend"><span><i class="p"></i>Planned % till the cut-off date</span><span><i class="a"></i>Actual % till the cut-off date</span></div>';
-  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${badge}</div>${howto}${tiles}${legend}${table}</div>`;
+  return { badge, body: `${howto}${tiles}${legend}${table}` };
+}
+function costDashboard(result, id, name, cutoffText) {
+  const r = _costDashboardBody(result, id, name, cutoffText);
+  if (!r) return '';
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution dashboard</h3><p class="uc-sub">${escapeHtml(name)} Progress Planned VS Actual</p></div>${r.badge}</div>${r.body}</div>`;
 }
 // the Execution dashboard of one main WBS: by COST when it is (almost) all cost loaded, else by COUNT
-// Milestone-only WBS: a table of every milestone in that branch with Actual % vs Planned %
+// Milestone-only WBS: Gantt chart showing Planned ◇ vs Actual/Expected ◆ per milestone.
+// Each row: Activity ID | Name | Variance | Status chip | Timeline (both markers on one track).
 // Planned % = 100 when the baseline finish is on/before the data date, 0 otherwise (P6 logic).
-function milestoneTable(result, branchId, branchName, cutoffText) {
+function milestoneGantt(result, branchId, branchName, cutoffText) {
+  const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmtD = (d) => `${String(d.getDate()).padStart(2, '0')}-${MO[d.getMonth()]}`;
+  const toMs = (s) => { if (!s) return NaN; const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s); return d.getTime(); };
   const dd = result.data_date ? new Date(result.data_date) : null;
   const acts = (result.activities || []).filter((a) => a.milestone && (a.wbs_top_id === branchId || a.wbs_top === branchName));
   if (!acts.length) return '';
   const cut = cutoffText ? escapeHtml(cutoffText) : 'the cut-off date';
+  const done = acts.filter((a) => a.finish_actual).length;
+  const due  = acts.filter((a) => dd && a.planned_finish && new Date(a.planned_finish) <= dd).length;
+  const behind = Math.max(0, due - done);
+
+  // time scale: span all baseline + expected dates + data date, padded 15 days each side
+  const allT = acts.flatMap((a) => [toMs(a.planned_finish), toMs(a.finish)]).filter((t) => !Number.isNaN(t));
+  if (dd) allT.push(dd.getTime());
+  if (!allT.length) return '';
+  const minT = Math.min(...allT) - 15 * 86400000;
+  const maxT = Math.max(...allT) + 15 * 86400000;
+  const span = maxT - minT;
+  const pctPos = (t) => (((t - minT) / span) * 100).toFixed(3) + '%';
+
+  // month scale header
+  const cur = new Date(minT); cur.setDate(1); cur.setHours(0, 0, 0, 0);
+  let scaleHtml = '';
+  while (cur.getTime() <= maxT) {
+    const x = pctPos(cur.getTime());
+    scaleHtml += `<div class="mg-month" style="left:${x}">${MO[cur.getMonth()]}</div>`;
+    if (cur.getMonth() === 0) scaleHtml += `<div class="mg-yr" style="left:${x}">${cur.getFullYear()}</div>`;
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  // gridlines (reused per row)
+  const gc = new Date(minT); gc.setDate(1); gc.setHours(0, 0, 0, 0);
+  let gridsHtml = '';
+  while (gc.getTime() <= maxT) {
+    gridsHtml += `<div class="mg-gl${gc.getMonth() === 0 ? ' yr' : ''}" style="left:${pctPos(gc.getTime())}"></div>`;
+    gc.setMonth(gc.getMonth() + 1);
+  }
+  const ddX = dd ? pctPos(dd.getTime()) : null;
+
+  // rows
   const rows = acts.map((a) => {
-    const plannedPct = (dd && a.planned_finish && new Date(a.planned_finish) <= dd) ? 100 : 0;
-    const actualPct = typeof a.pct === 'number' ? a.pct : 0;
-    const behind = plannedPct > actualPct;
-    const status = actualPct === 100 ? '<span class="uc-chip g">Completed</span>'
-      : behind ? '<span class="uc-chip r">Not completed</span>'
-      : '<span class="uc-chip y">Not yet due</span>';
-    return `<tr>
-      <td>${escapeHtml(a.id || '')}</td>
-      <td>${escapeHtml(a.name || '')}</td>
-      <td class="uc-n">${a.planned_finish ? fmtDate(a.planned_finish) : '—'}</td>
-      <td class="uc-n">${a.finish ? fmtDate(a.finish) + (a.finish_actual ? ' A' : '') : '—'}</td>
-      <td class="uc-n"><b>${plannedPct}%</b></td>
-      <td class="uc-n"><b>${actualPct}%</b></td>
-      <td class="uc-c">${status}</td>
-    </tr>`;
+    const blT = toMs(a.planned_finish), exT = toMs(a.finish);
+    const hasBl = !Number.isNaN(blT), hasEx = !Number.isNaN(exT);
+    const blX = hasBl ? pctPos(blT) : null;
+    const exX = hasEx ? pctPos(exT) : null;
+    const diffD = (hasBl && hasEx) ? Math.round((exT - blT) / 86400000) : null;
+    const slipped = diffD != null && diffD > 1;
+    const early   = diffD != null && diffD < -1;
+    const same    = diffD != null && Math.abs(diffD) <= 1;
+    const isDone  = !!a.finish_actual;
+    const ddPlanned = dd && hasBl && blT <= dd.getTime();
+
+    // variance text + class
+    const varTxt = diffD == null ? '—' : same ? 'On time' : slipped ? `+${diffD}d` : `${diffD}d`;
+    const varCls = same ? 'mg-same' : slipped ? 'mg-slip' : 'mg-early';
+
+    // status chip
+    const chip = isDone
+      ? '<span class="uc-chip g">✓ Completed</span>'
+      : ddPlanned ? '<span class="uc-chip r">Not Completed</span>'
+      : '<span class="uc-chip y">Not Yet Due</span>';
+
+    // connector between bl and ex
+    let connHtml = '';
+    if (hasBl && hasEx && !same) {
+      const lft = Math.min(parseFloat(blX), parseFloat(exX));
+      const w   = Math.abs(parseFloat(exX) - parseFloat(blX)).toFixed(3) + '%';
+      const midX = ((parseFloat(blX) + parseFloat(exX)) / 2).toFixed(3) + '%';
+      const cls = slipped ? 'slip' : 'early';
+      connHtml = `<div class="mg-conn ${cls}" style="left:${lft.toFixed(3)}%;width:${w}"></div>
+        <div class="mg-varlbl ${cls}" style="left:${midX}">${escapeHtml(varTxt)}</div>`;
+      if (slipped) connHtml += `<div class="mg-arrow" style="left:${exX}"></div>`;
+    }
+
+    // markers
+    const blMark  = blX ? `<div class="mg-dm bl"  style="left:${blX}" title="Baseline: ${a.planned_finish}"></div><div class="mg-lbl bl" style="left:${blX}">${fmtD(new Date(blT))}</div>` : '';
+    const exClass = isDone ? 'done' : slipped ? 'slip' : early ? 'early' : 'same';
+    const exMark  = exX ? `<div class="mg-dm ex ${exClass}" style="left:${exX}" title="${isDone ? 'Actual' : 'Expected'}: ${a.finish}"></div><div class="mg-lbl ex ${exClass}" style="left:${exX}">${fmtD(new Date(exT))}${isDone ? ' A' : ''}</div>` : '';
+
+    return `<div class="mg-row">
+      <div class="mg-cell mg-id">${escapeHtml(a.id || '')}</div>
+      <div class="mg-cell mg-name">${escapeHtml(a.name || '')}</div>
+      <div class="mg-cell mg-var ${varCls}">${escapeHtml(varTxt)}</div>
+      <div class="mg-cell mg-chip">${chip}</div>
+      <div class="mg-cell mg-tl">
+        <div class="mg-track">${gridsHtml}${ddX ? `<div class="mg-dd" style="left:${ddX}"></div>` : ''}${connHtml}${blMark}${exMark}</div>
+      </div>
+    </div>`;
   }).join('');
-  const done = acts.filter((a) => (typeof a.pct === 'number' ? a.pct : 0) === 100).length;
-  const due = acts.filter((a) => dd && a.planned_finish && new Date(a.planned_finish) <= dd).length;
-  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>Execution Dashboard — Milestones</h3><p class="uc-sub">${escapeHtml(branchName)} — Milestone Progress</p></div></div>
-    <div class="uc-tiles">
-      <div><span>Milestones</span><b>${acts.length}</b><em>${escapeHtml(branchName)}</em></div>
-      <div><span>Completed</span><b>${done}</b><em>${acts.length ? ((100 * done / acts.length).toFixed(1) + '% of milestones') : '—'}</em></div>
-      <div><span>Planned till ${cut}</span><b>${due}</b><em>should be complete by the cut-off date</em></div>
-      <div><span>Behind plan</span><b class="${due > done ? 'bad' : ''}">${Math.max(0, due - done)}</b><em>planned but not yet completed</em></div>
-    </div>
-    <div class="uc-block" style="margin-top:10px">
-      <table class="uc-table"><thead><tr>
-        <th>Activity ID</th><th>Name</th>
-        <th class="uc-n">Baseline Finish</th><th class="uc-n">Expected/Actual Finish</th>
-        <th class="uc-n">Planned % till ${cut}</th><th class="uc-n">Actual %</th>
-        <th class="uc-c">Status</th>
-      </tr></thead><tbody>${rows}</tbody></table>
-    </div>
-    <p class="ov-note">Planned % = 100 when the baseline finish is on or before the cut-off date, 0 otherwise. Actual % = P6 % complete (100 when completed, 0 otherwise). <b>A</b> beside a date = Actual date.</p>
+
+  const tiles = `<div class="uc-tiles">
+    <div><span>Milestones</span><b>${acts.length}</b><em>${escapeHtml(branchName)}</em></div>
+    <div><span>Completed</span><b>${done}</b><em>${acts.length ? ((100 * done / acts.length).toFixed(1) + '%') : '—'} of milestones</em></div>
+    <div><span>Planned till ${cut}</span><b>${due}</b><em>should be done by cut-off date</em></div>
+    <div><span>Behind plan</span><b class="${behind > 0 ? 'bad' : ''}">${behind}</b><em>planned but not completed</em></div>
   </div>`;
+
+  const legend = `<div class="mg-legend">
+    <span><span class="mg-ld-dm bl"></span> Planned (baseline) date</span>
+    <span><span class="mg-ld-dm done"></span> Actual date (completed)</span>
+    <span><span class="mg-ld-dm ex slip"></span> Expected date (not complete)</span>
+    <span><span class="mg-ld-line slip"></span> Slipped</span>
+    <span><span class="mg-ld-line early"></span> Early / On time</span>
+    ${ddX ? `<span><span class="mg-ld-dd"></span> Cut-off date${cutoffText ? ' ' + escapeHtml(cutoffText) : ''}</span>` : ''}
+  </div>`;
+
+  const ganttBody = `<div class="mg-wrap">
+    <div class="mg-gantt">
+      <div class="mg-head">
+        <div class="mg-hcell mg-id">Act. ID</div>
+        <div class="mg-hcell mg-name">Milestone</div>
+        <div class="mg-hcell mg-var">Variance</div>
+        <div class="mg-hcell mg-chip">Status</div>
+        <div class="mg-hcell mg-tl"><div class="mg-scale">${scaleHtml}</div></div>
+      </div>
+      ${rows}
+    </div>
+  </div>
+  ${legend}
+  <p class="ov-note">◇ Planned = baseline finish date. ◆ Expected/Actual = current finish in P6. Variance = days slipped (+) or early (−). <b>A</b> beside a date = Actual date. Planned % = 100 when baseline finish ≤ cut-off date.</p>`;
+
+  return { tiles, ganttBody, behind };
 }
 
 function executionPanel(result, m, cutoffText) {
-  if (costShare(result, m.id) >= COST_SHARE) return costDashboard(result, m.id, m.name, cutoffText);
-  // if every activity in this branch is a milestone, show the milestone table instead
-  const branchActs = (result.activities || []).filter((a) => a.wbs_top_id === m.id || a.wbs_top === m.name);
-  if (branchActs.length > 0 && branchActs.every((a) => a.milestone)) return milestoneTable(result, m.id, m.name, cutoffText);
-  return executionDashboard(result.uncosted, cutoffText, m.name);
+  const isCost = costShare(result, m.id) >= COST_SHARE;
+  const main = isCost
+    ? _costDashboardBody(result, m.id, m.name, cutoffText)
+    : _countDashboardBody(result.uncosted, cutoffText, m.name);
+  const ms = milestoneGantt(result, m.id, m.name, cutoffText);
+  if (!main && !ms) return '';
+  const badge = main ? main.badge : '';
+  const title = isCost ? 'Execution Dashboard' : 'Execution Dashboard';
+  const msSection = ms
+    ? `<div class="mg-section-divider">Milestone Progress</div>${ms.tiles}${ms.ganttBody}`
+    : '';
+  return `<div class="uc-panel"><div class="uc-titlerow"><div><h3>${title}</h3><p class="uc-sub">${escapeHtml(m.name)} — Progress Planned VS Actual</p></div>${badge}</div>${main ? main.body : ''}${msSection}</div>`;
 }
 
 export function renderOverview(result) {
