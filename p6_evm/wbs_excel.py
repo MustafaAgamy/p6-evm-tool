@@ -87,7 +87,8 @@ def _has_pct(node):
 
 def _pct(node, key):
     if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
-        return 'no cost'
+        from p6_evm.schedule_view import nocost_text
+        return ('Actual: ' if key == 'actual' else 'Planned: ') + nocost_text(node, 'a' if key == 'actual' else 'p')
     return _num(node.get(key))
 
 
@@ -197,7 +198,42 @@ def wbs_excel(report):
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
         blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
-    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
+    sheets = [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
+    u = report.get('uncosted')
+    if u and u.get('tables'):
+        sheets.append(uncosted_sheet(u))
+    return sheets
+
+
+_UC_HEAD = ['Activities', 'Submittals started / total', 'Approvals started / total', 'Started', 'In progress', 'Completed',
+            'Not started', 'Due by cut-off', 'Actual %', 'Planned %', 'Status']
+
+
+def _uc_row(r):
+    pair = lambda a, b: f'{a} / {b}' if b else '—'
+    return [r['label'], r['n'], pair(r['sd'], r['st']), pair(r['ad'], r['at']), r['started'], r['prog'], r['done'], r['ns'], r['due'],
+            f"{r['actual_pct']:.1f}%" if r.get('actual_pct') is not None else '—',
+            f"{r['planned_pct']:.1f}%" if r.get('planned_pct') is not None else '—',
+            f"{r['behind']} behind" if r['behind'] else 'On plan']
+
+
+def uncosted_sheet(u):
+    """'Progress by count' - the activities without cost, one block per WBS area, a row per stage and
+    a Total row at the end of each (E1-log style; Actual = started, Planned = due by cut-off)."""
+    sm = u.get('summary') or {}
+    blocks = [{'title': 'Progress by count - activities without cost',
+               'note': 'Counted by number of activities, as in the E1 log: Actual = activities that have STARTED / activities; '
+                       'Planned = baseline finish on or before the cut-off date / activities. Milestone activities are excluded'
+                       + (('; WBS made of milestones left out: ' + ', '.join(sm.get('excluded_wbs') or [])) if sm.get('excluded_wbs') else '') + '.',
+               'headers': ['Item', 'Value'],
+               'rows': [['Activities without cost (milestones excluded)', sm.get('n')],
+                        ['Actual % (started)', f"{sm.get('actual_pct')}%" if sm.get('actual_pct') is not None else '—'],
+                        ['Planned % (due by cut-off)', f"{sm.get('planned_pct')}%" if sm.get('planned_pct') is not None else '—'],
+                        ['Behind plan (due but not started)', sm.get('behind')]]}]
+    for t in u['tables']:
+        blocks.append({'title': t['title'], 'headers': [t.get('first') or 'Stage'] + _UC_HEAD,
+                       'rows': [_uc_row(r) for r in t['rows']] + [_uc_row(t['total'])]})
+    return {'name': 'Progress by count', 'blocks': blocks, 'col_widths': {0: 34, **{i: 14 for i in range(1, 13)}}}
 
 
 # WBS name column wide (it carries the indentation); dates/percent/delay comfortable.

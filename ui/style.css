@@ -2743,8 +2743,15 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wbs-legend i.dur { background: #bfdbfe; border: 1px solid #2563eb; } .wbs-legend i.act { background: #1d4ed8; } .wbs-legend i.beh { background: #f59e0b; }
 .wbs-legend i.tgt { width: 3px; height: 13px; background: #0f172a; } .wbs-legend i.cut { width: 0; height: 13px; border-left: 2px dashed #2563eb; border-radius: 0; }
 /* month labels turned upright so every month fits the narrow time column of a report */
-.gp-scale.gp-scale-m { height: 34px; }
-.gp-scale.gp-scale-m span { writing-mode: vertical-rl; transform: rotate(180deg); border-left: none; border-right: 1px solid var(--border); padding: 0 1px 0 0; font-size: 7.5px; top: 0; }
+.gp-scale.gp-scale-m { height: 31px; }
+.gp-scale.gp-scale-m span { font-size: 7.5px; top: 0; border-left: 1px solid var(--border); padding-left: 1px; }
+.gp-scale.gp-scale-m span[data-r="1"] { top: 10px; } .gp-scale.gp-scale-m span[data-r="2"] { top: 20px; font-weight: 700; color: var(--text); }
+.gp-scale.gp-scale-m span.yr[data-r="1"] { top: 10px; }
+.wbs-print-bars td.wp-nc { font-size: 9.5px; line-height: 1.25; color: var(--muted); }
+.wbs-print-bars td.wp-nc b { color: var(--text); }
+.wc-cell.wc-nc2 { flex-direction: column; align-items: flex-start; justify-content: center; font-family: inherit; font-size: 9.5px; line-height: 1.25; text-align: left; white-space: normal; gap: 1px; padding: 3px 6px; }
+.wc-cell.wc-nc2 b { color: var(--text); }
+.wbst-tk span.lo { top: 26px; }
 /* status of a WBS / an activity, beside its name */
 .g-st { font-style: normal; font-weight: 600; font-size: 10px; margin-left: 6px; color: var(--muted); font-family: inherit; }
 .g-st.done, .gp-st.done { color: #15803d; } .g-st.prog, .gp-st.prog { color: #b45309; }
@@ -4149,3 +4156,24 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* how the Lag Report charts are counted (comment 55) */
 .lag-basis { margin-top:8px; font-size:11px; line-height:1.45; color:var(--muted); }
+
+/* ── Progress by count (activities without cost) ── */
+.uc-panel { margin: 18px 0 8px; } .uc-panel h3 { font-size: 14px; margin: 0 0 8px; }
+.uc-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 6px 0 8px; }
+.uc-tiles > div { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--card-bg); }
+.uc-tiles span { display: block; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.uc-tiles b { display: block; font-size: 22px; } .uc-tiles b.bad { color: var(--danger); }
+.uc-tiles em { display: block; font-style: normal; font-size: 10.5px; color: var(--muted); }
+.uc-rule { font-style: normal; margin: 4px 0 8px; }
+.uc-legend { display: flex; gap: 16px; font-size: 11px; margin: 0 0 8px; } .uc-legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.uc-legend i.p, .uc-pair i.p { background: #f59e0b; } .uc-legend i.a, .uc-pair i.a { background: #1d4ed8; }
+.uc-block { margin: 0 0 14px; break-inside: avoid; } .uc-block h4 { font-size: 12.5px; margin: 0 0 4px; }
+.uc-table { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: auto; }
+.uc-table th, .uc-table td { padding: 4px 7px; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: middle; }
+.uc-table th { font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); vertical-align: bottom; }
+.uc-table .uc-n { text-align: right; font-family: ui-monospace, monospace; white-space: nowrap; } .uc-table .uc-c { text-align: center; }
+.uc-table tr.uc-total td { font-weight: 800; background: var(--bg); border-top: 1px solid var(--border); }
+.uc-pair { position: relative; height: 16px; min-width: 100px; } .uc-pair i { position: absolute; left: 0; height: 7px; border-radius: 2px; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.uc-pair i.p { top: 0; } .uc-pair i.a { top: 8px; }
+.uc-chip { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.uc-chip.g { background: #dcfce7; color: #166534; } .uc-chip.y { background: #fef3c7; color: #92400e; } .uc-chip.r { background: #fee2e2; color: #991b1b; }

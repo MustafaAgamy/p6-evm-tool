@@ -4,7 +4,7 @@
 // started / finished, remaining early dates otherwise — P6's Start / Finish columns) with %
 // complete, critical highlighting, month gridlines and a data-date line, grouped by top-level
 // WBS. schedulePrint() hands the same rows to File ▸ Print / PDF / Word / HTML.
-import { escapeHtml, dateText } from './format.js';
+import { escapeHtml, dateText, monthScaleHtml } from './format.js';
 
 const DAY = 86400000;
 const ROW_H = 38, GRP_H = 26;   // = .g-row / .g-grp heights in style.css (border-box)
@@ -97,15 +97,15 @@ export function renderSchedule(result) {
   const el = document.getElementById('schedule-body');
   _print = null;
   if (!el) return;
-  // Owner comment 65: the chart shows the CRITICAL activities only (P6's own Critical flag),
-  // and only those of the CONSTRUCTION works (the WBS branches that hold cost-loaded work).
+  // Owner comment 65: the chart shows the CRITICAL REMAINING activities - everything P6 flags
+  // as Critical whose work is not finished (P6's own count); completed activities are hidden.
   const all = (result && result.activities) || [];
-  const acts = all.filter((a) => a.critical && a.construction !== false);
+  const acts = all.filter((a) => a.critical);
   if (all.length && !acts.length) {
     el.innerHTML = `
       <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
         <div class="ov-chips"><span class="ov-chip"><b>0</b> critical of <b>${all.length}</b> activities</span></div></div></div>
-      <p class="ov-note">No construction activity of this schedule is critical at the data date, so there is nothing to draw.</p>`;
+      <p class="ov-note">No remaining activity of this schedule is critical at the data date, so there is nothing to draw (completed activities are hidden).</p>`;
     return;
   }
   if (!acts.length) {
@@ -215,7 +215,7 @@ export function renderSchedule(result) {
   if (blkN) blocks.push(`<div class="g-blk" style="contain-intrinsic-size:auto ${blkH}px">${blk}</div>`);
   const rows = blocks.join('');
 
-  const note = 'Only the critical activities of the construction works are shown — the activities P6 flags as Critical (work not finished) in the WBS that holds the cost-loaded work. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and its status (Completed / In Progress / Not Started). The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the dashed vertical line is the cut-off date (data date). Grouped by WBS in P6’s own order.';
+  const note = 'This shows the CRITICAL REMAINING activities only — every activity P6 flags as Critical whose work is not finished; completed activities are hidden. Bars run from each activity’s Expected Start to its Expected Finish, as P6 shows them: actual dates where the work has started, the remaining early dates for the rest. Delay is the Total Float on this update, with the same sign as in P6: −72 d means 72 days late (it is not a comparison with the baseline). Each WBS band shows P6’s summary of its critical activities: earliest Expected Start, latest Expected Finish, the band’s own Total Float as Delay, and its status (Completed / In Progress / Not Started). The red bar is the remaining work and its dark-red part is the Actual % complete (the figure beside the bar); the black bar on a WBS line is that WBS’s span; diamonds are milestones; the dashed vertical line is the cut-off date (data date). Grouped by WBS in P6’s own order.';
 
   const codePick = codeTypes.length
     ? `<label class="g-codepick">Activity code column <select id="g-code">
@@ -225,7 +225,8 @@ export function renderSchedule(result) {
   el.innerHTML = `
     <div class="ov-head"><div class="ov-title"><h2>Critical Activities (Gantt)</h2>
       <div class="ov-chips">
-        <span class="ov-chip"><b>${counts.crit}</b> critical construction activities of <b>${all.length}</b> activities</span>
+        <span class="ov-chip"><b>${counts.crit}</b> critical remaining activities of <b>${all.length}</b> · completed activities hidden</span>
+        <span class="ov-chip"><b>A</b> beside a date = Actual date</span>
         <span class="ov-chip"><b>${counts.ms}</b> critical milestones</span>
         <span class="ov-chip">cut-off date <b>${gDate(result.data_date)}</b></span>
         <span class="ov-chip"><i class="g-key crit"></i>critical &nbsp;<i class="g-key ms"></i>milestone</span>
@@ -262,13 +263,7 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
   const pos = (ms) => Math.max(0, Math.min(100, ((ms - sp.min) / total) * 100));
   // month / quarter / year marks for the page-wide scale
   let scale = '';
-  // EVERY month is on the scale (labels turned upright so they fit the column)
-  const t = new Date(sp.min); t.setDate(1); t.setHours(0, 0, 0, 0);
-  if (t.getTime() < sp.min) t.setMonth(t.getMonth() + 1);
-  for (; t.getTime() <= sp.max; t.setMonth(t.getMonth() + 1)) {
-    const p = pos(t.getTime());
-    scale += `<span style="left:${p.toFixed(2)}%">${MON[t.getMonth()]} ${String(t.getFullYear()).slice(2)}</span>`;
-  }
+  scale = monthScaleHtml(sp.min, sp.max, pos);       // EVERY month, written out (Jan, Feb, ...)
   const ddLine = sp.dd != null ? `<u style="left:${pos(sp.dd).toFixed(2)}%"></u>` : '';
   // every column has its own width, so adding / removing the code column never squeezes a name
   const cg = `<colgroup><col style="width:${code ? 12 : 13}%">${code ? '<col style="width:11%">' : ''}<col style="width:${code ? 21 : 25}%"><col style="width:7.5%"><col style="width:7.5%"><col style="width:5.5%"><col style="width:5.5%"><col></colgroup>`;
@@ -324,10 +319,9 @@ function printSections(result, acts, groups, counts, sp, note, code, bandSets, b
       ${kv('Completed (whole schedule)', wc('Completed'))}
       ${kv('In progress (whole schedule)', wc('In Progress'))}
       ${kv('Not started (whole schedule)', wc('Not Started'))}
-      ${kv('Critical activities (construction, as P6 flags them, not finished)', cf.n)}
-      ${kv('Critical activities as a share of the schedule', f1(cf.share))}
+      ${kv('Critical activities shown (as P6 flags them) — remaining only, completed activities are hidden', cf.n)}
       ${kv('Critical activities in progress / not started', `${cf.prog} / ${cf.notStarted}`)}
-      ${kv('Current % of the critical activities (Actual %)', f1(cf.actual))}
+      ${kv('Current % of the critical activities', `${f1(cf.share)} (${cf.n} of ${cf.all} activities)`)}
       ${kv('A beside a date', 'Actual date (the work has started / finished on that date)')}
       ${kv('Critical milestones', counts.ms)}
       </tbody></table></div>

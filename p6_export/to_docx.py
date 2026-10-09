@@ -692,14 +692,17 @@ class _Writer:
                     'bbox': (x0, y0, max(x1, x0 + 0.75), y1)}
         prims = []
         if 'scale' in bar:
-            h = 9.0
-            for left, label, col in bar['scale']:
-                x0 = x(left)
-                prims.append(rect(x0, 0, x0 + 0.75, h, self.hair))
-                size = 6.4
+            rows = bar.get('scale_rows') or [0] * len(bar['scale'])
+            row_h = 8.4                                  # one line of the scale (months alternate lines, years have their own)
+            h = row_h * (max(rows) + 1) + 1.0
+            for (left, label, col), r in zip(bar['scale'], rows):
+                x0, y0 = x(left), 0.5 + r * row_h
+                prims.append(rect(x0, y0, x0 + 0.75, h, self.hair))
+                size = 6.6
+                is_year = label.isdigit() and len(label) == 4
                 prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
-                              'bold': False, 'italic': False, 'font': 'Consolas', 'vert': False,
-                              'base': 7.2, 'bbox': (x0 + 1.5, 0.5, x0 + 1.5 + len(label) * size * 0.6, h)})
+                              'bold': is_year, 'italic': False, 'font': 'Consolas', 'vert': False,
+                              'base': 7.2, 'bbox': (x0 + 1.5, y0, x0 + 1.5 + len(label) * size * 0.6, y0 + row_h)})
         else:
             h = 9.0
             prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F1F4F8'))

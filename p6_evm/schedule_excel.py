@@ -122,7 +122,7 @@ def schedule_excel(result):
     all_acts = result.get('activities') or []
     # owner comment 65: the Gantt (screen, report and this sheet) lists the critical activities
     # of the construction works only (the WBS branches that hold cost-loaded work)
-    acts = [a for a in all_acts if a.get('critical') and a.get('construction') is not False]
+    acts = [a for a in all_acts if a.get('critical')]
     code = result.get('code_column') or None
     if code and not any((a.get('codes') or {}).get(code) for a in acts):
         code = None
@@ -141,7 +141,7 @@ def schedule_excel(result):
     if all_acts and not acts:
         return [{'name': 'Schedule',
                  'blocks': [{'title': 'Critical Activities (Gantt)',
-                             'note': 'No activity of this schedule is critical at the data date.',
+                             'note': 'No remaining activity of this schedule is critical at the data date.',
                              'headers': _HEADERS, 'rows': [['No critical activities'] + [''] * (len(_HEADERS) - 1)]}],
                  'col_widths': _WIDTHS}]
     if not acts:
@@ -168,20 +168,19 @@ def schedule_excel(result):
     ms = sum(1 for a in acts if a.get('milestone'))
     summary = {
         'title': 'Critical Activities (Gantt)',
-        'note': 'Only the critical activities of the construction works are listed - the activities P6 flags as Critical (work not finished). ' + _NOTE,
+        'note': 'Only the CRITICAL REMAINING activities are listed - the activities P6 flags as Critical whose work is not finished; completed activities are hidden. ' + _NOTE,
         'headers': ['Metric', 'Value'],
         'rows': [
-            ['Critical construction activities listed', crit],
+            ['Critical activities listed (remaining only - completed activities are hidden)', crit],
             ['Activities in the schedule', len(all_acts)],
             # the whole schedule by P6 status - the same three figures as P6's own count
             ['Completed (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'Completed')],
             ['In progress (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'In Progress')],
             ['Not started (whole schedule)', sum(1 for a in all_acts if a.get('status') == 'Not Started')],
             ['Cut-off date (data date)', _fmt_date(result.get('data_date'))],
-            ['Critical activities as a share of the schedule', _share(crit, len(all_acts))],
             ['Critical activities in progress', sum(1 for a in acts if a.get('status') == 'In Progress')],
             ['Critical activities not started', sum(1 for a in acts if a.get('status') == 'Not Started')],
-            ['Current % of the critical activities (Actual %)', _crit_pct(result, 'ev')],
+            ['Current % of the critical activities', '%s (%d of %d activities)' % (_share(crit, len(all_acts)), crit, len(all_acts))],
             ['A beside a date', 'Actual date (the work has started / finished on that date)'],
             ['Critical milestones', ms],
             ['WBS groups', len(order)],

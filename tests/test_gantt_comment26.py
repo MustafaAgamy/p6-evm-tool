@@ -131,7 +131,7 @@ def test_wbs_view_dates_are_current_dates_too():
     assert by['C']['finish'] == '2025-06-01'
     assert [m['name'] for m in main] == ['Engineering', 'Construction']      # the file's own (P6) order
     views = sv.build_views(_records(), data)
-    assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'wbs_critical', 'cost_loaded', 'progress_groups'} and len(views['activities']) == 4
+    assert set(views) == {'activities', 'wbs_summary', 'wbs_main', 'wbs_critical', 'cost_loaded', 'progress_groups', 'uncosted'} and len(views['activities']) == 4
 
 
 def test_views_are_stored_with_the_snapshot_and_removed_with_the_project(temp_db):
@@ -153,7 +153,7 @@ def test_reopen_reads_the_stored_views_and_rebuilds_an_old_snapshot_once():
     load = load[:load.index('\n    def ', 10)]
     assert 'result.update(self._snapshot_views(snapshot_id))' in load
     helper = srv[srv.index('    def _snapshot_views(self, snapshot_id):'):srv.index('    def _handle_project_load(self, body):')]
-    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 6:" in helper
+    assert 'db.get_snapshot_views(snapshot_id)' in helper and "if views is None or 'cost_loaded' not in views or views.get('v') != 8:" in helper
     assert 'build_views(' in helper and 'db.save_snapshot_views(snapshot_id, views)' in helper
     # the import stores them, from the one shared builder
     pipe = srv[srv.index('    def _parse_pipeline(self, body):'):srv.index('    def _snapshot_views(self, snapshot_id):')]
@@ -226,7 +226,7 @@ def test_wbs_without_cost_carries_no_percentages():
     from p6_evm.wbs_excel import wbs_excel
     rows = [r for b in wbs_excel({'wbs_summary': summary, 'wbs_main': []})[0]['blocks'] for r in b['rows']]
     eng = next(r for r in rows if r[0].strip() == 'Engineering')
-    assert eng[5] == 'no cost' and eng[6] == 'no cost'
+    assert eng[5].startswith('Planned: ') and eng[6].startswith('Actual: ')       # a count summary, not a %
 
 
 def test_critical_follows_the_p6_flag_when_the_file_carries_it():
@@ -242,7 +242,7 @@ def test_screens_show_cost_loaded_overview_critical_gantt_and_fitted_wbs():
     ov, gantt = _read('ui', 'modules', 'overview.js'), _read('ui', 'modules', 'gantt.js')
     assert 'CPI' not in ov[ov.index('export function renderOverview'):ov.index('// ── Project ▸ WBS summary timeline')]
     assert 'result.cost_loaded' in ov and 'id="ov-group"' in ov
-    assert 'all.filter((a) => a.critical && a.construction !== false)' in gantt
+    assert 'all.filter((a) => a.critical)' in gantt                       # every critical REMAINING activity (P6's count)
     assert 'Critical Activities (Gantt)' in gantt and '<i>Expected Start</i><i>Expected Finish</i><i>Delay</i>' in gantt
     assert 'id="g-code"' in gantt and 'ovh-col p' in ov and 'id="ov-hide0"' in ov and 'cost-loaded\' : \'\'}' not in ov
     assert 'Cut-off date' in ov and "if ('delay' in n) return n.delay;" in ov
@@ -285,17 +285,17 @@ def test_wbs_follows_p6_order_and_delay_is_the_update_total_float():
     assert rows['X1']['delay'] == -5 and rows['X2']['delay'] == 2 and rows['X3']['delay'] is None
 
 
-def test_gantt_keeps_construction_rows_only_and_offers_a_code_column():
+def test_gantt_lists_every_critical_remaining_activity_and_offers_a_code_column():
     recs = _cost_records()
     for r in recs:
         r['activity']['is_critical'] = True
     rows = {r['id']: r for r in sv.gantt_activities(recs, WBS, None)}
-    assert rows['C1']['construction'] and rows['C3']['construction'] and rows['E1']['construction'] is False
     assert rows['C1']['codes'] == {'Type of Works': 'Civil'}
     blocks = schedule_excel({'activities': list(rows.values()), 'code_column': 'Type of Works'})[0]['blocks']
-    assert [b['title'] for b in blocks] == ['Critical Activities (Gantt)', 'Construction']
-    assert blocks[1]['headers'][:3] == ['Activity ID', 'Type of Works', 'Activity Name']
-    assert {r[0]: r[1] for r in blocks[1]['rows']} == {'C1': 'Civil', 'C2': 'Steel', 'C3': ''}
+    assert [b['title'] for b in blocks] == ['Critical Activities (Gantt)', 'Engineering', 'Construction']   # all 4 critical rows, not construction only
+    con = [b for b in blocks if b['title'] == 'Construction'][0]
+    assert con['headers'][:3] == ['Activity ID', 'Type of Works', 'Activity Name']
+    assert {r[0]: r[1] for r in con['rows']} == {'C1': 'Civil', 'C2': 'Steel', 'C3': ''}
 
 
 def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
@@ -335,3 +335,41 @@ def test_critical_wbs_summary_is_p6s_band_under_the_critical_filter():
     assert 'result.wbs_critical' in gantt and 'g-band' in gantt
     assert "data-mode=\"critical\"" in ov
     assert 'Original Duration' not in ov and 'Budgeted Total Cost' not in ov      # only the agreed columns are shown
+
+
+def test_uncosted_progress_counts_by_stage_with_the_e1_started_rule():
+    """Activities without cost: one table per area, a row per stage, a Total row; Actual = STARTED
+    (E1 rule) / activities, Planned = baseline finish on/before the cut-off; milestone activities and a
+    milestone-made WBS are left out."""
+    wbs = {'M': {'name': 'MCC Design & Engineering', 'parent_object_id': None},
+           'S1': {'name': 'Schematic', 'parent_object_id': 'M'}, 'S1S': {'name': 'Submittal', 'parent_object_id': 'S1'}, 'S1SA': {'name': 'MCC Room', 'parent_object_id': 'S1S'},
+           'S1A': {'name': 'Approval', 'parent_object_id': 'S1'}, 'S1AA': {'name': 'MCC Room', 'parent_object_id': 'S1A'},
+           'K': {'name': 'Phase I Key Dates', 'parent_object_id': None}, 'KC': {'name': 'Civil Works Completion', 'parent_object_id': 'K'}}
+    cut = D(2025, 3, 1)
+
+    def act(i, w, status, ps, pf, **kw):
+        a = _act(i, w, ps, pf, status=status, **kw)
+        return {'activity': a, 'total_float': 0, 'bac': 0, 'planned_pct': 0.0, 'actual_pct': 0.0}
+    recs = [
+        act('A1', 'S1SA', 'Completed', D(2025, 1, 1), D(2025, 1, 10), actual_start=D(2025, 1, 2), actual_finish=D(2025, 1, 9)),
+        act('A2', 'S1SA', 'In Progress', D(2025, 2, 1), D(2025, 2, 20), actual_start=D(2025, 2, 3)),
+        act('A3', 'S1AA', 'Not Started', D(2025, 2, 1), D(2025, 2, 20)),                     # due, not started
+        act('A4', 'S1AA', 'Not Started', D(2025, 4, 1), D(2025, 4, 20)),                     # not yet due
+        act('M1', 'S1AA', 'Not Started', D(2025, 2, 1), D(2025, 2, 1), task_type='FinishMilestone'),   # milestone: left out
+        act('K1', 'KC', 'Not Started', D(2025, 2, 1), D(2025, 2, 5)),                         # a milestone-made WBS: left out
+        act('K2', 'KC', 'Not Started', D(2025, 2, 1), D(2025, 2, 1), task_type='FinishMilestone'),
+        dict(act('C1', 'S1SA', 'Completed', D(2025, 1, 1), D(2025, 1, 5)), bac=500.0),         # has cost: not counted
+    ]
+    data = SimpleNamespace(wbs=wbs, project={'data_date': cut}, baseline_by_id={})
+    u = sv.uncosted_progress(recs, data)
+    s = u['summary']
+    assert s['n'] == 4 and s['started'] == 2 and s['due'] == 3 and s['behind'] == 1
+    assert s['actual_pct'] == 50.0 and s['planned_pct'] == 75.0
+    assert s['excluded_wbs'] == ['Phase I Key Dates'] and s['milestones_excluded'] == 1
+    t = u['tables'][0]
+    assert t['title'] == 'MCC Room — MCC Design & Engineering' and [r['label'] for r in t['rows']] == ['Schematic']
+    assert t['total']['label'] == 'Total — MCC Room' and t['total']['n'] == 4
+    assert (t['total']['sd'], t['total']['st'], t['total']['ad'], t['total']['at']) == (2, 2, 0, 2)    # started / total, submittals vs approvals
+    assert sv.build_views(recs, data)['uncosted']['summary']['n'] == 4
+    ov = _read('ui', 'modules', 'overview.js')
+    assert 'uncostedHtml' in ov and 'Progress by count' in ov and 'uc-total' in ov

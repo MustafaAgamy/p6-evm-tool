@@ -817,6 +817,9 @@ class _Walker:
                 out['scale'] = [(self._pct(s, 'left') or 0.0, _norm_ws(s.text_content()).strip(),
                                  self.color_hex(s)) for s in c.iter('span')
                                 if C.is_element(s) and (s.text_content() or '').strip()]
+                # which row of the scale each label sits on (months alternate rows, a year has its own)
+                out['scale_rows'] = [int(s.get('data-r') or 0) for s in c.iter('span')
+                                     if C.is_element(s) and (s.text_content() or '').strip()]
                 return out
             for el in c.iter():
                 if not C.is_element(el):

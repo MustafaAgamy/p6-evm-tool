@@ -102,6 +102,18 @@ def critical_records(records):
     return out
 
 
+def nocost_text(n, kind):
+    """The Planned / Actual cell of a WBS that carries no cost: how many of its activities there
+    are and how many are completed / in progress / not started - by actual status (kind 'a') or by
+    the baseline dates at the cut-off date (kind 'p')."""
+    total = n.get('nc_total') or 0
+    if not total:
+        return '—'
+    parts = [f"{n.get('nc_%s_%s' % (kind, k)) or 0} {lbl}" for k, lbl in (('done', 'completed'), ('prog', 'in progress'), ('ns', 'not started'))
+             if (n.get('nc_%s_%s' % (kind, k)) or 0)]
+    return f"{total} activities: {', '.join(parts)}"
+
+
 def float_delay(tf):
     """The Delay figure = the Total Float in days exactly as P6 shows it, to one decimal:
     a float of -7.5 d is a delay of -7.5, -72 d is -72 (late is NEGATIVE, spare float positive)."""
@@ -311,9 +323,10 @@ def wbs_views(records, data):
     def base():
         return {'n': 0, 'w': 0.0, 'wp': 0.0, 'wa': 0.0, 'c': 0, 's': None, 'f': None, 'bs': None, 'bf': None,
                 'ef': None, 'lf': None, 'open': 0, 'all': 0, 'b': 0.0, 'pv': 0.0, 'ev': 0.0, 'ps': None, 'pf': None,
-                'sa': None, 'began': 0}
+                'sa': None, 'began': 0, 'nc': 0, 'ad': 0, 'ap': 0, 'an': 0, 'pd': 0, 'pp': 0, 'pn': 0}
 
     bl_by_id = getattr(data, 'baseline_by_id', None) or {}
+    dd0 = (getattr(data, 'project', None) or {}).get('data_date')
     direct = defaultdict(base)
     for r in records:
         a = r['activity']
@@ -321,6 +334,19 @@ def wbs_views(records, data):
         if wid is None:
             continue
         d = direct[wid]
+        if not (r.get('bac') or 0) > 0:
+            # an activity with no cost: counted by its ACTUAL status and by where its BASELINE
+            # dates put it at the cut-off date (completed / in progress / not started)
+            d['nc'] += 1
+            st = activity_status(a)
+            d['ad' if st == 'Completed' else 'ap' if st == 'In Progress' else 'an'] += 1
+            bl0 = bl_by_id.get(a.get('id')) or {}
+            ps0, pf0 = bl0.get('planned_start') or a.get('planned_start'), bl0.get('planned_finish') or a.get('planned_finish')
+            try:
+                if dd0 is not None and ps0 is not None and pf0 is not None:
+                    d['pd' if pf0 <= dd0 else 'pp' if ps0 <= dd0 else 'pn'] += 1
+            except TypeError:
+                pass
         cs = current_start(a)
         if cs is not None and (d['s'] is None or cs < d['s']):
             d['sa'] = bool(a.get('actual_start'))        # is the band's start an ACTUAL date?
@@ -372,6 +398,8 @@ def wbs_views(records, data):
             t['s'] = _mn(t['s'], c['s']); t['f'] = _mx(t['f'], c['f'])
             t['ef'] = _mx(t['ef'], c['ef']); t['lf'] = _mx(t['lf'], c['lf']); t['open'] += c['open']
             t['all'] += c['all']; t['b'] += c['b']; t['pv'] += c['pv']; t['ev'] += c['ev']
+            for k in ('nc', 'ad', 'ap', 'an', 'pd', 'pp', 'pn'):
+                t[k] += c[k]
             t['ps'] = _mn(t['ps'], c['ps']); t['pf'] = _mx(t['pf'], c['pf'])
             t['bs'] = _mn(t['bs'], c['bs']); t['bf'] = _mx(t['bf'], c['bf'])
         sub[wid] = t
@@ -412,6 +440,10 @@ def wbs_views(records, data):
             'status':     ('Completed' if t['all'] and not t['open'] else ('In Progress' if t['began'] else 'Not Started')),
             'start_actual':  bool(t['sa']),
             'finish_actual': bool(t['all'] and not t['open']),
+            # the activities of this WBS that carry NO cost, counted (a WBS with no cost has no %)
+            'nc_total':   t['nc'],
+            'nc_a_done':  t['ad'], 'nc_a_prog': t['ap'], 'nc_a_ns': t['an'],      # by actual status
+            'nc_p_done':  t['pd'], 'nc_p_prog': t['pp'], 'nc_p_ns': t['pn'],      # by baseline dates at the cut-off
             # the other columns of P6's WBS band
             'count':      t['all'],                                   # Activity Count
             'orig_dur':   working_span(cal, t['ps'], t['pf']),        # Original Duration (working days)
@@ -441,10 +473,137 @@ def wbs_views(records, data):
     return wbs_summary, wbs_main
 
 
+_MILESTONES = ('StartMilestone', 'FinishMilestone')
+_STAGE_ORDER = ['Schematic', 'Detailed design', 'IFC', 'Shop Drawing', 'Shop drawing', 'As-Built']
+_STAGE_ALIAS = {'Detailed': 'Detailed design', 'Detailed Design': 'Detailed design', 'Material Submital': 'Material Submittal'}
+
+
+def uncosted_progress(records, data):
+    """Progress BY COUNT of the activities that carry no cost (design, engineering, procurement,
+    client inputs ...), E1-log style: one table per WBS area, one row per stage (Schematic, Detailed
+    design, IFC, Shop drawing ...) with its Submittals and Approvals counted apart, and a Total row.
+    Actual follows the owner's E1 rule - an activity counts ONCE IT HAS STARTED (In Progress or
+    Completed, or any progress recorded) - / activities; Planned = activities whose BASELINE finish is on or
+    before the cut-off date / activities. Milestone activities are left out one by one, and a
+    top-level WBS made mostly of milestones (Key Dates, Inputs Required From Client, Control
+    Milestones ...) is left out as a whole. None when no activity is without cost."""
+    nocost = [r for r in records if not (r.get('bac') or 0) > 0]
+    if not nocost:
+        return None
+    wmap, bl_by_id = data.wbs, getattr(data, 'baseline_by_id', None) or {}
+    dd = (getattr(data, 'project', None) or {}).get('data_date')
+    path_cache = {}
+
+    def names_of(r):
+        wid = r['activity'].get('wbs_id')
+        if wid not in path_cache:
+            path_cache[wid] = [n for _, n in wbs_path(wid, wmap)] or ['(no WBS)']
+        return path_cache[wid]
+
+    by_top = {}
+    for r in nocost:
+        t = by_top.setdefault(names_of(r)[0], [0, 0])
+        t[0] += 1
+        t[1] += 1 if r['activity'].get('task_type') in _MILESTONES else 0
+    excluded_wbs = sorted(k for k, (n, m) in by_top.items() if n and m / n >= 0.3)
+    kept = [r for r in nocost if names_of(r)[0] not in excluded_wbs]
+    excluded_n = len(nocost) - len(kept)
+    rows_in = [r for r in kept if r['activity'].get('task_type') not in _MILESTONES]
+    ms_n = len(kept) - len(rows_in)
+
+    def kind(names):
+        low = ' '.join(names[1:3]).lower()
+        return 'S' if 'submit' in low else ('A' if 'approv' in low else 'O')
+
+    staged = {names_of(r)[0] for r in rows_in if kind(names_of(r)) in ('S', 'A')}
+
+    def is_type_name(n):
+        return any(w in (n or '').lower() for w in ('submit', 'approv'))
+    # some stages end in a WBS that is only called 'Submittal' / 'Approval' (no area name): such a
+    # row belongs to the area its branch is named after most often
+    area_votes = {}
+    for r in rows_in:
+        nm = names_of(r)
+        if nm[0] in staged and len(nm) > 3 and not is_type_name(nm[3]):
+            area_votes.setdefault(nm[0], {}).setdefault(nm[3], 0)
+            area_votes[nm[0]][nm[3]] += 1
+
+    def where(r):
+        names = names_of(r)
+        top = names[0]
+        if top not in staged or len(names) < 3:
+            return 'Other activities without cost', ' › '.join(names[:2])
+        stage = _STAGE_ALIAS.get(names[1], names[1])
+        if stage == 'As-Built':
+            return 'As-Built — per area', (names[3] if len(names) > 3 else names[-1])
+        area = names[3] if len(names) > 3 else names[2]
+        if is_type_name(area) and area_votes.get(top):
+            area = max(area_votes[top], key=area_votes[top].get)
+        group = 'Phase I Design + Engineering' if top in ('Phase I Design', 'Phase I Engineering') else top
+        return '%s — %s' % (area, group), stage
+
+    def counter():
+        return {'n': 0, 'sd': 0, 'st': 0, 'ad': 0, 'at': 0, 'done': 0, 'prog': 0, 'ns': 0, 'started': 0,
+                'due': 0, 'due_prog': 0, 'due_ns': 0}
+    tabs, total = {}, counter()
+    for r in rows_in:
+        a = r['activity']
+        title, row = where(r)
+        st = activity_status(a)
+        bl = bl_by_id.get(a.get('id')) or {}
+        ps, pf = bl.get('planned_start') or a.get('planned_start'), bl.get('planned_finish') or a.get('planned_finish')
+        due = 'ns'
+        try:
+            if dd is not None and ps is not None and pf is not None:
+                due = 'd' if pf <= dd else ('p' if ps <= dd else 'ns')
+        except TypeError:
+            pass
+        k = kind(names_of(r))
+        started = st in ('Completed', 'In Progress') or (a.get('percent_complete') or 0) > 0
+        for c in (tabs.setdefault(title, {}).setdefault(row, counter()), total):
+            c['n'] += 1
+            c['done' if st == 'Completed' else 'prog' if st == 'In Progress' else 'ns'] += 1
+            c['started'] += 1 if started else 0
+            c['due' if due == 'd' else 'due_prog' if due == 'p' else 'due_ns'] += 1
+            if k == 'S':
+                c['st'] += 1
+                c['sd'] += 1 if started else 0
+            elif k == 'A':
+                c['at'] += 1
+                c['ad'] += 1 if started else 0
+
+    def fin(label, c):
+        n = c['n']
+        out = dict(c, label=label)
+        out['actual_pct'] = round(100.0 * c['started'] / n, 1) if n else None
+        out['planned_pct'] = round(100.0 * c['due'] / n, 1) if n else None
+        out['behind'] = max(0, c['due'] - c['started'])
+        return out
+
+    def title_key(t):
+        return (0 if t.startswith('MCC') else 1 if t.startswith('Silos') else 2 if t.startswith(('Buildings', 'Infra')) else
+                3 if t.startswith('As-Built') else 4 if 'Procurement' in t else 5 if t.startswith('Other') else 2, t)
+    tables = []
+    for t in sorted(tabs, key=title_key):
+        rows = tabs[t]
+        keys = sorted(rows, key=lambda k: (_STAGE_ORDER.index(k) if k in _STAGE_ORDER else 99, k))
+        tt = counter()
+        for c in rows.values():
+            for k2 in tt:
+                tt[k2] += c[k2]
+        tables.append({'title': t, 'first': 'Area' if t.startswith('As-Built') else ('WBS' if t.startswith('Other') else 'Stage'),
+                       'rows': [fin(k, rows[k]) for k in keys], 'total': fin('Total — ' + t.split(' — ')[0], tt)})
+    head = fin('All activities without cost', total)
+    head.update({'share': round(100.0 * total['n'] / len(records), 1) if records else None,
+                 'excluded_wbs': excluded_wbs, 'excluded_activities': excluded_n, 'milestones_excluded': ms_n})
+    return {'summary': head, 'tables': tables}
+
+
 def build_views(records, data):
     """Everything stored for the re-open path: {'activities', 'wbs_summary', 'wbs_main',
     'cost_loaded', 'progress_groups'}."""
     summary, main = wbs_views(records, data)
     return {'activities': gantt_activities(records, data.wbs, data), 'wbs_summary': summary, 'wbs_main': main,
             'wbs_critical': wbs_views(critical_records(records), data)[0],
-            'cost_loaded': cost_loaded_overview(records), 'progress_groups': progress_groups(records, data)}
+            'cost_loaded': cost_loaded_overview(records), 'progress_groups': progress_groups(records, data),
+            'uncosted': uncosted_progress(records, data)}

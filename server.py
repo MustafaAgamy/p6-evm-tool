@@ -1174,7 +1174,8 @@ class Handler(BaseHTTPRequestHandler):
             # only, and the same activities grouped by WBS and by each activity code
             try:
                 from p6_evm.schedule_view import cost_loaded_overview, progress_groups
-                from p6_evm.schedule_view import critical_records
+                from p6_evm.schedule_view import critical_records, uncosted_progress
+                safe_result['uncosted'] = uncosted_progress(result['records'], data)
                 # the WBS summarised over the CRITICAL activities only - what P6 shows with its
                 # Critical filter on (bands of the Gantt, and the WBS screen's 'Critical' view)
                 safe_result['wbs_critical'] = wbs_views(critical_records(result['records']), data)[0]
@@ -1283,7 +1284,8 @@ class Handler(BaseHTTPRequestHandler):
                 views = {k: safe_result.get(k) or [] for k in
                          ('activities', 'wbs_summary', 'wbs_main', 'progress_groups', 'wbs_critical')}
                 views['cost_loaded'] = safe_result.get('cost_loaded')
-                views['v'] = 6                      # layout of the stored views (see _snapshot_views)
+                views['uncosted'] = safe_result.get('uncosted')
+                views['v'] = 8                      # layout of the stored views (see _snapshot_views)
                 db.save_snapshot_views(sid, views)
             except Exception as view_exc:
                 print(f'[views] not stored: {view_exc}', file=sys.stderr)
@@ -2957,7 +2959,7 @@ class Handler(BaseHTTPRequestHandler):
         views = db.get_snapshot_views(snapshot_id)
         stored = views
         # a snapshot stored before the cost-loaded Overview figures existed is rebuilt once too
-        if views is None or 'cost_loaded' not in views or views.get('v') != 6:
+        if views is None or 'cost_loaded' not in views or views.get('v') != 8:
             src = db.get_snapshot_source(snapshot_id)
             if not src:
                 return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
@@ -2972,12 +2974,12 @@ class Handler(BaseHTTPRequestHandler):
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 views = build_views(rr['records'], data)
-                views['v'] = 6
+                views['v'] = 8
                 db.save_snapshot_views(snapshot_id, views)
             except Exception as exc:
                 print(f'[views] snapshot {snapshot_id} not rebuilt: {exc}', file=sys.stderr)
                 return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
-        return dict({k: views.get(k) or [] for k in empty}, cost_loaded=views.get('cost_loaded'))
+        return dict({k: views.get(k) or [] for k in empty}, cost_loaded=views.get('cost_loaded'), uncosted=views.get('uncosted'))
 
     def _handle_project_load(self, body):
         """Return stored metrics for a project without re-parsing the XML."""

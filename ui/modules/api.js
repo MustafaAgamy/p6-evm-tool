@@ -773,6 +773,7 @@ export async function exportWbsExcel() {
         ? (r.wbs_main || []).filter((m) => r.wbs_critical.some((n) => n.id === m.id)) : r.wbs_main,
       project_name: r.project_name,
       data_date:   r.data_date,
+      uncosted:    r.uncosted,
       baseline_approx: baselineApprox(r, state.currentXmlPath),        // as the screen marks it (R2)
       baseline_line: baselineApproxLine(r, state.currentXmlPath),
     };
