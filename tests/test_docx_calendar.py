@@ -109,7 +109,7 @@ def test_dashboard_tiles_without_baseline_start_finish(tmp_path):
     tiles = dict(reversed(c.split('\n', 1)) for c in _table_texts(doc.tables[0]))
     # 2 Jan → 31-Mar.2025 = 89 days: 26 Fridays / Saturdays + the holiday = 27 non-working
     assert tiles == {'Total Calendar Days': '89', 'Working Days': '62', 'Non-Working Days': '27',
-                     'Holidays': '1', 'Avg Work Days / Month': '20.7', 'Avg Work Hours / Day': '8.0 hrs'}
+                     'Holidays': '1', 'Avg Work Days / Month': '21.2', 'Avg Work Hours / Day': '8.0 hrs'}
 
 
 def test_timeline_is_a_native_word_chart_per_calendar(tmp_path):

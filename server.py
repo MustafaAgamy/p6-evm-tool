@@ -3622,7 +3622,8 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_calendar_report(ca, meta_in, weather=weather,
                                                   sections=body.get('sections'),
                                                   theme=report_theme.normalize(body.get('theme')),
-                                                  feature=body.get('feature', 'calendar'))
+                                                  feature=body.get('feature', 'calendar'),
+                                                  calendars=body.get('calendars'))
             if preview:
                 self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return

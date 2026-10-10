@@ -3,7 +3,7 @@ import { setLoading, showError, clearError, renderResults, renderHistory, update
 import { evmInputs }                                             from './evm.js';
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
-import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult }      from './calendar.js';
+import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult, selectedCalendars } from './calendar.js';
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
@@ -469,7 +469,8 @@ export async function generateCalendarPdf() {
   // The in-preview "Report contents" picker toggles sections LIVE: every tick re-renders the
   // iframe from the server (same route + sections list), and the Save honours the ticks — so
   // Preview = PDF = Print. Mirrors the module/EVM report flow (local fetchPreview + onRerender).
-  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar' };
+  const reqBody = { snapshot_id: state.currentSnapshotId, meta: moduleMeta(), feature: 'calendar',
+                    calendars: selectedCalendars() };
   const mode = getSavedMode();
   const sections = CAL_SECTIONS.map(([key, label]) => ({ key, label }));
   const storageKey = 'p6_report_sections_calendar';

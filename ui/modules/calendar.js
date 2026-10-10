@@ -14,7 +14,7 @@ export function fmtCalDate(iso) {
 
 export function statusClass(status) {
   return { work: 'cs-work', weekend: 'cs-weekend', holiday: 'cs-holiday',
-           shutdown: 'cs-shutdown', special: 'cs-special' }[status] || 'cs-work';
+           shutdown: 'cs-holiday', special: 'cs-special' }[status] || 'cs-work';
 }
 
 // Build a Mon-first grid: `first_weekday` leading blanks, then one cell per day.
@@ -33,6 +33,19 @@ export function conflictSeverityClass(sev) {
 // Per-month bar geometry for the Calendar Timeline histogram (Feature 1 §2). Heights are in
 // px, scaled so the tallest month (working + non-working) fills ~100px; the non-working
 // segment stacks under the working one. Shared by the primary and the compare histogram.
+// §3.1 rows — one per month + a Total row: [Month, Calendar days, Working days, Weekly rest
+// days, Holidays, Total non-working]. The same numbers the histogram draws. Pure — unit-tested.
+export function monthSplitRows(months) {
+  const rows = (months || []).map(m => {
+    const wd = m.working_days || 0, nw = m.nonworking_days || 0;
+    const off = m.off_days != null ? m.off_days : (m.holidays || 0);
+    return [m.label, m.calendar_days != null ? m.calendar_days : wd + nw, wd,
+            m.rest_days != null ? m.rest_days : nw - off, off, nw];
+  });
+  if (rows.length) rows.push(['Total', ...[1, 2, 3, 4, 5].map(i => rows.reduce((a, r) => a + r[i], 0))]);
+  return rows;
+}
+
 export function histBarGeom(months) {
   const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
   return months.map(m => {
@@ -118,7 +131,7 @@ const DEFAULT_THRESHOLDS = { rain_mm: 5, temp_max_c: 42, wind_kmh: null, dust: t
 
 let _ca = null;
 let _sel = null;
-let _sel2 = null;         // 2nd calendar to compare in the timeline histogram (Feature 1 §2)
+let _more = [];           // further calendars picked in §2 — each gets its own histogram (comment 77)
 let _weather = null;      // last computed weather impact
 let _pendingLoc = null;   // location chosen in the picker, not yet applied
 let _thresholds = null;   // stop-work limits (rain/heat/wind/dust)
@@ -146,7 +159,7 @@ export function renderCalendar(ca) {
     return;
   }
   _sel = _ca.primary_calendar_id;
-  _sel2 = null;
+  _more = [];
   const settings = (state.currentResult && state.currentResult.calendar_settings) || {};
   if (settings.location) _pendingLoc = settings.location;
   if (settings.weather_thresholds) _thresholds = { ...DEFAULT_THRESHOLDS, ...settings.weather_thresholds };
@@ -176,9 +189,19 @@ function _renderCalendarBody() {
 function _calDdBanner() {
   const dd = (_ca && _ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
   return dd
-    ? `<div class="cal-ddbanner">📅 All results (statistics, histograms, tables) start from the <b>Data Date · ${dd}</b> — nothing before it is shown.</div>`
+    ? `<div class="cal-ddbanner">📅 All results (statistics, histograms, tables) start from the <b>Data Date · ${dd}</b>${_completion() ? ` and end at the <b>Project Completion · ${fmtCalDate(_completion())}</b>` : ''} — nothing before or after is counted.</div>`
     : '';
 }
+
+// Project Completion = the finish of the imported file (a baseline file → its own finish, an
+// update → its current finish); every statistic ends on it (comment 75).
+function _completion() {
+  const d = (_ca && _ca.dashboard) || {};
+  return d.window_finish || d.project_finish || '';
+}
+
+// The calendars picked in §2, the main one first — the PDF / Word report prints the same ones.
+export function selectedCalendars() { return _sel ? [_sel, ..._more] : []; }
 
 // Feature 2 — Bad Weather effect on Forecast Finish → its own tab (weather-body).
 export function renderWeatherView(ca) {
@@ -338,34 +361,38 @@ export function calBaselineLine(d) {
 function _dashboard(d) {
   const dates = [
     _tile('Baseline Start', fmtCalDate(d.baseline_start), d.baseline_approx ? 'approx' : '', 'hl'),
-    _tile('Baseline Finish / Completion', fmtCalDate(d.baseline_finish), d.baseline_approx ? 'Baseline (approx)' : 'plan of record', 'hl'),
+    _tile('Baseline Finish', fmtCalDate(d.baseline_finish), d.baseline_approx ? 'Baseline (approx)' : 'plan of record', 'hl'),
+    _tile('Data Date', fmtCalDate(d.data_date), 'statistics start here', 'hl'),
+    _tile('Project Completion', fmtCalDate(d.window_finish || d.project_finish), 'finish of the imported file — statistics end here', 'hl'),
   ].join('');
   // Row 1 (3 tiles): the calendar-day split. Row 2 (4 tiles): holidays, averages + normal hours.
   const stats1 = [
-    _tile('Total Calendar Days', d.total_calendar_days),
+    _tile('Total Calendar Days', d.total_calendar_days, 'Data Date → Project Completion'),
     _tile('Working Days', d.total_working_days),
-    _tile('Non-Working Days', d.total_nonworking_days),
+    _tile('Non-Working Days', d.total_nonworking_days,
+      d.total_rest_days != null ? `${d.total_rest_days} weekly rest days + ${d.total_holidays} holidays` : ''),
   ].join('');
   const stats2 = [
-    _tile('Holidays', d.total_holidays, 'incl. expected + shutdowns'),
+    _tile('Holidays', d.total_holidays),
     _tile('Avg Working Days / Month', d.avg_working_days_per_month),
     _tile('Avg Working Hours / Day', `${d.avg_working_hours_per_day} hrs`),
     _tile('Normal Hours', d.normal_hours || '—'),
   ].join('');
   return _sec(1, 'Execution Dashboard') +
     `<div class="cal-subhead">Key Dates</div>
-     <div class="cal-kpi-grid" style="grid-template-columns:repeat(2,1fr)">${dates}</div>${calBaselineLine(d)}
+     <div class="cal-kpi-grid" style="grid-template-columns:repeat(4,1fr)">${dates}</div>${calBaselineLine(d)}
      <div class="cal-subhead">Calendar Statistics</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(3,1fr)">${stats1}</div>
      <div class="cal-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:10px">${stats2}</div>`;
 }
 
 // Selectable calendar CHIPS (§2, mockup) — one per assigned calendar: full name + meta
-// "Xh · Yd/wk · N acts". The primary (`_sel`) and an optional comparison (`_sel2`) get `.sel`.
-// Clicking a 2nd chip adds a comparison histogram below; clicking a selected chip toggles it off.
+// "Xh · Yd/wk · N acts". The main one (`_sel`) and every further picked one (`_more`) get `.sel`.
+// Clicking a chip adds that calendar's histogram below (any number); clicking a selected chip
+// takes it off.
 function _calChips() {
   const chips = (_ca.assigned_calendars || []).map(c => {
-    const on = (c.object_id === _sel || c.object_id === _sel2);
+    const on = (c.object_id === _sel || _more.includes(c.object_id));
     const acts = Number(c.activity_count || 0).toLocaleString();
     const meta = `${c.hours_per_day}h · ${c.days_per_week}d/wk · ${acts} acts`;
     return `<div class="cal-chip ${on ? 'sel' : ''}" data-cal="${escapeHtml(c.object_id)}">
@@ -390,13 +417,16 @@ function _histBars(months, clickable) {
     return `<div class="${cls}"${dm} title="${escapeHtml(g.label)}: ${g.wd} net working · ${g.nw} non-working${clickable ? ' — click to open its calendar' : ''}">
       <div class="cal-wht">${g.wd}</div>
       <div class="cal-whcol"><div class="cal-whn" style="height:${g.nwPx}px"></div><div class="cal-whw" style="height:${g.wPx}px"></div></div>
-      <div class="cal-whl">${escapeHtml(g.label)}${open ? ' ▾' : ''}</div></div>`;
+      <div class="cal-whl">${escapeHtml(g.label)}${open ? ' ▾' : ''}<br>${g.nw} off</div></div>`;
   }).join('');
 }
 function _histBlock(calId, clickable) {
   const c = (_ca.assigned_calendars || []).find(x => x.object_id === calId);
   const bars = _histBars(_monthsFor(calId), clickable);
-  return `<div class="cal-histblock"><div class="cal-histtitle">${escapeHtml(c ? c.name : '')}</div>
+  const t = ((_ca.by_calendar || {})[calId] || {}).totals || {};
+  const n = v => Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const tot = `<span class="cal-histtot">Working days: <b>${n(t.working_days)}</b> · Non-working days: <b>${n(t.nonworking_days)}</b> · Total working hours: <b>${n(t.working_hours)} hrs</b></span>`;
+  return `<div class="cal-histblock"><div class="cal-histtitle">${escapeHtml(c ? c.name : '')}${tot}</div>
     <div class="cal-whist">${bars || '<span class="cal-muted">No months.</span>'}</div></div>`;
 }
 
@@ -404,13 +434,12 @@ function _histBlock(calId, clickable) {
 // calendar; the net working vs non-working days-per-month histogram follows. Clicking a month's
 // bar opens its full calendar grid; clicking a 2nd chip adds a comparison histogram below.
 function _timelineSection() {
-  const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays + shutdowns)</span><span>▲ number above bar = <b>net working days</b></span></div>`;
+  const hleg = `<div class="cal-whleg"><span><i class="wsw wsw-w"></i>Working days</span><span><i class="wsw wsw-n"></i>Non-working (weekends + holidays)</span><span>▲ number above bar = <b>net working days</b> · number under the month = <b>non-working days</b></span></div>`;
   const detail = _monthDetailHtml();
   const dayLegend = _openMonths.size ? `<div class="cal-legend" style="margin-top:10px">
     <span><i class="dot cs-work"></i>Working</span>
     <span><i class="dot cs-weekend"></i>Weekend</span>
     <span><i class="dot cs-holiday"></i>Holiday</span>
-    <span><i class="dot cs-shutdown"></i>Shutdown</span>
     <span><i class="dot cs-special"></i>Special hours</span></div>` : '';
   const proj = _ca.project || {};
   const hidden = proj.hidden_months || 0;
@@ -418,11 +447,8 @@ function _timelineSection() {
   const hiddenChip = hidden
     ? `<div class="cal-hidden-note">◀ <b>${hidden} earlier month${hidden === 1 ? '' : 's'}</b> hidden — everything before the data date${dd ? ` (${fmtCalDate(dd)})` : ''}</div>`
     : '';
-  const bc = (_ca.by_calendar || {})[_sel] || {};
-  const totHrs = Number((bc.totals && bc.totals.working_hours) || 0)
-    .toLocaleString(undefined, { maximumFractionDigits: 0 });
-  const totLine = `<div class="cal-tothrs">Total working hours (selected calendar): <b>${totHrs} hrs</b></div>`;
-  const compare = _sel2 ? _histBlock(_sel2, false) : '';
+  const totLine = `<div class="cal-tothrs">Pick any number of calendars — each one gets its own histogram. Sections 3 and 4 follow the first one picked.</div>`;
+  const compare = _more.map(id => _histBlock(id, false)).join('');
   return _sec(2, 'Calendar Timeline & Statistics',
       `<span class="cal-sec-note">net working vs non-working days per month · click a month to open its calendar</span>`) +
     _calChips() + totLine +
@@ -447,26 +473,39 @@ function _monthDetailHtml() {
   }).join('');
 }
 
-// Section 3 — Calendar Non-working days (holidays only). One row per holiday DATE (runs are
-// expanded to individual dates with their weekday); the Description is editable via the existing
+// Section 3 — Calendar Non-working days. 3.1 = the non-working days month by month (the
+// histogram's own numbers: weekly rest days + holidays, comment 76); 3.2 = one row per holiday
+// DATE (runs are expanded to individual dates with their weekday, a long run reads 'Shutdown');
+// the Description is editable via the existing
 // cal-reason / saveCalendarSettings({shutdown_reasons}) plumbing. The "+ Add shutdown" capability
 // is preserved as a small demoted affordance below the table.
 function _exceptionsSection() {
   const bc = (_ca.by_calendar || {})[_sel] || {};
   const exc = bc.exceptions || { holidays: [], holiday_dates: [] };
   const hd = exc.holiday_dates || [];
+  const split = monthSplitRows(bc.monthly_stats || []);
+  const restLab = 'Weekly rest days' + ((bc.rest_weekdays || []).length ? ` (${bc.rest_weekdays.map(x => x.slice(0, 3)).join(', ')})` : '');
+  const splitRows = split.map(r => `<tr${r[0] === 'Total' ? ' class="cal-total"' : ''}><td>${escapeHtml(String(r[0]))}</td>${r.slice(1).map(v => `<td class="num">${v}</td>`).join('')}</tr>`).join('');
+  const splitTable = split.length ? `<div class="cal-subttl">3.1 · Non-working days per month</div>
+    <div class="cal-card p0"><table class="cal-table"><thead><tr><th>Month</th><th class="num">Calendar days</th>
+      <th class="num">Working days</th><th class="num">${escapeHtml(restLab)}</th><th class="num">Holidays</th>
+      <th class="num">Total non-working</th></tr></thead><tbody>${splitRows}</tbody>
+      <tfoot><tr><td colspan="6" class="cal-tfoot"><span class="cal-muted">Calendar days = Working days + Weekly rest days + Holidays. Total non-working is the figure drawn in the histogram of section 2.</span></td></tr></tfoot>
+    </table></div>
+    <div class="cal-subttl">3.2 · Holiday dates</div>` : '';
   const rows = hd.map(h =>
     `<tr><td>${fmtCalDate(h.date)}</td><td>${escapeHtml(h.weekday || '')}</td>
      <td><input class="cal-reason" data-key="${escapeHtml(h.key || '')}" value="${escapeHtml(h.reason || '')}" placeholder="Add a description for this holiday…"></td></tr>`).join('');
-  const body = rows || '<tr><td colspan="3" class="cal-empty">No holidays in the project window.</td></tr>';
+  const body = rows || '<tr><td colspan="3" class="cal-empty">No holidays between the Data Date and Project Completion.</td></tr>';
   const addBtn = '<button class="cal-btn sec mini" id="cal-add-shutdown-btn">+ Add shutdown</button>';
   const addForm = `<div id="cal-add-shutdown" class="cal-addform hidden">
       <input type="date" id="cal-sd-start"><span>→</span><input type="date" id="cal-sd-end">
       <input id="cal-sd-reason" placeholder="reason (e.g. Plant turnaround)">
       <button class="cal-btn pri mini" id="cal-sd-save">Add</button></div>`;
-  return _sec(3, 'Calendar Non-working days', '<span class="cal-sec-note">holidays only</span>') +
+  return _sec(3, 'Calendar Non-working days', '<span class="cal-sec-note">Data Date → Project Completion</span>') +
+    splitTable +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
-      <th>Date</th><th>Day</th><th style="width:55%">Description <span class="cal-edit-tag">✎ editable</span></th></tr></thead>
+      <th>Date</th><th>Day</th><th style="width:56%">Description <span class="cal-edit-tag">✎ editable</span></th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr><td colspan="3" class="cal-tfoot">Total holidays: <b>${hd.length}</b> &nbsp;·&nbsp;
         <span class="cal-muted">the Description is editable — type/adjust each holiday's name; saved with the project and printed in the PDF.</span></td></tr></tfoot>
@@ -494,29 +533,27 @@ function _hoursSection() {
 }
 
 // Feature 1 — Calendar Comparison & Usage (merged): each calendar's hours/day, days/week,
-// activities assigned, % of activities, and role.
+// activities assigned, % of activities and non-working days (no Role column — comment 79).
 function _comparisonSection(cmp) {
   const dd = (_ca.dashboard && _ca.dashboard.data_date) ? fmtCalDate(_ca.dashboard.data_date) : '';
   const usage = {};
   (_ca.usage || []).forEach(u => { usage[u.name] = u; });
   const rows = (cmp || []).map(c => {
     const u = usage[c.name] || {};
-    const roleCls = u.role === 'Default' ? 'def' : (u.role === 'Unused' ? 'warn' : '');
     const acts = u.activities != null ? u.activities : 0;
     const pct = (u.role === 'Unused' || u.pct == null) ? (acts ? `${u.pct}%` : '0%') : `${u.pct}%`;
     return `<tr><td>${escapeHtml(c.name)}${c.is_default ? ' <span class="cal-pill mini def">Default</span>' : ''}</td>
      <td class="num">${c.hours_per_day}</td><td class="num">${c.days_per_week}</td>
      <td class="num">${acts}</td><td class="num">${pct}</td>
-     <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td>
-     <td>${u.role ? `<span class="cal-pill mini ${roleCls}">${escapeHtml(u.role)}</span>` : ''}</td></tr>`;
+     <td class="num">${c.nonworking_days != null ? c.nonworking_days : 0}</td></tr>`;
   }).join('');
   return _sec(5, 'Calendar Comparison & Usage') +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
       <th>Calendar</th><th class="num">Hours/Day</th><th class="num">Days/Week</th>
       <th class="num">Assigned to</th><th class="num">% of Activities</th>
-      <th class="num">Non-Working Days</th><th>Role</th></tr></thead>
+      <th class="num">Non-Working Days</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-     <div class="cal-note" style="font-style:normal"><b>% of Activities</b> — share of the schedule's activities on each calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead${dd ? `, from the data date (${dd}) to finish` : ''}. <b>Unused</b> calendars carry 0 activities and can be removed.</div>`;
+     <div class="cal-note" style="font-style:normal"><b>% of Activities</b> — share of the schedule's activities on each calendar. <b>Non-Working Days</b> — weekends and holidays still ahead${dd ? `, from the Data Date (${dd}) to Project Completion${_completion() ? ` (${fmtCalDate(_completion())})` : ''}` : ''}. A calendar with 0 activities is unused and can be removed.</div>`;
 }
 
 function _usageSection(usage) {
@@ -565,7 +602,7 @@ function _weatherControls() {
       <button class="cal-btn pri" id="thr-apply" ${_wxReady() ? '' : 'disabled'} title="${_wxReady() ? '' : 'Pick the Project Type and set the Location first'}">Apply &amp; Recalculate</button>
       <span id="thr-status" class="cal-muted" style="font-size:12px"></span>
     </div>
-    <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday / shutdown) is never double-counted — kept separate from the exact P6 Delay.</div>`;
+    <div class="cal-note" style="margin-top:8px">Each flagged day below shows the measured value against your limit. Applied to <b>construction</b> activities only; a day already off (weekend / holiday) is never double-counted — kept separate from the exact P6 Delay.</div>`;
 }
 
 // The stop-work criteria shown IN FULL — every limit, its value, and what work it stops.
@@ -582,7 +619,7 @@ function _criteriaPanelHtml() {
   return `<div class="cal-crit">
     <div class="cal-crit-top"><span class="cal-crit-t">${meta.icon} ${escapeHtml(meta.label)}${edited ? ' · limits edited' : ''} — what stops work here</span>
       <span class="cal-pill mini def" style="margin-left:auto">criteria in full</span></div>
-    <div class="cal-crit-lead">A construction <b>working</b> day between the data date and finish is a <b>lost day</b> when <b>any</b> limit below is met. Days already off (weekend / holiday / shutdown) are never double-counted.</div>
+    <div class="cal-crit-lead">A construction <b>working</b> day between the data date and finish is a <b>lost day</b> when <b>any</b> limit below is met. Days already off (weekend / holiday) are never double-counted.</div>
     ${rows}
     <div class="cal-crit-any">⚠️ Any one limit met → that day is a lost construction day. These exact limits are carried into the PDF.</div>
   </div>`;
@@ -789,7 +826,7 @@ function _weatherSection() {
       <th>Milestone</th><th>Planned completion</th><th class="num">Bad-weather days before it</th>
       <th class="num">Already in calendar</th><th class="num">Net weather delay</th><th>Weather-adjusted completion</th></tr></thead>
       <tbody>${msRows || '<tr><td colspan="6" class="cal-empty">No milestones found.</td></tr>'}</tbody></table></div>
-     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's weather-adjusted completion (the days it is pushed into are checked too). <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
+     <div class="cal-note" style="font-style:normal"><b>How to read this table:</b> <b>Bad-weather days before it</b> — expected bad-weather days between the data date and the milestone's weather-adjusted completion (the days it is pushed into are checked too). <b>Already in calendar</b> — of those, the ones landing on a day already off (weekend / holiday), so they cost nothing extra. <b>Net weather delay</b> — the rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days weather adds. <i>Example — 6 bad-weather days before finish; 4 already fell on off-days, so only 2 hit working days → +2 working days.</i></div>`;
   // §7 — Conclusion & recovery recommendation: ONE summary of the whole estimate (owner
   // comment 58) — the total weather impact, the second shift that recovers it, the conclusion.
   const rs = recoverySummary(w);
@@ -843,16 +880,16 @@ function _readThresholds() {
 
 // ── wiring ─────────────────────────────────────────────────────────────────
 function _wireCalendar() {
-  // §2 calendar chips: _sel is the primary (main histogram), _sel2 the optional comparison.
-  // Click an unselected chip → it becomes the comparison (2nd histogram); click a selected
-  // chip → toggle it off (primary clicked with a compare present promotes the compare).
+  // §2 calendar chips: _sel is the main calendar (first histogram, drives §3 / §4), _more the
+  // further picked ones. Click an unselected chip → its histogram is added; click a selected
+  // chip → it is taken off (the main one clicked hands over to the next picked calendar).
   document.querySelectorAll('#calendar-body .cal-chip').forEach(chip =>
     chip.addEventListener('click', () => {
       const id = chip.dataset.cal;
       if (!id) return;
-      if (id === _sel) { if (_sel2) { _sel = _sel2; _sel2 = null; } }
-      else if (id === _sel2) { _sel2 = null; }
-      else { _sel2 = id; }
+      if (id === _sel) { if (_more.length) _sel = _more.shift(); }
+      else if (_more.includes(id)) _more = _more.filter(x => x !== id);
+      else _more.push(id);
       _openMonths.clear();
       _renderCalendarBody();
     }));
