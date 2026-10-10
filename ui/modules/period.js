@@ -96,13 +96,10 @@ async function _fetchPreviousSuggestion() {
     if (_prev) return;   // a file was assigned while we were fetching — don't clobber it
     if (data.ok && data.previous) {
       const p = data.previous;
-      el.innerHTML = `<button class="btn-secondary" id="per-use-prev">Use last period · ${escapeHtml(_shortDate(p.data_date))}${p.filename ? ' · ' + escapeHtml(p.filename) : ''}</button>`;
-      // Assign only — this stages the suggested previous update; the comparison runs
-      // when the user clicks Run Comparison.
-      document.getElementById('per-use-prev').addEventListener('click', () => {
-        _prev = { prev_cached_path: p.cached_path };
-        _markPrevAssigned(p.filename || _shortDate(p.data_date));
-      });
+      // Assign only — the earlier import is staged as the previous update straight away, so
+      // Run Comparison is ready to press; the comparison itself runs only on that button.
+      _prev = { prev_cached_path: p.cached_path };
+      _markPrevAssigned(`${_shortDate(p.data_date)}${p.filename ? ' · ' + p.filename : ''}`);
     } else {
       el.innerHTML = `<span class="mut">No earlier import found for this project — pick the previous file →</span>`;
     }
