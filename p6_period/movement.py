@@ -58,34 +58,62 @@ def finish_slip(matched):
     return out
 
 
+def _is_critical(act, data):
+    """P6's own Critical flag for one activity — the flag the parser read with the file's
+    'Define critical activities as' setting (Total Float <= the limit, or the Longest Path);
+    worked out by the same rule when the activity carries no flag."""
+    if act is None:
+        return False
+    if act.get('is_critical') is not None:
+        return bool(act.get('is_critical'))
+    from p6_evm.calendars import p6_is_critical
+    cals = getattr(data, 'calendars', {}) or {}
+    return p6_is_critical(act.get('total_float_days'), _day_hours(cals, act), act.get('status'),
+                          getattr(data, 'project', {}) or {}, act.get('longest_path'))
+
+
 def critical_movement(matched, logic_changed_codes=frozenset(), include=None):
-    """{'rows': [...], 'new_critical': n} — near-critical activities (float <= 10 wd)
-    whose finish slipped this period, or that newly entered the critical path.
+    """The critical activities of the CURRENT update, exactly as P6 flags them (owner:
+    'critical must match P6 exactly') — every activity P6 shows under Critical = Yes with the
+    file's own setting (Total Float <= the critical limit, 0 h unless changed; or the Longest
+    Path). Not a near-critical band, and nothing is left out for not having slipped.
+
+    {'rows': [...], 'new_critical': n, 'critical_now': n, 'critical_prev': n, 'stayed': n,
+     'left': n, 'left_finished': n, 'left_rows': [...]}
 
     Row: activity_id, activity_name, wbs, prev_finish, curr_finish, slip_days, float_days,
     driver ('logic changed' | 'duration extended' | 'progress shortfall' | 'held'),
-    critical_status ('new' | 'stayed'), codes. `include` (set of codes) filters to
-    construction/execution activities. Sorted by slip descending."""
+    critical_status ('new' = not critical in the previous update | 'stayed'), codes.
+    `left_rows` = critical in the previous update, not critical now (finished, or gained
+    float). `include` (set of codes) narrows to those activities. Sorted by slip descending."""
     slips = finish_slip(matched)
     ucals = getattr(matched.update, 'calendars', {}) or {}
     bcals = getattr(matched.baseline, 'calendars', {}) or {}
-    rows, new_critical = [], 0
-    for code in matched.matched_codes:
+    prev_by = getattr(matched, 'baseline_by_code', {}) or {}
+    rows, left_rows, new_critical, critical_prev = [], [], 0, 0
+    for code, b in prev_by.items():
+        if (include is None or code in include) and _is_critical(b, matched.baseline):
+            critical_prev += 1
+    for code, u in (getattr(matched, 'update_by_code', {}) or {}).items():
         if include is not None and code not in include:
             continue
-        b, u = matched.baseline_by_code[code], matched.update_by_code[code]
-        cf, pf = u.get('total_float_days'), b.get('total_float_days')
-        near_now = cf is not None and cf <= NEAR_CRITICAL_WD
-        if not near_now:
+        b = prev_by.get(code)
+        was = _is_critical(b, matched.baseline)
+        cf = u.get('total_float_days')
+        if not _is_critical(u, matched.update):
+            if was:
+                done = (u.get('status') or '').replace(' ', '').lower() == 'completed'
+                left_rows.append({'activity_id': code, 'activity_name': u.get('name', ''),
+                                  'reason': 'Finished' if done else 'Gained float',
+                                  'float_days': round(cf, 1) if (cf is not None and not done) else None,
+                                  'wbs': _deep_wbs(u), 'codes': u.get('activity_codes') or {}})
             continue
-        was_near = pf is not None and pf <= NEAR_CRITICAL_WD
-        newly = not was_near
+        newly = not was
         if newly:
             new_critical += 1
-        slip = slips.get(code)
-        if not (slip and slip > 0) and not newly:
-            continue
-        extended = _orig_days(u, _day_hours(ucals, u)) - _orig_days(b, _day_hours(bcals, b)) > 0.05
+        slip = slips.get(code) if b is not None else None
+        extended = (b is not None and
+                    _orig_days(u, _day_hours(ucals, u)) - _orig_days(b, _day_hours(bcals, b)) > 0.05)
         if code in logic_changed_codes:
             driver = 'logic changed'
         elif extended:
@@ -97,17 +125,97 @@ def critical_movement(matched, logic_changed_codes=frozenset(), include=None):
         rows.append({
             'activity_id': code,
             'activity_name': u.get('name', ''),
-            'prev_finish': _fmt(_finish(b)),
+            'prev_finish': _fmt(_finish(b)) if b is not None else '',
             'curr_finish': _fmt(_finish(u)),
             'slip_days': slip,
             'float_days': round(cf, 1) if cf is not None else None,
+            'prev_float_days': (round(b['total_float_days'], 1)
+                                if (b is not None and b.get('total_float_days') is not None) else None),
             'driver': driver,
             'critical_status': 'new' if newly else 'stayed',
             'wbs': _deep_wbs(u),
             'codes': u.get('activity_codes') or {},   # for the activity-code columns/slicer in exports
         })
     rows.sort(key=lambda r: -(r['slip_days'] or 0))
-    return {'rows': rows, 'new_critical': new_critical}
+    return {'rows': rows, 'new_critical': new_critical, 'critical_now': len(rows),
+            'critical_prev': critical_prev, 'stayed': len(rows) - new_critical,
+            'left': len(left_rows), 'left_finished': sum(1 for r in left_rows if r['reason'] == 'Finished'),
+            'left_rows': left_rows}
+
+
+_SLIP_BANDS = ((1, 7), (8, 14), (15, 21), (22, 28), (29, None))
+
+
+def _slip_bands(rows):
+    """Critical activities counted by how far their finish moved (working days) — bands of
+    7, the last one that holds anything closed at the largest slip ('15 – 17 days')."""
+    slips = [r.get('slip_days') or 0 for r in rows]
+    top = max(slips) if slips else 0
+    out = []
+    early = sum(1 for v in slips if v < 0)
+    held = sum(1 for v in slips if v == 0)
+    if early:
+        out.append({'label': 'Earlier', 'lo': None, 'hi': -1, 'count': early})
+    if held:
+        out.append({'label': 'Did not move', 'lo': 0, 'hi': 0, 'count': held})
+    for lo, hi in _SLIP_BANDS:
+        if lo > top:
+            break
+        n = sum(1 for v in slips if v >= lo and (hi is None or v <= hi))
+        end = top if (hi is None or top <= hi) else hi
+        out.append({'label': f'{lo} day' if (lo == end == 1) else (f'{lo} days' if lo == end else f'{lo} – {end} days'),
+                    'lo': lo, 'hi': end, 'count': n})
+    return out
+
+
+def _grouped(rows, key, top=8):
+    g = {}
+    for r in rows:
+        k = key(r)
+        if not k:
+            continue
+        e = g.setdefault(k, {'value': k, 'count': 0, 'max_slip': 0})
+        e['count'] += 1
+        e['max_slip'] = max(e['max_slip'], r.get('slip_days') or 0)
+    out = sorted(g.values(), key=lambda e: (-e['count'], -e['max_slip'], str(e['value'])))
+    return {'rows': out[:top], 'groups': len(out), 'covered': sum(e['count'] for e in out)}
+
+
+_DRIVER_LABEL = {'progress shortfall': 'Progress shortfall', 'duration extended': 'Duration extended',
+                 'logic changed': 'Logic changed', 'held': 'Finish did not move later'}
+
+
+def critical_summary(crit, code_types=()):
+    """The page in front of the critical-path movement table (owner: 'summarize first'):
+    how many, how far they slipped, why, and where. Read from the SAME rows the table lists,
+    so every count adds up to it. {'total', 'stayed', 'new', 'max_slip', 'bands', 'drivers',
+    'groups': {'WBS'|code type: {'rows': [{value, count, max_slip}], 'groups': n}},
+    'new_rows', 'example'}."""
+    rows = (crit or {}).get('rows') or []
+    new_rows = [r for r in rows if r.get('critical_status') == 'new']
+    drivers = {}
+    for r in rows:
+        drivers[r.get('driver') or ''] = drivers.get(r.get('driver') or '', 0) + 1
+    groups = {'WBS': _grouped(rows, lambda r: r.get('wbs'))}
+    for t in code_types or ():
+        g = _grouped(rows, lambda r, t=t: (r.get('codes') or {}).get(t))
+        if g['rows']:
+            groups[t] = g
+    worst = rows[0] if rows and (rows[0].get('slip_days') or 0) > 0 else None
+    crit = crit or {}
+    return {
+        'total': len(rows), 'stayed': len(rows) - len(new_rows), 'new': len(new_rows),
+        'prev_total': crit.get('critical_prev'), 'left': crit.get('left'),
+        'left_finished': crit.get('left_finished'),
+        'max_slip': max([r.get('slip_days') or 0 for r in rows] or [0]),
+        'bands': _slip_bands(rows),
+        'drivers': [{'key': k, 'label': _DRIVER_LABEL.get(k, k), 'count': n}
+                    for k, n in sorted(drivers.items(), key=lambda kv: -kv[1])],
+        'groups': groups,
+        'new_rows': new_rows,
+        'example': ({k: worst.get(k) for k in ('activity_id', 'activity_name', 'prev_finish', 'curr_finish', 'slip_days')}
+                    if worst else None),
+    }
 
 
 def _critical_wbs_chain(data, include=None):

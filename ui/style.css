@@ -4166,6 +4166,33 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 
 /* ── Update vs Update — c68 comments ───────────────────────────────────────── */
 /* #73 Critical-path movement summary tiles */
+/* Update vs Update round 2 — file boxes, Earned Value, critical summary charts, style cards */
+.per-filebox { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: var(--card-bg); }
+.per-filebox .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.cmp-files .cmp-file .btn-mini { margin-left: 6px; }
+.per-rerun-note:empty { display: none; }
+.per-rerun-note { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--warning); border-radius: 8px; font-size: 12.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kpi .v.per-bad { color: var(--danger); } .kpi .v.per-good { color: var(--success); }
+.per-crit-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; margin: 14px 0 7px; }
+.cmp-kpis.per-kpis5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.per-crit-sub select { font-size: 11.5px; text-transform: none; letter-spacing: 0; }
+.per-crit-split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 900px) { .per-crit-split { grid-template-columns: 1fr; } }
+.per-hist { display: flex; align-items: flex-end; gap: 10px; height: 140px; border-bottom: 1.5px solid var(--muted); padding: 18px 6px 0; }
+.per-hcol { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.per-hcol b { font-size: 12px; margin-bottom: 2px; color: var(--text); } .per-hcol i { display: block; width: 100%; background: var(--chart-1); border-radius: 4px 4px 0 0; }
+.per-hl { display: flex; gap: 10px; padding: 4px 6px 8px; } .per-hl span { flex: 1; text-align: center; font-size: 10.5px; color: var(--muted); }
+.per-hb { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.per-hbl { width: 36%; font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+.per-hbt { flex: 1; height: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.per-hbt i { display: block; height: 100%; background: var(--chart-1); } .per-hbt i.w { background: var(--warning); }
+.per-hbn { width: 96px; font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; } .per-hbn b { color: var(--text); }
+.per-stylecards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0; }
+@media (max-width: 900px) { .per-stylecards { grid-template-columns: 1fr; } }
+.per-stylecard { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--card-bg); cursor: pointer; }
+.per-stylecard.sel { border: 2px solid var(--chart-1); }
+.per-sc-h { font-size: 12.5px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.per-sc-on { float: right; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--chart-1); }
 .per-crit-summary { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
 .per-cs-tile { flex: 1 1 120px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--card-bg); }
 .per-cs-tile span { display: block; font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }

@@ -90,9 +90,49 @@ def recovery_outlook(prev, curr, summary):
     return out
 
 
-def watch_list(curr, threshold=10.0, limit=8):
+def _slipped_predecessors(matched, curr):
+    """Activity IDs that follow an activity whose finish slipped this period. Best-effort —
+    an empty set when there is no previous update to compare or the logic cannot be read."""
+    if matched is None:
+        return set()
+    try:
+        from p6_audit.graph import ScheduleGraph
+        from p6_period.movement import finish_slip
+        slipped = {c for c, v in finish_slip(matched).items() if v and v > 0}
+        acts = getattr(curr, 'activities', {}) or {}
+        graph = ScheduleGraph(curr)
+        out = set()
+        for oid, a in acts.items():
+            for lk in graph.preds_of(oid):
+                p = acts.get(lk.get('other'))
+                if p and p.get('id') in slipped:
+                    out.add(a.get('id'))
+                    break
+        return out
+    except Exception:
+        return set()
+
+
+def _watch_reason(code, fl, threshold, prev_by_code, after_slip):
+    if fl <= 0:
+        return 'On the critical path' + ('' if fl == 0 else f' (Total Float {round(fl, 1)} wd)')
+    pf = (prev_by_code.get(code) or {}).get('total_float_days')
+    if pf is not None and pf > threshold:
+        return f'Float dropped to {round(fl, 1)} wd this period (was {round(pf, 1)})'
+    if code in after_slip:
+        return f'Follows an activity that slipped this period ({round(fl, 1)} wd float)'
+    return f'Near-critical ({round(fl, 1)} wd float)'
+
+
+def watch_list(curr, threshold=10.0, limit=8, matched=None):
     """Near-critical, not-yet-finished activities (float ≤ threshold wd) that will drive
-    the next window — sorted tightest float first. {'rows': [...]}"""
+    the next window — sorted tightest float first. {'rows': [...]}
+
+    `reason` says why each one is listed: on the critical path, its float dropped to the
+    threshold or less in this period, or it follows an activity that slipped this period
+    (the last two need `matched` — the previous update)."""
+    after_slip = _slipped_predecessors(matched, curr)
+    prev_by_code = getattr(matched, 'baseline_by_code', None) or {}
     try:
         from p6_compare.report import _construction_codes
         cons = _construction_codes(curr) or None    # empty detection → don't filter everything out
@@ -113,8 +153,7 @@ def watch_list(curr, threshold=10.0, limit=8):
         start = act.get('remaining_early_start') or act.get('planned_start')
         rows.append({'activity_id': code, 'activity_name': act.get('name', ''),
                      'float_days': round(fl, 1), 'due_to_start': _fmt(start),
-                     'reason': 'On the critical path (0 float)' if fl <= 0
-                               else f'Near-critical ({round(fl, 1)} wd float)',
+                     'reason': _watch_reason(code, fl, threshold, prev_by_code, after_slip),
                      'codes': act.get('activity_codes') or {},   # for export code columns
                      '_start': start})
     rows.sort(key=lambda r: (r['float_days'], r['_start'] or datetime.max))

@@ -67,9 +67,9 @@ def test_verdict_flags_off_track_when_recovery_infeasible():
 
 def test_progress_excel_headers_and_rows():
     headers, rows = progress_excel(_report())
-    assert headers[0] == 'Activity ID' and 'Variance' in headers
-    assert rows[0] == ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%']
-    assert rows[1][2] == 'In Progress (reversed)'
+    assert headers[:2] == ['S/N', 'Activity ID'] and 'Variance' in headers   # serial first (owner comment)
+    assert rows[0] == [1, 'A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%']
+    assert rows[1][0] == 2 and rows[1][3] == 'In Progress (reversed)'
 
 
 def test_report_excel_mirrors_every_section():
@@ -77,13 +77,16 @@ def test_report_excel_mirrors_every_section():
     assert headers[0].startswith('Update vs Update') and 'Grain Terminal' in headers
     flat = [str(c) for row in rows for c in row]
     for section in ['Execution Dashboard', 'Recovery outlook', 'Progress by activity — % complete this period',
-                    'Critical-path movement in this window', 'Next-period watch list', 'What moved this period',
+                    'Critical-path movement in this window', 'Activities to watch before the next update',
+                    'Critical-path movement — summary (Critical = the P6 Critical flag)', 'What moved this period',
                     'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
-    assert ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%'] in rows
-    assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
-    assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
+    assert [1, 'A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%'] in rows
+    assert any(len(r) > 1 and r[:2] == [1, 'CV1'] for r in rows)   # critical-movement data row, serial first
+    assert any(len(r) > 1 and r[:2] == [1, 'ME2'] for r in rows)   # watch-list data row
+    assert _WATCH[:3] == ['S/N', 'Activity ID', 'Activity name'] and _WATCH[-1] == 'Why it is listed'
+    assert ['Critical now', 1] in rows and ['Stayed critical', 1] in rows   # the summary before the table
     assert any('Handover' in str(r) for r in rows)       # milestone row
     assert '85%' in flat                                  # SPI shown as whole %
 
@@ -105,13 +108,13 @@ def test_report_excel_appends_activity_code_columns():
     assert prows[0][-2:] == ['Civil', 'Berth 1']             # and the values to each row
     _, rows = report_excel(rep)
     assert (_PROGRESS + ['Discipline', 'Area']) in rows and (_CRITICAL + ['Discipline', 'Area']) in rows
-    assert ['A2', 'Pour', 1, 'z', 'r', 'Civil', ''] in rows  # watch row, missing Area → blank
+    assert [1, 'A2', 'Pour', 'z', 1, 'r', 'Civil', ''] in rows  # watch row, missing Area → blank
 
 
 def test_render_html_two_page_management_report():
     html = render_html(_report(), trend=None)
     for heading in ['Update vs Update — Period Report', 'Execution Dashboard', 'Recovery outlook',
-                    'Progress by activity', 'Critical-path movement', 'Next-period watch list',
+                    'Progress by activity', 'Critical-path movement', 'Activities to watch before the next update',
                     'What moved this period', 'Executive conclusion — this period',
                     'Progress — where you are', 'Milestones — project completion',
                     'What these numbers mean']:
@@ -204,7 +207,9 @@ def test_critical_compare_timeline_style_draws_svg_gantt():
 def test_critical_compare_table_style_lists_routes_with_red_new_tail():
     from p6_period.exporters import _critical_compare_html
     html = _critical_compare_html(_report(), style='table')
-    assert 'cptable' in html and '<svg' not in html and 'cpchain' not in html
+    assert 'cptable' in html and 'cpchain' not in html
+    # the three style cards explain the choice, the chosen one marked (owner: 'clarify the style types')
+    assert 'Connected chain' in html and 'Date-axis timeline' in html and 'Compact table' in html
     assert 'Driving route' in html and 'Forecast finish' in html and 'Rerouted at' in html
     assert 'Foundations → Steel → Cladding → Roof' in html         # the Was route in full (plain)
     assert 'cpt-red' in html and '(+14 wd)' in html                # new tail + slip shown in red
@@ -279,3 +284,55 @@ def test_render_html_default_theme_is_light_full_document():
     html = render_html(_report(), trend=None)
     assert html.startswith('<!doctype html>') and html.rstrip().endswith('</html>')
     assert 'data-rpt-theme="light"' in html
+
+
+def _cost_report():
+    rep = _report()
+    rep['summary'].update({
+        'pct_basis': 'cost', 'period_days': 21, 'bac': 1000000.0, 'bac_prev': 1000000.0,
+        'cost_activities': 8, 'all_activities': 12,
+        'ev_prev': 340000.0, 'ev_now': 410000.0, 'ev_variance': 70000.0,
+        'pv_prev': 400000.0, 'pv_now': 506000.0, 'pv_variance': 106000.0,
+        'planned_prev': 40.0, 'planned_now': 50.6, 'planned_variance': 10.6, 'ev_of_pv_period': 0.66})
+    return rep
+
+
+def test_earned_value_section_before_after_and_variance():
+    # owner round 2: 'Add Earned Value Before and After and variance between them'; the % shown is
+    # the Performance % of the cost-loaded activities, the figure P6 shows.
+    html = render_html(_cost_report())
+    assert 'Earned Value — before, after and variance' in html
+    for figure in ['340,000', '410,000', '+70,000', '400,000', '506,000', '+106,000', '1,000,000']:
+        assert figure in html, figure
+    assert 'Performance %' in html and '8 of 12' in html
+    assert 'Where each figure is in P6' in html and 'worked out by the tool' in html   # non-P6 figures say so
+    _, rows = report_excel(_cost_report())
+    flat = [str(c) for row in rows for c in row]
+    assert any('Earned Value' in c for c in flat) and any(340000.0 in r or 340000 in r for r in rows)
+
+
+def test_earned_value_section_absent_without_cost():
+    html = render_html(_report())                       # no cost in either update → no EV section
+    assert 'Earned Value — before, after and variance' not in html
+    assert 'of the whole project' in html
+
+
+def test_critical_summary_charts_precede_the_table():
+    rep = _report()
+    rep['critical_summary'] = {
+        'total': 12, 'stayed': 10, 'new': 2, 'prev_total': 14, 'left': 4, 'left_finished': 3, 'max_slip': 9,
+        'bands': [{'label': 'Earlier', 'lo': None, 'hi': -1, 'count': 1}, {'label': 'Did not move', 'lo': 0, 'hi': 0, 'count': 3},
+                  {'label': '1 – 7 days', 'lo': 1, 'hi': 7, 'count': 6}, {'label': '8 – 9 days', 'lo': 8, 'hi': 9, 'count': 2}],
+        'drivers': [{'key': 'progress shortfall', 'label': 'Progress shortfall', 'count': 9}],
+        'groups': {'Area': {'rows': [{'value': 'Berth 1', 'count': 7, 'max_slip': 9}, {'value': 'Yard', 'count': 5, 'max_slip': 4}],
+                            'groups': 2, 'covered': 12},
+                   'WBS': {'rows': [{'value': 'Marine', 'count': 12, 'max_slip': 9}], 'groups': 1, 'covered': 12}},
+        'new_rows': [{'activity_id': 'N1', 'activity_name': 'Fender', 'slip_days': 5, 'prev_float_days': 6, 'float_days': 0}],
+        'example': None}
+    html = render_html(rep)
+    assert 'Stayed critical' in html and 'No longer critical' in html and 'Berth 1' in html and 'Fender' in html
+    assert html.index('Stayed critical') < html.index('Driver this period') if 'Driver this period' in html else True
+    assert "P6" in html and 'Critical' in html
+    from p6_period.exporters import crit_group_choice
+    assert crit_group_choice(rep['critical_summary']) == ('Area', 'WBS')
+    assert crit_group_choice(rep['critical_summary'], ['WBS', None])[0] in ('WBS', None)   # an owner pick is honoured

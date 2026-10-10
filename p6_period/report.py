@@ -8,7 +8,7 @@ in critical-path movement, what-moved buckets, the conclusion and the milestone 
 from p6_compare.model import MatchedSchedules
 from p6_period.progress import activity_progress, period_summary, progress_by_code
 from p6_period.scurve import period_scurve
-from p6_period.movement import (critical_movement, buckets, milestone_drift,
+from p6_period.movement import (critical_movement, critical_summary, buckets, milestone_drift,
                                 driving_path, period_plan_counts)
 from p6_period.outlook import schedule_adherence, recovery_outlook, watch_list
 
@@ -45,17 +45,20 @@ def _conclusion(summary, crit, buck):
         kept = f" — keeping {round(ach * 100)}% of its own commitment" if ach is not None else ''
         parts.append(
             f"This period the project earned {_sign_pct(earned)} against the +{fc:.1f}% it forecast "
-            f"last period{kept}, reaching {s['actual_now']:.0f}% where the previous update projected "
-            f"{s['forecast_at_now']:.0f}%.")
+            f"last period{kept}, reaching {s['actual_now']:.1f}% where the previous update projected "
+            f"{s['forecast_at_now']:.1f}%.")
     else:
-        parts.append(f"This period the project moved from {s['actual_prev']:.0f}% to "
-                     f"{s['actual_now']:.0f}% ({_sign_pct(earned)}).")
+        parts.append(f"This period the project moved from {s['actual_prev']:.1f}% to "
+                     f"{s['actual_now']:.1f}% ({_sign_pct(earned)}).")
     slip = s['finish_slip_days']
     if slip:
         drv = crit['rows'][0] if crit['rows'] else None
         because = f", driven mainly by {drv['activity_id']} ({drv['activity_name']})" if drv else ''
         verb = 'slipped' if slip > 0 else 'pulled in'
         parts.append(f"The forecast completion {verb} {abs(slip)} days to {s['forecast_finish_now']}{because}.")
+    if s.get('ev_variance') is not None:
+        parts.append(f"Earned Value moved from {s['ev_prev']:,.0f} to {s['ev_now']:,.0f} "
+                     f"({'+' if s['ev_variance'] > 0 else ''}{s['ev_variance']:,.0f}).")
     if crit['new_critical']:
         n = crit['new_critical']
         parts.append(f"{n} activit{'y' if n == 1 else 'ies'} entered the critical path.")
@@ -68,7 +71,8 @@ def _conclusion(summary, crit, buck):
 def _project_conclusion(summary, crit, recovery=None):
     """Overall project status + outlook — distinct from the this-period conclusion."""
     s = summary
-    head = f"Overall the project stands at {s['actual_now']:.0f}% complete, forecasting completion on {s['forecast_finish_now']}"
+    what = 'Performance % (Earned Value ÷ Budget of the cost-loaded activities)' if s.get('pct_basis') == 'cost' else 'complete'
+    head = f"Overall the project stands at {s['actual_now']:.1f}% {what}, forecasting completion on {s['forecast_finish_now']}"
     if s['delay_now'] is not None:
         head += f" — {s['delay_now']} working days behind the baseline"
     parts = [head + '.']
@@ -156,7 +160,8 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     dd_prev = (getattr(prev, 'project', {}) or {}).get('data_date')
     dd_now = (getattr(curr, 'project', {}) or {}).get('data_date')
     logic_changed = _logic_changed_codes(matched, curr)
-    crit = critical_movement(matched, logic_changed, include=cons)
+    # every activity P6 flags Critical — not narrowed to construction, so the count is P6's own
+    crit = critical_movement(matched, logic_changed)
     buck = buckets(matched, dd_now, logic_changed, include=cons)
     cp = driving_path(matched, include=cons)
     plan_counts = period_plan_counts(matched, dd_prev, dd_now, include=cons)
@@ -164,7 +169,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
                                summary['period_earned'], summary['period_forecast'], include=cons)
     adherence = schedule_adherence(matched, dd_prev, dd_now)
     recovery = recovery_outlook(prev, curr, summary)
-    watch = watch_list(curr)
+    watch = watch_list(curr, matched=matched)
     milestones = milestone_drift(matched)
     conclusion = _conclusion(summary, crit, buck)
     project_conclusion = _project_conclusion(summary, crit, recovery)
@@ -192,6 +197,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'progress': progress,
         'scurve': scurve,
         'critical_movement': crit,
+        'critical_summary': critical_summary(crit, list(getattr(curr, 'activity_code_types', []) or [])),
         'critical_path': cp,
         'plan_counts': plan_counts,
         'progress_by_code': by_code,

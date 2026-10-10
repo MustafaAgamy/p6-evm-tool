@@ -2956,7 +2956,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_period.exporters import render_html
             import subprocess, tempfile
             html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode,
-                                       theme=report_theme.normalize(body.get('theme')))
+                                       theme=report_theme.normalize(body.get('theme')),
+                                       critical_group=body.get('critical_group'))
             if preview:
                 self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return

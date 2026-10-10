@@ -319,7 +319,7 @@ def test_update_vs_update_extra_sheets():
     prev, cur = sheets['Critical Path']
     assert prev['rows'] == [[1, 'P-1', 'Drill piles', 'Piles', '2026-07-19', '2026-09-06']]
     assert cur['rows'] == [[1, 'C-1', 'Pour raft', 'Raft', '', '']]
-    assert sheets['What Moved'][0]['rows'] == [['Finished', 'F-1', 'Done one'], ['Slipped', 'S-9', 'Late one']]
+    assert sheets['What Moved'][0]['rows'] == [[1, 'Finished', 'F-1', 'Done one'], [1, 'Slipped', 'S-9', 'Late one']]   # serial first, restarting in each group
     assert report_excel_extra_sheets({}) == [] and report_excel_extra_sheets(None) == []
 
 
