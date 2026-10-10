@@ -79,7 +79,7 @@ def test_valid_xlsx_with_expected_sheet_titles_and_numeric_cell(tmp_path):
     # indented child name carried its leading spaces
     assert any(s.strip() == 'Detailed Design' and s != 'Detailed Design' for s in shared)
     # headers present
-    assert 'Planned %' in shared and 'Delay (days)' in shared
+    assert 'Planned %' in shared and 'Delay (Calendar days)' in shared
 
     # 4) a numeric percent cell (80.0) is written as a number, not text
     sheet_xml = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
@@ -87,8 +87,8 @@ def test_valid_xlsx_with_expected_sheet_titles_and_numeric_cell(tmp_path):
     import re
     # numeric cells have no t="s"/t="inlineStr"; assert 80 appears as a bare <v>
     assert re.search(r'<v>80(\.0+)?</v>', sheet_xml), 'expected numeric planned % cell'
-    # Delay for Construction = 2026-11-30 − 2026-10-01 = 60 days, numeric
-    assert re.search(r'<v>60</v>', sheet_xml), 'expected numeric delay cell (60 days)'
+    # Delay (Calendar days) for Construction = baseline 2026-10-01 − expected 2026-11-30 = −60, numeric
+    assert re.search(r'<v>-60</v>', sheet_xml), 'expected numeric delay cell (-60 calendar days)'
 
 
 def test_empty_data_returns_no_data_sheet_never_crashes(tmp_path):

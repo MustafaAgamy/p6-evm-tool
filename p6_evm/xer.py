@@ -230,6 +230,7 @@ def _parse_xer(path):
         data.wbs[w.get('wbs_id')] = {
             'name': w.get('wbs_name'),
             'parent_object_id': None if (root_id and parent == root_id) else parent,
+            'seq': w.get('seq_num'),                    # P6's own order among siblings
         }
 
     # ── Activity codes: dimension names + per-task assignments ──────────────
@@ -440,6 +441,12 @@ def _read_embedded_baseline(tables, bl_proj_id, data):
         data.baseline_by_id[t.get('task_code')] = {
             'planned_start': _dt(t.get('target_start_date')),
             'planned_finish': _dt(t.get('target_end_date')),
+        }
+        if not hasattr(data, 'baseline_dates_by_id'):
+            data.baseline_dates_by_id = {}
+        data.baseline_dates_by_id[t.get('task_code')] = {   # P6's BL Project Start / Finish (view-only)
+            'start': _dt(t.get('act_start_date')) or _dt(t.get('restart_date')) or _dt(t.get('target_start_date')),
+            'finish': _dt(t.get('act_end_date')) or _dt(t.get('reend_date')) or _dt(t.get('target_end_date')),
         }
     bac_by_code = {}
     for ra in tables.get('TASKRSRC', []):

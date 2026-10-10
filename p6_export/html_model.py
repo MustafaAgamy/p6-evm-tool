@@ -115,6 +115,7 @@ class Cell:
     header: bool = False
     size_pt: float = None
     bar: dict = None               # a Gantt bar cell (data-export="bar") — drawn, not written
+    indent_pt: float = 0.0         # a hierarchy step (inline padding-left) — the WBS levels of a table
 
     @property
     def text(self):
@@ -797,9 +798,18 @@ class _Walker:
         except ValueError:
             rowspan = 1
         bar = self.bar_of(c) if c.get('data-export') == 'bar' else None
+        # a WBS level written as an inline padding-left stays a step in Word (the PDF indents it)
+        m = re.search(r'(?:^|;)\s*padding-left\s*:\s*([\d.]+)px', c.get('style') or '')
+        indent = max(0.0, float(m.group(1)) - 8.0) * 0.75 if m else 0.0
+        # a cell the report never wraps (a date with its 'A', a number with its unit) stays on one line
+        if not bar and str(st.get('white-space', 'normal')).strip().startswith('nowrap')                 and C.tag_of(c) != 'th' and len(runs_text(runs)) <= 24:
+            for r in runs:
+                if r.text and not r.br:
+                    r.text = r.text.replace(' ', ' ').replace('-', '‑')
         return Cell(runs=[] if bar else runs, bg=bg, color=self.color_hex(c), bold=st.is_bold(),
                     italic=st.is_italic(), align=_align(st), colspan=colspan, rowspan=rowspan,
-                    header=is_header or C.tag_of(c) == 'th', size_pt=_pt(st.font_px()), bar=bar)
+                    header=is_header or C.tag_of(c) == 'th', size_pt=_pt(st.font_px()), bar=bar,
+                    indent_pt=indent)
 
     @staticmethod
     def _pct(el, prop):
@@ -809,14 +819,19 @@ class _Walker:
     def bar_of(self, c):
         """A Gantt time-line cell → {'scale': [(left %, label, hex)]} for the header, or
         {'track', 'bar': (left %, width %, hex), 'fill': (width % of the bar, hex),
-         'ms': (left %, hex), 'dd': (left %, hex)} for a row.  Colours come from the report's
-        own CSS, so Word draws what the PDF prints.  Never raises."""
+         'ms': (left %, hex), 'dd': (left %, hex)} for a row.  A row drawn as two bars (the WBS
+        report) adds 'base' / 'slip' / 'line': (left %, width %, hex) from its <i data-g>, 'mss':
+        every diamond, and 'label': (text, side) from its <em data-g="label">.  Colours come from
+        the report's own CSS, so Word draws what the PDF prints.  Never raises."""
         out = {}
         try:
             if C.tag_of(c) == 'th' or c.find('.//span') is not None and c.find('.//b') is None:
                 out['scale'] = [(self._pct(s, 'left') or 0.0, _norm_ws(s.text_content()).strip(),
                                  self.color_hex(s)) for s in c.iter('span')
                                 if C.is_element(s) and (s.text_content() or '').strip()]
+                # which row of the scale each label sits on (months alternate rows, a year has its own)
+                out['scale_rows'] = [int(s.get('data-r') or 0) for s in c.iter('span')
+                                     if C.is_element(s) and (s.text_content() or '').strip()]
                 return out
             for el in c.iter():
                 if not C.is_element(el):
@@ -832,10 +847,16 @@ class _Walker:
                     width = self._pct(el, 'width')
                     if width is None:
                         out['ms'] = (left, self.own_bg_hex(el) or self.color_hex(el))
+                        out.setdefault('mss', []).append(out['ms'])
                     else:
                         out['bar'] = (left, width, self.own_bg_hex(el))
                 elif tag == 's':
                     out['fill'] = (self._pct(el, 'width') or 0.0, self.own_bg_hex(el))
+                elif tag == 'i' and el.get('data-g') in ('base', 'slip', 'line'):
+                    out[el.get('data-g')] = (self._pct(el, 'left') or 0.0, self._pct(el, 'width') or 0.0,
+                                             self.own_bg_hex(el))
+                elif tag == 'em' and el.get('data-g') == 'label':
+                    out['label'] = (_norm_ws(el.text_content()).strip(), el.get('data-side') or 'r')
         except Exception:
             return out or {}
         return out
@@ -853,6 +874,12 @@ class _Walker:
                 ws.append(self._pct_or_px(w))
             if all(w for w in ws):
                 return self._norm(ws)
+            # '%' widths with ONE column left open (the time line takes the rest of the page)
+            raw = [str(c.get('width') or self.r.style(c).get('width') or '').strip() for c in cols]
+            if sum(1 for w in ws if not w) == 1 and all(r.endswith('%') for r, w in zip(raw, ws) if w):
+                rest = 100.0 - sum(w for w in ws if w)
+                if rest > 2.0:
+                    return self._norm([w or rest for w in ws])
         est = [0.0] * n
         for ri, r in enumerate(rows):
             ci = 0
@@ -863,7 +890,8 @@ class _Walker:
                         longest = max((len(w) for w in t.split()), default=1)
                         est[ci] = max(est[ci], min(18.0, longest + 1.0))
                     else:
-                        est[ci] = max(est[ci], min(42.0, len(t) + 1.0))
+                        # a cell kept on one line (non-breaking text) needs the room for all of it
+                        est[ci] = max(est[ci], min(42.0, len(t) * (1.35 if ' ' in t or '‑' in t else 1.0) + 1.0))
                 ci += cell.colspan
         est = [max(3.5, e) for e in est]
         bar_cols = set()
@@ -878,6 +906,32 @@ class _Walker:
             others = sum(e for i, e in enumerate(est) if i not in bar_cols)
             for i in bar_cols:
                 est[i] = max(est[i], others * 0.5 / len(bar_cols))
+        # widths the report gives its header cells in % (WBS column, time line) are kept as printed
+        try:
+            fixed = {}
+            first = next((tr for tr in el.iter('tr')), None)
+            ci = 0
+            for c in (first if first is not None else []):
+                if not C.is_element(c) or C.tag_of(c) not in ('th', 'td'):
+                    continue
+                try:
+                    cs = max(1, int(c.get('colspan') or 1))
+                except ValueError:
+                    cs = 1
+                w = str(self.r.style(c).get('width') or '').strip()
+                if cs == 1 and w.endswith('%') and ci < n:
+                    try:
+                        fixed[ci] = float(w[:-1])
+                    except ValueError:
+                        pass
+                ci += cs
+            tot_fixed = sum(fixed.values())
+            if fixed and len(fixed) < n and 0 < tot_fixed < 90:
+                free = sum(e for i, e in enumerate(est) if i not in fixed) or 1.0
+                return self._norm([fixed[i] if i in fixed else e * (100.0 - tot_fixed) / free
+                                   for i, e in enumerate(est)])
+        except Exception:
+            pass
         return self._norm(est)
 
     @staticmethod

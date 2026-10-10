@@ -96,6 +96,25 @@ def _excel_meta(title, src=None, snapshot_id=None, **extra):
     return {'app': APP_NAME, 'title': title, 'context': ctx}
 
 
+def _report_name(snapshot_id):
+    """The planner's own report name for a schedule ('' when none). It belongs to that one
+    import only: a re-import or the next update starts with the name in the P6 file (owner)."""
+    try:
+        v = db.get_snapshot_ui_state(snapshot_id, 'report_name')
+        return str(v.get('name') or '') if isinstance(v, dict) else ''
+    except Exception:
+        return ''
+
+
+def _apply_report_name(result, snapshot_id):
+    """Show the planner's own name in place of the P6 project name: ``project_name`` is what
+    every screen and report prints, ``p6_project_name`` keeps the name in the P6 file."""
+    result['p6_project_name'] = result.get('project_name') or ''
+    result['report_name'] = _report_name(snapshot_id) if snapshot_id else ''
+    if result['report_name']:
+        result['project_name'] = result['report_name']
+
+
 def _schedule_for(path, body=None, snapshot_key='snapshot_id', cached_key='cached_path',
                   fallback_baseline=None):
     """The open schedule with its baseline resolved the ONE way every feature uses
@@ -527,6 +546,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_report(body)
         elif self.path == '/api/narrative':
             self._handle_narrative(body)
+        elif self.path == '/api/report-name':               # the planner's own report name (DB)
+            self._handle_report_name(body)
         elif self.path == '/api/narrative/setup':           # Narrative project setup (DB)
             self._handle_narrative_setup(body)
         elif self.path == '/api/narrative/choices':
@@ -1159,7 +1180,7 @@ class Handler(BaseHTTPRequestHandler):
             # from Recent Projects shows the same Gantt / WBS with no re-parse.
             try:
                 from p6_evm.schedule_view import gantt_activities
-                safe_result['activities'] = gantt_activities(result['records'], data.wbs)
+                safe_result['activities'] = gantt_activities(result['records'], data.wbs, data)
             except Exception as gantt_exc:
                 safe_result['activities'] = []
                 print(f'[gantt] slim activities skipped: {gantt_exc}', file=sys.stderr)
@@ -1170,6 +1191,22 @@ class Handler(BaseHTTPRequestHandler):
                 safe_result['wbs_summary'] = []
                 safe_result['wbs_main'] = []
                 print(f'[wbs] summary skipped: {wbs_exc}', file=sys.stderr)
+            # Overview: Planned % / Actual % / PV / EV / SPI from the cost-loaded activities
+            # only, and the same activities grouped by WBS and by each activity code
+            try:
+                from p6_evm.schedule_view import cost_loaded_overview, progress_groups
+                from p6_evm.schedule_view import critical_records, uncosted_progress
+                safe_result['uncosted'] = uncosted_progress(result['records'], data)
+                # the WBS summarised over the CRITICAL activities only - what P6 shows with its
+                # Critical filter on (bands of the Gantt, and the WBS screen's 'Critical' view)
+                safe_result['wbs_critical'] = wbs_views(critical_records(result['records']), data)[0]
+                safe_result['cost_loaded'] = cost_loaded_overview(result['records'])
+                safe_result['progress_groups'] = progress_groups(result['records'], data)
+            except Exception as cl_exc:
+                safe_result['cost_loaded'] = None
+                safe_result['progress_groups'] = []
+                safe_result.setdefault('wbs_critical', [])
+                print(f'[overview] cost-loaded figures skipped: {cl_exc}', file=sys.stderr)
 
             code_types = list(getattr(data, 'activity_code_types', []) or [])
             safe_result['activity_code_types'] = code_types
@@ -1265,12 +1302,17 @@ class Handler(BaseHTTPRequestHandler):
                 'has_embedded_baseline': safe_result.get('has_embedded_baseline'),
             })
             try:                                   # the Gantt / WBS views stay with the snapshot
-                db.save_snapshot_views(sid, {k: safe_result.get(k) or [] for k in
-                                             ('activities', 'wbs_summary', 'wbs_main')})
+                views = {k: safe_result.get(k) or [] for k in
+                         ('activities', 'wbs_summary', 'wbs_main', 'progress_groups', 'wbs_critical')}
+                views['cost_loaded'] = safe_result.get('cost_loaded')
+                views['uncosted'] = safe_result.get('uncosted')
+                views['v'] = 12                      # layout of the stored views (see _snapshot_views)
+                db.save_snapshot_views(sid, views)
             except Exception as view_exc:
                 print(f'[views] not stored: {view_exc}', file=sys.stderr)
             # ──────────────────────────────────────────────────────────────
 
+            _apply_report_name(safe_result, sid)
             return {'ok': True, 'result': safe_result, 'cached_path': cached_path,
                     'previous_import': prior_import, 'snapshot_id': sid}
 
@@ -1653,7 +1695,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.schedule_excel import schedule_excel
             from p6_evm.xlsx_writer import write_sections_xlsx
             write_sections_xlsx(os.path.abspath(output_path), schedule_excel(result),
-                                meta=_excel_meta('Schedule (Gantt)', result))
+                                meta=_excel_meta('Critical Activities (Gantt)', result))
             self._json(200, {'ok': True})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -2933,14 +2975,16 @@ class Handler(BaseHTTPRequestHandler):
         """The Schedule (Gantt) rows and WBS tree stored with a snapshot. A snapshot imported
         before these were stored is built ONCE from its cached file (parse + compute, metrics
         untouched) and stored, so every later open reads the DB only."""
-        empty = {'activities': [], 'wbs_summary': [], 'wbs_main': []}
+        empty = {'activities': [], 'wbs_summary': [], 'wbs_main': [], 'progress_groups': [], 'wbs_critical': []}
         if not snapshot_id:
-            return empty
+            return dict(empty, cost_loaded=None)
         views = db.get_snapshot_views(snapshot_id)
-        if views is None:
+        stored = views
+        # a snapshot stored before the cost-loaded Overview figures existed is rebuilt once too
+        if views is None or 'cost_loaded' not in views or views.get('v') != 12:
             src = db.get_snapshot_source(snapshot_id)
             if not src:
-                return empty
+                return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
             try:
                 sys.path.insert(0, resource_path('.'))
                 from p6_evm.metrics import compute
@@ -2952,11 +2996,12 @@ class Handler(BaseHTTPRequestHandler):
                 config['categories'] = auto_categories(data)
                 rr = compute(data, config, classifier=build_wbs_classifier(data))
                 views = build_views(rr['records'], data)
+                views['v'] = 12
                 db.save_snapshot_views(snapshot_id, views)
             except Exception as exc:
                 print(f'[views] snapshot {snapshot_id} not rebuilt: {exc}', file=sys.stderr)
-                return empty
-        return {k: views.get(k) or [] for k in empty}
+                return dict({k: (stored or {}).get(k) or [] for k in empty}, cost_loaded=None)
+        return dict({k: views.get(k) or [] for k in empty}, cost_loaded=views.get('cost_loaded'), uncosted=views.get('uncosted'))
 
     def _handle_project_load(self, body):
         """Return stored metrics for a project without re-parsing the XML."""
@@ -3053,6 +3098,7 @@ class Handler(BaseHTTPRequestHandler):
         if e1_rows:                          # re-apply E1 rollup so a re-opened project matches
             from p6_evm.e1_rollup import e1_extras
             result['e1_extras'] = e1_extras(e1_rows, list((result.get('categories') or {}).keys()))
+        _apply_report_name(result, snapshot_id)
         self._json(200, {'ok': True, 'result': result, 'snapshot_id': snapshot_id,
                          'cached_path': cached_path, 'original_path': original_path})
 
@@ -3811,6 +3857,20 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── /api/narrative/setup ────────────────────────────────────────────────
     _NARRATIVE_SETUP_MAX = 40 * 1024 * 1024      # JSON chars: logos + a large layout drawing
+
+    def _handle_report_name(self, body):
+        """The name the planner typed for one imported schedule - shown in place of the P6
+        project name on screen and in the PDF, Word and Excel reports. {snapshot_id} -> {ok, name};
+        {snapshot_id, name} saves ('' clears). Kept per schedule in snapshot_ui_state and
+        carried to the project's next update; projects.name and the P6 file are untouched."""
+        sid = body.get('snapshot_id') if isinstance(body, dict) else None
+        if not sid or not db.get_project_id_for_snapshot(sid):
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        if 'name' in body:
+            name = ' '.join(str(body.get('name') or '').split())[:120]
+            db.save_snapshot_ui_state(sid, 'report_name', {'name': name})
+        self._json(200, {'ok': True, 'name': _report_name(sid)})
 
     def _handle_narrative_setup(self, body):
         """The Baseline Narrative project setup (parties, contract details, logos, layout

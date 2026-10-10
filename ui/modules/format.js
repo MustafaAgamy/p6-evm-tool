@@ -43,3 +43,25 @@ export function kpiColor(val, type) {
   }
   return 'color-neutral';
 }
+
+// The time scale of a printed Gantt / WBS: EVERY month written out (Jan, Feb, ...), upright; the
+// months alternate between two rows when they would touch, and each year is written on its own
+// row where it starts. data-r = the row (0 / 1 months, 1 / 2 years) - the Word export reads it too.
+export function monthScaleHtml(minMs, maxMs, posFn) {
+  const list = [];
+  const t = new Date(minMs); t.setDate(1); t.setHours(0, 0, 0, 0);
+  if (t.getTime() < minMs) t.setMonth(t.getMonth() + 1);
+  for (; t.getTime() <= maxMs; t.setMonth(t.getMonth() + 1)) list.push(new Date(t));
+  const stagger = list.length > 9;
+  let html = '', lastYear = null;
+  list.forEach((d, i) => {
+    const left = posFn(d.getTime()).toFixed(2);
+    html += `<span data-r="${stagger && i % 2 ? 1 : 0}" style="left:${left}%">${_MON[d.getMonth()]}</span>`;
+    if (d.getFullYear() !== lastYear) {
+      lastYear = d.getFullYear();
+      if (i === 0 && d.getMonth() >= 10 && list.length > 2) return;
+      html += `<span class="yr" data-r="${stagger ? 2 : 1}" style="left:${left}%">${lastYear}</span>`;
+    }
+  });
+  return html;
+}

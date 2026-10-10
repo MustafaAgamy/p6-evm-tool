@@ -7,6 +7,8 @@ import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult }      from './calenda
 import { lagExportFilter }                                       from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
+import { overviewGroupKey, overviewHideZero, wbsCriticalMode }   from './overview.js';
+import { ganttCodeColumn, ganttCodeFilter }                      from './gantt.js';
 
 async function apiFetch(path, options) {
   const resp = await fetch(`http://localhost:${state.serverPort}/${path}`, options);
@@ -737,6 +739,8 @@ export async function exportOverviewExcel() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ report: { result: state.currentResult, meta: moduleMeta(),
+        progress_group: overviewGroupKey(),       // the 'Show by' grouping picked on screen
+        hide_zero: overviewHideZero(),            // 'Hide Planned 0 % and Actual 0 %' as ticked on screen
         // '· approx' + the 'Baseline:' line exactly as the screen shows them (R2)
         baseline_approx: baselineApprox(state.currentResult, state.currentXmlPath),
         baseline_line: baselineApproxLine(state.currentResult, state.currentXmlPath) }, output_path: outputPath }),
@@ -763,10 +767,17 @@ export async function exportWbsExcel() {
     const outputPath = await window.pywebview.api.choose_save_path('wbs_summary.xlsx', 'xlsx');
     if (!outputPath) { btn.reset(); return; }
     const report = {
-      wbs_summary: r.wbs_summary,
-      wbs_main:    r.wbs_main,
+      // the view on screen: every activity, or the critical activities only (P6's Critical filter)
+      wbs_summary: (wbsCriticalMode() && (r.wbs_critical || []).length) ? r.wbs_critical : r.wbs_summary,
+      wbs_main:    (wbsCriticalMode() && (r.wbs_critical || []).length)
+        ? (r.wbs_main || []).filter((m) => r.wbs_critical.some((n) => n.id === m.id)) : r.wbs_main,
       project_name: r.project_name,
       data_date:   r.data_date,
+      uncosted:    r.uncosted,
+      // the milestones of each main WBS (its Milestone Progress chart in the report)
+      milestones:  (r.activities || []).filter((x) => x.milestone).map((x) => ({
+        id: x.id, name: x.name, wbs_top: x.wbs_top, wbs_top_id: x.wbs_top_id, baseline_finish: x.baseline_finish,
+        planned_finish: x.planned_finish, finish: x.finish, finish_actual: x.finish_actual })),
       baseline_approx: baselineApprox(r, state.currentXmlPath),        // as the screen marks it (R2)
       baseline_line: baselineApproxLine(r, state.currentXmlPath),
     };
@@ -783,13 +794,13 @@ export async function exportWbsExcel() {
   }
 }
 
-// Schedule (Gantt) (schedule) — posts the held slim per-activity list; the
+// Critical Activities (Gantt) (schedule) — posts the held slim per-activity list; the
 // exporter groups it by top-level WBS exactly like the on-screen Gantt.
 export async function exportScheduleExcel() {
   const r = state.currentResult;
   if (!r || !(r.activities && r.activities.length)) {
     showError(r ? 'This project has no activity timeline to export — import the schedule again to rebuild the Gantt.'
-      : 'Import a P6 schedule and open Schedule (Gantt) first.'); return;
+      : 'Import a P6 schedule and open Critical Activities (Gantt) first.'); return;
   }
   const btn = new ButtonState(document.getElementById('sched-excel-btn'), 'Export to Excel');
   btn.loading('Exporting…');
@@ -800,7 +811,7 @@ export async function exportScheduleExcel() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ result: { activities: r.activities, data_date: r.data_date, project_name: r.project_name,
-        activity_count: r.activity_count }, output_path: outputPath }),
+        activity_count: r.activity_count, code_column: ganttCodeColumn(), code_filter: ganttCodeFilter(r), wbs_critical: r.wbs_critical }, output_path: outputPath }),
     });
     if (!data.ok) { showError(`Excel export failed: ${data.error}`); btn.reset(); }
     else          { btn.success('✓ Excel Saved'); }

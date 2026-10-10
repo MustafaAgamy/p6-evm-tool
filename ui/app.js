@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const NAV = [
     { node: { id:'home', label:'Import a schedule', icon:'home' } },
     { group:'Project Overview', items:[
-      ['overview','Overview','overview'], ['wbs','WBS','wbs'], ['schedule','Schedule (Gantt)','sched'],
+      ['overview','Overview','overview'], ['wbs','WBS','wbs'], ['schedule','Critical Activities (Gantt)','sched'],
     ]},
     { group:'Schedule Quality', items:[
       ['audit','Schedule Health'], ['narrative','Baseline Narrative','doc'], ['lag','Lag Report'],
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const CRUMB = { home:'Home', recent:'Recent Projects', kb:'Knowledge Base', evm:'Earned Value',
     audit:'Schedule Health', oos:'Out of Sequence', calendar:'Calendars', construct:'Constructability',
     compare:'Consultant Review', revcompare:'Baseline Revision Comparison', lag:'Lag Report', period:'Update vs Update', critpath:'Critical Path',
-    update:'Update Analysis', special:'Reporting Studio', overview:'Overview', schedule:'Schedule (Gantt)', wbs:'WBS',
+    update:'Update Analysis', special:'Reporting Studio', overview:'Overview', schedule:'Critical Activities (Gantt)', wbs:'WBS',
     narrative:'Baseline Narrative', prodintel:'Productivity & Resource Intelligence',
     weather:'Bad Weather', chat:'AI Chat' };
   const navTree = document.getElementById('nav-tree');
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     evm:       { title:'Earned Value',            icon:'evm',       verb:'Run EVM Analysis',      desc:'Planned vs earned value, SPI / CPI and finish delay from this update.' },
     overview:  { title:'Overview',                icon:'overview',  verb:'Show Overview',         desc:'A one-page snapshot of progress and category performance.' },
     wbs:       { title:'WBS Summary',             icon:'wbs',       verb:'Show WBS Summary',      desc:'Work-breakdown rollup with baseline dates and a timeline.' },
-    schedule:  { title:'Schedule (Gantt)',        icon:'sched',     verb:'Show Gantt',            desc:'A time-scaled Gantt of the activities, grouped by WBS.' },
+    schedule:  { title:'Critical Activities (Gantt)',        icon:'sched',     verb:'Show Gantt',            desc:'A time-scaled Gantt of the activities, grouped by WBS.' },
     audit:     { title:'Schedule Health',         icon:'construct', verb:'Run Schedule Health',   desc:'DCMA-style checks on logic, constraints, float and more.' },
     oos:       { title:'Out of Sequence',         icon:'critpath',  verb:'Run Analysis',          desc:'Activities progressing against their planned logic.' },
     lag:       { title:'Lag Report',              icon:'lag',       verb:'Run Lag Report',        desc:'Relationship lags and leads, with a justification register.' },
@@ -325,8 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
     prodintel: { module: 'prodintel',  title: 'Productivity & Resource Intelligence', get: prodintelPrint, standalone: true,
                  excel: () => { const b = document.getElementById('pi-exp-xls'); if (b) b.click(); else showError('Open a work item first, then export.'); } },
     overview:  { module: 'overview',  title: 'Project Overview',       get: overviewPrint, excel: exportOverviewExcel },
-    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel },
-    schedule:  { module: 'schedule',   title: 'Schedule (Gantt)',       get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel },
+    wbs:       { module: 'wbs',        title: 'WBS Summary',            get: wbsPrint, excel: exportWbsExcel, landscape: true },
+    schedule:  { module: 'schedule',   title: 'Critical Activities (Gantt)', get: schedulePrint, exports: ['pdf', 'docx', 'html', 'xlsx'], exportName: 'schedule_gantt', excel: exportScheduleExcel, landscape: true },
     narrative: { module: 'narrative',  title: 'Baseline Narrative',     get: narrativePrint },
   };
   function runReport(kind) {
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const r = state.currentResult;
       const subtitle = [r.project_name, r.data_date ? 'data date ' + dateText(String(r.data_date).slice(0, 10)) : ''].filter(Boolean).join(' · ');
-      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel,
+      printView({ module: pv.module, title: pv.title, subtitle, sections, exports: pv.exports, exportName: pv.exportName, onExcel: pv.excel, landscape: pv.landscape,
         meta: { project: r.project_name, data_date: r.data_date ? String(r.data_date).slice(0, 10) : '' } });
       return true;
     }

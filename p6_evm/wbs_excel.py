@@ -23,7 +23,7 @@ The client posts `report` = {
 Nothing is computed from the schedule here — it only re-presents the rolled-up
 figures the WBS view already resolved (DB is the read path; no XML re-parse).
 Columns mirror ui/modules/overview.js WBS_COLS + the indented WBS name, and Delay
-= Expected Finish − Baseline Finish in calendar days (+late / −early), matching
+= Baseline Finish − Expected Finish in calendar days (−late / +early), matching
 overview.js `wbsDelay`. Never raises on empty/missing data: a 'No data' sheet is
 returned instead.
 """
@@ -31,7 +31,7 @@ from datetime import datetime, date
 
 # Column order mirrors overview.js WBS_COLS (all columns, as the print table shows them).
 _HEADERS = ['WBS', 'Baseline Start', 'Baseline Finish', 'Expected Start',
-            'Expected Finish', 'Planned %', 'Actual %', 'Delay (days)']
+            'Expected Finish', 'Planned %', 'Actual %', 'Delay (Calendar days)']
 _INDENT = '    '                                  # 4 spaces per relative level
 
 
@@ -62,17 +62,45 @@ def _fmt_date(iso):
 
 
 def _delay_days(node):
-    """Expected Finish − Baseline Finish in calendar days (+late / −early), or None."""
+    """Delay (Calendar days) = Baseline Finish - Expected Finish, the two dates on the row, in
+    calendar days (negative = later than the baseline) - the same figure as the screen."""
     ef = _parse_date(node.get('finish'))
     bf = _parse_date(node.get('baseline_finish'))
     if ef is None or bf is None:
         return None
-    return (ef - bf).days
+    return (bf - ef).days
 
 
 def _num(v):
     """Keep a percent numeric for the cell (header carries the % meaning); None → '—'."""
     return v if isinstance(v, (int, float)) else '—'
+
+
+def _has_pct(node):
+    """A WBS with no cost-loaded activity carries no Planned % / Actual % (owner comment 63).
+    Rows stored before the flag existed keep whatever they hold."""
+    return 'cost_loaded' not in node or (node.get('cost_loaded') or 0) > 0 or node.get('planned') is not None
+
+
+def _pct(node, key):
+    """Planned % / Actual % of a WBS: the cost-loaded % when it carries cost, else the COUNT-BASED % of
+    its activities (planned = baseline finish on/before the cut-off, actual = started)."""
+    if key == 'planned' and node.get('planned_time') is not None:      # by the baseline dates (owner)
+        return _num(node.get('planned_time'))
+    if key == 'actual':                # stage weights / 100 once done / cost / count / milestones achieved
+        from p6_evm.schedule_view import wbs_actual_shown
+        try:
+            return _num(wbs_actual_shown(node))
+        except Exception:
+            return _num(node.get('actual'))
+    if 'cost_loaded' in node and not (node.get('cost_loaded') or 0) > 0 and node.get(key) is None:
+        return _num(node.get('planned_count_pct' if key == 'planned' else 'actual_count_pct'))
+    return _num(node.get(key))
+
+
+def _d(iso, actual):
+    t = _fmt_date(iso)
+    return (t + ' A') if (actual and t and t != '—') else t
 
 
 def _row(node, base_depth):
@@ -84,10 +112,10 @@ def _row(node, base_depth):
         name,
         _fmt_date(node.get('baseline_start')),
         _fmt_date(node.get('baseline_finish')),
-        _fmt_date(node.get('start')),
-        _fmt_date(node.get('finish')),
-        _num(node.get('planned')),
-        _num(node.get('actual')),
+        _d(node.get('start'), node.get('start_actual')),
+        _d(node.get('finish'), node.get('finish_actual')),
+        _pct(node, 'planned'),
+        _pct(node, 'actual'),
         delay if delay is not None else '—',
     ]
 
@@ -112,25 +140,31 @@ def _branch_note(subset):
         return None
     root = subset[0]
     acts = root.get('activities')
-    pl, ac = root.get('planned'), root.get('actual')
+    pl, ac = _pct(root, 'planned'), _pct(root, 'actual')         # the figures of its row
     pl_s = f'{pl:.1f}%' if isinstance(pl, (int, float)) else '—'
     ac_s = f'{ac:.1f}%' if isinstance(ac, (int, float)) else '—'
     n = f'{acts} activities' if acts is not None else 'activities —'
-    return f'{n} · overall {pl_s} planned · {ac_s} actual'
+    return f'{n} · overall {pl_s} planned · {ac_s} actual · Delay (Calendar days) = Baseline Finish − Expected Finish (negative = late)'
 
 
 # columns measured against the baseline — '· approx' when the update's own Planned dates stand in
-_BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (days)'}
+_BL_HEADERS = {'Baseline Start', 'Baseline Finish', 'Planned %', 'Delay (Calendar days)'}
 
 
-def _block(title, subset, approx=False):
+def _block(title, subset, approx=False, buckets=None, unit='month', cutoff=None):
+    """One WBS table; with `buckets` its Gantt is drawn in cells to the right - an amber cell
+    for every month a summary WBS runs, blue for a WBS that holds the activities, the Actual %
+    part of each bar in dark blue."""
+    from p6_evm.xlsx_writer import gantt_header, gantt_cells, BAR_BLUE, BAR_AMBER, BAR_BLUE_DONE
     base = subset[0].get('depth') or 0 if subset else 0
-    return {
-        'title': title,
-        'note': _branch_note(subset),
-        'headers': [f'{h} · approx' if approx and h in _BL_HEADERS else h for h in _HEADERS],
-        'rows': [_row(n, base) for n in subset],
-    }
+    headers = [f'{h} · approx' if approx and h in _BL_HEADERS else h for h in _HEADERS]
+    rows = [_row(n, base) for n in subset]
+    if buckets:
+        headers = headers + gantt_header(buckets, unit, cutoff)
+        rows = [r + gantt_cells(n.get('start'), n.get('finish'), buckets, BAR_BLUE if n.get('leaf') else BAR_AMBER,
+                                _pct(n, 'actual') if isinstance(_pct(n, 'actual'), (int, float)) else 0, BAR_BLUE_DONE)
+                for r, n in zip(rows, subset)]
+    return {'title': title, 'note': _branch_note(subset), 'headers': headers, 'rows': rows}
 
 
 def wbs_excel(report):
@@ -151,19 +185,248 @@ def wbs_excel(report):
                              'rows': [['No data', '—', '—', '—', '—', '—', '—', '—']]}],
                  'col_widths': _COL_WIDTHS}]
 
-    blocks = []
+    cutoff = report.get('data_date')
+    cut = _fmt_date(cutoff) if cutoff else ''
+    widths = dict(_COL_WIDTHS)
+    # the WBS made of milestones: reported by their milestone chart only (the summary lists them too)
+    ms_wbs = set((((report.get('uncosted') or {}).get('summary') or {}).get('excluded_wbs')) or [])
+    blocks, ov_rows = [], []
+    any_cost = any((n.get('cost_loaded') or 0) > 0 for n in nodes)
     # One block per main branch (the segmented control's tabs). Emit only mains that
     # actually resolve to a slice; fall back to the whole tree if none do.
     for m in mains:
         sub = _subset(nodes, m.get('id'))
-        if sub:
-            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx))
+        if not sub:
+            continue
+        ms_only = m.get('name') in ms_wbs
+        # every WBS has its OWN month scale, opening on its first month (as the report prints it)
+        buckets, unit = _month_buckets([n.get(k) for n in sub for k in ('start', 'finish', 'baseline_start', 'baseline_finish')] + [cutoff])
+        for i in range(len(buckets)):
+            widths[len(_HEADERS) + i] = 8
+        blocks.extend(_cost_blocks(nodes, m, cut))
+        blocks.extend(_uncosted_blocks(report.get('uncosted'), m.get('name'), cut))
+        blocks.extend(_explain_blocks(m, cut))
+        blocks.extend(_milestone_blocks(report.get('milestones'), m, cutoff, cut))
+        if not ms_only:
+            blocks.append(_block(f"WBS Summary — {m.get('name') or '(WBS)'}", sub, approx, buckets, unit, cutoff))
+        root = sub[0]
+        delay = _delay_days(root)
+        ov_rows.append([m.get('name') or '(WBS)', _fmt_date(root.get('baseline_start')), _fmt_date(root.get('baseline_finish')),
+                        _d(root.get('start'), root.get('start_actual')), _d(root.get('finish'), root.get('finish_actual')),
+                        _pct_text(_pct(root, 'planned')), _pct_text(_pct(root, 'actual')), delay if delay is not None else '—',
+                        _measure(root, any_cost), root.get('count') or root.get('activities') or '—'])
+    if ov_rows:
+        ax = ' · approx' if approx else ''
+        blocks.insert(0, {'title': 'Project summary — main WBS, Planned vs Actual',
+                          'note': (f'Cut-off date (data date): {cut or "—"}. A beside a date = Actual date. Planned % is by the baseline dates. '
+                                   'Delay (Calendar days) = Baseline Finish − Expected Finish (negative = late).'),
+                          'headers': ['Main WBS', 'Baseline Start' + ax, 'Baseline Finish' + ax, 'Expected Start', 'Expected Finish',
+                                      'Planned %' + ax, 'Actual %', 'Delay (Calendar days)' + ax, 'Actual % measured by', 'Activities'],
+                          'rows': ov_rows})
+        blocks.append(_reading_notes())
     if not blocks:
         # No distinct mains (single flat branch) → the full pre-order tree, one block.
-        blocks.append(_block('WBS Summary', nodes, approx))
+        buckets, unit = _month_buckets([n.get(k) for n in nodes for k in ('start', 'finish', 'baseline_start', 'baseline_finish')] + [cutoff])
+        for i in range(len(buckets)):
+            widths[len(_HEADERS) + i] = 8
+        blocks.append(_block('WBS Summary', nodes, approx, buckets, unit, cutoff))
 
-    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': _COL_WIDTHS}]
+    pname = str(report.get('project_name') or '').strip()     # the name on the report (the planner's own, else P6's)
+    if pname and blocks:
+        blocks[0] = dict(blocks[0], note=('Project: %s · %s' % (pname, blocks[0].get('note') or '')).rstrip(' ·'))
+    return [{'name': 'WBS', 'blocks': blocks, 'col_widths': widths}]
+
+
+def _pct_text(v):
+    return f'{v:.1f}%' if isinstance(v, (int, float)) else '—'
+
+
+def _month_buckets(dates):
+    """One time column per MONTH, from the first month of the given ISO dates to the last - every
+    month is there and named, as the report's month scale writes them."""
+    ds = [d for d in (_parse_date(x) for x in dates) if d]
+    if not ds:
+        return [], 'month'
+    lo, hi = min(ds), max(ds)
+    out, cur = [], date(lo.year, lo.month, 1)
+    while cur <= hi and len(out) < 240:
+        out.append(cur)
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    return out, 'month'
+
+
+_MS_HEADERS = ['Act. ID', 'Milestone', 'Status', 'Variance', 'Planned (baseline) date', 'Expected / Actual date']
+
+
+def _milestone_blocks(milestones, m, cutoff, cut=''):
+    """MILESTONE PROGRESS of one main WBS, as its chart in the report: a row per milestone with its
+    status, variance, planned (baseline) and expected / actual dates, and the months between the two
+    dates filled in the month columns (red = slipped, blue = early / on time, dark blue = completed)."""
+    from p6_evm.xlsx_writer import gantt_header, gantt_cells, BAR_BLUE, BAR_RED, BAR_BLUE_DONE
+    acts = [a for a in (milestones or [])
+            if str(a.get('wbs_top_id')) == str(m.get('id')) or a.get('wbs_top') == m.get('name')]
+    if not acts:
+        return []
+    dd = _parse_date(cutoff)
+    data = []
+    for a in acts:
+        bl = _parse_date(a.get('baseline_finish') or a.get('planned_finish'))
+        done = bool(a.get('finish_actual'))
+        ex = _parse_date(a.get('finish') or a.get('planned_finish'))   # expected = current P6 Finish
+        diff = (ex - bl).days if bl and ex else None
+        data.append((a, bl, ex, done, diff))
+    n_done = sum(1 for x in data if x[3])
+    due = sum(1 for x in data if dd and x[1] and x[1] <= dd)
+    buckets, unit = _month_buckets([d for x in data for d in (x[1], x[2])] + [dd])
+    rows = []
+    for a, bl, ex, done, diff in data:
+        status = 'Completed' if done else ('Not Completed' if (dd and bl and bl <= dd) else 'Not Yet Due')
+        var = '—' if diff is None else ('On time' if abs(diff) <= 1 else f'{diff:+d}d')
+        lo, hi = (min(bl, ex), max(bl, ex)) if bl and ex else (bl or ex, bl or ex)
+        style = BAR_BLUE_DONE if done else (BAR_RED if (diff or 0) > 1 else BAR_BLUE)
+        rows.append([a.get('id') or '', a.get('name') or '', status, var,
+                     bl.strftime('%d-%b.%Y') if bl else '—',
+                     (ex.strftime('%d-%b.%Y') + (' A' if done else '')) if ex else '—']
+                    + gantt_cells(lo, hi, buckets, style))
+    return [{'title': f"Milestone Progress - {m.get('name')}",
+             'note': (f'{len(data)} milestones · {n_done} completed · {due} planned till {cut or "the cut-off date"} · '
+                      f'{max(0, due - n_done)} behind plan (planned but not completed). Planned = baseline finish date; Expected / Actual = '
+                      'current finish in P6; Variance = days slipped (+) or early (-); A beside a date = Actual date.'),
+             'headers': _MS_HEADERS + gantt_header(buckets, unit, cutoff), 'rows': rows}]
+
+
+def _uc_groups(t):
+    tot = t.get('total') or {}
+    return [g for g in (('Submittals', 'st', 'sdue', 'sd'), ('Approvals', 'at', 'adue', 'ad'), ('Other activities', 'ot', 'odue', 'os')) if tot.get(g[1])]
+
+
+def _uc_head(t, cut=''):
+    ct = f' ({cut})' if cut else ''
+    cols = [t.get('first') or 'Stage']
+    for g in _uc_groups(t):
+        cols += [f'{g[0]} - Total', f'{g[0]} - Planned till cut-off date{ct}', f'{g[0]} - Actual till cut-off date{ct}']
+    return cols + [f'Planned %{" till " + cut if cut else ""}', f'Actual %{" till " + cut if cut else ""}', 'Status']
+
+
+def _uc_row(r, t):
+    row = [r['label']]
+    for g in _uc_groups(t):
+        row += [r.get(g[1]) or '—', (r.get(g[2]) if r.get(g[1]) else '—'), (r.get(g[3]) if r.get(g[1]) else '—')]
+    row += [f"{r['planned_pct']:.1f}%" if r.get('planned_pct') is not None else '—',
+            f"{r['actual_pct']:.1f}%" if r.get('actual_pct') is not None else '—',
+            f"{r['behind']} behind" if r['behind'] else 'On plan']
+    return row
+
+
+def _cost_blocks(nodes, m, cut=''):
+    """The EXECUTION DASHBOARD of a main WBS that is (almost) all cost loaded (95%+): its Planned % / Actual %
+    are the cost-loaded %, budget weighted - not counted by number of activities."""
+    i0 = next((i for i, n in enumerate(nodes) if str(n.get('id')) == str(m.get('id'))), -1)
+    if i0 < 0:
+        return []
+    root = nodes[i0]
+    all_n = root.get('count') or root.get('activities') or 0
+    if not all_n or (root.get('cost_loaded') or 0) / all_n < 0.95:
+        return []
+    ct = f' till {cut}' if cut else ''
+    pc = lambda v: f'{v:.1f}%' if isinstance(v, (int, float)) else '—'
+    rows = [[root.get('name'), all_n, root.get('cost_loaded'), pc(root.get('planned')), pc(root.get('actual'))]]
+    for j in range(i0 + 1, len(nodes)):
+        if (nodes[j].get('depth') or 0) <= (root.get('depth') or 0):
+            break
+        if nodes[j].get('depth') == (root.get('depth') or 0) + 1:
+            k = nodes[j]
+            rows.append(['    ' + str(k.get('name')), k.get('count') or k.get('activities'), k.get('cost_loaded'),
+                         pc(k.get('planned')) if k.get('cost_loaded') else '—', pc(k.get('actual')) if k.get('cost_loaded') else '—'])
+    return [{'title': f"Execution dashboard - {m.get('name')} Progress Planned VS Actual",
+             'note': ('COST-LOADED PROGRESS - weighted by the budget of each activity (P6 cost): Planned % = Planned value / budget of the cost-loaded activities; '
+                      'Actual % = Earned value / budget. This WBS has ' + f"{100.0 * (root.get('cost_loaded') or 0) / all_n:.1f}" + '% of its activities cost loaded, so it is not counted by number of activities.'),
+             'headers': ['WBS', 'Activities', 'Cost loaded', f'Planned %{ct}', f'Actual %{ct}'], 'rows': rows}]
+
+
+def _measure(n, any_cost=True):
+    """How the Actual % of a WBS is measured - the words of the summary's 'Actual % measured by'."""
+    if n.get('milestone_only'):
+        return 'milestones achieved ÷ all'
+    if n.get('actual_stage') is not None:
+        return 'stage weights'
+    if (n.get('cost_loaded') or 0) > 0 and n.get('actual') is not None:
+        return 'Earned value ÷ Budget'
+    return 'activities started ÷ all' if any_cost else 'activity duration'
+
+
+def _reading_notes():
+    """Last block of the WBS report: the rule behind every figure (as the report's last page)."""
+    return {'title': 'Reading notes', 'headers': ['Figure', 'Rule'], 'rows': [
+        ['Planned %', 'By the baseline dates — the calendar days of the WBS baseline that have passed at the cut-off date ÷ all its calendar days. Not broken down in the report.'],
+        ['Actual % — WBS with cost', 'Earned value ÷ Budget of its cost-loaded activities. Not broken down in the report.'],
+        ['Actual % — WBS without cost', 'Activities started ÷ all its activities; milestones are not counted. 100% once all its work is finished.'],
+        ['Actual % — Procurement', 'The stages without cost share the weight equally; Actual % = sum of weight × stage Actual %. Cost-loaded stages are left out of the weight.'],
+        ['Actual % — milestone-only WBS', 'Milestones achieved ÷ all its milestones.'],
+        ['Delay (Calendar days)', 'Baseline Finish − Expected Finish in calendar days: a negative figure is days later than the baseline, a positive one earlier.'],
+        ['A beside a date', 'An Actual date.']]}
+
+
+_BASIS = {'count': 'activities started ÷ all', 'cost': 'Earned value ÷ Budget', 'milestones': 'milestones achieved ÷ all',
+          'stages': 'stage weights', 'done': 'all work finished'}
+
+
+def _explain_blocks(m, cut=''):
+    """How the Actual % of a WBS WITHOUT cost is reached, stage by stage - the panels of
+    wbs_main[].explain (schedule_view.wbs_explain), the same ones the screen and the report show."""
+    ct = f' till {cut}' if cut else ''
+    cell = lambda c: '—' if not c else f"{c.get('frac') or ''} = {_pct_text(c.get('pct'))}".lstrip(' =')
+    out = []
+    for p in (m.get('explain') or []):
+        try:
+            kind, res = p.get('kind'), p.get('result') or {}
+            title = f"How the Actual % is reached - {p.get('title') or ''}"
+            if kind in ('stages', 'sum'):
+                rows = [[x.get('name') or '', _BASIS.get(x.get('basis'), x.get('basis') or ''), x.get('frac') or '', _pct_text(x.get('pct')),
+                         '—' if x.get('weight') is None else f"{x['weight']:.2f}%",
+                         '—' if x.get('weighted') is None else f"{x['weighted']:.2f}%"] for x in (p.get('parts') or [])]
+                rows.append([f"{p.get('name') or 'Total'} Actual %", '', res.get('frac') or '', _pct_text(res.get('pct')), '', ''])
+                note = p.get('formula') or ''
+                if p.get('left_out'):
+                    lo = p['left_out']
+                    note += f" · {' and '.join(lo)} {'are' if len(lo) > 1 else 'is'} cost loaded — not part of the stage weights."
+                out.append({'title': title, 'note': note,
+                            'headers': ['Stage' if kind == 'stages' else 'WBS', 'Measured by', 'Achieved ÷ All', f'Actual %{ct}', 'Weight', 'Weight × Actual %'],
+                            'rows': rows})
+            elif kind == 'matrix':
+                cols = list(p.get('cols') or [])
+                pad = lambda r: (r + [''] * len(cols))[:len(cols) + 1]
+                rows = []
+                for r in (p.get('rows') or []):
+                    name = ('    ' * (r.get('indent') or 0)) + str(r.get('name') or '')
+                    rows.append(pad([name, cell(r['span'])]) if r.get('span') else pad([name] + [cell(c) for c in (r.get('cells') or [])]))
+                if p.get('total'):
+                    rows.append(pad([p.get('total_label') or 'Total'] + [cell(c) for c in p['total']]))
+                if p.get('weights'):
+                    rows.append(pad(['Weight'] + [w or '—' for w in p['weights']]))
+                    rows.append(pad(['Weight × Actual %'] + [w or '—' for w in (p.get('weighted') or [])]))
+                rows.append(pad([res.get('label') or 'Actual %', res.get('text') or _pct_text(res.get('pct'))]))
+                out.append({'title': title, 'headers': [p.get('first') or 'WBS'] + cols, 'rows': rows})
+            else:
+                rows = [[('    ' * (r.get('indent') or 0)) + str(r.get('name') or ''), r.get('frac') or '', _pct_text(r.get('pct'))]
+                        for r in (p.get('rows') or [])]
+                t = p.get('total') or {}
+                rows.append([t.get('name') or 'Total', t.get('frac') or '', _pct_text(t.get('pct'))])
+                out.append({'title': title, 'headers': ['WBS', p.get('measure') or 'Achieved ÷ All', f'Actual %{ct}'], 'rows': rows})
+        except Exception:
+            continue                                   # a panel saved by an older version: left out, never an error
+    return out
+
+
+def _uncosted_blocks(u, branch, cut=''):
+    """The EXECUTION DASHBOARD of ONE main WBS (E1-log style: a row per stage, Submittals / Approvals /
+    other activities counted apart, a Total row at the end) - in front of that WBS's table."""
+    tabs = [t for t in ((u or {}).get('tables') or []) if not branch or branch in (t.get('branches') or [])]
+    return [{'title': f"Execution dashboard - {branch} Progress Planned VS Actual - {t['title']}",
+             'note': 'COUNT-BASED PROGRESS - every activity counts as one (no cost weighting). Planned till cut-off date = activities whose baseline finish is on or before the cut-off date; Actual till cut-off date = number of activities till the cut-off date that are in progress or completed (E1 rule); milestone activities excluded',
+             'headers': _uc_head(t, cut),
+             'rows': [_uc_row(r, t) for r in t['rows']] + [_uc_row(t['total'], t)]} for t in tabs]
 
 
 # WBS name column wide (it carries the indentation); dates/percent/delay comfortable.
-_COL_WIDTHS = {0: 46, 1: 15, 2: 15, 3: 15, 4: 15, 5: 11, 6: 11, 7: 12}
+_COL_WIDTHS = {0: 46, 1: 15, 2: 15, 3: 15, 4: 15, 5: 30, 6: 30, 7: 12}
