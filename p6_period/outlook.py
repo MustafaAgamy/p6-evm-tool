@@ -155,6 +155,7 @@ def watch_list(curr, threshold=10.0, limit=8, matched=None):
                      'float_days': round(fl, 1), 'due_to_start': _fmt(start),
                      'reason': _watch_reason(code, fl, threshold, prev_by_code, after_slip),
                      'codes': act.get('activity_codes') or {},   # for export code columns
+                     'wbs': (act.get('wbs_path') or '').split(' > ')[-1].strip() or '(no WBS)',
                      '_start': start})
     rows.sort(key=lambda r: (r['float_days'], r['_start'] or datetime.max))
     for r in rows:

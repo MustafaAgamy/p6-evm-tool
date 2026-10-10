@@ -7,6 +7,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Update vs Update: pick activity-code values, rate of progress, conclusion with actions (comments 68–73, round 3)
+- **Pick the values of an activity code.** *Step 1* chooses the activity code (or WBS), *Step 2* ticks any of its values (e.g. Type of Civil Work → Pile Works, Columns Works; Select all / Clear). The same pick narrows the activities that moved, the Earned Value and the critical-path movement — on screen and in the PDF / Word / Excel.
+- **Earned Value by activity code.** Under Earned Value: budget, Earned Value at the previous and the current update and the variance for each value of the picked code, with a total.
+- **Earned Value by activity code — the variance as a percentage too.** The table (screen, report, Word, Excel) now adds Performance % — previous, Performance % — current and Variance % for every code value and for the total (each = the money ÷ that value's own budget).
+- **Performance % bar — every label readable.** The start / planned / baseline plan labels above the bar step onto their own line when they would sit on each other, and a label near either end of the bar is anchored to that end, on screen and in the report.
+- **Rate of progress and where it lands.** A new chart carries the rate earned between the two updates forward to a finish date, beside the baseline finish, the rate the baseline needs and the P6 forecast; the months are named along the time axis. Four tiles show the rate, the time lost in the period, the finish at this rate and the rate needed — each with its calculation.
+- **“Relationships changed” explained.** The driver formerly labelled *Logic changed* is now *Relationships changed*, each driver carries its meaning, and a table lists those activities with exactly what changed in their relationships (previous → current).
+- **One chart for the worst slip.** The two *By …* charts are merged: one bar per group for the number of critical activities, with a badge for the worst slip in it and one *Group by*.
+- **Planned vs actual histogram.** *Where the period's progress came from* is a paired-column histogram — planned and actual in two colours, the figure above each column.
+- **Conclusion and recommended actions.** The report ends with numbered actions for Top Management and for the Project Manager, with dates and amounts worked out from the two updates.
+- **Full critical-movement table.** It is no longer on screen or in the PDF; it stays in the Word and Excel exports.
+
 ### Changed — Update vs Update: figures that match P6, Earned Value, critical movement in charts (comments 68–73, round 2)
 - **Either update can be changed (comment 68).** The Previous update and the Current update each have their own *Choose a different file…* — before running and on the results. Choosing a file only assigns it; the comparison runs when you press *Run Comparison*.
 - **Performance %, as P6 shows it.** When the updates carry cost, the Previous % and Current % are the Performance % of the cost-loaded activities — Earned Value ÷ Budget (the baseline's Budget At Completion) — so they read the same as P6. Activities without cost take no part. The progress bar also marks the baseline plan at the cut-off.

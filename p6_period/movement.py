@@ -182,7 +182,7 @@ def _grouped(rows, key, top=8):
 
 
 _DRIVER_LABEL = {'progress shortfall': 'Progress shortfall', 'duration extended': 'Duration extended',
-                 'logic changed': 'Logic changed', 'held': 'Finish did not move later'}
+                 'logic changed': 'Relationships changed', 'held': 'Finish did not move later'}
 
 
 def critical_summary(crit, code_types=()):

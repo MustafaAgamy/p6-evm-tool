@@ -173,6 +173,26 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
     milestones = milestone_drift(matched)
     conclusion = _conclusion(summary, crit, buck)
     project_conclusion = _project_conclusion(summary, crit, recovery)
+    code_types = list(getattr(curr, 'activity_code_types', []) or [])
+    crit_sum = critical_summary(crit, code_types)
+    # round 3 — reading aids; each is additive and never stops the report
+    extra = {}
+    try:
+        from p6_period import insight
+        for key, fn in (('logic_changes', lambda: insight.logic_changes(matched, crit)),
+                        ('ev_by_code', lambda: insight.ev_by_code(prev_metrics, curr_metrics, code_types)),
+                        ('rate_outlook', lambda: insight.rate_outlook(prev, curr, summary, recovery))):
+            try:
+                extra[key] = fn()
+            except Exception:
+                extra[key] = None
+        try:
+            extra['advice'] = insight.advice(curr, summary, recovery, extra.get('rate_outlook'), crit_sum,
+                                             adherence, by_code, cp)
+        except Exception:
+            extra['advice'] = None
+    except Exception:
+        pass
     # Baseline finish / slip vs baseline / the recovery target come from the CURRENT update's
     # baseline (the previous inherits it) — approximate when its own Planned dates stand in for
     # the baseline P6 names (none in the file, none attached): '· approx' + one Baseline line.
@@ -192,12 +212,12 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'matched_activities': len(matched.matched_codes),
         'update_activity_count': len(curr.activities),
         # Activity-code dimensions present in the current update — feed the progress slicer.
-        'code_types': list(getattr(curr, 'activity_code_types', []) or []),
+        'code_types': code_types,
         'summary': summary,
         'progress': progress,
         'scurve': scurve,
         'critical_movement': crit,
-        'critical_summary': critical_summary(crit, list(getattr(curr, 'activity_code_types', []) or [])),
+        'critical_summary': crit_sum,
         'critical_path': cp,
         'plan_counts': plan_counts,
         'progress_by_code': by_code,
@@ -209,6 +229,7 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
         'verdict': _verdict(summary, recovery),
         'conclusion': conclusion,
         'project_conclusion': project_conclusion,
+        **extra,
     }
 
 

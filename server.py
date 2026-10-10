@@ -506,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_period_previous(body)
         elif self.path == '/api/period/trend':
             self._handle_period_trend(body)
+        elif self.path == '/api/period/filter':
+            self._handle_period_filter(body)
         elif self.path == '/api/period/excel':
             self._handle_period_excel(body)
         elif self.path == '/api/period/report':
@@ -2907,6 +2909,24 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/period/filter ────────────────────────────────────────────────
+    def _handle_period_filter(self, body):
+        """The critical-path movement summary for the activity-code values picked on screen —
+        the same narrowing the PDF / Word / Excel apply, so the screen shows the same counts."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_period.exporters import apply_code_filter
+            from p6_period.movement import critical_summary
+            rep = {'critical_movement': body.get('critical_movement') or {},
+                   'logic_changes': body.get('logic_changes') or [],
+                   'code_types': body.get('code_types') or []}
+            out = apply_code_filter(rep, body.get('code_filter'))
+            self._json(200, {'ok': True,
+                             'critical_summary': critical_summary(out.get('critical_movement'), rep['code_types']),
+                             'logic_changes': out.get('logic_changes') or []})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/period/excel ─────────────────────────────────────────────────
     def _handle_period_excel(self, body):
         """Export the Update-vs-Update progress table to .xlsx from the report the
@@ -2919,8 +2939,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             sys.path.insert(0, resource_path('.'))
-            from p6_period.exporters import report_excel
+            from p6_period.exporters import report_excel, apply_code_filter
             from p6_evm.xlsx_writer import write_xlsx
+            # the picker on screen (one activity code, its picked values) narrows the Excel too
+            report = apply_code_filter(report, body.get('code_filter'))
+            if body.get('bycode_group'):
+                report = dict(report, bycode_group=body.get('bycode_group'))
             headers, rows = report_excel(report, trend)
             _bl = report.get('baseline_label') if report.get('baseline_approx') else None   # approx only
             # Sheet 1 = the report as before; then the S-curve numbers, progress by every activity
@@ -2957,7 +2981,8 @@ class Handler(BaseHTTPRequestHandler):
             import subprocess, tempfile
             html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode,
                                        theme=report_theme.normalize(body.get('theme')),
-                                       critical_group=body.get('critical_group'))
+                                       critical_group=body.get('critical_group'),
+                                       bycode_group=body.get('bycode_group'))
             if preview:
                 self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return
@@ -4025,6 +4050,8 @@ class Handler(BaseHTTPRequestHandler):
                 from p6_export.to_docx import html_to_docx
                 from p6_export.auto_visuals import mark_visuals
                 # charts / tile groups built of styled divs go to Word as pictures (comment 2)
+                # blocks a report keeps for Word only (hidden in its PDF) are shown here
+                html_content = html_content.replace('class="word-only"', 'class="word-shown"')
                 html_content = mark_visuals(html_content)
                 html_to_docx(html_content, output_path, app_name=APP_NAME, feature=feature,
                              project=project, chrome=chrome(), sections=body.get('sections'))

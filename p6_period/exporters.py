@@ -200,18 +200,29 @@ def _progress_bar_html(report):
         return ''
     pdd, cdd = _e(report.get('data_date_prev')), _e(report.get('data_date_now'))
     fill = max(0.0, min(100.0, an))
-    start_m = '' if ap is None else (
-        f'<div class="pmark" style="left:{max(0.0, min(100.0, ap)):.1f}%;background:var(--rpt-muted)"></div>'
-        f'<span class="tag-above" style="left:{max(0.0, min(100.0, ap)):.1f}%;color:var(--rpt-muted)">▾ start {ap:.1f}%</span>')
-    plan_m = '' if fn is None else (
-        f'<div class="pmark" style="left:{max(0.0, min(100.0, fn)):.1f}%"></div>'
-        f'<span class="tag-above" style="left:{max(0.0, min(100.0, fn)):.1f}%">▾ planned {fn:.1f}%</span>')
-    base_m, base_txt = '', ''
+    clamp = lambda v: max(0.0, min(100.0, v))
+    # the markers above the bar: labels that would sit on each other step up a line, and a
+    # label near either end is anchored to that end so it is never cut off
+    tags, base_txt = [], ''
+    if ap is not None:
+        tags.append((clamp(ap), f'start {ap:.1f}%', 'var(--rpt-muted)'))
+    if fn is not None:
+        tags.append((clamp(fn), f'planned {fn:.1f}%', 'var(--rpt-warn)'))
     bp = s.get('planned_now') if _by_cost(report) else None
     if bp is not None:
-        base_m = (f'<div class="pmark" style="left:{max(0.0, min(100.0, bp)):.1f}%;background:var(--rpt-bad)"></div>'
-                  f'<span class="tag-above" style="left:{max(0.0, min(100.0, bp)):.1f}%;color:var(--rpt-bad)">▾ baseline plan {bp:.1f}%</span>')
+        tags.append((clamp(bp), f'baseline plan {bp:.1f}%', 'var(--rpt-bad)'))
         base_txt = f' The baseline planned <b>{bp:.1f}%</b> by this cut-off.'
+    tags.sort(key=lambda t: t[0])
+    last_at, lines, marks = {}, 1, []
+    for pos, txt, col in tags:
+        lv = 0
+        while lv in last_at and pos - last_at[lv] < 17:
+            lv += 1
+        last_at[lv] = pos
+        lines = max(lines, lv + 1)
+        tr = 'translateX(-100%)' if pos > 86 else ('translateX(0)' if pos < 10 else 'translateX(-50%)')
+        marks.append(f'<div class="pmark" style="left:{pos:.1f}%;background:{col};top:{-5 - 14 * lv}px"></div>'
+                     f'<span class="tag-above" style="left:{pos:.1f}%;color:{col};top:{-21 - 14 * lv}px;transform:{tr}">▾ {txt}</span>')
     what = ('All are <b>Performance %</b> — Earned Value ÷ Budget of the cost-loaded activities, as P6 shows it'
             if _by_cost(report) else 'All three are % of the whole project')
     behind = ''
@@ -222,10 +233,10 @@ def _progress_bar_html(report):
     ach_txt = f'{round(ach * 100)}%' if ach is not None else '—'
     plan_txt = (f'Your last update planned <b>{fn:.1f}%</b> by now ({_svar(pf, "%")}). ' if fn is not None else '')
     return (f'<div class="prog"><div class="cap"><span>0% — project start</span><span>100% — finish</span></div>'
-            f'<div class="pbar">{start_m}'
+            f'<div class="pbar" style="margin-top:{14 * (lines - 1)}px">'
             f'<div class="pfill" style="width:{fill:.1f}%">{an:.1f}%</div>'
             f'<span class="tag-below" style="left:{fill:.1f}%">▴ now {an:.1f}%</span>'
-            f'{plan_m}{base_m}</div>'
+            f'{"".join(marks)}</div>'
             f'<div class="psent">On <b>{pdd}</b> you were at <b>{ap:.1f}%</b>. {plan_txt}You reached <b>{an:.1f}%</b> on <b>{cdd}</b> ({_svar(pe, "%")}). '
             f'{what}{behind}; you did {_svar(pe, "%")} of {_svar(pf, "%")} = <b>{ach_txt}</b>.{base_txt}</div></div>')
 
@@ -326,7 +337,70 @@ def _ev_html(report):
             + '<div class="chart keep" style="margin-top:9px" data-part="earned_value.bridge" '
               'data-part-label="Earned Value bridge — previous → earned → current">'
             + _ev_bridge_svg(s, pdd, cdd) + '</div>'
-            + _part('earned_value.table', 'Earned Value — before / after / variance table', table + reading))
+            + _part('earned_value.table', 'Earned Value — before / after / variance table', table + reading)
+            + _ev_code_html(report))
+
+
+def _ev_pcts(r):
+    """(Performance % previous, Performance % current, Variance %) of one Earned-Value-by-code
+    row — each the money over that value's own budget; Nones when it has no budget."""
+    bac = r.get('bac') or 0
+    if not bac:
+        return None, None, None
+    return (100.0 * (r.get('ev_prev') or 0) / bac, 100.0 * (r.get('ev_now') or 0) / bac,
+            100.0 * (r.get('variance') or 0) / bac)
+
+
+def _ev_pct_cells(r):
+    return ['' if v is None else round(v, 1) for v in _ev_pcts(r)]
+
+
+def _ev_code_html(report):
+    """Earned Value before / after / variance by the values of the activity code picked on
+    screen (round 3, point 04) — only the picked values when some are ticked, with their total."""
+    t = report.get('ev_code_type')
+    rows = ((report.get('ev_by_code') or {}).get(t) or []) if t else []
+    if not rows:
+        return ''
+    _t, vals = _cf_parts(report.get('code_filter'))
+    picked = [r for r in rows if r.get('value') in vals] if vals else rows
+    if not picked:
+        return ''
+    from p6_export.auto_parts import wrap_part as _part
+    s = report.get('summary', {}) or {}
+    pdd, cdd = _e(report.get('data_date_prev')), _e(report.get('data_date_now'))
+    tot = {k: sum(r.get(k) or 0 for r in picked) for k in ('activities', 'bac', 'ev_prev', 'ev_now', 'variance')}
+
+    def tr(sn, name, r, bold=False):
+        b = (lambda x: f'<b>{x}</b>') if bold else (lambda x: x)
+        v = r.get('variance') or 0
+        pp, pn, pvar = _ev_pcts(r)
+        pct = (f'<td class="num">{b("—" if pp is None else f"{pp:.1f}%")}</td>'
+               f'<td class="num">{b("—" if pn is None else f"{pn:.1f}%")}</td>'
+               + ('<td class="num">—</td>' if pvar is None else
+                  f'<td class="num {"pos" if pvar > 0.05 else ("neg" if pvar < -0.05 else "")}">{pvar:+.1f}%</td>'))
+        return (f'<tr><td class="num">{sn}</td><td>{b(_e(name))}</td><td class="num">{b(_money(r.get("activities")))}</td>'
+                f'<td class="num mono">{b(_money(r.get("bac")))}</td><td class="num mono">{b(_money(r.get("ev_prev")))}</td>'
+                f'<td class="num mono">{b(_money(r.get("ev_now")))}</td>'
+                f'<td class="num {"pos" if v > 0.5 else ("neg" if v < -0.5 else "")}">{v:+,.0f}</td>{pct}</tr>')
+    body = ''.join(tr(i, r.get('value'), r) for i, r in enumerate(picked, 1))
+    body += tr('', 'Total — the picked values' if vals else 'Total — all cost-loaded activities', tot, True)
+    table = (f'<table class="data"><thead><tr>{_sn_th()}<th>{_e(t)}</th><th class="num">Cost-loaded activities</th>'
+             f'<th class="num">Budget</th><th class="num">Earned Value — previous · {pdd}</th>'
+             f'<th class="num">Earned Value — current · {cdd}</th><th class="num">Variance</th>'
+             f'<th class="num">Performance % — previous</th><th class="num">Performance % — current</th>'
+             f'<th class="num">Variance %</th></tr></thead><tbody>'
+             + body + '</tbody></table>'
+             '<p class="note">Performance % = Earned Value ÷ Budget of that value; Variance % = the progress it gained '
+             'between the two updates (Variance ÷ Budget).</p>')
+    note = ''
+    pv = s.get('ev_variance')
+    if vals and pv:
+        note = (f'<p class="note">The picked values earned {_money(tot["variance"])} of the project\'s {_money(pv)} in this period '
+                f'({round(100.0 * tot["variance"] / pv)}%).</p>')
+    head = f'Earned Value by {_e(t)}' + (' — the picked values only' if vals else ' — every value')
+    return _part('earned_value.by_code', 'Earned Value by activity code — before / after / variance',
+                 f'<div class="sub-h">{head}</div>{table}{note}')
 
 
 # ── Critical-path movement — the summary in charts, in front of the table ──
@@ -370,12 +444,76 @@ def _crit_group_chart(cs, g):
     if not rows:
         return ''
     n = grp.get('groups') or len(rows)
-    head = (f'By {_e(g)}' + (f' (top {len(rows)} of {n})' if n > len(rows) else '')
-            + ' · critical activities · worst slip')
+    head = (f'Where the critical activities are, and the worst slip in each — by {_e(g)}'
+            + (f' (top {len(rows)} of {n})' if n > len(rows) else ''))
+    worst = cs.get('max_slip') or 0
+
+    def text(r):
+        ms = r.get('max_slip') or 0
+        cls = 'slip worst' if (ms > 0 and ms >= worst) else ('slip' if ms > 0 else 'slip none')
+        return f'<b>{r["count"]}</b> <span class="{cls}">{f"worst slip {ms} wd" if ms > 0 else "no slip"}</span>'
+    note = ('Bar = how many critical activities sit in the group. Badge = the largest slip of any of them between the two '
+            'updates (working days); red = the worst in the project.')
+    if g != 'WBS' and grp.get('covered') is not None:
+        note += f' {grp["covered"]} of the {cs.get("total")} critical activities carry this code.'
     return (f'<div class="keep"><div class="sub-h">{head}</div>'
-            + _hbars(rows, lambda r: r['value'], lambda r: r['count'],
-                     lambda r: f'<b>{r["count"]}</b> · {r.get("max_slip") or 0} wd')
-            + '</div>')
+            + _hbars(rows, lambda r: r['value'], lambda r: r['count'], text).replace('<div class="hbs">', '<div class="hbs wide">', 1)
+            + f'<p class="note">{note}</p></div>')
+
+
+_DRIVER_MEANING = {
+    'progress shortfall': 'the finish moved later because the work did not progress as the previous update planned',
+    'held': 'the finish stayed where it was, or moved earlier',
+    'logic changed': 'the planner edited the relationships of the activity — a link added or removed, its type or its lag changed',
+    'duration extended': 'the remaining duration was made longer than the previous update had',
+}
+
+
+def _driver_bars(drivers):
+    """'Why they moved' — one bar per reason, each with a line saying what the reason means."""
+    mx = max([d['count'] for d in drivers] or [1]) or 1
+    return '<div class="hbs">' + ''.join(
+        f'<div class="hb"><span class="hbl"><b>{_e(d["label"])}</b></span>'
+        f'<div class="hbt"><i class="w" style="width:{max(1, round(100.0 * d["count"] / mx))}%"></i></div>'
+        f'<span class="hbn"><b>{d["count"]}</b></span></div>'
+        + (f'<div class="hbm">{_e(_DRIVER_MEANING[d["key"]])}</div>' if d.get('key') in _DRIVER_MEANING else '')
+        for d in drivers) + '</div>'
+
+
+def _moved_text(n):
+    if n is None:
+        return '—', ''
+    if n > 0:
+        return f'{n} wd later', 'neg'
+    if n < 0:
+        return f'{-n} wd earlier', 'pos'
+    return 'no change', ''
+
+
+def _logic_html(report):
+    """What 'Relationships changed' means, and what changed for each of those activities."""
+    rows = report.get('logic_changes') or []
+    if not rows:
+        return ''
+    box = ('<div class="defs" style="margin-top:6px"><div class="defs-h">"Relationships changed" — what it means</div>'
+           '<div class="def">Between the previous and the current update, the <b>relationships</b> of the activity were edited: '
+           'a predecessor or successor was added or removed, the relationship type changed (FS / SS / FF / SF), or the lag changed. '
+           'For these activities the finish date moved because the planner changed the logic — not because of progress on site. '
+           'Only construction activities are counted.</div></div>')
+
+    def tr(i, r):
+        txt, cls = _moved_text(r.get('slip_days'))
+        ch = '<br>'.join(_e(c) for c in r.get('changes') or []) or '—'
+        return (f'<tr><td class="num">{i}</td><td class="mono">{_e(r.get("activity_id"))}</td><td>{_e(r.get("activity_name"))}</td>'
+                f'<td class="num mono">{_e(r.get("prev_finish"))}</td><td class="num mono">{_e(r.get("curr_finish"))}</td>'
+                f'<td class="num {cls}">{txt}</td><td>{ch}</td></tr>')
+    table = (f'<table class="data"><thead><tr>{_sn_th()}<th>Activity ID</th><th>Activity name</th>'
+             '<th class="num">Finish — previous</th><th class="num">Finish — current</th><th class="num">Finish moved</th>'
+             '<th>What changed in the relationships (previous → current)</th></tr></thead><tbody>'
+             + ''.join(tr(i, r) for i, r in enumerate(rows, 1)) + '</tbody></table>')
+    n = len(rows)
+    return (f'<div class="keep"><div class="sub-h">Relationships changed — the {n} critical activit{"y" if n == 1 else "ies"}</div>'
+            f'{box}{table}</div>')
 
 
 def _critical_summary_html(report, group=None):
@@ -415,7 +553,7 @@ def _critical_summary_html(report, group=None):
         days = s.get('period_days')
         reading = (f'<div class="def"><b>Reading:</b> {big["count"]} of {total} moved {_e(big["label"]).replace(" days", "")} working days'
                    + (f' in this period of {days} calendar days' if days is not None else '')
-                   + f'; the largest slip is {cs.get("max_slip")} working days — those open the full table.</div>')
+                   + f'; the largest slip is {cs.get("max_slip")} working days.</div>')
     ex = cs.get('example')
     example = (f'<div class="def" style="color:var(--rpt-muted)">Example: {_e(ex["activity_id"])} {_e(ex["activity_name"])} — '
                f'{_e(ex["prev_finish"])} → {_e(ex["curr_finish"])} = {ex["slip_days"]} working days.</div>') if ex else ''
@@ -426,12 +564,10 @@ def _critical_summary_html(report, group=None):
            + reading + example + '</div>')
     left_col = f'<div><div class="sub-h">How far the critical activities slipped (working days)</div>{hist}{how}</div>'
     g1, g2 = crit_group_choice(cs, group)
-    why = ('<div class="sub-h">Why they moved</div>'
-           + _hbars(cs.get('drivers') or [], lambda r: r['label'], lambda r: r['count'], lambda r: f'<b>{r["count"]}</b>', 'w'))
-    right_col = f'<div>{why}{_crit_group_chart(cs, g1) if g1 else ""}</div>'
-    where = _crit_group_chart(cs, g2) if g2 else ''
-    if g1 or g2:
-        where += ('<p class="note">The two "By …" charts follow the grouping chosen on screen — WBS or any activity code.</p>')
+    why = '<div class="sub-h">Why they moved</div>' + _driver_bars(cs.get('drivers') or [])
+    right_col = f'<div>{why}</div>'
+    g = g1 or g2
+    where = _crit_group_chart(cs, g) if g else ''
     new_rows = cs.get('new_rows') or []
     newt = ''
     if new_rows:
@@ -445,7 +581,7 @@ def _critical_summary_html(report, group=None):
                           f'<td class="num">{_num(r.get("prev_float_days"))}</td>'
                           f'<td class="num">{_num(r.get("float_days"))}</td></tr>' for i, r in enumerate(shown, 1))
                 + '</tbody></table>'
-                + (f'<p class="note">{len(new_rows) - len(shown)} more — all are marked "new" in the full table.</p>' if len(new_rows) > len(shown) else '')
+                + (f'<p class="note">{len(new_rows) - len(shown)} more — all are marked "new" in the full table of the Word and Excel exports.</p>' if len(new_rows) > len(shown) else '')
                 + '</div>')
     return (f'<div class="keep">{tiles}</div><div class="split keep">{left_col}{right_col}</div>{where}{newt}')
 
@@ -828,28 +964,47 @@ def _whatmoved_html(report):
             f'{defs}')
 
 
-def _bycode_html(report):
-    """Planned vs actual progress by the first activity code — planned bars sum to the
-    period plan, actual bars to what was earned; a shortfall shows the fronts that fell behind."""
+def bycode_group(report, group=None):
+    """The activity code the progress histogram is drawn by: the one chosen on screen, else
+    the code that splits this period's movement into the most values."""
+    bc = report.get('progress_by_code', {}) or {}
+    if group in bc:
+        return group
+    try:
+        from p6_period.insight import default_code_type
+        return default_code_type(bc) or next(iter(bc), None)
+    except Exception:
+        return next(iter(bc), None)
+
+
+def _bycode_html(report, group=None):
+    """Planned vs actual progress of the period by one activity code, as a histogram: two
+    columns per value (planned, actual), each with its figure above it."""
     bc = report.get('progress_by_code', {}) or {}
     if not bc:
         return '<p class="note">No activity codes in this schedule to break progress down by.</p>'
-    code_type = next(iter(bc))
-    rows = bc[code_type][:10]
+    code_type = bycode_group(report, group)
+    allrows = bc.get(code_type) or []
+    rows = [r for r in allrows if (r.get('planned') or 0) > 0 or (r.get('actual') or 0) > 0][:10] or allrows[:10]
     mx = max((max(r['planned'], r['actual']) for r in rows), default=1) or 1
-    w = lambda v: max(2, round(100.0 * v / mx))
+    h = lambda v: max(1, round(86.0 * v / mx))
 
-    def row(r):
-        gap = round(r['actual'] - r['planned'], 1)
-        tag = (f'<span class="pos">on/above plan</span>' if gap >= -0.05
-               else f'<span class="neg">{gap:.1f}% vs plan</span>')
-        return (f'<div class="bar2r"><div class="bar2r-h"><b>{_e(r["value"])}</b> {tag}</div>'
-                f'<div class="bar2r-t"><div class="bar2r-pl" style="width:{w(r["planned"])}%"></div>'
-                f'<div class="bar2r-ac" style="width:{w(r["actual"])}%"></div></div>'
-                f'<div class="bar2r-n">planned {_svar(r["planned"], "%")} · actual {_svar(r["actual"], "%")}</div></div>')
-    return (f'<p class="note">Grouped by activity code <b>{_e(code_type)}</b>. '
-            f'<b>Grey</b> = planned this period (last update), <b>blue</b> = actual — weighted by each activity\'s cost/duration share of the project.</p>'
-            + ''.join(row(r) for r in rows))
+    def col(r):
+        pl, ac = r['planned'], r['actual']
+        low = ac < pl - 0.05
+        return ('<div class="vg">'
+                f'<div class="vb"><b>{pl:.1f}%</b><i class="pl" style="height:{h(pl)}%"></i></div>'
+                f'<div class="vb"><b class="{"neg" if low else ""}">{ac:.1f}%</b><i class="ac" style="height:{h(ac)}%"></i></div></div>')
+    chart = ('<div class="vhist">' + ''.join(col(r) for r in rows) + '</div>'
+             '<div class="vl-row">' + ''.join(f'<span class="vl">{_e(r["value"])}</span>' for r in rows) + '</div>')
+    legend = ('<div class="legend"><span><i style="background:var(--rpt-warn);height:9px;width:12px"></i>Planned for the period</span>'
+              '<span><i style="background:var(--rpt-accent);height:9px;width:12px"></i>Actual in the period</span>'
+              '<span>% of the whole project · a red label = earned less than planned</span></div>')
+    more = len(allrows) - len(rows)
+    return (f'<p class="note" style="font-style:normal">Grouped by activity code <b>{_e(code_type)}</b>'
+            + (f' — the {len(rows)} values that moved most' if more > 0 else '')
+            + '. Each value has two columns, with its figure above it — weighted by each activity\'s cost / duration share of the project.</p>'
+            + f'<div class="chart keep" data-part="bycode.chart" data-part-label="Progress by activity code — planned vs actual histogram">{legend}{chart}</div>')
 
 
 def _defs_html():
@@ -1055,6 +1210,189 @@ def _milestone_drift_svg(report):
     return legend + f'<svg viewBox="0 0 700 {h}" width="100%" style="max-height:{h}px">{"".join(parts)}</svg>'
 
 
+
+# ── Rate of progress carried forward (round 3, point 06) ───────────────────
+
+def _rate_svg(r):
+    d = lambda iso: datetime.strptime(iso, '%Y-%m-%d') if iso else None
+    d0, d1 = d(r.get('dd_prev')), d(r.get('dd_now'))
+    bf, rf, pf = d(r.get('baseline_finish')), d(r.get('rate_finish')), d(r.get('p6_finish'))
+    if not (d0 and d1):
+        return ''
+    last = max([x for x in (bf, rf, pf) if x] + [d1])
+    span = max(1, (last - d0).days)
+    W, H, L, Rm, T, B = 1000, 324, 44, 22, 62, 54
+    X = lambda dt: L + (W - L - Rm) * (dt - d0).days / span
+    Y = lambda p: T + (H - T - B) * (1 - max(0.0, min(100.0, p)) / 100.0)
+    acc, warn, bad, good, mut = 'var(--rpt-accent)', 'var(--rpt-warn)', 'var(--rpt-bad)', 'var(--rpt-good)', 'var(--rpt-muted)'
+    p = []
+    for g in (0, 25, 50, 75, 100):
+        p.append(f'<line x1="{L}" y1="{Y(g):.0f}" x2="{W - Rm}" y2="{Y(g):.0f}" stroke="var(--rpt-chart-grid)" stroke-width="1"/>'
+                 f'<text x="{L - 6}" y="{Y(g) + 3:.0f}" text-anchor="end" font-size="10" fill="{mut}">{g}%</text>')
+    p.append(f'<line x1="{L}" y1="{Y(0):.0f}" x2="{W - Rm}" y2="{Y(0):.0f}" stroke="var(--rpt-chart-axis)" stroke-width="1.5"/>')
+    a0, a1 = r.get('actual_prev') or 0.0, r.get('actual_now') or 0.0
+    # finish markers — each label on its own line above the chart, so close dates never overlap
+    marks = []
+    if bf:
+        marks.append((bf, mut, f'Baseline finish {r.get("baseline_finish_label")}'))
+    if rf:
+        dab = r.get('days_after_baseline')
+        extra = '' if dab is None else (f' (+{dab} days)' if dab > 0 else (f' ({dab} days)' if dab < 0 else ''))
+        marks.append((rf, acc, f'At the current rate {r.get("rate_finish_label")}{extra}'))
+    if pf:
+        lg = r.get('logic_days')
+        extra = '' if not lg else (f' (+{lg} days more — sequence of the critical path)' if lg > 0 else f' ({lg} days)')
+        marks.append((pf, bad, f'P6 forecast {r.get("p6_finish_label")}{extra}'))
+    marks.sort(key=lambda m: m[0])
+    for i, (dt, col, txt) in enumerate(marks):
+        x, ty = X(dt), 13 + 15 * i
+        anchor = 'end' if x > W * 0.55 else 'start'
+        p.append(f'<line x1="{x:.0f}" y1="{ty + 4}" x2="{x:.0f}" y2="{Y(0):.0f}" stroke="{col}" stroke-width="1.4" stroke-dasharray="4 3"/>'
+                 f'<text x="{x - 5 if anchor == "end" else x + 5:.0f}" y="{ty}" text-anchor="{anchor}" font-size="11" font-weight="700" fill="{col}">{_e(txt)}</text>')
+    # baseline plan (the two cut-offs, then on to the baseline finish)
+    pp, pn = r.get('planned_prev'), r.get('planned_now')
+    if pn is not None:
+        if pp is not None:
+            p.append(f'<line x1="{X(d0):.0f}" y1="{Y(pp):.0f}" x2="{X(d1):.0f}" y2="{Y(pn):.0f}" stroke="{warn}" stroke-width="2.5"/>')
+        gap = round(pn - a1, 1)
+        gtxt = f'baseline plan {pn:.1f}%' + (f' — gap {gap:.1f}%' if gap > 0 else '')
+        if gap > 0 and r.get('gap_money'):
+            gtxt += f' = {_money(r["gap_money"])}'
+        p.append(f'<circle cx="{X(d1):.0f}" cy="{Y(pn):.0f}" r="4" fill="{warn}"/>'
+                 f'<text x="{X(d1) + 9:.0f}" y="{Y(pn) - 7:.0f}" font-size="10.5" font-weight="700" fill="{warn}">{_e(gtxt)}</text>')
+    # the rate the baseline finish needs
+    if bf and bf > d1:
+        p.append(f'<line x1="{X(d1):.0f}" y1="{Y(a1):.0f}" x2="{X(bf):.0f}" y2="{Y(100):.0f}" stroke="{good}" stroke-width="2" stroke-dasharray="7 4"/>')
+    # the current rate, carried forward
+    if rf:
+        p.append(f'<line x1="{X(d1):.0f}" y1="{Y(a1):.0f}" x2="{X(rf):.0f}" y2="{Y(100):.0f}" stroke="{acc}" stroke-width="2" stroke-dasharray="7 4"/>'
+                 f'<circle cx="{X(rf):.0f}" cy="{Y(100):.0f}" r="4" fill="{acc}"/>')
+    # actual between the two updates
+    p.append(f'<line x1="{X(d0):.0f}" y1="{Y(a0):.0f}" x2="{X(d1):.0f}" y2="{Y(a1):.0f}" stroke="{acc}" stroke-width="4" stroke-linecap="round"/>'
+             f'<circle cx="{X(d0):.0f}" cy="{Y(a0):.0f}" r="4.5" fill="{acc}"/><circle cx="{X(d1):.0f}" cy="{Y(a1):.0f}" r="4.5" fill="{acc}"/>'
+             f'<text x="{X(d0) + 2:.0f}" y="{Y(a0) + 17:.0f}" font-size="10.5" font-weight="700" fill="{acc}">{a0:.1f}%</text>'
+             f'<text x="{X(d1) + 9:.0f}" y="{Y(a1) + 15:.0f}" font-size="10.5" font-weight="700" fill="{acc}">'
+             f'{a1:.1f}% ({_svar(r.get("rate_pct"), "%")} in {r.get("period_days")} days)</text>')
+    # the months along the time axis — a tick at every month start, the month named under its span
+    segs, y, m = [], d0.year, d0.month
+    while datetime(y, m, 1) < last:
+        a = datetime(y, m, 1)
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        segs.append((max(a, d0), min(datetime(y, m, 1), last), a.strftime('%b.%Y'), a > d0))
+    step = max(1, -(-len(segs) * 58 // (W - L - Rm)))
+    for i, (a, b, txt, tick) in enumerate(segs):
+        if tick:
+            p.append(f'<line x1="{X(a):.0f}" y1="{Y(0):.0f}" x2="{X(a):.0f}" y2="{Y(0) + 6:.0f}" stroke="var(--rpt-chart-axis)" stroke-width="1.2"/>')
+        if i % step == 0 and X(b) - X(a) >= 36:
+            p.append(f'<text x="{(X(a) + X(b)) / 2:.0f}" y="{H - B + 15}" text-anchor="middle" font-size="10.5" font-weight="700" fill="{mut}">{txt}</text>')
+    # the two data dates, under the months
+    p.append(f'<text x="{X(d0) - 4:.0f}" y="{H - B + 30}" font-size="10" fill="{mut}">▲ {_e(r.get("dd_prev_label"))}</text>'
+             f'<text x="{X(d1) - 4:.0f}" y="{H - B + 44}" font-size="10" fill="{mut}">▲ {_e(r.get("dd_now_label"))} · current data date</text>')
+    return f'<svg viewBox="0 0 {W} {H}" width="100%" style="max-height:{H}px">{"".join(p)}</svg>'
+
+
+def _rate_html(report):
+    r = report.get('rate_outlook')
+    if not r:
+        return ''
+    from p6_export.auto_parts import wrap_part as _part
+    cost, days = r.get('by_cost'), r.get('period_days')
+    rate, plan = r.get('rate_pct') or 0.0, r.get('planned_pct')
+    if cost:
+        intro = (f'Between the two updates ({days} calendar days) the project earned <b>{_money(r.get("rate_money"))} = {rate:.1f}%</b> — '
+                 f'against {_money(r.get("planned_money"))} = {_num(plan, "%")} in the baseline plan for the same days. '
+                 'The chart carries that rate forward.')
+    else:
+        intro = (f'Between the two updates ({days} calendar days) the project earned <b>{rate:.1f}%</b> — against '
+                 f'{_num(plan, "%")} planned for the same days. The chart carries that rate forward.')
+    sw = lambda col, dash=False: (f'<i style="background:{"none" if dash else col};'
+                                  f'{"border-top:3px dashed " + col + ";height:0;" if dash else "height:4px;"}width:22px"></i>')
+    legend = ('<div class="legend">'
+              f'<span>{sw("var(--rpt-accent)")}Actual between the two updates</span>'
+              f'<span>{sw("var(--rpt-accent)", True)}Carried forward at the current rate</span>'
+              f'<span>{sw("var(--rpt-good)", True)}Rate needed to finish on the baseline date</span>'
+              f'<span>{sw("var(--rpt-warn)")}Baseline plan</span>'
+              f'<span>{sw("var(--rpt-bad)", True)}P6 forecast finish</span></div>')
+
+    def tile(k, v, f, cls=''):
+        return f'<div class="fact"><div class="fl">{k}</div><div class="fv {cls}">{v}</div><div class="fs">{f}</div></div>'
+    daily = r.get('daily_money')
+    lost = r.get('days_lost')
+    if cost:
+        t1 = f'{_money_short(r.get("rate_money") or 0)} per {days} days = {_money_short(daily or 0)} per day'
+        t2 = (f'Shortfall {_money(r.get("shortfall_money"))} against the plan ÷ {_money_short(daily or 0)} per day'
+              if (lost or 0) > 0 else 'The period earned what the plan asked for')
+    else:
+        t1 = f'{r.get("daily_pct")}% per day'
+        t2 = ('Shortfall against the plan ÷ the rate per day' if (lost or 0) > 0 else 'The period earned what the plan asked for')
+    dab = r.get('days_after_baseline')
+    t3 = (f'{r.get("remaining_pct")}% still to earn ÷ {rate:.1f}% per {days} days = {r.get("days_to_go")} days'
+          + ('' if dab is None else (f' · {dab} days after the baseline' if dab > 0
+                                     else (f' · {-dab} days before the baseline' if dab < 0 else ' · on the baseline date')))
+          ) if r.get('rate_finish_label') else 'No progress was earned in this period — no date can be projected'
+    req, more = r.get('required_pct'), r.get('required_more_pct')
+    t4 = ((f'{_money_short(r["required_money"])} per {days} days' if r.get('required_money') else f'per {days} days')
+          + ('' if more is None else (f' — {more}% more than now' if more > 0 else ' — the present rate is enough')))
+    tiles = ('<div class="facts" style="grid-template-columns:repeat(4,1fr);margin-top:8px">'
+             + tile('Current rate', f'{rate:.1f}% / period', t1)
+             + tile('Time lost this period', f'{max(lost or 0, 0)} days', t2, 'neg' if (lost or 0) > 0 else '')
+             + tile('Finish at this rate', _e(r.get('rate_finish_label') or '—'), t3)
+             + tile(f'Rate needed for {_e(r.get("baseline_finish_label") or "the baseline finish")}',
+                    f'{req:.1f}% / period' if req is not None else '—',
+                    t4 if req is not None else 'The baseline finish has already passed', 'neg' if (more or 0) > 0 else '')
+             + '</div>')
+    lg, rf, pf = r.get('logic_days'), r.get('rate_finish_label'), r.get('p6_finish_label')
+    read = ''
+    if rf and pf and (lg or 0) > 0:
+        read = (f'Volume of work alone would finish on <b>{_e(rf)}</b>, but P6 forecasts <b>{_e(pf)}</b>: the extra {lg} days come from '
+                'the <b>sequence of the critical activities</b>, not from the amount of work. So recovery needs both — a higher rate '
+                'and shortening the critical chain. ')
+    elif rf and pf and (lg or 0) < 0:
+        read = (f'P6 forecasts <b>{_e(pf)}</b>, {-lg} days before the date the present rate gives ({_e(rf)}): the remaining work is '
+                'planned at a faster rate than this period achieved — the forecast holds only if the rate rises. ')
+    read += ('Rate = ' + ('Earned Value variance' if cost else '% complete variance')
+             + ' ÷ calendar days between the two data dates; it assumes the same rate continues.')
+    how = f'<div class="defs"><div class="defs-h">How to read it</div><div class="def">{read}</div></div>'
+    return (f'<p class="note" style="margin-top:0;font-style:normal">{intro}</p>'
+            + '<div class="chart keep" data-part="rate.chart" data-part-label="Rate of progress — chart">'
+            + legend + _rate_svg(r) + '</div>'
+            + _part('rate.tiles', 'Rate of progress — the four figures', tiles)
+            + _part('rate.reading', 'Rate of progress — how to read it', how))
+
+
+# ── Conclusion and recommended actions (round 3, point 10) ─────────────────
+
+def advice_pm_items(adv, group=None):
+    """The Project Manager list — the fronts follow the activity code chosen in the progress chart."""
+    adv = adv or {}
+    fr = adv.get('pm_fronts') or {}
+    g = group if group in fr else adv.get('front_type')
+    if 'pm_head' not in adv:
+        return adv.get('project_manager') or []
+    return (adv.get('pm_head') or []) + (fr.get(g) or []) + (adv.get('pm_tail') or [])
+
+
+def _advice_html(report, group=None):
+    adv = report.get('advice')
+    if not adv:
+        return ''
+    from p6_export.auto_parts import wrap_part as _part
+    tone = {'bad': 'neg', 'good': 'pos'}
+    tiles = ('<div class="facts" style="grid-template-columns:repeat(4,1fr);margin-top:4px">' + ''.join(
+        f'<div class="fact"><div class="fl">{_e(t.get("label"))}</div><div class="fv {tone.get(t.get("tone"), "")}">{_e(t.get("value"))}</div>'
+        f'<div class="fs">{_e(t.get("sub"))}</div></div>' for t in adv.get('tiles') or []) + '</div>')
+
+    def col(title, items, cls):
+        return (f'<div class="adv {cls}"><div class="adv-h">{title}</div>' + ''.join(
+            f'<div class="adv-i"><b>{i} · {_e(it.get("title"))}</b><div>{_e(it.get("text"))}</div></div>'
+            for i, it in enumerate(items, 1)) + '</div>')
+    return (_part('advice.tiles', 'Conclusion — the four figures', tiles)
+            + _part('advice.top', 'Conclusion — for Top Management', col('For Top Management', adv.get('top_management') or [], 'tm'))
+            + _part('advice.pm', 'Conclusion — for the Project Manager',
+                    col('For the Project Manager', advice_pm_items(adv, group), 'pm'))
+            + f'<p class="note">{_e(adv.get("rules"))} The wording adapts to the result of each pair of updates.</p>')
+
+
 _SECTION_LABELS = [
     ('verdict', 'Status verdict'), ('progress', 'Progress chart'),
     ('earned_value', 'Earned Value — before, after and variance'),
@@ -1063,26 +1401,77 @@ _SECTION_LABELS = [
     ('progress_table', 'Progress by activity'), ('watch', 'Activities to watch before the next update'),
     ('whatmoved', 'What moved this period'), ('bycode', 'Progress by activity code'),
     ('milestones', 'Milestones (table + chart)'), ('conclusions', 'Conclusions'),
+    ('rate', 'Rate of progress and where it lands'), ('advice', 'Conclusion and recommended actions'),
 ]
 
 
+NO_VALUE = '(no value)'
+
+
+def _cf_parts(cf):
+    """(code type, set of picked values) of a code filter. `values` = the picked values of
+    one activity code (or of 'WBS'); the older single `value` still reads."""
+    if not cf or not cf.get('type'):
+        return None, set()
+    vals = cf.get('values')
+    if vals is None:
+        vals = [cf.get('value')] if cf.get('value') else []
+    return cf['type'], {v for v in vals if v not in (None, '')}
+
+
+def _cf_match(r, t, vals):
+    if t == 'WBS':
+        if 'wbs' not in r:
+            return True                     # an older saved result: the row carries no WBS to test
+        return (r.get('wbs') or NO_VALUE) in vals
+    return ((r.get('codes') or {}).get(t) or NO_VALUE) in vals
+
+
+def _cf_text(cf):
+    t, vals = _cf_parts(cf)
+    if not t or not vals:
+        return ''
+    vs = sorted(vals, key=str)
+    return f'{t}: ' + ', '.join(str(v) for v in vs[:6]) + (f' … (+{len(vs) - 6} more)' if len(vs) > 6 else '')
+
+
 def _apply_code_filter(report, cf):
-    """Return the report with the activity-level tables filtered to one activity-code value
-    (so an exported PDF respects the on-screen slicer). Aggregates are left whole."""
-    if not cf or not cf.get('type') or not cf.get('value'):
+    """Return the report narrowed to the picked values of one activity code (so the exports
+    follow the on-screen picker): the activities that moved, the watch list, the critical-path
+    movement (rows AND counts) and the relationship changes. The Earned Value by code table
+    follows the same pick. Project-level aggregates are left whole."""
+    t, vals = _cf_parts(cf)
+    if not t:
         return report
-    t, v = cf['type'], cf['value']
     out = dict(report)
-    out['code_filter'] = cf
-    for key in ('progress', 'critical_movement', 'watch_list'):
+    out['ev_code_type'] = t
+    if not vals:
+        return out
+    out['code_filter'] = {'type': t, 'values': sorted(vals, key=str)}
+    if len(vals) == 1:
+        out['code_filter']['value'] = next(iter(vals))
+    for key in ('progress', 'watch_list'):
         sec = report.get(key) or {}
-        rows = [r for r in (sec.get('rows') or []) if (r.get('codes') or {}).get(t) == v]
-        out[key] = dict(sec, rows=rows)
+        out[key] = dict(sec, rows=[r for r in (sec.get('rows') or []) if _cf_match(r, t, vals)])
+    cm = report.get('critical_movement') or {}
+    rows = [r for r in (cm.get('rows') or []) if _cf_match(r, t, vals)]
+    new = sum(1 for r in rows if r.get('critical_status') == 'new')
+    cm2 = dict(cm, rows=rows, new_critical=new, critical_now=len(rows), stayed=len(rows) - new)
+    if 'left_rows' in cm:
+        left = [r for r in (cm.get('left_rows') or []) if _cf_match(r, t, vals)]
+        cm2.update(left_rows=left, left=len(left), left_finished=sum(1 for r in left if r.get('reason') == 'Finished'),
+                   critical_prev=len(rows) - new + len(left))
+    out['critical_movement'] = cm2
+    out['logic_changes'] = [r for r in (report.get('logic_changes') or []) if _cf_match(r, t, vals)]
     return out
 
 
+apply_code_filter = _apply_code_filter
+
+
 def render_html(report, trend=None, sections=None, code_filter=None,
-                critical_style='chain', critical_mode='leaf-parent', theme='light', critical_group=None):
+                critical_style='chain', critical_mode='leaf-parent', theme='light', critical_group=None,
+                bycode_group=None):
     """`sections` = list of section keys to include (None = all); `code_filter` =
     {'type','value'} to limit the activity tables to one activity code; `critical_style`
     (chain | timeline | table) + `critical_mode` = the critical-path presentation the user
@@ -1111,35 +1500,43 @@ def render_html(report, trend=None, sections=None, code_filter=None,
                   + '<div class="chart" style="margin-top:8px" data-part="milestones.chart" '
                     'data-part-label="All finish milestones — drift chart">'
                   + f'{_milestone_drift_svg(report)}</div></div>')
+    # the full table is not printed any more (owner, round 3): it stays in the Word export —
+    # the server shows the `word-only` block when it writes the .docx — and in Excel
     critical = (_part('critical.summary', 'Critical-path movement — summary in charts', _critical_summary_html(report, critical_group))
-                + _part('critical.table', 'Critical-path movement — full table', _critical_table_html(report)))
+                + _part('critical.logic', 'Relationships changed — what changed for each activity', _logic_html(report))
+                + '<div class="word-only"><h3>Critical-path movement — full table</h3>' + _critical_table_html(report) + '</div>')
+    cft = _cf_text(report.get('code_filter'))
+    inc = f'<div class="cutoff">Included: <b>{_e(cft)}</b></div>' if cft else ''
     cost = _by_cost(report)
     secs = [
         ('verdict', '', banner, False),
         ('progress', ("Performance % — where you are vs where you said you'd be" if cost
                       else "Progress — where you are vs where you said you'd be"), _progress_bar_html(report), False),
         ('earned_value', 'Earned Value — before, after and variance', _ev_html(report), False),
+        ('rate', 'Rate of progress and where it lands', _rate_html(report), False),
         ('dashboard', 'Execution Dashboard — Previous → Current, at each cutoff', dashboard, False),
         ('recommendation', 'What management needs to know', f'<div class="reco warn">{_e(report.get("project_conclusion"))}</div>', False),
         ('critical_compare', 'Critical-path comparison — the finish-driving route', _critical_compare_html(report, critical_style, critical_mode), True),
-        ('critical', 'Critical-path movement in this window', critical, False),
-        ('progress_table', 'Progress by activity — % complete this period', _progress_table_html(report), False),
+        ('critical', 'Critical-path movement in this window', inc + critical, False),
+        ('progress_table', 'Progress by activity — % complete this period', inc + _progress_table_html(report), False),
         ('watch', 'Activities to watch before the next update', _watch_table_html(report), False),
         ('whatmoved', 'What moved this period — planned vs actual', _whatmoved_html(report), False),
-        ('bycode', "Where this period's progress came from — by activity code", _bycode_html(report), False),
+        ('bycode', "Where this period's progress came from — by activity code", _bycode_html(report, bycode_group), False),
         ('milestones', 'Milestones — project completion & all finish milestones', milestones, False),
         ('conclusions', 'Executive conclusion — this period', f'<div class="reco">{_e(report.get("conclusion"))}</div>', False),
+        ('advice', 'Conclusion and recommended actions', _advice_html(report, bycode_group), False),
     ]
     keys = set(sections) if sections else None
     cf = report.get('code_filter')
     body = [header]
     if cf:
         body.append(f'<div class="cutoff" style="background:var(--rpt-accent-soft);border-color:var(--rpt-accent-soft);color:var(--rpt-accent)">'
-                    f'<b>Filtered:</b> {_e(cf.get("type"))} = <b>{_e(cf.get("value"))}</b> — the activity tables below show only this activity code.</div>')
+                    f'<b>Filtered:</b> <b>{_e(cft)}</b> — the activities that moved, the Earned Value by code and the '
+                    'critical-path movement below show only these.</div>')
     for key, title, html, planner in secs:
         if keys is not None and key not in keys:
             continue
-        if key == 'earned_value' and not html:      # an update without cost has nothing to earn against
+        if key in ('earned_value', 'rate', 'advice') and not html:   # nothing to show (no cost / an older saved result)
             continue
         t = f'<h2>{_e(title)}</h2>' if title else ''
         body.append(f'<section data-sec="{key}"{" class=pagebreak" if planner else ""}>{t}{html}</section>')
@@ -1195,6 +1592,22 @@ def render_html(report, trend=None, sections=None, code_filter=None,
       .bar2r-t {{ position: relative; height: 16px; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 5px; }}
       .bar2r-pl {{ position: absolute; left: 0; top: 0; height: 100%; background: var(--rpt-surface-2); border: 1px solid var(--rpt-edge); border-radius: 5px; }}
       .bar2r-ac {{ position: absolute; left: 0; top: 2px; height: 10px; background: var(--rpt-accent); border-radius: 4px; }}
+      .hbm {{ font-size: 10px; color: var(--rpt-muted); margin: -2px 0 6px; line-height: 1.35; }}
+      .slip {{ display: inline-block; border-radius: 9px; padding: 0 7px; margin-left: 4px; font-weight: 700; background: var(--rpt-warn-bg); color: var(--rpt-warn); }}
+      .slip.worst {{ background: var(--rpt-bad-bg); color: var(--rpt-bad); }} .slip.none {{ background: var(--rpt-surface-2); color: var(--rpt-muted); font-weight: 600; }}
+      .hbs.wide .hbn {{ width: 150px; }}
+      .vhist {{ display: flex; align-items: flex-end; gap: 12px; height: 176px; border-bottom: 1.5px solid var(--rpt-chart-axis); padding: 4px 6px 0; }}
+      .vg {{ flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; }}
+      .vb {{ width: 44%; max-width: 40px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }}
+      .vb b {{ font-size: 10px; margin-bottom: 2px; white-space: nowrap; }} .vb b.neg {{ color: var(--rpt-bad); }}
+      .vb i {{ display: block; width: 100%; border-radius: 3px 3px 0 0; }} .vb i.pl {{ background: var(--rpt-warn); }} .vb i.ac {{ background: var(--rpt-accent); }}
+      .vl-row {{ display: flex; gap: 12px; padding: 4px 6px 0; }} .vl {{ flex: 1; text-align: center; font-size: 10px; color: var(--rpt-ink-soft); overflow-wrap: anywhere; }}
+      .adv {{ border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-accent); border-radius: 0 8px 8px 0; padding: 9px 14px; margin-top: 10px; }}
+      .adv.tm {{ border-left-color: var(--rpt-warn); }}
+      .adv-h {{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; font-weight: 800; color: var(--rpt-accent); margin-bottom: 4px; }}
+      .adv.tm .adv-h {{ color: var(--rpt-warn); }}
+      .adv-i {{ margin: 6px 0; line-height: 1.5; break-inside: avoid; }} .adv-i b {{ font-size: 12px; }} .adv-i div {{ color: var(--rpt-ink-soft); }}
+      .word-only {{ display: none; }}
       * {{ box-sizing: border-box; }}
       body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 12px; margin: 0; }}
       .page {{ page-break-after: always; }} .page:last-child {{ page-break-after: auto; }}
@@ -1428,7 +1841,77 @@ def report_excel(report, trend=None):
 
     rows += [[''], ['Executive conclusion — this period'], [report.get('conclusion', '')]]
     rows += [[''], ['Project conclusion & outlook'], [report.get('project_conclusion', '')]]
+    rows += _excel_round3_rows(report)
+    cft = _cf_text(report.get('code_filter'))
+    if cft:
+        rows = [[f'Filtered — {cft}: the activity tables, the critical-path movement and the Earned Value by code show only these.'],
+                ['']] + rows
     return headers, rows
+
+
+def _excel_round3_rows(report):
+    """Rate of progress, relationship changes, Earned Value by the picked code and the
+    conclusion's actions — the same figures the PDF prints. Never raises."""
+    rows = []
+    try:
+        r = report.get('rate_outlook')
+        if r:
+            cost, days = r.get('by_cost'), r.get('period_days')
+            x = lambda v: '' if v is None else v
+            rows += [[''], ['Rate of progress and where it lands'],
+                     ['Days between the two data dates', x(days)],
+                     ['Earned in the period (%)', x(r.get('rate_pct'))], ['Planned for the period (%)', x(r.get('planned_pct'))]]
+            if cost:
+                rows += [['Earned in the period (Earned Value variance)', x(r.get('rate_money'))],
+                         ['Planned for the period (Planned Value variance)', x(r.get('planned_money'))],
+                         ['Current rate per day', x(r.get('daily_money'))],
+                         ['Shortfall against the plan this period', x(r.get('shortfall_money'))]]
+            rows += [['Time lost this period (days)', x(r.get('days_lost'))],
+                     ['Still to earn (%)', x(r.get('remaining_pct'))],
+                     ['Finish at the current rate', x(r.get('rate_finish_label'))],
+                     ['Days from the current data date to that finish', x(r.get('days_to_go'))],
+                     ['Baseline finish', x(r.get('baseline_finish_label'))],
+                     ['Finish at the current rate − baseline finish (days)', x(r.get('days_after_baseline'))],
+                     ['P6 forecast finish', x(r.get('p6_finish_label'))],
+                     ['P6 forecast − finish at the current rate (days; the sequence of the critical path)', x(r.get('logic_days'))],
+                     ['Rate needed for the baseline finish (% per period)', x(r.get('required_pct'))]]
+            if cost:
+                rows += [['Rate needed for the baseline finish (per period)', x(r.get('required_money'))]]
+            rows += [['Rate needed − current rate (%)', x(r.get('required_more_pct'))]]
+        lc = report.get('logic_changes') or []
+        if lc:
+            rows += [[''], ['Relationships changed — the critical activities whose logic was edited between the two updates'],
+                     ['S/N', 'Activity ID', 'Activity name', 'Finish (prev)', 'Finish (now)', 'Finish moved (wd)',
+                      'What changed in the relationships (previous → current)']]
+            rows += [[i, a.get('activity_id', ''), a.get('activity_name', ''), a.get('prev_finish', ''), a.get('curr_finish', ''),
+                      '' if a.get('slip_days') is None else a.get('slip_days'), '; '.join(a.get('changes') or [])]
+                     for i, a in enumerate(lc, 1)]
+        t = report.get('ev_code_type')
+        ev = ((report.get('ev_by_code') or {}).get(t) or []) if t else []
+        if ev:
+            _t, vals = _cf_parts(report.get('code_filter'))
+            picked = [e for e in ev if e.get('value') in vals] if vals else ev
+            if picked:
+                rows += [[''], [f'Earned Value by {t}' + (' — the picked values only' if vals else '')],
+                         ['S/N', t, 'Cost-loaded activities', 'Budget', 'Earned Value — previous', 'Earned Value — current', 'Variance',
+                          'Performance % — previous', 'Performance % — current', 'Variance %']]
+                rows += [[i, e.get('value', ''), e.get('activities', 0), round(e.get('bac') or 0), round(e.get('ev_prev') or 0),
+                          round(e.get('ev_now') or 0), round(e.get('variance') or 0)] + _ev_pct_cells(e)
+                         for i, e in enumerate(picked, 1)]
+                tot = {k: sum(e.get(k) or 0 for e in picked) for k in ('activities', 'bac', 'ev_prev', 'ev_now', 'variance')}
+                rows += [['', 'Total'] + [round(tot[k]) for k in ('activities', 'bac', 'ev_prev', 'ev_now', 'variance')]
+                         + _ev_pct_cells(tot)]
+        adv = report.get('advice')
+        if adv:
+            rows += [[''], ['Conclusion and recommended actions']]
+            rows += [[t_.get('label', ''), t_.get('value', ''), t_.get('sub', '')] for t_ in adv.get('tiles') or []]
+            for title, items in (('For Top Management', adv.get('top_management') or []),
+                                 ('For the Project Manager', advice_pm_items(adv, report.get('bycode_group')))):
+                rows += [[''], [title]] + [[f'{i} · {it.get("title", "")}', it.get('text', '')] for i, it in enumerate(items, 1)]
+            rows += [[''], [adv.get('rules', '')]]
+    except Exception:
+        pass
+    return rows
 
 
 _MOVED_WORDS = (('finished', 'Finished'), ('started', 'Started'), ('slipped', 'Slipped'),
@@ -1502,6 +1985,29 @@ def report_excel_extra_sheets(report):
                 'rows': [[i, a.get('activity_id', ''), a.get('activity_name', ''), a.get('wbs', ''), a.get('reason', ''),
                           '' if a.get('float_days') is None else a.get('float_days')]
                          for i, a in enumerate(left_rows, 1)]}]})
+        ev = report.get('ev_by_code') or {}
+        rows = [[t, e.get('value', ''), e.get('activities', 0), round(e.get('bac') or 0), round(e.get('ev_prev') or 0),
+                 round(e.get('ev_now') or 0), round(e.get('variance') or 0)] + _ev_pct_cells(e)
+                for t, vals in ev.items() for e in vals or []]
+        if rows:
+            sheets.append({'name': 'EV by Code', 'blocks': [{
+                'title': 'Earned Value by activity code and by WBS — previous, current, variance',
+                'note': 'Cost-loaded activities only — the same activities and the same sum as the report\'s Earned Value. '
+                        'Each activity code (and the WBS) adds up to the project total; "(no value)" = activities without that code.',
+                'headers': ['Activity code', 'Code value', 'Cost-loaded activities', 'Budget', 'Earned Value — previous',
+                            'Earned Value — current', 'Variance', 'Performance % — previous', 'Performance % — current',
+                            'Variance %'],
+                'rows': rows}]})
+        lc = report.get('logic_changes') or []
+        if lc:
+            sheets.append({'name': 'Relationship Changes', 'blocks': [{
+                'title': 'Critical activities whose relationships were edited between the two updates',
+                'note': 'One row per changed relationship (previous → current).',
+                'headers': ['S/N', 'Activity ID', 'Activity Name', 'Finish (prev)', 'Finish (now)', 'Finish moved (wd)',
+                            'What changed'],
+                'rows': [[i, a.get('activity_id', ''), a.get('activity_name', ''), a.get('prev_finish', ''),
+                          a.get('curr_finish', ''), '' if a.get('slip_days') is None else a.get('slip_days'), c]
+                         for i, a in enumerate(lc, 1) for c in (a.get('changes') or ['—'])]}]})
     except Exception:
         pass
     return sheets

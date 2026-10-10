@@ -272,6 +272,46 @@ def test_render_html_code_filter_limits_activity_tables_to_selected_code():
     assert 'Filtered:' in filtered and 'Discipline' in filtered and 'Civil' in filtered
 
 
+def test_code_filter_accepts_several_values():
+    rep = _coded_report()
+    both = render_html(rep, trend=None, code_filter={'type': 'Discipline', 'values': ['Civil', 'Mechanical']})
+    assert 'CIV1' in both and 'MEC1' in both
+    one = render_html(rep, trend=None, code_filter={'type': 'Discipline', 'values': ['Mechanical']})
+    assert 'MEC1' in one and 'CIV1' not in one
+
+
+def test_ev_by_code_rows_carry_the_variance_as_a_percentage():
+    from p6_period.exporters import _ev_pcts, _ev_pct_cells
+    row = {'bac': 495777627, 'ev_prev': 304386203, 'ev_now': 338554147, 'variance': 34167944}
+    assert _ev_pct_cells(row) == [61.4, 68.3, 6.9]
+    assert _ev_pcts({'bac': 0, 'ev_prev': 0, 'ev_now': 0, 'variance': 0}) == (None, None, None)
+    assert _ev_pct_cells({'bac': 0}) == ['', '', '']
+
+
+def test_progress_bar_labels_that_would_overlap_step_onto_their_own_line():
+    import re
+    from p6_period import exporters
+    src = open(exporters.__file__, encoding='utf-8').read()
+    assert 'pos - last_at[lv] < 17' in src and "translateX(-100%)" in src
+    assert re.search(r'class="pbar" style="margin-top:\{14 \* \(lines - 1\)\}px"', src)
+
+
+def test_rate_chart_names_the_months_on_the_time_axis():
+    from p6_period.exporters import _rate_svg
+    svg = _rate_svg({'dd_prev': '2026-07-19', 'dd_now': '2026-08-09', 'baseline_finish': '2027-02-09',
+                     'rate_finish': '2027-03-12', 'p6_finish': '2027-05-22', 'actual_prev': 40.4, 'actual_now': 45.7,
+                     'planned_prev': 61.4, 'planned_now': 71.2, 'rate_pct': 5.3, 'period_days': 21,
+                     'baseline_finish_label': '09-Feb.2027', 'rate_finish_label': '12-Mar.2027', 'p6_finish_label': '22-May.2027',
+                     'dd_prev_label': '19-Jul.2026', 'dd_now_label': '09-Aug.2026'})
+    for m in ('Jul.2026', 'Aug.2026', 'Dec.2026', 'Jan.2027', 'May.2027'):
+        assert f'>{m}</text>' in svg
+
+
+def test_full_critical_table_is_kept_for_word_only():
+    html = render_html(_coded_report(), trend=None)
+    assert 'class="word-only"' in html and '.word-only{display:none;}' in html.replace(' ', '')
+
+
 # ── Report appearance theming (shared report_theme module) ───────────────────
 
 def test_render_html_dark_theme_injects_dark_palette():

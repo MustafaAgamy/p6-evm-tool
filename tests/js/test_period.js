@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml,
          criticalTimelineData, criticalCompareBody, earnedValueHtml, criticalSummaryHtml, critGroupChoice,
-         watchTable, criticalTable, wrapText } from '../../ui/modules/period.js';
+         watchTable, criticalTable, wrapText, rateHtml, logicHtml, byCodeHtml, adviceHtml } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -204,6 +204,19 @@ console.log('\nround 2 — Earned Value, critical summary, watch list, serials')
     assert.ok(/<th class="num">S\/N<\/th><th>Activity ID/.test(c) && c.includes('Total Float (wd)') && c.includes('+3 wd'));
     const w = watchTable({ watch_list: { rows: [{ activity_id: 'ME2', activity_name: 'Belt', due_to_start: 'z', float_days: 0, reason: 'On the critical path' }] } });
     assert.ok(w.includes('S/N') && w.includes('Why it is listed') && w.includes('most likely to delay the finish date'));
+  });
+  test('round 3: rate chart names the months; relationships explained; paired histogram; actions', () => {
+    const r = { dd_prev: '2026-07-19', dd_now: '2026-08-09', baseline_finish: '2027-02-09', rate_finish: '2027-03-12', p6_finish: '2027-05-22',
+      actual_prev: 40.4, actual_now: 45.7, planned_prev: 61.4, planned_now: 71.2, rate_pct: 5.3, period_days: 21, by_cost: false,
+      baseline_finish_label: '09-Feb.2027', rate_finish_label: '12-Mar.2027', p6_finish_label: '22-May.2027', logic_days: 71, days_lost: 18 };
+    const h = rateHtml({ rate_outlook: r });
+    assert.ok(h.includes('>Aug.2026</text>') && h.includes('>May.2027</text>') && h.includes('sequence of the critical activities'));
+    const l = logicHtml([{ activity_id: 'A1', activity_name: 'Piles', slip_days: 14, changes: ['Successor B — FS lag 35 d → 0 d'] }]);
+    assert.ok(l.includes('what it means') && l.includes('14 wd later') && l.includes('FS lag 35 d'));
+    const b = byCodeHtml({ progress_by_code: { Area: [{ value: 'Silo 5', planned: 1.1, actual: 1.9 }, { value: 'Tower', planned: 0.5, actual: 0 }] } });
+    assert.ok(b.includes('per-vhist') && b.includes('1.9%') && b.includes('per-slip-bad'));
+    const a = adviceHtml({ advice: { tiles: [], top_management: [{ title: 'T', text: 'x' }], project_manager: [{ title: 'P', text: 'y' }], rules: 'R' } });
+    assert.ok(a.includes('For Top Management') && a.includes('1 · P'));
   });
 }
 

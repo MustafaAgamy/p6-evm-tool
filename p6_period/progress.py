@@ -72,6 +72,7 @@ def activity_progress(matched, include=None):
             'status': 'Completed' if curr_pct >= 100.0 else 'In Progress',
             # activity codes ({dimension: value}) carried so the UI slicer can filter
             'codes': u.get('activity_codes') or {},
+            'wbs': (u.get('wbs_path') or '').split(' > ')[-1].strip() or '(no WBS)',
         })
     rows.sort(key=lambda r: -r['variance'])
     return {'rows': rows, 'counts': counts}
