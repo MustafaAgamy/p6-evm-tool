@@ -166,7 +166,7 @@ _SNET = ('Start On', 'Start On or After', 'Mandatory Start')        # forward pa
 _FNET = ('Finish On', 'Finish On or After', 'Mandatory Finish')     # forward pass: finish no earlier than
 
 
-def forward_pass(data, data_date=None, keep=None):
+def forward_pass(data, data_date=None, keep=None, starts=None):
     """{oid: early_finish} for every activity — retained logic, in WORKING TIME as P6 schedules:
     remaining work starts at the first working moment after the data date / its predecessors,
     durations and lags are counted in working hours on the activity's calendar and the lag on
@@ -264,6 +264,8 @@ def forward_pass(data, data_date=None, keep=None):
         es[oid] = a_start or _minute(s)
         rs[oid] = _minute(s)
         ef[oid] = _minute(e)
+    if starts is not None:                      # the caller also wants the early starts
+        starts.update(es)
     return ef
 
 

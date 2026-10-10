@@ -90,11 +90,13 @@ export function composeDoc(css, title, subtitle, sections, selectedKeys, extraHe
 // sections: [{ key, label, html }] — html is the section's rendered content (may be '')
 // exports / exportName / meta: an ADOPTED view (its sections carry data-part wrappers and mark
 // screen-only cells data-export="skip") may offer Word / HTML beside PDF — default PDF only.
-export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel }) {
+// landscape: a wide view (Gantt, WBS timeline) is laid out on an A4 landscape page, full width.
+const LANDSCAPE_HEAD = '<style id="pr-landscape">@page { size: A4 landscape; margin: 10mm; } .pr-doc { max-width: none !important; padding: 14px 6px 20px !important; }</style>';
+export async function printView({ module, title, subtitle, sections, exports, exportName, meta, onExcel, landscape }) {
   const usable = (sections || []).filter(Boolean);
   if (!usable.length) return false;
   const css = await appCss();
-  const pgHead = await paginationHead();
+  const pgHead = (await paginationHead()) + (landscape ? LANDSCAPE_HEAD : '');
   const keys = usable.map((s) => s.key);
   const storageKey = `p6_report_sections_${module}`;
   let selected = keys;

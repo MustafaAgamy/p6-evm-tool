@@ -89,14 +89,14 @@ export const FEATURE_NEEDS = [
     start: 'Navigator ▸ Project Overview ▸ WBS (Alt+2)',
   },
   {
-    id: 'schedule', name: 'Schedule (Gantt)', group: 'Project Overview',
+    id: 'schedule', name: 'Critical Activities (Gantt)', group: 'Project Overview',
     what: 'A time-scaled Gantt of the activities, grouped by WBS.',
     hint: '1 P6 schedule (XER or XML)',
     files: [{ n: 1, role: 'P6 schedule — baseline or update (the imported file)', formats: XER_OR_XML, k: 'p6' }],
     other: [],
     produces: 'Gantt chart of every activity on its current dates, grouped by top-level WBS.',
     exports: ['PDF', 'Word', 'HTML', 'Excel'],   // File ▸ Print preview (printView) + its own Excel
-    start: 'Navigator ▸ Project Overview ▸ Schedule (Gantt) (Alt+3)',
+    start: 'Navigator ▸ Project Overview ▸ Critical Activities (Gantt) (Alt+3)',
   },
 
   // ── Schedule Quality ────────────────────────────────────────────────────────

@@ -167,7 +167,7 @@ test('Reporting Studio Update items follow the Update Analysis screen rule (R1 F
 test('every screen that shows a baseline-derived value marks it approx under ONE rule (R1 F2)', () => {
   const ov = read('ui', 'modules', 'overview.js');
   assert.match(ov, /baselineApprox\(result, state\.currentXmlPath\)/);
-  assert.match(ov, /Baseline finish\$\{ax\}/); assert.match(ov, /Overall planned\$\{ax\}/);
+  assert.match(ov, /Baseline finish\$\{ax\}/); assert.match(ov, /Planned %\$\{ax\}/);
   assert.match(ov, /WBS_BL_COLS = new Set\(\['baseline_start', 'baseline_finish', 'planned', 'delay'\]\)/);
   const cal = read('ui', 'modules', 'calendar.js');
   assert.match(cal, /d\.baseline_approx \? 'Baseline \(approx\)' : 'plan of record'/);

@@ -125,6 +125,9 @@ class ScheduleData:
         self.wbs = {}              # ObjectId -> {Name, ParentObjectId}
         self.activities = {}       # ObjectId -> activity dict
         self.baseline_by_id = {}   # activity Id (code) -> {PlannedStartDate, PlannedFinishDate}
+        # view-only: activity Id (code) -> the baseline's own Start / Finish, the dates P6 lists as
+        # BL Project Start / Finish (PV keeps using baseline_by_id)
+        self.baseline_dates_by_id = {}
         # WHERE baseline_by_id came from — ONE vocabulary for both formats (R4):
         #   'embedded' — the file carries its baseline project (XML <BaselineProject>)
         #   'self'     — it does not, so the file's own Planned dates stand in (approximate)
@@ -463,6 +466,7 @@ def _parse_xml(path) -> ScheduleData:
         data.wbs[object_id] = {
             'name': text(wbs_el, 'Name'),
             'parent_object_id': text(wbs_el, 'ParentObjectId'),
+            'seq': text(wbs_el, 'SequenceNumber'),      # P6's own order among siblings
         }
 
     baseline_bac_by_id = {}   # baseline activity Id (code) -> baseline BAC; mapped to object ids below
@@ -476,6 +480,10 @@ def _parse_xml(path) -> ScheduleData:
             data.baseline_by_id[activity_id] = {
                 'planned_start': parse_datetime(text(act_el, 'PlannedStartDate')),
                 'planned_finish': parse_datetime(text(act_el, 'PlannedFinishDate')),
+            }
+            data.baseline_dates_by_id[activity_id] = {
+                'start': parse_datetime(text(act_el, 'StartDate')),
+                'finish': parse_datetime(text(act_el, 'FinishDate')),
             }
         # Baseline budget (BAC) per activity — P6 anchors Planned Value and WBS %-rollup to
         # the baseline cost, not the current update's cost loading. Sum the baseline project's

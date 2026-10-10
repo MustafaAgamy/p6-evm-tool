@@ -56,31 +56,35 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <font><b/><sz val="13"/><color rgb="FF12467A"/><name val="Calibri"/></font>
 <font><b/><sz val="11"/><color rgb="FF20375A"/><name val="Calibri"/></font>
 </fonts>
-<fills count="7"><fill><patternFill patternType="none"/></fill>
+<fills count="13"><fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFADDDD"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFFBECCF"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F6"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F9"/></patternFill></fill></fills>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEAF0F9"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEF4444"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF7F1D1D"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF0F172A"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF3B82F6"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF59E0B"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF1E3A8A"/></patternFill></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf/></cellStyleXfs>
-<cellXfs count="23"><xf/><xf fontId="1" applyFont="1"/>
-<xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
-<xf fontId="3" fillId="3" applyFont="1" applyFill="1"/>
-<xf fontId="4" fillId="4" applyFont="1" applyFill="1"/>
-<xf fontId="5" fillId="5" applyFont="1" applyFill="1"/>
-<xf applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<cellXfs count="29"><xf applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf fontId="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="2" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="3" fillId="3" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="4" fillId="4" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="5" fillId="5" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf fontId="8" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
 <xf fontId="6" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
 <xf fontId="7" applyFont="1"/>
-<xf fontId="9" fillId="6" applyFont="1" applyFill="1"/>
-<xf numFmtId="3" applyNumberFormat="1"/><xf numFmtId="164" applyNumberFormat="1"/>
-<xf numFmtId="4" applyNumberFormat="1"/><xf numFmtId="9" applyNumberFormat="1"/>
-<xf numFmtId="165" applyNumberFormat="1"/><xf numFmtId="10" applyNumberFormat="1"/>
-<xf numFmtId="166" applyNumberFormat="1"/><xf numFmtId="167" applyNumberFormat="1"/>
-<xf numFmtId="168" applyNumberFormat="1"/><xf numFmtId="169" applyNumberFormat="1"/>
-<xf numFmtId="2" applyNumberFormat="1"/><xf fontId="1" numFmtId="0" applyFont="1"/>
+<xf fontId="9" fillId="6" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="3" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="4" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="9" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="165" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="10" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="166" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="167" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="168" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="169" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="2" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fontId="1" numFmtId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf fillId="7" applyFill="1"/><xf fillId="8" applyFill="1"/><xf fillId="9" applyFill="1"/>
+<xf fillId="10" applyFill="1"/><xf fillId="11" applyFill="1"/><xf fillId="12" applyFill="1"/>
 </cellXfs>
 </styleSheet>'''
 
@@ -90,6 +94,73 @@ _STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 NUMFMT_STYLE = {'#,##0': 11, '#,##0.0': 12, '#,##0.00': 13, '0%': 14, '0.0%': 15, '0.00%': 16,
                 'dd-mmm-yyyy': 17, 'dd mmm yyyy': 18, 'yyyy-mm-dd': 19, '0.0': 20, '0.00': 21,
                 'bold': 22}
+
+
+# Bar fills for a Gantt drawn in cells (xfs 23-28): red (remaining work) · dark red (done part)
+# · black (WBS span) · blue · amber · dark blue (done part of a blue / amber bar)
+BAR_RED, BAR_RED_DONE, BAR_BLACK, BAR_BLUE, BAR_AMBER, BAR_BLUE_DONE = 23, 24, 25, 26, 27, 28
+
+
+def gantt_buckets(dates, max_cols=110):
+    """Time columns for a Gantt drawn in cells: one per WEEK across the given ISO dates, or one
+    per MONTH when that would need more than `max_cols`. → (starts[date], unit) - unit is
+    'week' or 'month'. Empty when no date parses."""
+    from datetime import date, timedelta
+    ds = []
+    for d in dates:
+        try:
+            ds.append(date.fromisoformat(str(d)[:10]))
+        except (TypeError, ValueError):
+            pass
+    if not ds:
+        return [], 'week'
+    lo, hi = min(ds), max(ds)
+    start = lo - timedelta(days=lo.weekday())
+    weeks = (hi - start).days // 7 + 1
+    if weeks <= max_cols:
+        return [start + timedelta(days=7 * i) for i in range(weeks)], 'week'
+    out, cur = [], date(lo.year, lo.month, 1)
+    while cur <= hi:
+        out.append(cur)
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    return out, 'month'
+
+
+def gantt_header(buckets, unit, cutoff=None):
+    """Header labels of the time columns: every month is named on its first column (a weekly
+    scale shows 'Aug 26' once, then the day of each week start); the cut-off column is marked."""
+    from datetime import date
+    mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    try:
+        cut = date.fromisoformat(str(cutoff)[:10]) if cutoff else None
+    except ValueError:
+        cut = None
+    out, last = [], None
+    for i, b in enumerate(buckets):
+        nxt = buckets[i + 1] if i + 1 < len(buckets) else None
+        lbl = '%s %s' % (mon[b.month - 1], str(b.year)[2:]) if (b.year, b.month) != last else ('%02d' % b.day if unit == 'week' else '')
+        last = (b.year, b.month)
+        if cut and b <= cut and (nxt is None or cut < nxt):
+            lbl += ' ▼ cut-off'
+        out.append(lbl)
+    return out
+
+
+def gantt_cells(start, finish, buckets, style, pct=None, done_style=None):
+    """One row of the cell-drawn Gantt: a filled cell for every time column the bar touches,
+    the first `pct` % of them in `done_style`."""
+    from datetime import date
+    try:
+        s0, f0 = date.fromisoformat(str(start)[:10]), date.fromisoformat(str(finish)[:10])
+    except (TypeError, ValueError):
+        return [''] * len(buckets)
+    hit = [i for i, b in enumerate(buckets)
+           if b <= f0 and (i + 1 == len(buckets) or buckets[i + 1] > s0)]
+    done = int(round(len(hit) * max(0.0, min(100.0, float(pct or 0))) / 100.0)) if done_style else 0
+    row = [''] * len(buckets)
+    for k, i in enumerate(hit):
+        row[i] = Styled('', done_style if k < done else style, '')
+    return row
 
 
 class Styled:

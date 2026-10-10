@@ -46,7 +46,7 @@ export const SHORTCUTS = [
   // Alt+Shift+1 … Alt+Shift+8 for the next eight; Alt+Shift+9 = AI Chat, Alt+Shift+0 = import screen.
   { id: 'goto', ctrl: false, alt: true, key: '1', code: 'Digit1', keys: ['Alt', '1'], label: 'Go to Overview', group: 'Jump to a feature', nav: 'overview' },
   { id: 'goto', ctrl: false, alt: true, key: '2', code: 'Digit2', keys: ['Alt', '2'], label: 'Go to WBS', group: 'Jump to a feature', nav: 'wbs' },
-  { id: 'goto', ctrl: false, alt: true, key: '3', code: 'Digit3', keys: ['Alt', '3'], label: 'Go to Schedule (Gantt)', group: 'Jump to a feature', nav: 'schedule' },
+  { id: 'goto', ctrl: false, alt: true, key: '3', code: 'Digit3', keys: ['Alt', '3'], label: 'Go to Critical Activities (Gantt)', group: 'Jump to a feature', nav: 'schedule' },
   { id: 'goto', ctrl: false, alt: true, key: '4', code: 'Digit4', keys: ['Alt', '4'], label: 'Go to Schedule Health', group: 'Jump to a feature', nav: 'audit' },
   { id: 'goto', ctrl: false, alt: true, key: '5', code: 'Digit5', keys: ['Alt', '5'], label: 'Go to Baseline Narrative', group: 'Jump to a feature', nav: 'narrative' },
   { id: 'goto', ctrl: false, alt: true, key: '6', code: 'Digit6', keys: ['Alt', '6'], label: 'Go to Lag Report', group: 'Jump to a feature', nav: 'lag' },

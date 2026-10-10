@@ -173,6 +173,15 @@ def _cell_margins(cell, top=40, bottom=40, left=80, right=80):
     tcPr.append(mar)
 
 
+def _darker(hexcol, k=0.55):
+    """A darker shade of an RRGGBB colour (the outline of a Gantt bar in Word)."""
+    try:
+        r, g, b = (int(hexcol[i:i + 2], 16) for i in (0, 2, 4))
+        return '%02X%02X%02X' % (int(r * k), int(g * k), int(b * k))
+    except Exception:
+        return '1F4E79'
+
+
 def _cell_width(cell, emu):
     tcPr = cell._tc.get_or_add_tcPr()
     for old in tcPr.findall(qn('w:tcW')):
@@ -635,6 +644,21 @@ class _Writer:
         tblPr.append(_borders('w:tblBorders', {
             'top': (4, hair), 'bottom': (4, hair), 'left': side, 'right': side,
             'insideH': (4, hair), 'insideV': side}))
+        # the table GRID carries the same column widths as the cells (python-docx writes equal columns):
+        # Word / viewers that lay a fixed table out from the grid then agree with the cells, so a wide
+        # table (a Gantt, a WBS timeline) keeps its text columns readable and its bar column wide
+        try:
+            grid_el = table._tbl.find(qn('w:tblGrid'))
+            if grid_el is not None:
+                for gc, w in zip(grid_el.findall(qn('w:gridCol')), widths):
+                    gc.set(qn('w:w'), str(int(w / 635)))
+            tw = tblPr.find(qn('w:tblW'))
+            if tw is not None:
+                tw.set(qn('w:type'), 'dxa')
+                tw.set(qn('w:w'), str(int(sum(widths) / 635)))
+        except Exception:
+            if os.environ.get('CX_EXPORT_DEBUG'):
+                raise
         trs = table.rows
         for ri in range(nrows):
             if ri < t.header_rows:
@@ -655,6 +679,8 @@ class _Writer:
             p = dcell.paragraphs[0]
             p.paragraph_format.space_after = Pt(0)
             p.alignment = _ALIGN.get(cell.align, WD_ALIGN_PARAGRAPH.LEFT)
+            if getattr(cell, 'indent_pt', 0):
+                p.paragraph_format.left_indent = Pt(min(cell.indent_pt, 90.0))
             first = True
             chunks = [[]]
             for r in cell.runs:
@@ -692,21 +718,83 @@ class _Writer:
                     'bbox': (x0, y0, max(x1, x0 + 0.75), y1)}
         prims = []
         if 'scale' in bar:
-            h = 9.0
-            for left, label, col in bar['scale']:
-                x0 = x(left)
-                prims.append(rect(x0, 0, x0 + 0.75, h, self.hair))
-                size = 6.4
+            rows = list(bar.get('scale_rows') or [0] * len(bar['scale']))
+            row_h = 9.6                                  # one line of the scale (months alternate lines, years have their own)
+            # Word's column is narrower than the PDF's: month names that fit on one line there would
+            # run into each other here - they take as many lines (up to 3) as their width needs
+            mi = [i for i, (_l, lab, _c) in enumerate(bar['scale']) if rows[i] >= 1 and not (lab.isdigit() and len(lab) == 4)]
+            if len(mi) > 1:
+                xs = sorted(x(bar['scale'][i][0]) for i in mi)
+                gap = min((b2 - a2 for a2, b2 in zip(xs, xs[1:]) if b2 - a2 > 0.01), default=w_pt)
+                need = max(len(bar['scale'][i][1]) for i in mi) * 7.4 * 0.6 + 4.0
+                lines = max(1, min(3, -(-need // gap)))
+                if lines > len({rows[i] for i in mi}):
+                    for k, i in enumerate(sorted(mi, key=lambda i: bar['scale'][i][0])):
+                        rows[i] = 1 + int(k % lines)
+            h = row_h * (max(rows) + 1) + 1.0
+            for (left, label, col), r in zip(bar['scale'], rows):
+                x0, y0 = x(left), 0.5 + r * row_h
+                prims.append(rect(x0, y0, x0 + 0.75, h, self.hair))
+                size = 7.4
+                # a label never runs past the right edge (it would wrap and push the other lines down)
+                x0 = max(0.0, min(x0, w_pt - 1.5 - len(label) * size * 0.6))
+                is_year = label.isdigit() and len(label) == 4
                 prims.append({'k': 'text', 'text': label, 'size': size, 'color': _hex(col) or self.muted,
-                              'bold': False, 'italic': False, 'font': 'Consolas', 'vert': False,
-                              'base': 7.2, 'bbox': (x0 + 1.5, 0.5, x0 + 1.5 + len(label) * size * 0.6, h)})
+                              'bold': is_year, 'italic': False, 'font': 'Consolas', 'vert': False,
+                              'base': y0 + 6.7, 'bbox': (x0 + 1.5, y0, x0 + 1.5 + len(label) * size * 0.6, y0 + row_h)})
+        elif bar.get('base') or bar.get('line') or bar.get('slip') or bar.get('label'):
+            # the WBS report's row: the baseline as a thin bar on top, the expected bar (filled with
+            # the Actual %) under it, the slip after the Baseline Finish, its days late beside it
+            h = 15.0
+            prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F8FAFC'))
+            if bar.get('base'):
+                left, width, col = bar['base']
+                prims.append(rect(x(left), 2.0, max(x(min(100.0, left + width)), x(left) + 1.5), 5.0, _hex(col) or '94A3B8'))
+            x0 = x1 = None
+            if bar.get('bar'):
+                left, width, col = bar['bar']
+                x0, x1 = x(left), max(x(min(100.0, left + width)), x(left) + 1.5)
+                fillc = _hex(col) or 'CFE0FB'
+                prims.append({'k': 'path', 'segs': [], 'fill': fillc, 'stroke': '7EA6E6', 'width': 0.75, 'rect': True,
+                              'bbox': (x0, 7.0, x1, 13.0)})
+                f = bar.get('fill')
+                if f and f[0] > 0:
+                    prims.append(rect(x0, 7.0, x0 + (x1 - x0) * f[0] / 100.0, 13.0, _hex(f[1]) or self.accent))
+            if bar.get('slip'):
+                left, width, _c = bar['slip']
+                prims.append({'k': 'path', 'segs': [], 'fill': 'F3B4B4', 'stroke': 'DC2626', 'width': 0.75, 'rect': True,
+                              'bbox': (x(left), 7.0, max(x(min(100.0, left + width)), x(left) + 1.5), 13.0)})
+            if bar.get('line'):
+                left, width, col = bar['line']
+                x0, x1 = x(left), max(x(min(100.0, left + width)), x(left) + 1.5)
+                prims.append(rect(x0, 9.6, x1, 10.4, _hex(col) or '1F3A68'))
+            for left, col in bar.get('mss') or []:
+                cx, r = x(left), 3.2
+                prims.append({'k': 'path', 'fill': _hex(col) or '1F3A68', 'stroke': None, 'width': 0, 'rect': False,
+                              'segs': [('M', (cx, 10.0 - r)), ('L', (cx + r, 10.0)), ('L', (cx, 10.0 + r)),
+                                       ('L', (cx - r, 10.0)), ('Z',)],
+                              'bbox': (cx - r, 10.0 - r, cx + r, 10.0 + r)})
+            if bar.get('dd'):
+                dx = x(bar['dd'][0])
+                prims.append(rect(dx - 0.375, 0, dx + 0.375, h, _hex(bar['dd'][1]) or self.accent))
+            if bar.get('label') and bar['label'][0] and x0 is not None:
+                text, side = bar['label']
+                size = 6.5
+                tw = len(text) * size * 0.6
+                lx = x1 + 3.0 if side == 'r' else x0 - 3.0 - tw if side == 'l' else w_pt - tw - 2.0
+                lx = max(0.0, min(lx, w_pt - tw - 1.0))
+                y0 = 0.0 if side == 't' else 6.5
+                prims.append({'k': 'text', 'text': text, 'size': size, 'color': 'B91C1C', 'bold': True, 'italic': False,
+                              'font': 'Consolas', 'vert': False, 'base': y0 + 5.8, 'bbox': (lx, y0, lx + tw, y0 + 7.5)})
         else:
             h = 9.0
             prims.append(rect(0, 0, w_pt, h, _hex(bar.get('track')) or 'F1F4F8'))
             if bar.get('bar'):
                 left, width, col = bar['bar']
                 x0, x1 = x(left), x(min(100.0, left + width))
-                prims.append(rect(x0, 1.5, max(x1, x0 + 1.5), 7.5, _hex(col) or 'D6E4F5'))
+                fillc = _hex(col) or 'D6E4F5'
+                prims.append({'k': 'path', 'segs': [], 'fill': fillc, 'stroke': _darker(fillc), 'width': 0.75, 'rect': True,
+                              'bbox': (x0, 1.5, max(x1, x0 + 1.5), 7.5)})     # an outline, so a light bar still shows on the track
                 f = bar.get('fill')
                 if f and f[0] > 0:
                     prims.append(rect(x0, 1.5, x0 + (max(x1, x0 + 1.5) - x0) * f[0] / 100.0, 7.5,
