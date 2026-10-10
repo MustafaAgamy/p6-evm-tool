@@ -67,9 +67,9 @@ def test_verdict_flags_off_track_when_recovery_infeasible():
 
 def test_progress_excel_headers_and_rows():
     headers, rows = progress_excel(_report())
-    assert headers[0] == 'Activity ID' and 'Variance' in headers
-    assert rows[0] == ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%']
-    assert rows[1][2] == 'In Progress (reversed)'
+    assert headers[:2] == ['S/N', 'Activity ID'] and 'Variance' in headers   # serial first (owner comment)
+    assert rows[0] == [1, 'A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%']
+    assert rows[1][0] == 2 and rows[1][3] == 'In Progress (reversed)'
 
 
 def test_report_excel_mirrors_every_section():
@@ -77,13 +77,16 @@ def test_report_excel_mirrors_every_section():
     assert headers[0].startswith('Update vs Update') and 'Grain Terminal' in headers
     flat = [str(c) for row in rows for c in row]
     for section in ['Execution Dashboard', 'Recovery outlook', 'Progress by activity — % complete this period',
-                    'Critical-path movement in this window', 'Next-period watch list', 'What moved this period',
+                    'Critical-path movement in this window', 'Activities to watch before the next update',
+                    'Critical-path movement — summary (Critical = the P6 Critical flag)', 'What moved this period',
                     'Milestones — baseline vs previous vs current forecast', 'Project conclusion & outlook']:
         assert section in flat, section
     assert _PROGRESS in rows and _CRITICAL in rows and _WATCH in rows
-    assert ['A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%'] in rows
-    assert any(r and r[0] == 'CV1' for r in rows)        # critical-movement data row
-    assert any(r and r[0] == 'ME2' for r in rows)        # watch-list data row
+    assert [1, 'A1', 'Dredging', 'Completed', '82.0%', '100.0%', '▲ +18.0%'] in rows
+    assert any(len(r) > 1 and r[:2] == [1, 'CV1'] for r in rows)   # critical-movement data row, serial first
+    assert any(len(r) > 1 and r[:2] == [1, 'ME2'] for r in rows)   # watch-list data row
+    assert _WATCH[:3] == ['S/N', 'Activity ID', 'Activity name'] and _WATCH[-1] == 'Why it is listed'
+    assert ['Critical now', 1] in rows and ['Stayed critical', 1] in rows   # the summary before the table
     assert any('Handover' in str(r) for r in rows)       # milestone row
     assert '85%' in flat                                  # SPI shown as whole %
 
@@ -105,13 +108,13 @@ def test_report_excel_appends_activity_code_columns():
     assert prows[0][-2:] == ['Civil', 'Berth 1']             # and the values to each row
     _, rows = report_excel(rep)
     assert (_PROGRESS + ['Discipline', 'Area']) in rows and (_CRITICAL + ['Discipline', 'Area']) in rows
-    assert ['A2', 'Pour', 1, 'z', 'r', 'Civil', ''] in rows  # watch row, missing Area → blank
+    assert [1, 'A2', 'Pour', 'z', 1, 'r', 'Civil', ''] in rows  # watch row, missing Area → blank
 
 
 def test_render_html_two_page_management_report():
     html = render_html(_report(), trend=None)
     for heading in ['Update vs Update — Period Report', 'Execution Dashboard', 'Recovery outlook',
-                    'Progress by activity', 'Critical-path movement', 'Next-period watch list',
+                    'Progress by activity', 'Critical-path movement', 'Activities to watch before the next update',
                     'What moved this period', 'Executive conclusion — this period',
                     'Progress — where you are', 'Milestones — project completion',
                     'What these numbers mean']:
@@ -204,7 +207,9 @@ def test_critical_compare_timeline_style_draws_svg_gantt():
 def test_critical_compare_table_style_lists_routes_with_red_new_tail():
     from p6_period.exporters import _critical_compare_html
     html = _critical_compare_html(_report(), style='table')
-    assert 'cptable' in html and '<svg' not in html and 'cpchain' not in html
+    assert 'cptable' in html and 'cpchain' not in html
+    # the three style cards explain the choice, the chosen one marked (owner: 'clarify the style types')
+    assert 'Connected chain' in html and 'Date-axis timeline' in html and 'Compact table' in html
     assert 'Driving route' in html and 'Forecast finish' in html and 'Rerouted at' in html
     assert 'Foundations → Steel → Cladding → Roof' in html         # the Was route in full (plain)
     assert 'cpt-red' in html and '(+14 wd)' in html                # new tail + slip shown in red
@@ -267,6 +272,46 @@ def test_render_html_code_filter_limits_activity_tables_to_selected_code():
     assert 'Filtered:' in filtered and 'Discipline' in filtered and 'Civil' in filtered
 
 
+def test_code_filter_accepts_several_values():
+    rep = _coded_report()
+    both = render_html(rep, trend=None, code_filter={'type': 'Discipline', 'values': ['Civil', 'Mechanical']})
+    assert 'CIV1' in both and 'MEC1' in both
+    one = render_html(rep, trend=None, code_filter={'type': 'Discipline', 'values': ['Mechanical']})
+    assert 'MEC1' in one and 'CIV1' not in one
+
+
+def test_ev_by_code_rows_carry_the_variance_as_a_percentage():
+    from p6_period.exporters import _ev_pcts, _ev_pct_cells
+    row = {'bac': 495777627, 'ev_prev': 304386203, 'ev_now': 338554147, 'variance': 34167944}
+    assert _ev_pct_cells(row) == [61.4, 68.3, 6.9]
+    assert _ev_pcts({'bac': 0, 'ev_prev': 0, 'ev_now': 0, 'variance': 0}) == (None, None, None)
+    assert _ev_pct_cells({'bac': 0}) == ['', '', '']
+
+
+def test_progress_bar_labels_that_would_overlap_step_onto_their_own_line():
+    import re
+    from p6_period import exporters
+    src = open(exporters.__file__, encoding='utf-8').read()
+    assert 'pos - last_at[lv] < (30 if' in src and "translateX(-100%)" in src
+    assert re.search(r'class="pbar" style="margin-top:\{14 \* \(lines - 1\)\}px"', src)
+
+
+def test_rate_chart_names_the_months_on_the_time_axis():
+    from p6_period.exporters import _rate_svg
+    svg = _rate_svg({'dd_prev': '2026-07-19', 'dd_now': '2026-08-09', 'baseline_finish': '2027-02-09',
+                     'rate_finish': '2027-03-12', 'p6_finish': '2027-05-22', 'actual_prev': 40.4, 'actual_now': 45.7,
+                     'planned_prev': 61.4, 'planned_now': 71.2, 'rate_pct': 5.3, 'period_days': 21,
+                     'baseline_finish_label': '09-Feb.2027', 'rate_finish_label': '12-Mar.2027', 'p6_finish_label': '22-May.2027',
+                     'dd_prev_label': '19-Jul.2026', 'dd_now_label': '09-Aug.2026'})
+    for m in ('Jul.2026', 'Aug.2026', 'Dec.2026', 'Jan.2027', 'May.2027'):
+        assert f'>{m}</text>' in svg
+
+
+def test_full_critical_table_is_kept_for_word_only():
+    html = render_html(_coded_report(), trend=None)
+    assert 'class="word-only"' in html and '.word-only{display:none;}' in html.replace(' ', '')
+
+
 # ── Report appearance theming (shared report_theme module) ───────────────────
 
 def test_render_html_dark_theme_injects_dark_palette():
@@ -279,3 +324,143 @@ def test_render_html_default_theme_is_light_full_document():
     html = render_html(_report(), trend=None)
     assert html.startswith('<!doctype html>') and html.rstrip().endswith('</html>')
     assert 'data-rpt-theme="light"' in html
+
+
+def _cost_report():
+    rep = _report()
+    rep['summary'].update({
+        'pct_basis': 'cost', 'period_days': 21, 'bac': 1000000.0, 'bac_prev': 1000000.0,
+        'cost_activities': 8, 'all_activities': 12,
+        'ev_prev': 340000.0, 'ev_now': 410000.0, 'ev_variance': 70000.0,
+        'pv_prev': 400000.0, 'pv_now': 506000.0, 'pv_variance': 106000.0,
+        'planned_prev': 40.0, 'planned_now': 50.6, 'planned_variance': 10.6, 'ev_of_pv_period': 0.66})
+    return rep
+
+
+def test_earned_value_section_before_after_and_variance():
+    # owner round 2: 'Add Earned Value Before and After and variance between them'; the % shown is
+    # the Performance % of the cost-loaded activities, the figure P6 shows.
+    html = render_html(_cost_report())
+    assert 'Earned Value — before, after and variance' in html
+    for figure in ['340,000', '410,000', '+70,000', '400,000', '506,000', '+106,000', '1,000,000']:
+        assert figure in html, figure
+    assert 'Performance %' in html and '8 of 12' in html
+    assert 'Where each figure is in P6' in html and 'worked out by the tool' in html   # non-P6 figures say so
+    _, rows = report_excel(_cost_report())
+    flat = [str(c) for row in rows for c in row]
+    assert any('Earned Value' in c for c in flat) and any(340000.0 in r or 340000 in r for r in rows)
+
+
+def test_earned_value_section_absent_without_cost():
+    html = render_html(_report())                       # no cost in either update → no EV section
+    assert 'Earned Value — before, after and variance' not in html
+    assert 'of the whole project' in html
+
+
+def test_critical_summary_charts_precede_the_table():
+    rep = _report()
+    rep['critical_summary'] = {
+        'total': 12, 'stayed': 10, 'new': 2, 'prev_total': 14, 'left': 4, 'left_finished': 3, 'max_slip': 9,
+        'bands': [{'label': 'Earlier', 'lo': None, 'hi': -1, 'count': 1}, {'label': 'Did not move', 'lo': 0, 'hi': 0, 'count': 3},
+                  {'label': '1 – 7 days', 'lo': 1, 'hi': 7, 'count': 6}, {'label': '8 – 9 days', 'lo': 8, 'hi': 9, 'count': 2}],
+        'drivers': [{'key': 'progress shortfall', 'label': 'Progress shortfall', 'count': 9}],
+        'groups': {'Area': {'rows': [{'value': 'Berth 1', 'count': 7, 'max_slip': 9}, {'value': 'Yard', 'count': 5, 'max_slip': 4}],
+                            'groups': 2, 'covered': 12},
+                   'WBS': {'rows': [{'value': 'Marine', 'count': 12, 'max_slip': 9}], 'groups': 1, 'covered': 12}},
+        'new_rows': [{'activity_id': 'N1', 'activity_name': 'Fender', 'slip_days': 5, 'prev_float_days': 6, 'float_days': 0}],
+        'example': None}
+    html = render_html(rep)
+    assert 'Stayed critical' in html and 'No longer critical' in html and 'Berth 1' in html and 'Fender' in html
+    assert html.index('Stayed critical') < html.index('Driver this period') if 'Driver this period' in html else True
+    assert "P6" in html and 'Critical' in html
+    from p6_period.exporters import crit_group_choice
+    assert crit_group_choice(rep['critical_summary']) == ('Area', 'WBS')
+    assert crit_group_choice(rep['critical_summary'], ['WBS', None])[0] in ('WBS', None)   # an owner pick is honoured
+
+
+# ── round 4: figures explained, finish by time, plain-words advice ───────────
+
+def _round4_report():
+    row = lambda v, share, fin, moved, late, none=False: {
+        'value': v, 'none': none, 'open': 5, 'bac': share * 10, 'share': share, 'done_pct': 10.0, 'finish_prev': '01-Apr.2027',
+        'finish_now': fin, 'moved': moved, 'days_left': 200, 'left': 0, 'width': 80, 'late': late}
+    sec = lambda code, a, b: {
+        'code_type': code, 'by_cost': True, 'dd_label': '09-Aug.2026', 'prev_label': '19-Jul.2026', 'now_label': '09-Aug.2026',
+        'period_days': 21, 'rows': [row(a, 94.0, '15-Apr.2027', 14, False), row(b, 6.0, '22-May.2027', 20, True)],
+        'total': {'open': 10, 'bac': 1000, 'done_pct': 45.7, 'finish_prev': '02-May.2027', 'finish_now': '22-May.2027', 'moved': 20, 'days_left': 286},
+        'contract_label': '09-Feb.2027', 'contract_pos': 64.3, 'money_label': '12-Mar.2027', 'money_pos': 75.2, 'rate_label': '12-Mar.2027',
+        'daily_money': 2299139, 'forecast_label': '22-May.2027', 'days_after_contract': 102, 'slip_days': 20,
+        'why': f'**Why the money date is too early.** {a} carries 94.0% of the budget.', 'warning': 'Every work type moved later.',
+        'calc': ['Finish of a work type = the latest Finish date'], 'calc_note': 'No date here is estimated by the tool.',
+        'p6': f'To check in P6: Group by activity code "{code}".'}
+    fin = dict(sec('Type of Works', 'Civil Works', 'Cable Works'), types=['Type of Works', 'Area'],
+               by_type={'Type of Works': sec('Type of Works', 'Civil Works', 'Cable Works'), 'Area': sec('Area', 'Silo 1', 'Tower')})
+    return {
+        'project_name': 'P', 'data_date_prev': '19-Jul.2026', 'data_date_now': '09-Aug.2026', 'cost_loaded': True,
+        'summary': {'actual_prev': 40.4, 'actual_now': 45.7, 'forecast_at_now': 46.1, 'period_earned': 5.3, 'period_forecast': 5.7,
+                    'forecast_achievement': 0.93},
+        'finish_by_type': fin,
+        'explain': {
+            'markers': [{'key': 'forecast', 'name': 'Previous update forecast', 'value': '46.1%', 'source': 'Previous update only',
+                         'meaning': '40.4% + 5.7%', 'in_p6': False, 'p6': 'No — tool calculation'}],
+            'forecast': {'tiles': [{'label': 'Forecast achievement', 'value': '93%', 'sub': 's'}], 'calc': ['5.3% ÷ 5.7% = 93%'],
+                         'text': 't', 'note': 'Not a P6 figure.'},
+            'adherence': {'tiles': [{'label': 'Schedule adherence', 'value': '42%', 'sub': 's', 'tone': 'bad'}], 'calc': ['11 ÷ 26 = 42%'],
+                          'text': 't', 'p6': 'To check in P6: filter.',
+                          'missed': [{'id': 'A9', 'name': 'Install Silo Roof', 'due': '21-Jul.2026', 'finish_now': '10-Aug.2026', 'pct': 90.0}]}},
+        'advice': {'tiles': [], 'top_management': [{'title': 'T', 'text': 'x'}], 'rules': 'R',
+                   'pm_headline': {'big': 'The site completed about half of the planned work.', 'small': 'Work done: 48.3 M'},
+                   'pm_head': [{'title': 'Put extra crews on Piles', 'text': 'Depends on **Drilling For Piles**.', 'action': 'add a crew.',
+                                'ref': 'Planner reference: A1'}],
+                   'pm_fronts': {}, 'pm_tail': [], 'front_type': None,
+                   'pm_small': {'Type of Works': {'title': 'Small in money but long in time', 'text': '**Cable Works** is small.',
+                                                  'action': 'confirm deliveries.', 'tone': 'warn'}}},
+    }
+
+
+def test_round4_sections_are_in_the_report_with_their_calculations():
+    h = render_html(_round4_report(), trend=None)
+    assert 'previous update forecast 46.1%' in h and 'No — tool calculation' in h          # the renamed marker + its source
+    assert '5.3% ÷ 5.7% = 93%' in h and '11 ÷ 26 = 42%' in h and 'Not a P6 figure.' in h
+    assert 'When will the project finish — by time' in h and 'Civil Works' in h and 'not a finish date' in h
+    assert '<b>Why the money date is too early.</b>' in h and '**' not in h             # the bold marks are rendered
+    assert 'Install Silo Roof' in h and 'word-only' in h                                # the missed activities, by name
+
+
+def test_round4_finish_section_follows_the_picked_activity_code():
+    h = render_html(_round4_report(), trend=None, finish_group='Area')
+    assert 'Silo 1' in h and 'Civil Works carries' not in h
+    # an unknown pick falls back to the default code
+    assert 'Civil Works carries' in render_html(_round4_report(), trend=None, finish_group='Nope')
+
+
+def test_round4_pm_advice_is_in_plain_words_with_action_and_planner_reference():
+    from p6_period.exporters import advice_pm_items
+    rep = _round4_report()
+    h = render_html(rep, trend=None)
+    assert 'in plain words' in h and 'The site completed about half of the planned work.' in h
+    assert 'add a crew.' in h and 'Planner reference: A1' in h and '<b>Drilling For Piles</b>' in h
+    # the "small in money" action belongs to the code picked in the finish section
+    assert [i['title'] for i in advice_pm_items(rep['advice'], None, 'Type of Works')][-1] == 'Small in money but long in time'
+    assert len(advice_pm_items(rep['advice'], None, 'Area')) == 1
+    assert 'Small in money but long in time' not in render_html(rep, trend=None, finish_group='Area')
+
+
+def test_round4_excel_carries_the_same_tables():
+    from p6_period.exporters import _excel_round4_rows, report_excel_extra_sheets
+    rep = _round4_report()
+    flat = [' | '.join(str(c) for c in r) for r in _excel_round4_rows(dict(rep, finish_group='Area'))]
+    assert any('Silo 1' in r for r in flat) and not any('Civil Works' in r for r in flat)
+    assert any('Previous update forecast' in r and '46.1%' in r for r in flat) and any('11 ÷ 26 = 42%' in r for r in flat)
+    assert not any('**' in r for r in flat)
+    sheet = [s for s in report_excel_extra_sheets(rep) if s['name'] == 'Due Not Finished'][0]
+    assert 'Install Silo Roof' in str(sheet)
+
+
+def test_default_finish_grouping_is_type_of_work_then_discipline_or_trade():
+    from types import SimpleNamespace
+    from p6_period.insight import work_type_code
+    curr = SimpleNamespace(activities={})
+    assert work_type_code(curr, ['Area', 'Trade', 'Type of Works']) == 'Type of Works'
+    assert work_type_code(curr, ['Area', 'Discipline']) == 'Discipline'
+    assert work_type_code(curr, ['Area', 'Trade Code']) == 'Trade Code'

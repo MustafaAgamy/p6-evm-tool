@@ -4,7 +4,8 @@
  */
 import assert from 'node:assert/strict';
 import { signPct, shortDate, progressBarHtml, milestoneSection, dashboardHtml,
-         criticalTimelineData, criticalCompareBody } from '../../ui/modules/period.js';
+         criticalTimelineData, criticalCompareBody, earnedValueHtml, criticalSummaryHtml, critGroupChoice,
+         watchTable, criticalTable, wrapText, rateHtml, logicHtml, byCodeHtml, adviceHtml } from '../../ui/modules/period.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -29,7 +30,7 @@ test('3 points: start, actual fill, planned marker', () => {
   const h = progressBarHtml({ data_date_prev: '07-Aug', data_date_now: '22-Aug',
     summary: { actual_prev: 22.9, actual_now: 34.9, forecast_at_now: 44, period_earned: 12, period_forecast: 21, forecast_achievement: 0.57 } });
   assert.ok(h.includes('per-pfill') && h.includes('width:34.9%'));         // fill to exact actual
-  assert.ok(h.includes('34.9%') && h.includes('planned 44.0%') && h.includes('start 22.9%'));  // 3 points, one decimal
+  assert.ok(h.includes('34.9%') && h.includes('previous update forecast 44.0%') && h.includes('start 22.9%'));  // 3 points, one decimal
   assert.ok(h.includes('of the whole project'));                          // explanation
 });
 
@@ -47,7 +48,14 @@ test('renders the table dates and a drift svg', () => {
   const h = milestoneSection(rep);
   assert.ok(h.includes('Handover') && h.includes('09-Feb.2027') && h.includes('20-Feb.2027'));  // table dates
   assert.ok(h.includes('<svg') && h.includes('Previous forecast') && h.includes('Current forecast'));  // drift chart
-  assert.ok(/per-slip-bad[^]*\+9 d/.test(h));                              // slippage cell
+  assert.ok(/per-slip-bad[^]*9 wd later/.test(h) && h.includes('20 wd late'));   // moved this period / against baseline
+  assert.ok(h.includes('Mech') && h.includes('S/N') && h.includes('project completion'));   // every milestone listed
+});
+test('milestone names are wrapped in full, never cut', () => {
+  const name = 'Completion of Silo Mechanical Works and Handover to Commissioning Team';
+  const lines = wrapText(name, 38);
+  assert.ok(lines.length >= 2 && lines.every(l => l.length <= 38));
+  assert.equal(lines.join(' '), name);
 });
 
 console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
@@ -88,7 +96,7 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
   test('Recovery outlook renders with baseline + infeasible verdict', () => {
     assert.ok(h.includes('Recovery outlook') && h.includes('09-Feb.2027') &&
-              h.includes('Projected finish ≈ 10-Apr.2027') && /per-rr-v bad/.test(h));
+              h.includes('earned ≈ 10-Apr.2027') && h.includes('not a finish date') && /per-rr-v bad/.test(h));
   });
   test('Facts row shows schedule adherence', () => {
     assert.ok(h.includes('Schedule adherence') && h.includes('72%') && h.includes('13 of 18 due finishes'));
@@ -150,6 +158,94 @@ console.log('\ncriticalTimelineData / CompareBody (connected chain — 1 row unc
     assert.ok(h.includes('cpt-red') && h.includes('(+14 wd)') && h.includes('26-Mar.2027'));
     assert.ok(h.includes('rerouted at Steel'));                                      // shared conclusion
   });
+}
+
+console.log('\nround 2 — Earned Value, critical summary, watch list, serials');
+{
+  const cost = { data_date_prev: '19-Jul.2026', data_date_now: '09-Aug.2026', summary: {
+    pct_basis: 'cost', actual_prev: 40.4, actual_now: 45.7, period_earned: 5.3, period_days: 21, bac: 1000000, bac_prev: 1000000,
+    cost_activities: 8, all_activities: 12, ev_prev: 404000, ev_now: 457000, ev_variance: 53000,
+    pv_prev: 614000, pv_now: 712000, pv_variance: 98000, planned_prev: 61.4, planned_now: 71.2, planned_variance: 9.8,
+    ev_of_pv_period: 0.54, prev_spi: 0.66, curr_spi: 0.64, spi_variance: -0.02, forecast_at_now: 46,
+    forecast_finish_prev: '02-May.2027', forecast_finish_now: '22-May.2027', finish_slip_days: 20 } };
+  test('Earned Value: before, after and variance, with where to find each in P6', () => {
+    const h = earnedValueHtml(cost);
+    assert.ok(h.includes('404,000') && h.includes('457,000') && h.includes('+53,000'));
+    assert.ok(h.includes('614,000') && h.includes('712,000') && h.includes('40.4%') && h.includes('45.7%'));
+    assert.ok(h.includes('8 of 12') && h.includes('Where each figure is in P6') && h.includes('worked out by the tool'));
+  });
+  test('no Earned Value section when the updates carry no cost', () => {
+    assert.equal(earnedValueHtml({ summary: { actual_prev: 10, actual_now: 20 } }), '');
+  });
+  test('cost basis → the labels say Performance %; the baseline plan is marked', () => {
+    assert.ok(dashboardHtml(cost).includes('Previous Performance %'));
+    const h = progressBarHtml(cost);
+    assert.ok(h.includes('Performance %') && h.includes('baseline plan 71.2%') && !h.includes('of the whole project'));
+  });
+  const cs = { total: 12, stayed: 10, new: 2, prev_total: 14, left: 4, left_finished: 3, max_slip: 9,
+    bands: [{ label: 'Did not move', lo: 0, hi: 0, count: 4 }, { label: '1 – 7 days', lo: 1, hi: 7, count: 6 }, { label: '8 – 9 days', lo: 8, hi: 9, count: 2 }],
+    drivers: [{ key: 'progress shortfall', label: 'Progress shortfall', count: 9 }],
+    groups: { 'Main WBS': { rows: [], groups: 3, covered: 12 }, Area: { rows: [{ value: 'Berth 1', count: 7, max_slip: 9 }], groups: 2, covered: 12 },
+              WBS: { rows: [{ value: 'Marine', count: 12, max_slip: 9 }], groups: 1, covered: 12 } },
+    new_rows: [{ activity_id: 'N1', activity_name: 'Fender', slip_days: 5, prev_float_days: 6, float_days: 0 }] };
+  test('critical movement is summarised in tiles and charts first', () => {
+    const h = criticalSummaryHtml({ critical_summary: cs, summary: cost.summary });
+    assert.ok(h.includes('Critical now') && h.includes('previous update: 14') && h.includes('3 finished · 1 gained float'));
+    assert.ok(h.includes('per-hist') && h.includes('How to read this chart') && h.includes('Berth 1') && h.includes('Fender'));
+    assert.ok(h.includes("P6's own Critical flag"));
+    assert.equal(criticalSummaryHtml({ critical_summary: {} }), '');
+  });
+  test('group charts: a code that repeats the WBS is not the default; a pick is honoured', () => {
+    assert.deepEqual(critGroupChoice(cs), ['Area', 'WBS']);
+    assert.deepEqual(critGroupChoice(cs, ['Main WBS', null]), ['Main WBS', 'WBS']);
+  });
+  test('tables start with a serial number', () => {
+    const c = criticalTable({ rows: [{ activity_id: 'CV1', activity_name: 'Quay', prev_finish: 'a', curr_finish: 'b', slip_days: 3, float_days: 0, driver: 'held', critical_status: 'stayed' }] }, []);
+    assert.ok(/<th class="num">S\/N<\/th><th>Activity ID/.test(c) && c.includes('Total Float (wd)') && c.includes('+3 wd'));
+    const w = watchTable({ watch_list: { rows: [{ activity_id: 'ME2', activity_name: 'Belt', due_to_start: 'z', float_days: 0, reason: 'On the critical path' }] } });
+    assert.ok(w.includes('S/N') && w.includes('Why it is listed') && w.includes('most likely to delay the finish date'));
+  });
+  test('round 3: rate chart names the months; relationships explained; paired histogram; actions', () => {
+    const r = { dd_prev: '2026-07-19', dd_now: '2026-08-09', baseline_finish: '2027-02-09', rate_finish: '2027-03-12', p6_finish: '2027-05-22',
+      actual_prev: 40.4, actual_now: 45.7, planned_prev: 61.4, planned_now: 71.2, rate_pct: 5.3, period_days: 21, by_cost: false,
+      baseline_finish_label: '09-Feb.2027', rate_finish_label: '12-Mar.2027', p6_finish_label: '22-May.2027', logic_days: 71, days_lost: 18 };
+    const h = rateHtml({ rate_outlook: r });
+    assert.ok(h.includes('>Aug.2026</text>') && h.includes('>May.2027</text>') && h.includes('sequence of the critical activities'));
+    const l = logicHtml([{ activity_id: 'A1', activity_name: 'Piles', slip_days: 14, changes: ['Successor B — FS lag 35 d → 0 d'] }]);
+    assert.ok(l.includes('what it means') && l.includes('14 wd later') && l.includes('FS lag 35 d'));
+    const b = byCodeHtml({ progress_by_code: { Area: [{ value: 'Silo 5', planned: 1.1, actual: 1.9 }, { value: 'Tower', planned: 0.5, actual: 0 }] } });
+    assert.ok(b.includes('per-vhist') && b.includes('1.9%') && b.includes('per-slip-bad'));
+    const a = adviceHtml({ advice: { tiles: [], top_management: [{ title: 'T', text: 'x' }], project_manager: [{ title: 'P', text: 'y' }], rules: 'R' } });
+    assert.ok(a.includes('For Top Management') && a.includes('1 · P'));
+  });
+}
+
+// ── round 4: finish by time (any activity code), figures explained, plain-words advice ──
+{
+  const { finishHtml, explainHtml, adviceHtml } = await import('../../ui/modules/period.js');
+  const row = (v, share, late) => ({ value: v, none: false, open: 5, bac: 10, share, done_pct: 10, finish_prev: '01-Apr.2027', finish_now: '15-Apr.2027', moved: 14, days_left: 249, left: 0, width: 80, late });
+  const sec = (code, a) => ({ code_type: code, by_cost: true, dd_label: '09-Aug.2026', prev_label: '19-Jul.2026', now_label: '09-Aug.2026', period_days: 21,
+    rows: [row(a, 94, false), row('Cable Works', 6, true)], total: { open: 10, bac: 1000, done_pct: 45.7, finish_prev: '02-May.2027', finish_now: '22-May.2027', moved: 20, days_left: 286 },
+    contract_label: '09-Feb.2027', contract_pos: 64.3, money_label: '12-Mar.2027', money_pos: 75.2, rate_label: '12-Mar.2027', daily_money: 2299139,
+    forecast_label: '22-May.2027', days_after_contract: 102, slip_days: 20, why: '**Why the money date is too early.** x', warning: 'w', calc: ['Finish of a work type = latest'], calc_note: 'n', p6: 'To check in P6' });
+  const rep = { cost_loaded: true, summary: {},
+    finish_by_type: { ...sec('Type of Works', 'Civil Works'), types: ['Type of Works', 'Area'], by_type: { 'Type of Works': sec('Type of Works', 'Civil Works'), Area: sec('Area', 'Silo 1') } },
+    explain: { markers: [{ key: 'forecast', name: 'Previous update forecast', value: '46.1%', source: 's', meaning: 'm', in_p6: false, p6: 'No — tool calculation' }],
+      forecast: { tiles: [{ label: 'Forecast achievement', value: '93%' }], calc: ['5.3% ÷ 5.7% = 93%'], text: 't', note: 'Not a P6 figure.' },
+      adherence: { tiles: [{ label: 'Schedule adherence', value: '42%', tone: 'bad' }], calc: ['11 ÷ 26 = 42%'], text: 't', p6: 'To check in P6: filter.' } },
+    advice: { tiles: [], top_management: [], rules: 'R', pm_headline: { big: 'About half of the planned work.', small: 's' },
+      pm_head: [{ title: 'Crews', text: 'On **Drilling For Piles**.', action: 'add a crew.', ref: 'Planner reference: A1' }], pm_fronts: {}, pm_tail: [],
+      pm_small: { 'Type of Works': { title: 'Small in money', text: 'x', tone: 'warn' } } } };
+  const f = finishHtml(rep);
+  assert.ok(f.includes('by time, not by money') && f.includes('per-fin-type') && f.includes('Type of Works') && f.includes('Area'), 'FAIL round4 finish picker');
+  assert.ok(f.includes('Civil Works') && f.includes('not a finish date') && f.includes('<b>Why the money date is too early.</b>'), 'FAIL round4 finish body');
+  const x = explainHtml(rep);
+  assert.ok(x.includes('5.3% ÷ 5.7% = 93%') && x.includes('11 ÷ 26 = 42%') && x.includes('Not a P6 figure.'), 'FAIL round4 explain');
+  const a = adviceHtml(rep);
+  assert.ok(a.includes('in plain words') && a.includes('About half of the planned work.') && a.includes('add a crew.') &&
+    a.includes('Planner reference: A1') && a.includes('<b>Drilling For Piles</b>') && a.includes('Small in money'), 'FAIL round4 advice');
+  assert.ok(finishHtml({}) === '' && explainHtml({}) === '', 'FAIL round4 empty');
+  console.log('  ✓ round 4: finish by time, figures explained, plain-words advice'); passed++;
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

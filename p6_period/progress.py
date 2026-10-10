@@ -72,6 +72,7 @@ def activity_progress(matched, include=None):
             'status': 'Completed' if curr_pct >= 100.0 else 'In Progress',
             # activity codes ({dimension: value}) carried so the UI slicer can filter
             'codes': u.get('activity_codes') or {},
+            'wbs': (u.get('wbs_path') or '').split(' > ')[-1].strip() or '(no WBS)',
         })
     rows.sort(key=lambda r: -r['variance'])
     return {'rows': rows, 'counts': counts}
@@ -134,13 +135,33 @@ def progress_by_code(matched, curr, prev, dd_prev, dd_now, period_earned, period
     return out
 
 
+def _cost_loaded(metrics):
+    """The cost-loaded figures of one update (p6_evm.schedule_view.cost_loaded_overview) —
+    None when the update carries no cost or its records are not at hand."""
+    try:
+        from p6_evm.schedule_view import cost_loaded_overview
+        return cost_loaded_overview((metrics or {}).get('records') or [])
+    except Exception:
+        return None
+
+
 def period_summary(prev, curr, prev_metrics, curr_metrics):
     """Option-B headline numbers for the dashboard. `*_metrics` are metrics.compute()
-    results (reused so the figures match the EVM tab)."""
+    results.
+
+    The % of each update is its PERFORMANCE % — Earned Value ÷ Budget of the cost-loaded
+    activities, the figure Primavera P6 shows as Performance % Complete (owner, comments
+    68–73 round 2). Activities without cost take no part. Only when an update carries no cost
+    at all does the category-weighted % stand in (`pct_basis` = 'weights')."""
     dd_prev = (getattr(prev, 'project', {}) or {}).get('data_date')
     dd_now = (getattr(curr, 'project', {}) or {}).get('data_date')
-    actual_prev = _pct100((prev_metrics or {}).get('overall_actual_pct'))
-    actual_now = _pct100((curr_metrics or {}).get('overall_actual_pct'))
+    co_prev, co_now = _cost_loaded(prev_metrics), _cost_loaded(curr_metrics)
+    by_cost = bool(co_prev and co_now)
+    if by_cost:
+        actual_prev, actual_now = _pct100(co_prev['actual_pct']), _pct100(co_now['actual_pct'])
+    else:
+        actual_prev = _pct100((prev_metrics or {}).get('overall_actual_pct'))
+        actual_now = _pct100((curr_metrics or {}).get('overall_actual_pct'))
 
     # The previous update's scheduled progress across THIS window (its own forecast dates).
     period_forecast = 0.0
@@ -161,6 +182,22 @@ def period_summary(prev, curr, prev_metrics, curr_metrics):
     # matches the EVM tab. Variance = current − previous (SPI is higher-is-better).
     prev_spi = (prev_metrics or {}).get('spi')
     curr_spi = (curr_metrics or {}).get('spi')
+    ev = {}
+    if by_cost:
+        # SPI = Earned Value ÷ Planned Value of the same cost-loaded activities, so the table
+        # of Earned Value / Planned Value / SPI reads as one sum
+        prev_spi, curr_spi = co_prev.get('spi'), co_now.get('spi')
+        pv_var, ev_var = co_now['pv'] - co_prev['pv'], co_now['ev'] - co_prev['ev']
+        ev = {
+            'bac': round(co_now['bac']), 'bac_prev': round(co_prev['bac']),
+            'cost_activities': co_now['activities'], 'all_activities': co_now['all_activities'],
+            'ev_prev': round(co_prev['ev']), 'ev_now': round(co_now['ev']), 'ev_variance': round(ev_var),
+            'pv_prev': round(co_prev['pv']), 'pv_now': round(co_now['pv']), 'pv_variance': round(pv_var),
+            'planned_prev': _pct100(co_prev['planned_pct']), 'planned_now': _pct100(co_now['planned_pct']),
+            # of the work the plan asked for in this period, the share that was earned
+            'ev_of_pv_period': round(ev_var / pv_var, 2) if pv_var > 0 else None,
+        }
+        ev['planned_variance'] = round(ev['planned_now'] - ev['planned_prev'], 1)
     spi_variance = round(curr_spi - prev_spi, 2) if (prev_spi is not None and curr_spi is not None) else None
 
     fin_prev = _project_finish(prev)
@@ -187,4 +224,7 @@ def period_summary(prev, curr, prev_metrics, curr_metrics):
         'forecast_finish_prev': _fmt(fin_prev),
         'forecast_finish_now': _fmt(fin_now),
         'finish_slip_days': finish_slip_days,
+        'pct_basis': 'cost' if by_cost else 'weights',
+        'period_days': (dd_now - dd_prev).days if (dd_prev and dd_now) else None,
+        **ev,
     }

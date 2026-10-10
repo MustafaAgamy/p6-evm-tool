@@ -38,10 +38,11 @@ CRITPATH_SECS = [('verdict', 'Verdict'), ('dashboard', 'Execution dashboard'),
                  ('driving_path', 'Critical Path Analyzer (driving paths)'), ('census', 'Critical & near-critical census'),
                  ('milestones', 'Every-milestone finish table'), ('float_migration', 'Float migration'),
                  ('recommendation', 'Effect & recommendation')]
-PERIOD_SECS = [('verdict', 'Verdict'), ('progress', 'Progress vs last forecast'), ('dashboard', 'Execution dashboard'),
+PERIOD_SECS = [('verdict', 'Verdict'), ('progress', 'Progress vs last forecast'),
+               ('earned_value', 'Earned Value — before, after and variance'), ('dashboard', 'Execution dashboard'),
                ('recommendation', 'What management needs to know'), ('critical_compare', 'Critical-path comparison'),
                ('critical', 'Critical-path movement'), ('progress_table', 'Progress by activity'),
-               ('watch', 'Next-period watch list'), ('whatmoved', 'What moved this period'),
+               ('watch', 'Activities to watch before the next update'), ('whatmoved', 'What moved this period'),
                ('bycode', 'Progress by activity code'), ('milestones', 'Milestones & drift'),
                ('conclusions', 'Executive conclusion')]
 AUDIT_MODULES = [('float', 'Float Analysis'), ('out_of_sequence', 'Out of Sequence'),

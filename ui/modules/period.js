@@ -15,13 +15,15 @@ let _shownReport = null;   // the report currently on screen (exports read this)
 let _shownTrend = null;    // the milestone trend currently on screen (carried into the PDF)
 let _prev = null;          // {prev_path} or {prev_cached_path} assigned for the comparison
 let _prevName = null;       // display name of the assigned last-period file (for the inputs bar)
+let _curr = null;          // {update_path} when a different CURRENT update was chosen (else the open schedule)
+let _critGroup = [null, null];   // the two groupings of the critical-movement charts (null = the default)
 let _cpStyle = 'chain';    // critical-path presentation: 'chain' | 'timeline' | 'table' (remembered)
 let _perTheme = getSavedMode();   // report-appearance mode for this panel's PDF preview
 let _cpMode = 'leaf-parent';   // critical-path grouping — reset to default on each fresh render
 try { const s = localStorage.getItem('per_cp_style'); if (s) _cpStyle = s; } catch { /* no storage */ }
 
 function _currName() {
-  const p = state.currentXmlPath || state.currentCachedPath || '';
+  const p = (_curr && _curr.update_path) || state.currentXmlPath || state.currentCachedPath || '';
   return p.split(/[\\/]/).pop() || 'current schedule';
 }
 
@@ -46,16 +48,20 @@ export function renderPeriodPanel() {
   }
   body.innerHTML = `
     <div class="mod-sec">Update vs Update — Windows Analysis</div>
-    <div class="cmp-note">The current schedule is <b>this period</b>. Choose <b>last period's</b> update to compare against — the tool shows what moved between the two data dates.</div>
+    <div class="cmp-note">Two updates of the same project are compared — the tool shows what moved between the two data dates. Either one can be changed with <b>Choose a different file…</b>; nothing runs until you press <b>Run Comparison</b>.</div>
     <div class="per-inputs">
-      <span class="cmp-file"><span class="k">This period</span> <b>${escapeHtml(_currName())}</b></span>
-      <span class="cmp-vs">vs</span>
-      <span id="per-prev-suggest" class="per-suggest">Looking for last period…</span>
-      <button class="btn-mini" id="per-choose-prev">Choose a different file…</button>
+      <span class="per-filebox"><span class="k">Previous update</span>
+        <span id="per-prev-suggest" class="per-suggest">Looking for last period…</span>
+        <button class="btn-mini" id="per-choose-prev">Choose a different file…</button></span>
+      <span class="cmp-vs">→</span>
+      <span class="per-filebox"><span class="k">Current update</span>
+        <b id="per-curr-name">${escapeHtml(_currName())}</b>
+        <button class="btn-mini" id="per-choose-curr">Choose a different file…</button></span>
       <button class="btn-primary" id="per-run-compare" disabled>Run Comparison</button>
     </div>
     <div id="per-report"></div>`;
   document.getElementById('per-choose-prev').addEventListener('click', choosePrev);
+  document.getElementById('per-choose-curr').addEventListener('click', chooseCurr);
   document.getElementById('per-run-compare').addEventListener('click', _runCompare);
   if (_prev) {
     // Re-entering with a last-period file already assigned: restore the "ready" inputs
@@ -90,13 +96,10 @@ async function _fetchPreviousSuggestion() {
     if (_prev) return;   // a file was assigned while we were fetching — don't clobber it
     if (data.ok && data.previous) {
       const p = data.previous;
-      el.innerHTML = `<button class="btn-secondary" id="per-use-prev">Use last period · ${escapeHtml(_shortDate(p.data_date))}${p.filename ? ' · ' + escapeHtml(p.filename) : ''}</button>`;
-      // Assign only — this stages the suggested previous update; the comparison runs
-      // when the user clicks Run Comparison.
-      document.getElementById('per-use-prev').addEventListener('click', () => {
-        _prev = { prev_cached_path: p.cached_path };
-        _markPrevAssigned(p.filename || _shortDate(p.data_date));
-      });
+      // Assign only — the earlier import is staged as the previous update straight away, so
+      // Run Comparison is ready to press; the comparison itself runs only on that button.
+      _prev = { prev_cached_path: p.cached_path };
+      _markPrevAssigned(`${_shortDate(p.data_date)}${p.filename ? ' · ' + p.filename : ''}`);
     } else {
       el.innerHTML = `<span class="mut">No earlier import found for this project — pick the previous file →</span>`;
     }
@@ -111,6 +114,27 @@ async function choosePrev() {
   if (!path) return;
   _prev = { prev_path: path };
   _markPrevAssigned(path.split(/[\\/]/).pop() || 'selected file');
+  _fileChanged();
+}
+
+// The same for the CURRENT update (owner: 'one option to change either update') — assign only.
+async function chooseCurr() {
+  const path = await window.pywebview.api.choose_file();
+  if (!path) return;
+  _curr = { update_path: path };
+  const el = document.getElementById('per-curr-name');
+  if (el) el.textContent = _currName();
+  _fileChanged();
+}
+
+// A file was changed while results are on screen: say so and offer Run — the figures shown
+// still belong to the old pair until the comparison is run again.
+function _fileChanged() {
+  const note = document.getElementById('per-rerun-note');
+  if (!note) return;
+  note.innerHTML = `<span class="cmp-pill warn">File changed</span> previous: <b>${escapeHtml(_prevName || '—')}</b> · current: <b>${escapeHtml(_currName())}</b> — the results below are still the old pair. <button class="btn-primary" id="per-rerun">Run Comparison</button>`;
+  const b = document.getElementById('per-rerun');
+  if (b) b.addEventListener('click', _runCompare);
 }
 
 async function _runCompare() {
@@ -125,8 +149,8 @@ async function _runCompare() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ..._prev,
-          update_path: state.currentXmlPath,
-          cached_path: state.currentCachedPath,
+          ...(_curr ? { update_path: _curr.update_path, cached_path: null }
+                    : { update_path: state.currentXmlPath, cached_path: state.currentCachedPath }),
           run_id: stages.id,
         }),
       }).finally(stages.stop);
@@ -163,14 +187,21 @@ function _trendStrip(pK, pWhen, pV, cK, cWhen, cV, varStr, good, badge) {
   </div>`;
 }
 
+const _byCost = report => ((report || {}).summary || {}).pct_basis === 'cost';
+const _money = v => (v == null ? '—' : Math.round(v).toLocaleString('en-US'));
+const _moneyShort = v => (Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + ' B' : (Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : _money(v)));
+const _signNum = v => (v == null ? '—' : (v > 0 ? '+' : '') + Math.round(v).toLocaleString('en-US'));
+
 function _dashboard(report) {
   const s = report.summary || {};
   const pw = `to ${_shortDD(report.data_date_prev)}`, cw = `to ${_shortDD(report.data_date_now)}`;
   const cutoff = `<div class="per-cutoff">Comparison window · <b>${escapeHtml(report.data_date_prev || '—')}</b> <span class="mut">(previous cutoff)</span> → <b>${escapeHtml(report.data_date_now || '—')}</b> <span class="mut">(current cutoff)</span></div>`;
 
-  // % Complete (higher = better)
+  // % Complete (higher = better) — the Performance % of the cost-loaded activities when both carry cost
   const pctGood = (s.period_earned || 0) >= 0;
-  const pct = _trendStrip('Previous % Complete', pw, `${s.actual_prev}%`, 'Current % Complete', cw, `${s.actual_now}%`,
+  const cost = _byCost(report);
+  const pct = _trendStrip(cost ? 'Previous Performance %' : 'Previous % Complete', pw, `${s.actual_prev}%`,
+    cost ? 'Current Performance %' : 'Current % Complete', cw, `${s.actual_now}%`,
     `${pctGood ? '▲' : '▼'} ${_signPct(s.period_earned)}`, pctGood, pctGood ? 'Progressed this period' : 'Went backwards');
 
   // SPI (higher = better)
@@ -203,7 +234,7 @@ function _dashboard(report) {
       slip == null ? '' : (fgood ? 'Held or pulled in' : 'Finish slipped'));
 
   return `${cutoff}
-    <div class="per-striplabel">Overall % Complete — Current vs Previous</div>${pct}
+    <div class="per-striplabel">${cost ? 'Performance % (Earned Value ÷ Budget of the cost-loaded activities)' : 'Overall % Complete'} — Current vs Previous</div>${pct}
     ${spi}${delay}${finish}
     ${_recoveryHtml(report)}
     ${_factsHtml(report)}
@@ -231,19 +262,93 @@ function _progressBarHtml(report) {
   const d1 = v => (Math.round(v * 10) / 10).toFixed(1);
   const clamp = v => Math.max(0, Math.min(100, v));
   const fill = clamp(an);
-  const startM = ap == null ? '' :
-    `<div class="per-pmark" style="left:${clamp(ap)}%;background:var(--muted)"></div><span class="per-tag-above" style="left:${clamp(ap)}%;color:var(--muted)">▾ start ${d1(ap)}%</span>`;
-  const planM = fn == null ? '' :
-    `<div class="per-pmark" style="left:${clamp(fn)}%"></div><span class="per-tag-above" style="left:${clamp(fn)}%">▾ planned ${d1(fn)}%</span>`;
+  // the markers above the bar: labels that would sit on each other step up a line, and a label
+  // near either end is anchored to that end so it is never cut off
+  const tags = [];
+  if (ap != null) tags.push([clamp(ap), `start ${d1(ap)}%`, 'var(--muted)']);
+  if (fn != null) tags.push([clamp(fn), `previous update forecast ${d1(fn)}%`, 'var(--warning)']);
   const ach = s.forecast_achievement == null ? '—' : Math.round(s.forecast_achievement * 100) + '%';
-  const behind = fn == null ? '' : ` — <b>${(fn - an) <= 0 ? 'on/ahead of' : d1(Math.abs(fn - an)) + '% behind'}</b> your plan`;
-  const planTxt = fn == null ? '' : `Your last update planned <b>${d1(fn)}%</b> by now (${_signPct(pf)}). `;
+  const behind = fn == null ? '' : ` — <b>${(fn - an) <= 0 ? 'on/ahead of' : d1(Math.abs(fn - an)) + '% behind'}</b> the previous update forecast`;
+  const planTxt = fn == null ? '' : `Your previous update forecast <b>${d1(fn)}%</b> by now (${_signPct(pf)}). `;
+  const bp = _byCost(report) ? s.planned_now : null;        // the baseline plan at this cut-off
+  if (bp != null) tags.push([clamp(bp), `baseline plan ${d1(bp)}%`, 'var(--danger)']);
+  tags.sort((a, b) => a[0] - b[0]);
+  const lastAt = [], lastTxt = [];                           // per line: the position (and text) of its last label
+  let lines = 1;
+  const marks = tags.map(([pos, txt, col]) => {
+    let lv = 0;
+    while (lastAt[lv] != null && pos - lastAt[lv] < (txt.length > 20 || (lastTxt[lv] || '').length > 20 ? 30 : 17)) lv++;
+    lastTxt[lv] = txt;
+    lastAt[lv] = pos; lines = Math.max(lines, lv + 1);
+    const tr = pos > 86 ? 'translateX(-100%)' : (pos < 10 ? 'translateX(0)' : 'translateX(-50%)');
+    return `<div class="per-pmark" style="left:${pos}%;background:${col};top:${-5 - 15 * lv}px"></div>`
+      + `<span class="per-tag-above" style="left:${pos}%;color:${col};top:${-22 - 15 * lv}px;transform:${tr}">▾ ${txt}</span>`;
+  }).join('');
+  const what = _byCost(report) ? 'All are <b>Performance %</b> — Earned Value ÷ Budget of the cost-loaded activities, as P6 shows it'
+    : 'All three are % of the whole project';
+  const baseTxt = bp == null ? '' : ` The baseline planned <b>${d1(bp)}%</b> by this cut-off.`;
   return `<div class="cmp-scurve-card per-prog">
     <div class="per-pbtop"><span>0% — start</span><span>100% — finish</span></div>
-    <div class="per-pbar">${startM}<div class="per-pfill" style="width:${fill}%">${d1(an)}%</div>
-      <span class="per-tag-below" style="left:${fill}%">▴ now ${d1(an)}%</span>${planM}</div>
-    <div class="per-psent">On <b>${escapeHtml(report.data_date_prev || '—')}</b> you were at <b>${ap != null ? d1(ap) : '—'}%</b>. ${planTxt}You reached <b>${d1(an)}%</b> on <b>${escapeHtml(report.data_date_now || '—')}</b> (${_signPct(pe)}). All three are % of the whole project${behind}; you did ${_signPct(pe)} of ${_signPct(pf)} = <b>${ach}</b>.</div>
+    <div class="per-pbar" style="margin-top:${15 * (lines - 1)}px"><div class="per-pfill" style="width:${fill}%">${d1(an)}%</div>
+      <span class="per-tag-below" style="left:${fill}%">▴ now ${d1(an)}%</span>${marks}</div>
+    <div class="per-psent">On <b>${escapeHtml(report.data_date_prev || '—')}</b> you were at <b>${ap != null ? d1(ap) : '—'}%</b>. ${planTxt}You reached <b>${d1(an)}%</b> on <b>${escapeHtml(report.data_date_now || '—')}</b> (${_signPct(pe)}). ${what}${behind}; you did ${_signPct(pe)} of ${_signPct(pf)} = <b>${ach}</b>.${baseTxt}</div>
+    ${_markerTable(report)}
   </div>`;
+}
+
+// ── Earned Value — before, after and variance (comments 68–73, round 2) ──
+function _evBridgeSvg(s, pdd, cdd) {
+  const a = s.ev_prev, b = s.ev_now, top = Math.max(a, b, 1), base = 150, hh = 100;
+  const y = v => base - hh * v / top, d = b - a, col = d >= 0 ? 'var(--success)' : 'var(--danger)';
+  const ya = y(a), yb = y(b), dy = Math.min(ya, yb), dh = Math.max(Math.abs(ya - yb), 2);
+  const t = (x, yy, txt, size = 11, fill = 'var(--muted)', w = 400) =>
+    `<text x="${x}" y="${yy.toFixed(0)}" text-anchor="middle" font-size="${size}" font-weight="${w}" fill="${fill}">${txt}</text>`;
+  const pct = v => (v == null ? '—' : v + '%');
+  return `<svg viewBox="0 0 700 190" width="100%" style="max-height:250px" role="img" aria-label="Earned Value bridge">
+    <line x1="40" y1="${base}" x2="660" y2="${base}" stroke="var(--border)" stroke-width="1.5"/>
+    <rect x="70" y="${ya.toFixed(0)}" width="130" height="${(base - ya).toFixed(0)}" rx="2" fill="var(--muted)"/>
+    <line x1="200" y1="${ya.toFixed(0)}" x2="285" y2="${ya.toFixed(0)}" stroke="var(--muted)" stroke-dasharray="4 4"/>
+    <rect x="285" y="${dy.toFixed(0)}" width="130" height="${dh.toFixed(0)}" rx="2" fill="${col}"/>
+    <line x1="415" y1="${yb.toFixed(0)}" x2="500" y2="${yb.toFixed(0)}" stroke="var(--muted)" stroke-dasharray="4 4"/>
+    <rect x="500" y="${yb.toFixed(0)}" width="130" height="${(base - yb).toFixed(0)}" rx="2" fill="var(--chart-1)"/>`
+    + t(135, ya - 6, _money(a), 12.5, 'var(--text)', 700) + t(350, dy - 6, _signNum(d), 12.5, col, 700) + t(565, yb - 6, _money(b), 12.5, 'var(--text)', 700)
+    + t(135, base + 15, 'Earned Value — previous') + t(135, base + 29, `${escapeHtml(pdd)} · ${pct(s.actual_prev)}`)
+    + t(350, base + 15, 'Earned this period') + t(350, base + 29, `${_signPct(s.period_earned)} of the budget`)
+    + t(565, base + 15, 'Earned Value — current') + t(565, base + 29, `${escapeHtml(cdd)} · ${pct(s.actual_now)}`) + `</svg>`;
+}
+function _evHtml(report) {
+  const s = report.summary || {};
+  if (!_byCost(report) || s.ev_now == null || s.ev_prev == null) return '';
+  const pdd = report.data_date_prev || '—', cdd = report.data_date_now || '—', pe = s.period_earned;
+  const f2 = v => (v == null ? '—' : v.toFixed(2));
+  const tile = (k, v, f, cls) => `<div class="kpi"><div class="k">${escapeHtml(k)}</div><div class="v ${cls || ''}">${v}</div><div class="per-kpi-sub mut">${escapeHtml(f)}</div></div>`;
+  const vcell = (txt, good) => `<td class="num">${good == null ? txt : `<span class="${good ? 'per-slip-good' : 'per-slip-bad'}">${txt}</span>`}</td>`;
+  const row = (l, a, b, v, bold) => `<tr><td>${bold ? `<b>${l}</b>` : l}</td><td class="num mono">${a}</td><td class="num mono">${b}</td>${v}</tr>`;
+  const slip = s.finish_slip_days, spv = s.spi_variance;
+  const slipTxt = slip == null ? '—' : (slip > 0 ? `${slip} days later` : (slip < 0 ? `${-slip} days earlier` : 'no change'));
+  const budgetNote = (s.bac_prev != null && s.bac != null && Math.abs(s.bac_prev - s.bac) >= 1)
+    ? `<div class="cmp-foot">The budget itself changed between the two updates: ${_money(s.bac_prev)} → ${_money(s.bac)}. Each Performance % is against its own update's budget.</div>` : '';
+  const reading = (s.pv_variance > 0 && s.ev_of_pv_period != null)
+    ? `<div class="cmp-foot"><b>Reading:</b> the plan asked for ${_moneyShort(s.pv_variance)} of work in this period; ${_moneyShort(s.ev_variance)} was earned — ${Math.round(s.ev_of_pv_period * 100)}% of what the period needed.</div>` : '';
+  return `<div class="mod-sec">Earned Value — before, after and variance</div>
+    <div class="cmp-foot" style="margin:0 0 8px"><b>Performance %</b> = Earned Value ÷ Budget of the cost-loaded activities (${_money(s.cost_activities)} of ${_money(s.all_activities)} activities; Budget <b>${_money(s.bac)}</b>) — the figure P6 shows as Performance % Complete. Activities without cost take no part.</div>${budgetNote}
+    <div class="cmp-kpis">
+      ${tile(`Performance % — previous · ${pdd}`, `${s.actual_prev}%`, 'Earned Value ÷ Budget')}
+      ${tile(`Performance % — current · ${cdd}`, `${s.actual_now}%`, 'Earned Value ÷ Budget')}
+      ${tile('Variance — earned this period', _signPct(pe), s.period_days != null ? `in ${s.period_days} calendar days` : 'between the two cut-offs', (pe || 0) >= 0 ? 'per-good' : 'per-bad')}
+    </div>
+    <div class="cmp-scurve-card" style="margin-top:10px">${_evBridgeSvg(s, pdd, cdd)}</div>
+    <div class="tblwrap" style="overflow-x:auto;margin-top:10px"><table class="audit-table cmp-table">
+      <thead><tr><th>Figure</th><th class="num">Previous · ${escapeHtml(pdd)}</th><th class="num">Current · ${escapeHtml(cdd)}</th><th class="num">Variance</th></tr></thead><tbody>
+      ${row('Earned Value', _money(s.ev_prev), _money(s.ev_now), vcell(_signNum(s.ev_variance), s.ev_variance >= 0), true)}
+      ${row('Planned Value', _money(s.pv_prev), _money(s.pv_now), vcell(_signNum(s.pv_variance)))}
+      ${row('Performance % (Earned Value ÷ Budget)', `${s.actual_prev}%`, `${s.actual_now}%`, vcell(_signPct(pe), (pe || 0) >= 0), true)}
+      ${row('Planned %', `${s.planned_prev}%`, `${s.planned_now}%`, vcell(_signPct(s.planned_variance)))}
+      ${row('SPI (Earned Value ÷ Planned Value)', f2(s.prev_spi), f2(s.curr_spi), vcell(spv == null ? '—' : (spv > 0 ? '+' : '') + spv.toFixed(2), spv == null ? null : spv >= 0))}
+      ${row('Forecast finish', escapeHtml(s.forecast_finish_prev || '—'), escapeHtml(s.forecast_finish_now || '—'), vcell(slipTxt, slip == null ? null : slip <= 0))}
+      </tbody></table></div>${reading}
+    <div class="cmp-foot"><b>Where each figure is in P6:</b> Earned Value = the sum of the column “Earned Value Cost” (each activity's Performance % Complete × its baseline budget); Budget = “Budget At Completion”, the baseline's Budgeted Total Cost; Performance % = one ÷ the other. Planned Value, Planned % and SPI are worked out by the tool from the baseline dates and budget — P6 does not write them into the exported file, so its own “Planned Value Cost” can differ slightly.</div>
+    ${_evCodeHtml(report)}`;
 }
 
 // Critical-path comparison — the driving path to the finish, grouped by WBS level or
@@ -413,6 +518,25 @@ function _cpCompareBody(report, mode, style) {
     : _cpChainBody(data);
   return concl + body;
 }
+// The three ways the route can be drawn, what each shows and when to use it — the chosen one
+// is outlined; a click picks it (owner: 'clarify the differences of the style types').
+const _CP_STYLES = [
+  ['chain', '1 · Connected chain', 'the route as blocks joined one after another; the new part in red.', 'you want to read the logic — what leads to what.',
+   `<rect x="2" y="18" width="70" height="22" rx="4" fill="none" stroke="var(--chart-1)" stroke-width="1.5"/><rect x="90" y="18" width="70" height="22" rx="4" fill="none" stroke="var(--chart-1)" stroke-width="1.5"/><rect x="178" y="18" width="70" height="22" rx="4" fill="none" stroke="var(--danger)" stroke-width="1.5"/><path d="M72 29h18M160 29h18M248 29h22" stroke="var(--muted)" stroke-width="2"/><rect x="272" y="21" width="16" height="16" transform="rotate(45 280 29)" fill="var(--danger)"/>`],
+  ['timeline', '2 · Date-axis timeline', 'last update over this update on real months.', 'you want to see WHEN the path runs and how many days the finish moved.',
+   `<line x1="0" y1="52" x2="300" y2="52" stroke="var(--muted)"/><g stroke="var(--border)"><line x1="60" y1="4" x2="60" y2="52"/><line x1="130" y1="4" x2="130" y2="52"/><line x1="200" y1="4" x2="200" y2="52"/><line x1="270" y1="4" x2="270" y2="52"/></g><rect x="10" y="10" width="200" height="12" rx="2" fill="var(--muted)"/><rect x="10" y="30" width="200" height="12" rx="2" fill="var(--chart-1)"/><rect x="210" y="30" width="50" height="12" rx="2" fill="var(--danger)"/>`],
+  ['table', '3 · Compact table', 'the two routes side by side as text.', 'space is short or the report goes into a letter.',
+   `<g fill="none" stroke="var(--muted)"><rect x="4" y="6" width="292" height="46"/><line x1="4" y1="20" x2="296" y2="20"/><line x1="4" y1="36" x2="296" y2="36"/><line x1="90" y1="6" x2="90" y2="52"/><line x1="194" y1="6" x2="194" y2="52"/></g>`],
+];
+function _cpStyleCards() {
+  return `<div class="per-stylecards">` + _CP_STYLES.map(([key, title, shows, when, svg]) =>
+    `<div class="per-stylecard${key === _cpStyle ? ' sel' : ''}" data-style="${key}" role="button" tabindex="0">
+      <div class="per-sc-h">${escapeHtml(title)}${key === _cpStyle ? '<span class="per-sc-on">selected</span>' : ''}</div>
+      <svg viewBox="0 0 300 58" width="100%" style="max-height:62px">${svg}</svg>
+      <div class="per-def"><b>Shows:</b> ${escapeHtml(shows)}</div><div class="per-def"><b>Use it when</b> ${escapeHtml(when)}</div></div>`).join('')
+    + `</div><div class="cmp-foot">All three draw the same route from the same figures — only the drawing changes. Click a card to use it.</div>`;
+}
+
 function _criticalCompareHtml(report) {
   const cp = report.critical_path || {};
   const prevA = cp.previous || [], currA = cp.current || [];
@@ -425,13 +549,23 @@ function _criticalCompareHtml(report) {
   const so = (v, l) => `<option value="${v}"${_cpStyle === v ? ' selected' : ''}>${l}</option>`;
   const styleSel = `<select id="per-cp-style">${so('chain', 'Connected chain')}${so('timeline', 'Date-axis timeline')}${so('table', 'Compact table')}</select>`;
   return `<div class="per-slicer"><span class="per-slicer-lbl">Critical-path style</span>${styleSel}<span class="per-slicer-lbl" style="margin-left:16px">Group by</span><select id="per-cp-mode">${modeOpts}</select></div>
+    <div id="per-cp-style-help">${_cpStyleCards()}</div>
     <div id="per-cp-chains">${_cpCompareBody(report, _cpMode, _cpStyle)}</div>`;
 }
 function _wireCriticalCompare(report) {
   const styleSel = document.getElementById('per-cp-style'), modeSel = document.getElementById('per-cp-mode'), box = document.getElementById('per-cp-chains');
   if (!box) return;
   const rerender = () => { box.innerHTML = _cpCompareBody(report, _cpMode, _cpStyle); };
-  if (styleSel) styleSel.addEventListener('change', () => { _cpStyle = styleSel.value; try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ } rerender(); });
+  const help = document.getElementById('per-cp-style-help');
+  const setStyle = v => {
+    _cpStyle = v; try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ }
+    if (styleSel) styleSel.value = v;
+    if (help) { help.innerHTML = _cpStyleCards(); wireCards(); }
+    rerender();
+  };
+  const wireCards = () => { if (help) help.querySelectorAll('.per-stylecard').forEach(c => c.addEventListener('click', () => setStyle(c.getAttribute('data-style')))); };
+  wireCards();
+  if (styleSel) styleSel.addEventListener('change', () => setStyle(styleSel.value));
   if (modeSel) modeSel.addEventListener('change', () => { _cpMode = modeSel.value; rerender(); });
 }
 
@@ -452,54 +586,39 @@ function _whatMovedHtml(report) {
     <div class="cmp-foot"><b>Grey</b> = planned (due to finish/start), <b>coloured</b> = actual; count on the right is always shown. Slipped/stalled/re-sequenced have no plan.</div>`;
 }
 
-// Where progress came from — by activity code (slicer over the precomputed code types).
-function _byCodeHtml(report) {
-  const bc = report.progress_by_code || {};
-  const types = Object.keys(bc);
-  if (!types.length) return '<p class="cmp-empty">No activity codes in this schedule to break progress down by.</p>';
-  const sel = `<div class="per-slicer"><span class="per-slicer-lbl">Activity code</span><select id="per-bycode-type">${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select></div>`;
-  const note = `<div class="cmp-foot" style="margin:2px 0 6px"><b>Grey</b> = planned this period (last update), <b>blue</b> = actual — weighted by each activity's cost/duration share. Planned sums to your period plan, actual to what you earned.</div>`;
-  return sel + note + `<div id="per-bycode-bars">${_byCodeBars(bc[types[0]])}</div>`;
-}
-function _byCodeBars(rows) {
-  rows = (rows || []).slice(0, 12);
-  if (!rows.length) return '<p class="cmp-empty">No progress to attribute for this code.</p>';
-  const mx = Math.max(...rows.map(r => Math.max(r.planned || 0, r.actual || 0)), 1);
-  const w = v => Math.max(2, Math.round(100 * (v || 0) / mx));
-  return rows.map(r => {
-    const gap = Math.round(((r.actual || 0) - (r.planned || 0)) * 10) / 10;
-    const tag = gap >= -0.05 ? '<span class="per-slip-good">on/above plan</span>' : `<span class="per-slip-bad">${gap.toFixed(1)}% vs plan</span>`;
-    return `<div class="per-bar2r"><div class="per-bar2r-h"><b>${escapeHtml(r.value)}</b> ${tag}</div>
-      <div class="per-bar2r-t"><div class="per-bar2r-pl" style="width:${w(r.planned)}%"></div><div class="per-bar2r-ac" style="width:${w(r.actual)}%"></div></div>
-      <div class="per-bar2r-n">planned ${_signPct(r.planned)} · actual ${_signPct(r.actual)}</div></div>`;
-  }).join('');
-}
-function _wireByCode(report) {
-  const sel = document.getElementById('per-bycode-type');
-  const box = document.getElementById('per-bycode-bars');
-  if (!sel || !box) return;
-  sel.addEventListener('change', () => { box.innerHTML = _byCodeBars((report.progress_by_code || {})[sel.value]); });
-}
-
-// Milestone section: a table (baseline / prev / current / slippage) then a drift chart.
+// Milestone section: every finish milestone in a table (names in full), then the drift chart.
 function _milestoneSection(report) {
   const ms = report.milestones || {};
-  const rows = ms.rows || [];
-  const overall = ms.overall;                 // project completion — the only row in the table
+  const overall = ms.overall;                 // project completion — bold in the table
+  const rows = (ms.rows || []).length ? ms.rows : (overall ? [overall] : []);
   if (!rows.length || !overall) return '<p class="cmp-empty">No project-completion milestone found in the update.</p>';
-  const slip = (sp, sb) => sp == null ? '—'
-    : (sp > 0 ? `<span class="per-slip-bad">▼ +${sp} d${sb != null ? ` (→ +${sb} d vs baseline${report.baseline_approx ? ', approx' : ''})` : ''}</span>`
-      : (sp < 0 ? `<span class="per-slip-good">▲ ${Math.abs(sp)} d earlier</span>` : `<span class="per-slip-good">• on track</span>`));
-  const r = overall;
+  const moved = sp => sp == null ? '—'
+    : (sp > 0 ? `<span class="per-slip-bad">${sp} wd later</span>`
+      : (sp < 0 ? `<span class="per-slip-good">${Math.abs(sp)} wd earlier</span>` : `<span class="per-slip-good">no change</span>`));
+  const vsBase = sb => sb == null ? '—'
+    : (sb > 0 ? `<span class="per-slip-bad">${sb} wd late</span>`
+      : (sb < 0 ? `<span class="per-slip-good">${Math.abs(sb)} wd early</span>` : `<span class="per-slip-good">on baseline</span>`));
   const ax = report.baseline_approx ? ' · approx' : '';   // own Planned dates stand in for the baseline
-  const table = `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Project completion milestone</th><th class="num">Baseline${ax}</th><th class="num">Previous forecast</th>
-      <th class="num">Current forecast</th><th>Slippage this period</th></tr></thead>
-    <tbody><tr><td>${escapeHtml(r.name)}</td>
+  const body = rows.map((r, i) => `<tr><td class="num mut">${i + 1}</td>
+      <td>${r.activity_id && r.activity_id === overall.activity_id || r === overall ? `<b>${escapeHtml(r.name)}</b> <span class="mut">(project completion)</span>` : escapeHtml(r.name)}</td>
       <td class="num mono">${escapeHtml(r.baseline_finish)}</td><td class="num mono">${escapeHtml(r.prev_forecast)}</td>
-      <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td>${slip(r.slip_period_days, r.slip_baseline_days)}</td></tr></tbody></table></div>`;
-  // chart shows ALL finish milestones
+      <td class="num mono">${escapeHtml(r.curr_forecast)}</td><td class="num">${moved(r.slip_period_days)}</td>
+      <td class="num">${vsBase(r.slip_baseline_days)}</td></tr>`).join('');
+  const table = `<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
+    <thead><tr><th class="num">S/N</th><th>Milestone</th><th class="num">Baseline${ax}</th><th class="num">Previous forecast</th>
+      <th class="num">Current forecast</th><th class="num">Moved this period</th><th class="num">Against baseline${ax}</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
   return table + `<div class="cmp-scurve-card" style="margin-top:10px">${_milestoneDriftSvg(rows, !!report.baseline_approx)}</div>`;
+}
+
+// Break a name onto lines of at most `width` characters, at the spaces — never cut.
+function _wrapText(s, width) {
+  const out = []; let line = '';
+  String(s || '').split(/\s+/).filter(Boolean).forEach(w => {
+    if (line && (line + ' ' + w).length > width) { out.push(line); line = w; } else line = line ? line + ' ' + w : w;
+  });
+  if (line) out.push(line);
+  return out.length ? out : [''];
 }
 
 function _milestoneDriftSvg(rows, approx = false) {
@@ -509,17 +628,24 @@ function _milestoneDriftSvg(rows, approx = false) {
   if (all.length < 2) return '<span class="mut">Not enough milestone dates to draw the drift chart.</span>';
   let tmin = Math.min(...all), tmax = Math.max(...all);
   if (tmin === tmax) { tmin -= 8.64e7 * 15; tmax += 8.64e7 * 15; }
-  const x0 = 150, x1 = 590, rowh = 30, top = 14, n = rows.length, h = top + n * rowh + 26;
+  // the name in full, wrapped onto as many lines as it needs (owner: 'the milestones seem trimmed')
+  const x0 = 250, x1 = 620, top = 14;
+  const names = rows.map(r => _wrapText(r.name, 38));
+  const heights = names.map(ls => Math.max(32, 13 * ls.length + 12));
+  const ytops = heights.map((_, i) => top + heights.slice(0, i).reduce((a, b) => a + b, 0));
+  const bodyH = heights.reduce((a, b) => a + b, 0), h = top + bodyH + 26;
   const xAt = t => x0 + (x1 - x0) * ((t - tmin) / (tmax - tmin));
   let parts = '';
   for (let k = 0; k < 5; k++) {
     const t = tmin + (tmax - tmin) * k / 4, x = xAt(t), d = new Date(t);
     const lab = d.toLocaleString('en', { month: 'short' }) + '-' + String(d.getFullYear()).slice(2);
-    parts += `<line x1="${x.toFixed(0)}" y1="${top}" x2="${x.toFixed(0)}" y2="${top + n * rowh}" stroke="var(--border)"/><text x="${x.toFixed(0)}" y="${top + n * rowh + 15}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${lab}</text>`;
+    parts += `<line x1="${x.toFixed(0)}" y1="${top}" x2="${x.toFixed(0)}" y2="${top + bodyH}" stroke="var(--border)"/><text x="${x.toFixed(0)}" y="${top + bodyH + 15}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${lab}</text>`;
   }
   rows.forEach((r, i) => {
-    const y = top + i * rowh + 15;
-    parts += `<text x="${x0 - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(r.name)}</text>`;
+    const y = Math.round(ytops[i] + heights[i] / 2), ls = names[i];
+    ls.forEach((ln, j) => {
+      parts += `<text x="${x0 - 8}" y="${Math.round(y + 4 + 13 * (j - (ls.length - 1) / 2))}" text-anchor="end" font-size="11" fill="var(--text)">${escapeHtml(ln)}</text>`;
+    });
     const xs = ['baseline_iso', 'prev_iso', 'curr_iso'].filter(k => r[k]).map(k => xAt(od(r[k])));
     if (xs.length >= 2) parts += `<line x1="${Math.min(...xs).toFixed(0)}" y1="${y}" x2="${Math.max(...xs).toFixed(0)}" y2="${y}" stroke="var(--border)"/>`;
     if (r.baseline_iso) parts += `<circle cx="${xAt(od(r.baseline_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--card-bg)" stroke="var(--muted)" stroke-width="2"/>`;
@@ -527,7 +653,7 @@ function _milestoneDriftSvg(rows, approx = false) {
     if (r.curr_iso) parts += `<circle cx="${xAt(od(r.curr_iso)).toFixed(0)}" cy="${y}" r="5" fill="var(--danger)"/>`;
   });
   return `<div class="cmp-scurve-legend"><span><i style="background:var(--card-bg);border:2px solid var(--muted);border-radius:50%;width:10px;height:10px"></i>Baseline${approx ? ' · approx' : ''}</span><span><i style="background:var(--warning);border-radius:50%;width:11px;height:11px"></i>Previous forecast</span><span><i style="background:var(--danger);border-radius:50%;width:11px;height:11px"></i>Current forecast</span></div>
-    <svg viewBox="0 0 620 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
+    <svg viewBox="0 0 640 ${h}" width="100%" role="img" aria-label="Milestone drift chart">${parts}</svg>`;
 }
 
 // Recovery outlook (planning-manager projection — indicative, not a P6 CPM result).
@@ -549,7 +675,8 @@ function _recoveryHtml(report) {
     <div class="per-recov"><div class="per-rl">${left}
         <div class="cmp-foot" style="margin-top:5px">Indicative planning projection — not a P6 reschedule.</div></div>
       <div class="per-rr"><div class="per-rr-h">At the current rate</div>
-        <div class="per-rr-big">Projected finish ≈ ${escapeHtml(r.projected_finish || '—')}</div>
+        <div class="per-rr-big">${_byCost(report) ? 'All the money earned' : 'All the progress earned'} ≈ ${escapeHtml(r.projected_finish || '—')}</div>
+        <div class="per-kpi-sub mut">not a finish date — the finish is the P6 forecast</div>
         <div class="per-rr-v ${vcls}">${escapeHtml(verdict)}</div></div></div>`;
 }
 
@@ -567,7 +694,7 @@ function _factsHtml(report) {
     ${fact('Forecast achievement', ach, 'earned vs forecast')}
     ${fact('Schedule adherence', adhP, `${adh.hit || 0} of ${adh.planned || 0} due finishes`)}
     ${fact('Started this period', counts.started || 0, 'first progress')}
-    ${fact('New critical items', cm.new_critical || 0, 'entered critical path')}
+    ${fact('New critical items', cm.new_critical || 0, 'became critical in P6 this period')}
   </div>`;
 }
 
@@ -579,25 +706,27 @@ function _verdictBanner(report) {
     <div><div class="per-b1">${escapeHtml(v.headline)}</div><div class="per-b2">${escapeHtml(v.detail || '')}</div></div></div>`;
 }
 
-// Next-period watch list table.
+// Activities to watch before the next update (was 'Next-period watch list' — owner asked what it means).
 function _watchTable(report) {
   const rows = (report.watch_list || {}).rows || [];
-  if (!rows.length) return '<p class="cmp-empty">No near-critical work is queued for the next window.</p>';
-  const body = rows.map(r => `<tr><td class="mono">${escapeHtml(r.activity_id)}</td>
-    <td>${escapeHtml(r.activity_name)}</td><td class="num">${r.float_days} wd</td>
-    <td class="num mono">${escapeHtml(r.due_to_start)}</td><td>${escapeHtml(r.reason)}</td></tr>`).join('');
-  return `<div class="cmp-foot" style="margin:0 0 6px">The near-critical construction activities <b>most likely to drive the next reporting window</b> — not yet finished, with little spare time — tightest float first. Watch these to protect the finish date.</div>
+  const heading = `<div class="cmp-reco" style="margin:0 0 8px">These are the <b>unfinished construction activities most likely to delay the finish date before your next update</b> — the ones with a Total Float of 10 working days or less, tightest first. The last column says why each one is listed: <b>1)</b> it is on the critical path · <b>2)</b> its float dropped to 10 working days or less in this period · <b>3)</b> it follows an activity that slipped this period. Any other was already near-critical in the previous update.</div>`;
+  if (!rows.length) return heading + '<p class="cmp-empty">No near-critical work is queued before the next update.</p>';
+  const body = rows.map((r, i) => `<tr><td class="num mut">${i + 1}</td><td class="mono">${escapeHtml(r.activity_id)}</td>
+    <td>${escapeHtml(r.activity_name)}</td><td class="num mono">${escapeHtml(r.due_to_start)}</td>
+    <td class="num">${r.float_days}</td><td>${escapeHtml(r.reason)}</td></tr>`).join('');
+  return `${heading}
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th class="num">Float</th>
-      <th class="num">Due to start</th><th>Why watch it</th></tr></thead>
+    <thead><tr><th class="num">S/N</th><th>Activity ID</th><th>Activity name</th><th class="num">Due to start</th>
+      <th class="num">Total Float (working days)</th><th>Why it is listed</th></tr></thead>
     <tbody>${body}</tbody></table></div>
     <div class="per-defs"><div class="per-defs-h">Columns</div>
-      <div class="per-def"><b>Float</b> — spare working days before this activity would delay the project finish (0 = on the critical path; ≤ 10 wd = near-critical).</div>
+      <div class="per-def"><b>Total Float</b> — spare working days before this activity would delay the project finish (0 or less = on the critical path; up to 10 = near-critical).</div>
       <div class="per-def"><b>Due to start</b> — the activity's forecast start date, from the current update.</div>
-      <div class="per-def"><b>Why watch it</b> — why it's near-critical: on the critical path, a successor to something slipping, or newly near-critical.</div></div>`;
+      <div class="per-def"><b>Why it is listed</b> — the reason this activity needs attention before the next update.</div></div>`;
 }
 
 function _progressRows(rows) {
+  let sn = 0;
   return rows.map(r => {
     const cls = r.reversal ? 'cmp-pill bad' : 'cmp-pill good';
     const arrow = r.reversal ? '▼' : '▲';
@@ -606,6 +735,7 @@ function _progressRows(rows) {
     const status = `<span class="${stCls}">${escapeHtml(r.status || '')}</span>${r.reversal ? ' <span class="cmp-pill bad">reversed</span>' : ''}`;
     const codes = escapeHtml(JSON.stringify(r.codes || {}));   // per-row activity codes, for the slicer
     return `<tr data-codes="${codes}">
+      <td class="num mut">${++sn}</td>
       <td class="mono">${escapeHtml(r.activity_id)}</td>
       <td>${escapeHtml(r.activity_name)}</td>
       <td>${status}</td>
@@ -621,47 +751,15 @@ function _progressSection(report) {
   const rows = (report.progress && report.progress.rows) || [];
   if (!rows.length) return '<p class="cmp-empty">No activity changed its % complete between the two updates.</p>';
   const ph = escapeHtml(_shortDD(s.data_date_prev)), ch = escapeHtml(_shortDD(s.data_date_now));
-  const types = report.code_types || [];
-  const slicer = types.length ? `<div class="per-slicer">
-      <span class="per-slicer-lbl">Filter by activity code</span>
-      <select id="per-code-type"><option value="">— all activities —</option>${types.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
-      <span id="per-code-chips" class="per-chips"></span>
-    </div>` : '';
+  const slicer = _pickHost(report, 'pick a code, then tick any of its values — e.g. Type of Civil Work → Pile Works, Columns Works');
   return `${slicer}
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-prog-table">
-      <thead><tr><th>Activity ID</th><th>Activity name</th><th>Status</th>
+      <thead><tr><th class="num">S/N</th><th>Activity ID</th><th>Activity name</th><th>Status</th>
         <th class="num">Prev % <span style="font-weight:400">(${ph})</span></th>
         <th class="num">Current % <span style="font-weight:400">(${ch})</span></th>
         <th class="num">Variance</th></tr></thead>
-      <tbody>${_progressRows(rows)}</tbody></table></div>
-    <div class="cmp-foot">Pick an activity code to see just those activities’ current vs previous % complete. Biggest gain first; <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update.</div>`;
-}
-
-// Wire the activity-code slicer: pick a code type → value chips → filter the table rows.
-function _wireSlicer() {
-  const sel = document.getElementById('per-code-type');
-  const chipsEl = document.getElementById('per-code-chips');
-  const table = document.getElementById('per-prog-table');
-  if (!sel || !chipsEl || !table) return;
-  const rows = Array.from(table.querySelectorAll('tbody tr'));
-  const codesOf = tr => { try { return JSON.parse(tr.getAttribute('data-codes') || '{}'); } catch { return {}; } };
-  const applyVal = (type, val) => rows.forEach(tr => {
-    const c = codesOf(tr);
-    tr.style.display = (!type || val === '__all__' || c[type] === val) ? '' : 'none';
-  });
-  const renderChips = type => {
-    if (!type) { chipsEl.innerHTML = ''; rows.forEach(tr => { tr.style.display = ''; }); return; }
-    const vals = Array.from(new Set(rows.map(tr => codesOf(tr)[type]).filter(Boolean))).sort();
-    chipsEl.innerHTML = [`<span class="per-chip on" data-v="__all__">All</span>`]
-      .concat(vals.map(v => `<span class="per-chip" data-v="${escapeHtml(v)}">${escapeHtml(v)}</span>`)).join('');
-    chipsEl.querySelectorAll('.per-chip').forEach(chip => chip.addEventListener('click', () => {
-      chipsEl.querySelectorAll('.per-chip').forEach(x => x.classList.remove('on'));
-      chip.classList.add('on');
-      applyVal(type, chip.getAttribute('data-v'));
-    }));
-    applyVal(type, '__all__');
-  };
-  sel.addEventListener('change', () => renderChips(sel.value));
+      <tbody>${_progressRows(rows.filter(_fltMatch))}</tbody></table></div>
+    <div class="cmp-foot">Pick an activity code and tick its values to see just those activities’ current vs previous % complete. Biggest gain first; <span class="cmp-pill bad">▼</span> = progress declared backwards vs last update. Prev % / Current % are each activity's own Performance % Complete, as P6 holds it.</div>`;
 }
 
 function _periodScurveSvg(sc) {
@@ -707,20 +805,113 @@ function _critStatus(st) {
     : '<span class="cmp-pill bad">▶ stayed</span>';
 }
 
+// The two 'By …' charts: the owner's pick, else the activity code covering most critical
+// activities in the fewest values, and WBS (the same rule as p6_period/exporters.crit_group_choice).
+function _critGroupChoice(cs, chosen) {
+  const groups = (cs || {}).groups || {};
+  const codes = Object.keys(groups).filter(k => k !== 'WBS' && (groups[k].groups || 0) >= 2);
+  const wbsLike = k => (k.toLowerCase().includes('wbs') ? 1 : 0);
+  codes.sort((a, b) => (wbsLike(a) - wbsLike(b)) || ((groups[b].covered || 0) - (groups[a].covered || 0))
+    || ((groups[a].groups || 0) - (groups[b].groups || 0)) || (a < b ? -1 : 1));
+  let g1 = (chosen && chosen[0] && groups[chosen[0]]) ? chosen[0] : (codes[0] || null);
+  const g2 = (chosen && chosen[1] && groups[chosen[1]]) ? chosen[1] : (groups.WBS ? 'WBS' : null);
+  if (g1 === g2) g1 = null;
+  return [g1, g2];
+}
+function _hbars(rows, label, value, text, cls) {
+  const mx = Math.max(1, ...rows.map(value));
+  return rows.map(r => `<div class="per-hb"><span class="per-hbl">${escapeHtml(label(r))}</span>
+    <div class="per-hbt"><i class="${cls || ''}" style="width:${Math.max(1, Math.round(100 * value(r) / mx))}%"></i></div>
+    <span class="per-hbn">${text(r)}</span></div>`).join('');
+}
+function _critGroupChart(cs, g, slot) {
+  const groups = cs.groups || {}, grp = groups[g] || {}, rows = grp.rows || [];
+  const opts = Object.keys(groups).map(k => `<option${k === g ? ' selected' : ''}>${escapeHtml(k)}</option>`).join('');
+  const n = grp.groups || rows.length, worst = cs.max_slip || 0;
+  const text = r => {
+    const ms = r.max_slip || 0;
+    return `<b>${r.count}</b> <span class="per-slip ${ms > 0 && ms >= worst ? 'worst' : (ms > 0 ? '' : 'none')}">${ms > 0 ? `worst slip ${ms} wd` : 'no slip'}</span>`;
+  };
+  const note = `Bar = how many critical activities sit in the group. Badge = the largest slip of any of them between the two updates (working days); red = the worst in the project.${g !== 'WBS' && grp.covered != null ? ` ${grp.covered} of the ${cs.total} critical activities carry this code.` : ''}`;
+  return `<div class="per-crit-sub">Where the critical activities are, and the worst slip in each — Group by <select class="per-crit-group" data-slot="${slot}">${opts}</select>${n > rows.length ? ` (top ${rows.length} of ${n})` : ''}</div>`
+    + (rows.length ? `<div class="per-hbs-wide">${_hbars(rows, r => r.value, r => r.count, text)}</div><div class="cmp-foot">${note}</div>` : '<p class="cmp-empty">No critical activity carries this code.</p>');
+}
+function _critSummaryHtml(report) {
+  const picked = _fltOn();
+  const cs = (picked && _fltCrit ? _fltCrit.critical_summary : report.critical_summary) || {}, s = report.summary || {};
+  const logic = picked && _fltCrit ? _fltCrit.logic_changes : report.logic_changes;
+  const total = cs.total || 0;
+  const banner = !picked ? '' : (_fltCrit
+    ? `<div class="cmp-foot per-flt-note"><b>Included:</b> ${escapeHtml(_fltText())} — every count and chart below is for these only.</div>`
+    : `<div class="cmp-foot per-flt-note">The picked values could not be applied here — the whole project is shown.</div>`);
+  if (!total) return picked && _fltCrit ? `${banner}<p class="cmp-empty">No critical activity carries the picked values.</p>` : '';
+  const slip = s.finish_slip_days;
+  const fin = slip == null ? '—' : (slip > 0 ? `+${slip} d` : (slip < 0 ? `${slip} d` : 'no change'));
+  const tile = (k, v, f, cls) => `<div class="kpi"><div class="k">${escapeHtml(k)}</div><div class="v ${cls || ''}">${v}</div><div class="per-kpi-sub mut">${escapeHtml(f)}</div></div>`;
+  const left = cs.left, fnd = cs.left_finished || 0;
+  const tiles = `<div class="cmp-kpis per-kpis5">
+    ${tile('Critical now', total, cs.prev_total != null ? `previous update: ${cs.prev_total}` : 'in the current update')}
+    ${tile('Stayed critical', cs.stayed || 0, 'critical in both updates')}
+    ${tile('New critical', cs.new || 0, 'became critical this period', cs.new ? 'per-bad' : '')}
+    ${tile('No longer critical', left == null ? '—' : left, left == null ? '' : `${fnd} finished · ${left - fnd} gained float`)}
+    ${tile('Finish of the path', fin, `${s.forecast_finish_prev || '—'} → ${s.forecast_finish_now || '—'}`, slip > 0 ? 'per-bad' : '')}
+  </div>
+  <div class="cmp-foot" style="margin:6px 0 10px"><b>Critical</b> = P6's own Critical flag, read with the file's setting (Total Float less than or equal to the critical limit — 0 unless the project changed it — or the Longest Path). The count is the one P6 gives under the filter Critical = Yes; finished activities are never critical.</div>`;
+  const bands = cs.bands || [], mx = Math.max(1, ...bands.map(b => b.count));
+  const hist = `<div class="per-hist">${bands.map(b => `<div class="per-hcol"><b>${b.count}</b><i style="height:${Math.max(2, Math.round(100 * b.count / mx))}%"></i></div>`).join('')}</div>
+    <div class="per-hl">${bands.map(b => `<span>${escapeHtml(b.label)}</span>`).join('')}</div>`;
+  const slipped = bands.filter(b => (b.lo || 0) >= 1);
+  const big = slipped.length ? slipped.reduce((a, b) => (b.count > a.count ? b : a)) : null;
+  const reading = big ? `<div class="per-def"><b>Reading:</b> ${big.count} of ${total} moved ${escapeHtml(big.label.replace(' days', ''))} working days${s.period_days != null ? ` in this period of ${s.period_days} calendar days` : ''}; the largest slip is ${cs.max_slip} working days.</div>` : '';
+  const ex = cs.example;
+  const example = ex ? `<div class="per-def mut">Example: ${escapeHtml(ex.activity_id)} ${escapeHtml(ex.activity_name)} — ${escapeHtml(ex.prev_finish)} → ${escapeHtml(ex.curr_finish)} = ${ex.slip_days} working days.</div>` : '';
+  const how = `<div class="per-defs"><div class="per-defs-h">How to read this chart</div>
+    <div class="per-def"><b>Slip</b> = the activity's finish in the current update − its finish in the previous update, in working days. It is not measured against the baseline and it is not the Total Float.</div>
+    <div class="per-def"><b>Each bar</b> = the number of critical activities whose finish moved by that many working days.</div>${reading}${example}</div>`;
+  const [g1, g2] = _critGroupChoice(cs, _critGroup);
+  const g = g1 || g2;
+  const dmx = Math.max(1, ...(cs.drivers || []).map(d => d.count));
+  const why = `<div class="per-crit-sub">Why they moved</div>` + (cs.drivers || []).map(d => `<div class="per-hb"><span class="per-hbl"><b>${escapeHtml(d.label)}</b></span>
+    <div class="per-hbt"><i class="w" style="width:${Math.max(1, Math.round(100 * d.count / dmx))}%"></i></div><span class="per-hbn"><b>${d.count}</b></span></div>
+    ${_DRIVER_MEANING[d.key] ? `<div class="per-hbm">${_DRIVER_MEANING[d.key]}</div>` : ''}`).join('');
+  const newRows = cs.new_rows || [];
+  const newT = newRows.length ? `<div class="per-crit-sub">The ${newRows.length} activit${newRows.length === 1 ? 'y' : 'ies'} that became critical this period</div>
+    <div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table"><thead><tr><th class="num">S/N</th><th>Activity ID</th><th>Activity name</th>
+      <th class="num">Slip (working days)</th><th class="num">Total Float — previous (working days)</th><th class="num">Total Float — current (working days)</th></tr></thead>
+    <tbody>${newRows.map((r, i) => `<tr><td class="num mut">${i + 1}</td><td class="mono">${escapeHtml(r.activity_id)}</td><td>${escapeHtml(r.activity_name)}</td>
+      <td class="num">${r.slip_days == null ? '—' : (r.slip_days > 0 ? '+' : '') + r.slip_days}</td><td class="num">${r.prev_float_days == null ? '—' : r.prev_float_days}</td>
+      <td class="num">${r.float_days == null ? '—' : r.float_days}</td></tr>`).join('')}</tbody></table></div>` : '';
+  return `${banner}${tiles}<div class="per-crit-split">
+      <div><div class="per-crit-sub">How far the critical activities slipped (working days)</div>${hist}${how}</div>
+      <div>${why}</div></div>
+    ${g ? _critGroupChart(cs, g, 0) : ''}${_logicHtml(logic)}${newT}
+    <div class="cmp-foot">The full list of critical activities (one row each) is in the Word and Excel exports.</div>`;
+}
+// A grouping picker changed → redraw the summary with it (the PDF / Word follow the same pick).
+function _wireCritSummary(report) {
+  const box = document.getElementById('per-crit-summary');
+  if (!box) return;
+  box.querySelectorAll('.per-crit-group').forEach(sel => sel.addEventListener('change', () => {
+    _critGroup = [sel.value, null];      // one chart now: its grouping (the PDF / Word follow it)
+    box.innerHTML = _critSummaryHtml(report);
+    _wireCritSummary(report);
+  }));
+}
+
 function _criticalTable(cm, codeTypesArg) {
   const rows = (cm && cm.rows) || [];
-  const newTxt = (cm && cm.new_critical)
-    ? `<div class="cmp-foot"><b>${cm.new_critical}</b> activit${cm.new_critical === 1 ? 'y' : 'ies'} entered the critical path this window.</div>` : '';
-  if (!rows.length) return `<p class="cmp-empty">No critical or near-critical activity moved this window.</p>${newTxt}`;
+  if (!rows.length) return `<p class="cmp-empty">No activity is critical in the current update.</p>`;
   const codeTypes = codeTypesArg || [];
-  const body = rows.map(r => `<tr data-codes="${escapeHtml(JSON.stringify(r.codes || {}))}">
+  const slipCell = v => (v > 0 ? `<span class="cmp-pill bad">+${v} wd</span>` : (v < 0 ? `<span class="cmp-pill good">${v} wd</span>` : '<span class="cmp-pill">—</span>'));
+  const body = rows.map((r, idx) => `<tr data-codes="${escapeHtml(JSON.stringify(r.codes || {}))}">
+    <td class="num mut">${idx + 1}</td>
     <td class="mono">${escapeHtml(r.activity_id)}</td>
     <td>${escapeHtml(r.activity_name)}</td>
     <td>${escapeHtml(r.wbs || '')}</td>
     <td class="num mono mut">${escapeHtml(r.prev_finish)}</td>
     <td class="num mono">${escapeHtml(r.curr_finish)}</td>
-    <td class="num">${r.slip_days > 0 ? `<span class="cmp-pill bad">+${r.slip_days} wd</span>` : '<span class="cmp-pill">—</span>'}</td>
-    <td class="num">${r.float_days == null ? '—' : r.float_days + ' d'}</td>
+    <td class="num">${slipCell(r.slip_days)}</td>
+    <td class="num">${r.float_days == null ? '—' : r.float_days}</td>
     <td>${_driverTag(r.driver)}</td>
     <td>${_critStatus(r.critical_status)}</td>
   </tr>`).join('');
@@ -728,12 +919,13 @@ function _criticalTable(cm, codeTypesArg) {
       <span class="per-slicer-lbl">Filter by activity code</span>
       <select id="per-crit-type"><option value="">— all activities —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
       <span id="per-crit-chips" class="per-chips"></span></div>` : '';
-  return `${slicer}<div class="tblwrap" style="overflow-x:auto"><table class="audit-table cmp-table" id="per-crit-table">
-    <thead><tr><th>Activity ID</th><th>Activity name</th><th>WBS</th><th class="num">Finish (prev)</th>
-      <th class="num">Finish (now)</th><th class="num">Slip</th><th class="num">Float</th>
+  return `<div class="per-crit-sub">Full table — every activity P6 flags Critical in the current update, worst slip first</div>
+    ${slicer}<div class="tblwrap" style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="audit-table cmp-table" id="per-crit-table">
+    <thead><tr><th class="num">S/N</th><th>Activity ID</th><th>Activity name</th><th>WBS</th><th class="num">Finish (prev)</th>
+      <th class="num">Finish (now)</th><th class="num">Slip (wd)</th><th class="num">Total Float (wd)</th>
       <th>Driver this period</th><th>Critical</th></tr></thead>
     <tbody>${body}</tbody></table></div>
-    <div class="cmp-foot">Construction / execution activities only. Slip = working-day movement of the finish between the two updates. <b>▶ new</b> = entered the critical path this window.</div>${newTxt}`;
+    <div class="cmp-foot">Slip = working-day movement of the finish between the two updates. Total Float = P6's Total Float in the current update. <b>▶ new</b> = not critical in the previous update.</div>`;
 }
 
 // Generic activity-code slicer wiring for a table with data-codes rows.
@@ -774,7 +966,456 @@ function _bucketsTable(buck) {
     <div class="cmp-foot">“Re-sequenced” reuses the sibling’s logic/lag engine, measured against <b>last period</b> — it catches quiet mid-stream re-planning.</div>`;
 }
 
+// ── One activity-code picker shared by three sections (round 3, points 03–05) ──
+// Step 1 = the activity code (or WBS), step 2 = tick any of its values. The same pick narrows
+// the activities that moved, the Earned Value by code and the critical-path movement, on
+// screen and in the PDF / Word / Excel.
+const _NOVAL = '(no value)';
+let _flt = { type: '', values: [] };   // the picked code and its ticked values ([] = every value)
+let _fltCrit = null;                   // the critical summary of the picked values (worked out by the server)
+let _fltSeq = 0;
+let _byGroup = null;                   // activity code of the planned-vs-actual histogram (null = the default)
+
+const _fltOn = () => !!(_flt.type && _flt.values.length);
+const _fltVal = (r, t) => (t === 'WBS' ? (r.wbs || _NOVAL) : ((r.codes || {})[t] || _NOVAL));
+const _fltMatch = r => !_fltOn() || (_flt.type === 'WBS' && !('wbs' in r)) || _flt.values.includes(_fltVal(r, _flt.type));
+const _codeFilter = () => (_flt.type ? { type: _flt.type, values: _flt.values.slice() } : null);
+const _fltText = () => (_fltOn() ? `${_flt.type}: ${_flt.values.slice(0, 6).join(', ')}${_flt.values.length > 6 ? ` … (+${_flt.values.length - 6} more)` : ''}` : '');
+
+function _fltTypes(report) {
+  const types = (report.code_types || []).slice();
+  if (((report.ev_by_code || {}).WBS || []).length || ((report.critical_movement || {}).rows || []).some(r => r.wbs)) types.push('WBS');
+  return types;
+}
+function _fltValues(report, t) {
+  const set = new Set();
+  ((report.ev_by_code || {})[t] || []).forEach(e => set.add(e.value));
+  [(report.progress || {}).rows, (report.critical_movement || {}).rows].forEach(rows => (rows || []).forEach(r => {
+    if (t !== 'WBS' || 'wbs' in r) set.add(_fltVal(r, t));
+  }));
+  return Array.from(set).sort((a, b) => ((a === _NOVAL) - (b === _NOVAL)) || String(a).localeCompare(String(b)));
+}
+function _pickHtml(report, note) {
+  const types = _fltTypes(report);
+  if (!types.length) return '';
+  const opts = ['<option value="">— all activities —</option>']
+    .concat(types.map(t => `<option value="${escapeHtml(t)}"${t === _flt.type ? ' selected' : ''}>${escapeHtml(t)}</option>`)).join('');
+  let step2 = '';
+  if (_flt.type) {
+    const vals = _fltValues(report, _flt.type);
+    const n = _flt.values.length;
+    step2 = `<div class="per-cpick-row"><span class="per-slicer-lbl">Step 2 — values</span>
+        <button type="button" class="per-cpick-btn" data-act="all">Select all</button>
+        <button type="button" class="per-cpick-btn" data-act="clear">Clear</button>
+        <span class="per-cpick-n">${n ? `${n} of ${vals.length} picked` : `all ${vals.length} shown — tick the ones you want`}</span></div>
+      <div class="per-chips per-cpick-vals">${vals.map(v => {
+        const on = _flt.values.includes(v);
+        return `<span class="per-chip${on ? ' on' : ''}" data-v="${escapeHtml(v)}">${on ? '✓ ' : ''}${escapeHtml(v)}</span>`;
+      }).join('')}</div>`;
+  }
+  return `<div class="per-cpick"><div class="per-cpick-row"><span class="per-slicer-lbl">Step 1 — activity code</span>
+      <select class="per-cpick-type">${opts}</select>${note ? `<span class="per-cpick-n">${escapeHtml(note)}</span>` : ''}</div>${step2}</div>`;
+}
+const _pickHost = (report, note) => `<div class="per-cpick-host" data-note="${escapeHtml(note || '')}">${_pickHtml(report, note)}</div>`;
+
+function _wirePickers(report) {
+  document.querySelectorAll('.per-cpick-host').forEach(host => {
+    host.innerHTML = _pickHtml(report, host.getAttribute('data-note') || '');
+    const sel = host.querySelector('.per-cpick-type');
+    if (sel) sel.addEventListener('change', () => { _flt = { type: sel.value, values: [] }; _applyFilter(report); });
+    host.querySelectorAll('.per-chip').forEach(chip => chip.addEventListener('click', () => {
+      const v = chip.getAttribute('data-v'), i = _flt.values.indexOf(v);
+      if (i >= 0) _flt.values.splice(i, 1); else _flt.values.push(v);
+      _applyFilter(report);
+    }));
+    host.querySelectorAll('.per-cpick-btn').forEach(b => b.addEventListener('click', () => {
+      _flt.values = b.getAttribute('data-act') === 'all' ? _fltValues(report, _flt.type) : [];
+      _applyFilter(report);
+    }));
+  });
+}
+// The pick changed → every picker shows it, and the three sections follow.
+async function _applyFilter(report) {
+  _wirePickers(report);
+  const tb = document.querySelector('#per-prog-table tbody');
+  if (tb) {
+    const rows = ((report.progress || {}).rows || []).filter(_fltMatch);
+    tb.innerHTML = rows.length ? _progressRows(rows)
+      : '<tr><td colspan="7" class="mut">No activity of the picked values changed its % complete in this period.</td></tr>';
+  }
+  const ev = document.getElementById('per-ev-code');
+  if (ev) ev.innerHTML = _evCodeTable(report);
+  const seq = ++_fltSeq;
+  _fltCrit = null;
+  if (_fltOn()) {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/period/filter`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ critical_movement: report.critical_movement, code_types: report.code_types,
+          logic_changes: report.logic_changes, code_filter: _codeFilter() }),
+      });
+      const data = await resp.json();
+      if (seq !== _fltSeq) return;
+      if (data.ok) _fltCrit = data;
+    } catch { /* the whole-project summary stays, and says so */ }
+  }
+  if (seq !== _fltSeq) return;
+  const box = document.getElementById('per-crit-summary');
+  if (box) { box.innerHTML = _critSummaryHtml(report); _wireCritSummary(report); }
+}
+
+// Earned Value in the two updates for each value of the picked code (point 04).
+function _evCodeTable(report) {
+  const t = _flt.type, s = report.summary || {};
+  if (!t) return '<p class="cmp-empty">Pick an activity code above to see the Earned Value of each of its values in the two updates.</p>';
+  const all = (report.ev_by_code || {})[t] || [];
+  const rows = _flt.values.length ? all.filter(e => _flt.values.includes(e.value)) : all;
+  if (!rows.length) return '<p class="cmp-empty">No cost-loaded activity carries the picked values.</p>';
+  const sum = k => rows.reduce((a, e) => a + (e[k] || 0), 0);
+  const vcell = v => `<td class="num"><span class="${v >= 0 ? 'per-slip-good' : 'per-slip-bad'}">${_signNum(v)}</span></td>`;
+  // the same money as a share of that value's own budget (= its Performance % in each update)
+  const pc = (v, bac) => bac ? `${(100 * (v || 0) / bac).toFixed(1)}%` : '—';
+  const pcell = e => {
+    if (!e.bac) return '<td class="num">—</td>';
+    const v = 100 * (e.variance || 0) / e.bac;
+    return `<td class="num"><span class="${v >= 0 ? 'per-slip-good' : 'per-slip-bad'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span></td>`;
+  };
+  const tr = (sn, name, e, bold) => `<tr><td class="num mut">${sn}</td><td>${bold ? `<b>${escapeHtml(name)}</b>` : escapeHtml(name)}</td>
+    <td class="num">${_money(e.activities)}</td><td class="num mono">${_money(e.bac)}</td><td class="num mono">${_money(e.ev_prev)}</td>
+    <td class="num mono">${_money(e.ev_now)}</td>${vcell(e.variance || 0)}
+    <td class="num">${pc(e.ev_prev, e.bac)}</td><td class="num">${pc(e.ev_now, e.bac)}</td>${pcell(e)}</tr>`;
+  const tot = { activities: sum('activities'), bac: sum('bac'), ev_prev: sum('ev_prev'), ev_now: sum('ev_now'), variance: sum('variance') };
+  const share = (_flt.values.length && s.ev_variance)
+    ? `<div class="cmp-foot">The picked values earned ${_money(tot.variance)} of the project's ${_money(s.ev_variance)} in this period (${Math.round(100 * tot.variance / s.ev_variance)}%).</div>` : '';
+  return `<div class="tblwrap" style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="audit-table cmp-table">
+      <thead><tr><th class="num">S/N</th><th>${escapeHtml(t)}</th><th class="num">Cost-loaded activities</th><th class="num">Budget</th>
+        <th class="num">Earned Value — previous · ${escapeHtml(report.data_date_prev || '')}</th>
+        <th class="num">Earned Value — current · ${escapeHtml(report.data_date_now || '')}</th><th class="num">Variance</th>
+        <th class="num">Performance % — previous</th><th class="num">Performance % — current</th><th class="num">Variance %</th></tr></thead>
+      <tbody>${rows.map((e, i) => tr(i + 1, e.value, e)).join('')}${tr('', _flt.values.length ? 'Total — the picked values' : 'Total — all cost-loaded activities', tot, true)}</tbody></table></div>
+      <div class="cmp-foot">Performance % = Earned Value ÷ Budget of that value; Variance % = the progress it gained between the two updates (Variance ÷ Budget).</div>${share}`;
+}
+function _evCodeHtml(report) {
+  if (!report.ev_by_code) return '';
+  return `<div class="per-crit-sub">Earned Value by activity code — previous, current and variance</div>
+    ${_pickHost(report, 'the same pick is used in the three sections')}
+    <div id="per-ev-code">${_evCodeTable(report)}</div>`;
+}
+
+// ── Rate of progress carried forward (point 06) ─────────────────────────────
+function _rateSvg(r) {
+  const d = iso => (iso ? Date.parse(iso + 'T00:00:00Z') : null);
+  const d0 = d(r.dd_prev), d1 = d(r.dd_now), bf = d(r.baseline_finish), rf = d(r.rate_finish), pf = d(r.p6_finish);
+  if (!d0 || !d1) return '';
+  const last = Math.max(d1, ...[bf, rf, pf].filter(Boolean));
+  const span = Math.max(1, last - d0);
+  const W = 1000, H = 324, L = 44, Rm = 22, T = 62, B = 54;
+  const X = t => L + (W - L - Rm) * (t - d0) / span;
+  const Y = p => T + (H - T - B) * (1 - Math.max(0, Math.min(100, p)) / 100);
+  const acc = 'var(--accent)', warn = 'var(--warning)', bad = 'var(--danger)', good = 'var(--success)', mut = 'var(--muted)';
+  const f = n => n.toFixed(0);
+  let p = '';
+  [0, 25, 50, 75, 100].forEach(g => {
+    p += `<line x1="${L}" y1="${f(Y(g))}" x2="${W - Rm}" y2="${f(Y(g))}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${L - 6}" y="${f(Y(g) + 3)}" text-anchor="end" font-size="10" fill="${mut}">${g}%</text>`;
+  });
+  const a0 = r.actual_prev || 0, a1 = r.actual_now || 0;
+  const marks = [];
+  if (bf) marks.push([bf, mut, `Baseline finish ${r.baseline_finish_label}`]);
+  if (rf) {
+    const dab = r.days_after_baseline;
+    marks.push([rf, acc, `${r.by_cost ? 'Money all earned' : 'Progress all earned'} ${r.rate_finish_label}${dab == null ? '' : (dab > 0 ? ` (+${dab} days)` : (dab < 0 ? ` (${dab} days)` : ''))}`]);
+  }
+  if (pf) {
+    const lg = r.logic_days;
+    marks.push([pf, bad, `P6 forecast ${r.p6_finish_label}${!lg ? '' : (lg > 0 ? ` (+${lg} days more — sequence of the critical path)` : ` (${lg} days)`)}`]);
+  }
+  marks.sort((a, b) => a[0] - b[0]);
+  marks.forEach(([t, col, txt], i) => {
+    const x = X(t), ty = 13 + 15 * i, end = x > W * 0.55;
+    p += `<line x1="${f(x)}" y1="${ty + 4}" x2="${f(x)}" y2="${f(Y(0))}" stroke="${col}" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <text x="${f(end ? x - 5 : x + 5)}" y="${ty}" text-anchor="${end ? 'end' : 'start'}" font-size="11" font-weight="700" fill="${col}">${escapeHtml(txt)}</text>`;
+  });
+  const pp = r.planned_prev, pn = r.planned_now;
+  if (pn != null) {
+    if (pp != null) p += `<line x1="${f(X(d0))}" y1="${f(Y(pp))}" x2="${f(X(d1))}" y2="${f(Y(pn))}" stroke="${warn}" stroke-width="2.5"/>`;
+    const gap = Math.round((pn - a1) * 10) / 10;
+    let gt = `baseline plan ${pn.toFixed(1)}%` + (gap > 0 ? ` — gap ${gap.toFixed(1)}%` : '');
+    if (gap > 0 && r.gap_money) gt += ` = ${_money(r.gap_money)}`;
+    p += `<circle cx="${f(X(d1))}" cy="${f(Y(pn))}" r="4" fill="${warn}"/>
+      <text x="${f(X(d1) + 9)}" y="${f(Y(pn) - 7)}" font-size="10.5" font-weight="700" fill="${warn}">${escapeHtml(gt)}</text>`;
+  }
+  if (bf && bf > d1) p += `<line x1="${f(X(d1))}" y1="${f(Y(a1))}" x2="${f(X(bf))}" y2="${f(Y(100))}" stroke="${good}" stroke-width="2" stroke-dasharray="7 4"/>`;
+  if (rf) p += `<line x1="${f(X(d1))}" y1="${f(Y(a1))}" x2="${f(X(rf))}" y2="${f(Y(100))}" stroke="${acc}" stroke-width="2" stroke-dasharray="7 4"/>
+    <circle cx="${f(X(rf))}" cy="${f(Y(100))}" r="4" fill="${acc}"/>`;
+  p += `<line x1="${f(X(d0))}" y1="${f(Y(a0))}" x2="${f(X(d1))}" y2="${f(Y(a1))}" stroke="${acc}" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="${f(X(d0))}" cy="${f(Y(a0))}" r="4.5" fill="${acc}"/><circle cx="${f(X(d1))}" cy="${f(Y(a1))}" r="4.5" fill="${acc}"/>
+    <text x="${f(X(d0) + 2)}" y="${f(Y(a0) + 17)}" font-size="10.5" font-weight="700" fill="${acc}">${a0.toFixed(1)}%</text>
+    <text x="${f(X(d1) + 9)}" y="${f(Y(a1) + 15)}" font-size="10.5" font-weight="700" fill="${acc}">${a1.toFixed(1)}% (${_signPct(r.rate_pct)} in ${r.period_days} days)</text>
+    <line x1="${L}" y1="${f(Y(0))}" x2="${W - Rm}" y2="${f(Y(0))}" stroke="${mut}" stroke-width="1.5"/>
+    <text x="${f(X(d0) - 4)}" y="${H - B + 30}" font-size="10" fill="${mut}">▲ ${escapeHtml(r.dd_prev_label || '')}</text>
+    <text x="${f(X(d1) - 4)}" y="${H - B + 44}" font-size="10" fill="${mut}">▲ ${escapeHtml(r.dd_now_label || '')} · current data date</text>`;
+  // the months along the time axis — a tick at every month start, the month named under its span
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const segs = [], s0 = new Date(d0);
+  for (let y = s0.getUTCFullYear(), m = s0.getUTCMonth(); Date.UTC(y, m, 1) < last; m++) {
+    const a = Date.UTC(y, m, 1), mm = new Date(a);
+    segs.push([Math.max(a, d0), Math.min(Date.UTC(y, m + 1, 1), last), `${MON[mm.getUTCMonth()]}.${mm.getUTCFullYear()}`, a > d0]);
+  }
+  const step = Math.max(1, Math.ceil(segs.length * 58 / (W - L - Rm)));
+  segs.forEach(([a, b, txt, tick], i) => {
+    if (tick) p += `<line x1="${f(X(a))}" y1="${f(Y(0))}" x2="${f(X(a))}" y2="${f(Y(0) + 6)}" stroke="${mut}" stroke-width="1.2"/>`;
+    if (i % step === 0 && X(b) - X(a) >= 36) p += `<text x="${f((X(a) + X(b)) / 2)}" y="${H - B + 15}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${mut}">${txt}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:${H + 40}px">${p}</svg>`;
+}
+function _rateHtml(report) {
+  const r = report.rate_outlook;
+  if (!r) return '';
+  const cost = r.by_cost, days = r.period_days, rate = r.rate_pct || 0, lost = r.days_lost || 0;
+  const dw = r.day_word || 'days', dw1 = dw.slice(0, -1), wd = r.work_days || days;
+  const pct1 = v => (v == null ? '—' : `${Number(v).toFixed(1)}%`);
+  const intro = cost
+    ? `Between the two updates (${days} calendar days) the project earned <b>${_money(r.rate_money)} = ${pct1(rate)}</b> — against ${_money(r.planned_money)} = ${pct1(r.planned_pct)} in the baseline plan for the same days. The chart carries that rate forward.`
+    : `Between the two updates (${days} calendar days) the project earned <b>${pct1(rate)}</b> — against ${pct1(r.planned_pct)} planned for the same days. The chart carries that rate forward.`;
+  const sw = (col, dash) => `<i style="${dash ? `border-top:3px dashed ${col};height:0` : `background:${col};height:4px`}"></i>`;
+  const legend = `<div class="per-lg"><span>${sw('var(--accent)')}Actual between the two updates</span>
+    <span>${sw('var(--accent)', 1)}Carried forward at the current rate</span><span>${sw('var(--success)', 1)}Rate needed to finish on the baseline date</span>
+    <span>${sw('var(--warning)')}Baseline plan</span><span>${sw('var(--danger)', 1)}P6 forecast finish</span></div>`;
+  const tile = (k, v, f, cls) => `<div class="kpi"><div class="k">${escapeHtml(k)}</div><div class="v ${cls || ''}">${v}</div><div class="per-kpi-sub mut">${escapeHtml(f)}</div></div>`;
+  const t1 = cost ? `${_moneyShort(r.rate_money || 0)} in ${wd} ${dw} = ${_moneyShort(r.daily_money || 0)} per ${dw1}` : `${r.daily_pct}% per ${dw1}`;
+  const t2 = lost > 0 ? (cost ? `Shortfall ${_money(r.shortfall_money)} against the plan ÷ ${_moneyShort(r.daily_money || 0)} per ${dw1}` : `Shortfall against the plan ÷ the rate per ${dw1}`)
+    : 'The period earned what the plan asked for';
+  const dab = r.days_after_baseline;
+  const t3 = r.rate_finish_label
+    ? `${r.remaining_pct}% still to earn ÷ ${pct1(rate)} per ${wd} ${dw} = ${r.days_to_go} ${dw}${dab == null ? '' : (dab > 0 ? ` · ${dab} days after the baseline` : (dab < 0 ? ` · ${-dab} days before the baseline` : ' · on the baseline date'))}`
+    : 'No progress was earned in this period — no date can be projected';
+  const req = r.required_pct, more = r.required_more_pct;
+  const t4 = req == null ? 'The baseline finish has already passed'
+    : (r.required_money ? `${_moneyShort(r.required_money)} per ${days} days` : `per ${days} days`) + (more == null ? '' : (more > 0 ? ` — ${more}% more than now` : ' — the present rate is enough'));
+  const lg = r.logic_days || 0, rf = escapeHtml(r.rate_finish_label || ''), pf = escapeHtml(r.p6_finish_label || '');
+  let read = '';
+  if (rf && pf && lg > 0) read = `At this rate all the ${cost ? 'money' : 'progress'} would be earned by <b>${rf}</b> — that is <b>not a finish date</b>. P6 forecasts <b>${pf}</b>: the extra ${lg} days come from the <b>sequence of the critical activities</b> and from works that are small in ${cost ? 'money' : 'weight'} but long in time, not from the amount of work. So recovery needs both — a higher rate and a shorter sequence. `;
+  else if (rf && pf && lg < 0) read = `P6 forecasts <b>${pf}</b>, ${-lg} days before the date the present rate gives (${rf}): the remaining work is planned at a faster rate than this period achieved — the forecast holds only if the rate rises. `;
+  read += `Rate = ${cost ? 'Earned Value variance' : '% complete variance'} ÷ calendar days between the two data dates; it assumes the same rate continues.`;
+  return `<div class="mod-sec">Rate of progress and where it lands</div>
+    <div class="cmp-foot" style="margin:0 0 8px">${intro}</div>
+    <div class="cmp-scurve-card">${legend}${_rateSvg(r)}</div>
+    <div class="cmp-kpis" style="margin-top:10px">
+      ${tile('Current rate', `${pct1(rate)} / period`, t1)}
+      ${tile('Time lost this period', `${Math.max(lost, 0)} ${dw}`, t2, lost > 0 ? 'per-bad' : '')}
+      ${tile(cost ? 'All the money earned by' : 'All the progress earned by', escapeHtml(r.rate_finish_label || '—'), t3 + (r.rate_finish_label ? ' — not a finish date' : ''))}
+      ${tile(`Rate needed for ${r.baseline_finish_label || 'the baseline finish'}`, req == null ? '—' : `${pct1(req)} / period`, t4, (more || 0) > 0 ? 'per-bad' : '')}
+    </div>
+    <div class="per-defs"><div class="per-defs-h">How to read it</div><div class="per-def">${read}</div></div>`;
+}
+
+// ── Where the period's progress came from — planned vs actual histogram (point 09) ──
+function _byGroupOf(report) {
+  const bc = report.progress_by_code || {};
+  if (_byGroup && bc[_byGroup]) return _byGroup;
+  const def = (report.advice || {}).front_type;
+  return (def && bc[def]) ? def : (Object.keys(bc)[0] || null);
+}
+function _byCodeHtml(report) {
+  const bc = report.progress_by_code || {};
+  const types = Object.keys(bc);
+  if (!types.length) return '<p class="cmp-empty">No activity codes in this schedule to break progress down by.</p>';
+  const g = _byGroupOf(report);
+  const sel = `<div class="per-slicer"><span class="per-slicer-lbl">Group by</span><select id="per-bycode-type">${types.map(t => `<option${t === g ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+    <span class="per-cpick-n">the conclusion's “fronts” follow this choice</span></div>`;
+  return sel + `<div id="per-bycode-bars">${_byCodeBars(bc[g])}</div>`;
+}
+function _byCodeBars(allRows) {
+  allRows = allRows || [];
+  let rows = allRows.filter(r => (r.planned || 0) > 0 || (r.actual || 0) > 0).slice(0, 10);
+  if (!rows.length) rows = allRows.slice(0, 10);
+  if (!rows.length) return '<p class="cmp-empty">No progress to attribute for this code.</p>';
+  const mx = Math.max(...rows.map(r => Math.max(r.planned || 0, r.actual || 0)), 0.0001);
+  const h = v => Math.max(1, Math.round(86 * (v || 0) / mx));
+  const col = r => {
+    const pl = r.planned || 0, ac = r.actual || 0, low = ac < pl - 0.05;
+    return `<div class="per-vg"><div class="per-vb"><b>${pl.toFixed(1)}%</b><i class="pl" style="height:${h(pl)}%"></i></div>
+      <div class="per-vb"><b class="${low ? 'per-slip-bad' : ''}">${ac.toFixed(1)}%</b><i class="ac" style="height:${h(ac)}%"></i></div></div>`;
+  };
+  const more = allRows.length - rows.length;
+  return `<div class="cmp-scurve-card"><div class="per-lg"><span><i style="background:var(--warning);height:9px;width:12px"></i>Planned for the period</span>
+      <span><i style="background:var(--accent);height:9px;width:12px"></i>Actual in the period</span>
+      <span>% of the whole project · a red label = earned less than planned${more > 0 ? ` · the ${rows.length} values that moved most` : ''}</span></div>
+    <div class="per-vhist">${rows.map(col).join('')}</div>
+    <div class="per-vl-row">${rows.map(r => `<span>${escapeHtml(r.value)}</span>`).join('')}</div></div>
+    <div class="cmp-foot">Each value has two columns with its figure above it — weighted by each activity's cost / duration share of the project. Planned sums to your period plan, actual to what you earned.</div>`;
+}
+function _wireByCode(report) {
+  const sel = document.getElementById('per-bycode-type');
+  const box = document.getElementById('per-bycode-bars');
+  if (!sel || !box) return;
+  sel.addEventListener('change', () => {
+    _byGroup = sel.value;
+    box.innerHTML = _byCodeBars((report.progress_by_code || {})[sel.value]);
+    const adv = document.getElementById('per-advice');
+    if (adv) adv.innerHTML = _adviceHtml(report);
+  });
+}
+
+// ── Round 4: where each figure comes from, and the finish by time ───────────
+// backend texts mark their bold words as **word**
+const _rich = t => escapeHtml(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const _MARK_COL = { start: 'var(--muted)', now: 'var(--accent)', baseline: 'var(--danger)', forecast: 'var(--warning)' };
+
+// the small table under the progress bar: every marker, where it is taken from, and whether P6 shows it
+function _markerTable(report) {
+  const rows = ((report.explain || {}).markers) || [];
+  if (!rows.length) return '';
+  return `<div class="tblwrap" style="overflow-x:auto;margin-top:10px"><table class="audit-table cmp-table per-src"><thead><tr>
+    <th>Marker</th><th class="num">Value</th><th>Taken from</th><th>Meaning</th><th>In P6?</th></tr></thead><tbody>${rows.map(m =>
+    `<tr><td><span class="per-dot2" style="background:${_MARK_COL[m.key] || 'var(--muted)'}"></span>${escapeHtml(m.name)}</td>
+      <td class="num"><b>${escapeHtml(m.value)}</b></td><td>${escapeHtml(m.source)}</td><td>${escapeHtml(m.meaning)}</td>
+      <td class="${m.in_p6 ? 'per-yes' : 'per-no'}">${escapeHtml(m.p6)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+const _xTiles = tiles => `<div class="cmp-kpis per-two">${(tiles || []).map(t => `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div>
+  <div class="v ${t.tone === 'bad' ? 'per-bad' : (t.tone === 'good' ? 'per-good' : '')}">${escapeHtml(t.value)}</div><div class="per-kpi-sub mut">${escapeHtml(t.sub || '')}</div></div>`).join('')}</div>`;
+const _calcBox = (lines, text) => `<div class="per-calc"><div class="per-defs-h">How it is calculated</div>${(lines || []).map(l =>
+  `<span class="per-eq">${escapeHtml(l)}</span>`).join('')}${text ? `<div class="per-def">${escapeHtml(text)}</div>` : ''}</div>`;
+
+// Forecast achievement and Schedule adherence — each with its calculation and how to check it
+function _explainHtml(report) {
+  const x = report.explain || {};
+  let h = '';
+  if (x.forecast) {
+    h += `<div class="per-striplabel">Forecast achievement — how it is calculated</div>${_xTiles(x.forecast.tiles)}
+      ${_calcBox(x.forecast.calc, x.forecast.text)}<div class="per-notp6">${escapeHtml(x.forecast.note || '')}</div>`;
+  }
+  if (x.adherence) {
+    h += `<div class="per-striplabel">Schedule adherence — how it is calculated</div>${_xTiles(x.adherence.tiles)}
+      ${_calcBox(x.adherence.calc, x.adherence.text)}<div class="per-p6">${escapeHtml(x.adherence.p6 || '')}</div>`;
+  }
+  return h;
+}
+
+// "When will the project finish — by time, not by money": the pick of the activity code
+let _finGroup = null;                  // null = the code the report opened on
+function _finGroupOf(report) {
+  const f = report.finish_by_type;
+  if (!f) return null;
+  return (_finGroup && (f.by_type || {})[_finGroup]) ? _finGroup : f.code_type;
+}
+function _finSec(report) {
+  const f = report.finish_by_type;
+  if (!f) return null;
+  return (f.by_type || {})[_finGroupOf(report)] || f;
+}
+function _finishBody(report) {
+  const f = _finSec(report);
+  if (!f) return '';
+  const cost = f.by_cost, rows = f.rows || [], t = f.total || {};
+  const tile = (k, v, s, cls, vcls) => `<div class="kpi ${cls || ''}"><div class="k">${escapeHtml(k)}</div><div class="v ${vcls || ''}">${escapeHtml(v || '—')}</div><div class="per-kpi-sub mut">${s}</div></div>`;
+  const dac = f.days_after_contract, slip = f.slip_days;
+  const fsub = [dac == null ? '' : (dac > 0 ? `${dac} days after the contract finish` : (dac < 0 ? `${-dac} days before the contract finish` : 'on the contract finish')),
+    (slip && f.period_days) ? `moved ${Math.abs(slip)} days ${slip > 0 ? 'later' : 'earlier'} in the last ${f.period_days} days` : ''].filter(Boolean).join(' · ');
+  const earnedBy = cost ? 'All the money earned by' : 'All the progress earned by';
+  const tiles = `<div class="cmp-kpis per-three">
+    ${tile('Contract finish (baseline)', f.contract_label, 'from the baseline')}
+    ${f.rate_label ? tile(earnedBy, f.rate_label, `${cost && f.daily_money ? `at ${_moneyShort(f.daily_money)} a ${(f.day_word || 'days').slice(0, -1)} — ` : 'at the rate of this period — '}<b>not a finish date</b>`, 'per-off') : ''}
+    ${tile('Forecast finish (P6 schedule)', f.forecast_label, escapeHtml(fsub), 'per-main', (dac || 0) > 0 ? 'per-bad' : '')}
+  </div>`;
+  const line = (pos, col) => (pos == null ? '' : `<div class="per-tl-line" style="left:${pos}%;background:${col}"></div>`);
+  const lines = line(f.contract_pos, 'var(--success)') + line(f.money_pos, 'var(--warning)');
+  const bars = rows.filter(r => r.finish_now && !r.none).map(r => {
+    const col = r.late ? 'var(--danger)' : 'var(--accent)', end = r.left + r.width;
+    const lab = escapeHtml(r.finish_now);
+    const inside = r.width >= 16;
+    const out = inside ? '' : (end > 80 ? `<span class="per-tl-out" style="right:${100 - r.left}%;padding-right:5px">${lab}</span>`
+      : `<span class="per-tl-out" style="left:${end}%;padding-left:5px">${lab}</span>`);
+    return `<div class="per-tl-row"><div class="per-tl-name">${escapeHtml(r.value)}<span>${r.share == null ? `${r.open} activities open` : `${r.share.toFixed(1)}% of budget`}</span></div>
+      <div class="per-tl-track"><div class="per-tl-bar" style="left:${r.left}%;width:${Math.max(r.width, 0.6)}%;background:${col}">${inside ? lab : ''}</div>${out}${lines}</div></div>`;
+  }).join('');
+  const axis = `<div class="per-tl-axis"><div style="left:0;color:var(--muted)">${escapeHtml(f.dd_label || '')}<br>today</div>
+    ${f.contract_pos == null ? '' : `<div style="left:${f.contract_pos}%;transform:translateX(-100%);text-align:right;color:var(--success);padding-right:4px">contract finish<br>${escapeHtml(f.contract_label || '')}</div>`}
+    ${f.money_pos == null ? '' : `<div style="left:${f.money_pos}%;top:36px;color:var(--warning);padding-left:4px">${cost ? 'money earned' : 'progress earned'} ${escapeHtml(f.money_label || '')}</div>`}
+    <div style="right:0;text-align:right;color:var(--danger)">forecast finish<br>${escapeHtml(f.forecast_label || '')}</div></div>`;
+  const moved = n => (n == null ? '—' : (n > 0 ? `<span class="per-bad">+${n} d</span>` : (n < 0 ? `<span class="per-good">${n} d</span>` : '0 d')));
+  const share = r => (r.share == null ? '—' : `<span class="per-share" style="width:${Math.max(2, Math.round(r.share))}px"></span>${r.share.toFixed(1)}%`);
+  const tr = (r, tot) => `<tr${tot ? ' class="per-tot"' : ''}><td>${tot ? 'Project' : `<b>${escapeHtml(r.none ? `No “${f.code_type}” value` : r.value)}</b>`}</td>
+    <td>${tot ? (cost ? `100% · ${_money(r.bac)}` : '—') : share(r)}</td><td class="num">${r.done_pct == null ? '—' : Number(r.done_pct).toFixed(1) + '%'}</td>
+    <td class="num">${(r.open || 0).toLocaleString('en-US')}</td><td class="num mono mut">${escapeHtml(r.finish_prev || '—')}</td>
+    <td class="num mono">${escapeHtml(r.finish_now || (r.open ? '—' : 'complete'))}</td><td class="num">${moved(r.moved)}</td><td class="num">${r.days_left == null ? '—' : r.days_left}</td></tr>`;
+  const table = `<div class="tblwrap" style="overflow-x:auto;margin-top:6px"><table class="audit-table cmp-table"><thead><tr><th>${escapeHtml(f.code_type)}</th>
+    <th>Share of budget</th><th class="num">Done</th><th class="num">Activities still open</th><th class="num">Finish — ${escapeHtml(f.prev_label)} update</th>
+    <th class="num">Finish — ${escapeHtml(f.now_label)} update</th><th class="num">Moved</th><th class="num">Days still needed</th></tr></thead>
+    <tbody>${rows.map(r => tr(r)).join('')}${tr(t, true)}</tbody></table></div>`;
+  return `${tiles}
+    ${f.why ? `<div class="per-notp6" style="margin-top:10px">${_rich(f.why)}</div>` : ''}
+    <div class="per-crit-sub">How long each ${escapeHtml(f.code_type)} still needs</div>
+    <div class="cmp-foot" style="margin:0 0 8px">Bar = from today (${escapeHtml(f.dd_label || '')}) to the finish of that group in P6.${cost ? ' The name shows its share of the budget.' : ''}</div>
+    <div class="cmp-scurve-card"><div class="per-tl">${bars || '<p class="cmp-empty">Every group is complete.</p>'}${axis}</div></div>
+    ${table}
+    ${f.warning ? `<div class="per-notp6">${escapeHtml(f.warning)}</div>` : ''}
+    <div class="per-calc"><div class="per-defs-h">How it is calculated</div>${(f.calc || []).map(l => `<span class="per-eq">${escapeHtml(l)}</span>`).join('')}
+      <div class="per-def">${escapeHtml(f.calc_note || '')}</div></div>
+    <div class="per-p6">${escapeHtml(f.p6 || '')}</div>`;
+}
+function _finishHtml(report) {
+  const f = report.finish_by_type;
+  if (!f) return '';
+  const g = _finGroupOf(report), types = f.types || [g];
+  const sel = `<div class="per-slicer per-finpick"><span class="per-slicer-lbl">Pick the activity code ▾</span><select id="per-fin-type" title="Pick the activity code (or WBS) to group the works by">${types.map(t => `<option${t === g ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select>
+    <span class="per-cpick-n">every schedule has its own activity codes — pick the one that splits the work the way you want to see it; the exports follow this choice</span></div>`;
+  return `<div class="mod-sec">When will the project finish — by time${f.by_cost ? ', not by money' : ''}</div>${sel}<div id="per-finish">${_finishBody(report)}</div>`;
+}
+function _wireFinish(report) {
+  const sel = document.getElementById('per-fin-type');
+  const box = document.getElementById('per-finish');
+  if (!sel || !box) return;
+  sel.addEventListener('change', () => {
+    _finGroup = sel.value;
+    box.innerHTML = _finishBody(report);
+    const adv = document.getElementById('per-advice');
+    if (adv) adv.innerHTML = _adviceHtml(report);
+  });
+}
+
+// ── Conclusion and recommended actions (point 10) ───────────────────────────
+function _adviceHtml(report) {
+  const adv = report.advice;
+  if (!adv) return '';
+  const tone = { bad: 'per-bad', good: 'per-good' };
+  const tiles = `<div class="cmp-kpis">${(adv.tiles || []).map(t => `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div>
+    <div class="v ${tone[t.tone] || ''}">${escapeHtml(t.value)}</div><div class="per-kpi-sub mut">${escapeHtml(t.sub || '')}</div></div>`).join('')}</div>`;
+  const fr = adv.pm_fronts || {}, g = _byGroupOf(report);
+  const sm = (adv.pm_small || {})[_finGroupOf(report)];
+  const pm = adv.pm_head ? (adv.pm_head || []).concat(fr[g] || fr[adv.front_type] || [], adv.pm_tail || [], sm ? [sm] : []) : (adv.project_manager || []);
+  const hl = adv.pm_headline;
+  const head = hl ? `<div class="per-pmhead"><div class="big">${escapeHtml(hl.big)}</div><div class="sm">${escapeHtml(hl.small || '')}</div></div>` : '';
+  const col = (title, items, cls, top) => `<div class="per-adv ${cls}"><div class="per-adv-h">${title}</div>${top || ''}${items.map((it, i) =>
+    `<div class="per-adv-i${it.tone === 'warn' ? ' warn' : ''}"><b>${i + 1} · ${escapeHtml(it.title)}</b><div>${_rich(it.text)}${it.action ? ` <b>Action:</b> ${_rich(it.action)}` : ''}</div>${it.ref ? `<div class="per-adv-ref">${escapeHtml(it.ref)}</div>` : ''}</div>`).join('')}</div>`;
+  return `${tiles}${col('For Top Management', adv.top_management || [], 'tm')}${col('For the Project Manager — in plain words', pm, 'pm', head)}
+    <div class="cmp-foot">${escapeHtml(adv.rules || '')} The wording adapts to the result of each pair of updates.</div>`;
+}
+
+// "Relationships changed" — what it means, and what changed for each of those activities (point 07).
+function _logicHtml(rows) {
+  if (!rows || !rows.length) return '';
+  const moved = n => (n == null ? '—' : (n > 0 ? `<span class="cmp-pill bad">${n} wd later</span>` : (n < 0 ? `<span class="cmp-pill good">${-n} wd earlier</span>` : '<span class="cmp-pill">no change</span>')));
+  return `<div class="per-crit-sub">Relationships changed — the ${rows.length} critical activit${rows.length === 1 ? 'y' : 'ies'}</div>
+    <div class="per-defs" style="margin-top:0"><div class="per-defs-h">“Relationships changed” — what it means</div>
+      <div class="per-def">Between the previous and the current update, the <b>relationships</b> of the activity were edited: a predecessor or successor was added or removed, the relationship type changed (FS / SS / FF / SF), or the lag changed. For these activities the finish date moved because the planner changed the logic — not because of progress on site. Only construction activities are counted.</div></div>
+    <div class="tblwrap" style="overflow-x:auto;margin-top:8px"><table class="audit-table cmp-table"><thead><tr><th class="num">S/N</th><th>Activity ID</th><th>Activity name</th>
+      <th class="num">Finish — previous</th><th class="num">Finish — current</th><th class="num">Finish moved</th><th>What changed in the relationships (previous → current)</th></tr></thead>
+    <tbody>${rows.map((r, i) => `<tr><td class="num mut">${i + 1}</td><td class="mono">${escapeHtml(r.activity_id)}</td><td>${escapeHtml(r.activity_name)}</td>
+      <td class="num mono mut">${escapeHtml(r.prev_finish || '')}</td><td class="num mono">${escapeHtml(r.curr_finish || '')}</td><td class="num">${moved(r.slip_days)}</td>
+      <td>${(r.changes || []).map(c => escapeHtml(c)).join('<br>') || '—'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+const _DRIVER_MEANING = {
+  'progress shortfall': 'the finish moved later because the work did not progress as the previous update planned',
+  held: 'the finish stayed where it was, or moved earlier',
+  'logic changed': 'the planner edited the relationships of the activity — a link added or removed, its type or its lag changed',
+  'duration extended': 'the remaining duration was made longer than the previous update had',
+};
+
 export function renderPeriodReport(report) {
+  if (report !== _shownReport) { _flt = { type: '', values: [] }; _fltCrit = null; _byGroup = null; _finGroup = null; }
   _shownReport = report;
   const rep = document.getElementById('per-report');
   if (!rep) return;
@@ -789,35 +1430,47 @@ export function renderPeriodReport(report) {
     </div>
     ${mismatch}
     ${_verdictBanner(report)}
-    <div class="mod-sec">Progress — where you are vs where you said you’d be</div>
+    <div class="mod-sec">${_byCost(report) ? 'Performance %' : 'Progress'} — where you are vs where you said you’d be</div>
     ${_progressBarHtml(report)}
+    ${_evHtml(report)}
+    ${_rateHtml(report)}
+    ${_finishHtml(report)}
     <div class="mod-sec">Execution Dashboard — progress this period</div>
     ${_dashboard(report)}
+    ${_explainHtml(report)}
     <div class="mod-sec">Critical-path comparison — the finish-driving route</div>
     ${_criticalCompareHtml(report)}
     <div class="mod-sec">Progress by activity — % complete this period</div>
     ${_progressSection(report)}
     <div class="mod-sec">Critical-path movement in this window</div>
-    ${_criticalTable(report.critical_movement, report.code_types)}
-    <div class="mod-sec">Next-period watch list</div>
+    ${_pickHost(report, 'the counts, the charts and the tables below follow the pick')}
+    <div id="per-crit-summary">${_critSummaryHtml(report)}</div>
+    <div class="mod-sec">Activities to watch before the next update</div>
     ${_watchTable(report)}
     <div class="mod-sec">What moved this period — planned vs actual</div>
     ${_whatMovedHtml(report)}
     <div class="mod-sec">Where this period’s progress came from — by activity code</div>
     ${_byCodeHtml(report)}
-    <div class="mod-sec">Milestones — project completion &amp; all finish milestones</div>
+    <div class="mod-sec">Milestones — every finish milestone, names in full</div>
     ${_milestoneSection(report)}
     <div class="mod-sec">Executive conclusion — this period</div>
     <div class="cmp-reco">${escapeHtml(report.conclusion || '')}</div>
     <div class="mod-sec">Project conclusion &amp; outlook</div>
-    <div class="cmp-reco per-project-reco">${escapeHtml(report.project_conclusion || '')}</div>`;
+    <div class="cmp-reco per-project-reco">${escapeHtml(report.project_conclusion || '')}</div>
+    ${report.advice ? `<div class="mod-sec">Conclusion and recommended actions</div><div id="per-advice">${_adviceHtml(report)}</div>` : ''}`;
   const epdf = document.getElementById('per-export-pdf');
   if (epdf) epdf.addEventListener('click', exportPeriodPdf);
   const exls = document.getElementById('per-export-xlsx');
   if (exls) exls.addEventListener('click', exportPeriodExcel);
-  _wireSlicer();
-  _wireCodeSlicer('per-crit-type', 'per-crit-chips', 'per-crit-table');
+  // either update can be changed from the results too — assign only; Run Comparison re-runs
+  const chgPrev = document.getElementById('per-change-prev-inline');
+  if (chgPrev) chgPrev.addEventListener('click', choosePrev);
+  const chgCurr = document.getElementById('per-change-curr-inline');
+  if (chgCurr) chgCurr.addEventListener('click', chooseCurr);
+  _wireCritSummary(report);
+  _wirePickers(report);
   _wireByCode(report);
+  _wireFinish(report);
   _wireCriticalCompare(report);
 }
 
@@ -831,11 +1484,14 @@ async function _withBtn(id, idle, fn) {
 }
 
 const PER_SECTIONS = [
-  ['verdict', 'Status verdict'], ['progress', 'Progress chart'], ['dashboard', 'Execution Dashboard'],
+  ['verdict', 'Status verdict'], ['progress', 'Progress chart'],
+  ['earned_value', 'Earned Value — before, after and variance'], ['dashboard', 'Execution Dashboard'],
   ['recommendation', 'Management recommendation'], ['critical_compare', 'Critical-path comparison'],
-  ['critical', 'Critical-path movement table'], ['progress_table', 'Progress by activity'],
-  ['watch', 'Next-period watch list'], ['whatmoved', 'What moved this period'],
+  ['critical', 'Critical-path movement (summary + table)'], ['progress_table', 'Progress by activity'],
+  ['watch', 'Activities to watch before the next update'], ['whatmoved', 'What moved this period'],
   ['bycode', 'Progress by activity code'], ['milestones', 'Milestones (table + chart)'], ['conclusions', 'Conclusions'],
+  ['rate', 'Rate of progress and where it lands'], ['finish', 'When will the project finish — by time'],
+  ['explain', 'Forecast achievement and Schedule adherence — how they are calculated'], ['advice', 'Conclusion and recommended actions'],
 ];
 
 // Export PDF opens the ONE shared preview (preview.js): tick whole sections or single tables /
@@ -845,13 +1501,14 @@ export async function exportPeriodPdf() {
   if (!_shownReport) { showError('Run the comparison first, then export.'); return; }
   await _withBtn('per-export-pdf', 'Export PDF', async () => {
     _perTheme = getSavedMode();
-    let codeFilter = null;                                   // { type, value } picked in the preview
+    let codeFilter = _codeFilter();                          // { type, values } — the pick made on screen
     const fetchPreview = async (keys, theme) => {
       try {
         const resp = await fetch(`http://localhost:${state.serverPort}/api/period/report`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ report: _shownReport, trend: _shownTrend, preview: true, code_filter: codeFilter,
-            critical_style: _cpStyle, critical_mode: _cpMode, theme: theme || _perTheme }),
+            critical_style: _cpStyle, critical_mode: _cpMode, critical_group: _critGroup, bycode_group: _byGroupOf(_shownReport),
+            finish_group: _finGroupOf(_shownReport), theme: theme || _perTheme }),
         });
         const data = await resp.json();
         if (!data.ok) { showError(`Preview failed: ${data.error || 'unknown error'}`); return null; }
@@ -861,7 +1518,7 @@ export async function exportPeriodPdf() {
     const html = await fetchPreview(null, _perTheme);
     if (!html) return;
     const sections = PER_SECTIONS.map(([key, label]) => ({ key, label }));
-    const codeTypes = _shownReport.code_types || [];
+    const codeTypes = _fltTypes(_shownReport);
     showReportPreview({
       title: 'Update vs Update preview', subtitle: _shownReport.update_file || _shownReport.project_name || '', html,
       sections, selected: sections.map(x => x.key), storageKey: 'p6_report_sections_period', initialMode: _perTheme,
@@ -872,26 +1529,28 @@ export async function exportPeriodPdf() {
       onThemeChange: (theme, keys) => { _perTheme = theme; return fetchPreview(keys, theme); },
       extras: (host, { rerender }) => {
         const cpOpt = (v, l) => `<option value="${v}"${_cpStyle === v ? ' selected' : ''}>${l}</option>`;
+        const tOpt = t => `<option value="${escapeHtml(t)}"${t === _flt.type ? ' selected' : ''}>${escapeHtml(t)}</option>`;
         host.innerHTML = (codeTypes.length ? `<div class="rpv-xh">Filter by activity code</div>
-            <select id="per-flt-type"><option value="">— none (all activities) —</option>${codeTypes.map(t => `<option>${escapeHtml(t)}</option>`).join('')}</select>
-            <select id="per-flt-val" disabled></select>` : '')
+            <select id="per-flt-type"><option value="">— none (all activities) —</option>${codeTypes.map(tOpt).join('')}</select>
+            <select id="per-flt-val" multiple size="6" title="Ctrl + click to pick several values"></select>
+            <div class="rpv-xnote">Ctrl + click picks several values; none picked = all.</div>` : '')
           + `<div class="rpv-xh">Critical-path style</div>
             <select id="per-pdf-cp-style">${cpOpt('chain', 'Connected chain')}${cpOpt('timeline', 'Date-axis timeline')}${cpOpt('table', 'Compact table')}</select>`;
         const typeSel = host.querySelector('#per-flt-type');
         const valSel = host.querySelector('#per-flt-val');
         const styleSel = host.querySelector('#per-pdf-cp-style');
-        const setFilter = () => {
-          codeFilter = (typeSel && typeSel.value && valSel && valSel.value) ? { type: typeSel.value, value: valSel.value } : null;
-          rerender();
-        };
-        if (typeSel) typeSel.addEventListener('change', () => {
-          const t = typeSel.value;
-          const vals = t ? Array.from(new Set(((_shownReport.progress || {}).rows || []).map(r => (r.codes || {})[t]).filter(Boolean))).sort() : [];
-          valSel.innerHTML = vals.map(v => `<option>${escapeHtml(v)}</option>`).join('');
+        const fillVals = () => {
+          const vals = _flt.type ? _fltValues(_shownReport, _flt.type) : [];
+          valSel.innerHTML = vals.map(v => `<option value="${escapeHtml(v)}"${_flt.values.includes(v) ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
           valSel.disabled = !vals.length;
-          setFilter();
-        });
-        if (valSel) valSel.addEventListener('change', setFilter);
+        };
+        // the preview's filter and the pickers on the screen are the same pick
+        const setFilter = () => { codeFilter = _codeFilter(); _applyFilter(_shownReport); rerender(); };
+        if (typeSel) {
+          fillVals();
+          typeSel.addEventListener('change', () => { _flt = { type: typeSel.value, values: [] }; fillVals(); setFilter(); });
+          valSel.addEventListener('change', () => { _flt.values = Array.from(valSel.selectedOptions).map(o => o.value); setFilter(); });
+        }
         if (styleSel) styleSel.addEventListener('change', () => {
           _cpStyle = styleSel.value;
           try { localStorage.setItem('per_cp_style', _cpStyle); } catch { /* no storage */ }
@@ -910,7 +1569,8 @@ export async function exportPeriodExcel() {
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/period/excel`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath }),
+        body: JSON.stringify({ report: _shownReport, trend: _shownTrend, output_path: outputPath, critical_group: _critGroup,
+          code_filter: _codeFilter(), bycode_group: _byGroupOf(_shownReport), finish_group: _finGroupOf(_shownReport) }),
       });
       const data = await resp.json();
       if (!data.ok) showError(`Excel export failed: ${data.error || 'unknown error'}`);
@@ -985,15 +1645,22 @@ async function _fetchTrend() {
   }
 }
 
+// The two files of the comparison, each with its own 'Choose a different file…' (comment 68).
 function _fileBar(report) {
   return `<div class="cmp-files">
-    <span class="cmp-file"><span class="k">Previous</span> <b>${escapeHtml(report.prev_file || '—')}</b> · ${escapeHtml(report.data_date_prev || '')}</span>
+    <span class="cmp-file"><span class="k">Previous update</span> <b>${escapeHtml(report.prev_file || '—')}</b> · ${escapeHtml(report.data_date_prev || '')}
+      <button class="btn-mini" id="per-change-prev-inline">Choose a different file…</button></span>
     <span class="cmp-vs">→</span>
-    <span class="cmp-file"><span class="k">Current</span> <b>${escapeHtml(report.update_file || '—')}</b> · ${escapeHtml(report.data_date_now || '')}</span>
-  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : ''}`;
+    <span class="cmp-file"><span class="k">Current update</span> <b>${escapeHtml(report.update_file || '—')}</b> · ${escapeHtml(report.data_date_now || '')}
+      <button class="btn-mini" id="per-change-curr-inline">Choose a different file…</button></span>
+  </div><div id="per-rerun-note" class="per-rerun-note"></div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : ''}`;
 }
 
 // Pure helpers exposed for unit tests.
 export { _signPct as signPct, _shortDate as shortDate, _progressBarHtml as progressBarHtml,
          _milestoneSection as milestoneSection, _dashboard as dashboardHtml,
-         _cpTimelineData as criticalTimelineData, _cpCompareBody as criticalCompareBody };
+         _cpTimelineData as criticalTimelineData, _cpCompareBody as criticalCompareBody,
+         _evHtml as earnedValueHtml, _critSummaryHtml as criticalSummaryHtml, _critGroupChoice as critGroupChoice,
+         _watchTable as watchTable, _criticalTable as criticalTable, _wrapText as wrapText,
+         _rateHtml as rateHtml, _adviceHtml as adviceHtml, _finishHtml as finishHtml, _explainHtml as explainHtml, _byCodeHtml as byCodeHtml, _logicHtml as logicHtml,
+         _evCodeTable as evCodeTable };

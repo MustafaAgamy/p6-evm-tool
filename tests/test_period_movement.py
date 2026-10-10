@@ -29,13 +29,13 @@ def test_finish_slip_signed_calendar_days_without_calendar():
 
 def test_critical_movement_flags_slipped_and_newly_critical():
     # CV1: stayed critical (float 0 both), finish slipped 10 d
-    # CV2: newly critical (float was 40, now 4), finish held
+    # CV2: newly critical (float was 40, now 0 — P6's own rule, Total Float <= 0), finish held
     # CV3: comfortable float, ignored
     prev = _sched([_act('CV1', 'Quay', finish=datetime(2026, 8, 18), tf=0),
                    _act('CV2', 'Loader', finish=datetime(2026, 9, 5), tf=40),
                    _act('CV3', 'Fence', finish=datetime(2026, 9, 5), tf=30)])
     curr = _sched([_act('CV1', 'Quay', finish=datetime(2026, 9, 1), tf=0),
-                   _act('CV2', 'Loader', finish=datetime(2026, 9, 5), tf=4),
+                   _act('CV2', 'Loader', finish=datetime(2026, 9, 5), tf=0),
                    _act('CV3', 'Fence', finish=datetime(2026, 9, 5), tf=30)])
     out = critical_movement(MatchedSchedules(prev, curr), logic_changed_codes={'CV2'})
     ids = [r['activity_id'] for r in out['rows']]
