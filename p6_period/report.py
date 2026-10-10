@@ -186,9 +186,17 @@ def build_report_from_data(prev, curr, prev_metrics, curr_metrics, config=None):
                 extra[key] = fn()
             except Exception:
                 extra[key] = None
+        # round 4 — where each figure comes from, and the finish by time (per type of work)
+        for key, fn in (('explain', lambda: insight.explain(summary, adherence, extra.get('rate_outlook'))),
+                        ('finish_by_type', lambda: insight.finish_by_type(prev, curr, prev_metrics, curr_metrics,
+                                                                          code_types, summary, extra.get('rate_outlook')))):
+            try:
+                extra[key] = fn()
+            except Exception:
+                extra[key] = None
         try:
             extra['advice'] = insight.advice(curr, summary, recovery, extra.get('rate_outlook'), crit_sum,
-                                             adherence, by_code, cp)
+                                             adherence, by_code, cp, extra.get('finish_by_type'))
         except Exception:
             extra['advice'] = None
     except Exception:

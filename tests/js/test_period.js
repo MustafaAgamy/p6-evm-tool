@@ -30,7 +30,7 @@ test('3 points: start, actual fill, planned marker', () => {
   const h = progressBarHtml({ data_date_prev: '07-Aug', data_date_now: '22-Aug',
     summary: { actual_prev: 22.9, actual_now: 34.9, forecast_at_now: 44, period_earned: 12, period_forecast: 21, forecast_achievement: 0.57 } });
   assert.ok(h.includes('per-pfill') && h.includes('width:34.9%'));         // fill to exact actual
-  assert.ok(h.includes('34.9%') && h.includes('planned 44.0%') && h.includes('start 22.9%'));  // 3 points, one decimal
+  assert.ok(h.includes('34.9%') && h.includes('previous update forecast 44.0%') && h.includes('start 22.9%'));  // 3 points, one decimal
   assert.ok(h.includes('of the whole project'));                          // explanation
 });
 
@@ -96,7 +96,7 @@ console.log('\ndashboardHtml — SPI/Delay/%Complete strips + sign convention');
   });
   test('Recovery outlook renders with baseline + infeasible verdict', () => {
     assert.ok(h.includes('Recovery outlook') && h.includes('09-Feb.2027') &&
-              h.includes('Projected finish ≈ 10-Apr.2027') && /per-rr-v bad/.test(h));
+              h.includes('earned ≈ 10-Apr.2027') && h.includes('not a finish date') && /per-rr-v bad/.test(h));
   });
   test('Facts row shows schedule adherence', () => {
     assert.ok(h.includes('Schedule adherence') && h.includes('72%') && h.includes('13 of 18 due finishes'));
@@ -218,6 +218,34 @@ console.log('\nround 2 — Earned Value, critical summary, watch list, serials')
     const a = adviceHtml({ advice: { tiles: [], top_management: [{ title: 'T', text: 'x' }], project_manager: [{ title: 'P', text: 'y' }], rules: 'R' } });
     assert.ok(a.includes('For Top Management') && a.includes('1 · P'));
   });
+}
+
+// ── round 4: finish by time (any activity code), figures explained, plain-words advice ──
+{
+  const { finishHtml, explainHtml, adviceHtml } = await import('../../ui/modules/period.js');
+  const row = (v, share, late) => ({ value: v, none: false, open: 5, bac: 10, share, done_pct: 10, finish_prev: '01-Apr.2027', finish_now: '15-Apr.2027', moved: 14, days_left: 249, left: 0, width: 80, late });
+  const sec = (code, a) => ({ code_type: code, by_cost: true, dd_label: '09-Aug.2026', prev_label: '19-Jul.2026', now_label: '09-Aug.2026', period_days: 21,
+    rows: [row(a, 94, false), row('Cable Works', 6, true)], total: { open: 10, bac: 1000, done_pct: 45.7, finish_prev: '02-May.2027', finish_now: '22-May.2027', moved: 20, days_left: 286 },
+    contract_label: '09-Feb.2027', contract_pos: 64.3, money_label: '12-Mar.2027', money_pos: 75.2, rate_label: '12-Mar.2027', daily_money: 2299139,
+    forecast_label: '22-May.2027', days_after_contract: 102, slip_days: 20, why: '**Why the money date is too early.** x', warning: 'w', calc: ['Finish of a work type = latest'], calc_note: 'n', p6: 'To check in P6' });
+  const rep = { cost_loaded: true, summary: {},
+    finish_by_type: { ...sec('Type of Works', 'Civil Works'), types: ['Type of Works', 'Area'], by_type: { 'Type of Works': sec('Type of Works', 'Civil Works'), Area: sec('Area', 'Silo 1') } },
+    explain: { markers: [{ key: 'forecast', name: 'Previous update forecast', value: '46.1%', source: 's', meaning: 'm', in_p6: false, p6: 'No — tool calculation' }],
+      forecast: { tiles: [{ label: 'Forecast achievement', value: '93%' }], calc: ['5.3% ÷ 5.7% = 93%'], text: 't', note: 'Not a P6 figure.' },
+      adherence: { tiles: [{ label: 'Schedule adherence', value: '42%', tone: 'bad' }], calc: ['11 ÷ 26 = 42%'], text: 't', p6: 'To check in P6: filter.' } },
+    advice: { tiles: [], top_management: [], rules: 'R', pm_headline: { big: 'About half of the planned work.', small: 's' },
+      pm_head: [{ title: 'Crews', text: 'On **Drilling For Piles**.', action: 'add a crew.', ref: 'Planner reference: A1' }], pm_fronts: {}, pm_tail: [],
+      pm_small: { 'Type of Works': { title: 'Small in money', text: 'x', tone: 'warn' } } } };
+  const f = finishHtml(rep);
+  assert.ok(f.includes('by time, not by money') && f.includes('per-fin-type') && f.includes('Type of Works') && f.includes('Area'), 'FAIL round4 finish picker');
+  assert.ok(f.includes('Civil Works') && f.includes('not a finish date') && f.includes('<b>Why the money date is too early.</b>'), 'FAIL round4 finish body');
+  const x = explainHtml(rep);
+  assert.ok(x.includes('5.3% ÷ 5.7% = 93%') && x.includes('11 ÷ 26 = 42%') && x.includes('Not a P6 figure.'), 'FAIL round4 explain');
+  const a = adviceHtml(rep);
+  assert.ok(a.includes('in plain words') && a.includes('About half of the planned work.') && a.includes('add a crew.') &&
+    a.includes('Planner reference: A1') && a.includes('<b>Drilling For Piles</b>') && a.includes('Small in money'), 'FAIL round4 advice');
+  assert.ok(finishHtml({}) === '' && explainHtml({}) === '', 'FAIL round4 empty');
+  console.log('  ✓ round 4: finish by time, figures explained, plain-words advice'); passed++;
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

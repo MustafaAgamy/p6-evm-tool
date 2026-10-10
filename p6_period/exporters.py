@@ -7,6 +7,7 @@ movement, activities to watch, what-moved, milestone trend). `report_excel` mirr
 the same sections into one sheet. Nothing here computes a number.
 """
 import html
+import re
 import textwrap
 from datetime import datetime
 
@@ -162,7 +163,8 @@ def _recovery_html(report):
     return (f'<div class="recov"><div class="rl"><div class="rh4">Recovery outlook</div>{left}'
             f'<div class="note" style="margin-top:5px">Indicative planning projection — not a P6 reschedule.</div></div>'
             f'<div class="rr"><div class="rr-h">At the current rate</div>'
-            f'<div class="rr-big">Projected finish ≈ {_e(r.get("projected_finish") or "—")}</div>'
+            f'<div class="rr-big">{"All the money earned" if _by_cost(report) else "All the progress earned"} ≈ {_e(r.get("projected_finish") or "—")}</div>'
+            f'<div class="fs" style="font-size:10px;color:var(--rpt-muted)">not a finish date — the finish is the P6 forecast</div>'
             f'<div class="rr-v {vcls}">{verdict}</div></div></div>')
 
 
@@ -207,18 +209,18 @@ def _progress_bar_html(report):
     if ap is not None:
         tags.append((clamp(ap), f'start {ap:.1f}%', 'var(--rpt-muted)'))
     if fn is not None:
-        tags.append((clamp(fn), f'planned {fn:.1f}%', 'var(--rpt-warn)'))
+        tags.append((clamp(fn), f'previous update forecast {fn:.1f}%', 'var(--rpt-warn)'))
     bp = s.get('planned_now') if _by_cost(report) else None
     if bp is not None:
         tags.append((clamp(bp), f'baseline plan {bp:.1f}%', 'var(--rpt-bad)'))
         base_txt = f' The baseline planned <b>{bp:.1f}%</b> by this cut-off.'
     tags.sort(key=lambda t: t[0])
-    last_at, lines, marks = {}, 1, []
+    last_at, last_txt, lines, marks = {}, {}, 1, []
     for pos, txt, col in tags:
         lv = 0
-        while lv in last_at and pos - last_at[lv] < 17:
+        while lv in last_at and pos - last_at[lv] < (30 if max(len(txt), len(last_txt[lv])) > 20 else 17):
             lv += 1
-        last_at[lv] = pos
+        last_at[lv], last_txt[lv] = pos, txt
         lines = max(lines, lv + 1)
         tr = 'translateX(-100%)' if pos > 86 else ('translateX(0)' if pos < 10 else 'translateX(-50%)')
         marks.append(f'<div class="pmark" style="left:{pos:.1f}%;background:{col};top:{-5 - 14 * lv}px"></div>'
@@ -228,17 +230,18 @@ def _progress_bar_html(report):
     behind = ''
     if fn is not None:
         gap = round(fn - an, 1)
-        behind = f' — <b>{"on/ahead of" if gap <= 0 else f"{abs(gap):.1f}% behind"}</b> your plan'
+        behind = f' — <b>{"on/ahead of" if gap <= 0 else f"{abs(gap):.1f}% behind"}</b> the previous update forecast'
     ach = s.get('forecast_achievement')
     ach_txt = f'{round(ach * 100)}%' if ach is not None else '—'
-    plan_txt = (f'Your last update planned <b>{fn:.1f}%</b> by now ({_svar(pf, "%")}). ' if fn is not None else '')
+    plan_txt = (f'Your previous update forecast <b>{fn:.1f}%</b> by now ({_svar(pf, "%")}). ' if fn is not None else '')
     return (f'<div class="prog"><div class="cap"><span>0% — project start</span><span>100% — finish</span></div>'
             f'<div class="pbar" style="margin-top:{14 * (lines - 1)}px">'
             f'<div class="pfill" style="width:{fill:.1f}%">{an:.1f}%</div>'
             f'<span class="tag-below" style="left:{fill:.1f}%">▴ now {an:.1f}%</span>'
             f'{"".join(marks)}</div>'
             f'<div class="psent">On <b>{pdd}</b> you were at <b>{ap:.1f}%</b>. {plan_txt}You reached <b>{an:.1f}%</b> on <b>{cdd}</b> ({_svar(pe, "%")}). '
-            f'{what}{behind}; you did {_svar(pe, "%")} of {_svar(pf, "%")} = <b>{ach_txt}</b>.{base_txt}</div></div>')
+            f'{what}{behind}; you did {_svar(pe, "%")} of {_svar(pf, "%")} = <b>{ach_txt}</b>.{base_txt}</div></div>'
+            + _marker_table_html(report))
 
 
 # ── Earned Value — before, after and variance (owner, comments 68–73 round 2) ──
@@ -1238,7 +1241,7 @@ def _rate_svg(r):
     if rf:
         dab = r.get('days_after_baseline')
         extra = '' if dab is None else (f' (+{dab} days)' if dab > 0 else (f' ({dab} days)' if dab < 0 else ''))
-        marks.append((rf, acc, f'At the current rate {r.get("rate_finish_label")}{extra}'))
+        marks.append((rf, acc, f'{"Money all earned" if r.get("by_cost") else "Progress all earned"} {r.get("rate_finish_label")}{extra}'))
     if pf:
         lg = r.get('logic_days')
         extra = '' if not lg else (f' (+{lg} days more — sequence of the critical path)' if lg > 0 else f' ({lg} days)')
@@ -1318,15 +1321,17 @@ def _rate_html(report):
         return f'<div class="fact"><div class="fl">{k}</div><div class="fv {cls}">{v}</div><div class="fs">{f}</div></div>'
     daily = r.get('daily_money')
     lost = r.get('days_lost')
+    dw = r.get('day_word') or 'days'
+    dw1, wd = dw[:-1], r.get('work_days') or days
     if cost:
-        t1 = f'{_money_short(r.get("rate_money") or 0)} per {days} days = {_money_short(daily or 0)} per day'
-        t2 = (f'Shortfall {_money(r.get("shortfall_money"))} against the plan ÷ {_money_short(daily or 0)} per day'
+        t1 = f'{_money_short(r.get("rate_money") or 0)} in {wd} {dw} = {_money_short(daily or 0)} per {dw1}'
+        t2 = (f'Shortfall {_money(r.get("shortfall_money"))} against the plan ÷ {_money_short(daily or 0)} per {dw1}'
               if (lost or 0) > 0 else 'The period earned what the plan asked for')
     else:
-        t1 = f'{r.get("daily_pct")}% per day'
-        t2 = ('Shortfall against the plan ÷ the rate per day' if (lost or 0) > 0 else 'The period earned what the plan asked for')
+        t1 = f'{r.get("daily_pct")}% per {dw1}'
+        t2 = (f'Shortfall against the plan ÷ the rate per {dw1}' if (lost or 0) > 0 else 'The period earned what the plan asked for')
     dab = r.get('days_after_baseline')
-    t3 = (f'{r.get("remaining_pct")}% still to earn ÷ {rate:.1f}% per {days} days = {r.get("days_to_go")} days'
+    t3 = (f'{r.get("remaining_pct")}% still to earn ÷ {rate:.1f}% per {wd} {dw} = {r.get("days_to_go")} {dw}'
           + ('' if dab is None else (f' · {dab} days after the baseline' if dab > 0
                                      else (f' · {-dab} days before the baseline' if dab < 0 else ' · on the baseline date')))
           ) if r.get('rate_finish_label') else 'No progress was earned in this period — no date can be projected'
@@ -1335,8 +1340,9 @@ def _rate_html(report):
           + ('' if more is None else (f' — {more}% more than now' if more > 0 else ' — the present rate is enough')))
     tiles = ('<div class="facts" style="grid-template-columns:repeat(4,1fr);margin-top:8px">'
              + tile('Current rate', f'{rate:.1f}% / period', t1)
-             + tile('Time lost this period', f'{max(lost or 0, 0)} days', t2, 'neg' if (lost or 0) > 0 else '')
-             + tile('Finish at this rate', _e(r.get('rate_finish_label') or '—'), t3)
+             + tile('Time lost this period', f'{max(lost or 0, 0)} {dw}', t2, 'neg' if (lost or 0) > 0 else '')
+             + tile('All the money earned by' if cost else 'All the progress earned by', _e(r.get('rate_finish_label') or '—'),
+                    t3 + (' — not a finish date' if r.get('rate_finish_label') else ''))
              + tile(f'Rate needed for {_e(r.get("baseline_finish_label") or "the baseline finish")}',
                     f'{req:.1f}% / period' if req is not None else '—',
                     t4 if req is not None else 'The baseline finish has already passed', 'neg' if (more or 0) > 0 else '')
@@ -1344,9 +1350,11 @@ def _rate_html(report):
     lg, rf, pf = r.get('logic_days'), r.get('rate_finish_label'), r.get('p6_finish_label')
     read = ''
     if rf and pf and (lg or 0) > 0:
-        read = (f'Volume of work alone would finish on <b>{_e(rf)}</b>, but P6 forecasts <b>{_e(pf)}</b>: the extra {lg} days come from '
-                'the <b>sequence of the critical activities</b>, not from the amount of work. So recovery needs both — a higher rate '
-                'and shortening the critical chain. ')
+        what = 'money' if cost else 'progress'
+        read = (f'At this rate all the {what} would be earned by <b>{_e(rf)}</b> — that is <b>not a finish date</b>. P6 forecasts '
+                f'<b>{_e(pf)}</b>: the extra {lg} days come from the <b>sequence of the critical activities</b> and from works that are '
+                f'small in {"money" if cost else "weight"} but long in time, not from the amount of work. So recovery needs both — '
+                'a higher rate and a shorter sequence. ')
     elif rf and pf and (lg or 0) < 0:
         read = (f'P6 forecasts <b>{_e(pf)}</b>, {-lg} days before the date the present rate gives ({_e(rf)}): the remaining work is '
                 'planned at a faster rate than this period achieved — the forecast holds only if the rate rises. ')
@@ -1360,19 +1368,222 @@ def _rate_html(report):
             + _part('rate.reading', 'Rate of progress — how to read it', how))
 
 
+# ── Round 4: where each figure comes from, and the finish by time ───────────
+
+def _rich(t):
+    """Backend texts mark their bold words as **word**."""
+    return re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', _e(t or ''))
+
+
+def _plain(t):
+    return (t or '').replace('**', '')
+
+
+_MARK_COL = {'start': 'var(--rpt-muted)', 'now': 'var(--rpt-accent)', 'baseline': 'var(--rpt-bad)',
+             'forecast': 'var(--rpt-warn)'}
+
+
+def _marker_table_html(report):
+    """Under the progress bar: every marker, where it is taken from, and whether P6 shows it."""
+    rows = ((report.get('explain') or {}).get('markers')) or []
+    if not rows:
+        return ''
+    body = ''.join(
+        f'<tr><td><i class="dot2" style="background:{_MARK_COL.get(m.get("key"), "var(--rpt-muted)")}"></i>{_e(m.get("name"))}</td>'
+        f'<td class="num"><b>{_e(m.get("value"))}</b></td><td>{_e(m.get("source"))}</td><td>{_e(m.get("meaning"))}</td>'
+        f'<td class="{"yes" if m.get("in_p6") else "no"}">{_e(m.get("p6"))}</td></tr>' for m in rows)
+    return ('<div class="keep" style="margin-top:8px" data-part="progress.sources" data-part-label="Progress bar — where each marker comes from">'
+            '<table class="data"><thead><tr><th>Marker</th><th class="num">Value</th><th>Taken from</th><th>Meaning</th>'
+            f'<th>In P6?</th></tr></thead><tbody>{body}</tbody></table></div>')
+
+
+def _x_tiles(tiles):
+    tone = {'bad': 'neg', 'good': 'pos'}
+    return ('<div class="facts" style="grid-template-columns:repeat(2,1fr);margin-top:4px">' + ''.join(
+        f'<div class="fact"><div class="fl">{_e(t.get("label"))}</div><div class="fv {tone.get(t.get("tone"), "")}">{_e(t.get("value"))}</div>'
+        f'<div class="fs">{_e(t.get("sub"))}</div></div>' for t in tiles or []) + '</div>')
+
+
+def _calc_box(lines, text=''):
+    return ('<div class="calc"><div class="defs-h">How it is calculated</div>'
+            + ''.join(f'<span class="eq">{_e(l)}</span>' for l in lines or [])
+            + (f'<div class="def">{_e(text)}</div>' if text else '') + '</div>')
+
+
+def _missed_table_html(missed):
+    if not missed:
+        return ''
+    body = ''.join(f'<tr><td class="num">{i}</td><td class="mono">{_e(a.get("id"))}</td><td>{_e(a.get("name"))}</td>'
+                   f'<td class="num">{_e(a.get("due"))}</td><td class="num">{_e(a.get("finish_now"))}</td>'
+                   f'<td class="num">{_num(a.get("pct"), "%")}</td></tr>' for i, a in enumerate(missed, 1))
+    return ('<div class="word-only"><h3>Due to finish in the period and not finished</h3><table class="data"><thead><tr>'
+            f'{_sn_th()}<th>Activity ID</th><th>Activity name</th><th class="num">Was due to finish</th>'
+            f'<th class="num">Finish now</th><th class="num">% complete</th></tr></thead><tbody>{body}</tbody></table></div>')
+
+
+def _explain_html(report):
+    """Forecast achievement and Schedule adherence — each with its calculation and how to check it."""
+    x = report.get('explain') or {}
+    from p6_export.auto_parts import wrap_part as _part
+    out = ''
+    fc, ad = x.get('forecast'), x.get('adherence')
+    if fc:
+        out += _part('explain.forecast', 'Forecast achievement — how it is calculated',
+                     '<div class="keep"><div class="sub-h">Forecast achievement — how it is calculated</div>'
+                     + _x_tiles(fc.get('tiles')) + _calc_box(fc.get('calc'), fc.get('text'))
+                     + f'<div class="notp6">{_e(fc.get("note"))}</div></div>')
+    if ad:
+        out += _part('explain.adherence', 'Schedule adherence — how it is calculated',
+                     '<div class="keep"><div class="sub-h">Schedule adherence — how it is calculated</div>'
+                     + _x_tiles(ad.get('tiles')) + _calc_box(ad.get('calc'), ad.get('text'))
+                     + f'<div class="p6">{_e(ad.get("p6"))}</div></div>' + _missed_table_html(ad.get('missed')))
+    return out
+
+
+def finish_section(report, group=None):
+    """The "finish by time" section of the activity code picked on screen (else the default one)."""
+    f = (report or {}).get('finish_by_type')
+    if not f:
+        return None
+    by = f.get('by_type') or {}
+    return by.get(group) or by.get(f.get('code_type')) or f
+
+
+def _finish_html(report, group=None):
+    f = finish_section(report, group)
+    if not f:
+        return ''
+    from p6_export.auto_parts import wrap_part as _part
+    cost, rows, t = f.get('by_cost'), f.get('rows') or [], f.get('total') or {}
+    code = f.get('code_type') or ''
+    dac, slip, days = f.get('days_after_contract'), f.get('slip_days'), f.get('period_days')
+
+    def tile(k, v, sub, cls='', vcls=''):
+        return (f'<div class="fact {cls}"><div class="fl">{_e(k)}</div><div class="fv {vcls}">{_e(v or "—")}</div>'
+                f'<div class="fs">{sub}</div></div>')
+    fsub = ' · '.join(x for x in (
+        '' if dac is None else (f'{dac} days after the contract finish' if dac > 0
+                                else (f'{-dac} days before the contract finish' if dac < 0 else 'on the contract finish')),
+        f'moved {abs(slip)} days {"later" if slip > 0 else "earlier"} in the last {days} days' if (slip and days) else '') if x)
+    earned = 'All the money earned by' if cost else 'All the progress earned by'
+    at = (f'at {_money_short(f.get("daily_money"))} a {(f.get("day_word") or "days")[:-1]} — ' if cost and f.get('daily_money') else 'at the rate of this period — ')
+    tiles = ('<div class="facts" style="margin-top:4px">'
+             + tile('Contract finish (baseline)', f.get('contract_label'), 'from the baseline')
+             + (tile(earned, f.get('rate_label'), at + '<b>not a finish date</b>', 'off') if f.get('rate_label') else '')
+             + tile('Forecast finish (P6 schedule)', f.get('forecast_label'), _e(fsub), 'main', 'neg' if (dac or 0) > 0 else '')
+             + '</div>')
+    line = lambda pos, col: '' if pos is None else f'<div class="tl-line" style="left:{pos}%;background:{col}"></div>'
+    lines = line(f.get('contract_pos'), 'var(--rpt-good)') + line(f.get('money_pos'), 'var(--rpt-warn)')
+    bars = []
+    for r in rows:
+        if not r.get('finish_now') or r.get('none'):
+            continue
+        col = 'var(--rpt-bad)' if r.get('late') else 'var(--rpt-accent)'
+        left, width = r.get('left') or 0, r.get('width') or 0
+        end, lab, inside = left + width, _e(r.get('finish_now')), width >= 16
+        out = '' if inside else (f'<span class="tl-out" style="right:{100 - left}%;padding-right:5px">{lab}</span>' if end > 80
+                                 else f'<span class="tl-out" style="left:{end}%;padding-left:5px">{lab}</span>')
+        sub = f'{r.get("open")} activities open' if r.get('share') is None else f'{r["share"]:.1f}% of budget'
+        bars.append(f'<div class="tl-row"><div class="tl-name">{_e(r.get("value"))}<span>{sub}</span></div>'
+                    f'<div class="tl-track"><div class="tl-bar" style="left:{left}%;width:{max(width, 0.6)}%;background:{col}">'
+                    f'{lab if inside else ""}</div>{out}{lines}</div></div>')
+    cp, mp = f.get('contract_pos'), f.get('money_pos')
+    axis = ('<div class="tl-axis">'
+            f'<div style="left:0;color:var(--rpt-muted)">{_e(f.get("dd_label"))}<br>today</div>'
+            + ('' if cp is None else f'<div style="left:{cp}%;transform:translateX(-100%);text-align:right;color:var(--rpt-good);padding-right:4px">'
+                                     f'contract finish<br>{_e(f.get("contract_label"))}</div>')
+            + ('' if mp is None else f'<div style="left:{mp}%;top:32px;color:var(--rpt-warn);padding-left:4px">'
+                                     f'{"money earned" if cost else "progress earned"} {_e(f.get("money_label"))}</div>')
+            + f'<div style="right:0;text-align:right;color:var(--rpt-bad)">forecast finish<br>{_e(f.get("forecast_label"))}</div></div>')
+
+    def moved(n):
+        return '—' if n is None else (f'<span class="neg">+{n} d</span>' if n > 0 else (f'<span class="pos">{n} d</span>' if n < 0 else '0 d'))
+
+    def tr(r, tot=False):
+        if tot:
+            name, share = 'Project', (f'100% · {_money(r.get("bac"))}' if cost else '—')
+        else:
+            name = f'<b>{_e(f"No “{code}” value" if r.get("none") else r.get("value"))}</b>'
+            share = '—' if r.get('share') is None else (f'<i class="share" style="width:{max(2, round(r["share"]))}px"></i>{r["share"]:.1f}%')
+        done = '—' if r.get('done_pct') is None else f'{r["done_pct"]:.1f}%'
+        return (f'<tr{" class=tot" if tot else ""}><td>{name}</td><td>{share}</td><td class="num">{done}</td>'
+                f'<td class="num">{(r.get("open") or 0):,}</td><td class="num mono">{_e(r.get("finish_prev") or "—")}</td>'
+                f'<td class="num mono">{_e(r.get("finish_now") or ("—" if r.get("open") else "complete"))}</td>'
+                f'<td class="num">{moved(r.get("moved"))}</td><td class="num">{"—" if r.get("days_left") is None else r.get("days_left")}</td></tr>')
+    table = (f'<table class="data"><thead><tr><th>{_e(code)}</th><th>Share of budget</th><th class="num">Done</th>'
+             f'<th class="num">Activities still open</th><th class="num">Finish — {_e(f.get("prev_label"))} update</th>'
+             f'<th class="num">Finish — {_e(f.get("now_label"))} update</th><th class="num">Moved</th><th class="num">Days still needed</th>'
+             '</tr></thead><tbody>' + ''.join(tr(r) for r in rows) + tr(t, True) + '</tbody></table>')
+    by = 'WBS' if code == 'WBS' else f'activity code <b>{_e(code)}</b>'
+    chart = (f'<div class="sub-h">How long each {_e(code)} still needs</div>'
+             f'<p class="note" style="font-style:normal;margin:0 0 6px">Bar = from today ({_e(f.get("dd_label"))}) to the finish of that group in P6.'
+             + (' The name shows its share of the budget.' if cost else '') + '</p>'
+             + '<div class="tl">' + (''.join(bars) or '<p class="note">Every group is complete.</p>') + axis + '</div>')
+    calc = ('<div class="calc"><div class="defs-h">How it is calculated</div>'
+            + ''.join(f'<span class="eq">{_e(l)}</span>' for l in f.get('calc') or [])
+            + f'<div class="def">{_e(f.get("calc_note"))}</div></div><div class="p6">{_e(f.get("p6"))}</div>')
+    return (f'<p class="note" style="margin-top:0;font-style:normal">Grouped by {by} — the grouping picked on screen.</p>'
+            + _part('finish.tiles', 'Finish by time — the three dates',
+                    '<div class="keep">' + tiles + (f'<div class="notp6">{_rich(f.get("why"))}</div>' if f.get('why') else '') + '</div>')
+            + f'<div class="chart keep" data-part="finish.chart" data-part-label="Finish by time — how long each group still needs">{chart}</div>'
+            + _part('finish.table', 'Finish by time — the table',
+                    table + (f'<div class="notp6">{_e(f.get("warning"))}</div>' if f.get('warning') else ''))
+            + _part('finish.calc', 'Finish by time — how it is calculated', '<div class="keep">' + calc + '</div>'))
+
+
+def _excel_round4_rows(report):
+    """The round-4 explanations and the finish by time — the same words and figures as the PDF."""
+    rows, x = [], report.get('explain') or {}
+    v = lambda n: '' if n is None else n
+    if x.get('markers'):
+        rows += [[''], ['Progress bar — where each marker comes from'], ['Marker', 'Value', 'Taken from', 'Meaning', 'In P6?']]
+        rows += [[m.get('name', ''), m.get('value', ''), m.get('source', ''), m.get('meaning', ''), m.get('p6', '')] for m in x['markers']]
+    for key, title, tail in (('forecast', 'Forecast achievement — how it is calculated', 'note'),
+                             ('adherence', 'Schedule adherence — how it is calculated', 'p6')):
+        b = x.get(key)
+        if b:
+            rows += [[''], [title]] + [[t.get('label', ''), t.get('value', ''), t.get('sub', '')] for t in b.get('tiles') or []]
+            rows += [[l] for l in b.get('calc') or []] + [[b.get('text', '')], [b.get(tail, '')]]
+    f = finish_section(report, report.get('finish_group'))
+    if f:
+        cost, code = f.get('by_cost'), f.get('code_type') or ''
+        rows += [[''], [f'When will the project finish — by time{", not by money" if cost else ""} — grouped by {code}'],
+                 ['Contract finish (baseline)', v(f.get('contract_label'))],
+                 [('All the money earned by' if cost else 'All the progress earned by') + ' (at the current rate — not a finish date)', v(f.get('rate_label'))],
+                 ['Forecast finish (P6 schedule)', v(f.get('forecast_label'))],
+                 ['Forecast finish − contract finish (days)', v(f.get('days_after_contract'))],
+                 ['Forecast finish moved between the two updates (days)', v(f.get('slip_days'))]]
+        if f.get('why'):
+            rows += [[_plain(f.get('why'))]]
+        rows += [['S/N', code, 'Share of budget %', 'Done %', 'Activities still open', f'Finish — {f.get("prev_label")} update',
+                  f'Finish — {f.get("now_label")} update', 'Moved (days)', 'Days still needed']]
+        rows += [[i, f'No "{code}" value' if r.get('none') else r.get('value', ''), v(r.get('share')), v(r.get('done_pct')), r.get('open') or 0,
+                  r.get('finish_prev') or '', r.get('finish_now') or ('' if r.get('open') else 'complete'), v(r.get('moved')), v(r.get('days_left'))]
+                 for i, r in enumerate(f.get('rows') or [], 1)]
+        t = f.get('total') or {}
+        rows += [['', 'Project', 100 if cost else '', v(t.get('done_pct')), t.get('open') or 0, t.get('finish_prev') or '',
+                  t.get('finish_now') or '', v(t.get('moved')), v(t.get('days_left'))]]
+        rows += [[l] for l in f.get('calc') or []] + [[f.get('calc_note', '')], [f.get('p6', '')]]
+        if f.get('warning'):
+            rows += [[f.get('warning')]]
+    return rows
+
+
 # ── Conclusion and recommended actions (round 3, point 10) ─────────────────
 
-def advice_pm_items(adv, group=None):
-    """The Project Manager list — the fronts follow the activity code chosen in the progress chart."""
+def advice_pm_items(adv, group=None, finish_code=None):
+    """The Project Manager list — the fronts follow the activity code chosen in the progress
+    chart, the "small in money, long in time" action the code chosen in the finish section."""
     adv = adv or {}
     fr = adv.get('pm_fronts') or {}
     g = group if group in fr else adv.get('front_type')
     if 'pm_head' not in adv:
         return adv.get('project_manager') or []
-    return (adv.get('pm_head') or []) + (fr.get(g) or []) + (adv.get('pm_tail') or [])
+    sm = (adv.get('pm_small') or {}).get(finish_code)
+    return (adv.get('pm_head') or []) + (fr.get(g) or []) + (adv.get('pm_tail') or []) + ([sm] if sm else [])
 
 
-def _advice_html(report, group=None):
+def _advice_html(report, group=None, finish_group=None):
     adv = report.get('advice')
     if not adv:
         return ''
@@ -1382,14 +1593,19 @@ def _advice_html(report, group=None):
         f'<div class="fact"><div class="fl">{_e(t.get("label"))}</div><div class="fv {tone.get(t.get("tone"), "")}">{_e(t.get("value"))}</div>'
         f'<div class="fs">{_e(t.get("sub"))}</div></div>' for t in adv.get('tiles') or []) + '</div>')
 
-    def col(title, items, cls):
-        return (f'<div class="adv {cls}"><div class="adv-h">{title}</div>' + ''.join(
-            f'<div class="adv-i"><b>{i} · {_e(it.get("title"))}</b><div>{_e(it.get("text"))}</div></div>'
+    def col(title, items, cls, top=''):
+        return (f'<div class="adv {cls}"><div class="adv-h">{title}</div>{top}' + ''.join(
+            f'<div class="adv-i{" warn" if it.get("tone") == "warn" else ""}"><b>{i} · {_e(it.get("title"))}</b><div>{_rich(it.get("text"))}'
+            + (f' <b>Action:</b> {_rich(it.get("action"))}' if it.get('action') else '') + '</div>'
+            + (f'<div class="adv-ref">{_e(it.get("ref"))}</div>' if it.get('ref') else '') + '</div>'
             for i, it in enumerate(items, 1)) + '</div>')
+    hl = adv.get('pm_headline')
+    head = (f'<div class="pmhead"><div class="big">{_e(hl.get("big"))}</div><div class="sm">{_e(hl.get("small"))}</div></div>' if hl else '')
+    fcode = (finish_section(report, finish_group) or {}).get('code_type')
     return (_part('advice.tiles', 'Conclusion — the four figures', tiles)
             + _part('advice.top', 'Conclusion — for Top Management', col('For Top Management', adv.get('top_management') or [], 'tm'))
             + _part('advice.pm', 'Conclusion — for the Project Manager',
-                    col('For the Project Manager', advice_pm_items(adv, group), 'pm'))
+                    col('For the Project Manager — in plain words', advice_pm_items(adv, group, fcode), 'pm', head))
             + f'<p class="note">{_e(adv.get("rules"))} The wording adapts to the result of each pair of updates.</p>')
 
 
@@ -1401,7 +1617,9 @@ _SECTION_LABELS = [
     ('progress_table', 'Progress by activity'), ('watch', 'Activities to watch before the next update'),
     ('whatmoved', 'What moved this period'), ('bycode', 'Progress by activity code'),
     ('milestones', 'Milestones (table + chart)'), ('conclusions', 'Conclusions'),
-    ('rate', 'Rate of progress and where it lands'), ('advice', 'Conclusion and recommended actions'),
+    ('rate', 'Rate of progress and where it lands'), ('finish', 'When will the project finish — by time'),
+    ('explain', 'Forecast achievement and Schedule adherence — how they are calculated'),
+    ('advice', 'Conclusion and recommended actions'),
 ]
 
 
@@ -1471,8 +1689,8 @@ apply_code_filter = _apply_code_filter
 
 def render_html(report, trend=None, sections=None, code_filter=None,
                 critical_style='chain', critical_mode='leaf-parent', theme='light', critical_group=None,
-                bycode_group=None):
-    """`sections` = list of section keys to include (None = all); `code_filter` =
+                bycode_group=None, finish_group=None):
+    """`finish_group` = the activity code (or WBS) picked for the finish-by-time section. `sections` = list of section keys to include (None = all); `code_filter` =
     {'type','value'} to limit the activity tables to one activity code; `critical_style`
     (chain | timeline | table) + `critical_mode` = the critical-path presentation the user
     picked (carried from the screen so the PDF matches); `critical_group` = the one or two
@@ -1514,7 +1732,9 @@ def render_html(report, trend=None, sections=None, code_filter=None,
                       else "Progress — where you are vs where you said you'd be"), _progress_bar_html(report), False),
         ('earned_value', 'Earned Value — before, after and variance', _ev_html(report), False),
         ('rate', 'Rate of progress and where it lands', _rate_html(report), False),
+        ('finish', 'When will the project finish — by time' + (', not by money' if cost else ''), _finish_html(report, finish_group), False),
         ('dashboard', 'Execution Dashboard — Previous → Current, at each cutoff', dashboard, False),
+        ('explain', 'Forecast achievement and Schedule adherence — how they are calculated', _explain_html(report), False),
         ('recommendation', 'What management needs to know', f'<div class="reco warn">{_e(report.get("project_conclusion"))}</div>', False),
         ('critical_compare', 'Critical-path comparison — the finish-driving route', _critical_compare_html(report, critical_style, critical_mode), True),
         ('critical', 'Critical-path movement in this window', inc + critical, False),
@@ -1524,7 +1744,7 @@ def render_html(report, trend=None, sections=None, code_filter=None,
         ('bycode', "Where this period's progress came from — by activity code", _bycode_html(report, bycode_group), False),
         ('milestones', 'Milestones — project completion & all finish milestones', milestones, False),
         ('conclusions', 'Executive conclusion — this period', f'<div class="reco">{_e(report.get("conclusion"))}</div>', False),
-        ('advice', 'Conclusion and recommended actions', _advice_html(report, bycode_group), False),
+        ('advice', 'Conclusion and recommended actions', _advice_html(report, bycode_group, finish_group), False),
     ]
     keys = set(sections) if sections else None
     cf = report.get('code_filter')
@@ -1536,7 +1756,7 @@ def render_html(report, trend=None, sections=None, code_filter=None,
     for key, title, html, planner in secs:
         if keys is not None and key not in keys:
             continue
-        if key in ('earned_value', 'rate', 'advice') and not html:   # nothing to show (no cost / an older saved result)
+        if key in ('earned_value', 'rate', 'advice', 'finish', 'explain') and not html:   # nothing to show (no cost / an older saved result)
             continue
         t = f'<h2>{_e(title)}</h2>' if title else ''
         body.append(f'<section data-sec="{key}"{" class=pagebreak" if planner else ""}>{t}{html}</section>')
@@ -1608,6 +1828,28 @@ def render_html(report, trend=None, sections=None, code_filter=None,
       .adv.tm .adv-h {{ color: var(--rpt-warn); }}
       .adv-i {{ margin: 6px 0; line-height: 1.5; break-inside: avoid; }} .adv-i b {{ font-size: 12px; }} .adv-i div {{ color: var(--rpt-ink-soft); }}
       .word-only {{ display: none; }}
+      .dot2 {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }}
+      td.yes {{ color: var(--rpt-good); font-weight: 700; }} td.no {{ color: var(--rpt-bad); font-weight: 700; }}
+      td .neg {{ color: var(--rpt-bad); font-weight: 700; }} td .pos {{ color: var(--rpt-good); font-weight: 700; }}
+      tr.tot td {{ font-weight: 700; background: var(--rpt-surface); }}
+      .fact.main {{ border: 2px solid var(--rpt-accent); }} .fact.off {{ border-style: dashed; }}
+      .calc {{ margin-top: 8px; background: var(--rpt-surface); border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 8px 12px; break-inside: avoid; }}
+      .eq {{ display: block; font-family: Consolas, monospace; font-size: 10.5px; border: 1px solid var(--rpt-edge); border-radius: 5px; padding: 4px 8px; margin: 3px 0; white-space: normal; overflow-wrap: anywhere; }}
+      .notp6, .p6 {{ margin-top: 7px; font-size: 11px; line-height: 1.5; border: 1px solid var(--rpt-edge); border-left: 4px solid var(--rpt-warn); border-radius: 0 8px 8px 0; padding: 7px 11px; break-inside: avoid; }}
+      .p6 {{ border-left-color: var(--rpt-good); }}
+      .tl {{ border: 1px solid var(--rpt-edge); border-radius: 8px; padding: 14px 14px 4px; }}
+      .tl-row {{ display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin-bottom: 8px; }}
+      .tl-name {{ font-size: 11px; font-weight: 700; line-height: 1.25; }} .tl-name span {{ display: block; font-weight: 400; color: var(--rpt-muted); font-size: 10px; }}
+      .tl-track {{ position: relative; height: 18px; background: var(--rpt-surface-2); border-radius: 4px; }}
+      .tl-bar {{ position: absolute; top: 0; height: 18px; border-radius: 4px; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 0 0 6px; white-space: nowrap; overflow: hidden; }}
+      .tl-out {{ position: absolute; top: 2px; font-size: 10px; font-weight: 700; white-space: nowrap; }}
+      .tl-line {{ position: absolute; top: -5px; bottom: -5px; width: 2px; }}
+      .tl-axis {{ position: relative; height: 52px; margin-left: 180px; }} .tl-axis div {{ position: absolute; top: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; line-height: 1.25; }}
+      .share {{ display: inline-block; height: 8px; background: var(--rpt-accent); border-radius: 2px; vertical-align: middle; margin-right: 6px; }}
+      .pmhead {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 8px; padding: 8px 12px; margin: 5px 0 3px; }}
+      .pmhead .big {{ font-size: 13.5px; font-weight: 800; }} .pmhead .sm {{ font-size: 11px; color: var(--rpt-muted); margin-top: 2px; }}
+      .adv-i.warn {{ border-left: 3px solid var(--rpt-warn); padding-left: 8px; }} .adv-i div b {{ font-size: 11.5px; color: var(--rpt-ink); }}
+      .adv-i .adv-ref {{ font-size: 10px; color: var(--rpt-muted); }}
       * {{ box-sizing: border-box; }}
       body {{ font-family: system-ui, -apple-system, Arial, sans-serif; color: var(--rpt-ink); font-size: 12px; margin: 0; }}
       .page {{ page-break-after: always; }} .page:last-child {{ page-break-after: auto; }}
@@ -1795,7 +2037,7 @@ def report_excel(report, trend=None):
              ['Earned this period', _pctcell(rec.get('current_rate'))],
              ['Baseline finish' + (' · approx' if report.get('baseline_approx') else ''), rec.get('baseline_finish') or ''],
              ['Required rate to hit baseline', _pctcell(rec.get('required_rate')) + ('/period' if rec.get('required_rate') is not None else '')],
-             ['Projected finish at current rate', rec.get('projected_finish') or ''],
+             [('All the money earned by' if _by_cost(report) else 'All the progress earned by') + ' (at the current rate — not a finish date)', rec.get('projected_finish') or ''],
              ['Recovery feasible', {True: 'Yes', False: 'No'}.get(rec.get('feasible'), '—')],
              ['Schedule adherence', (f"{adh.get('hit', 0)} of {adh.get('planned', 0)} due finishes hit"
                                      + (f" ({adh.get('pct')}%)" if adh.get('pct') is not None else ''))],
@@ -1860,24 +2102,27 @@ def _excel_round3_rows(report):
             x = lambda v: '' if v is None else v
             rows += [[''], ['Rate of progress and where it lands'],
                      ['Days between the two data dates', x(days)],
+                     ['Working days between the two data dates' + (f' (calendar: {r["calendar_name"]})' if r.get('calendar_name') else ''),
+                      x(r.get('work_days'))],
                      ['Earned in the period (%)', x(r.get('rate_pct'))], ['Planned for the period (%)', x(r.get('planned_pct'))]]
             if cost:
                 rows += [['Earned in the period (Earned Value variance)', x(r.get('rate_money'))],
                          ['Planned for the period (Planned Value variance)', x(r.get('planned_money'))],
-                         ['Current rate per day', x(r.get('daily_money'))],
+                         ['Current rate per ' + (r.get('day_word') or 'days')[:-1], x(r.get('daily_money'))],
                          ['Shortfall against the plan this period', x(r.get('shortfall_money'))]]
-            rows += [['Time lost this period (days)', x(r.get('days_lost'))],
+            rows += [['Time lost this period (' + (r.get('day_word') or 'days') + ')', x(r.get('days_lost'))],
                      ['Still to earn (%)', x(r.get('remaining_pct'))],
-                     ['Finish at the current rate', x(r.get('rate_finish_label'))],
-                     ['Days from the current data date to that finish', x(r.get('days_to_go'))],
+                     [('All the money earned by' if cost else 'All the progress earned by') + ' (at the current rate — not a finish date)', x(r.get('rate_finish_label'))],
+                     [(r.get('day_word') or 'days').capitalize() + ' from the current data date to that date', x(r.get('days_to_go'))],
                      ['Baseline finish', x(r.get('baseline_finish_label'))],
-                     ['Finish at the current rate − baseline finish (days)', x(r.get('days_after_baseline'))],
+                     ['That date − baseline finish (days)', x(r.get('days_after_baseline'))],
                      ['P6 forecast finish', x(r.get('p6_finish_label'))],
-                     ['P6 forecast − finish at the current rate (days; the sequence of the critical path)', x(r.get('logic_days'))],
+                     ['P6 forecast finish − that date (days; the sequence of the critical path and the works that are long in time)', x(r.get('logic_days'))],
                      ['Rate needed for the baseline finish (% per period)', x(r.get('required_pct'))]]
             if cost:
                 rows += [['Rate needed for the baseline finish (per period)', x(r.get('required_money'))]]
             rows += [['Rate needed − current rate (%)', x(r.get('required_more_pct'))]]
+        rows += _excel_round4_rows(report)
         lc = report.get('logic_changes') or []
         if lc:
             rows += [[''], ['Relationships changed — the critical activities whose logic was edited between the two updates'],
@@ -1905,9 +2150,15 @@ def _excel_round3_rows(report):
         if adv:
             rows += [[''], ['Conclusion and recommended actions']]
             rows += [[t_.get('label', ''), t_.get('value', ''), t_.get('sub', '')] for t_ in adv.get('tiles') or []]
-            for title, items in (('For Top Management', adv.get('top_management') or []),
-                                 ('For the Project Manager', advice_pm_items(adv, report.get('bycode_group')))):
-                rows += [[''], [title]] + [[f'{i} · {it.get("title", "")}', it.get('text', '')] for i, it in enumerate(items, 1)]
+            rows += [[''], ['For Top Management']] + [[f'{i} · {it.get("title", "")}', it.get('text', '')]
+                                                      for i, it in enumerate(adv.get('top_management') or [], 1)]
+            hl = adv.get('pm_headline') or {}
+            fcode = (finish_section(report, report.get('finish_group')) or {}).get('code_type')
+            rows += [[''], ['For the Project Manager — in plain words']]
+            rows += [[hl.get('big', '')], [hl.get('small', '')]] if hl else []
+            rows += [['Point', 'What happened', 'Action', 'Planner reference']]
+            rows += [[f'{i} · {it.get("title", "")}', _plain(it.get('text')), _plain(it.get('action')), it.get('ref') or '']
+                     for i, it in enumerate(advice_pm_items(adv, report.get('bycode_group'), fcode), 1)]
             rows += [[''], [adv.get('rules', '')]]
     except Exception:
         pass
@@ -1977,6 +2228,14 @@ def report_excel_extra_sheets(report):
                 'title': 'What moved this period — the activities behind each count',
                 'note': 'S/N restarts with each movement.',
                 'headers': ['S/N', 'Movement', 'Activity ID', 'Activity Name'], 'rows': rows}]})
+        missed = ((report.get('explain') or {}).get('adherence') or {}).get('missed') or []
+        if missed:
+            sheets.append({'name': 'Due Not Finished', 'blocks': [{
+                'title': 'Due to finish in the period and not finished',
+                'note': 'The activities behind the Schedule adherence figure — earliest due date first.',
+                'headers': ['S/N', 'Activity ID', 'Activity Name', 'Was due to finish', 'Finish now', '% complete'],
+                'rows': [[i, a.get('id', ''), a.get('name', ''), a.get('due') or '', a.get('finish_now') or '',
+                          '' if a.get('pct') is None else a.get('pct')] for i, a in enumerate(missed, 1)]}]})
         left_rows = (report.get('critical_movement') or {}).get('left_rows') or []
         if left_rows:
             sheets.append({'name': 'No Longer Critical', 'blocks': [{

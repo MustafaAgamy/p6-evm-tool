@@ -4455,3 +4455,30 @@ table.wx-t { border-collapse: collapse; width: 100%; font-size: 12px; color: var
 .wx-tile, .wx-tile .w, .wx-sum b, .wx-t tr.res td, .wx-t tr.tot td, .wx-t thead th, .wx-pc, .wx-bar, .wx-bar i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .wx-sumwrap .wx-by { white-space: nowrap; }
 .gp-track.wg .wg-lb:not(.t) { z-index: 2; background: #f8fafc; padding: 0 1px; }
+/* Update vs Update — round 4: figures explained, finish by time */
+.per-src td, .per-src th { font-size: 12px; } .per-dot2 { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; }
+.per-yes { color: var(--success); font-weight: 700; } .per-no { color: var(--danger); font-weight: 700; }
+.cmp-kpis.per-two { grid-template-columns: repeat(2, 1fr); } .cmp-kpis.per-three { grid-template-columns: repeat(3, 1fr); }
+.kpi.per-main { border: 2px solid var(--accent); } .kpi.per-off { border-style: dashed; }
+.per-calc { margin-top: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+.per-eq { display: block; font-family: Consolas, 'Courier New', monospace; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; margin: 4px 0; color: var(--text); white-space: normal; overflow-wrap: anywhere; }
+.per-notp6, .per-p6 { margin-top: 8px; font-size: 12px; line-height: 1.55; border-radius: 0 8px 8px 0; padding: 8px 12px; color: var(--text); background: var(--card-bg); border: 1px solid var(--border); }
+.per-notp6 { border-left: 4px solid var(--warning); } .per-p6 { border-left: 4px solid var(--success); }
+.per-tl-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin-bottom: 9px; }
+.per-tl-name { font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--text); } .per-tl-name span { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.per-tl-track { position: relative; height: 20px; background: var(--bg); border-radius: 4px; }
+.per-tl-bar { position: absolute; top: 0; height: 20px; border-radius: 4px; color: #fff; font-size: 10.5px; font-weight: 700; text-align: left; padding: 3px 0 0 6px; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
+.per-tl-out { position: absolute; top: 3px; font-size: 10.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.per-tl-line { position: absolute; top: -6px; bottom: -6px; width: 2px; }
+.per-tl-axis { position: relative; height: 60px; margin-left: 180px; } .per-tl-axis div { position: absolute; top: 4px; font-size: 10.5px; font-weight: 700; white-space: nowrap; line-height: 1.25; }
+.per-share { display: inline-block; height: 9px; background: var(--accent); border-radius: 2px; vertical-align: middle; margin-right: 6px; min-width: 2px; }
+tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: var(--danger); font-weight: 700; } td .per-good { color: var(--success); font-weight: 700; }
+.per-pmhead { border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 10px 13px; margin: 6px 0 4px; }
+.per-pmhead .big { font-size: 15px; font-weight: 800; color: var(--text); } .per-pmhead .sm { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.per-adv-i.warn { border-left: 3px solid var(--warning); padding-left: 9px; } .per-adv-i div b { color: var(--text); }
+.per-adv-i .per-adv-ref { font-size: 11px; color: var(--muted); opacity: .85; margin-top: 2px; }
+@media (max-width: 760px) { .cmp-kpis.per-three { grid-template-columns: 1fr; } .per-tl-row { grid-template-columns: 100px 1fr; } .per-tl-axis { margin-left: 110px; } }
+/* finish by time — the activity-code picker must be easy to find */
+.per-finpick { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; }
+.per-finpick .per-slicer-lbl { color: var(--accent); font-weight: 700; font-size: 12px; }
+.per-finpick select { font-weight: 700; font-size: 13px; padding: 6px 10px; border: 1.5px solid var(--accent); border-radius: 6px; min-width: 220px; cursor: pointer; }

@@ -29,7 +29,9 @@ def test_schedule_adherence_hit_rate():
                    _a('A4', 1.0, ref=datetime(2026, 7, 10))])  # already done → not counted
     curr = _sched([_a('A1', 1.0), _a('A2', 0.6), _a('A3', 0.1), _a('A4', 1.0)])
     r = schedule_adherence(MatchedSchedules(prev, curr), dd_prev, dd_now)
-    assert r == {'planned': 2, 'hit': 1, 'pct': 50.0}
+    assert (r['planned'], r['hit'], r['pct']) == (2, 1, 50.0)
+    # the due-and-not-finished activities are listed by name (round 4)
+    assert [(m['id'], m['due'], m['pct']) for m in r['missed']] == [('A2', '20-Jul.2026', 60.0)]
 
 
 # ── recovery outlook ─────────────────────────────────────────────────────────
@@ -70,3 +72,29 @@ def test_watch_list_near_critical_sorted_and_filtered():
     assert [r['activity_id'] for r in rows] == ['W1', 'W2']    # tightest float first
     assert rows[0]['reason'].startswith('On the critical path')
     assert rows[1]['float_days'] == 5.0 and rows[1]['due_to_start'] == '10-Aug.2026'
+
+
+def test_rate_is_counted_on_working_days_and_skips_non_working_days():
+    from datetime import datetime as _dt
+    from types import SimpleNamespace as _NS
+    from p6_period.outlook import work_days, shift_work_days, rate_calendar
+
+    class _Cal:                                   # six-day week, Friday off
+        name, nonworking_days = 'Six-day', {'Friday'}
+        def is_working_day(self, d):
+            return d.weekday() != 4
+    cal = _Cal()
+    acts = {i: {'calendar_id': 'C1'} for i in range(3)}
+    mk = lambda dd: _NS(project={'data_date': dd}, calendars={'C1': cal}, activities=acts)
+    prev, curr = mk(_dt(2026, 7, 19)), mk(_dt(2026, 8, 9))
+    assert rate_calendar(curr) is cal
+    assert work_days(cal, _dt(2026, 7, 19), _dt(2026, 8, 9)) == 18          # 21 calendar days, 3 Fridays
+    assert shift_work_days(cal, _dt(2026, 8, 9), 6) == _dt(2026, 8, 16)     # Friday 14-Aug is skipped
+    r = recovery_outlook(prev, curr, {'actual_now': 50.0, 'period_earned': 5.0, 'period_forecast': 5.0})
+    # 50% left ÷ 5% per 18 working days = 180 working days, counted forward on the calendar
+    assert (r['work_days'], r['calendar_days'], r['days_needed'], r['calendar_name']) == (18, 21, 180, 'Six-day')
+    assert r['projected_finish'] == '07-Mar.2027'
+    # no calendar in the file → calendar days, as before
+    bare = lambda dd: _NS(project={'data_date': dd}, calendars={}, activities={})
+    r = recovery_outlook(bare(_dt(2026, 7, 19)), bare(_dt(2026, 8, 9)), {'actual_now': 50.0, 'period_earned': 5.0})
+    assert (r['work_days'], r['days_needed'], r['calendar_name']) == (21, 210, None)

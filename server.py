@@ -2945,6 +2945,8 @@ class Handler(BaseHTTPRequestHandler):
             report = apply_code_filter(report, body.get('code_filter'))
             if body.get('bycode_group'):
                 report = dict(report, bycode_group=body.get('bycode_group'))
+            if body.get('finish_group'):
+                report = dict(report, finish_group=body.get('finish_group'))
             headers, rows = report_excel(report, trend)
             _bl = report.get('baseline_label') if report.get('baseline_approx') else None   # approx only
             # Sheet 1 = the report as before; then the S-curve numbers, progress by every activity
@@ -2982,7 +2984,8 @@ class Handler(BaseHTTPRequestHandler):
             html_content = render_html(report, trend, sections, code_filter, critical_style, critical_mode,
                                        theme=report_theme.normalize(body.get('theme')),
                                        critical_group=body.get('critical_group'),
-                                       bycode_group=body.get('bycode_group'))
+                                       bycode_group=body.get('bycode_group'),
+                                       finish_group=body.get('finish_group'))
             if preview:
                 self._json(200, {'ok': True, 'html': _with_parts(html_content)})
                 return

@@ -292,7 +292,7 @@ def test_progress_bar_labels_that_would_overlap_step_onto_their_own_line():
     import re
     from p6_period import exporters
     src = open(exporters.__file__, encoding='utf-8').read()
-    assert 'pos - last_at[lv] < 17' in src and "translateX(-100%)" in src
+    assert 'pos - last_at[lv] < (30 if' in src and "translateX(-100%)" in src
     assert re.search(r'class="pbar" style="margin-top:\{14 \* \(lines - 1\)\}px"', src)
 
 
@@ -376,3 +376,91 @@ def test_critical_summary_charts_precede_the_table():
     from p6_period.exporters import crit_group_choice
     assert crit_group_choice(rep['critical_summary']) == ('Area', 'WBS')
     assert crit_group_choice(rep['critical_summary'], ['WBS', None])[0] in ('WBS', None)   # an owner pick is honoured
+
+
+# ── round 4: figures explained, finish by time, plain-words advice ───────────
+
+def _round4_report():
+    row = lambda v, share, fin, moved, late, none=False: {
+        'value': v, 'none': none, 'open': 5, 'bac': share * 10, 'share': share, 'done_pct': 10.0, 'finish_prev': '01-Apr.2027',
+        'finish_now': fin, 'moved': moved, 'days_left': 200, 'left': 0, 'width': 80, 'late': late}
+    sec = lambda code, a, b: {
+        'code_type': code, 'by_cost': True, 'dd_label': '09-Aug.2026', 'prev_label': '19-Jul.2026', 'now_label': '09-Aug.2026',
+        'period_days': 21, 'rows': [row(a, 94.0, '15-Apr.2027', 14, False), row(b, 6.0, '22-May.2027', 20, True)],
+        'total': {'open': 10, 'bac': 1000, 'done_pct': 45.7, 'finish_prev': '02-May.2027', 'finish_now': '22-May.2027', 'moved': 20, 'days_left': 286},
+        'contract_label': '09-Feb.2027', 'contract_pos': 64.3, 'money_label': '12-Mar.2027', 'money_pos': 75.2, 'rate_label': '12-Mar.2027',
+        'daily_money': 2299139, 'forecast_label': '22-May.2027', 'days_after_contract': 102, 'slip_days': 20,
+        'why': f'**Why the money date is too early.** {a} carries 94.0% of the budget.', 'warning': 'Every work type moved later.',
+        'calc': ['Finish of a work type = the latest Finish date'], 'calc_note': 'No date here is estimated by the tool.',
+        'p6': f'To check in P6: Group by activity code "{code}".'}
+    fin = dict(sec('Type of Works', 'Civil Works', 'Cable Works'), types=['Type of Works', 'Area'],
+               by_type={'Type of Works': sec('Type of Works', 'Civil Works', 'Cable Works'), 'Area': sec('Area', 'Silo 1', 'Tower')})
+    return {
+        'project_name': 'P', 'data_date_prev': '19-Jul.2026', 'data_date_now': '09-Aug.2026', 'cost_loaded': True,
+        'summary': {'actual_prev': 40.4, 'actual_now': 45.7, 'forecast_at_now': 46.1, 'period_earned': 5.3, 'period_forecast': 5.7,
+                    'forecast_achievement': 0.93},
+        'finish_by_type': fin,
+        'explain': {
+            'markers': [{'key': 'forecast', 'name': 'Previous update forecast', 'value': '46.1%', 'source': 'Previous update only',
+                         'meaning': '40.4% + 5.7%', 'in_p6': False, 'p6': 'No — tool calculation'}],
+            'forecast': {'tiles': [{'label': 'Forecast achievement', 'value': '93%', 'sub': 's'}], 'calc': ['5.3% ÷ 5.7% = 93%'],
+                         'text': 't', 'note': 'Not a P6 figure.'},
+            'adherence': {'tiles': [{'label': 'Schedule adherence', 'value': '42%', 'sub': 's', 'tone': 'bad'}], 'calc': ['11 ÷ 26 = 42%'],
+                          'text': 't', 'p6': 'To check in P6: filter.',
+                          'missed': [{'id': 'A9', 'name': 'Install Silo Roof', 'due': '21-Jul.2026', 'finish_now': '10-Aug.2026', 'pct': 90.0}]}},
+        'advice': {'tiles': [], 'top_management': [{'title': 'T', 'text': 'x'}], 'rules': 'R',
+                   'pm_headline': {'big': 'The site completed about half of the planned work.', 'small': 'Work done: 48.3 M'},
+                   'pm_head': [{'title': 'Put extra crews on Piles', 'text': 'Depends on **Drilling For Piles**.', 'action': 'add a crew.',
+                                'ref': 'Planner reference: A1'}],
+                   'pm_fronts': {}, 'pm_tail': [], 'front_type': None,
+                   'pm_small': {'Type of Works': {'title': 'Small in money but long in time', 'text': '**Cable Works** is small.',
+                                                  'action': 'confirm deliveries.', 'tone': 'warn'}}},
+    }
+
+
+def test_round4_sections_are_in_the_report_with_their_calculations():
+    h = render_html(_round4_report(), trend=None)
+    assert 'previous update forecast 46.1%' in h and 'No — tool calculation' in h          # the renamed marker + its source
+    assert '5.3% ÷ 5.7% = 93%' in h and '11 ÷ 26 = 42%' in h and 'Not a P6 figure.' in h
+    assert 'When will the project finish — by time' in h and 'Civil Works' in h and 'not a finish date' in h
+    assert '<b>Why the money date is too early.</b>' in h and '**' not in h             # the bold marks are rendered
+    assert 'Install Silo Roof' in h and 'word-only' in h                                # the missed activities, by name
+
+
+def test_round4_finish_section_follows_the_picked_activity_code():
+    h = render_html(_round4_report(), trend=None, finish_group='Area')
+    assert 'Silo 1' in h and 'Civil Works carries' not in h
+    # an unknown pick falls back to the default code
+    assert 'Civil Works carries' in render_html(_round4_report(), trend=None, finish_group='Nope')
+
+
+def test_round4_pm_advice_is_in_plain_words_with_action_and_planner_reference():
+    from p6_period.exporters import advice_pm_items
+    rep = _round4_report()
+    h = render_html(rep, trend=None)
+    assert 'in plain words' in h and 'The site completed about half of the planned work.' in h
+    assert 'add a crew.' in h and 'Planner reference: A1' in h and '<b>Drilling For Piles</b>' in h
+    # the "small in money" action belongs to the code picked in the finish section
+    assert [i['title'] for i in advice_pm_items(rep['advice'], None, 'Type of Works')][-1] == 'Small in money but long in time'
+    assert len(advice_pm_items(rep['advice'], None, 'Area')) == 1
+    assert 'Small in money but long in time' not in render_html(rep, trend=None, finish_group='Area')
+
+
+def test_round4_excel_carries_the_same_tables():
+    from p6_period.exporters import _excel_round4_rows, report_excel_extra_sheets
+    rep = _round4_report()
+    flat = [' | '.join(str(c) for c in r) for r in _excel_round4_rows(dict(rep, finish_group='Area'))]
+    assert any('Silo 1' in r for r in flat) and not any('Civil Works' in r for r in flat)
+    assert any('Previous update forecast' in r and '46.1%' in r for r in flat) and any('11 ÷ 26 = 42%' in r for r in flat)
+    assert not any('**' in r for r in flat)
+    sheet = [s for s in report_excel_extra_sheets(rep) if s['name'] == 'Due Not Finished'][0]
+    assert 'Install Silo Roof' in str(sheet)
+
+
+def test_default_finish_grouping_is_type_of_work_then_discipline_or_trade():
+    from types import SimpleNamespace
+    from p6_period.insight import work_type_code
+    curr = SimpleNamespace(activities={})
+    assert work_type_code(curr, ['Area', 'Trade', 'Type of Works']) == 'Type of Works'
+    assert work_type_code(curr, ['Area', 'Discipline']) == 'Discipline'
+    assert work_type_code(curr, ['Area', 'Trade Code']) == 'Trade Code'
