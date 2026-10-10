@@ -718,8 +718,19 @@ class _Writer:
                     'bbox': (x0, y0, max(x1, x0 + 0.75), y1)}
         prims = []
         if 'scale' in bar:
-            rows = bar.get('scale_rows') or [0] * len(bar['scale'])
+            rows = list(bar.get('scale_rows') or [0] * len(bar['scale']))
             row_h = 9.6                                  # one line of the scale (months alternate lines, years have their own)
+            # Word's column is narrower than the PDF's: month names that fit on one line there would
+            # run into each other here - they take as many lines (up to 3) as their width needs
+            mi = [i for i, (_l, lab, _c) in enumerate(bar['scale']) if rows[i] >= 1 and not (lab.isdigit() and len(lab) == 4)]
+            if len(mi) > 1:
+                xs = sorted(x(bar['scale'][i][0]) for i in mi)
+                gap = min((b2 - a2 for a2, b2 in zip(xs, xs[1:]) if b2 - a2 > 0.01), default=w_pt)
+                need = max(len(bar['scale'][i][1]) for i in mi) * 7.4 * 0.6 + 4.0
+                lines = max(1, min(3, -(-need // gap)))
+                if lines > len({rows[i] for i in mi}):
+                    for k, i in enumerate(sorted(mi, key=lambda i: bar['scale'][i][0])):
+                        rows[i] = 1 + int(k % lines)
             h = row_h * (max(rows) + 1) + 1.0
             for (left, label, col), r in zip(bar['scale'], rows):
                 x0, y0 = x(left), 0.5 + r * row_h

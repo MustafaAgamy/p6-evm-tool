@@ -80,3 +80,36 @@ def test_the_printed_gantt_marks_its_bar_column_for_the_exports():
     g = open(os.path.join(ROOT, 'ui', 'modules', 'gantt.js'), encoding='utf-8').read()
     assert len(re.findall(r'class="gp-tl" data-export="bar"', g)) == 3      # header, activity row, WBS band row
     assert 'class="gp-tl" data-export="skip"' not in g
+
+
+def _months_html():
+    mons = ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    w = 100.0 / len(mons)
+    spans = ('<span class="yr" data-r="0" style="left:0%;width:7.69%"></span>'
+             '<span class="yr" data-r="0" style="left:7.69%;width:92.31%">2025</span>'
+             + ''.join(f'<span class="mo" data-r="1" style="left:{i * w:.2f}%;width:{w:.2f}%">{m}</span>' for i, m in enumerate(mons)))
+    head = ('<thead><tr><th>WBS</th><th>Baseline Start</th><th>Baseline Finish</th><th>Expected Start</th><th>Expected Finish</th>'
+            '<th>Planned %</th><th>Actual %</th><th>Delay</th>'
+            f'<th class="gp-tl" data-export="bar"><div class="gp-scale">{spans}</div></th></tr></thead>')
+    row = ('<tr><td>Engineering</td><td>19-Dec.2024</td><td>15-May.2025</td><td>19-Dec.2024 A</td><td>15-Sep.2025</td>'
+           '<td>100.0%</td><td>45.3%</td><td>-123 d</td><td class="gp-tl" data-export="bar"><div class="gp-track">'
+           '<b class="gp-bar" style="left:10.00%;width:30.00%"><s style="width:50%"></s></b></div></td></tr>')
+    return (f'<html><head><style>{_gantt_css()}</style></head><body><div data-sec="wbs"><h2>WBS</h2>'
+            f'<table class="gp-table">{head}<tbody>{row}</tbody></table></div></body></html>')
+
+
+def test_word_month_names_never_run_into_each_other(tmp_path):
+    """Owner: 'when exporting to word the Gantt chart ... the scale seems to be unreadable'. The PDF
+    fits 13 month names on one line; Word's column is narrower, so there they take more lines."""
+    from p6_export import to_docx
+    out = tmp_path / 'm.docx'
+    to_docx.html_to_docx(_months_html(), str(out), app_name='X', feature='WBS', project='P', chrome=None)
+    x = zipfile.ZipFile(out).read('word/document.xml').decode('utf8')
+    lines = [p for p in re.findall(r'<w:p>.*?</w:p>', x, flags=re.S)
+             if 'Consolas' in p and re.search(r'>(Jan|Feb|Dec)<', p)]
+    assert len(lines) >= 2, 'the month names are spread over more than one line'
+    for p in lines:                                   # on a line, each name has the room of its width
+        stops = [int(v) for v in re.findall(r'<w:tab w:val="left" w:pos="(\d+)"', p)]
+        assert all(b - a >= 3 * 7.4 * 0.6 * 20 for a, b in zip(stops, stops[1:])), stops
+    names = re.findall(r'>(Dec|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov)<', ''.join(lines))
+    assert len(names) == 13, 'every month is still written'
