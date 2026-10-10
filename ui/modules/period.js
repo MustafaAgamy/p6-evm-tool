@@ -1036,11 +1036,11 @@ async function _fetchTrend() {
 // pick a different second file and re-run without navigating away from the results.
 function _fileBar(report) {
   return `<div class="cmp-files">
-    <span class="cmp-file"><span class="k">Previous (last period)</span> <b>${escapeHtml(report.prev_file || ‘—‘)}</b> · ${escapeHtml(report.data_date_prev || ‘’)}</span>
+    <span class="cmp-file"><span class="k">Previous (last period)</span> <b>${escapeHtml(report.prev_file || '—')}</b> · ${escapeHtml(report.data_date_prev || '')}</span>
     <span class="cmp-vs">→</span>
-    <span class="cmp-file"><span class="k">Current (this period)</span> <b>${escapeHtml(report.update_file || ‘—‘)}</b> · ${escapeHtml(report.data_date_now || ‘’)}</span>
+    <span class="cmp-file"><span class="k">Current (this period)</span> <b>${escapeHtml(report.update_file || '—')}</b> · ${escapeHtml(report.data_date_now || '')}</span>
     <button class="btn-mini" id="per-change-prev-inline">Change last-period file…</button>
-  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || ‘not in the file and none attached — the update’s own Planned dates stand in (approximate)’)}</div>` : ‘’}`;
+  </div>${report.baseline_approx ? `<div class="per-cutoff" data-baseline-approx>Baseline: ${escapeHtml(report.baseline_label || 'not in the file and none attached — the update’s own Planned dates stand in (approximate)')}</div>` : ''}`;
 }
 
 // Pure helpers exposed for unit tests.
