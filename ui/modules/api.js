@@ -4,7 +4,7 @@ import { evmInputs }                                             from './evm.js'
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult, selectedCalendars } from './calendar.js';
-import { lagExportFilter, dngLiveModule }                        from './audit.js';
+import { lagExportFilter, dngLiveModule, wdLiveModule }                        from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
 import { overviewGroupKey, overviewHideZero, wbsCriticalMode }   from './overview.js';
@@ -238,6 +238,10 @@ export async function exportExcel(btnId = 'excel-btn') {
       const live = dngLiveModule();                  // comment 82: the workbook matches the screen
       if (live) excelBody.dangling_live = live;
     }
+    if (state.currentModule === 'whole_day') {
+      const live = wdLiveModule();                   // the workbook matches the screen after fixes
+      if (live) excelBody.whole_day_live = live;
+    }
     if (state.currentModule === 'hard_constraints') {
       // the milestones found in the schedule file are held on screen only (not stored) — send
       // them so the workbook lists them too
@@ -278,6 +282,10 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
   if (module === 'dangling') {
     const live = dngLiveModule();
     if (live) reqBody.dangling_live = live;
+  }
+  if (module === 'whole_day') {
+    const live = wdLiveModule();
+    if (live) reqBody.whole_day_live = live;
   }
 
   // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches

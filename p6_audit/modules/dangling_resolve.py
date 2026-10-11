@@ -136,6 +136,9 @@ def revalidate(data, config, accepted, completion=None):
         for x in effective
         if x.get('finding_id') and x.get('activity_id') and x['activity_id'] not in still_dangling
     })
+    # P6's own activity totals beside the check, as on import (a fix never changes them)
+    _g = ScheduleGraph(data)
+    fresh['p6_counts'] = {'total': len(_g.p6_all()), 'remaining': len(_g.p6_remaining())}
     return {
         'findings': fresh['findings'],
         'fresh_ids': sorted({f['finding_id'] for f in fresh['findings']}),

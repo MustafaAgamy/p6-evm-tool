@@ -2315,6 +2315,33 @@ table.ai-illog th, table.ai-illog td { overflow: hidden; word-break: break-word;
 .wd-row.open .wd-chev { transform:rotate(90deg); }
 .wd-det { display:none; padding:2px 11px 10px; border-top:1px solid var(--border); }
 .wd-row.open .wd-det { display:block; }
+/* Whole-day Review & Resolve — the fix columns on the existing evidence rows */
+.wd-top.wd-top-fix { grid-template-columns:78px minmax(90px,1.2fr) 118px minmax(90px,.9fr) 118px minmax(250px,1.5fr) 60px 168px 18px; }
+.wd-head { cursor:default; padding:4px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.wd-head:hover { background:transparent; }
+.wd-fix { font-size:11.5px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; cursor:default; }
+.wd-in { width:56px; font:inherit; font-size:12px; font-weight:700; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text); text-align:center; }
+.wd-in.typed { border-color:var(--warning); background:var(--warning-bg); }
+.wd-picks { display:inline-flex; gap:3px; }
+.wd-pick { font-size:10px; font-weight:700; padding:2px 7px; border:1px solid var(--border); border-radius:20px; background:var(--card-bg); color:var(--muted); cursor:pointer; white-space:nowrap; }
+.wd-pick:hover { border-color:var(--accent); color:var(--accent); }
+.wd-pick.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.wd-own { font-size:10px; color:var(--warning); font-weight:700; }
+.wd-res { font-size:11.5px; font-variant-numeric:tabular-nums; text-align:center; white-space:nowrap; }
+.wd-act { white-space:nowrap; display:flex; align-items:center; gap:5px; justify-content:flex-end; cursor:default; }
+.wd-heldmsg { font-size:11px; font-weight:700; color:var(--warning); }
+.wd-row.wd-done { border-color:var(--success); }
+.wd-was { font-size:11px; font-weight:600; color:var(--muted); margin-left:4px; }
+.wd-rule { font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.wd-rule select { font:inherit; font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--card-bg); color:var(--text); }
+/* Summary - Corrected schedule card */
+.shr-cf-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+.shr-cf-row > div:first-child { flex:1; min-width:0; }
+.shr-cf-row .n { font-weight:700; } .shr-cf-row .s { font-size:11.5px; color:var(--muted); } .shr-cf-row .up { color:var(--success); }
+.shr-cf-pill { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; background:var(--bg); color:var(--muted); white-space:nowrap; }
+.shr-cf-pill.ok { background:var(--success-bg); color:var(--success); }
+.shr-cf-btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+.shr-cf-note { margin-top:8px; }
 /* Summary — highlight sub-features that need review (below the 80% standard) */
 .shr-crow.needs-review { background:rgba(251,191,36,.06); }
 .shr-review { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:1px 6px; border-radius:5px; background:rgba(251,191,36,.16); color:var(--warning); margin-left:4px; }

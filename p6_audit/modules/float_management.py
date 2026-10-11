@@ -187,7 +187,10 @@ def float_management(graph, config):
     # Dates, Inputs From Client, ...) are NOT construction. Only when no branch is named as
     # construction does the meaning of the deeper WBS names decide (Construction the fallback).
     branches = {top_key(a.get('wbs_path') or '') for _, a in assessable}
-    constr_branches = {b for b in branches if classify_wbs_name(b) == 'Construction'}
+    # P6's Construction WBS: the branch(es) NAMED construction; a branch that only reads as
+    # construction by meaning (e.g. Mobilization) counts only when no branch carries the name
+    constr_branches = ({b for b in branches if 'construction' in (b or '').lower()}
+                       or {b for b in branches if classify_wbs_name(b) == 'Construction'})
     if constr_branches:
         def in_constr(a):
             return top_key(a.get('wbs_path') or '') in constr_branches

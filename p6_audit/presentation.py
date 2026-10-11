@@ -503,9 +503,13 @@ _TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'wh
 _ACTIVITY_CONTEXT = {'relationship_types'}
 # comment 81: what the 'Task Activities Checked' tile counts, said in words under the tiles
 TASKS_CHECKED_LABEL = 'Task Activities Checked'
-TASKS_CHECKED_NOTE = ('Task Activities Checked = the activities this check examines: Task Dependent and '
+TASKS_CHECKED_NOTE = ('Remaining Activities = every activity that is not completed yet (Not Started + In Progress), '
+                      'of every type - the count P6 shows. '
+                      'Task Activities Checked = the activities this check examines: Task Dependent and '
                       'Resource Dependent activities, completed ones included. Milestones, Level of Effort '
-                      'and WBS Summary activities are not checked, so this figure is lower than Total Activities.')
+                      'and WBS Summary activities are not checked, so this figure is lower than Total Activities. '
+                      'The two count different things: one leaves out completed activities, the other leaves out '
+                      'milestones, Level of Effort and WBS Summary activities.')
 
 
 def build_presentation(module_result):

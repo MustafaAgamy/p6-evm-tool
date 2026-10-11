@@ -208,6 +208,21 @@ def write_corrected(source_path, accepted, out_path, note=_CORRECTION_NOTE):
 _XER_PRED_TYPE = {'FS': 'PR_FS', 'SS': 'PR_SS', 'FF': 'PR_FF', 'SF': 'PR_SF'}
 
 
+def read_xer_keeping_encoding(path):
+    """(text, encoding, newline) of an XER file, decoded the way the parser reads it - so a
+    corrected copy is written back in the SAME encoding and line ending. P6 writes XER in the
+    Windows code page; re-saving it as UTF-8 garbles Arabic text and currency symbols on import."""
+    with open(path, 'rb') as fh:
+        raw = fh.read()
+    for enc in ('utf-8-sig', 'cp1252', 'latin-1'):
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    return text, enc, ('\r\n' if '\r\n' in text else '\n')
+
+
 def _fmt_hours(v):
     v = float(v or 0.0)
     return str(int(v)) if v == int(v) else repr(v)
@@ -220,9 +235,7 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
     Every other table is preserved verbatim. TASKPRED matches on internal task ids, so
     ops (keyed by activity code) are expanded to all task-id pairs for that code — duplicate
     codes are handled the same way the XML writer does. Returns {'applied', 'out_path'}."""
-    from p6_evm.xer import _read_text
-    text = _read_text(source_path)
-    newline = '\r\n' if '\r\n' in text else '\n'
+    text, encoding, newline = read_xer_keeping_encoding(source_path)
     lines = [ln.rstrip('\r') for ln in text.split('\n')]
 
     # Pass 1 — map activity code → [task_id] from the TASK table.
@@ -364,6 +377,6 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
         # signature parity with the XML writer.)
         pass
 
-    with open(out_path, 'w', encoding='utf-8', newline='') as fh:
+    with open(out_path, 'w', encoding=encoding, newline='') as fh:
         fh.write(newline.join(out_lines))
     return {'applied': applied, 'out_path': out_path}

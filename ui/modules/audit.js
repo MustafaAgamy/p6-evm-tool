@@ -1154,21 +1154,7 @@ export function dngLiveModule() {
 // is left untouched so navigating back to it never loses the review/preview state.
 async function _dngRefreshRollup(out) {
   if (!out || out.score == null) return;
-  const am = state.currentModules;
-  const dm = am && am.modules && am.modules.dangling;
-  if (dm) {
-    const freshDng = Object.assign({}, dm,
-      { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings });
-    const modulesCopy = Object.assign({}, am.modules, { dangling: freshDng });
-    try {
-      const resp = await fetch(`http://localhost:${state.serverPort}/api/health/recompute`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modules: modulesCopy }),
-      });
-      const r = await resp.json();
-      if (r.ok && r.health) am.health = r.health;
-    } catch (e) { /* leave the Summary score as-is if the recompute can't be reached */ }
-  }
+  await _liveRefreshRollup();
   _dngUpdateRail(out);
 }
 
@@ -1714,24 +1700,271 @@ function renderModuleBody(m) {
   return renderStandardModule(m);
 }
 
-// Whole-day Durations — evidence view. Each flagged activity shows the calendar and
-// hours/day it sits on and WHY the duration is a decimal (calendar-driven, a part-hours
-// entry, or not determinable), expanding to Finding / Evidence / Root cause / Impact /
-// Recommendation — so the user sees where the decimal comes from, not just a score.
+// Whole-day Durations — evidence view + Review & Resolve. Each flagged activity shows the calendar
+// and hours/day it sits on and WHY the duration is a decimal (calendar-driven, a part-hours entry,
+// or not determinable), expanding to Finding / Evidence / Root cause / Impact / Recommendation —
+// and carries an editable whole-day fix the planner applies, re-checks and downloads as a
+// corrected P6 file (same way of working as Dangling Review & Resolve).
 function wdCauseClass(c) {
   return { cal: 'wd-cal', entry: 'wd-entry', nd: 'wd-nd' }[c] || 'wd-nd';
 }
-function renderWholeDay(m) {
-  const p = m.presentation || {};
-  const rows = (m.findings || []).map(f => {
-    const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
-    return `<div class="wd-row">
-      <div class="wd-top">
+
+export const WD_RULES = [['nearest', 'Round to nearest'], ['up', 'Round up'], ['down', 'Round down']];
+
+// The whole number of days a rule suggests for a decimal duration (never below 1 day).
+export function wdSuggest(f, rule) {
+  const d = Number(f.original_days) || 0;
+  const v = rule === 'up' ? Math.ceil(d) : rule === 'down' ? Math.floor(d)
+    : (f.rounds_to != null ? Number(f.rounds_to) : Math.round(d));
+  return Math.max(1, v || 0);
+}
+
+// A typed duration is accepted only as a whole number of days, 1 or more.
+export function wdValidDays(v) {
+  const n = Number(String(v == null ? '' : v).trim());
+  return (Number.isInteger(n) && n >= 1) ? n : null;
+}
+
+export function wdHours(f, days) {
+  const h = Math.round(days * (Number(f.day_hours) || 8) * 100) / 100;
+  return `${h} h`;
+}
+
+let _wd = { sig: null, all: [], fresh: [], applied: {}, held: new Set(), edits: {}, rule: 'nearest', view: 'open' };
+
+function _wdSig(m) {
+  const f = (m.findings || [])[0] || {};
+  return `${(m.kpis || {}).total_activities || ''}|${(m.findings || []).length}|${f.finding_id || ''}`;
+}
+
+function _wdInit(m) {
+  const sig = _wdSig(m);
+  if (sig !== _wd.sig) {
+    _wd = { sig, all: (m.findings || []).slice(), fresh: (m.findings || []).slice(),
+            applied: {}, held: new Set(), edits: {}, rule: 'nearest', view: 'open', live: null,
+            name: m.name || 'Whole-day Durations', base: m.kpis || {},
+            hero: { score: m.score, grade: m.grade, presentation: m.presentation || {}, applied: 0 } };
+  }
+  renderWdReview();
+}
+
+// The Whole-day check as it stands on screen after the applied fixes (null when nothing is applied,
+// or when the review on screen belongs to another schedule).
+export function wdLiveModule() {
+  const m = state.currentModules && state.currentModules.modules && state.currentModules.modules.whole_day;
+  return (m && _wd.live && _wdSig(m) === _wd.sig) ? _wd.live : null;
+}
+
+function _wdAppliedOps() { return Object.values(_wd.applied); }
+
+function _wdDays(f) {                     // the value in the row's box: typed, else the suggested rule
+  const e = _wd.edits[f.finding_id];
+  return (e !== undefined && e !== '') ? e : wdSuggest(f, _wd.rule);
+}
+
+async function _wdValidate() {
+  const resp = await fetch(`http://localhost:${state.serverPort}/api/wholeday/validate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+                           accepted: _wdAppliedOps() }),
+  });
+  return resp.json();
+}
+
+// Take a re-check result: started activities are held back (never applied), the rest move to Resolved.
+function _wdTake(out) {
+  (out.held || []).forEach(fid => {
+    _wd.held.add(fid);
+    Object.keys(_wd.applied).forEach(a => { if (_wd.applied[a].finding_id === fid) delete _wd.applied[a]; });
+  });
+  _wd.fresh = out.findings || [];
+  const n = Object.keys(_wd.applied).length;
+  _wd.hero = { score: out.score, grade: out.grade, presentation: out.presentation || {}, applied: n };
+  _wd.live = n
+    ? { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings,
+        presentation: out.presentation, applied: n }
+    : null;
+}
+
+function _wdUpdateRail() {
+  const tab = document.querySelector('.module-tab[data-module="whole_day"]');
+  const h = _wd.hero;
+  if (tab && h && h.score != null) {
+    const sc = tab.querySelector('.mt-score'); if (sc) sc.textContent = h.score;
+    const dot = tab.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${gradeClass(h.grade)}`;
+  }
+}
+
+async function _wdRecheck(rollbackFn) {
+  const out = await _wdValidate();
+  if (!out.ok) { if (rollbackFn) rollbackFn(); throw new Error(out.error || 'Validation failed.'); }
+  _wdTake(out);
+  renderWdReview();
+  _wdUpdateRail();
+  await _liveRefreshRollup();
+  return out;
+}
+
+async function _wdApply(fid) {
+  if (_wd._busy) return;
+  const f = _wd.all.find(x => x.finding_id === fid);
+  if (!f) return;
+  const days = wdValidDays(_wdDays(f));
+  if (days == null) { _dngToast('Type a whole number of days (1 or more) — a decimal would leave the activity flagged.', 'err'); return; }
+  const prev = _wd.applied[f.activity_id];
+  _wd.applied[f.activity_id] = { finding_id: fid, activity_id: f.activity_id, new_days: days };
+  _wd._busy = true;
+  try {
+    const out = await _wdRecheck(() => { if (prev) _wd.applied[f.activity_id] = prev; else delete _wd.applied[f.activity_id]; });
+    if ((out.held || []).includes(fid)) _dngToast(`${f.activity_id}: not applied — the activity has started; set its duration in P6.`, 'err');
+    else _dngToast(`${f.activity_id}: ${f.original_days} d → ${days} d (${wdHours(f, days)}) — moved to Resolved.`, 'ok');
+  } catch (e) {
+    _dngToast((e && e.message) || 'Could not reach the analysis engine — the fix was not applied.', 'err');
+    renderWdReview();
+  } finally { _wd._busy = false; }
+}
+
+async function _wdApplyAll(quiet) {
+  if (_wd._busy) return null;
+  const todo = _wd.fresh.filter(f => !_wd.held.has(f.finding_id));
+  if (!todo.length) { if (!quiet) _dngToast('No open decimal duration left to fix.', 'err'); return { applied: 0, held: 0 }; }
+  const prev = Object.assign({}, _wd.applied);
+  let skipped = 0;
+  todo.forEach(f => {
+    const days = wdValidDays(_wdDays(f));
+    if (days == null) { skipped += 1; return; }
+    _wd.applied[f.activity_id] = { finding_id: f.finding_id, activity_id: f.activity_id, new_days: days };
+  });
+  const before = Object.keys(prev).length;
+  _wd._busy = true;
+  try {
+    const out = await _wdRecheck(() => { _wd.applied = prev; });
+    const applied = Object.keys(_wd.applied).length - before;
+    const heldN = (out.held || []).length;
+    if (!quiet) {
+      _dngToast(`Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${_wd.fresh.length} still open.`
+        + (heldN ? ` ${heldN} not applied — the activity has started; set its duration in P6.` : '')
+        + (skipped ? ` ${skipped} skipped — the typed value is not a whole number of days.` : ''),
+        applied ? 'ok' : 'err');
+    }
+    return { applied, held: heldN };
+  } catch (e) {
+    if (!quiet) _dngToast((e && e.message) || 'Could not reach the analysis engine — no fixes were applied.', 'err');
+    renderWdReview();
+    return null;
+  } finally { _wd._busy = false; }
+}
+
+async function _wdReopen(fid) {
+  const f = _wd.all.find(x => x.finding_id === fid);
+  if (!f) return;
+  const prev = _wd.applied[f.activity_id];
+  delete _wd.applied[f.activity_id];
+  try { await _wdRecheck(() => { if (prev) _wd.applied[f.activity_id] = prev; }); }
+  catch (e) { _dngToast((e && e.message) || 'Could not reach the analysis engine.', 'err'); renderWdReview(); }
+}
+
+// ONE corrected P6 file for Schedule Health: `fixes` = {sub-feature key: [applied fix]}.
+async function _healthDownloadCorrected(fixes, suffix, noteFn) {
+  const total = Object.values(fixes).reduce((n, a) => n + (a || []).length, 0);
+  if (!total) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const ext = (dot > 0 ? base.slice(dot + 1).toLowerCase() : 'xer') === 'xml' ? 'xml' : 'xer';
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  let outputPath;
+  try { outputPath = await window.pywebview.api.choose_save_path(`${stem}_${suffix}.${ext}`, ext); } catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  noteFn('Writing corrected schedule…');
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/health/corrected-file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+                             output_path: outputPath, fixes, completion: _dngCompletion() }),
+    });
+    const out = await resp.json();
+    const msg = out.ok ? `Saved — ${out.applied} change(s) written. Open it in P6 and press F9.`
+                       : (out.error || 'Could not write the corrected file.');
+    noteFn(msg, !out.ok);
+    _dngToast(msg, out.ok ? 'ok' : 'err');
+  } catch (e) {
+    noteFn('Could not write the corrected file.', true);
+    _dngToast('Could not write the corrected file.', 'err');
+  }
+}
+
+function _wdDlNote(text, isErr) {
+  const el = document.querySelector('#wd-review .dng-dlnote');
+  if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+}
+
+function _wdRenderHero() {
+  const host = document.getElementById('wd-hero');
+  if (!host) return;
+  const h = _wd.hero || {}, p = h.presentation || {}, b = _wd.base || {};
+  const was = { 'Decimal Durations': b.decimal_count, 'Decimal %': b.decimal_pct == null ? null : `${b.decimal_pct}%` };
+  const tiles = (p.tiles || []).map(t => {
+    const w = (h.applied > 0 && was[t.label] != null) ? ` <span class="wd-was">was ${escapeHtml(String(was[t.label]))}</span>` : '';
+    return `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}${w}</div></div>`;
+  }).join('')
+    + (h.applied > 0 ? `<div class="kpi"><div class="k">Fixes Applied</div><div class="v">${h.applied}</div></div>` : '')
+    + (p.tiles_note ? `<div class="kpi-note">${escapeHtml(p.tiles_note)}</div>` : '');
+  const preview = h.applied > 0
+    ? `<div class="coverage dng-preview">Preview — reflects ${h.applied} applied fix${h.applied === 1 ? '' : 'es'}; click Download to write them to P6.</div>`
+    : '';
+  const heldN = _wd.held.size;
+  const held = heldN > 0
+    ? `<div class="coverage dng-held">${heldN} fix${heldN === 1 ? '' : 'es'} not applied — the activity has started, so its duration is set in P6 and it still counts in Decimal %.</div>`
+    : '';
+  host.innerHTML = `
+    <div class="audit-hero">
+      <div class="score-card">
+        ${gaugeHtml(h.score)}
+        <div class="score-meta">
+          <div class="grade-badge ${gradeClass(h.grade)}">${escapeHtml(h.grade || '')}</div>
+          <div class="coverage">${escapeHtml(_wd.name || '')} — Sub-feature Score</div>
+          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
+          ${preview}${held}
+        </div>
+      </div>
+      <div class="kpi-tiles">${tiles}</div>
+    </div>
+    ${scoringLegendHtml(p.scoring)}`;
+}
+
+function _wdRow(f, resolved) {
+  const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
+  const fid = escapeHtml(f.finding_id);
+  const ap = _wd.applied[f.activity_id];
+  let fix, result, action;
+  if (resolved && ap) {
+    fix = `<b>${escapeHtml(String(ap.new_days))} d</b>`;
+    result = wdHours(f, ap.new_days);
+    action = `<span class="dng-resolved">✓ Applied</span> <button class="dng-caret" data-wdact="reopen" data-fid="${fid}">Reopen</button>`;
+  } else if (_wd.held.has(f.finding_id)) {
+    fix = `<span class="wd-heldmsg">Activity has started — set its duration in P6</span>`;
+    result = '—'; action = '';
+  } else {
+    const cur = _wdDays(f), typed = _wd.edits[f.finding_id] !== undefined && _wd.edits[f.finding_id] !== '';
+    const picks = [['down', 'Down'], ['nearest', 'Nearest'], ['up', 'Up']].map(([r, lbl]) => {
+      const v = wdSuggest(f, r);
+      return `<button class="wd-pick${!typed && r === _wd.rule ? ' on' : ''}" data-wdact="pick" data-fid="${fid}" data-days="${v}">${lbl} ${v}</button>`;
+    }).join('');
+    const ok = wdValidDays(cur) != null;
+    fix = `<input class="wd-in${typed ? ' typed' : ''}" data-wdfield="days" data-fid="${fid}" type="number" min="1" step="1" value="${escapeHtml(String(cur))}"> d <span class="wd-picks">${picks}</span>${typed ? '<span class="wd-own">your own value</span>' : ''}`;
+    result = ok ? wdHours(f, wdValidDays(cur)) : '—';
+    action = `<button class="dng-mini" data-wdact="apply" data-fid="${fid}">Apply</button>`;
+  }
+  return `<div class="wd-row${resolved ? ' wd-done' : ''}">
+      <div class="wd-top wd-top-fix" data-wdact="details">
         <div class="wd-id mono">${escapeHtml(f.activity_id)}</div>
         <div class="wd-nm" title="${escapeHtml(f.activity_name)}">${escapeHtml(f.activity_name)}</div>
-        <div class="wd-dur"><b>${escapeHtml(String(f.original_days))} d</b> → ${escapeHtml(String(f.rounds_to))} d</div>
+        <div class="wd-dur"><b>${escapeHtml(String(f.original_days))} d</b>${f.planned_hours != null ? ` · ${escapeHtml(String(f.planned_hours))} h` : ''}</div>
         <div class="wd-cal" title="${escapeHtml(f.calendar)}">${escapeHtml(f.calendar)}${f.day_hours ? ' · ' + escapeHtml(String(f.day_hours)) + 'h' : ''}</div>
         <div class="wd-cause ${wdCauseClass(f.cause)}">${escapeHtml(f.cause_label)}</div>
+        <div class="wd-fix" data-wdstop="1">${fix}</div>
+        <div class="wd-res" data-wdres="${fid}">${escapeHtml(result)}</div>
+        <div class="wd-act" data-wdstop="1">${action}</div>
         <div class="wd-chev">›</div>
       </div>
       <div class="wd-det">
@@ -1740,30 +1973,225 @@ function renderWholeDay(m) {
         <div class="ms-nl"><div class="mk">Recommendation</div><div class="mv rec">${escapeHtml(f.recommendation || '')}</div></div>
       </div>
     </div>`;
-  }).join('') || '<p style="color:var(--muted);font-size:13px">No decimal durations — every activity is a whole number of days.</p>';
+}
 
-  document.getElementById('module-body').innerHTML = `
-    <div class="audit-hero">
-      <div class="score-card">
-        ${gaugeHtml(m.score)}
-        <div class="score-meta">
-          <div class="grade-badge ${gradeClass(m.grade)}">${escapeHtml(m.grade || '')}</div>
-          <div class="coverage">${escapeHtml(m.name)} — Sub-feature Score</div>
-          <div class="coverage">${escapeHtml(p.verdict || '')}</div>
-        </div>
+function renderWdReview() {
+  const host = document.getElementById('wd-review');
+  _wdRenderHero();
+  if (!host) return;
+  const still = new Set(_wd.fresh.map(f => f.activity_id));
+  const openF = _wd.fresh, resolvedF = _wd.all.filter(f => !still.has(f.activity_id));
+  const view = _wd.view;
+  const list = view === 'open' ? openF.map(f => _wdRow(f, false))
+    : view === 'resolved' ? resolvedF.map(f => _wdRow(f, true))
+    : _wd.all.map(f => _wdRow(f, !still.has(f.activity_id)));
+  const n = Object.keys(_wd.applied).length;
+  const canAll = openF.some(f => !_wd.held.has(f.finding_id));
+  const tab = (v, lbl, c) => `<button class="dng-tab ${view === v ? 'active' : ''}" data-wdact="view" data-view="${v}">${lbl} <span class="cnt">${c}</span></button>`;
+  const empty = !_wd.all.length
+    ? 'No decimal durations — every activity is a whole number of days.'
+    : view === 'open' ? 'No open decimal durations — every one has a fix applied.'
+    : 'No fixes applied yet.';
+  host.innerHTML = `
+    <div class="dng-toolbar">
+      <div class="dng-tabs">${tab('open', 'Open', openF.length)}${tab('resolved', 'Resolved', resolvedF.length)}${tab('all', 'All', _wd.all.length)}</div>
+      <label class="wd-rule">Suggested rule
+        <select data-wdfield="rule">${WD_RULES.map(([k, l]) => `<option value="${k}"${k === _wd.rule ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      </label>
+      <div class="dng-dlwrap">
+        <button class="dng-dl" data-wdact="download" ${n ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <div class="dng-dlnote">${n
+          ? `${n} duration(s) changed · exports a corrected XER — open in P6 and F9.`
+          : 'Apply at least one fix to enable. Exports a corrected XER.'}</div>
       </div>
-      <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
-    ${scoringLegendHtml(p.scoring)}
+    ${_wd.all.length ? `<div class="dng-applyall">
+      <button class="dng-applyall-btn" data-wdact="applyall" ${canAll ? '' : 'disabled'}>⚡ Apply all suggested fixes</button>
+      <div class="dng-applyall-hint"><b>What Apply does:</b> it changes the Original Duration (and the Remaining Duration of a not-started activity) to the whole number of days, on the activity's own calendar. Nothing is written to your file until you press Download. Schedule the corrected file in P6 (F9) so the dates follow the new durations.</div>
+    </div>` : ''}
     <div class="wd-legend2">
       <span><i class="dot wd-cal"></i>Calendar hrs/day — likely contributing</span>
       <span><i class="dot wd-entry"></i>Part-hours entry — not the calendar</span>
       <span><i class="dot wd-nd"></i>Cause not determinable</span>
     </div>
-    <div class="mod-sec">Decimal durations <span class="mod-sub">— where each comes from, and why (click a row)</span></div>
-    <div class="wd-rows">${rows}</div>`;
-  document.querySelectorAll('#module-body .wd-top').forEach(t =>
-    t.addEventListener('click', () => t.parentNode.classList.toggle('open')));
+    ${_wd.all.length ? `<div class="wd-top wd-top-fix wd-head"><div>Activity ID</div><div>Activity Name</div><div>Current Duration</div><div>Calendar</div><div>Cause</div><div>Fix — new duration (editable)</div><div>Result</div><div></div><div></div></div>` : ''}
+    <div class="wd-rows">${list.join('') || `<p style="color:var(--muted);font-size:13px">${empty}</p>`}</div>`;
+  _wdWire();
+}
+
+function _wdWire() {
+  const host = document.getElementById('wd-review');
+  if (!host) return;
+  host.onclick = (e) => {
+    const t = e.target.closest('[data-wdact]');
+    if (!t) return;
+    const act = t.getAttribute('data-wdact'), fid = t.getAttribute('data-fid');
+    if (act === 'details') { if (!e.target.closest('[data-wdstop]')) t.parentNode.classList.toggle('open'); }
+    else if (act === 'view') { _wd.view = t.getAttribute('data-view'); renderWdReview(); }
+    else if (act === 'pick') { _wd.edits[fid] = t.getAttribute('data-days'); renderWdReview(); }
+    else if (act === 'apply') { _wdApply(fid); }
+    else if (act === 'applyall') { _wdApplyAll(); }
+    else if (act === 'reopen') { _wdReopen(fid); }
+    else if (act === 'download') { _healthDownloadCorrected({ whole_day: _wdAppliedOps() }, 'whole_day_corrected', _wdDlNote); }
+  };
+  host.onchange = (e) => {
+    const r = e.target.closest('[data-wdfield="rule"]');
+    if (r) { _wd.rule = r.value; _wd.edits = {}; renderWdReview(); return; }
+    const d = e.target.closest('[data-wdfield="days"]');
+    if (d) { _wd.edits[d.getAttribute('data-fid')] = d.value; renderWdReview(); }
+  };
+  host.oninput = (e) => {                    // the Result hours follow the typed days at once
+    const d = e.target.closest('[data-wdfield="days"]');
+    if (!d) return;
+    const fid = d.getAttribute('data-fid');
+    const f = _wd.all.find(x => x.finding_id === fid), v = wdValidDays(d.value);
+    const cell = host.querySelector(`[data-wdres="${fid}"]`);
+    if (cell && f) cell.textContent = v == null ? '—' : wdHours(f, v);
+  };
+}
+
+function renderWholeDay(m) {
+  document.getElementById('module-body').innerHTML = `
+    <div id="wd-hero"></div>
+    <div class="mod-sec">Whole-day Review &amp; Resolve <span class="mod-sub">— accept or change the fix, re-check, and download a corrected P6 file (click a row for where the decimal comes from)</span></div>
+    <div id="wd-review"></div>`;
+  _wdInit(m);
+}
+
+// ── One roll-up for every sub-feature that previews fixes ─────────────────────────────────────────
+// The modules as they stand on screen: the stored ones, with each sub-feature's re-checked figures
+// swapped in while it has fixes applied. The stored modules are never changed.
+function _liveModules(am) {
+  const mods = Object.assign({}, am.modules);
+  [['dangling', dngLiveModule()], ['whole_day', wdLiveModule()]].forEach(([k, live]) => {
+    if (live && mods[k]) {
+      mods[k] = Object.assign({}, mods[k], { score: live.score, grade: live.grade, pct: live.pct,
+                                             kpis: live.kpis, findings: live.findings });
+    }
+  });
+  return mods;
+}
+
+// Recompute the Summary roll-up (same engine as import) from the modules as they stand on screen.
+async function _liveRefreshRollup() {
+  const am = state.currentModules;
+  if (!am || !am.modules) return;
+  if (am._healthBase === undefined) am._healthBase = am.health || null;      // the file as imported
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/health/recompute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modules: _liveModules(am) }),
+    });
+    const r = await resp.json();
+    if (r.ok && r.health) am.health = r.health;
+  } catch (e) { /* leave the Summary score as-is if the recompute can't be reached */ }
+  const health = am.health;
+  const st = document.querySelector('.module-tab.mt-summary');
+  if (st && health) {
+    const sc = st.querySelector('.mt-score'); if (sc) sc.textContent = (health.score == null ? '—' : health.score);
+    const dot = st.querySelector('.mt-dot'); if (dot) dot.className = `mt-dot ${scoreColor(health.score == null ? 0 : health.score)}`;
+  }
+}
+
+// ── Summary ▸ Corrected schedule — every applied fix in ONE P6 file ───────────────────────────────
+// A sub-feature joins by adding one entry here (and a writer in p6_audit/corrected_file.py).
+function _healthFixers(am) {
+  const mods = (am && am.modules) || {};
+  const out = [];
+  if (mods.dangling) {
+    const cur = _dngSig(mods.dangling) === _dng.sig;
+    const n = cur ? Object.keys(_dng.applied).length : 0, held = cur ? _dng.blocked.size : 0;
+    const open = cur ? _dng.fresh.length : (mods.dangling.findings || []).length;
+    out.push({ key: 'dangling', name: mods.dangling.name || 'Dangling Activities', applied: n,
+               ops: cur ? _dngAppliedOps() : [],
+               sub: `${n} activit${n === 1 ? 'y' : 'ies'} with relationship types changed · ${open} still open`
+                    + (held ? ` · ${held} held back (completion milestone)` : ''),
+               before: mods.dangling.score, after: (dngLiveModule() || {}).score });
+  }
+  if (mods.whole_day) {
+    const cur = _wdSig(mods.whole_day) === _wd.sig;
+    const n = cur ? Object.keys(_wd.applied).length : 0, held = cur ? _wd.held.size : 0;
+    const open = cur ? _wd.fresh.length : (mods.whole_day.findings || []).length;
+    out.push({ key: 'whole_day', name: mods.whole_day.name || 'Whole-day Durations', applied: n,
+               ops: cur ? _wdAppliedOps() : [],
+               sub: `${n} duration${n === 1 ? '' : 's'} rounded to whole days · ${open} still open`
+                    + (held ? ` · ${held} started (set in P6)` : ''),
+               before: mods.whole_day.score, after: (wdLiveModule() || {}).score });
+  }
+  return out;
+}
+
+function _healthCorrectedHtml(health, am) {
+  const fx = _healthFixers(am);
+  if (!fx.length) return '';
+  const total = fx.reduce((n, f) => n + f.applied, 0);
+  const rows = fx.map(f => `
+    <div class="shr-cf-row"><div><div class="n">${escapeHtml(f.name)}</div><div class="s">${escapeHtml(f.sub)}</div></div>
+      <span class="shr-cf-pill ${f.applied ? 'ok' : ''}">${f.applied} applied</span>
+      <button class="dng-caret" data-cfact="open" data-key="${f.key}">Open ›</button></div>`).join('');
+  const base = am._healthBase;
+  const arrow = (b, a, suf) => (a == null || a === b)
+    ? `<span class="s">${b == null ? '—' : b + suf}</span><span class="s">no fix applied</span>`
+    : `<span class="s">${b == null ? '—' : b + suf}</span><b class="up">→ ${a}${suf}</b>`;
+  const prev = `
+    <div class="shr-cf-row"><div class="n">Overall Schedule Health</div>${arrow(base ? base.score : health.score, total && base ? health.score : null, '')}</div>`
+    + fx.map(f => `<div class="shr-cf-row"><div class="n">${escapeHtml(f.name)}</div>${arrow(f.before, f.after, '%')}</div>`).join('');
+  return `
+      <div class="shr-grid2" id="shr-corrected">
+        <div class="card">
+          <div class="shr-ct">Corrected schedule <span class="r">every applied fix in one P6 file</span></div>
+          <div class="shr-empty">Fixes you applied in the sub-features, ready to be written into one P6 file.</div>
+          ${rows}
+          <div class="shr-cf-row"><div><div class="n">Other sub-features</div><div class="s">No fix option in the tool yet — each will appear here automatically when it gets one.</div></div><span class="shr-cf-pill">not yet</span><span></span></div>
+          <div class="shr-cf-btns">
+            <button class="dng-dl" data-cfact="download" ${total ? '' : 'disabled'}>⬇ Download Corrected XER — ${total} fix${total === 1 ? '' : 'es'}</button>
+            <button class="dng-btn" data-cfact="applyall">⚡ Apply all suggested fixes in every sub-feature</button>
+          </div>
+          <div class="dng-dlnote shr-cf-note">The file carries the fixes only — schedule it in P6 (F9) and re-import it here to confirm the new scores.</div>
+        </div>
+        <div class="card">
+          <div class="shr-ct">Score with the fixes <span class="r">preview</span></div>
+          ${prev}
+          <div class="shr-empty">While fixes are applied, the Summary gauge, the sub-feature rows and the PDF / Word report show the "after" figures. Float and critical-path figures stay as imported until the scheduled file is re-imported.</div>
+        </div>
+      </div>`;
+}
+
+function _healthCorrectedWire(am) {
+  const host = document.getElementById('shr-corrected');
+  if (!host) return;
+  const note = (text, isErr) => {
+    const el = host.querySelector('.shr-cf-note');
+    if (el) { el.textContent = text; el.style.color = isErr ? 'var(--danger)' : ''; }
+  };
+  host.onclick = async (e) => {
+    const t = e.target.closest('[data-cfact]');
+    if (!t) return;
+    const act = t.getAttribute('data-cfact');
+    if (act === 'open') { selectModule(t.getAttribute('data-key')); }
+    else if (act === 'download') {
+      const fixes = {};
+      _healthFixers(am).forEach(f => { if (f.ops.length) fixes[f.key] = f.ops; });
+      _healthDownloadCorrected(fixes, 'corrected', note);
+    }
+    else if (act === 'applyall') {
+      if (host._busy) return;
+      host._busy = true;
+      note('Applying all suggested fixes…');
+      try {
+        const mods = am.modules || {};
+        const before = _healthFixers(am).reduce((n, f) => n + f.applied, 0);
+        if (mods.dangling) { _dngInit(mods.dangling); await _dngApplyAll(); }
+        if (mods.whole_day) { _wdInit(mods.whole_day); await _wdApplyAll(true); }
+        await _liveRefreshRollup();
+        const fx = _healthFixers(am);
+        const after = fx.reduce((n, f) => n + f.applied, 0);
+        if (state.currentModule === SUMMARY_KEY) renderSummary(am.health || null, am);
+        _dngToast(`Applied ${after - before} more fix${after - before === 1 ? '' : 'es'} — ${fx.map(f => `${f.name}: ${f.applied}`).join(' · ')}.`,
+                  after ? 'ok' : 'err');
+      } finally { host._busy = false; }
+    }
+  };
 }
 
 // Standard check view: gauge hero + KPI tiles + filterable findings table,
@@ -2267,11 +2695,14 @@ function renderSummary(health, am) {
         </div>
       </div>
 
+      ${_healthCorrectedHtml(health, am)}
+
       <div class="card shr-concl">
         <div class="shr-ct">Conclusion</div>
         <p>${escapeHtml(statement)}</p>
       </div>
     </div>`;
+  _healthCorrectedWire(am);
 }
 
 // ── Float Analysis management dashboard (V2 redesign) ─────────────────────

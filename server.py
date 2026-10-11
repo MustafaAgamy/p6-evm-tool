@@ -494,6 +494,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dangling_validate(body)
         elif self.path == '/api/dangling/corrected-file':
             self._handle_dangling_corrected(body)
+        elif self.path == '/api/wholeday/validate':
+            self._handle_wholeday_validate(body)
+        elif self.path == '/api/health/corrected-file':
+            self._handle_health_corrected(body)
         elif self.path == '/api/health/recompute':
             self._handle_health_recompute(body)
         elif self.path == '/api/revcompare':
@@ -2732,6 +2736,48 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/wholeday/validate ────────────────────────────────────────────
+    def _handle_wholeday_validate(self, body):
+        """Whole-day Durations — re-check after the planner applies duration fixes. Re-parses the
+        imported schedule, puts the accepted whole-day durations on an in-memory copy and re-runs the
+        SAME whole-day check. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.whole_day_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, body.get('accepted') or [])
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/corrected-file ────────────────────────────────────────
+    def _handle_health_corrected(self, body):
+        """Schedule Health — ONE corrected schedule carrying the fixes applied in every sub-feature
+        (``fixes`` = {sub-feature key: [accepted fix]}; see p6_audit/corrected_file.py). Written to a
+        separate file; the imported file is never modified. Dates are untouched — F9 in P6."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        fixes = body.get('fixes') or {}
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.corrected_file import write_combined
+            res = write_combined(os.path.abspath(resolved), fixes, os.path.abspath(output_path),
+                                 completion=body.get('completion'))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/health/recompute ─────────────────────────────────────────────
     def _handle_health_recompute(self, body):
         """Recompute the Schedule Health roll-up from the client's CURRENT modules (with any in-memory
@@ -3186,6 +3232,29 @@ class Handler(BaseHTTPRequestHandler):
         out['presentation'] = pres
         return out
 
+    @staticmethod
+    def _whole_day_as_on_screen(m, body):
+        """After fixes are applied in Whole-day Review & Resolve, the report and the workbook print
+        the re-checked figures the screen shows (the stored module is the file as imported)."""
+        live = body.get('whole_day_live')
+        if not (isinstance(live, dict) and isinstance(live.get('findings'), list)
+                and isinstance(live.get('kpis'), dict)):
+            return m
+        out = dict(m)
+        for k in ('score', 'grade', 'pct', 'kpis', 'findings'):
+            if live.get(k) is not None:
+                out[k] = live[k]
+        pres = dict(live.get('presentation') or m.get('presentation') or {})
+        try:
+            n = int(live.get('applied') or 0)
+        except (TypeError, ValueError):
+            n = 0
+        note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
+                f"to write {'it' if n == 1 else 'them'} to P6.")
+        pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
+        out['presentation'] = pres
+        return out
+
     # ── /api/export/excel ──────────────────────────────────────────────────
     def _handle_export_excel(self, body):
         """Excel for ONE isolated module (never mixed). Read path = DB."""
@@ -3207,6 +3276,8 @@ class Handler(BaseHTTPRequestHandler):
                                             excel_severity_meta, filter_lag_findings)
             if module == 'dangling':
                 m = self._dangling_as_on_screen(m, body)
+            if module == 'whole_day':
+                m = self._whole_day_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if module == 'lag_lead' and lag_justifications:
                 # Print the justifications the planner has on screen (typed or previously saved).
@@ -3275,6 +3346,8 @@ class Handler(BaseHTTPRequestHandler):
             _theme = report_theme.normalize(body.get('theme'))
             if not is_summary and module == 'dangling':
                 m = self._dangling_as_on_screen(m, body)
+            if not is_summary and module == 'whole_day':
+                m = self._whole_day_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if not is_summary and module == 'lag_lead' and lag_justifications:
                 # Print the on-screen justifications (typed or saved) — the DB module has none

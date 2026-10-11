@@ -219,3 +219,18 @@ def test_construction_count_is_the_wbs_branch_named_construction():
     tags = {r['wbs']: r['is_construction'] for r in mg['wbs']}
     assert tags['Phase I Construction Works'] and not tags['Phase I Key Dates']
     assert not tags['Phase I Inputs Required From Client']
+
+
+def test_a_branch_named_construction_wins_over_one_that_only_reads_as_construction():
+    """P6 filter on WBS 'Construction': Mobilization / Closure branches are not in it."""
+    acts = ([_act(i, 60, wbs='Proj > Construction > Civil') for i in range(1, 4)]
+            + [_act(10, 90, wbs='Proj > Mobilization > Site Offices'),
+               _act(11, 90, wbs='Proj > Project Closure > Handing Over')])
+    ind = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']['indicators']
+    assert (ind['constr_over'], ind['constr_total']) == (3, 3)
+
+
+def test_no_branch_named_construction_falls_back_to_the_meaning_of_the_name():
+    acts = [_act(1, 60, wbs='Proj > Civil Works > Concrete'), _act(2, 60, wbs='Proj > Engineering > Drawings')]
+    ind = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']['indicators']
+    assert ind['constr_total'] == 1

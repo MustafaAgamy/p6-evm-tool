@@ -87,3 +87,9 @@ def test_dangling_report_prints_the_figures_after_the_applied_fixes():
 
 def test_calendar_audit_has_no_add_shutdown_button():
     assert 'cal-add-shutdown-btn">' not in _read('ui/modules/calendar.js')
+
+
+def test_note_tells_remaining_activities_from_task_activities_checked():
+    from p6_audit.presentation import TASKS_CHECKED_NOTE
+    assert TASKS_CHECKED_NOTE.startswith('Remaining Activities = every activity that is not completed yet')
+    assert 'Task Activities Checked = ' in TASKS_CHECKED_NOTE and 'count different things' in TASKS_CHECKED_NOTE
