@@ -1,7 +1,11 @@
+from collections import Counter
+
+
 class ScheduleGraph:
     def __init__(self, data):
         self.activities = data.activities
         self.calendars = getattr(data, 'calendars', {}) or {}  # for working-day lag in suggestions
+        self._set_hours_basis()
         self.data_date = (getattr(data, 'project', None) or {}).get('data_date')  # update cut-off
         self._succ = {oid: [] for oid in self.activities}
         self._pred = {oid: [] for oid in self.activities}
@@ -13,6 +17,22 @@ class ScheduleGraph:
             lag = rel.get('lag_days', 0.0)
             self._succ[p].append({'other': s, 'type': edge_type, 'lag_days': lag})
             self._pred[s].append({'other': p, 'type': edge_type, 'lag_days': lag})
+
+    # -- hours per day (review decision 2026-10-11) ---------------------------------------
+    # Days = hours / the working day of the calendar ASSIGNED TO THE ACTIVITY - each activity on
+    # its own calendar, as P6 holds it. `hours_basis` only describes that for the report.
+    def day_hours(self, act):
+        cal = self.calendars.get((act or {}).get('calendar_id'))
+        return (getattr(cal, 'day_hours', None) or 8.0) if cal else 8.0
+
+    def _set_hours_basis(self):
+        counts = Counter(round(self.day_hours(a), 4) for a in self.activities.values())
+        total = sum(counts.values())
+        self.hours_basis = {
+            'mode': 'own',                      # each activity on its own assigned calendar
+            'days': [{'hours': h, 'activities': n, 'pct': round(100.0 * n / total, 1)}
+                     for h, n in counts.most_common()],
+        }
 
     def succs_of(self, oid):
         return self._succ.get(oid, [])

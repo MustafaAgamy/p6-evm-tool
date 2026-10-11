@@ -500,6 +500,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_health_corrected(body)
         elif self.path == '/api/health/recompute':
             self._handle_health_recompute(body)
+        elif self.path == '/api/health/high-duration-scope':
+            self._handle_high_duration_scope(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -2790,6 +2792,29 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True, 'health': schedule_health(modules)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/high-duration-scope ───────────────────────────────────
+    def _handle_high_duration_scope(self, body):
+        """High Duration - count the top-level WBS the planner picked ({snapshot_id, wbs: [names]};
+        an empty list = back to the default, Construction only). The pick is kept with the imported
+        schedule and the check is re-counted from its stored result - no schedule file is read.
+        Returns {ok, module} with the refreshed check."""
+        sid = body.get('snapshot_id')
+        picked = [str(w) for w in (body.get('wbs') or []) if isinstance(w, str) and w.strip()]
+        if not sid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        try:
+            db.save_snapshot_ui_state(sid, db.HIGH_DURATION_WBS_KEY, picked or None)
+            mods = db.get_audit_modules_for_snapshot(sid) or {}
+            module = (mods.get('modules') or {}).get('high_duration')
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': f'The WBS scope could not be saved ({exc}).'})
+            return
+        if module is None:
+            self._json(200, {'ok': False, 'error': 'No High Duration result is stored for this schedule - import it again.'})
+            return
+        self._json(200, {'ok': True, 'module': module})
 
     # ── /api/compare/before-after ─────────────────────────────────────────
     def _handle_before_after(self, body):

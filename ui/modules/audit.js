@@ -339,7 +339,7 @@ function presentationTiles(p) {
   return (p.tiles || []).map(t =>
     `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('')
     // the highlighted note - what the check covers (presentation._highlight_note)
-    + (p.highlight ? `<div class="kpi-highlight">${escapeHtml(p.highlight)}</div>` : '')
+    + (p.highlights || (p.highlight ? [p.highlight] : [])).map(t => `<div class="kpi-highlight">${escapeHtml(t)}</div>`).join('')
     // comment 81: what 'Task Activities Checked' counts, in words under the tiles
     + (p.tiles_note ? `<div class="kpi-note">${escapeHtml(p.tiles_note)}</div>` : '');
 }
@@ -2301,6 +2301,76 @@ function _healthCorrectedWire(am) {
   };
 }
 
+// ── High Duration ▸ WBS scope — which top-level WBS the check counts ───────────────────────────
+// The evaluation (score, band, Summary) is ALWAYS the Construction WBS. As an additional option the
+// planner clicks any WBS bar to show its count and list its activities; the findings and every export follow (server: /api/health/high-duration-scope,
+// re-counted from the stored result). Rows = presentation.wbs_scope.
+export function hdScopePick(rows, toggled) {
+  // the WBS names counted after one bar is clicked; never empty (the last one stays counted)
+  const next = (rows || []).filter(r => (r.wbs === toggled ? !r.counted : r.counted)).map(r => r.wbs);
+  return next.length ? next : (rows || []).filter(r => r.counted).map(r => r.wbs);
+}
+function hdScopeHtml(m) {
+  const p = m.presentation || {}, rows = p.wbs_scope || [];
+  if (m.module !== 'high_duration' || !rows.length) return '';
+  const k = m.kpis || {};
+  const mx = Math.max(1, ...rows.map(r => r.activities || 0));
+  const bars = rows.map(r => {
+    const len = Math.max(1.5, 100 * (r.activities || 0) / mx), red = r.over ? Math.max(0.8, 100 * r.over / mx) : 0;
+    return `<div class="hds-row ${r.counted ? 'on' : 'off'}" data-hdswbs="${escapeHtml(r.wbs)}" title="Click to ${r.counted ? 'leave out' : 'count'} this WBS">
+      <span class="hds-tk">${r.counted ? '✓' : ''}</span><span class="hds-nm">${escapeHtml(r.wbs)}${r.evaluated ? ' <em class="hds-ev">in the score</em>' : ''}</span>
+      <span class="hds-track"><i style="width:${len}%"></i><u style="width:${red}%"></u></span>
+      <span class="hds-fig"><b>${Number(r.over || 0).toLocaleString()}</b> over ${escapeHtml(String(k.threshold ?? 44))} d of <b>${Number(r.activities || 0).toLocaleString()}</b> · ${r.pct}%</span></div>`;
+  }).join('');
+  const hasCon = rows.some(r => r.is_construction);
+  const all = rows.every(r => r.counted);
+  return `
+    <div class="mod-sec">WBS scope <span class="mod-sub">— additional option: which WBS to show (the evaluation stays on Construction)</span></div>
+    <div class="hds" id="hds">
+      <div class="hds-btns">
+        ${hasCon ? `<button class="hds-btn ${k.view_label === 'Construction only' ? 'on' : ''}" data-hdsset="construction">Construction only (default)</button>` : ''}
+        <button class="hds-btn ${all ? 'on' : ''}" data-hdsset="all">All WBS</button>
+        <span class="hds-hint">or click any WBS to list its activities — the score stays on the Construction WBS</span>
+        <span class="hds-msg" id="hds-msg"></span>
+      </div>
+      ${bars}
+      ${p.p6_filter ? `<div class="hds-p6">${escapeHtml(p.p6_filter)}</div>` : ''}
+    </div>`;
+}
+function hdScopeWire(m) {
+  const host = document.getElementById('hds');
+  if (!host) return;
+  const rows = (m.presentation || {}).wbs_scope || [];
+  const send = async (wbs) => {
+    if (host._busy) return;
+    host._busy = true;
+    const msg = document.getElementById('hds-msg');
+    if (msg) msg.textContent = 'Counting…';
+    try {
+      const r = await fetch(`http://localhost:${state.serverPort}/api/health/high-duration-scope`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshot_id: state.currentSnapshotId, wbs }),
+      }).then(x => x.json());
+      const am = state.currentModules;
+      if (r.ok && r.module && am && am.modules) {
+        am.modules.high_duration = r.module;
+        am._healthBase = undefined;              // the pick is part of the schedule's result now
+        await _liveRefreshRollup();
+        renderAudit(am);
+        selectModule('high_duration');
+        return;
+      }
+      if (msg) msg.textContent = r.error || 'The WBS scope could not be changed — please retry.';
+    } catch (e) {
+      if (msg) msg.textContent = 'Server error — please retry.';
+    } finally { host._busy = false; }
+  };
+  host.querySelectorAll('[data-hdswbs]').forEach(el =>
+    el.addEventListener('click', () => send(hdScopePick(rows, el.dataset.hdswbs))));
+  host.querySelectorAll('[data-hdsset]').forEach(el =>
+    el.addEventListener('click', () => send(el.dataset.hdsset === 'all' ? rows.map(r => r.wbs) : [])));
+}
+
 // Standard check view: gauge hero + KPI tiles + filterable findings table,
 // driven entirely by the module's spec so every check reads the same way.
 function renderStandardModule(m) {
@@ -2320,6 +2390,7 @@ function renderStandardModule(m) {
     </div>
     ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
+    ${hdScopeHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
     ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
     <div class="filters">
@@ -2329,6 +2400,7 @@ function renderStandardModule(m) {
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table findings-table">
       <thead id="find-head"></thead><tbody id="audit-tbody"></tbody></table></div>`;
 
+  hdScopeWire(m);
   document.getElementById('f-search').addEventListener('input', e => {
     _filters.query = e.target.value; renderRows();
   });

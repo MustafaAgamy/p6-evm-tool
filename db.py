@@ -1072,6 +1072,9 @@ def get_snapshot_xml_path(snapshot_id):
     return resolve_xml_path(row['original_path'], row['cached_path'])
 
 
+HIGH_DURATION_WBS_KEY = 'high_duration_wbs'   # snapshot_ui_state: the WBS picked for High Duration
+
+
 def get_audit_modules_for_snapshot(snapshot_id):
     """Reconstruct {'modules': {...}, 'module_order': [...], 'health': {...}} or None.
 
@@ -1105,6 +1108,15 @@ def get_audit_modules_for_snapshot(snapshot_id):
         if r['mgmt_json']:
             mod['mgmt'] = _json.loads(r['mgmt_json'])
         modules[r['module']] = mod
+    # High Duration counts the WBS the planner picked for this schedule (Construction by default);
+    # re-counted from the stored result, so the screen, the report and Excel all follow the pick.
+    if modules.get('high_duration') is not None:
+        try:
+            from p6_audit.modules.high_duration import rescope
+            modules['high_duration'] = rescope(modules['high_duration'],
+                                               get_snapshot_ui_state(snapshot_id, HIGH_DURATION_WBS_KEY))
+        except Exception as exc:
+            print(f'[audit] high-duration scope skipped: {exc}')
     # Attach the normalized presentation (the same single source the UI/PDF/Excel
     # render from) so a re-opened project renders identically to a fresh import.
     from p6_audit.presentation import build_presentation

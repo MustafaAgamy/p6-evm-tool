@@ -94,6 +94,7 @@ def run_float(graph, config):
             'remaining_activities': len(real),         # Not Started + In Progress (the % base)
             'above_threshold':  above,
             'float_pct':        float_pct,
+            'hours_basis':      dict(graph.hours_basis),   # how hours become days
             'threshold':        threshold,
             'max_float':        round(max(floats), 1) if floats else 0,
             'avg_float':        round(sum(floats) / len(floats), 1) if floats else 0,

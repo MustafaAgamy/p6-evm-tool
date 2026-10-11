@@ -234,10 +234,19 @@ SPECS = {
                     ('Recommendation', 'recommendation', 'mut')],
     },
     'high_duration': {
-        'verdict': lambda m: f"{_plain(m.get('pct'))}% of activities run longer than {_plain((m.get('kpis') or {}).get('threshold'))} working days.",
-        'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))), ('Over Threshold', k.get('over_threshold', 0)),
+        'verdict': lambda m: (f"{_plain(m.get('pct'))}% of the task activities evaluated "
+                              f"({(m.get('kpis') or {}).get('scope_label') or 'all WBS'}) run longer than "
+                              f"{_plain((m.get('kpis') or {}).get('threshold'))} working days."),
+        'tiles': lambda k: [('Task Dependent Activities (all WBS)', _num(k.get('all_task_activities', k.get('total_activities')))),
+                            ('WBS Evaluated', k.get('scope_label') or 'All WBS'),
+                            ('Task Dependent Activities Evaluated', _num(k.get('total_activities'))),
+                            ('Over Threshold', k.get('over_threshold', 0)),
                             ('High-Duration %', _pct(k.get('high_pct'))), ('Threshold', _days(k.get('threshold'))),
-                            ('Longest', _days(k.get('max_duration')))],
+                            ('Longest (all WBS)', _days(k.get('max_duration')))]
+                           + ([] if k.get('view_default', True) else
+                              [('Also Shown (picked WBS)', k.get('view_label') or ''),
+                               ('Over Threshold (picked WBS)',
+                                f"{k.get('view_over', 0):,} of {k.get('view_activities', 0):,} - {_plain(k.get('view_pct'))}%")]),
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Duration', 'duration_days', 'days'), ('Severity', 'severity', 'sev'),
                     ('Recommendation', 'recommendation', 'mut')],
@@ -497,7 +506,7 @@ def report_sections(m):
 
 
 # checks that examine the task activities only (Task / Resource Dependent, completed included)
-_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'whole_day'}
+_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'whole_day'}
 # checks on relationships: P6's activity total shown beside them for context (comment 47;
 # comment 80 took 'Remaining Activities' and 'Non-FS' off the Relationship Types report)
 _ACTIVITY_CONTEXT = {'relationship_types'}
@@ -611,14 +620,73 @@ def _tiles_note_with_figures(p6c, raw_tiles):
             f'Level of Effort and WBS Summary activities. ' + TASKS_CHECKED_NOTE)
 
 
-def _span_over_text(k):
-    """How the High Duration count reconciles with P6's 'Original Duration > limit' filter."""
-    n, over = k.get('span_over_threshold') or 0, k.get('over_threshold') or 0
-    if not n:
+def _scope_text(k):
+    """What the High Duration evaluation considers (Construction, always) and what the planner
+    picked to see beside it."""
+    names = k.get('scope_wbs') or []
+    if not names:
         return ''
-    return (f" In P6 the filter 'Original Duration is greater than {_plain(k.get('threshold', 44))}d' lists "
-            f'{over + n:,} activities: the {over:,} counted here + {n:,} Level of Effort / WBS Summary '
-            f"activit{'y' if n == 1 else 'ies'}, which only span other work and are not counted.")
+    total, every = k.get('total_activities') or 0, k.get('all_task_activities') or 0
+    thr = _plain(k.get('threshold', 44))
+    if k.get('scope_fallback'):
+        lead = (f'No WBS of this schedule is named Construction, so the evaluation considers every WBS '
+                f'({total:,} task activities).')
+    else:
+        lead = (f"The {thr}-working-day limit is a construction rule: the evaluation (score, band and "
+                f"Summary) considers the Construction WBS only, by default - {', '.join(names)}, "
+                f"{total:,} of the {every:,} task activities.")
+    lead += (' The WBS scope is an additional option: picking other WBS shows their count and their '
+             'activities - it does not change the evaluation.')
+    if not k.get('view_default', True):
+        lead += (f" Shown as picked: {k.get('view_label')} - {k.get('view_over', 0):,} of "
+                 f"{k.get('view_activities', 0):,} task activities over the limit ({_plain(k.get('view_pct'))}%).")
+    return lead
+
+
+def high_duration_figures_note(k):
+    """Every High Duration figure, worked out with this schedule's own numbers."""
+    if not k.get('scope_wbs') or k.get('all_activities') is None:
+        return None
+    every, tasks = k.get('all_activities') or 0, k.get('all_task_activities') or 0
+    total, over, thr = k.get('total_activities') or 0, k.get('over_threshold') or 0, _plain(k.get('threshold', 44))
+    pct = _plain(k.get('high_pct'))
+    score = _plain(round(100.0 - (k.get('high_pct') or 0), 1))
+    where = 'in every WBS' if k.get('scope_fallback') else f"under the Construction WBS ({', '.join(k['scope_wbs'])})"
+    return (f'In this schedule: Total Activities {every:,}. '
+            f'Task Dependent Activities (all WBS) {tasks:,} = {every:,} total - {every - tasks:,} milestones, '
+            f'Level of Effort, WBS Summary and Resource Dependent activities. '
+            f'Task Dependent Activities Evaluated {total:,} = the Task Dependent activities {where}. '
+            f'Over Threshold {over:,} = the evaluated activities whose Original Duration is greater than {thr} working days. '
+            f'High-Duration % {pct}% = {over:,} / {total:,}. Score {score} = 100 - {pct}. '
+            f"Longest (all WBS) {_plain(k.get('max_duration'))} d = the longest Original Duration of any Task Dependent activity.")
+
+
+def high_duration_p6_filter(k):
+    """The P6 filter that lists the same activities as the High Duration list (review tip 4)."""
+    names = k.get('view_wbs') or k.get('scope_wbs') or []
+    if not names:
+        return None
+    thr = _plain(k.get('threshold', 44))
+    wbs = '' if k.get('view_label') == 'All WBS' else ' and WBS is under ' + ' or '.join(names)
+    n = k.get('view_over', k.get('over_threshold', 0))
+    return (f"Check it in P6: filter Activity Type equals Task Dependent and "
+            f"Original Duration is greater than {thr}d{wbs} - P6 lists {n:,} activities, "
+            'the same activities as listed in this report.')
+
+
+def hours_basis_text(k):
+    """How hours become days (review decision 2026-10-11): each activity on the calendar assigned
+    to it. None when the result carries no basis (an older import)."""
+    b = k.get('hours_basis') if isinstance(k.get('hours_basis'), dict) else None
+    days = (b or {}).get('days') or []
+    if not days:
+        return None
+    text = "Days = hours \u00f7 the hours per day of the calendar assigned to each activity"
+    if len(days) == 1:
+        return text + f" - every activity of this schedule is on a calendar of {_plain(float(days[0]['hours']))} h/day."
+    parts = ', '.join(f"{_plain(float(d['hours']))} h/day: {d['activities']:,} activities ({_plain(d['pct'])}%)"
+                      for d in days)
+    return text + f' ({parts}).'
 
 
 def _highlight_note(m):
@@ -629,10 +697,8 @@ def _highlight_note(m):
         return ('This check covers Task Dependent and Resource Dependent activities only. '
                 'Milestones, Level of Effort and WBS Summary activities are not checked for dangling logic.')
     if mod == 'high_duration':
-        return (f"The {_plain(k.get('threshold', 44))}-working-day limit is meant for construction / "
-                'execution-of-works activities. The check reads every Task Dependent and Resource Dependent '
-                'activity, so a long engineering, procurement or delivery activity listed here may be '
-                'legitimate - review it before splitting it.' + _span_over_text(k))
+        return ('This check reads Task Dependent activities only. Milestones, Level of Effort, '
+                'WBS Summary and Resource Dependent activities are not counted. ' + _scope_text(k))
     if mod == 'negative_float':
         neg, frac = k.get('negative_count') or 0, k.get('fraction_count') or 0
         if neg and frac * 2 > neg:
@@ -679,7 +745,18 @@ def build_presentation(module_result):
         check = dangling_p6_check(k)
         if check:
             extra['p6_check'] = check
-    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'highlight': _highlight_note(m),
-            'columns': columns, 'rows': rows,
+    highlight = _highlight_note(m)
+    # every highlighted line under the tiles, in order: what the check covers, then the day basis
+    highlights = [t for t in (highlight, hours_basis_text(k)) if t]
+    if m.get('module') == 'high_duration':
+        tiles_note = high_duration_figures_note(k)
+        extra['p6_filter'] = high_duration_p6_filter(k)
+        extra['wbs_scope'] = [{'wbs': r.get('wbs'), 'activities': r.get('activities', 0), 'over': r.get('over', 0),
+                               'pct': r.get('pct', 0), 'counted': bool(r.get('counted')),
+                               'evaluated': bool(r.get('evaluated')),
+                               'is_construction': bool(r.get('is_construction'))}
+                              for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict)]
+    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'highlight': highlight,
+            'highlights': highlights, 'columns': columns, 'rows': rows,
             'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
             'sections': report_sections(m)}

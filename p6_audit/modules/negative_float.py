@@ -56,6 +56,7 @@ def run_negative_float(graph, config):
             'remaining_activities': len(remaining),    # Not Started + In Progress (the % base)
             'negative_count':   negative,
             'neg_pct':          pct,
+            'hours_basis':      dict(graph.hours_basis),   # how hours become days
             'fraction_count':   fraction,              # negative by no more than half a day
             'fraction_days':    FRACTION_DAYS,
             'most_negative':    (round(min(floats), 2) or round(min(floats), 4)) if floats else None,

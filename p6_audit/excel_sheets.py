@@ -116,7 +116,8 @@ def _summary_blocks(m):
     tiles = [[_tile_label(t.get('label', '')), _value(t.get('value'))] for t in (p.get('tiles') or [])
              if isinstance(t, dict)]
     if tiles:
-        blocks.append({'title': 'Key figures (as shown on the report)', 'note': ' '.join(t for t in (p.get('highlight'), p.get('tiles_note')) if t) or None,
+        blocks.append({'title': 'Key figures (as shown on the report)', 'note': ' '.join(t for t in (list(p.get('highlights') or [p.get('highlight')])
+                                                   + [p.get('p6_filter'), p.get('tiles_note')]) if t) or None,
                        'headers': ['Figure', 'Value'], 'rows': tiles})
 
     chk = p.get('p6_check') if isinstance(p.get('p6_check'), dict) else None

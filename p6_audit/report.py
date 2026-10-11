@@ -609,6 +609,26 @@ def _p6_check_html(c):
             f'{step4}</div>')
 
 
+def _wbs_scope_html(p):
+    """High Duration - which top-level WBS are counted, each WBS's own figures, and the P6 filter
+    that lists the same activities (same rows as the screen's WBS scope picker)."""
+    rows = p.get('wbs_scope') or []
+    if not rows:
+        return ''
+    body = ''.join(
+        f'<tr><td>{"Yes" if r.get("evaluated") else "No"}</td><td>{"Yes" if r["counted"] else "No"}</td>'
+        f'<td>{_esc(r["wbs"])}</td><td class="num">{r["activities"]:,}</td><td class="num">{r["over"]:,}</td>'
+        f'<td class="num">{_esc(r["pct"])}%</td></tr>' for r in rows)
+    p6 = f'<div class="dcma">{_esc(p["p6_filter"])}</div>' if p.get('p6_filter') else ''
+    return ('<div style="page-break-inside:avoid;break-inside:avoid"><h2 class="sec">WBS scope</h2>'
+            '<div class="dcma">Evaluated = in the score (the Construction WBS, by default). '
+            'Listed = shown in the findings (the WBS picked).</div>'
+            '<table><thead><tr><th>Evaluated</th><th>Listed</th>'
+            '<th>WBS (as named in P6)</th><th class="num">Task Activities</th>'
+            '<th class="num">Over Threshold</th><th class="num">High-Duration %</th></tr></thead>'
+            f'<tbody>{body}</tbody></table>{p6}</div>')
+
+
 def _presentation_dashboard(m):
     """Gauge + KPI tiles from the single-source presentation — same values as the screen."""
     p = m.get('presentation') or build_presentation(m)
@@ -618,8 +638,9 @@ def _presentation_dashboard(m):
     score_txt = '—' if score is None else score
     tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
     tiles_note = f'<div class="dcma">{_esc(p["tiles_note"])}</div>' if p.get('tiles_note') else ''
-    if p.get('highlight'):      # the highlighted note (what the check covers) - same text as the screen
-        tiles_note = f'<div class="hnote">{_esc(p["highlight"])}</div>' + tiles_note
+    # the highlighted notes (what the check covers, the day basis) - same text as the screen
+    notes = p.get('highlights') or ([p['highlight']] if p.get('highlight') else [])
+    tiles_note = ''.join(f'<div class="hnote">{_esc(t)}</div>' for t in notes) + _wbs_scope_html(p) + tiles_note
     return f'''
       <div class="dash">
         <div class="grade-card">
