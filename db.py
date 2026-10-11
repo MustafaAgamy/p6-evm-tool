@@ -1028,6 +1028,27 @@ def save_project_settings(project_id, patch):
     return settings
 
 
+# What a NEW import of a project keeps from its earlier imports: only the Reporting Studio
+# report templates the planner built (p6_special.templates.KEY).
+_FRESH_IMPORT_KEEPS = ('special_reports',)
+
+
+def reset_project_inputs(project_id):
+    """A new import starts clean (comment 86): drop what the planner typed for the earlier
+    imports of this project — contract milestones, lag justifications, weather location /
+    site type / limits / last estimate, added holidays, EVM setup. Returns the keys removed."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT settings_json FROM project_settings WHERE project_id = ?',
+                           (project_id,)).fetchone()
+        settings = _json.loads(row['settings_json']) if row and row['settings_json'] else {}
+        kept = {k: v for k, v in settings.items() if k in _FRESH_IMPORT_KEEPS}
+        removed = sorted(k for k in settings if k not in kept)
+        if removed:
+            conn.execute('INSERT OR REPLACE INTO project_settings (project_id, settings_json) VALUES (?, ?)',
+                         (project_id, _json.dumps(kept, default=str)))
+    return removed
+
+
 def get_contract_milestones(project_id):
     """The contract milestones the user entered for this project: [{'name','date'}].
     Held per project so they persist across re-imports (Milestone Check, gate B)."""

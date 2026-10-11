@@ -1104,7 +1104,11 @@ class Handler(BaseHTTPRequestHandler):
             # no activity' BEFORE anything is stored, so an attach parses the update and the
             # baseline once, not twice (R3 F11).
             trial_bl = body.get('attach_baseline') if refresh_sid else None
+            # fresh_start (comment 86): Browse / drag-drop is a NEW import — it starts clean, so it
+            # does not pick up the baseline attached to an earlier import of the same file either.
+            fresh_start = bool(body.get('fresh_start')) and not refresh_sid
             attached_bl = trial_bl or (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
+                                       else None if fresh_start
                                        else db.get_prior_baseline_for_hash(file_hash))
             data = load_schedule(xml_path, attached_bl)
             bl_info = getattr(data, 'baseline_info', None) or {}
@@ -1233,6 +1237,12 @@ class Handler(BaseHTTPRequestHandler):
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
             pid   = db.upsert_project(p6_id, name)
+            if fresh_start:
+                # nothing typed for an earlier import of this project rides into the new one
+                try:
+                    db.reset_project_inputs(pid)
+                except Exception as fs_exc:
+                    print(f'[import] fresh-start reset skipped: {fs_exc}', file=sys.stderr)
 
             # Merge the planner's saved lag/lead justifications (held per project) into the
             # register before it is persisted and returned, so re-imports keep the reasons.
@@ -1271,6 +1281,12 @@ class Handler(BaseHTTPRequestHandler):
                     activity_count = len(data.activities),
                     calendar_count = len(data.calendars),
                 )
+            if fresh_start:
+                # a cleared Narrative setup for THIS import, so it does not inherit the last one
+                try:
+                    db.save_snapshot_ui_state(sid, 'narrative_setup', None)
+                except Exception as fs_exc:
+                    print(f'[import] fresh-start narrative reset skipped: {fs_exc}', file=sys.stderr)
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:

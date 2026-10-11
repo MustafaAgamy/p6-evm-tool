@@ -55,7 +55,7 @@ def test_milestone_counted_like_p6():
 def test_total_float_rounded():
     g = _g({'a': _act('a', total_float_days=-8.26)}, [])
     f = run_negative_float(g, CONFIG)['findings'][0]
-    assert f['total_float_days'] == -8.3
+    assert f['total_float_days'] == -8.26          # comment 83: two decimals, as P6 shows it
 
 
 def test_kpis_pct_score_grade_module():

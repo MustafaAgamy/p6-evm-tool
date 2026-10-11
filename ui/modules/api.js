@@ -17,6 +17,20 @@ async function apiFetch(path, options) {
 }
 
 // showSpinner: show the browse-card spinner (true for Browse/drag-drop, false for history opens)
+// A different schedule is on screen: drop every comparison / report the session still holds for
+// the previous one (the files picked for it included), so no feature opens showing earlier work.
+// Each feature module clears its own picks on the 'controlyx:new-schedule' event.
+export function resetSessionWork() {
+  state.compareReport       = null;
+  state.compareBaselineName = null;
+  state.revcompareReport    = null;
+  state.revcompareRev0      = null;
+  state.revcompareRev1      = null;
+  state.revcompareTab       = 'summary';
+  state.narrativeDoc        = null;
+  try { document.dispatchEvent(new CustomEvent('controlyx:new-schedule')); } catch { /* no DOM (tests) */ }
+}
+
 export async function importFile(filePath, { showSpinner = true, onLoaded = null } = {}) {
   clearError();
   if (showSpinner) setLoading(true);
@@ -24,15 +38,16 @@ export async function importFile(filePath, { showSpinner = true, onLoaded = null
     const data = await apiFetch('api/parse', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ path: filePath, overrides_path: null }),
+      // fresh_start (comment 86): Browse / drag-drop is a NEW import — nothing typed or compared
+      // for an earlier import of this project comes back with it.
+      body:    JSON.stringify({ path: filePath, overrides_path: null, fresh_start: true }),
     });
     if (!data.ok) { showError(data.error || 'Parse failed.'); return data; }
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
     state.currentSnapshotId  = data.snapshot_id || null;
-    state.compareReport      = null;   // a new schedule invalidates any prior comparison
-    state.compareBaselineName = null;
+    resetSessionWork();
     // `onLoaded` lets a caller (the AI Chat) reuse the whole parse+state+history path but
     // stay in its own view — sending a P6 file inside the chat should NOT jump to the EVM
     // results panel. It still lights the menu-bar status light so the app stays consistent.
@@ -168,8 +183,7 @@ export async function loadProject(projectId, filePath, cachedPath) {
     state.currentXmlPath     = filePath   || data.original_path || '';
     state.currentCachedPath  = cachedPath || data.cached_path   || null;
     state.currentSnapshotId  = data.snapshot_id || null;
-    state.compareReport      = null;   // a different project invalidates any prior comparison
-    state.compareBaselineName = null;
+    resetSessionWork();                // a different project invalidates any prior comparison
     renderResults(data.result, state.currentXmlPath || cachedPath || '');
   } catch {
     showError('Could not reach the local server. Try restarting the app.');

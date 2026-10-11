@@ -29,7 +29,8 @@ def run_negative_float(graph, config):
             'activity_id':      act['id'],
             'activity_name':    act.get('name', ''),
             'wbs_path':         graph.wbs_path(oid),
-            'total_float_days': round(tf, 1),
+            # as P6 holds it (comment 83): a float of a few hours stays -0.05, never 0
+            'total_float_days': round(tf, 2) or round(tf, 4),
             'severity':         'Critical',
             'recommendation':   _RECOMMENDATION,
         })

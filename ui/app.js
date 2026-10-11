@@ -178,10 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Comment 87: Schedule Health, Baseline Narrative and Lag Report read the XER export only.
+  const XER_ONLY = new Set(['audit', 'narrative', 'lag']);
+  const needsXer = (view) => XER_ONLY.has(view) && !/\.xer$/i.test(state.currentXmlPath || state.currentCachedPath || '');
+
   // The "required inputs → Run" gate for a single-input feature (before it computes).
   function renderRunGate(view) {
     const gate = document.getElementById('feature-gate');
     const meta = FEATURE_META[view] || { title: view, icon: 'doc', verb: 'Run Analysis', desc: '' };
+    const xerBlock = needsXer(view);
     const fname = state.currentXmlPath
       ? state.currentXmlPath.split(/[\\/]/).pop()
       : ((state.currentResult && state.currentResult.project_name) || 'the imported schedule');
@@ -193,19 +198,22 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="fg-inputs">
           <div class="fg-inlabel">Required input</div>
-          <div class="fg-in ready">
-            <span class="fg-in-k">P6 schedule</span>
+          <div class="fg-in ${xerBlock ? '' : 'ready'}">
+            <span class="fg-in-k">${xerBlock ? 'P6 schedule (XER file)' : 'P6 schedule'}</span>
             <span class="fg-in-v">${escapeHtml(fname)}</span>
-            <span class="fg-in-ok">✓ ready</span>
+            ${xerBlock ? '<span class="fg-in-bad">✕ not an XER file</span>' : '<span class="fg-in-ok">✓ ready</span>'}
           </div>
         </div>
         <div class="fg-actions">
-          <button class="btn-primary fg-run" type="button">▶ ${escapeHtml(meta.verb)}</button>
-          <button class="btn-secondary fg-change" type="button">Change inputs</button>
+          <button class="btn-primary fg-run" type="button"${xerBlock ? ' disabled' : ''}>▶ ${escapeHtml(meta.verb)}</button>
+          <button class="btn-secondary fg-change" type="button">${xerBlock ? 'Import an XER file' : 'Change inputs'}</button>
         </div>
-        <p class="fg-note">Nothing is calculated until you press <b>${escapeHtml(meta.verb)}</b>.</p>
+        ${xerBlock
+          ? `<p class="fg-note fg-note-bad"><b>${escapeHtml(meta.title)} accepts XER files only.</b> The open schedule is a P6 XML export — export the same schedule from P6 as <b>.xer</b> and import it to run this feature.</p>`
+          : `<p class="fg-note">Nothing is calculated until you press <b>${escapeHtml(meta.verb)}</b>.</p>`}
       </div>`;
     gate.querySelector('.fg-run').addEventListener('click', () => {
+      if (needsXer(view)) return;
       state.ranFeatures.add(view);
       gate.classList.add('hidden');
       switchView(view);
@@ -231,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Multi-input features present their own required-inputs + Run inside the panel.
     if (SELF_GATING.has(view)) { gate.classList.add('hidden'); switchView(view); runFeature(view); return; }
     // Already run this session → jump straight back to the rendered results.
-    if (state.ranFeatures && state.ranFeatures.has(view)) { gate.classList.add('hidden'); switchView(view); return; }
+    if (state.ranFeatures && state.ranFeatures.has(view) && !needsXer(view)) { gate.classList.add('hidden'); switchView(view); return; }
     // First open of a single-input feature → show the Run gate; compute nothing yet.
     document.getElementById('analysis-chooser').classList.add('hidden');
     document.getElementById('analysis-views').classList.remove('hidden');

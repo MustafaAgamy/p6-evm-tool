@@ -370,6 +370,10 @@ function _fileBar(report) {
 // which a background re-import nulls while the panel still shows the old results.
 let _shownReport = null;
 let _shownImpact = null;
+// A new schedule was imported / opened: forget the files picked and the report shown for the last one.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('controlyx:new-schedule', () => { _shownReport = null; _shownImpact = null; });
+}
 
 export function renderCompareReport(report) {
   const body = document.getElementById('compare-body');

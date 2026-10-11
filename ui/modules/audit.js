@@ -263,6 +263,15 @@ const num = v => (Number(v) || 0).toLocaleString();
 const pctv = v => `${v ?? 0}%`;
 // days as whole numbers in every result (comment 53): -10.44 -> '-10 d'
 const dnum = v => (v === null || v === undefined || v === '') ? '—' : `${(Math.round(Number(v)) || 0)} d`;
+// Total float as P6 holds it — decimals kept (comment 83): -0.05 → '-0.05 d', -3 → '-3 d'.
+const fdays = v => {
+  if (v === null || v === undefined || v === '') return '—';
+  const f = Number(v);
+  if (isNaN(f)) return String(v);
+  let r = Math.round(f * 100) / 100;
+  if (r === 0 && f !== 0) r = Math.round(f * 10000) / 10000;
+  return `${r || 0} d`;
+};
 const isoDate = v => v ? (dateText(v) || String(v).slice(0, 10)) : '—';   // 03-Dec.2026 (comment 46)
 const MON3 = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fmtDate = v => {                       // ISO or already-nice → 9-Feb-2027
@@ -328,7 +337,9 @@ function cellHtml(cell) {
 
 function presentationTiles(p) {
   return (p.tiles || []).map(t =>
-    `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('');
+    `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('')
+    // comment 81: what 'Task Activities Checked' counts, in words under the tiles
+    + (p.tiles_note ? `<div class="kpi-note">${escapeHtml(p.tiles_note)}</div>` : '');
 }
 
 // "How this score is calculated" — the transparent scoring legend every check
@@ -1648,6 +1659,12 @@ function _dngRenderHero() {
   const preview = h.applied > 0
     ? `<div class="coverage dng-preview">Preview — reflects ${h.applied} applied fix${h.applied === 1 ? '' : 'es'}; click Download to write them to P6.</div>`
     : '';
+  // comment 82: say why Dangling % did not fall all the way — fixes the milestone guard held back
+  // were not applied, so their activities still count as dangling.
+  const heldN = _dng.blocked ? _dng.blocked.size : 0;
+  const held = heldN > 0
+    ? `<div class="coverage dng-held">${heldN} fix${heldN === 1 ? '' : 'es'} held back — applying ${heldN === 1 ? 'it' : 'them'} would push the contractual completion milestone past its date, so ${heldN === 1 ? 'that activity still counts' : 'those activities still count'} in Dangling %.</div>`
+    : '';
   host.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
@@ -1656,7 +1673,7 @@ function _dngRenderHero() {
           <div class="grade-badge ${gradeClass(h.grade)}">${escapeHtml(h.grade || '')}</div>
           <div class="coverage">${escapeHtml(h.name || '')} — Sub-feature Score</div>
           <div class="coverage">${escapeHtml(p.verdict || '')}</div>
-          ${preview}
+          ${preview}${held}
         </div>
       </div>
       <div class="kpi-tiles">${presentationTiles(p)}</div>
@@ -1828,7 +1845,7 @@ function renderCpliModule(m) {
     ['Critical Activities', k.critical_count == null ? '—' : Number(k.critical_count).toLocaleString()],
     ['Critical % (of remaining)', k.critical_pct == null ? '—' : `${k.critical_pct}%`],
     ['CPLI', ratioComputable ? `${ratioPct}%` : '—'],
-    ['Completion Total Float', dnum(k.project_total_float_days)],
+    ['Completion Total Float', fdays(k.project_total_float_days)],
     ['Critical Path Length', k.critical_path_length_days == null ? '—' : `${k.critical_path_length_days} d${k.cpl_basis === 'calendar' ? ' (cal)' : ''}`],
     ['Finish Milestone', fmTile],
   ];
@@ -2069,12 +2086,13 @@ function msCard(e) {
     ['Matched activity', e.matched_activity_id ? `${e.matched_activity_id} · ${e.matched_activity_name || ''}` : '— none —'],
     ['Scheduled finish', e.scheduled_finish || '—'],
     ['Variance', variance],
-    ['Total float', dnum(e.total_float_days)],
+    ['Total float', e.total_float_text || dnum(e.total_float_days)],
     ['On driving path', e.on_driving_path == null ? '—' : (e.on_driving_path ? 'Yes' : 'No')],
   ].map(([k, v]) => `<div class="ms-fact"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div></div>`).join('');
   const nl = (k, v) => `<div class="ms-nl"><div class="mk">${escapeHtml(k)}</div><div class="mv">${escapeHtml(v || '')}</div></div>`;
   return `<div class="ms-card">
     <div class="ms-ct"><div class="ms-cn">${escapeHtml(e.contract_name)}</div><div class="ms-st ${msStatusClass(e.status)}">${escapeHtml(e.status)}</div></div>
+    ${e.note ? `<div class="ms-note">${escapeHtml(e.note)}</div>` : ''}
     <div class="ms-facts">${facts}</div>
     <div class="ms-narr">${nl('Finding', e.finding)}${nl('Evidence', e.evidence)}${nl('Root cause', e.root_cause)}${nl('Impact', e.impact)}${nl('Recommendation', e.recommendation)}</div>
   </div>`;

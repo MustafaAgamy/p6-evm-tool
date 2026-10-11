@@ -522,6 +522,7 @@ def _presentation_dashboard(m):
     color = _GRADE.get(grade, report_theme.var('rpt-muted'))
     score_txt = '—' if score is None else score
     tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
+    tiles_note = f'<div class="dcma">{_esc(p["tiles_note"])}</div>' if p.get('tiles_note') else ''
     return f'''
       <div class="dash">
         <div class="grade-card">
@@ -531,7 +532,7 @@ def _presentation_dashboard(m):
           <div class="verdict">{_esc(p.get('verdict', ''))}</div>
         </div>
         <div class="kpis">{tiles}</div>
-      </div>
+      </div>{tiles_note}
       <div class="dcma">{_DCMA.get(m['module'], '')}</div>'''
 
 

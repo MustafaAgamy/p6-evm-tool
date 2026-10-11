@@ -29,7 +29,7 @@ The CPLI ratio above and the baseline float >= 0 rule are KEPT AS CONTEXT indica
 on the page; they no longer drive the score. The findings list is the DRIVING PATH —
 every activity P6 flags critical.
 """
-from p6_evm.calendars import signed_working_days
+from p6_evm.calendars import signed_working_days, signed_working_minutes
 from p6_audit.scoring import uniform_grade
 
 MODULE = 'cpli'
@@ -70,6 +70,20 @@ def _start_date(act):
 
 def _iso(dt):
     return dt.strftime('%Y-%m-%d') if dt is not None else None
+
+
+def _working_span_days(cal, start, end):
+    """Working days from start to end the way P6 measures a duration (comment 85): the working
+    HOURS between the two date-times on the calendar's own work times, divided by its hours per
+    day — so a data date at 18:00 or a finish at 07:03 counts the hours really worked, not a
+    whole day. A calendar with no work times counts whole working dates as before."""
+    hours = cal.day_hours or 0
+    if hours > 0 and cal.has_intraday():
+        mins = signed_working_minutes(cal, start, end)
+        if mins is not None:
+            days = round(mins / 60.0 / hours, 2)
+            return int(days) if float(days).is_integer() else days
+    return signed_working_days(cal, start, end)
 
 
 def compute_cpli(cpl, tf):
@@ -114,7 +128,7 @@ def run_cpli(graph, config):
     #    working-day float understates the slip and must not be read as exact.
     cal = graph.calendars.get(finish_milestone.get('calendar_id')) if finish_milestone else None
     if cal and data_date and finish_date:
-        cpl, cpl_basis = signed_working_days(cal, data_date, finish_date), 'working'
+        cpl, cpl_basis = _working_span_days(cal, data_date, finish_date), 'working'
     elif data_date and finish_date:
         cpl, cpl_basis = (finish_date - data_date).days, 'calendar'
     else:

@@ -16,6 +16,10 @@ import { UPDATE_NO_BASELINE_ADVICE } from './feature_needs.js';   // the same ad
 import { ATTACH_BASELINE_LABEL, attachBaselineFile, attachProblem, expectedBaselineAdvice } from './baseline.js';
 
 let _shownReport = null;
+// A new schedule was imported / opened: forget the files picked and the report shown for the last one.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('controlyx:new-schedule', () => { _shownReport = null; _scopePicked = []; _pickedTypes = []; _countFilter = { type: '', value: '' }; });
+}
 let _summaryLevel = 0;
 let _scopePicked = [];          // Section 5 — cost-loaded activity codes to weigh (multi-select)
 let _pickedTypes = [];          // Section 2 — the activity-code dimensions to chart (one chart each)

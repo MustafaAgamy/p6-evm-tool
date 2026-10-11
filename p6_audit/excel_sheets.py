@@ -66,9 +66,14 @@ def _scalar(v):
     return v is None or isinstance(v, (str, int, float, bool))
 
 
-def _pairs(d):
+# Figures a check's report no longer shows, so its workbook does not either (comment 80).
+_SKIP_FOR = {'relationship_types': {'non_fs', 'remaining_activities'}}
+
+
+def _pairs(d, skip=()):
     """A flat dict's plain figures as [heading, value] rows (nested parts are left to the caller)."""
-    return [[label(k), _value(v)] for k, v in d.items() if k not in _SKIP and _scalar(v)]
+    return [[label(k), _value(v)] for k, v in d.items()
+            if k not in _SKIP and k not in skip and _scalar(v)]
 
 
 def _table(rows):
@@ -111,10 +116,10 @@ def _summary_blocks(m):
     tiles = [[_tile_label(t.get('label', '')), _value(t.get('value'))] for t in (p.get('tiles') or [])
              if isinstance(t, dict)]
     if tiles:
-        blocks.append({'title': 'Key figures (as shown on the report)',
+        blocks.append({'title': 'Key figures (as shown on the report)', 'note': p.get('tiles_note') or None,
                        'headers': ['Figure', 'Value'], 'rows': tiles})
 
-    figures = _pairs(kpis)
+    figures = _pairs(kpis, _SKIP_FOR.get(m.get('module'), ()))
     if figures:
         blocks.append({'title': 'All figures', 'headers': ['Figure', 'Value'], 'rows': figures})
     for k, v in kpis.items():                                  # a chart's numbers (e.g. lags by type)

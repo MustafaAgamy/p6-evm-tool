@@ -7,6 +7,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Schedule Health: figures as P6 holds them, a clean start on every new import, XER only (comments 80–87)
+- **Relationship Types** no longer shows *Remaining Activities* or *Non-FS* (screen, report, Word, Excel).
+- **'Task Activities Checked' explained.** The tile is renamed from *Tasks Checked* and a note under the tiles says what it counts: Task Dependent and Resource Dependent activities (completed included) — milestones, Level of Effort and WBS Summary activities are not checked.
+- **Dangling Activities — fixes held back are said plainly.** When *Apply all recommended fixes* leaves some fixes unapplied because they would push the contractual completion milestone past its date, the score card now says how many were held back and that those activities still count in Dangling %.
+- **Negative Float shows the float with its decimals** (-0.45 d, never rounded to 0). Every activity with a total float below zero is counted, however small.
+- **Milestone Check — a few hours of negative float is not a failed milestone.** A milestone whose total float is negative by less than one working day reads *On track*, with a note that it carries a few hours of delay and the exact float. One working day or more is still a masked slip.
+- **Critical Path Length matches P6.** It is measured in working hours on the calendar's own work times, divided by the hours per day (Saint Gobain: 201.82 d, was 203 d). Completion Total Float keeps its decimals.
+- **A new import starts clean.** Browsing to or dropping a file no longer brings back what was typed for an earlier import of the same project — contract milestones, lag justifications, weather location and limits, Narrative setup, an attached baseline — nor an earlier comparison left on screen. Opening a project from Recent Projects still shows it as it was saved.
+- **Schedule Health, Baseline Narrative and Lag Report accept XER files only.** With an XML schedule open, the feature says so and Run stays off until an XER file is imported.
+
 ### Changed — P6 Calendar Audit: statistics from the Data Date to Project Completion, tables that match the histogram (comments 74–79)
 - **Data Date on the Execution Dashboard.** The key dates are now Baseline Start, Baseline Finish, **Data Date** and **Project Completion** (screen, report, Word, Excel).
 - **Statistics run from the Data Date to Project Completion, to the exact day.** Project Completion is the finish of the imported file itself — the baseline finish for a baseline file, the scheduled finish for an update. Total calendar days, working days and non-working days are counted between those two dates only (both days included), and Working + Non-working = Total calendar days. Non-working days are shown split into weekly rest days + holidays.

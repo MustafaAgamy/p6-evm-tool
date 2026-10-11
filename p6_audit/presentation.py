@@ -74,6 +74,24 @@ def _days(v):
     return '—' if v is None else f"{_whole_days(v)} d"
 
 
+def float_days_text(v):
+    """Total float as P6 holds it, decimals kept (comment 83): -0.05 -> '-0.05 d', -3.0 -> '-3 d'.
+    A float smaller than a hundredth of a day keeps the digits that tell it from zero."""
+    if v is None:
+        return '—'
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    r = round(f, 2)
+    if r == 0 and f != 0:
+        r = round(f, 4)
+    if r == 0:
+        return '0 d'
+    txt = str(int(r)) if float(r).is_integer() else f'{r:.4f}'.rstrip('0').rstrip('.')
+    return f'{txt} d'
+
+
 def _days_exact(v):
     """The Whole-Day check's own finding IS the decimal (51.71 d) — shown as P6 holds it."""
     return '—' if v is None else f"{_plain(v)} d"
@@ -140,6 +158,8 @@ def _cell_for(kind, value):
         return _cell(_days(value), 'num')
     if kind == 'days_exact':
         return _cell(_days_exact(value), 'num')
+    if kind == 'float_days':
+        return _cell(float_days_text(value), 'num')
     if kind == 'date':
         return _cell(_iso(value), 'mut')
     if kind == 'chain':
@@ -148,7 +168,7 @@ def _cell_for(kind, value):
 
 
 # align is 'num' (right) for numeric/day columns, '' otherwise.
-_NUM_KINDS = {'num', 'days', 'days_exact'}
+_NUM_KINDS = {'num', 'days', 'days_exact', 'float_days'}
 
 
 # ── per-check specs (ported verbatim from ui MODULE_SPECS — single source) ──
@@ -198,8 +218,7 @@ SPECS = {
         'verdict': lambda m: _reltype_verdict(m.get('kpis') or {}),
         'tiles': lambda k: [('Total Relationships', _num(k.get('total_relationships'))),
                             ('FS %', _type_pct(k, 'fs')), ('SS %', _type_pct(k, 'ss')),
-                            ('FF %', _type_pct(k, 'ff')), ('SF %', _type_pct(k, 'sf')),
-                            ('Non-FS', k.get('non_fs', 0))],
+                            ('FF %', _type_pct(k, 'ff')), ('SF %', _type_pct(k, 'sf'))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Predecessor', 'predecessor_display', 'mut'),
                     ('Successor', 'successor_display', 'mut'), ('Severity', 'severity', 'sev'),
@@ -239,7 +258,7 @@ SPECS = {
                             ('Negative Float', k.get('negative_count', 0)),
                             ('Negative-Float % (of remaining)', _pct(k.get('neg_pct')))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
-                    ('WBS Path', 'wbs_path', 'wbs'), ('Total Float', 'total_float_days', 'days'),
+                    ('WBS Path', 'wbs_path', 'wbs'), ('Total Float', 'total_float_days', 'float_days'),
                     ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
     },
     'whole_day': {
@@ -288,7 +307,7 @@ def _cpli_computable(k):
 
 def _cpli_tiles(k):
     cpl = k.get('critical_path_length_days')
-    cpl_txt = '—' if cpl is None else f"{cpl} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
+    cpl_txt = '—' if cpl is None else f"{_plain(cpl)} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
     cpli_ratio = k.get('cpli')
     return [
         ('Total Activities', _num(k.get('total_activities'))),
@@ -296,7 +315,7 @@ def _cpli_tiles(k):
         ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
         ('Critical % (of remaining)', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
         ('CPLI', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
-        ('Completion Total Float', _days(k.get('project_total_float_days'))),
+        ('Completion Total Float', float_days_text(k.get('project_total_float_days'))),
         ('Critical Path Length', cpl_txt),
         ('Finish Milestone', _fmt_date(k.get('finish_date')) if k.get('finish_date') else (k.get('finish_milestone_id') or '—')),
     ]
@@ -479,8 +498,14 @@ def report_sections(m):
 
 # checks that examine the task activities only (Task / Resource Dependent, completed included)
 _TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'whole_day'}
-# checks on relationships: P6's activity totals shown beside them for context (comment 47)
+# checks on relationships: P6's activity total shown beside them for context (comment 47;
+# comment 80 took 'Remaining Activities' and 'Non-FS' off the Relationship Types report)
 _ACTIVITY_CONTEXT = {'relationship_types'}
+# comment 81: what the 'Task Activities Checked' tile counts, said in words under the tiles
+TASKS_CHECKED_LABEL = 'Task Activities Checked'
+TASKS_CHECKED_NOTE = ('Task Activities Checked = the activities this check examines: Task Dependent and '
+                      'Resource Dependent activities, completed ones included. Milestones, Level of Effort '
+                      'and WBS Summary activities are not checked, so this figure is lower than Total Activities.')
 
 
 def build_presentation(module_result):
@@ -495,14 +520,15 @@ def build_presentation(module_result):
     else:
         raw_tiles = spec['tiles'](k)
     p6c = m.get('p6_counts') or {}
+    tiles_note = None
     if p6c and m.get('module') in _TASK_BASED:
         # comment 48: P6's own totals first — every activity (completed included) and the ones
         # still to do — then this check's own base, which is the task activities it examines
         raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
-                     + [(('Tasks Checked' if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
+                     + [((TASKS_CHECKED_LABEL if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
+        tiles_note = TASKS_CHECKED_NOTE
     if p6c and m.get('module') in _ACTIVITY_CONTEXT:
-        raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
-                     + list(raw_tiles))
+        raw_tiles = [('Total Activities', _num(p6c.get('total')))] + list(raw_tiles)
     tiles = [{'label': lab, 'value': _plain(val)} for lab, val in raw_tiles]
 
     columns = [{'label': lab, 'align': 'num' if kind in _NUM_KINDS else ''}
@@ -510,6 +536,6 @@ def build_presentation(module_result):
     rows = [[_cell_for(kind, f.get(field)) for lab, field, kind in spec['columns']]
             for f in findings]
 
-    return {'tiles': tiles, 'columns': columns, 'rows': rows,
+    return {'tiles': tiles, 'tiles_note': tiles_note, 'columns': columns, 'rows': rows,
             'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
             'sections': report_sections(m)}

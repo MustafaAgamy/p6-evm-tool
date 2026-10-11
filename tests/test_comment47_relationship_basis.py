@@ -26,6 +26,8 @@ def test_counts_behind_each_percentage_and_activity_totals():
     m['p6_counts'] = {'total': len(g.p6_all()), 'remaining': len(g.p6_remaining())}
     p = build_presentation(m)
     tiles = {t['label']: t['value'] for t in p['tiles']}
-    assert tiles['Total Activities'] == '4' and tiles['Remaining Activities'] == '3'
+    assert tiles['Total Activities'] == '4'
+    # comment 80: 'Remaining Activities' and 'Non-FS' are off the Relationship Types report
+    assert 'Remaining Activities' not in tiles and 'Non-FS' not in tiles
     assert tiles['SS %'] == '25% (1)' and tiles['FF %'] == '25% (1)'
     assert 'SS % = 1 ÷ 4 = 25%' in p['verdict']
