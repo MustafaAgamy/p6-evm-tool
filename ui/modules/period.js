@@ -16,6 +16,10 @@ let _shownTrend = null;    // the milestone trend currently on screen (carried i
 let _prev = null;          // {prev_path} or {prev_cached_path} assigned for the comparison
 let _prevName = null;       // display name of the assigned last-period file (for the inputs bar)
 let _curr = null;          // {update_path} when a different CURRENT update was chosen (else the open schedule)
+// A new schedule was imported / opened: forget the files picked and the report shown for the last one.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('controlyx:new-schedule', () => { _shownReport = null; _shownTrend = null; _prev = null; _prevName = null; _curr = null; });
+}
 let _critGroup = [null, null];   // the two groupings of the critical-movement charts (null = the default)
 let _cpStyle = 'chain';    // critical-path presentation: 'chain' | 'timeline' | 'table' (remembered)
 let _perTheme = getSavedMode();   // report-appearance mode for this panel's PDF preview

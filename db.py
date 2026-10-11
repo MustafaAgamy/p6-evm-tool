@@ -1028,6 +1028,27 @@ def save_project_settings(project_id, patch):
     return settings
 
 
+# What a NEW import of a project keeps from its earlier imports: only the Reporting Studio
+# report templates the planner built (p6_special.templates.KEY).
+_FRESH_IMPORT_KEEPS = ('special_reports',)
+
+
+def reset_project_inputs(project_id):
+    """A new import starts clean (comment 86): drop what the planner typed for the earlier
+    imports of this project — contract milestones, lag justifications, weather location /
+    site type / limits / last estimate, added holidays, EVM setup. Returns the keys removed."""
+    with get_conn() as conn:
+        row = conn.execute('SELECT settings_json FROM project_settings WHERE project_id = ?',
+                           (project_id,)).fetchone()
+        settings = _json.loads(row['settings_json']) if row and row['settings_json'] else {}
+        kept = {k: v for k, v in settings.items() if k in _FRESH_IMPORT_KEEPS}
+        removed = sorted(k for k in settings if k not in kept)
+        if removed:
+            conn.execute('INSERT OR REPLACE INTO project_settings (project_id, settings_json) VALUES (?, ?)',
+                         (project_id, _json.dumps(kept, default=str)))
+    return removed
+
+
 def get_contract_milestones(project_id):
     """The contract milestones the user entered for this project: [{'name','date'}].
     Held per project so they persist across re-imports (Milestone Check, gate B)."""
@@ -1049,6 +1070,9 @@ def get_snapshot_xml_path(snapshot_id):
     if not row:
         return None
     return resolve_xml_path(row['original_path'], row['cached_path'])
+
+
+HIGH_DURATION_WBS_KEY = 'high_duration_wbs'   # snapshot_ui_state: the WBS picked for High Duration
 
 
 def get_audit_modules_for_snapshot(snapshot_id):
@@ -1084,6 +1108,15 @@ def get_audit_modules_for_snapshot(snapshot_id):
         if r['mgmt_json']:
             mod['mgmt'] = _json.loads(r['mgmt_json'])
         modules[r['module']] = mod
+    # High Duration counts the WBS the planner picked for this schedule (Construction by default);
+    # re-counted from the stored result, so the screen, the report and Excel all follow the pick.
+    if modules.get('high_duration') is not None:
+        try:
+            from p6_audit.modules.high_duration import rescope
+            modules['high_duration'] = rescope(modules['high_duration'],
+                                               get_snapshot_ui_state(snapshot_id, HIGH_DURATION_WBS_KEY))
+        except Exception as exc:
+            print(f'[audit] high-duration scope skipped: {exc}')
     # Attach the normalized presentation (the same single source the UI/PDF/Excel
     # render from) so a re-opened project renders identically to a fresh import.
     from p6_audit.presentation import build_presentation

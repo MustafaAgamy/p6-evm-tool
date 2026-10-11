@@ -494,8 +494,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dangling_validate(body)
         elif self.path == '/api/dangling/corrected-file':
             self._handle_dangling_corrected(body)
+        elif self.path == '/api/wholeday/validate':
+            self._handle_wholeday_validate(body)
+        elif self.path == '/api/health/corrected-file':
+            self._handle_health_corrected(body)
         elif self.path == '/api/health/recompute':
             self._handle_health_recompute(body)
+        elif self.path == '/api/health/high-duration-scope':
+            self._handle_high_duration_scope(body)
         elif self.path == '/api/revcompare':
             self._handle_revcompare(body)
         elif self.path == '/api/revcompare/report':
@@ -1104,7 +1110,11 @@ class Handler(BaseHTTPRequestHandler):
             # no activity' BEFORE anything is stored, so an attach parses the update and the
             # baseline once, not twice (R3 F11).
             trial_bl = body.get('attach_baseline') if refresh_sid else None
+            # fresh_start (comment 86): Browse / drag-drop is a NEW import — it starts clean, so it
+            # does not pick up the baseline attached to an earlier import of the same file either.
+            fresh_start = bool(body.get('fresh_start')) and not refresh_sid
             attached_bl = trial_bl or (db.get_attached_baseline(snapshot_id=refresh_sid) if refresh_sid
+                                       else None if fresh_start
                                        else db.get_prior_baseline_for_hash(file_hash))
             data = load_schedule(xml_path, attached_bl)
             bl_info = getattr(data, 'baseline_info', None) or {}
@@ -1233,6 +1243,12 @@ class Handler(BaseHTTPRequestHandler):
             p6_id = data.project.get('id', '') or ''
             name  = data.project.get('name', '') or os.path.basename(xml_path)
             pid   = db.upsert_project(p6_id, name)
+            if fresh_start:
+                # nothing typed for an earlier import of this project rides into the new one
+                try:
+                    db.reset_project_inputs(pid)
+                except Exception as fs_exc:
+                    print(f'[import] fresh-start reset skipped: {fs_exc}', file=sys.stderr)
 
             # Merge the planner's saved lag/lead justifications (held per project) into the
             # register before it is persisted and returned, so re-imports keep the reasons.
@@ -1271,6 +1287,12 @@ class Handler(BaseHTTPRequestHandler):
                     activity_count = len(data.activities),
                     calendar_count = len(data.calendars),
                 )
+            if fresh_start:
+                # a cleared Narrative setup for THIS import, so it does not inherit the last one
+                try:
+                    db.save_snapshot_ui_state(sid, 'narrative_setup', None)
+                except Exception as fs_exc:
+                    print(f'[import] fresh-start narrative reset skipped: {fs_exc}', file=sys.stderr)
             db.insert_metrics(sid, result)
             db.insert_category_metrics(sid, result.get('categories'))
             if audit_modules_result is not None:
@@ -2716,6 +2738,48 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    # ── /api/wholeday/validate ────────────────────────────────────────────
+    def _handle_wholeday_validate(self, body):
+        """Whole-day Durations — re-check after the planner applies duration fixes. Re-parses the
+        imported schedule, puts the accepted whole-day durations on an in-memory copy and re-runs the
+        SAME whole-day check. Nothing is written to disk."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.whole_day_resolve import revalidate_from_path
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = revalidate_from_path(resolved, config, body.get('accepted') or [])
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/corrected-file ────────────────────────────────────────
+    def _handle_health_corrected(self, body):
+        """Schedule Health — ONE corrected schedule carrying the fixes applied in every sub-feature
+        (``fixes`` = {sub-feature key: [accepted fix]}; see p6_audit/corrected_file.py). Written to a
+        separate file; the imported file is never modified. Dates are untouched — F9 in P6."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        fixes = body.get('fixes') or {}
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.corrected_file import write_combined
+            res = write_combined(os.path.abspath(resolved), fixes, os.path.abspath(output_path),
+                                 completion=body.get('completion'))
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
     # ── /api/health/recompute ─────────────────────────────────────────────
     def _handle_health_recompute(self, body):
         """Recompute the Schedule Health roll-up from the client's CURRENT modules (with any in-memory
@@ -2728,6 +2792,29 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {'ok': True, 'health': schedule_health(modules)})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/health/high-duration-scope ───────────────────────────────────
+    def _handle_high_duration_scope(self, body):
+        """High Duration - count the top-level WBS the planner picked ({snapshot_id, wbs: [names]};
+        an empty list = back to the default, Construction only). The pick is kept with the imported
+        schedule and the check is re-counted from its stored result - no schedule file is read.
+        Returns {ok, module} with the refreshed check."""
+        sid = body.get('snapshot_id')
+        picked = [str(w) for w in (body.get('wbs') or []) if isinstance(w, str) and w.strip()]
+        if not sid:
+            self._json(200, {'ok': False, 'error': 'Open a schedule first.'})
+            return
+        try:
+            db.save_snapshot_ui_state(sid, db.HIGH_DURATION_WBS_KEY, picked or None)
+            mods = db.get_audit_modules_for_snapshot(sid) or {}
+            module = (mods.get('modules') or {}).get('high_duration')
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': f'The WBS scope could not be saved ({exc}).'})
+            return
+        if module is None:
+            self._json(200, {'ok': False, 'error': 'No High Duration result is stored for this schedule - import it again.'})
+            return
+        self._json(200, {'ok': True, 'module': module})
 
     # ── /api/compare/before-after ─────────────────────────────────────────
     def _handle_before_after(self, body):
@@ -3143,6 +3230,61 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    @staticmethod
+    def _dangling_as_on_screen(m, body):
+        """Comment 82: after fixes are applied in Dangling Review & Resolve the screen shows the
+        re-checked figures; the report and the workbook print those same figures (the stored module
+        is the file as imported). Says so in the verdict line, so nobody reads it as the P6 file."""
+        live = body.get('dangling_live')
+        if not (isinstance(live, dict) and isinstance(live.get('findings'), list)
+                and isinstance(live.get('kpis'), dict)):
+            return m
+        out = dict(m)
+        for k in ('score', 'grade', 'pct', 'kpis', 'findings'):
+            if live.get(k) is not None:
+                out[k] = live[k]
+        pres = dict(live.get('presentation') or m.get('presentation') or {})
+        try:
+            n, held = int(live.get('applied') or 0), int(live.get('held') or 0)
+            warned = int(live.get('paired') or 0)
+        except (TypeError, ValueError):
+            n, held, warned = 0, 0, 0
+        note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
+                f"to write {'it' if n == 1 else 'them'} to P6.")
+        if held:
+            note += (f" {held} fix{'' if held == 1 else 'es'} held back (would push the contractual "
+                     f"completion milestone past its date).")
+        if warned:
+            note += (f" {warned} relationship{'' if warned == 1 else 's'} fixed by keeping the existing link "
+                     f"and adding its Start-to-Start / Finish-to-Finish partner, so the contractual "
+                     f"completion milestone does not move.")
+        pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
+        out['presentation'] = pres
+        return out
+
+    @staticmethod
+    def _whole_day_as_on_screen(m, body):
+        """After fixes are applied in Whole-day Review & Resolve, the report and the workbook print
+        the re-checked figures the screen shows (the stored module is the file as imported)."""
+        live = body.get('whole_day_live')
+        if not (isinstance(live, dict) and isinstance(live.get('findings'), list)
+                and isinstance(live.get('kpis'), dict)):
+            return m
+        out = dict(m)
+        for k in ('score', 'grade', 'pct', 'kpis', 'findings'):
+            if live.get(k) is not None:
+                out[k] = live[k]
+        pres = dict(live.get('presentation') or m.get('presentation') or {})
+        try:
+            n = int(live.get('applied') or 0)
+        except (TypeError, ValueError):
+            n = 0
+        note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
+                f"to write {'it' if n == 1 else 'them'} to P6.")
+        pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
+        out['presentation'] = pres
+        return out
+
     # ── /api/export/excel ──────────────────────────────────────────────────
     def _handle_export_excel(self, body):
         """Excel for ONE isolated module (never mixed). Read path = DB."""
@@ -3162,6 +3304,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             from p6_audit.exporters import (excel_columns, excel_highlight_cols,
                                             excel_severity_meta, filter_lag_findings)
+            if module == 'dangling':
+                m = self._dangling_as_on_screen(m, body)
+            if module == 'whole_day':
+                m = self._whole_day_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if module == 'lag_lead' and lag_justifications:
                 # Print the justifications the planner has on screen (typed or previously saved).
@@ -3228,6 +3374,10 @@ class Handler(BaseHTTPRequestHandler):
             from p6_audit.exporters import filter_lag_findings
             import subprocess, tempfile
             _theme = report_theme.normalize(body.get('theme'))
+            if not is_summary and module == 'dangling':
+                m = self._dangling_as_on_screen(m, body)
+            if not is_summary and module == 'whole_day':
+                m = self._whole_day_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if not is_summary and module == 'lag_lead' and lag_justifications:
                 # Print the on-screen justifications (typed or saved) — the DB module has none

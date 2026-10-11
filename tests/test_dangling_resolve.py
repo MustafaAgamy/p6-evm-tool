@@ -223,20 +223,32 @@ def _proj():
 _COMPLETION = {'activity_id': 'COMP', 'contract_date': '2026-01-20'}
 
 
-def test_fix_that_pushes_completion_past_contract_is_blocked():
+def test_fix_that_pushes_completion_is_applied_in_a_way_that_keeps_the_milestone():
+    # owner: Apply must move Dangling % AND must not move the contractual completion milestone -
+    # the existing link is kept and its Start-to-Start partner added instead of the type change
     data = _proj()
     fD = _find(data, 'D')
-    out = R.revalidate(data, CONFIG, [_accepted_start(fD)], completion=_COMPLETION)
-    assert fD['finding_id'] in out['blocked']            # held back
-    assert fD['finding_id'] not in out['resolved']       # never counted resolved
-    assert any(x['activity_id'] == 'D' for x in out['findings'])  # stays open (fix not applied)
+    asked = _accepted_start(fD)
+    out = R.revalidate(data, CONFIG, [asked], completion=_COMPLETION)
+    assert out['blocked'] == [] and fD['finding_id'] in out['resolved']
+    assert not any(x['activity_id'] == 'D' for x in out['findings'])
+    assert len(out['adjusted']) == 1
+    adj = out['adjusted'][0]
+    assert adj['action'] == 'add' and adj['new_type'] == 'SS' and adj['side'] == 'start'
+    comp = [o for o, a in data.activities.items() if a.get('id') == 'COMP']
+    base = R._completion_finish(data, data.relationships, comp)
+    after = R._completion_finish(data, R.apply_ops_to_relationships(data, [adj]), comp)
+    assert after == base                                 # the completion milestone did not move
+    # sending the adjusted fix back (what the screen does) is stable: nothing more to adjust
+    again = R.revalidate(data, CONFIG, [adj], completion=_COMPLETION)
+    assert again['adjusted'] == [] and again['blocked'] == [] and fD['finding_id'] in again['resolved']
 
 
 def test_fix_that_does_not_touch_completion_is_allowed():
     data = _proj()
     fQ = _find(data, 'Q')
     out = R.revalidate(data, CONFIG, [_accepted_start(fQ)], completion=_COMPLETION)
-    assert fQ['finding_id'] not in out['blocked']
+    assert fQ['finding_id'] not in out['blocked'] and out['adjusted'] == []
     assert fQ['finding_id'] in out['resolved']           # Q's only dangling side fixed → resolved
 
 
@@ -269,3 +281,45 @@ def test_revalidate_returns_updated_score_and_presentation(tmp_path):
     # resolving a finding removes it → fewer dangling → the score goes UP (never down)
     assert out['kpis']['total_dangling'] < base['kpis']['total_dangling']
     assert out['score'] >= base['score']
+
+
+def test_resolved_row_shows_the_fix_that_is_written_to_the_file():
+    # owner: the row said 'FF -> FS' while the corrected file kept FF and added SS - they must match
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, 'ui/modules/audit.js'), encoding='utf-8') as fh:
+        cell = fh.read().split('function _dngFixCell')[1].split('function _dngResCell')[0]
+    assert "ap.action === 'add'" in cell and '+ add' in cell and '_dngTypeName(ap.new_type)' in cell
+
+
+def test_p6_filter_check_reconciles_the_count_with_the_p6_text_filters():
+    # owner: his P6 filters showed 16 (15 start + 13 finish, 12 in both) where the report said 18 -
+    # two dangling activities are hidden because a linked Activity ID contains "SS"
+    from p6_audit.presentation import dangling_p6_check
+    hid = [{'activity_id': 'C.SS.1010', 'side': 'start', 'ties': [('C.SS.1000', 'FF')], 'linked_id': 'C.SS.1000', 'letters': 'SS'},
+           {'activity_id': 'C.SS.1040', 'side': 'start', 'ties': [('C.SS.1030', 'FF')], 'linked_id': 'C.SS.1030', 'letters': 'SS'}]
+    c = dangling_p6_check({'total_dangling': 18, 'p6_filter': {
+        'start': 15, 'finish': 13, 'both': 12, 'unique': 16, 'other_types': 0, 'open_ends': 0,
+        'hidden_activities': 2, 'hidden': hid}})
+    assert [f['count'] for f in c['filters']] == [15, 13] and c['both'] == 12 and not c['match']
+    assert [x['n'] for x in c['overlap']] == [3, 12, 1, 16] and c['short'] == 'Short form: 15 + 13 - 12 = 16.'
+    assert [x['n'] for x in c['bridge']] == [16, 2, 18]
+    row = c['hidden'][0]
+    assert ['SS', 'hit'] in row['segments'] and ['FF', 'real'] in row['segments']
+    assert ''.join(s for s, _k in row['segments']) == 'C.SS.1000: FF'
+    assert [ln['ok'] for ln in row['lines']] == [True, True, False]
+    # the engine's own view always balances: P6's number, minus other activity types, plus what the
+    # text filter leaves out, is this report's count - and the panel is on screen, report and Excel
+    from p6_audit.graph import ScheduleGraph
+    from p6_audit.modules.dangling import run_dangling
+    from p6_audit.presentation import build_presentation
+    m = run_dangling(ScheduleGraph(_proj()), CONFIG)
+    p6 = m['kpis']['p6_filter']
+    assert p6['unique'] == p6['start'] + p6['finish'] - p6['both']
+    assert (p6['unique'] - p6['other_types'] + p6['hidden_activities'] + p6['open_ends']) == m['kpis']['total_dangling']
+    m['module'] = 'dangling'
+    assert build_presentation(m)['p6_check']['total'] == m['kpis']['total_dangling']
+    root = __import__('pathlib').Path(__file__).resolve().parents[1]
+    assert 'dngP6CheckHtml(p.p6_check)' in (root / 'ui' / 'modules' / 'audit.js').read_text(encoding='utf-8')
+    assert "_p6_check_html(p.get('p6_check'))" in (root / 'p6_audit' / 'report.py').read_text(encoding='utf-8')
+    assert "p.get('p6_check')" in (root / 'p6_audit' / 'excel_sheets.py').read_text(encoding='utf-8')

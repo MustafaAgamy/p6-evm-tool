@@ -89,6 +89,59 @@ def _side_fix(ties, recommended, alt):
     }
 
 
+_P6_FILTER_LETTERS = {'start': ('FS', 'SS'), 'finish': ('FS', 'FF')}
+
+
+def _p6_filter_view(graph):
+    """What the planner's two P6 filters list for this schedule, so the report can be reconciled
+    with P6. 'Start Dangling Activity' = Predecessor Details is not blank, does not contain "FS",
+    does not contain "SS"; 'Dangling Finish Activity' = Successor Details is not blank, does not
+    contain "FS", does not contain "FF". P6 searches the whole column text ("ID: TYPE, ...") -
+    Activity IDs included - over every activity type. So against this check (task activities, by
+    relationship type) P6: lists milestones / LOE / WBS summaries too (``other_types``); leaves out
+    a dangling activity whose linked Activity ID carries those letters (``hidden``); and leaves out
+    one with no predecessor / successor at all (``open_ends``)."""
+    def _ties(edges):
+        return [(str(graph.activities.get(e['other'], {}).get('id', '') or ''), e['type']) for e in edges]
+
+    def _culprit(ties, letters):
+        for letter in letters:
+            for aid, _typ in ties:
+                if letter in aid.upper():
+                    return aid, letter
+        return None, None
+
+    start = finish = both = other_types = open_ends = 0
+    hidden = []
+    for oid, act in graph.activities.items():
+        sides = {'start': _ties(graph.preds_of(oid)), 'finish': _ties(graph.succs_of(oid))}
+        shown, missed = {}, []
+        for side, ties in sides.items():
+            letters = _P6_FILTER_LETTERS[side]
+            dangling = not any(typ in letters for _aid, typ in ties)
+            aid, letter = _culprit(ties, letters) if ties else (None, None)
+            shown[side] = bool(ties) and aid is None and dangling
+            if dangling and ties and aid is not None:
+                missed.append({'activity_id': act['id'], 'side': side, 'ties': ties,
+                               'linked_id': aid, 'letters': letter})
+            sides[side] = dangling
+        start += shown['start']
+        finish += shown['finish']
+        both += (shown['start'] and shown['finish'])
+        real = graph.is_real_activity(oid)
+        if shown['start'] or shown['finish']:
+            other_types += (not real)
+        elif real and (sides['start'] or sides['finish']):
+            if missed:
+                hidden += missed
+            else:
+                open_ends += 1
+    return {'start': start, 'finish': finish, 'both': both, 'unique': start + finish - both,
+            'other_types': other_types, 'open_ends': open_ends,
+            'hidden_activities': len({h['activity_id'] for h in hidden}),
+            'hidden': sorted(hidden, key=lambda h: (h['activity_id'], h['side']))}
+
+
 def run_dangling(graph, config):
     findings = []
     real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
@@ -167,6 +220,7 @@ def run_dangling(graph, config):
             'both_dangling':    both_n,
             'dangling_pct':     pct,
             'data_date':        data_date_str,
+            'p6_filter':        _p6_filter_view(graph),
         },
         'pct':   pct,
         # Unified Schedule Health model: Score = 100 − defect%, uniform legend

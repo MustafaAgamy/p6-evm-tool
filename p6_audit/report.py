@@ -138,8 +138,22 @@ def _summary_stats(m):
         <tbody>{rows}</tbody></table>'''
 
 
+def _p6_wbs_table_html(t):
+    """A check's figures per major WBS beside P6's own activity count (presentation.p6_wbs_table)."""
+    if not t or not t.get('rows'):
+        return ''
+    head = ''.join(f'<th{"" if i == 0 else " class=num"}>{_esc(h)}</th>' for i, h in enumerate(t['headers']))
+    def tr(cells, bold=False):
+        b0, b1 = ('<b>', '</b>') if bold else ('', '')
+        return '<tr>' + ''.join(f'<td{"" if i == 0 else " class=num"}>{b0}{_esc(c)}{b1}</td>'
+                                for i, c in enumerate(cells)) + '</tr>'
+    body = ''.join(tr(r) for r in t['rows']) + (tr(t['total'], True) if t.get('total') else '')
+    return (f'<h2 class="sec">{_esc(t["title"])}</h2><div class="dcma">{_esc(t.get("note", ""))}</div>'
+            f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
+
+
 def _wbs_summary(m):
-    ws = m.get('wbs_summary', [])
+    ws = [r for r in m.get('wbs_summary', []) if isinstance(r, dict) and 'high' in r]
     if not ws:
         return ''
     rows = []
@@ -514,6 +528,121 @@ def _pcell(cell):
     return f'<td{cls_attr}{title_attr}>{_esc(cell.get("text"))}</td>'
 
 
+_P6C_HIT = 'background:#ffd98a;color:#6b3d00;font-weight:700;padding:0 2px'
+_P6C_REAL = 'background:#cfe9d9;color:#14532d;font-weight:700;padding:0 2px'
+_P6C_KIND = {'h': 'background:#fff3dc;border:1px solid #e9c98a;color:#6b3d00',
+             'b': 'background:#e8eff7;border:1px solid #1F4E79;color:#1F4E79',
+             't': 'background:#ffffff;border:1.5px solid #1F4E79;color:#1F4E79',
+             '': 'background:#ffffff;border:1px solid #c9d6e4;color:#1c2733'}
+
+
+def _p6c_equation(parts):
+    cells = ''
+    for part in parts:
+        if part.get('op'):
+            cells += (f'<td style="border:0;width:16px;text-align:center;vertical-align:middle;font-size:15px;'
+                      f'font-weight:700;color:#66758a">{_esc(part["op"])}</td>')
+        cells += (f'<td style="{_P6C_KIND.get(part.get("kind"), _P6C_KIND[""])};text-align:center;vertical-align:middle;'
+                  f'padding:6px 5px"><div style="font-size:17px;font-weight:800">{_esc(part["n"])}</div>'
+                  f'<div style="font-size:8.5px;color:#41506a">{_esc(part["label"])}</div></td>')
+    return f'<table style="width:100%;border-collapse:separate;border-spacing:3px 0;margin-top:4px"><tr>{cells}</tr></table>'
+
+
+def _p6c_window(flt):
+    cell = 'border:0;border-bottom:1px solid #e3e6ea;padding:2px 5px;font-size:9px;color:#111111;background:#ffffff'
+    head = 'background:#f0f0f0;border:1px solid #c5c9cf;font-weight:400;font-size:9px;color:#111111;padding:2px 5px;text-align:left'
+    rows = (f'<tr><td style="{cell}">Where</td><td style="{cell}">{_esc(flt["param"])}</td>'
+            f'<td style="{cell}">is not equal to</td><td style="{cell}"></td></tr>')
+    for v in flt['values']:
+        rows += (f'<tr><td style="{cell}">And</td><td style="{cell}">{_esc(flt["param"])}</td>'
+                 f'<td style="{cell}">does not contain</td><td style="{cell};font-weight:700">{_esc(v)}</td></tr>')
+    return (f'<div style="border:1px solid #8a8f98;background:#f0f0f0;color:#111111">'
+            f'<div style="background:#ffffff;border-bottom:1px solid #cfd3d8;padding:3px 6px;font-size:9px">'
+            f'<span style="background:#c8102e;color:#ffffff;font-weight:700;padding:0 3px">P6</span> Filter</div>'
+            f'<div style="padding:4px 6px;font-size:9px">Filter Name: <b>{_esc(flt["name"])}</b></div>'
+            f'<table style="width:100%;border-collapse:collapse;margin:0"><tr><th style="{head}"></th>'
+            f'<th style="{head}">Parameter</th><th style="{head}">Is</th><th style="{head}">Value</th></tr>'
+            f'<tr><td style="{cell}"></td><td style="{cell}" colspan="3">(All of the following)</td></tr>{rows}</table>'
+            f'<div style="background:#ffffff;border-top:1px solid #1F4E79;padding:3px 6px;font-size:10px;font-weight:700;'
+            f'color:#1F4E79;text-align:center">P6 lists {_esc(flt["count"])} activit{"y" if flt["count"] == 1 else "ies"}</div></div>')
+
+
+def _p6_check_html(c):
+    """The 'P6 filter check' panel (presentation.dangling_p6_check) - same four steps as the screen."""
+    if not c:
+        return ''
+    box = (f'border:1px solid {report_theme.var("rpt-edge")};border-radius:6px;padding:8px 10px;margin-top:8px;'
+           f'page-break-inside:avoid;break-inside:avoid')
+    title = f'<div style="font-size:11px;font-weight:700;color:{report_theme.var("rpt-ink")}">{_esc(c["title"])}</div>'
+    if c.get('match'):
+        return (f'<div style="{box}">{title}<div style="font-size:10px;font-weight:700;margin-top:3px;'
+                f'color:{report_theme.var("rpt-good")}">{_esc(c["match_text"])}</div></div>')
+    step = f'font-size:10px;font-weight:700;margin-top:8px;color:{report_theme.var("rpt-ink")}'
+    note = f'font-size:9px;color:{report_theme.var("rpt-ink-soft")};margin-top:2px'
+    f1, f2 = c['filters']
+    wins = (f'<table style="width:100%;border-collapse:collapse;margin-top:4px"><tr>'
+            f'<td style="border:0;padding:0;width:43%;vertical-align:top">{_p6c_window(f1)}</td>'
+            f'<td style="border:0;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;'
+            f'color:{report_theme.var("rpt-ink")}"><div style="font-size:17px">{_esc(c["both"])}</div>'
+            f'activit{"y is" if c["both"] == 1 else "ies are"}<br>in both lists</td>'
+            f'<td style="border:0;padding:0;width:43%;vertical-align:top">{_p6c_window(f2)}</td></tr></table>')
+    hidden = ''
+    for h in c.get('hidden') or []:
+        text = ''.join(f'<span style="{_P6C_HIT if kind == "hit" else _P6C_REAL}">{_esc(seg)}</span>' if kind
+                       else _esc(seg) for seg, kind in h['segments'])
+        lines = ''.join(
+            f'<tr><td style="border:0;border-bottom:1px solid #e3e6ea;padding:2px 5px;font-size:9px;'
+            f'{"" if ln["ok"] else "background:#fff3dc;color:#6b3d00;"}">{_esc(ln["text"])}</td>'
+            f'<td style="border:0;border-bottom:1px solid #e3e6ea;padding:2px 5px;font-size:9px;font-weight:700;'
+            f'text-align:right;{"color:#1a7f4b" if ln["ok"] else "background:#fff3dc;color:#a25b00"}">'
+            f'{"✓" if ln["ok"] else "✗"} {_esc(ln["verdict"])}</td></tr>' for ln in h['lines'])
+        hidden += (f'<div style="margin-top:6px;page-break-inside:avoid;break-inside:avoid">'
+                   f'<div style="font-size:9.5px;font-weight:700;color:{report_theme.var("rpt-ink")}">'
+                   f'{_esc(h["activity_id"])} - Dangling {_esc(h["side"])}</div>'
+                   f'<div style="font-size:9px;color:{report_theme.var("rpt-ink-soft")}">{_esc(h["param"])}, exactly as P6 reads it: '
+                   f'<span style="font-family:Consolas,monospace;font-size:9.5px;background:#ffffff;color:#1c2733;'
+                   f'border:1px solid #c9d6e4;padding:1px 5px">{text}</span></div>'
+                   f'<table style="width:100%;border-collapse:collapse;margin-top:3px">{lines}</table>'
+                   f'<div style="font-size:9px;margin-top:2px;color:{report_theme.var("rpt-ink")}"><b>Result in P6:</b> '
+                   f'{_esc(h["result"])} <b>In reality:</b> {_esc(h["reality"])}</div></div>')
+    more = c.get('hidden_total', 0) - len(c.get('hidden') or [])
+    if more > 0:
+        hidden += f'<div style="{note}">and {more} more - listed in the Excel export.</div>'
+    step4 = ''
+    if hidden:
+        legend = ' &nbsp;·&nbsp; '.join(
+            f'<span style="{_P6C_HIT if kind == "hit" else _P6C_REAL}">{"ID" if kind == "hit" else "TYPE"}</span> {_esc(text)}'
+            for kind, text in c.get('legend') or [])
+        step4 = (f'<div style="{step}">4. The activities the P6 filter leaves out, run through the filter line by line</div>'
+                 f'{hidden}<div style="{note}">{legend}</div>')
+    return (f'<div style="{box}">{title}'
+            f'<div style="{step}">1. The two filters run in P6, and what each one lists</div>{wins}'
+            f'<div style="{step}">2. {_esc(c["overlap_title"])}</div><div style="{note}">{_esc(c["overlap_note"])}</div>'
+            f'{_p6c_equation(c["overlap"])}<div style="{note}">{_esc(c["short"])}</div>'
+            f'<div style="{step}">3. Why this report says {_esc(c["total"])}</div>{_p6c_equation(c["bridge"])}'
+            f'{step4}</div>')
+
+
+def _wbs_scope_html(p):
+    """High Duration - which top-level WBS are counted, each WBS's own figures, and the P6 filter
+    that lists the same activities (same rows as the screen's WBS scope picker)."""
+    rows = p.get('wbs_scope') or []
+    if not rows:
+        return ''
+    body = ''.join(
+        f'<tr><td>{"Yes" if r.get("evaluated") else "No"}</td><td>{"Yes" if r["counted"] else "No"}</td>'
+        f'<td>{_esc(r["wbs"])}</td><td class="num">{r["activities"]:,}</td><td class="num">{r["over"]:,}</td>'
+        f'<td class="num">{_esc(r["pct"])}%</td></tr>' for r in rows)
+    p6 = f'<div class="dcma">{_esc(p["p6_filter"])}</div>' if p.get('p6_filter') else ''
+    return ('<div style="page-break-inside:avoid;break-inside:avoid"><h2 class="sec">WBS scope</h2>'
+            '<div class="dcma">Evaluated = in the score (the Construction WBS, by default). '
+            'Listed = shown in the findings (the WBS picked).</div>'
+            '<table><thead><tr><th>Evaluated</th><th>Listed</th>'
+            '<th>WBS (as named in P6)</th><th class="num">Task Activities</th>'
+            '<th class="num">Over Threshold</th><th class="num">High-Duration %</th></tr></thead>'
+            f'<tbody>{body}</tbody></table>{p6}</div>')
+
+
 def _presentation_dashboard(m):
     """Gauge + KPI tiles from the single-source presentation — same values as the screen."""
     p = m.get('presentation') or build_presentation(m)
@@ -522,6 +651,10 @@ def _presentation_dashboard(m):
     color = _GRADE.get(grade, report_theme.var('rpt-muted'))
     score_txt = '—' if score is None else score
     tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
+    tiles_note = f'<div class="dcma">{_esc(p["tiles_note"])}</div>' if p.get('tiles_note') else ''
+    # the highlighted notes (what the check covers, the day basis) - same text as the screen
+    notes = p.get('highlights') or ([p['highlight']] if p.get('highlight') else [])
+    tiles_note = ''.join(f'<div class="hnote">{_esc(t)}</div>' for t in notes) + _wbs_scope_html(p) + tiles_note
     return f'''
       <div class="dash">
         <div class="grade-card">
@@ -531,8 +664,8 @@ def _presentation_dashboard(m):
           <div class="verdict">{_esc(p.get('verdict', ''))}</div>
         </div>
         <div class="kpis">{tiles}</div>
-      </div>
-      <div class="dcma">{_DCMA.get(m['module'], '')}</div>'''
+      </div>{tiles_note}{_p6_check_html(p.get('p6_check'))}
+      <div class="dcma">{_DCMA.get(m['module'], '')}</div>{_p6_wbs_table_html(p.get('wbs_table'))}'''
 
 
 def _presentation_table(m):
@@ -1097,6 +1230,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
   .mono {{ font-family: 'Consolas', monospace; white-space: nowrap; }}
   .mut {{ color: var(--rpt-muted); font-size: 9.5px; }}
+  .hl-note {{ background: #fde68a; color: #1e293b; font-weight: 700; font-size: 9.5px; }}
   .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 9px; white-space: nowrap; }}
   .empty {{ color: var(--rpt-muted); font-style: italic; }}
   ul.recs {{ margin: 4px 0 0; padding-left: 18px; }}
@@ -1108,6 +1242,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .kpi.crit .v {{ color: var(--rpt-bad); }}
   .kpi.near {{ border-color: var(--rpt-warn); background: var(--rpt-warn-bg); }}
   .kpi.near .v {{ color: var(--rpt-warn); }}
+  .hnote {{ margin-top: 8px; padding: 6px 10px; font-size: 10px; font-weight: 700; color: var(--rpt-ink); background: var(--rpt-warn-bg); border-left: 4px solid var(--rpt-warn); border-radius: 3px; }}
   .slegend {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 9.5px; }}
   .slegend .t {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: var(--rpt-accent); font-weight: 700; }}
   .slegend .d {{ color: var(--rpt-ink-soft); margin: 3px 0 6px; line-height: 1.4; }}

@@ -12,9 +12,12 @@ def _sccs(graph):
     nodes = list(graph.activities.keys())
 
     def succ_ids(oid):
-        return [e['other'] for e in graph.succs_of(oid)]
+        # Level of Effort / WBS Summary activities never drive - not a loop through one (P6)
+        return [e['other'] for e in graph.succs_of(oid) if not graph.is_span_activity(e['other'])]
 
     for root in nodes:
+        if graph.is_span_activity(root):
+            continue
         if root in index:
             continue
         work = [(root, 0)]

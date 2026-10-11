@@ -25,6 +25,10 @@ let _mode = 'update_baseline';
 let _picked = { previous: null, baseline: null };   // chosen file paths
 let _currentOverride = null;   // optional file that replaces the open schedule as the current update
 let _shownReport = null;
+// A new schedule was imported / opened: forget the files picked and the report shown for the last one.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('controlyx:new-schedule', () => { _picked = { previous: null, baseline: null }; _currentOverride = null; _shownReport = null; });
+}
 
 function _currName() {
   const p = state.currentXmlPath || state.currentCachedPath || '';

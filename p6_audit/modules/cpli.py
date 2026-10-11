@@ -29,7 +29,7 @@ The CPLI ratio above and the baseline float >= 0 rule are KEPT AS CONTEXT indica
 on the page; they no longer drive the score. The findings list is the DRIVING PATH —
 every activity P6 flags critical.
 """
-from p6_evm.calendars import signed_working_days
+from p6_evm.calendars import signed_working_days, signed_working_minutes
 from p6_audit.scoring import uniform_grade
 
 MODULE = 'cpli'
@@ -70,6 +70,20 @@ def _start_date(act):
 
 def _iso(dt):
     return dt.strftime('%Y-%m-%d') if dt is not None else None
+
+
+def _working_span_days(cal, start, end):
+    """Working days from start to end the way P6 measures a duration (comment 85): the working
+    HOURS between the two date-times on the calendar's own work times, divided by its hours per
+    day — so a data date at 18:00 or a finish at 07:03 counts the hours really worked, not a
+    whole day. A calendar with no work times counts whole working dates as before."""
+    hours = cal.day_hours or 0
+    if hours > 0 and cal.has_intraday():
+        mins = signed_working_minutes(cal, start, end)
+        if mins is not None:
+            days = round(mins / 60.0 / hours, 2)
+            return int(days) if float(days).is_integer() else days
+    return signed_working_days(cal, start, end)
 
 
 def compute_cpli(cpl, tf):
@@ -114,7 +128,7 @@ def run_cpli(graph, config):
     #    working-day float understates the slip and must not be read as exact.
     cal = graph.calendars.get(finish_milestone.get('calendar_id')) if finish_milestone else None
     if cal and data_date and finish_date:
-        cpl, cpl_basis = signed_working_days(cal, data_date, finish_date), 'working'
+        cpl, cpl_basis = _working_span_days(cal, data_date, finish_date), 'working'
     elif data_date and finish_date:
         cpl, cpl_basis = (finish_date - data_date).days, 'calendar'
     else:
@@ -133,6 +147,8 @@ def run_cpli(graph, config):
     findings = []
     for oid in graph.critical_ids():
         act = acts.get(oid, {})
+        if graph.is_completed(act):      # finished work is never in P6's Critical filter
+            continue
         sd, fd = _start_date(act), _finish_date(act)
         # Duration in working days on the activity's own calendar (calendar-day
         # fallback), so the Gantt can show a Duration column straight from the data.
@@ -169,6 +185,17 @@ def run_cpli(graph, config):
     remaining = graph.p6_remaining()
     critical_count = sum(1 for _oid, a in remaining if a.get('is_critical'))
     critical_pct = round(100.0 * critical_count / len(remaining), 1) if remaining else None
+    # the same count, split the way P6's Critical filter can be checked: per major WBS band and
+    # per activity type (review 2026-10-11)
+    done = graph.is_completed
+    by_wbs = graph.p6_wbs_rows(critical=lambda _o, a: bool(a.get('is_critical')) and not done(a))
+    by_type = {}
+    for _oid, a in remaining:
+        if a.get('is_critical'):
+            kind = ('milestone' if 'Milestone' in (a.get('task_type') or '') else
+                    {'Task': 'task', 'ResourceDependent': 'resource', 'LOE': 'loe',
+                     'WBSSummary': 'wbs_summary'}.get(a.get('task_type'), 'task'))
+            by_type[kind] = by_type.get(kind, 0) + 1
     density_score, density_grade = _critical_density(critical_pct)
 
     computable = critical_pct is not None            # a density needs >= 1 task activity
@@ -181,7 +208,12 @@ def run_cpli(graph, config):
         'name': NAME,
         'kpis': {
             # --- the sub-feature score driver: critical-path density ---
-            'critical_count':            critical_count,   # critical task-dependent activities
+            'critical_count':            critical_count,   # critical activities, every type (P6)
+            'critical_task':             by_type.get('task', 0),
+            'critical_resource':         by_type.get('resource', 0),
+            'critical_milestone':        by_type.get('milestone', 0),
+            'critical_loe':              by_type.get('loe', 0),
+            'critical_wbs_summary':      by_type.get('wbs_summary', 0),
             'critical_pct':              critical_pct,     # over all task-dependent activities
             'total_activities':          total_real,       # every activity, completed included
             'remaining_activities':      len(remaining),   # Not Started + In Progress (the % base)
@@ -208,5 +240,6 @@ def run_cpli(graph, config):
         'score': score,
         'grade': grade,
         'findings': findings,
+        'wbs_summary': by_wbs,          # P6's activity count and the critical count per major WBS
         'baseline_rule_met': baseline_rule_met,
     }

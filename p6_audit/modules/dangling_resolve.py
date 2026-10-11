@@ -119,12 +119,83 @@ def milestone_blocked(data, accepted, completion):
         return set()
 
 
+def _variants(op):
+    """The ways one side's fix can be applied, most wanted first: as asked; the same type with no
+    lag; and - the P6 pairing - the existing link kept and its partner added on the same two
+    activities (Start-to-Start closes a dangling start, Finish-to-Finish a dangling finish)."""
+    out = [op]
+    if (op.get('action') or 'change') != 'change':
+        return out
+    try:
+        lag = float(op.get('new_lag_days') or 0)
+    except (TypeError, ValueError):
+        lag = 0.0
+    if lag:
+        out.append(dict(op, new_lag_days=0))
+    out.append(dict(op, action='add', new_pred_id=op.get('pred_id'),
+                    new_type='SS' if op.get('side') == 'start' else 'FF', new_lag_days=0))
+    return out
+
+
+def milestone_safe(data, accepted, completion):
+    """The accepted fixes made safe for the contractual completion milestone the planner entered.
+
+    Returns ``(effective_ops, adjusted_ops, blocked_finding_ids)``. Every fix is applied when all of
+    them together leave the completion milestone on or before its contract date (or no later than it
+    already is). Otherwise each finding is taken in turn, on top of the ones already kept, and the
+    first way of applying it that does not move the milestone is used (see ``_variants``); the ops
+    that differ from what was asked are returned in ``adjusted_ops``. A finding with no such way is
+    held back (``blocked``) and none of its ops are applied. Offline estimate (no F9); any failure
+    falls open - the guard must never break Apply."""
+    accepted = list(accepted or [])
+    if not completion or not accepted:
+        return accepted, [], set()
+    try:
+        import itertools
+        aid = completion.get('activity_id')
+        contract = _parse_date(completion.get('contract_date'))
+        comp_oids = [oid for oid, a in data.activities.items() if a.get('id') == aid] if aid else []
+        if not contract or not comp_oids:
+            return accepted, [], set()
+        base_finish = _completion_finish(data, data.relationships, comp_oids)
+
+        def pushes(ops):
+            fx = _completion_finish(data, apply_ops_to_relationships(data, ops), comp_oids)
+            return bool(fx and fx.date() > contract.date() and (base_finish is None or fx > base_finish))
+
+        if not pushes(accepted):
+            return accepted, [], set()
+        groups, order = {}, []
+        for op in accepted:
+            key = op.get('finding_id') or id(op)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(op)
+        kept, adjusted, blocked = [], [], set()
+        for key in order:
+            ops = groups[key]
+            for combo in itertools.product(*[_variants(o) for o in ops]):
+                if not pushes(kept + list(combo)):
+                    kept += list(combo)
+                    adjusted += [c for c, o in zip(combo, ops) if c is not o]
+                    break
+            else:
+                blocked.add(ops[0].get('finding_id') or '')
+        return kept, adjusted, {b for b in blocked if b}
+    except Exception as exc:
+        import sys
+        print(f'[dangling] milestone guard skipped (estimate failed): {exc}', file=sys.stderr)
+        return accepted, [], set()
+
+
 def revalidate(data, config, accepted, completion=None):
-    """Apply the accepted type-change fixes to a graph copy, re-run the dangling engine, and report
-    which activities are now genuinely no longer dangling. Fixes that would push the contractual
-    completion milestone past its date are NOT applied and are returned in ``blocked``."""
-    blocked = milestone_blocked(data, accepted, completion)
-    effective = [op for op in accepted if op.get('finding_id') not in blocked]
+    """Apply the accepted fixes to a graph copy, re-run the dangling engine, and report which
+    activities are now genuinely no longer dangling. The fixes never move the contractual completion
+    milestone the planner entered: a fix that would is applied in a way that does not (``adjusted`` -
+    the screen swaps these ops in, so the download writes what was checked), and one that cannot be
+    is held back (``blocked``)."""
+    effective, adjusted, blocked = milestone_safe(data, accepted, completion)
     new_rels = apply_ops_to_relationships(data, effective)
     fresh = run_dangling(ScheduleGraph(_shim(data, new_rels)), config)
     still_dangling = {f['activity_id'] for f in fresh['findings']}
@@ -136,11 +207,16 @@ def revalidate(data, config, accepted, completion=None):
         for x in effective
         if x.get('finding_id') and x.get('activity_id') and x['activity_id'] not in still_dangling
     })
+    # P6's own activity totals beside the check, as on import (a fix never changes them)
+    _g = ScheduleGraph(data)
+    fresh['p6_counts'] = {'total': len(_g.p6_all()), 'remaining': len(_g.p6_remaining())}
     return {
         'findings': fresh['findings'],
         'fresh_ids': sorted({f['finding_id'] for f in fresh['findings']}),
         'resolved': resolved,
         'blocked': sorted(blocked),
+        'adjusted': adjusted,
+        'warned': [],
         'kpis': fresh['kpis'],
         # The recomputed score/grade/% + presentation of the CORRECTED (post-fix) state, so the screen's
         # execution dashboard (gauge + KPI tiles) updates live as findings resolve — the score rises.
@@ -157,9 +233,9 @@ def revalidate_from_path(path, config, accepted, completion=None):
 
 def write_corrected(source_path, accepted, out_path, completion=None, note=_CORRECTION_NOTE):
     """Write a corrected copy of the imported schedule with the accepted relationship-type changes
-    applied, in the same format as the source (P6 XML or XER). Fixes blocked by the contract-milestone
-    guard are excluded so a milestone-exceeding change is never written. Reuses the shared writers."""
+    applied, in the same format as the source (P6 XML or XER). With ``completion`` the fixes pass
+    through the same contract-milestone guard as the screen, so the file never carries a change that
+    moves the completion milestone. Reuses the shared writers."""
     if completion:
-        blocked = milestone_blocked(parse_file(source_path), accepted, completion)
-        accepted = [op for op in accepted if op.get('finding_id') not in blocked]
+        accepted, _adj, _blk = milestone_safe(parse_file(source_path), accepted, completion)
     return _oos_write_corrected(source_path, accepted, out_path, note=note)

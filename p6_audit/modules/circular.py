@@ -6,6 +6,10 @@ cannot run its forward/backward pass (F9) while a loop exists, so a single loop
 stops the whole schedule from calculating. This is a *blocking* defect: it must
 be broken before any other health metric can be trusted.
 
+A Level of Effort or WBS Summary activity only spans the work it is tied to — P6
+takes its dates from those activities and it never drives them — so a chain that
+comes back to its start THROUGH one is not a loop in P6 and is not reported.
+
 One finding per distinct loop. The chain is listed in loop order with the first
 activity repeated at the end so the closure is obvious. Score on the Schedule
 Health Review model: score = 100 - Circular %, with the uniform grade legend.
@@ -28,9 +32,14 @@ def _find_cycles(graph):
     seen = set()
 
     def succ_ids(oid):
-        return [e['other'] for e in graph.succs_of(oid) if e['other'] in graph.activities]
+        # a Level of Effort / WBS Summary activity never drives its successors in P6 - a chain
+        # through one is not a loop (P6 schedules it), so it is not walked through
+        return [e['other'] for e in graph.succs_of(oid)
+                if e['other'] in graph.activities and not graph.is_span_activity(e['other'])]
 
     for root in graph.activities:
+        if graph.is_span_activity(root):
+            continue
         if color[root] != WHITE:
             continue
         color[root] = GRAY

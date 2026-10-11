@@ -4,7 +4,7 @@ import { evmInputs }                                             from './evm.js'
 import { showReportPreview }                                     from './preview.js';
 import { getSavedMode }                                          from './appearance.js';
 import { CAL_SECTIONS, WEATHER_SECTIONS, hasWeatherResult, selectedCalendars } from './calendar.js';
-import { lagExportFilter }                                       from './audit.js';
+import { lagExportFilter, dngLiveModule, wdLiveModule }                        from './audit.js';
 import { fmtDate, escapeHtml, dateText }                                   from './format.js';
 import { baselineApprox, baselineApproxLine }                    from './baseline.js';
 import { overviewGroupKey, overviewHideZero, wbsCriticalMode }   from './overview.js';
@@ -17,6 +17,20 @@ async function apiFetch(path, options) {
 }
 
 // showSpinner: show the browse-card spinner (true for Browse/drag-drop, false for history opens)
+// A different schedule is on screen: drop every comparison / report the session still holds for
+// the previous one (the files picked for it included), so no feature opens showing earlier work.
+// Each feature module clears its own picks on the 'controlyx:new-schedule' event.
+export function resetSessionWork() {
+  state.compareReport       = null;
+  state.compareBaselineName = null;
+  state.revcompareReport    = null;
+  state.revcompareRev0      = null;
+  state.revcompareRev1      = null;
+  state.revcompareTab       = 'summary';
+  state.narrativeDoc        = null;
+  try { document.dispatchEvent(new CustomEvent('controlyx:new-schedule')); } catch { /* no DOM (tests) */ }
+}
+
 export async function importFile(filePath, { showSpinner = true, onLoaded = null } = {}) {
   clearError();
   if (showSpinner) setLoading(true);
@@ -24,15 +38,16 @@ export async function importFile(filePath, { showSpinner = true, onLoaded = null
     const data = await apiFetch('api/parse', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ path: filePath, overrides_path: null }),
+      // fresh_start (comment 86): Browse / drag-drop is a NEW import — nothing typed or compared
+      // for an earlier import of this project comes back with it.
+      body:    JSON.stringify({ path: filePath, overrides_path: null, fresh_start: true }),
     });
     if (!data.ok) { showError(data.error || 'Parse failed.'); return data; }
     state.currentResult      = data.result;
     state.currentXmlPath     = filePath;
     state.currentCachedPath  = data.cached_path || null;
     state.currentSnapshotId  = data.snapshot_id || null;
-    state.compareReport      = null;   // a new schedule invalidates any prior comparison
-    state.compareBaselineName = null;
+    resetSessionWork();
     // `onLoaded` lets a caller (the AI Chat) reuse the whole parse+state+history path but
     // stay in its own view — sending a P6 file inside the chat should NOT jump to the EVM
     // results panel. It still lights the menu-bar status light so the app stays consistent.
@@ -168,8 +183,7 @@ export async function loadProject(projectId, filePath, cachedPath) {
     state.currentXmlPath     = filePath   || data.original_path || '';
     state.currentCachedPath  = cachedPath || data.cached_path   || null;
     state.currentSnapshotId  = data.snapshot_id || null;
-    state.compareReport      = null;   // a different project invalidates any prior comparison
-    state.compareBaselineName = null;
+    resetSessionWork();                // a different project invalidates any prior comparison
     renderResults(data.result, state.currentXmlPath || cachedPath || '');
   } catch {
     showError('Could not reach the local server. Try restarting the app.');
@@ -220,6 +234,14 @@ export async function exportExcel(btnId = 'excel-btn') {
       if (caption) excelBody.lag_filter_caption = caption;
       if (justifications && Object.keys(justifications).length) excelBody.lag_justifications = justifications;
     }
+    if (state.currentModule === 'dangling') {
+      const live = dngLiveModule();                  // comment 82: the workbook matches the screen
+      if (live) excelBody.dangling_live = live;
+    }
+    if (state.currentModule === 'whole_day') {
+      const live = wdLiveModule();                   // the workbook matches the screen after fixes
+      if (live) excelBody.whole_day_live = live;
+    }
     if (state.currentModule === 'hard_constraints') {
       // the milestones found in the schedule file are held on screen only (not stored) — send
       // them so the workbook lists them too
@@ -254,6 +276,16 @@ export async function generateModulePdf(btnId = 'pdf-btn-audit') {
     if (Array.isArray(visible_keys)) reqBody.lag_visible_keys = visible_keys;
     if (caption) reqBody.lag_filter_caption = caption;
     if (justifications && Object.keys(justifications).length) reqBody.lag_justifications = justifications;
+  }
+
+  // Dangling: after fixes were applied on screen, the report prints the same figures (comment 82).
+  if (module === 'dangling') {
+    const live = dngLiveModule();
+    if (live) reqBody.dangling_live = live;
+  }
+  if (module === 'whole_day') {
+    const live = wdLiveModule();
+    if (live) reqBody.whole_day_live = live;
   }
 
   // Summary PDF: send the health the screen is CURRENTLY showing so the PDF matches

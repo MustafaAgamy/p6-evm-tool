@@ -16,7 +16,7 @@ the same construction/civil/structural/concrete/MEP vocabulary used everywhere �
 so it works on any project without relying on per-project config.
 """
 from collections import defaultdict
-from p6_evm.classify import classify_branch_names, DEFAULT_CATEGORY
+from p6_evm.classify import classify_branch_names, classify_wbs_name, DEFAULT_CATEGORY
 
 # DCMA 14-Point float targets → transparent 0-100 penalty curve.
 # High Float (Metric 5): > 44 WD should be < 5% of activities.
@@ -178,13 +178,27 @@ def float_management(graph, config):
             if not a.get('is_critical') and 0 < a['total_float_days'] <= near_band]
     negative = [a for _, a in assessable if a['total_float_days'] < 0]
 
-    constr = [(oid, a) for oid, a in assessable
-              if activity_category(a.get('wbs_path')) == 'Construction']
-    constr_over = [a for _, a in constr if a['total_float_days'] > threshold]
-
     # Distribution grouped by the top-level WBS BRANCH as named in P6 — one row per branch, every
     # activity beneath it merged. Uses the schedule's own major WBS, not a re-classification.
     top_key = _top_wbs_key([a.get('wbs_path') or '' for _, a in assessable])
+
+    # Construction = the activities under the WBS branch(es) NAMED as construction in P6, so the
+    # count is what a P6 filter on that WBS gives. Branches with no meaning of their own (Key
+    # Dates, Inputs From Client, ...) are NOT construction. Only when no branch is named as
+    # construction does the meaning of the deeper WBS names decide (Construction the fallback).
+    branches = {top_key(a.get('wbs_path') or '') for _, a in assessable}
+    # P6's Construction WBS: the branch(es) NAMED construction; a branch that only reads as
+    # construction by meaning (e.g. Mobilization) counts only when no branch carries the name
+    constr_branches = ({b for b in branches if 'construction' in (b or '').lower()}
+                       or {b for b in branches if classify_wbs_name(b) == 'Construction'})
+    if constr_branches:
+        def in_constr(a):
+            return top_key(a.get('wbs_path') or '') in constr_branches
+    else:
+        def in_constr(a):
+            return activity_category(a.get('wbs_path')) == 'Construction'
+    constr = [(oid, a) for oid, a in assessable if in_constr(a)]
+    constr_over = [a for _, a in constr if a['total_float_days'] > threshold]
     by_wbs = defaultdict(list)
     for _, a in assessable:
         by_wbs[top_key(a.get('wbs_path') or '')].append(a['total_float_days'])
@@ -200,7 +214,8 @@ def float_management(graph, config):
             'max_float': round(max(floats), 1) if floats else 0.0,
             'over_44': over,
             'pct': _pct(over, n),
-            'is_construction': activity_category(name) == 'Construction',
+            'is_construction': (name in constr_branches) if constr_branches
+                               else activity_category(name) == 'Construction',
         })
     wbs.sort(key=lambda r: (-r['pct'], -r['over_44'], -r['activities']))
 
@@ -215,6 +230,11 @@ def float_management(graph, config):
     # top discipline by float concentration (worst first)
     top = wbs[0] if wbs else None
 
+    done = graph.is_completed
+    p6_wbs = graph.p6_wbs_rows(
+        over=lambda _o, a: not done(a) and a.get('total_float_days') is not None and a['total_float_days'] > threshold,
+        critical=lambda _o, a: bool(a.get('is_critical')) and not done(a),
+        negative=lambda _o, a: not done(a) and a.get('total_float_days') is not None and a['total_float_days'] < 0)
     stats = {
         'total': total, 'total_label': total_label, 'is_update': is_update,
         'total_all': len(real),                    # every activity, completed included (comment 48)
@@ -230,6 +250,7 @@ def float_management(graph, config):
         'highest_float': highest_float, 'highest_float_wbs': highest_wbs,
     }
     return {
+        'p6_wbs': p6_wbs,       # every activity under each major WBS, as P6 counts the band
         'float_health': score, 'fh_color': fh_color(score),
         # High Float IS the score driver (100 - this %); neg is context (its own sub-feature).
         'high': {'pct': high_pct, 'penalty': high_pen, 'count': len(constr_over), 'base': len(constr),

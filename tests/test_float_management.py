@@ -204,3 +204,33 @@ def test_end_to_end_real_xml_through_engine_produces_valid_mgmt():
     # wbs distribution stays sorted worst-concentration-first
     pcts = [r['pct'] for r in fm['wbs']]
     assert pcts == sorted(pcts, reverse=True)
+
+
+def test_construction_count_is_the_wbs_branch_named_construction():
+    """Comment (float): a P6 filter on the Construction WBS gives the count — key-date and
+    client-input milestones under other branches are not construction, whatever their sub-WBS says."""
+    acts = ([_act(i, 60, wbs='Proj > Phase I Construction Works > Silos') for i in range(1, 4)]
+            + [_act(10, 5, wbs='Proj > Phase I Construction Works > Silos'),
+               _act(20, 90, wbs='Proj > Phase I Key Dates > Civil Works Completion'),
+               _act(21, 80, wbs='Proj > Phase I Inputs Required From Client > Release'),
+               _act(30, 70, wbs='Proj > Phase I Engineering > Shop Drawing')])
+    mg = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']
+    assert (mg['indicators']['constr_over'], mg['indicators']['constr_total']) == (3, 4)
+    tags = {r['wbs']: r['is_construction'] for r in mg['wbs']}
+    assert tags['Phase I Construction Works'] and not tags['Phase I Key Dates']
+    assert not tags['Phase I Inputs Required From Client']
+
+
+def test_a_branch_named_construction_wins_over_one_that_only_reads_as_construction():
+    """P6 filter on WBS 'Construction': Mobilization / Closure branches are not in it."""
+    acts = ([_act(i, 60, wbs='Proj > Construction > Civil') for i in range(1, 4)]
+            + [_act(10, 90, wbs='Proj > Mobilization > Site Offices'),
+               _act(11, 90, wbs='Proj > Project Closure > Handing Over')])
+    ind = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']['indicators']
+    assert (ind['constr_over'], ind['constr_total']) == (3, 3)
+
+
+def test_no_branch_named_construction_falls_back_to_the_meaning_of_the_name():
+    acts = [_act(1, 60, wbs='Proj > Civil Works > Concrete'), _act(2, 60, wbs='Proj > Engineering > Drawings')]
+    ind = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']['indicators']
+    assert ind['constr_total'] == 1

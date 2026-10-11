@@ -74,6 +74,24 @@ def _days(v):
     return '—' if v is None else f"{_whole_days(v)} d"
 
 
+def float_days_text(v):
+    """Total float as P6 holds it, decimals kept (comment 83): -0.05 -> '-0.05 d', -3.0 -> '-3 d'.
+    A float smaller than a hundredth of a day keeps the digits that tell it from zero."""
+    if v is None:
+        return '—'
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    r = round(f, 2)
+    if r == 0 and f != 0:
+        r = round(f, 4)
+    if r == 0:
+        return '0 d'
+    txt = str(int(r)) if float(r).is_integer() else f'{r:.4f}'.rstrip('0').rstrip('.')
+    return f'{txt} d'
+
+
 def _days_exact(v):
     """The Whole-Day check's own finding IS the decimal (51.71 d) — shown as P6 holds it."""
     return '—' if v is None else f"{_plain(v)} d"
@@ -140,6 +158,8 @@ def _cell_for(kind, value):
         return _cell(_days(value), 'num')
     if kind == 'days_exact':
         return _cell(_days_exact(value), 'num')
+    if kind == 'float_days':
+        return _cell(float_days_text(value), 'num')
     if kind == 'date':
         return _cell(_iso(value), 'mut')
     if kind == 'chain':
@@ -148,7 +168,7 @@ def _cell_for(kind, value):
 
 
 # align is 'num' (right) for numeric/day columns, '' otherwise.
-_NUM_KINDS = {'num', 'days', 'days_exact'}
+_NUM_KINDS = {'num', 'days', 'days_exact', 'float_days'}
 
 
 # ── per-check specs (ported verbatim from ui MODULE_SPECS — single source) ──
@@ -198,8 +218,7 @@ SPECS = {
         'verdict': lambda m: _reltype_verdict(m.get('kpis') or {}),
         'tiles': lambda k: [('Total Relationships', _num(k.get('total_relationships'))),
                             ('FS %', _type_pct(k, 'fs')), ('SS %', _type_pct(k, 'ss')),
-                            ('FF %', _type_pct(k, 'ff')), ('SF %', _type_pct(k, 'sf')),
-                            ('Non-FS', k.get('non_fs', 0))],
+                            ('FF %', _type_pct(k, 'ff')), ('SF %', _type_pct(k, 'sf'))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Predecessor', 'predecessor_display', 'mut'),
                     ('Successor', 'successor_display', 'mut'), ('Severity', 'severity', 'sev'),
@@ -215,10 +234,21 @@ SPECS = {
                     ('Recommendation', 'recommendation', 'mut')],
     },
     'high_duration': {
-        'verdict': lambda m: f"{_plain(m.get('pct'))}% of activities run longer than {_plain((m.get('kpis') or {}).get('threshold'))} working days.",
-        'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))), ('Over Threshold', k.get('over_threshold', 0)),
+        'verdict': lambda m: (f"{_plain(m.get('pct'))}% of the task activities evaluated "
+                              f"({(m.get('kpis') or {}).get('scope_label') or 'all WBS'}) run longer than "
+                              f"{_plain((m.get('kpis') or {}).get('threshold'))} working days."),
+        'tiles': lambda k: [('Task Dependent Activities (all WBS)', _num(k.get('all_task_activities', k.get('total_activities')))),
+                            ('Over Threshold - whole schedule (P6 filter)', _num(k.get('p6_over_threshold'))),
+                            ('of which Task Dependent', _num(k.get('all_over_threshold'))),
+                            ('WBS Evaluated', k.get('scope_label') or 'All WBS'),
+                            ('Task Dependent Activities Evaluated', _num(k.get('total_activities'))),
+                            ('Over Threshold (evaluated)', k.get('over_threshold', 0)),
                             ('High-Duration %', _pct(k.get('high_pct'))), ('Threshold', _days(k.get('threshold'))),
-                            ('Longest', _days(k.get('max_duration')))],
+                            ('Longest (all WBS)', _days(k.get('max_duration')))]
+                           + ([] if k.get('view_default', True) else
+                              [('Also Shown (picked WBS)', k.get('view_label') or ''),
+                               ('Over Threshold (picked WBS)',
+                                f"{k.get('view_over', 0):,} of {k.get('view_activities', 0):,} - {_plain(k.get('view_pct'))}%")]),
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Duration', 'duration_days', 'days'), ('Severity', 'severity', 'sev'),
                     ('Recommendation', 'recommendation', 'mut')],
@@ -239,7 +269,7 @@ SPECS = {
                             ('Negative Float', k.get('negative_count', 0)),
                             ('Negative-Float % (of remaining)', _pct(k.get('neg_pct')))],
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
-                    ('WBS Path', 'wbs_path', 'wbs'), ('Total Float', 'total_float_days', 'days'),
+                    ('WBS Path', 'wbs_path', 'wbs'), ('Total Float', 'total_float_days', 'float_days'),
                     ('Severity', 'severity', 'sev'), ('Recommendation', 'recommendation', 'mut')],
     },
     'whole_day': {
@@ -288,7 +318,7 @@ def _cpli_computable(k):
 
 def _cpli_tiles(k):
     cpl = k.get('critical_path_length_days')
-    cpl_txt = '—' if cpl is None else f"{cpl} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
+    cpl_txt = '—' if cpl is None else f"{_plain(cpl)} d{' (cal)' if k.get('cpl_basis') == 'calendar' else ''}"
     cpli_ratio = k.get('cpli')
     return [
         ('Total Activities', _num(k.get('total_activities'))),
@@ -296,7 +326,7 @@ def _cpli_tiles(k):
         ('Critical Activities', _num(k.get('critical_count')) if k.get('critical_count') is not None else '—'),
         ('Critical % (of remaining)', _pct(k.get('critical_pct')) if k.get('critical_pct') is not None else '—'),
         ('CPLI', f"{_plain(k.get('cpli_pct'))}%" if cpli_ratio is not None else '—'),
-        ('Completion Total Float', _days(k.get('project_total_float_days'))),
+        ('Completion Total Float', float_days_text(k.get('project_total_float_days'))),
         ('Critical Path Length', cpl_txt),
         ('Finish Milestone', _fmt_date(k.get('finish_date')) if k.get('finish_date') else (k.get('finish_milestone_id') or '—')),
     ]
@@ -478,9 +508,265 @@ def report_sections(m):
 
 
 # checks that examine the task activities only (Task / Resource Dependent, completed included)
-_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'high_duration', 'whole_day'}
-# checks on relationships: P6's activity totals shown beside them for context (comment 47)
+_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'whole_day'}
+# checks on relationships: P6's activity total shown beside them for context (comment 47;
+# comment 80 took 'Remaining Activities' and 'Non-FS' off the Relationship Types report)
 _ACTIVITY_CONTEXT = {'relationship_types'}
+# comment 81: what the 'Task Activities Checked' tile counts, said in words under the tiles
+TASKS_CHECKED_LABEL = 'Task Activities Checked'
+TASKS_CHECKED_NOTE = ('Remaining Activities = every activity that is not completed yet (Not Started + In Progress), '
+                      'of every type - the count P6 shows. '
+                      'Task Activities Checked = the activities this check examines: Task Dependent and '
+                      'Resource Dependent activities, completed ones included. Milestones, Level of Effort '
+                      'and WBS Summary activities are not checked, so this figure is lower than Total Activities. '
+                      'The two count different things: one leaves out completed activities, the other leaves out '
+                      'milestones, Level of Effort and WBS Summary activities.')
+
+
+_P6_FILTERS = (('start', 'Start Dangling Activity', 'Predecessor Details', ('FS', 'SS')),
+               ('finish', 'Dangling Finish Activity', 'Successor Details', ('FS', 'FF')))
+_P6_HIDDEN_MAX = 50
+
+
+def _p6_hidden_row(h):
+    """One hidden activity, walked through the P6 filter lines: the column text as P6 reads it (the
+    misleading letters and the real types marked) and the verdict of each filter line."""
+    side = h['side']
+    _key, _name, param, letters = next(x for x in _P6_FILTERS if x[0] == side)
+    segs, marked = [], False
+    for i, (aid, typ) in enumerate(h['ties']):
+        if i:
+            segs.append([', ', ''])
+        at = aid.upper().find(h['letters']) if (aid == h['linked_id'] and not marked) else -1
+        if at >= 0:
+            marked = True
+            n = len(h['letters'])
+            segs += [[aid[:at], ''], [aid[at:at + n], 'hit'], [aid[at + n:], '']]
+        else:
+            segs.append([aid, ''])
+        segs += [[': ', ''], [typ, 'real']]
+    lines = [{'text': f'Filter line 1 - {param} is not blank?', 'ok': True, 'verdict': 'passes'}]
+    failed = False
+    for n, letter in enumerate(letters, start=2):
+        fail = (letter == h['letters'])
+        failed = failed or fail
+        lines.append({'text': f'Filter line {n} - does not contain "{letter}"?', 'ok': not fail,
+                      'verdict': f'fails - P6 finds "{letter}" inside the Activity ID' if fail else 'passes'})
+    types = ', '.join(sorted({typ for _aid, typ in h['ties']}))
+    end = 'start' if side == 'start' else 'finish'
+    link = 'predecessor' if side == 'start' else 'successor'
+    return {'activity_id': h['activity_id'], 'side': 'Start' if side == 'start' else 'Finish',
+            'param': param, 'segments': [s for s in segs if s[0]], 'lines': lines,
+            'letters': h['letters'], 'linked_id': h['linked_id'], 'real': f'{types} - {end} not driven',
+            'result': f'{h["activity_id"]} is left out of the {_name} list.',
+            'reality': f'no {link} is of a type that drives its {end} ({types} only), so it is dangling.'}
+
+
+def dangling_p6_check(k):
+    """The 'P6 filter check' panel under the Dangling tiles: the two P6 filters with what each
+    lists, why the two lists overlap, the bridge from P6's number to this report's, and every
+    dangling activity the P6 text filter leaves out. Built once here; the screen, the PDF / Word
+    report and the Excel sheet all draw it."""
+    p6 = (k or {}).get('p6_filter')
+    if not isinstance(p6, dict):
+        return None
+    total = int(k.get('total_dangling') or 0)
+    start, finish, both, unique = (int(p6.get(x) or 0) for x in ('start', 'finish', 'both', 'unique'))
+    other, opened, hid = (int(p6.get(x) or 0) for x in ('other_types', 'open_ends', 'hidden_activities'))
+    bridge = [{'op': '', 'n': unique, 'label': 'your P6 filters show', 'kind': ''}]
+    if other:
+        bridge.append({'op': '-', 'n': other, 'kind': 'h',
+                       'label': 'milestones / Level of Effort / WBS summaries (not task activities)'})
+    if hid:
+        bridge.append({'op': '+', 'n': hid, 'label': 'dangling, but hidden from the P6 filter', 'kind': 'h'})
+    if opened:
+        bridge.append({'op': '+', 'n': opened, 'kind': 'h',
+                       'label': 'no predecessor or no successor at all (P6 filters leave these out)'})
+    bridge.append({'op': '=', 'n': total, 'label': 'this report (true count)', 'kind': 't'})
+    hidden = [_p6_hidden_row(h) for h in (p6.get('hidden') or [])[:_P6_HIDDEN_MAX]]
+    return {
+        'title': 'P6 filter check - why P6 may show a different number',
+        'match': not (other or hid or opened),
+        'match_text': f'Matches your P6 filters: P6 shows {unique}, this report counts {total}.',
+        'filters': [{'name': name, 'param': param, 'values': list(letters), 'count': p6.get(key) or 0}
+                    for key, name, param, letters in _P6_FILTERS],
+        'both': both,
+        'overlap': [{'op': '', 'n': start - both, 'label': 'only in Start Dangling', 'kind': ''},
+                    {'op': '+', 'n': both, 'label': 'in both filters (counted once)', 'kind': 'b'},
+                    {'op': '+', 'n': finish - both, 'label': 'only in Dangling Finish', 'kind': ''},
+                    {'op': '=', 'n': unique, 'label': 'different activities in P6', 'kind': 't'}],
+        'overlap_title': f'Why {start} + {finish} is {unique} activit{"y" if unique == 1 else "ies"}, not {start + finish}',
+        'overlap_note': ('An activity that is dangling at both ends appears in both filters. '
+                         'It is one activity, so it is counted once.'),
+        'short': f'Short form: {start} + {finish} - {both} = {unique}.',
+        'bridge': bridge, 'total': total,
+        'hidden': hidden, 'hidden_total': len(p6.get('hidden') or []),
+        'legend': [['hit', 'letters inside the Activity ID - the P6 filter reads them as a relationship type'],
+                   ['real', 'the real relationship type - what this report reads']],
+    }
+
+
+def _tiles_note_with_figures(p6c, raw_tiles):
+    """The Remaining vs Task Activities Checked note, led by this schedule's own numbers."""
+    try:
+        total, remaining = int(p6c.get('total')), int(p6c.get('remaining'))
+        checked = next(int(str(v).replace(',', '')) for lab, v in raw_tiles if lab == TASKS_CHECKED_LABEL)
+    except (TypeError, ValueError, StopIteration):
+        return TASKS_CHECKED_NOTE
+    done, skipped = total - remaining, total - checked
+    if done < 0 or skipped < 0:
+        return TASKS_CHECKED_NOTE
+    return (f'In this schedule: Total Activities {total:,}. '
+            f'Remaining Activities {remaining:,} = {total:,} total - {done:,} completed. '
+            f'Task Activities Checked {checked:,} = {total:,} total - {skipped:,} milestones, '
+            f'Level of Effort and WBS Summary activities. ' + TASKS_CHECKED_NOTE)
+
+
+def _scope_text(k):
+    """What the High Duration evaluation considers (Construction, always) and what the planner
+    picked to see beside it."""
+    names = k.get('scope_wbs') or []
+    if not names:
+        return ''
+    total, every = k.get('total_activities') or 0, k.get('all_task_activities') or 0
+    thr = _plain(k.get('threshold', 44))
+    if k.get('scope_fallback'):
+        lead = (f'No WBS of this schedule is named Construction, so the evaluation considers every WBS '
+                f'({total:,} task activities).')
+    else:
+        lead = (f"The {thr}-working-day limit is a construction rule: the evaluation (score, band and "
+                f"Summary) considers the Construction WBS only, by default - {', '.join(names)}, "
+                f"{total:,} of the {every:,} task activities.")
+    lead += (' The WBS scope is an additional option: picking other WBS shows their count and their '
+             'activities - it does not change the evaluation.')
+    if not k.get('view_default', True):
+        lead += (f" Shown as picked: {k.get('view_label')} - {k.get('view_over', 0):,} of "
+                 f"{k.get('view_activities', 0):,} task activities over the limit ({_plain(k.get('view_pct'))}%).")
+    return lead
+
+
+def p6_wbs_table(m):
+    """The check's figures per major WBS, each beside P6's own count of the activities under
+    that WBS band (every type, completed included) - {'title', 'note', 'headers', 'rows',
+    'total'} for the screen, the report and Excel. None when the result carries no WBS rows."""
+    mod, k = m.get('module'), (m.get('kpis') or {})
+    thr = _plain(k.get('threshold', 44))
+    if mod == 'cpli':
+        src = [r for r in (m.get('wbs_summary') or []) if isinstance(r, dict) and 'critical' in r]
+        cols = [('Activities in P6', 'activities'), ('Not Completed', 'remaining'), ('Critical', 'critical')]
+        title = 'Critical activities by major WBS'
+        note = ("Activities in P6 = every activity under the WBS band, as P6 counts it (every type, completed "
+                "included). Critical = P6's Critical filter: not completed and flagged Critical.")
+    elif mod == 'float':
+        src = [r for r in ((m.get('mgmt') or {}).get('p6_wbs') or []) if isinstance(r, dict)]
+        thr = _plain(k.get('threshold', 44))
+        cols = [('Activities in P6', 'activities'), ('Not Completed', 'remaining'),
+                (f'Total Float > {thr} d', 'over'), ('Critical', 'critical'), ('Negative Float', 'negative')]
+        title = 'Float by major WBS'
+        note = (f"Activities in P6 = every activity under the WBS band, as P6 counts it. Total Float > {thr} d = "
+                f"P6's filter 'Total Float is greater than {thr}d' (a completed activity has no float).")
+    elif mod == 'high_duration':
+        src = [r for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict) and 'p6_over' in r]
+        cols = [('Activities in P6', 'p6_activities'), (f'Original Duration > {thr} d (P6 filter, every type)', 'p6_over'),
+                ('Task Dependent Activities', 'activities'), (f'Task Dependent > {thr} d', 'over')]
+        title = 'High duration by major WBS'
+        note = (f"Original Duration > {thr} d (P6 filter, every type) = what P6 lists with the filter 'Original "
+                f"Duration is greater than {thr}d'. Task Dependent > {thr} d = the same filter with Activity Type "
+                'equals Task Dependent - the activities this check reads.')
+    else:
+        return None
+    if not src:
+        return None
+    rows = [[r.get('wbs') or '(no WBS)'] + [f"{int(r.get(f) or 0):,}" for _l, f in cols] for r in src]
+    total = ['Whole schedule'] + [f"{sum(int(r.get(f) or 0) for r in src):,}" for _l, f in cols]
+    return {'title': title, 'note': note, 'headers': ['Major WBS (as named in P6)'] + [l for l, _f in cols],
+            'rows': rows, 'total': total}
+
+
+def _critical_split(k):
+    """'380 = 360 Task Dependent + 12 milestones + 8 Level of Effort' - the critical count by type."""
+    parts = [(k.get('critical_task'), 'Task Dependent'), (k.get('critical_resource'), 'Resource Dependent'),
+             (k.get('critical_milestone'), 'milestones'), (k.get('critical_loe'), 'Level of Effort'),
+             (k.get('critical_wbs_summary'), 'WBS Summary')]
+    parts = [f'{n:,} {name}' for n, name in parts if n]
+    if not parts or k.get('critical_count') is None:
+        return None
+    return (f"Critical Activities {k['critical_count']:,} = " + ' + '.join(parts) + ". P6 flags every activity "
+            "type Critical when it is not completed and its total float is within the project's critical "
+            "limit - the same list as P6's Critical filter.")
+
+
+def high_duration_figures_note(k):
+    """Every High Duration figure, worked out with this schedule's own numbers."""
+    if not k.get('scope_wbs') or k.get('all_activities') is None:
+        return None
+    every, tasks = k.get('all_activities') or 0, k.get('all_task_activities') or 0
+    total, over, thr = k.get('total_activities') or 0, k.get('over_threshold') or 0, _plain(k.get('threshold', 44))
+    pct = _plain(k.get('high_pct'))
+    score = _plain(round(100.0 - (k.get('high_pct') or 0), 1))
+    where = 'in every WBS' if k.get('scope_fallback') else f"under the Construction WBS ({', '.join(k['scope_wbs'])})"
+    return (f'In this schedule: Total Activities {every:,}. '
+            f'Task Dependent Activities (all WBS) {tasks:,} = {every:,} total - {every - tasks:,} milestones, '
+            f'Level of Effort, WBS Summary and Resource Dependent activities. '
+            + (f"In P6 the filter 'Original Duration is greater than {thr}d' lists {k['p6_over_threshold']:,} activities "
+               f"in the whole schedule = {k.get('all_over_threshold', 0):,} Task Dependent + "
+               f"{k['p6_over_threshold'] - (k.get('all_over_threshold') or 0):,} of other types "
+               '(Level of Effort, WBS Summary, Resource Dependent). ' if k.get('p6_over_threshold') is not None else '') +
+            f'Task Dependent Activities Evaluated {total:,} = the Task Dependent activities {where}. '
+            f'Over Threshold {over:,} = the evaluated activities whose Original Duration is greater than {thr} working days. '
+            f'High-Duration % {pct}% = {over:,} / {total:,}. Score {score} = 100 - {pct}. '
+            f"Longest (all WBS) {_plain(k.get('max_duration'))} d = the longest Original Duration of any Task Dependent activity.")
+
+
+def high_duration_p6_filter(k):
+    """The P6 filter that lists the same activities as the High Duration list (review tip 4)."""
+    names = k.get('view_wbs') or k.get('scope_wbs') or []
+    if not names:
+        return None
+    thr = _plain(k.get('threshold', 44))
+    wbs = '' if k.get('view_label') == 'All WBS' else ' and WBS is under ' + ' or '.join(names)
+    n = k.get('view_over', k.get('over_threshold', 0))
+    return (f"Check it in P6: filter Activity Type equals Task Dependent and "
+            f"Original Duration is greater than {thr}d{wbs} - P6 lists {n:,} activities, "
+            'the same activities as listed in this report.')
+
+
+def hours_basis_text(k):
+    """How hours become days (review decision 2026-10-11): each activity on the calendar assigned
+    to it. None when the result carries no basis (an older import)."""
+    b = k.get('hours_basis') if isinstance(k.get('hours_basis'), dict) else None
+    days = (b or {}).get('days') or []
+    if not days:
+        return None
+    text = "Days = hours \u00f7 the hours per day of the calendar assigned to each activity"
+    if len(days) == 1:
+        return text + f" - every activity of this schedule is on a calendar of {_plain(float(days[0]['hours']))} h/day."
+    parts = ', '.join(f"{_plain(float(d['hours']))} h/day: {d['activities']:,} activities ({_plain(d['pct'])}%)"
+                      for d in days)
+    return text + f' ({parts}).'
+
+
+def _highlight_note(m):
+    """The highlighted note under a check's tiles (review comments 1, 2, 9) - what the check
+    covers, said once for the screen, the PDF / Word report and Excel. None when there is none."""
+    mod, k = m.get('module'), (m.get('kpis') or {})
+    if mod == 'dangling':
+        return ('This check covers Task Dependent and Resource Dependent activities only. '
+                'Milestones, Level of Effort and WBS Summary activities are not checked for dangling logic.')
+    if mod == 'high_duration':
+        return ('This check reads Task Dependent activities only. Milestones, Level of Effort, '
+                'WBS Summary and Resource Dependent activities are not counted. ' + _scope_text(k))
+    if mod == 'negative_float':
+        neg, frac = k.get('negative_count') or 0, k.get('fraction_count') or 0
+        if neg and frac * 2 > neg:
+            half = _plain(k.get('fraction_days', 0.5))
+            lead = (f'All {neg:,} negative-float activities are' if frac == neg
+                    else f'{frac:,} of the {neg:,} negative-float activities are')
+            return (f'{lead} negative by no more than {half} day (most negative: '
+                    f"{float_days_text(k.get('most_negative'))}). This is decimal (part-day) float in the "
+                    'baseline - it comes from decimal durations, not from a delay to the finish. '
+                    "The figures are computed from the schedule's own early and late dates.")
+    return None
 
 
 def build_presentation(module_result):
@@ -495,14 +781,15 @@ def build_presentation(module_result):
     else:
         raw_tiles = spec['tiles'](k)
     p6c = m.get('p6_counts') or {}
+    tiles_note = None
     if p6c and m.get('module') in _TASK_BASED:
         # comment 48: P6's own totals first — every activity (completed included) and the ones
         # still to do — then this check's own base, which is the task activities it examines
         raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
-                     + [(('Tasks Checked' if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
+                     + [((TASKS_CHECKED_LABEL if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
+        tiles_note = _tiles_note_with_figures(p6c, raw_tiles)
     if p6c and m.get('module') in _ACTIVITY_CONTEXT:
-        raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
-                     + list(raw_tiles))
+        raw_tiles = [('Total Activities', _num(p6c.get('total')))] + list(raw_tiles)
     tiles = [{'label': lab, 'value': _plain(val)} for lab, val in raw_tiles]
 
     columns = [{'label': lab, 'align': 'num' if kind in _NUM_KINDS else ''}
@@ -510,6 +797,27 @@ def build_presentation(module_result):
     rows = [[_cell_for(kind, f.get(field)) for lab, field, kind in spec['columns']]
             for f in findings]
 
-    return {'tiles': tiles, 'columns': columns, 'rows': rows,
+    extra = {}
+    if m.get('module') == 'dangling':
+        check = dangling_p6_check(k)
+        if check:
+            extra['p6_check'] = check
+    extra = dict(extra)
+    highlight = _highlight_note(m)
+    # every highlighted line under the tiles, in order: what the check covers, then the day basis
+    highlights = [t for t in (highlight, hours_basis_text(k)) if t]
+    if m.get('module') == 'cpli' and _critical_split(k):
+        tiles_note = _critical_split(k)
+    extra['wbs_table'] = p6_wbs_table(m)
+    if m.get('module') == 'high_duration':
+        tiles_note = high_duration_figures_note(k)
+        extra['p6_filter'] = high_duration_p6_filter(k)
+        extra['wbs_scope'] = [{'wbs': r.get('wbs'), 'activities': r.get('activities', 0), 'over': r.get('over', 0),
+                               'pct': r.get('pct', 0), 'counted': bool(r.get('counted')),
+                               'evaluated': bool(r.get('evaluated')),
+                               'is_construction': bool(r.get('is_construction'))}
+                              for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict)]
+    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'highlight': highlight,
+            'highlights': highlights, 'columns': columns, 'rows': rows,
             'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
             'sections': report_sections(m)}

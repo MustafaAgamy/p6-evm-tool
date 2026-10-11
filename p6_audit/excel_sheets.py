@@ -66,9 +66,14 @@ def _scalar(v):
     return v is None or isinstance(v, (str, int, float, bool))
 
 
-def _pairs(d):
+# Figures a check's report no longer shows, so its workbook does not either (comment 80).
+_SKIP_FOR = {'relationship_types': {'non_fs', 'remaining_activities'}, 'negative_float': {'fraction_days'}}
+
+
+def _pairs(d, skip=()):
     """A flat dict's plain figures as [heading, value] rows (nested parts are left to the caller)."""
-    return [[label(k), _value(v)] for k, v in d.items() if k not in _SKIP and _scalar(v)]
+    return [[label(k), _value(v)] for k, v in d.items()
+            if k not in _SKIP and k not in skip and _scalar(v)]
 
 
 def _table(rows):
@@ -111,10 +116,38 @@ def _summary_blocks(m):
     tiles = [[_tile_label(t.get('label', '')), _value(t.get('value'))] for t in (p.get('tiles') or [])
              if isinstance(t, dict)]
     if tiles:
-        blocks.append({'title': 'Key figures (as shown on the report)',
+        blocks.append({'title': 'Key figures (as shown on the report)', 'note': ' '.join(t for t in (list(p.get('highlights') or [p.get('highlight')])
+                                                   + [p.get('p6_filter'), p.get('tiles_note')]) if t) or None,
                        'headers': ['Figure', 'Value'], 'rows': tiles})
 
-    figures = _pairs(kpis)
+    wt = p.get('wbs_table') if isinstance(p.get('wbs_table'), dict) else None
+    if wt and wt.get('rows'):
+        blocks.append({'title': wt.get('title', 'By major WBS'), 'note': wt.get('note') or None,
+                       'headers': wt['headers'], 'rows': list(wt['rows']) + ([wt['total']] if wt.get('total') else [])})
+
+    chk = p.get('p6_check') if isinstance(p.get('p6_check'), dict) else None
+    if chk:
+        if chk.get('match'):
+            blocks.append({'title': 'P6 filter check', 'headers': ['Item', 'Value'],
+                           'rows': [['Result', chk.get('match_text', '')]]})
+        else:
+            rows = [[f'P6 filter "{x["name"]}" ({x["param"]} does not contain {" / ".join(x["values"])}) lists', x['count']]
+                    for x in chk.get('filters') or []]
+            rows.append(['Activities in both filters (counted once)', chk.get('both')])
+            rows += [[f'{(part["op"] + " ") if part.get("op") else ""}{part["label"]}', part['n']]
+                     for part in chk.get('bridge') or []]
+            blocks.append({'title': 'P6 filter check - why P6 may show a different number',
+                           'note': f'{chk.get("overlap_note", "")} {chk.get("short", "")}',
+                           'headers': ['Item', 'Activities'], 'rows': rows})
+            hid = [[h['activity_id'], h['side'], ''.join(s for s, _k in h['segments']), h['letters'], h['linked_id'], h['real']]
+                   for h in chk.get('hidden') or []]
+            if hid:
+                blocks.append({'title': 'Dangling activities the P6 filter leaves out',
+                               'note': 'P6 searches the whole column text, so letters inside a linked Activity ID are read as a relationship type.',
+                               'headers': ['Dangling activity', 'Dangling side', 'What P6 reads (Predecessor / Successor Details)',
+                                           'Letters P6 finds', 'In the Activity ID', 'Real relationship'], 'rows': hid})
+
+    figures = _pairs(kpis, _SKIP_FOR.get(m.get('module'), ()))
     if figures:
         blocks.append({'title': 'All figures', 'headers': ['Figure', 'Value'], 'rows': figures})
     for k, v in kpis.items():                                  # a chart's numbers (e.g. lags by type)

@@ -477,8 +477,8 @@ function _monthDetailHtml() {
 // histogram's own numbers: weekly rest days + holidays, comment 76); 3.2 = one row per holiday
 // DATE (runs are expanded to individual dates with their weekday, a long run reads 'Shutdown');
 // the Description is editable via the existing
-// cal-reason / saveCalendarSettings({shutdown_reasons}) plumbing. The "+ Add shutdown" capability
-// is preserved as a small demoted affordance below the table.
+// cal-reason / saveCalendarSettings({shutdown_reasons}) plumbing. There is no "+ Add shutdown":
+// every non-working day is a holiday held in the P6 calendar (owner, 2026-10-11).
 function _exceptionsSection() {
   const bc = (_ca.by_calendar || {})[_sel] || {};
   const exc = bc.exceptions || { holidays: [], holiday_dates: [] };
@@ -497,11 +497,6 @@ function _exceptionsSection() {
     `<tr><td>${fmtCalDate(h.date)}</td><td>${escapeHtml(h.weekday || '')}</td>
      <td><input class="cal-reason" data-key="${escapeHtml(h.key || '')}" value="${escapeHtml(h.reason || '')}" placeholder="Add a description for this holiday…"></td></tr>`).join('');
   const body = rows || '<tr><td colspan="3" class="cal-empty">No holidays between the Data Date and Project Completion.</td></tr>';
-  const addBtn = '<button class="cal-btn sec mini" id="cal-add-shutdown-btn">+ Add shutdown</button>';
-  const addForm = `<div id="cal-add-shutdown" class="cal-addform hidden">
-      <input type="date" id="cal-sd-start"><span>→</span><input type="date" id="cal-sd-end">
-      <input id="cal-sd-reason" placeholder="reason (e.g. Plant turnaround)">
-      <button class="cal-btn pri mini" id="cal-sd-save">Add</button></div>`;
   return _sec(3, 'Calendar Non-working days', '<span class="cal-sec-note">Data Date → Project Completion</span>') +
     splitTable +
     `<div class="cal-card p0"><table class="cal-table"><thead><tr>
@@ -509,8 +504,7 @@ function _exceptionsSection() {
       <tbody>${body}</tbody>
       <tfoot><tr><td colspan="3" class="cal-tfoot">Total holidays: <b>${hd.length}</b> &nbsp;·&nbsp;
         <span class="cal-muted">the Description is editable — type/adjust each holiday's name; saved with the project and printed in the PDF.</span></td></tr></tfoot>
-      </table></div>
-     <div class="cal-add-demote">${addBtn}${addForm}</div>`;
+      </table></div>`;
 }
 
 // Section 4 — Working-hours Profile as a TABLE: Period | Hours | Days/week | Hrs/day | Note.

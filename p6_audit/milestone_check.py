@@ -12,6 +12,7 @@ called with the contract milestones the user entered (persisted per project).
 from datetime import datetime
 
 from p6_evm.calendars import signed_working_days
+from p6_audit.presentation import float_days_text
 
 # Constraints that PIN a finish and can therefore hide a downstream slip.
 _FINISH_HARD = {'Mandatory Finish', 'Finish On'}
@@ -147,12 +148,19 @@ def _evaluate_one(graph, name, contract_date):
     finish_hard = ctype in _FINISH_HARD
     # A finish-pinning constraint on/near the contract date while the float is negative
     # means the network really finishes later — the constraint is masking a slip.
-    masking = bool(finish_hard and tf is not None and tf < 0)
+    # Comment 84: only a slip of one working day or more is a masked slip. A float of a few
+    # negative hours (-0.36 d) is not a failed milestone — it reads On track, with a note.
+    masking = bool(finish_hard and tf is not None and tf <= -1)
+    hours_late = tf is not None and -1 < tf < 0
+    tf_txt = float_days_text(tf)
+    hours_note = (f'Note: this milestone carries a few hours of delay — total float {tf_txt} '
+                  f'(negative, less than one working day).') if hours_late else None
 
     base.update({
         'matched_activity_id': act.get('id', oid), 'matched_activity_name': act.get('name', ''),
         'scheduled_finish': _fmt(sched_finish), 'variance_days': variance, 'total_float_days': tf,
         'on_driving_path': on_path, 'constraint_type': ctype, 'constraint_date': _fmt(cdate),
+        'total_float_text': tf_txt, 'note': hours_note,
     })
 
     late = variance is not None and variance > 0
@@ -161,7 +169,7 @@ def _evaluate_one(graph, name, contract_date):
         base.update({
             'status': 'Masked',
             'finding': 'The milestone shows on the contract date, but only because a hard constraint pins it there.',
-            'evidence': f'The activity carries a {ctype} constraint and total float is {tf} d (negative), '
+            'evidence': f'The activity carries a {ctype} constraint and total float is {tf_txt} (negative), '
                         f'so the network actually finishes later than the pinned date.',
             'root_cause': 'A hard constraint is holding the milestone on its date while the logic finishes later — '
                           'the constraint is masking a real slip.',
@@ -174,7 +182,7 @@ def _evaluate_one(graph, name, contract_date):
             'status': 'Late',
             'finding': f'Scheduled {v_txt} after the contract date.',
             'evidence': f'Scheduled finish {_fmt(sched_finish)} vs contract {_fmt(contract_date)}; '
-                        f'total float {tf} d; {"on" if on_path else "off"} the driving path.',
+                        f'total float {tf_txt}; {"on" if on_path else "off"} the driving path.',
             'root_cause': 'A genuine logic-driven slip — the date is not being masked by a constraint.',
             'impact': f'The milestone is {v_txt} late against the contract.',
             'recommendation': ('Recover the slip on the driving-path activities feeding this milestone, '
@@ -183,11 +191,14 @@ def _evaluate_one(graph, name, contract_date):
     else:
         base.update({
             'status': 'On track',
-            'finding': 'Scheduled on or before the contract date.',
-            'evidence': f'Scheduled finish {_fmt(sched_finish)} vs contract {_fmt(contract_date)}; total float {tf} d.',
+            'finding': 'Scheduled on or before the contract date.' + (f' {hours_note}' if hours_note else ''),
+            'evidence': f'Scheduled finish {_fmt(sched_finish)} vs contract {_fmt(contract_date)}; total float {tf_txt}.',
             'root_cause': 'The milestone meets its contractual date through the network logic.',
-            'impact': 'No contractual exposure on this milestone.',
-            'recommendation': 'No action needed; keep the driving path protected.',
+            'impact': ('A few hours only — no working day is lost against the contract date.' if hours_note
+                       else 'No contractual exposure on this milestone.'),
+            'recommendation': ('Clear the few hours of negative float on the path feeding this milestone so it '
+                               'holds its date with zero float.' if hours_note
+                               else 'No action needed; keep the driving path protected.'),
         })
     return base
 
@@ -252,8 +263,11 @@ def _milestone_presentation(evals, counts, score, matched, bad):
             _mcell(e.get('contract_name')), _mcell(e.get('contract_date'), 'mut'),
             _mcell(e.get('matched_activity_id') or '—', 'mono'), _mcell(e.get('matched_activity_name') or '—'),
             _mcell(e.get('scheduled_finish') or '—', 'mut'),
-            _mcell(var_txt, 'num'), _mcell('—' if tf is None else f'{(lambda n: 0 if n == 0 else n)(int(round(tf)))} d', 'num'),   # whole days (comment 51)
-            _mcell(e.get('status'), 'mut'), _mcell(e.get('recommendation'), 'mut')])
+            # whole days (comment 51) — but a float of a few hours keeps its decimals (comment 84)
+            _mcell(var_txt, 'num'), _mcell('—' if tf is None else (float_days_text(tf) if -1 < tf < 0 else f'{(lambda n: 0 if n == 0 else n)(int(round(tf)))} d'), 'num'),
+            _mcell((e.get('status') or '') + (' — a few hours of delay' if e.get('note') else ''),
+                   'hl-note' if e.get('note') else 'mut'),
+            _mcell(e.get('recommendation'), 'mut')])
     _vp = [f"{counts[s]} {s.lower()}" for s in ('Masked', 'Late', 'On track', 'Unmatched') if counts.get(s)]
     verdict = ' · '.join(_vp) if _vp else 'No contract milestones matched.'
     scoring = None
