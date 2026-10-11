@@ -7,6 +7,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Schedule Health review round (counts as P6 holds them)
+- **Counts per major WBS.** Critical Path, Float Analysis and High Duration each show a table with P6's own count of the activities under every major WBS (every activity type, completed included) beside the check's own figures.
+- **High Duration.** Evaluated on the Construction WBS only, Task Dependent activities only; the report also shows what P6's *Original Duration is greater than 44d* filter lists in the whole schedule and how many of those are Task Dependent. A *WBS scope* picker lists any other WBS as an additional view - the score does not move. Every figure is worked out under the tiles, with the P6 filter that lists the same activities.
+- **Critical activities.** In Progress and Not Started activities of every type, split by activity type and by major WBS.
+- **Circular Logic.** A chain that returns to its start through a Level of Effort or WBS Summary activity is no longer reported as a loop (P6 schedules it).
+- **Highlighted notes.** Dangling (what the check covers), High Duration (scope and day basis) and Negative Float (when most are negative by no more than half a day).
+- **Dangling table.** Columns named *Predecessor* / *Successor*; *Apply all recommended fixes* sits above the table.
+- **Near-critical** tile wording matches the rule: total float above 0, up to 10 working days.
+- `tests/p6_spreadsheet_check.py` reads a P6 file as a spreadsheet (one row per activity) and compares 46 Schedule Health figures with it, whole schedule and per major WBS.
+
 ### Added — Schedule Health: Whole-day Review & Resolve and one corrected schedule
 - **Whole-day Durations — Review & Resolve.** Every activity with a decimal duration is listed with a suggested whole-day duration that can be changed: pick *Down*, *Nearest* or *Up*, or type any whole number of days. *Apply* (or *Apply all suggested fixes*) re-checks the schedule with the same check, so the Decimal Durations count, the percentage and the score move at once; an applied fix can be reopened. The fix changes the Original Duration of every listed activity; a not-started activity gets the same Remaining Duration, an activity that has started keeps its Remaining Duration. **Download Corrected XER** saves the schedule with the applied durations. The tool does not reschedule: press F9 in P6 after importing the file.
 - **Summary — Corrected schedule.** One card lists the sub-features that can correct the file (Dangling Activities, Whole-day Durations), how many fixes each has applied and how many are still open, and downloads ONE corrected XER carrying all of them. *Apply all suggested fixes in every sub-feature* applies them in one step (fixes that would move the contract completion milestone stay held back). A sub-feature that gains a fix option later appears in this card by itself.
