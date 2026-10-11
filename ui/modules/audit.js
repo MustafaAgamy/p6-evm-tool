@@ -1224,6 +1224,17 @@ function _dngFixCell(f, side) {
   if (!_dngSideDangling(f, side)) return `<span class="dng-fix ok">OK — already driven</span>`;
   const fx = side === 'start' ? f.start_fix : f.finish_fix;
   if (!fx || fx.kind === 'review') return `<span class="dng-fix review">⚠ Needs Planner Review</span>`;
+  // An applied fix shows what is written to the corrected file, not the first suggestion: the type
+  // actually applied, or - the milestone-safe way - the existing link kept and its partner added.
+  const ap = ((_dng.applied[f.activity_id] || {}).ops || []).find(o => o.side === side);
+  if (ap && ap.action === 'add') {
+    return `<span class="dng-fix change">Keep ${escapeHtml(fx.target_id)} ${escapeHtml(fx.current_type)} `
+      + `<span class="arw">+ add</span> ${escapeHtml(_dngTypeName(ap.new_type))}</span>`;
+  }
+  if (ap && ap.new_type) {
+    return `<span class="dng-fix change">Change ${escapeHtml(fx.target_id)} `
+      + `<span class="arw">${escapeHtml(fx.current_type)} →</span> ${escapeHtml(_dngTypeName(ap.new_type))}</span>`;
+  }
   return `<span class="dng-fix change">Change ${escapeHtml(fx.target_id)} `
     + `<span class="arw">${escapeHtml(fx.current_type)} →</span> ${escapeHtml(_dngTypeName(fx.recommended_type))}</span>`;
 }
@@ -1608,7 +1619,7 @@ async function _dngDownload() {
     });
     const out = await resp.json();
     _dngDlNote(out.ok
-      ? `Saved — ${out.applied} change(s) written. Open it in P6 and press F9.`
+      ? `Saved — ${out.applied} change(s) written. Import it in P6 as a new project (Create New Project) and press F9.`
       : (out.error || 'Could not write the corrected file.'), !out.ok);
   } catch (e) {
     _dngDlNote('Could not write the corrected file.', true);
@@ -1912,7 +1923,7 @@ async function _healthDownloadCorrected(fixes, suffix, noteFn) {
                              output_path: outputPath, fixes, completion: _dngCompletion() }),
     });
     const out = await resp.json();
-    const msg = out.ok ? `Saved — ${out.applied} change(s) written. Open it in P6 and press F9.`
+    const msg = out.ok ? `Saved — ${out.applied} change(s) written. Import it in P6 as a new project (Create New Project) and press F9.`
                        : (out.error || 'Could not write the corrected file.');
     noteFn(msg, !out.ok);
     _dngToast(msg, out.ok ? 'ok' : 'err');

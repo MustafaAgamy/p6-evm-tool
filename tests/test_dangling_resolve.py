@@ -281,3 +281,12 @@ def test_revalidate_returns_updated_score_and_presentation(tmp_path):
     # resolving a finding removes it → fewer dangling → the score goes UP (never down)
     assert out['kpis']['total_dangling'] < base['kpis']['total_dangling']
     assert out['score'] >= base['score']
+
+
+def test_resolved_row_shows_the_fix_that_is_written_to_the_file():
+    # owner: the row said 'FF -> FS' while the corrected file kept FF and added SS - they must match
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, 'ui/modules/audit.js'), encoding='utf-8') as fh:
+        cell = fh.read().split('function _dngFixCell')[1].split('function _dngResCell')[0]
+    assert "ap.action === 'add'" in cell and '+ add' in cell and '_dngTypeName(ap.new_type)' in cell
