@@ -234,8 +234,9 @@ _CAL_STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 _CAL_RPTTITLE = 11                    # report-block title (bold 15 navy) — matches _RPTTITLE_STYLE
 _CAL_CONTEXT = 12                     # report-block context sub-line (sz 10 grey)
 
-_STATUS_STYLE = {'work': 3, 'weekend': 4, 'holiday': 5, 'shutdown': 6, 'special': 7}
-_LEGEND = [('Working', 3), ('Weekend', 4), ('Holiday', 5), ('Shutdown', 6), ('Special hours', 7)]
+# a P6 calendar has no 'shutdown' — a long run of non-working days is holidays like any other
+_STATUS_STYLE = {'work': 3, 'weekend': 4, 'holiday': 5, 'shutdown': 5, 'special': 7}
+_LEGEND = [('Working', 3), ('Weekend', 4), ('Holiday', 5), ('Special hours', 7)]
 # Bad Weather grid: two-category calendar (working / non-working) + the amber bad-weather overlay.
 WX_BAD_STYLE = 10                     # amber fill (bad-weather day) — style index 10
 _WX_LEGEND = [('Working', 3), ('Non-working', 4), ('Bad-weather day', WX_BAD_STYLE)]
@@ -739,11 +740,11 @@ def _stacked_sheet(blocks, col_widths=None, meta=None, legend=None,
 _CAL_FIGURES = (
     ('project_start', 'Project start'), ('project_finish', 'Project finish'),
     ('data_date', 'Data date'), ('baseline_start', 'Baseline start'),
-    ('baseline_finish', 'Baseline finish'), ('window_start', 'Review window start'),
-    ('window_finish', 'Review window finish'), ('total_calendar_days', 'Calendar days'),
+    ('baseline_finish', 'Baseline finish'), ('window_start', 'Statistics from (Data Date)'),
+    ('window_finish', 'Statistics to (Project Completion)'), ('total_calendar_days', 'Calendar days'),
     ('total_working_days', 'Working days'), ('total_nonworking_days', 'Non-working days'),
+    ('total_rest_days', 'Weekly rest days'),
     ('total_holidays', 'Holidays'), ('total_exceptions', 'Exceptions'),
-    ('shutdown_periods', 'Shutdown periods'),
     ('avg_working_days_per_month', 'Average working days per month'),
     ('avg_working_hours_per_day', 'Average working hours per day'),
     ('normal_hours', 'Normal working hours'),
@@ -776,7 +777,7 @@ def _calendar_extra_sheets(ca):
                 totals.append([c.get('name', ''), t.get('working_days', ''),
                                t.get('nonworking_days', ''), t.get('working_hours', '')])
         if totals:
-            summary.append({'title': 'Working time in the review window, by calendar',
+            summary.append({'title': 'Working time from the Data Date to Project Completion, by calendar',
                             'headers': ['Calendar', 'Working days', 'Non-working days', 'Working hours'],
                             'rows': totals})
         hours = []
@@ -795,13 +796,16 @@ def _calendar_extra_sheets(ca):
         for c in assigned:
             months = (by_cal.get(c.get('object_id')) or {}).get('monthly_stats') or []
             if months:
+                # the report's section 3.1 split (calendar days = working + weekly rest days +
+                # holidays), with the Total row, plus the working hours
+                from p6_calendar.report import month_split_rows
+                split = month_split_rows(months)
+                hrs = [m.get('working_hours', 0) for m in months]
+                hrs.append(round(sum(hrs), 1))
                 monthly.append({'title': c.get('name', 'Calendar'),
-                                'headers': ['Month', 'Working days', 'Non-working days', 'Holidays',
-                                            'Exceptions', 'Working hours'],
-                                'rows': [[m.get('label', ''), m.get('working_days', ''),
-                                          m.get('nonworking_days', ''), m.get('holidays', ''),
-                                          m.get('exceptions', ''), m.get('working_hours', '')]
-                                         for m in months]})
+                                'headers': ['Month', 'Calendar days', 'Working days', 'Weekly rest days',
+                                            'Holidays', 'Total non-working', 'Working hours'],
+                                'rows': [r + [h] for r, h in zip(split, hrs)]})
         if monthly:
             out.append(('Monthly Working Time', monthly))
 
@@ -814,7 +818,7 @@ def _calendar_extra_sheets(ca):
                      for h in exc.get('holidays') or []]
                     + [['Reduced / special hours', x.get('description', ''), x.get('days', ''),
                         x.get('hours') or '', x.get('reason') or ''] for x in exc.get('special') or []]
-                    + [['Shutdown', x.get('description', ''), x.get('days', ''), '', x.get('reason') or '']
+                    + [['Holiday', x.get('description', ''), x.get('days', ''), '', x.get('reason') or '']
                        for x in exc.get('shutdowns') or []])
             if rows:
                 others.append({'title': c.get('name', 'Calendar'),
@@ -843,7 +847,7 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
     assigned = ca.get('assigned_calendars') or []
     proj = ca.get('project', {}) or {}
     hidden = proj.get('hidden_months') or 0
-    subtitle = (f'Timeline from data date {_date_text(proj.get("timeline_start")) or "start"} to finish'
+    subtitle = (f'Timeline from data date {_date_text(proj.get("timeline_start")) or "start"} to Project Completion'
                 + (f' · {hidden} earlier month(s) hidden' if hidden else ''))
     hdr = _cal_header_lines(meta)                          # header block, first sheet only
 
@@ -858,16 +862,19 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
 
     exc = (by_cal.get(primary, {}) or {}).get('exceptions', {}) or {}
     exc_blocks = [
+        # every holiday date of the period, one row each (report section 3.2)
+        {'title': 'Holiday dates', 'headers': ['Date', 'Day', 'Description'],
+         'rows': [[_human_date(h.get('date')), h.get('weekday', ''), h.get('reason') or '']
+                  for h in exc.get('holiday_dates', [])]},
+        # the same holidays as periods — a long run is a holiday period too (no 'shutdown' in P6)
         {'title': 'Holidays & Vacations', 'headers': ['Date', 'Days', 'Description'],
-         'rows': [[h['description'], h['days'], h.get('reason') or ''] for h in exc.get('holidays', [])]},
+         'rows': [[h['description'], h['days'],
+                   ('[added] ' if h.get('source') == 'manual' else '') + (h.get('reason') or '')]
+                  for h in list(exc.get('holidays', [])) + list(exc.get('shutdowns', []))]},
         {'title': 'Reduced / Special Working Hours', 'headers': ['Date', 'Days', 'Hours', 'Description'],
          'note': 'Differences under 5 minutes from the standard day are ignored.',
          'rows': [[s['description'], s['days'], s.get('hours') or '', s.get('reason') or '']
                   for s in exc.get('special', [])]},
-        {'title': 'Shutdowns', 'headers': ['Date', 'Days', 'Reason'],
-         'rows': [[s['description'], s['days'],
-                   ('[added] ' if s.get('source') == 'manual' else '') + (s.get('reason') or '')]
-                  for s in exc.get('shutdowns', [])]},
     ]
     sheets.append(('Exceptions', _stacked_sheet(exc_blocks, col_widths={0: 26, 3: 22},
                                                  title_style=9, note_style=0, header_style=2,
@@ -881,8 +888,8 @@ def write_calendar_xlsx(path, ca, weather=None, meta=None):
 
     usage = ca.get('usage', [])
     sheets.append(('Usage', _sheet(
-        ['Calendar', 'Activities', '% of Activities', 'Role'],
-        [[u['name'], u['activities'], ('—' if u['role'] == 'Unused' else f"{u['pct']}%"), u['role']]
+        ['Calendar', 'Activities', '% of Activities'],
+        [[u['name'], u['activities'], ('—' if u.get('role') == 'Unused' else f"{u['pct']}%")]
          for u in usage], header_style=2)))
 
     # The rest of the report (owner comment 29): the key figures, the conclusions, the working

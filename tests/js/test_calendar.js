@@ -21,7 +21,7 @@ test('garbage -> dash',            () => assert.equal(fmtCalDate('not-a-date'), 
 
 console.log('\nstatusClass');
 test('work',      () => assert.equal(statusClass('work'), 'cs-work'));
-test('shutdown',  () => assert.equal(statusClass('shutdown'), 'cs-shutdown'));
+test('a long holiday run reads as a holiday (no shutdown in P6)',  () => assert.equal(statusClass('shutdown'), 'cs-holiday'));
 test('unknown -> work', () => assert.equal(statusClass('???'), 'cs-work'));
 
 console.log('\nmonthGridCells');

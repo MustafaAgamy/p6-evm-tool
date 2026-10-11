@@ -1186,7 +1186,7 @@ body.dng-fs-body #results-section { transform: none !important; }
 .cal-hidden-note b { color:var(--accent); }
 
 /* Calendar Timeline as a working/non-working days-per-month histogram */
-.cal-whist { display:flex; align-items:flex-end; gap:10px; height:150px; border-bottom:2px solid var(--border); padding:0 4px; margin:2px 0 0; overflow-x:auto; }
+.cal-whist { display:flex; align-items:flex-end; gap:10px; height:164px; border-bottom:2px solid var(--border); padding:0 4px; margin:2px 0 0; overflow-x:auto; }
 .cal-whc { flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; cursor:pointer; }
 .cal-whc.static { cursor:default; }
 .cal-whc:hover .cal-whw { filter:brightness(1.06); }
@@ -1197,7 +1197,11 @@ body.dng-fs-body #results-section { transform: none !important; }
 .cal-whw { background:var(--success); border-radius:4px 4px 0 0; }
 .cal-histblock { margin:6px 0 4px; }
 .cal-histtitle { font-size:12.5px; font-weight:800; color:var(--accent); margin:6px 0 2px; }
-.cal-whl { font-size:9px; color:var(--muted); margin-top:5px; text-align:center; white-space:nowrap; }
+.cal-whl { font-size:9px; color:var(--muted); margin-top:5px; text-align:center; white-space:nowrap; line-height:1.3; }
+.cal-histtot { font-size:11.5px; font-weight:400; color:var(--muted); margin-left:8px; }
+.cal-histtot b { color:var(--text); }
+.cal-subttl { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin:12px 0 6px; }
+.cal-table tr.cal-total td { font-weight:800; }
 .cal-whleg { display:flex; gap:16px; font-size:11px; color:var(--muted); margin:8px 0; }
 .cal-whleg span { display:flex; align-items:center; gap:6px; }
 .wsw { width:11px; height:11px; border-radius:3px; display:inline-block; }

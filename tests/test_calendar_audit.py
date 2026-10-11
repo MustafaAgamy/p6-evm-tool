@@ -153,13 +153,28 @@ def test_window_is_baseline_and_full_months(tmp_path):
     assert d['baseline_start'] == '2025-12-11'
     assert d['baseline_finish'] == '2027-02-09'          # exact baseline finish shown
     assert d['window_start'] == '2026-06-01'             # forward window starts at the data date
-    assert d['window_finish'] == '2027-02-28'           # full final month (Feb 2027)
+    # comment 75: the statistics end at PROJECT COMPLETION — the imported file's own finish,
+    # to the exact day (not the month end of the baseline finish)
+    assert d['window_finish'] == '2027-03-15'
+    assert d['project_finish'] == '2027-03-15'
+    prim = r['by_calendar'][r['primary_calendar_id']]
+    assert d['total_calendar_days'] == 288               # 01-Jun.2026 → 15-Mar.2027, both days in
+    assert d['total_working_days'] + d['total_nonworking_days'] == 288
+    assert d['total_nonworking_days'] == d['total_rest_days'] + d['total_holidays']
+    # comment 76: the months add up to the tiles, and each month splits into the three parts
+    ms = prim['monthly_stats']
+    assert ms[-1]['label'] == 'Mar 2027' and ms[-1]['calendar_days'] == 15    # a part month
+    assert sum(m['calendar_days'] for m in ms) == 288
+    assert sum(m['nonworking_days'] for m in ms) == d['total_nonworking_days']
+    assert all(m['calendar_days'] == m['working_days'] + m['rest_days'] + m['off_days'] for m in ms)
+    assert prim['totals']['nonworking_days'] == d['total_nonworking_days']
+    assert r['comparison'][0]['nonworking_days'] == d['total_nonworking_days']
     # The month strip, however, starts at the DATA DATE (Jun 2026) — the past is hidden.
     assert r['project']['timeline_start'] == '2026-06-01'
     assert r['project']['hidden_months'] == 6            # Dec 2025 … May 2026 hidden
     months = r['by_calendar'][r['primary_calendar_id']]['monthly_stats']
     assert months[0]['label'].startswith('Jun 2026')     # timeline begins at the data date
-    assert months[-1]['label'].startswith('Feb 2027')
+    assert months[-1]['label'].startswith('Mar 2027')
 
 
 def test_conclusion_bullets(tmp_path):
@@ -167,7 +182,7 @@ def test_conclusion_bullets(tmp_path):
     concl = r['conclusion']
     assert isinstance(concl, list) and len(concl) >= 4
     joined = ' '.join(concl)
-    assert 'Consistency' in joined and 'Shutdowns' in joined and 'Conflicts' in joined
+    assert 'Consistency' in joined and 'Holidays' in joined and 'Shutdown' not in joined and 'Conflicts' in joined
 
 
 def test_monthly_stats_present(tmp_path):

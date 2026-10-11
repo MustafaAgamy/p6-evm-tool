@@ -67,24 +67,30 @@ def _baseline_line(d):
 
 
 def _dashboard(d, weather=None):
-    # Feature 1 (Calendar Audit) carries NO weather. Key Dates are the Baseline Start + Finish
-    # only (Data Date lives in the header; Forecast Finish is a Feature-2 concern).
+    # Feature 1 (Calendar Audit) carries NO weather. Key Dates: Baseline Start + Finish, then
+    # the two dates every statistic below runs between — the Data Date and the Project
+    # Completion of the imported file (comments 74 / 75).
     date_tiles = [
         _tile('Baseline Start', _fmt(d.get('baseline_start')), 'approx' if d.get('baseline_approx') else ''),
-        _tile('Baseline Finish / Completion', _fmt(d.get('baseline_finish')),
+        _tile('Baseline Finish', _fmt(d.get('baseline_finish')),
               'Baseline (approx)' if d.get('baseline_approx') else 'plan of record'),
+        _tile('Data Date', _fmt(d.get('data_date')), 'statistics start here'),
+        _tile('Project Completion', _fmt(d.get('window_finish') or d.get('project_finish')),
+              'finish of the imported file — statistics end here'),
     ]
     if weather:
         date_tiles.append(_tile('Weather-Adjusted Finish',
                                 _fmt(weather['weather_adjusted_finish']),
                                 f"+{weather['net_finish_delay']} wd from weather"))
     dates = ''.join(date_tiles)
-    dates_grid = 'k3' if weather else 'k2'
+    dates_grid = 'k5' if weather else 'k4'
+    rest, hol = d.get('total_rest_days'), d.get('total_holidays')
     stats = ''.join([
-        _tile('Total Calendar Days', d.get('total_calendar_days')),
+        _tile('Total Calendar Days', d.get('total_calendar_days'), 'Data Date → Project Completion'),
         _tile('Working Days', d.get('total_working_days')),
-        _tile('Non-Working Days', d.get('total_nonworking_days')),
-        _tile('Holidays', d.get('total_holidays'), 'incl. expected + shutdowns'),
+        _tile('Non-Working Days', d.get('total_nonworking_days'),
+              f'{rest} weekly rest days + {hol} holidays' if rest is not None else ''),
+        _tile('Holidays', hol),
         _tile('Avg Working Days / Month', d.get('avg_working_days_per_month')),
         _tile('Avg Working Hours / Day', f"{d.get('avg_working_hours_per_day')} hrs"),
         _tile('Normal Hours', d.get('normal_hours') or '—'),
@@ -97,9 +103,10 @@ def _dashboard(d, weather=None):
                     f'<div class="sub2">Calendar Statistics</div><div class="kpis k4">{stats}</div>'))
 
 
-def _working_hist(months):
-    """§2 working vs non-working days-per-month histogram. The number above each bar is the
-    NET working days that month (matches the screen)."""
+def _working_hist(months, name='', idx=0):
+    """§2 working vs non-working days-per-month histogram of ONE calendar. The number above
+    each bar is the NET working days that month, the number under the month its non-working
+    days (matches the screen). `idx` > 0 = a further selected calendar (comment 77)."""
     if not months:
         return ''
     mx = max((m['working_days'] + m.get('nonworking_days', 0) for m in months), default=0) or 1
@@ -114,21 +121,30 @@ def _working_hist(months):
         cols += (f'<div class="whc"><div class="wht">{wd}</div>'
                  f'<div class="whcol"><div class="whn" style="height:{nwpx}px"></div>'
                  f'<div class="whw" style="height:{wpx}px"></div></div>'
-                 f'<div class="whl">{_esc(m["label"])}</div></div>')
+                 f'<div class="whl">{_esc(m["label"])}<br>{nw} off</div></div>')
     total_hours = round(sum(m.get('working_hours', 0) for m in months))
-    tot_line = (f'<div class="whtot">Total working hours (selected calendar): '
-                f'<b>{total_hours:,} hrs</b></div>')
+    t_wd = sum(m['working_days'] for m in months)
+    t_nw = sum(m.get('nonworking_days', 0) for m in months)
+    tot_line = (f'<div class="whtot">{("<b>" + _esc(name) + "</b> — ") if name else ""}'
+                f'Working days: <b>{t_wd:,}</b> · Non-working days: <b>{t_nw:,}</b> · '
+                f'Total working hours: <b>{total_hours:,} hrs</b></div>')
     legend = (f'<div class="whleg"><span><i style="background:{report_theme.var("rpt-good")}"></i>Working days</span>'
-              f'<span><i style="background:{report_theme.var("rpt-hair-strong")}"></i>Non-working (weekends + holidays + shutdowns)</span>'
-              f'<span>▲ number above bar = <b>net working days</b></span></div>')
-    return _part('timeline.histogram', 'Working vs non-working days per month — chart',
-                 tot_line + legend + f'<div class="whist">{cols}</div>', export='image',
+              f'<span><i style="background:{report_theme.var("rpt-hair-strong")}"></i>Non-working (weekends + holidays)</span>'
+              f'<span>▲ number above bar = <b>net working days</b> · number under the month = <b>non-working days</b></span></div>')
+    key = 'timeline.histogram' if not idx else f'timeline.histogram.{idx}'
+    label = 'Working vs non-working days per month — chart' + (f' — {name}' if idx and name else '')
+    # heading-with-content: the totals line, the legend and the bars never split across pages
+    return _part(key, label,
+                 '<div class="keep">' + tot_line + (legend if not idx else '')
+                 + f'<div class="whist">{cols}</div></div>', export='image',
                  headers=['Month', 'Net working days', 'Non-working days', 'Working hours'],
                  rows=[[m['label'], m['working_days'], m.get('nonworking_days', 0),
                         round(m.get('working_hours', 0), 1)] for m in months])
 
 
-def _month_grids(months, hidden_months=0, tl_from=None):
+def _month_grids(months, hidden_months=0, tl_from=None, name='', others=()):
+    """§2 — the main calendar's histogram + month grids, then one histogram for each further
+    selected calendar (`others` = [(name, months)], comment 77)."""
     blocks = []
     for m in months:
         head = ''.join(f'<div class="mh">{d}</div>' for d in _DOW)
@@ -148,7 +164,7 @@ def _month_grids(months, hidden_months=0, tl_from=None):
     legend = ('<div class="legend">'
               + ''.join(f'<span><i style="background:{c}"></i>{_esc(n)}</span>'
                         for n, c in [('Working', _STATUS_COLOR['work']), ('Weekend', _STATUS_COLOR['weekend']),
-                                     ('Holiday', _STATUS_COLOR['holiday']), ('Shutdown', _STATUS_COLOR['shutdown']),
+                                     ('Holiday', _STATUS_COLOR['holiday']),
                                      ('Special hours', _STATUS_COLOR['special'])])
               + '</div>')
     if hidden_months:
@@ -161,38 +177,79 @@ def _month_grids(months, hidden_months=0, tl_from=None):
         for day in m.get('days', []):
             cnt[day['status']] = cnt.get(day['status'], 0) + 1
         names = sorted({day['name'] for day in m.get('days', []) if day.get('name')})
-        return [m['label'], cnt.get('work', 0), cnt.get('weekend', 0), cnt.get('holiday', 0),
-                cnt.get('shutdown', 0), cnt.get('special', 0), '; '.join(names)]
+        # a P6 calendar has no 'shutdown': every non-working exception day is a holiday
+        return [m['label'], cnt.get('work', 0), cnt.get('weekend', 0),
+                cnt.get('holiday', 0) + cnt.get('shutdown', 0), cnt.get('special', 0), '; '.join(names)]
     grids = _part('timeline.months', 'Month-by-month calendars',
-                  '<div class="sub2">Each month’s calendar — holiday / shutdown names shown in the day cells</div>'
+                  '<div class="sub2">Each month’s calendar — holiday names shown in the day cells</div>'
                   + legend + f'<div class="mgrids">{"".join(blocks)}</div>', export='image',
-                  headers=['Month', 'Working', 'Weekend', 'Holiday', 'Shutdown', 'Special hours',
-                           'Holiday / shutdown names'],
+                  headers=['Month', 'Working', 'Weekend', 'Holiday', 'Special hours',
+                           'Holiday names'],
                   rows=[_month_row(m) for m in months])
     return ('<h2 class="sec">2 · Calendar Timeline &amp; Statistics '
             f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-muted")};text-transform:none;letter-spacing:0">'
             f'{_esc(sub)}</span></h2>'
-            + _working_hist(months) + grids)
+            + _working_hist(months, name)
+            + ''.join(_working_hist(m2, n2, i) for i, (n2, m2) in enumerate(others, 1))
+            + grids)
 
 
-def _exceptions(exc):
-    """§3 Calendar Non-working days — a single holidays-only table (Date | Day | Description),
-    one row per holiday DATE. Shutdowns and reduced/special-hours days are excluded. Dropped
-    when there are no holidays in the window (Ibrahim: the PDF drops an empty section)."""
+def month_split_rows(months):
+    """§3.1 rows — one per month + a Total row: [Month, Calendar days, Working days, Weekly
+    rest days, Holidays, Total non-working]. The same numbers the histogram draws (comment 76);
+    shared with the Excel export."""
+    rows = []
+    for m in months or []:
+        wd, nw = m.get('working_days', 0), m.get('nonworking_days', 0)
+        off = m.get('off_days', m.get('holidays', 0))
+        rows.append([m.get('label', ''), m.get('calendar_days', wd + nw), wd,
+                     m.get('rest_days', nw - off), off, nw])
+    if rows:
+        rows.append(['Total'] + [sum(r[i] for r in rows) for i in range(1, 6)])
+    return rows
+
+
+def _exceptions(exc, months=None, rest_weekdays=None):
+    """§3 Calendar Non-working days — 3.1 the non-working days month by month (the histogram's
+    own numbers: weekly rest days + holidays) and 3.2 every holiday DATE of the period
+    (Date | Day | Description) — every non-working date of the P6 calendar is a holiday,
+    a long run included (comment 76)."""
     hd = exc.get('holiday_dates', [])
-    if not hd:
+    split = month_split_rows(months)
+    if not hd and not split:
         return ''
-    rows = ''.join(
-        f'<tr><td>{_fmt(x["date"])}</td><td>{_esc(x.get("weekday", ""))}</td>'
-        f'<td>{_esc(x.get("reason") or "—")}</td></tr>' for x in hd)
+    muted = report_theme.var('rpt-muted')
+    rest_lab = 'Weekly rest days' + (f' ({", ".join(n[:3] for n in rest_weekdays)})' if rest_weekdays else '')
+    t31 = ''
+    if split:
+        body = ''.join(
+            '<tr%s><td>%s</td>%s</tr>' % (
+                ' style="font-weight:700"' if r[0] == 'Total' else '', _esc(r[0]),
+                ''.join(f'<td class="num">{v}</td>' for v in r[1:])) for r in split)
+        t31 = _part('exceptions.months', 'Non-working days per month table', (
+            '<div class="keep"><div class="sub2">3.1 · Non-working days per month</div>'
+            '<table><thead><tr><th>Month</th><th class="num">Calendar days</th>'
+            f'<th class="num">Working days</th><th class="num">{_esc(rest_lab)}</th>'
+            '<th class="num">Holidays</th><th class="num">Total non-working</th></tr></thead>'
+            f'<tbody>{body}</tbody></table>'
+            '<p class="lg">Calendar days = Working days + Weekly rest days + Holidays. '
+            'Total non-working is the figure drawn in the histogram of section 2.</p></div>'))
+    t32 = ''
+    if hd:
+        rows = ''.join(
+            f'<tr><td>{_fmt(x["date"])}</td><td>{_esc(x.get("weekday", ""))}</td>'
+            f'<td>{_esc(x.get("reason") or "—")}</td></tr>' for x in hd)
+        t32 = _part('exceptions.holidays', 'Holidays table', (
+            '<div class="sub2">3.2 · Holiday dates</div>'
+            '<table><thead><tr><th>Date</th><th>Day</th><th>Description</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>'
+            f'<p class="lg">Total holidays: <b>{len(hd)}</b> — each non-working date of the P6 calendar '
+            'and its weekday (the weekly rest days are not listed one by one). '
+            'The Description is the planner-typed holiday name, saved with the project.</p>'))
     return (('<h2 class="sec">3 · Calendar Non-working days '
-            f'<span style="font-weight:400;font-size:9.5px;color:{report_theme.var("rpt-muted")};'
-            'text-transform:none;letter-spacing:0">holidays only</span></h2>')
-            + _part('exceptions.holidays', 'Holidays table', (
-                '<table><thead><tr><th>Date</th><th>Day</th><th>Description</th></tr></thead>'
-                f'<tbody>{rows}</tbody></table>'
-                f'<p class="lg">Total holidays: <b>{len(hd)}</b> — each holiday date and its weekday. '
-                'The Description is the planner-typed holiday name, saved with the project.</p>')))
+            f'<span style="font-weight:400;font-size:9.5px;color:{muted};'
+            'text-transform:none;letter-spacing:0">Data Date → Project Completion</span></h2>')
+            + t31 + t32)
 
 
 def _empty(cols):
@@ -232,7 +289,8 @@ def _hours(profiles):
 
 def _comparison(cmp, usage=None, period_note='', conflicts=None):
     # Merged Calendar Comparison & Usage (matches the screen): hours/day, days/week, activities
-    # assigned, % of activities, non-working days ahead, and role — one row per calendar. The
+    # assigned, % of activities and non-working days ahead — one row per calendar (the Role
+    # column was removed, comment 79). The
     # "Calendar Conflicts — to be removed" list is appended inside this section (§5).
     umap = {u['name']: u for u in (usage or [])}
     rows = ''
@@ -240,14 +298,13 @@ def _comparison(cmp, usage=None, period_note='', conflicts=None):
         u = umap.get(c['name'], {})
         acts = u.get('activities', 0)
         pct = '—' if u.get('role') == 'Unused' or u.get('pct') is None else f'{u["pct"]}%'
-        role = _esc(u.get('role', ''))
         rows += (f'<tr><td>{_esc(c["name"])}{" (default)" if c.get("is_default") else ""}</td>'
                  f'<td class="num">{c["hours_per_day"]}</td><td class="num">{c["days_per_week"]}</td>'
                  f'<td class="num">{acts}</td><td class="num">{pct}</td>'
-                 f'<td class="num">{c.get("nonworking_days", 0)}</td><td>{role}</td></tr>')
+                 f'<td class="num">{c.get("nonworking_days", 0)}</td></tr>')
     note = (f'<p class="lg"><b>% of Activities</b> — share of the schedule\'s activities on each '
-            f'calendar. <b>Non-Working Days</b> — weekends, holidays and shutdowns still ahead, '
-            f'{_esc(period_note)}. <b>Unused</b> calendars carry no activity and can be removed.</p>'
+            f'calendar. <b>Non-Working Days</b> — weekends and holidays still ahead, '
+            f'{_esc(period_note)}. A calendar with 0 activities is unused and can be removed.</p>'
             ) if period_note else ''
     conf = ''
     if conflicts:
@@ -265,7 +322,7 @@ def _comparison(cmp, usage=None, period_note='', conflicts=None):
             + _part('comparison.table', 'Calendar comparison & usage table', (
                 '<table><thead><tr><th>Calendar</th><th class="num">Hours/Day</th>'
                 '<th class="num">Days/Week</th><th class="num">Assigned to</th>'
-                '<th class="num">% of Activities</th><th class="num">Non-Working Days</th><th>Role</th>'
+                '<th class="num">% of Activities</th><th class="num">Non-Working Days</th>'
                 f'</tr></thead><tbody>{rows}</tbody></table>{note}'))
             + _part('comparison.conflicts', 'Calendar conflicts — to be removed', conf))
 
@@ -397,7 +454,7 @@ def _weather_section(weather, dashboard=None, scope=''):
         '<b>What counts as a bad-weather day:</b> a construction day is counted lost when <b>any</b> '
         f'of your stop-work limits is met — {_esc(" · ".join(lim))}. Each flagged day below shows the '
         'measured value against your limit. Applied to <b>construction</b> activities only; a day '
-        'already off (weekend / holiday / shutdown) is never double-counted.</div>')
+        'already off (weekend / holiday) is never double-counted.</div>')
     # Site type + the stop-work criteria shown IN FULL (what stops work here), so a
     # consultant reading the report sees exactly how every lost day was decided.
     criteria_block = ''
@@ -508,7 +565,7 @@ def _weather_section(weather, dashboard=None, scope=''):
         'bad-weather days between the data date and the milestone’s weather-adjusted completion '
         '(the days it is pushed into are checked too). '
         '<b>Already in calendar</b> — of those, the ones landing on a day already off '
-        '(weekend / holiday / shutdown), so they cost nothing extra. <b>Net weather delay</b> — the '
+        '(weekend / holiday), so they cost nothing extra. <b>Net weather delay</b> — the '
         'rest, hitting real working days (<b>Net = Before − Already in calendar</b>): the actual days '
         'weather adds, which push the <b>Weather-adjusted completion</b> out. '
         '<i>Example — 6 bad-weather days fall before finish; 4 land on Fridays/holidays already off, '
@@ -553,16 +610,25 @@ def _weather_section(weather, dashboard=None, scope=''):
 
 
 def render_calendar_report(result, meta, weather=None, sections=None, theme='light',
-                           feature='calendar'):
+                           feature='calendar', calendars=None):
     d = result.get('dashboard', {})
     proj = result.get('project', {}) or {}
     primary = result.get('primary_calendar_id')
-    bc = (result.get('by_calendar') or {}).get(primary, {})
+    by_cal = result.get('by_calendar') or {}
+    names = {c['object_id']: c['name'] for c in result.get('assigned_calendars', [])}
+    # `calendars` = the calendars picked on screen (§2 chips, comment 77): the first one drives
+    # §2 grids / §3 / §4, every one gets its histogram. None → the main calendar first, then
+    # every other assigned calendar.
+    picked = [c for c in (calendars or []) if c in by_cal]
+    if not picked:
+        picked = ([primary] if primary in by_cal else []) + [c for c in names if c != primary and c in by_cal]
+    main = picked[0] if picked else primary
+    bc = by_cal.get(main, {})
     months = bc.get('monthly_stats', [])
     exc = bc.get('exceptions', {'holidays': [], 'special': [], 'shutdowns': []})
     profiles = bc.get('hours_profiles', [])
-    cal_name = next((c['name'] for c in result.get('assigned_calendars', [])
-                     if c['object_id'] == primary), '')
+    cal_name = names.get(main, '')
+    others = [(names.get(c, ''), by_cal[c].get('monthly_stats', [])) for c in picked[1:]]
     # The two features print different reports (Ibrahim's split): the P6 Calendar Audit
     # (feature='calendar') never includes weather; the Bad Weather report (feature='weather')
     # is weather-only. `sections` (the in-preview picker) still filters within the feature.
@@ -578,7 +644,8 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
     inc = lambda k: k in sections
     # Feature 1's dashboard carries no weather (weather lives in the Bad Weather report).
     dash_weather = weather if is_weather else None
-    period_note = f"from the data date ({_fmt(d.get('data_date'))}) to finish"
+    period_note = (f"from the Data Date ({_fmt(d.get('data_date'))}) to Project Completion "
+                   f"({_fmt(d.get('window_finish') or d.get('project_finish'))})")
 
     def _wrap(key, html):
         return f'<div data-sec="{key}">{html}</div>' if html else ''
@@ -600,8 +667,8 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
         legacy_weather = ''.join(h for _, h in wx_sections) + wx_footnotes
         body = ''.join([
             _wrap('dashboard', _dashboard(d, dash_weather)) if inc('dashboard') else '',
-            _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'))) if inc('timeline') else '',
-            _wrap('exceptions', _exceptions(exc)) if inc('exceptions') else '',
+            _wrap('timeline', _month_grids(months, proj.get('hidden_months', 0), proj.get('timeline_start'), cal_name, others)) if inc('timeline') else '',
+            _wrap('exceptions', _exceptions(exc, months, bc.get('rest_weekdays'))) if inc('exceptions') else '',
             _wrap('hours', _hours(profiles)) if inc('hours') else '',
             _wrap('comparison', _comparison(result.get('comparison', []), result.get('usage', []),
                                             period_note)) if inc('comparison') else '',
@@ -618,7 +685,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
                 f'Open-Meteo climate history — an estimate, kept separate from the exact P6 dates.')
     else:
         doc_title, kicker = 'Calendar Audit', 'Project Calendar Report'
-        subtitle = 'Project working calendar, holidays, shutdowns &amp; working-hour analysis'
+        subtitle = 'Project working calendar, holidays &amp; working-hour analysis'
         cal_label = 'Calendar'
         foot = (f'Calendar Audit for <b>{proj_name}</b> · calendar "{_esc(cal_name)}". '
                 f'Working days, holidays, exceptions and working hours are read directly from the P6 calendar.')
@@ -644,6 +711,7 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .kpis.k3 {{ grid-template-columns: repeat(3, 1fr); }}
   .kpis.k2 {{ grid-template-columns: repeat(2, 1fr); }}
   .whtot {{ font-size: 10px; color: var(--rpt-ink-soft); margin: 2px 0 6px; }}
+  .keep {{ break-inside: avoid; page-break-inside: avoid; }}
   .whtot b {{ color: var(--rpt-ink); }}
   .conflist {{ margin: 4px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.6; }}
   .conflist li {{ margin-bottom: 4px; }}
@@ -681,13 +749,13 @@ def render_calendar_report(result, meta, weather=None, sections=None, theme='lig
   .whleg {{ display: flex; gap: 14px; margin: 4px 0 8px; font-size: 9px; color: var(--rpt-ink-soft); }}
   .whleg span {{ display: inline-flex; align-items: center; gap: 4px; }}
   .whleg i {{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }}
-  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 118px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 2px; margin-bottom: 10px; }}
+  .whist {{ display: flex; align-items: flex-end; gap: 8px; height: 128px; border-bottom: 1.5px solid var(--rpt-hair); padding: 0 2px; margin-bottom: 10px; }}
   .whc {{ flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }}
   .wht {{ font-size: 8px; font-weight: 800; color: var(--rpt-ink); margin-bottom: 2px; }}
   .whcol {{ width: 62%; max-width: 34px; }}
   .whn {{ background: var(--rpt-hair-strong); }}
   .whw {{ background: var(--rpt-good); border-radius: 3px 3px 0 0; }}
-  .whl {{ font-size: 7.5px; color: var(--rpt-muted); margin-top: 3px; }}
+  .whl {{ font-size: 7.5px; color: var(--rpt-muted); margin-top: 3px; text-align: center; line-height: 1.25; }}
   .mgrid-wrap {{ width: 230px; }}
   .mgrid-t {{ font-size: 10px; font-weight: 700; margin-bottom: 4px; }}
   .mgrid {{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }}

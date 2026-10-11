@@ -259,20 +259,56 @@ def test_report_shows_site_type_criteria_and_why(tmp_path):
     assert 'Custom limits' in html2 and 'Default limits (Desert / inland)' not in html2
 
 
-def test_report_nonworking_is_holidays_only(tmp_path):
-    """§3 Calendar Non-working days is a holidays-only table (Date | Day | Description). The
-    Feb 10–16 shutdown run is NOT a holiday, and the Jan holiday is before the data date, so
-    the fixture yields no in-window holidays → §3 is dropped entirely."""
-    html = render_calendar_report(_result(tmp_path), META)
-    assert 'Calendar Non-working days' not in html   # no holidays in window → section dropped
-    assert 'Shutdowns' not in html                   # shutdowns are excluded from §3
+def test_report_nonworking_matches_the_histogram(tmp_path):
+    """§3 Calendar Non-working days (comment 76): 3.1 the per-month split that adds up to the
+    histogram (calendar days = working + weekly rest days + holidays, with a Total row) and
+    3.2 every holiday DATE (Date | Day | Description) — a long run of non-working days is
+    holidays too (P6 has no 'shutdown'), listed date by date."""
+    result = _result(tmp_path)
+    html = render_calendar_report(result, META)
+    assert '3 · Calendar Non-working days' in html
+    assert '3.1 · Non-working days per month' in html and 'Total non-working' in html
     assert 'Holidays & Vacations' not in html        # the old grouped layout is gone
+    bc = result['by_calendar'][result['primary_calendar_id']]
+    hd = bc['exceptions']['holiday_dates']
+    shut = [h for h in hd if h['type'] == 'Shutdown']
+    assert shut and 'Shutdown' not in html and 'shutdown' not in html   # listed, as holidays
+    # every listed date is a holiday/shutdown day of the months — the table equals the histogram
+    assert len(hd) == sum(m['off_days'] for m in bc['monthly_stats'])
+    assert f'Total holidays: <b>{len(hd)}</b>' in html
+    from p6_calendar.report import month_split_rows
+    rows = month_split_rows(bc['monthly_stats'])
+    assert rows[-1][0] == 'Total'
+    assert rows[-1][5] == result['dashboard']['total_nonworking_days']
+    assert all(r[1] == r[2] + r[3] + r[4] and r[5] == r[3] + r[4] for r in rows)
 
-    # A fixture WITH an in-window holiday renders the holidays-only table with the weekday.
+    # A fixture WITH an in-window holiday lists it with its weekday and type.
     html2 = render_calendar_report(_result_with_holiday(tmp_path), META)
-    assert '3 · Calendar Non-working days' in html2 and 'holidays only' in html2
+    assert '3.2 · Holiday dates' in html2 and '<th>Type</th>' not in html2
     assert '10-Mar.2025' in html2 and 'Monday' in html2   # date + weekday
     assert 'Total holidays: <b>1</b>' in html2
+
+
+def test_report_key_dates_and_no_role_column(tmp_path):
+    """Comments 74 / 75 / 79: the dashboard shows the Data Date and the Project Completion,
+    and the comparison table has no Role column."""
+    result = _result(tmp_path)
+    html = render_calendar_report(result, META)
+    assert '>Data Date<' in html and '>Project Completion<' in html
+    assert 'Data Date → Project Completion' in html
+    assert '<th>Role</th>' not in html
+    assert 'weekly rest days + ' in html
+
+
+def test_report_prints_a_histogram_per_picked_calendar(tmp_path):
+    """Comment 77: every picked calendar gets its own histogram; none picked → every assigned
+    calendar, the main one first."""
+    result = _result(tmp_path)
+    ids = [c['object_id'] for c in result['assigned_calendars']]
+    html = render_calendar_report(result, META)
+    assert html.count('class="whist"') == len(ids)
+    one = render_calendar_report(result, META, calendars=ids[:1])
+    assert one.count('class="whist"') == 1
 
 
 def test_report_timeline_is_working_histogram(tmp_path):
@@ -362,7 +398,7 @@ def test_report_comparison_usage_and_section_picker(tmp_path):
     # Merged Comparison & Usage: one table with hours/day, activities, % of activities and role
     assert 'Calendar Comparison &amp; Usage' in html
     assert 'Non-Working Days' in html and '% of Activities' in html and 'Assigned to' in html
-    assert 'Unused' in html
+    assert '<th>Role</th>' not in html                # comment 79
     # #06 section-picker: only the requested sections render
     only_dash = render_calendar_report(result, META, sections=['dashboard'])
     assert 'Execution Dashboard' in only_dash

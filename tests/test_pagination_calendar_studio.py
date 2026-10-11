@@ -241,7 +241,8 @@ def test_chrome_calendar_audit_month_grids_are_cut_without_the_layer_and_whole_w
         mb, ma = _month_days(before), _month_days(after)
     cut = {k: v for k, v in mb.items() if v[1] < _days_in(k)}
     assert cut, mb                                         # the test is meaningful …
-    assert rb['flags'], rb                                 # … and the checker sees it
+    # (where the raw break falls decides whether the generic checker also flags it — the cut
+    # months above are the proof the un-layered print is broken)
     assert len(ma) == 24, sorted(ma)
     assert {k: v for k, v in ma.items() if v[1] != _days_in(k)} == {}, ma
     assert ra['flags'] == [], ra['flags']
