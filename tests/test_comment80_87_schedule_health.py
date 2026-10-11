@@ -62,3 +62,28 @@ def test_schedule_health_narrative_and_lag_are_xer_only():
     app = _read('ui/app.js')
     assert "XER_ONLY = new Set(['audit', 'narrative', 'lag'])" in app
     assert 'accepts XER files only' in app
+
+
+def test_dangling_report_prints_the_figures_after_the_applied_fixes():
+    """Comment 82: PDF / Word / Excel of the Dangling check match the screen after fixes."""
+    import server
+    stored = {'module': 'dangling', 'name': 'Dangling Activities', 'score': 96.6, 'pct': 3.4,
+              'kpis': {'total_dangling': 29}, 'findings': [{}] * 29, 'presentation': {'verdict': 'old'}}
+    live = {'score': 98.6, 'grade': 'Pass', 'pct': 1.4, 'kpis': {'total_dangling': 12},
+            'findings': [{}] * 12, 'presentation': {'verdict': '1.4% dangling.'}, 'applied': 17, 'held': 12}
+    out = server._Handler._dangling_as_on_screen(stored, {'dangling_live': live}) \
+        if hasattr(server, '_Handler') else None
+    if out is None:
+        cls = next(v for v in vars(server).values()
+                   if isinstance(v, type) and hasattr(v, '_dangling_as_on_screen'))
+        out = cls._dangling_as_on_screen(stored, {'dangling_live': live})
+        assert cls._dangling_as_on_screen(stored, {}) is stored          # nothing applied: as imported
+    assert out['pct'] == 1.4 and out['kpis']['total_dangling'] == 12 and len(out['findings']) == 12
+    assert 'After 17 applied fixes' in out['presentation']['verdict']
+    assert '12 fixes held back' in out['presentation']['verdict']
+    assert stored['pct'] == 3.4                                           # the stored module is untouched
+    assert 'dangling_live' in _read('ui/modules/api.js')
+
+
+def test_calendar_audit_has_no_add_shutdown_button():
+    assert 'cal-add-shutdown-btn">' not in _read('ui/modules/calendar.js')

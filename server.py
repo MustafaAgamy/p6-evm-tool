@@ -3159,6 +3159,33 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
+    @staticmethod
+    def _dangling_as_on_screen(m, body):
+        """Comment 82: after fixes are applied in Dangling Review & Resolve the screen shows the
+        re-checked figures; the report and the workbook print those same figures (the stored module
+        is the file as imported). Says so in the verdict line, so nobody reads it as the P6 file."""
+        live = body.get('dangling_live')
+        if not (isinstance(live, dict) and isinstance(live.get('findings'), list)
+                and isinstance(live.get('kpis'), dict)):
+            return m
+        out = dict(m)
+        for k in ('score', 'grade', 'pct', 'kpis', 'findings'):
+            if live.get(k) is not None:
+                out[k] = live[k]
+        pres = dict(live.get('presentation') or m.get('presentation') or {})
+        try:
+            n, held = int(live.get('applied') or 0), int(live.get('held') or 0)
+        except (TypeError, ValueError):
+            n, held = 0, 0
+        note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
+                f"to write {'it' if n == 1 else 'them'} to P6.")
+        if held:
+            note += (f" {held} fix{'' if held == 1 else 'es'} held back (would push the contractual "
+                     f"completion milestone past its date).")
+        pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
+        out['presentation'] = pres
+        return out
+
     # ── /api/export/excel ──────────────────────────────────────────────────
     def _handle_export_excel(self, body):
         """Excel for ONE isolated module (never mixed). Read path = DB."""
@@ -3178,6 +3205,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_xlsx
             from p6_audit.exporters import (excel_columns, excel_highlight_cols,
                                             excel_severity_meta, filter_lag_findings)
+            if module == 'dangling':
+                m = self._dangling_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if module == 'lag_lead' and lag_justifications:
                 # Print the justifications the planner has on screen (typed or previously saved).
@@ -3244,6 +3273,8 @@ class Handler(BaseHTTPRequestHandler):
             from p6_audit.exporters import filter_lag_findings
             import subprocess, tempfile
             _theme = report_theme.normalize(body.get('theme'))
+            if not is_summary and module == 'dangling':
+                m = self._dangling_as_on_screen(m, body)
             lag_justifications = body.get('lag_justifications')
             if not is_summary and module == 'lag_lead' and lag_justifications:
                 # Print the on-screen justifications (typed or saved) — the DB module has none

@@ -1132,7 +1132,20 @@ function _dngUpdateHero(out) {
   if (!out || out.presentation == null) return;
   _dng.hero = { name: _dng.name, score: out.score, grade: out.grade,
                 presentation: out.presentation, applied: Object.keys(_dng.applied).length };
+  // comment 82: the figures after the applied fixes — the PDF / Word / Excel of this check print
+  // these, so the report shows the same Dangling % as the screen.
+  _dng.live = _dng.hero.applied
+    ? { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings,
+        presentation: out.presentation, applied: _dng.hero.applied, held: (_dng.blocked || new Set()).size }
+    : null;
   _dngRenderHero();
+}
+
+// The Dangling check as it stands on screen after the applied fixes (null when nothing is applied,
+// or when the review on screen belongs to another schedule).
+export function dngLiveModule() {
+  const m = state.currentModules && state.currentModules.modules && state.currentModules.modules.dangling;
+  return (m && _dng.live && _dngSig(m) === _dng.sig) ? _dng.live : null;
 }
 
 // Update the Dangling module tab score AND the Summary roll-up score in the rail, so they track the

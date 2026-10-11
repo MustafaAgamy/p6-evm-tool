@@ -1098,6 +1098,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .num {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
   .mono {{ font-family: 'Consolas', monospace; white-space: nowrap; }}
   .mut {{ color: var(--rpt-muted); font-size: 9.5px; }}
+  .hl-note {{ background: #fde68a; color: #1e293b; font-weight: 700; font-size: 9.5px; }}
   .sev {{ display: inline-block; padding: 1px 7px; border-radius: 4px; color: var(--rpt-accent-ink); font-weight: 700; font-size: 9px; white-space: nowrap; }}
   .empty {{ color: var(--rpt-muted); font-style: italic; }}
   ul.recs {{ margin: 4px 0 0; padding-left: 18px; }}

@@ -265,7 +265,8 @@ def _milestone_presentation(evals, counts, score, matched, bad):
             _mcell(e.get('scheduled_finish') or '—', 'mut'),
             # whole days (comment 51) — but a float of a few hours keeps its decimals (comment 84)
             _mcell(var_txt, 'num'), _mcell('—' if tf is None else (float_days_text(tf) if -1 < tf < 0 else f'{(lambda n: 0 if n == 0 else n)(int(round(tf)))} d'), 'num'),
-            _mcell((e.get('status') or '') + (' — a few hours of delay' if e.get('note') else ''), 'mut'),
+            _mcell((e.get('status') or '') + (' — a few hours of delay' if e.get('note') else ''),
+                   'hl-note' if e.get('note') else 'mut'),
             _mcell(e.get('recommendation'), 'mut')])
     _vp = [f"{counts[s]} {s.lower()}" for s in ('Masked', 'Late', 'On track', 'Unmatched') if counts.get(s)]
     verdict = ' · '.join(_vp) if _vp else 'No contract milestones matched.'
