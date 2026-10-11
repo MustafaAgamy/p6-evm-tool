@@ -1717,7 +1717,68 @@ function _dngRenderHero() {
       </div>
       <div class="kpi-tiles">${presentationTiles(p)}</div>
     </div>
+    ${dngP6CheckHtml(p.p6_check)}
     ${scoringLegendHtml(p.scoring)}`;
+  host.querySelectorAll('[data-p6i]').forEach(b => b.addEventListener('click', () => {
+    _dng.p6i = Number(b.dataset.p6i) || 0;
+    _dngRenderHero();
+  }));
+}
+
+// 'P6 filter check' under the Dangling tiles (presentation.dangling_p6_check): the planner's two P6
+// filters with what each lists, why the lists overlap, the bridge to this report's count, and each
+// activity the P6 text filter leaves out, walked through the filter lines. Mirrors report.py.
+function _p6cEquation(parts) {
+  return `<div class="p6c-eq">${(parts || []).map(x =>
+    (x.op ? `<div class="p6c-op">${escapeHtml(x.op === '-' ? '−' : x.op)}</div>` : '')
+    + `<div class="p6c-blk ${x.kind ? 'p6c-' + x.kind : ''}"><b>${escapeHtml(String(x.n))}</b><span>${escapeHtml(x.label)}</span></div>`).join('')}</div>`;
+}
+
+function _p6cWindow(f) {
+  const rows = (f.values || []).map((v, i, a) =>
+    `<tr${i === a.length - 1 ? ' class="sel"' : ''}><td class="w">And</td><td>${escapeHtml(f.param)}</td><td>does not contain</td><td>${escapeHtml(v)}</td></tr>`).join('');
+  return `<div class="p6c-win"><div class="tb"><span class="lg">P6</span>Filter</div>
+    <div class="nm">Filter Name <span>${escapeHtml(f.name)}</span></div>
+    <table><tr><th></th><th>Parameter</th><th>Is</th><th>Value</th></tr>
+    <tr><td></td><td colspan="3">(All of the following)</td></tr>
+    <tr><td class="w">Where</td><td>${escapeHtml(f.param)}</td><td>is not equal to</td><td></td></tr>${rows}</table>
+    <div class="cnt">P6 lists ${escapeHtml(String(f.count))} activit${f.count === 1 ? 'y' : 'ies'}</div></div>`;
+}
+
+function dngP6CheckHtml(c) {
+  if (!c) return '';
+  if (c.match) return `<div class="p6c p6c-match">${escapeHtml(c.match_text)}</div>`;
+  const hidden = c.hidden || [];
+  let step4 = '';
+  if (hidden.length) {
+    const i = Math.min(_dng.p6i || 0, hidden.length - 1), h = hidden[i];
+    const pick = hidden.slice(0, 12).map((x, j) =>
+      `<button type="button" data-p6i="${j}" class="${j === i ? 'on' : ''}">${escapeHtml(x.activity_id)}${x.side === 'Finish' ? ' (finish)' : ''}</button>`).join('');
+    const more = (c.hidden_total || hidden.length) - Math.min(hidden.length, 12);
+    const text = h.segments.map(s => s[1] ? `<span class="p6c-${s[1]}">${escapeHtml(s[0])}</span>` : escapeHtml(s[0])).join('');
+    const lines = h.lines.map(l =>
+      `<div class="p6c-q ${l.ok ? 'pass' : 'fail'}"><span>${escapeHtml(l.text)}</span><span class="a">${l.ok ? '✓' : '✗'} ${escapeHtml(l.verdict)}</span></div>`).join('');
+    const legend = (c.legend || []).map(l =>
+      `<span class="p6c-${l[0]}">${l[0] === 'hit' ? escapeHtml(h.letters) : 'TYPE'}</span> ${escapeHtml(l[1])}`).join(' &nbsp;·&nbsp; ');
+    step4 = `<div class="p6c-sec"><div class="p6c-t"><i>4</i>See it yourself — run a hidden activity through the P6 filter</div>
+      <div class="p6c-pick">${pick}${more > 0 ? `<span class="p6c-note">+${more} more in the report and the Excel export</span>` : ''}</div>
+      <div class="p6c-note">${escapeHtml(h.param)}, exactly as P6 reads it:</div>
+      <div class="p6c-txt">${text}</div>${lines}
+      <div class="p6c-res"><b>Result in P6:</b> ${escapeHtml(h.result)} <b>In reality:</b> ${escapeHtml(h.reality)}</div>
+      <div class="p6c-note">${legend}</div></div>`;
+  }
+  const f = c.filters || [];
+  return `<div class="p6c">
+    <div class="p6c-title">${escapeHtml(c.title)}</div>
+    <div class="p6c-t"><i>1</i>The two filters you run in P6, and what each one lists</div>
+    <div class="p6c-wins">${f[0] ? _p6cWindow(f[0]) : ''}
+      <div class="p6c-mid"><b>${escapeHtml(String(c.both))}</b>activit${c.both === 1 ? 'y is' : 'ies are'}<br>in both lists</div>
+      ${f[1] ? _p6cWindow(f[1]) : ''}</div>
+    <div class="p6c-sec"><div class="p6c-t"><i>2</i>${escapeHtml(c.overlap_title)}</div>
+      <div class="p6c-note">${escapeHtml(c.overlap_note)}</div>${_p6cEquation(c.overlap)}
+      <div class="p6c-note">${escapeHtml(c.short)}</div></div>
+    <div class="p6c-sec"><div class="p6c-t"><i>3</i>Why this report says ${escapeHtml(String(c.total))}</div>${_p6cEquation(c.bridge)}</div>
+    ${step4}</div>`;
 }
 
 // Dangling module view: execution-dashboard hero (#dng-hero, live-updated) + the Resolve & Correct table.

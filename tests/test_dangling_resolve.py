@@ -290,3 +290,36 @@ def test_resolved_row_shows_the_fix_that_is_written_to_the_file():
     with open(os.path.join(root, 'ui/modules/audit.js'), encoding='utf-8') as fh:
         cell = fh.read().split('function _dngFixCell')[1].split('function _dngResCell')[0]
     assert "ap.action === 'add'" in cell and '+ add' in cell and '_dngTypeName(ap.new_type)' in cell
+
+
+def test_p6_filter_check_reconciles_the_count_with_the_p6_text_filters():
+    # owner: his P6 filters showed 16 (15 start + 13 finish, 12 in both) where the report said 18 -
+    # two dangling activities are hidden because a linked Activity ID contains "SS"
+    from p6_audit.presentation import dangling_p6_check
+    hid = [{'activity_id': 'C.SS.1010', 'side': 'start', 'ties': [('C.SS.1000', 'FF')], 'linked_id': 'C.SS.1000', 'letters': 'SS'},
+           {'activity_id': 'C.SS.1040', 'side': 'start', 'ties': [('C.SS.1030', 'FF')], 'linked_id': 'C.SS.1030', 'letters': 'SS'}]
+    c = dangling_p6_check({'total_dangling': 18, 'p6_filter': {
+        'start': 15, 'finish': 13, 'both': 12, 'unique': 16, 'other_types': 0, 'open_ends': 0,
+        'hidden_activities': 2, 'hidden': hid}})
+    assert [f['count'] for f in c['filters']] == [15, 13] and c['both'] == 12 and not c['match']
+    assert [x['n'] for x in c['overlap']] == [3, 12, 1, 16] and c['short'] == 'Short form: 15 + 13 - 12 = 16.'
+    assert [x['n'] for x in c['bridge']] == [16, 2, 18]
+    row = c['hidden'][0]
+    assert ['SS', 'hit'] in row['segments'] and ['FF', 'real'] in row['segments']
+    assert ''.join(s for s, _k in row['segments']) == 'C.SS.1000: FF'
+    assert [ln['ok'] for ln in row['lines']] == [True, True, False]
+    # the engine's own view always balances: P6's number, minus other activity types, plus what the
+    # text filter leaves out, is this report's count - and the panel is on screen, report and Excel
+    from p6_audit.graph import ScheduleGraph
+    from p6_audit.modules.dangling import run_dangling
+    from p6_audit.presentation import build_presentation
+    m = run_dangling(ScheduleGraph(_proj()), CONFIG)
+    p6 = m['kpis']['p6_filter']
+    assert p6['unique'] == p6['start'] + p6['finish'] - p6['both']
+    assert (p6['unique'] - p6['other_types'] + p6['hidden_activities'] + p6['open_ends']) == m['kpis']['total_dangling']
+    m['module'] = 'dangling'
+    assert build_presentation(m)['p6_check']['total'] == m['kpis']['total_dangling']
+    root = __import__('pathlib').Path(__file__).resolve().parents[1]
+    assert 'dngP6CheckHtml(p.p6_check)' in (root / 'ui' / 'modules' / 'audit.js').read_text(encoding='utf-8')
+    assert "_p6_check_html(p.get('p6_check'))" in (root / 'p6_audit' / 'report.py').read_text(encoding='utf-8')
+    assert "p.get('p6_check')" in (root / 'p6_audit' / 'excel_sheets.py').read_text(encoding='utf-8')

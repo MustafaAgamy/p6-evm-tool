@@ -4520,3 +4520,46 @@ tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: 
 .per-finpick { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; }
 .per-finpick .per-slicer-lbl { color: var(--accent); font-weight: 700; font-size: 12px; }
 .per-finpick select { font-weight: 700; font-size: 13px; padding: 6px 10px; border: 1.5px solid var(--accent); border-radius: 6px; min-width: 220px; cursor: pointer; }
+
+/* Dangling - 'P6 filter check' panel under the score tiles (audit.js dngP6CheckHtml) */
+.p6c { border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); padding: 12px 14px; margin: 10px 0; color: var(--text); }
+.p6c-match { color: var(--success); font-weight: 700; font-size: 12.5px; }
+.p6c-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.p6c-t { font-weight: 700; font-size: 12.5px; margin-bottom: 6px; }
+.p6c-t i { display: inline-block; width: 19px; height: 19px; line-height: 19px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-style: normal; font-size: 11px; text-align: center; margin-right: 6px; }
+.p6c-sec { border-top: 1px dashed var(--border); margin-top: 12px; padding-top: 10px; }
+.p6c-note { font-size: 11.5px; color: var(--muted); margin: 4px 0; }
+.p6c-eq { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.p6c-blk { flex: 1 1 110px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; text-align: center; background: var(--card-bg); }
+.p6c-blk b { display: block; font-size: 22px; line-height: 1.1; }
+.p6c-blk span { font-size: 11.5px; color: var(--muted); }
+.p6c-blk.p6c-h { background: var(--warning-bg); border-color: var(--warning); } .p6c-blk.p6c-h b { color: var(--warning); }
+.p6c-blk.p6c-b { background: var(--accent-soft); border-color: var(--accent); }
+.p6c-blk.p6c-t { border-color: var(--accent); margin: 0; } .p6c-blk.p6c-t b { color: var(--accent); }
+.p6c-op { align-self: center; font-size: 19px; font-weight: 700; color: var(--muted); }
+.p6c-wins { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.p6c-mid { align-self: center; text-align: center; font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.p6c-mid b { display: block; font-size: 21px; }
+/* drawn to look like the P6 Filter dialog - fixed light colours in every appearance mode */
+.p6c-win { flex: 1 1 280px; border: 1px solid #8a8f98; background: #f0f0f0; color: #111; font: 12px Tahoma, 'Segoe UI', sans-serif; }
+.p6c-win .tb { background: #fff; padding: 4px 8px; border-bottom: 1px solid #cfd3d8; }
+.p6c-win .lg { background: #c8102e; color: #fff; font-weight: 700; font-size: 10px; padding: 1px 3px; border-radius: 2px; margin-right: 6px; }
+.p6c-win .nm { padding: 6px 8px; display: flex; gap: 8px; align-items: center; }
+.p6c-win .nm span { flex: 1; background: #fff; border: 1px solid #9aa0a8; padding: 2px 6px; }
+.p6c-win table { width: calc(100% - 16px); margin: 0 8px 8px; border-collapse: collapse; background: #fff; border: 1px solid #9aa0a8; }
+.p6c-win th { background: #f0f0f0; color: #111; border: 1px solid #c5c9cf; font-weight: 400; text-align: left; padding: 3px 5px; font-size: 12px; }
+.p6c-win td { border: 0; border-bottom: 1px solid #e3e6ea; padding: 3px 5px; text-align: left; font-size: 12px; color: #111; background: #fff; }
+.p6c-win tr.sel td { background: #0a64c8; color: #fff; }
+.p6c-win td.w { text-align: right; width: 46px; }
+.p6c-win .cnt { margin: 0 8px 8px; background: #fff; border: 1px solid #1F4E79; border-radius: 6px; padding: 4px 8px; font: 700 12.5px 'Segoe UI', sans-serif; color: #1F4E79; text-align: center; }
+.p6c-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.p6c-pick button { font: 12px Consolas, monospace; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); border-radius: 14px; padding: 3px 10px; cursor: pointer; }
+.p6c-pick button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.p6c-txt { display: inline-block; font: 13px Consolas, monospace; background: #fff; color: #1c2733; border: 1px solid #c9d6e4; border-radius: 6px; padding: 6px 10px; margin: 2px 0 6px; overflow-wrap: anywhere; }
+.p6c-hit { background: #ffd98a; color: #6b3d00; font-weight: 700; border-radius: 3px; padding: 0 2px; }
+.p6c-real { background: #cfe9d9; color: #14532d; font-weight: 700; border-radius: 3px; padding: 0 2px; }
+.p6c-q { display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; margin: 4px 0; font-size: 12.5px; }
+.p6c-q .a { margin-left: auto; font-weight: 700; }
+.p6c-q.pass .a { color: var(--success); }
+.p6c-q.fail { background: var(--warning-bg); border-color: var(--warning); } .p6c-q.fail .a { color: var(--warning); }
+.p6c-res { margin-top: 6px; font-size: 12.5px; background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; padding: 6px 10px; }

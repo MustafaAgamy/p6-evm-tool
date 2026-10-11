@@ -512,6 +512,89 @@ TASKS_CHECKED_NOTE = ('Remaining Activities = every activity that is not complet
                       'milestones, Level of Effort and WBS Summary activities.')
 
 
+_P6_FILTERS = (('start', 'Start Dangling Activity', 'Predecessor Details', ('FS', 'SS')),
+               ('finish', 'Dangling Finish Activity', 'Successor Details', ('FS', 'FF')))
+_P6_HIDDEN_MAX = 50
+
+
+def _p6_hidden_row(h):
+    """One hidden activity, walked through the P6 filter lines: the column text as P6 reads it (the
+    misleading letters and the real types marked) and the verdict of each filter line."""
+    side = h['side']
+    _key, _name, param, letters = next(x for x in _P6_FILTERS if x[0] == side)
+    segs, marked = [], False
+    for i, (aid, typ) in enumerate(h['ties']):
+        if i:
+            segs.append([', ', ''])
+        at = aid.upper().find(h['letters']) if (aid == h['linked_id'] and not marked) else -1
+        if at >= 0:
+            marked = True
+            n = len(h['letters'])
+            segs += [[aid[:at], ''], [aid[at:at + n], 'hit'], [aid[at + n:], '']]
+        else:
+            segs.append([aid, ''])
+        segs += [[': ', ''], [typ, 'real']]
+    lines = [{'text': f'Filter line 1 - {param} is not blank?', 'ok': True, 'verdict': 'passes'}]
+    failed = False
+    for n, letter in enumerate(letters, start=2):
+        fail = (letter == h['letters'])
+        failed = failed or fail
+        lines.append({'text': f'Filter line {n} - does not contain "{letter}"?', 'ok': not fail,
+                      'verdict': f'fails - P6 finds "{letter}" inside the Activity ID' if fail else 'passes'})
+    types = ', '.join(sorted({typ for _aid, typ in h['ties']}))
+    end = 'start' if side == 'start' else 'finish'
+    link = 'predecessor' if side == 'start' else 'successor'
+    return {'activity_id': h['activity_id'], 'side': 'Start' if side == 'start' else 'Finish',
+            'param': param, 'segments': [s for s in segs if s[0]], 'lines': lines,
+            'letters': h['letters'], 'linked_id': h['linked_id'], 'real': f'{types} - {end} not driven',
+            'result': f'{h["activity_id"]} is left out of the {_name} list.',
+            'reality': f'no {link} is of a type that drives its {end} ({types} only), so it is dangling.'}
+
+
+def dangling_p6_check(k):
+    """The 'P6 filter check' panel under the Dangling tiles: the two P6 filters with what each
+    lists, why the two lists overlap, the bridge from P6's number to this report's, and every
+    dangling activity the P6 text filter leaves out. Built once here; the screen, the PDF / Word
+    report and the Excel sheet all draw it."""
+    p6 = (k or {}).get('p6_filter')
+    if not isinstance(p6, dict):
+        return None
+    total = int(k.get('total_dangling') or 0)
+    start, finish, both, unique = (int(p6.get(x) or 0) for x in ('start', 'finish', 'both', 'unique'))
+    other, opened, hid = (int(p6.get(x) or 0) for x in ('other_types', 'open_ends', 'hidden_activities'))
+    bridge = [{'op': '', 'n': unique, 'label': 'your P6 filters show', 'kind': ''}]
+    if other:
+        bridge.append({'op': '-', 'n': other, 'kind': 'h',
+                       'label': 'milestones / Level of Effort / WBS summaries (not task activities)'})
+    if hid:
+        bridge.append({'op': '+', 'n': hid, 'label': 'dangling, but hidden from the P6 filter', 'kind': 'h'})
+    if opened:
+        bridge.append({'op': '+', 'n': opened, 'kind': 'h',
+                       'label': 'no predecessor or no successor at all (P6 filters leave these out)'})
+    bridge.append({'op': '=', 'n': total, 'label': 'this report (true count)', 'kind': 't'})
+    hidden = [_p6_hidden_row(h) for h in (p6.get('hidden') or [])[:_P6_HIDDEN_MAX]]
+    return {
+        'title': 'P6 filter check - why P6 may show a different number',
+        'match': not (other or hid or opened),
+        'match_text': f'Matches your P6 filters: P6 shows {unique}, this report counts {total}.',
+        'filters': [{'name': name, 'param': param, 'values': list(letters), 'count': p6.get(key) or 0}
+                    for key, name, param, letters in _P6_FILTERS],
+        'both': both,
+        'overlap': [{'op': '', 'n': start - both, 'label': 'only in Start Dangling', 'kind': ''},
+                    {'op': '+', 'n': both, 'label': 'in both filters (counted once)', 'kind': 'b'},
+                    {'op': '+', 'n': finish - both, 'label': 'only in Dangling Finish', 'kind': ''},
+                    {'op': '=', 'n': unique, 'label': 'different activities in P6', 'kind': 't'}],
+        'overlap_title': f'Why {start} + {finish} is {unique} activit{"y" if unique == 1 else "ies"}, not {start + finish}',
+        'overlap_note': ('An activity that is dangling at both ends appears in both filters. '
+                         'It is one activity, so it is counted once.'),
+        'short': f'Short form: {start} + {finish} - {both} = {unique}.',
+        'bridge': bridge, 'total': total,
+        'hidden': hidden, 'hidden_total': len(p6.get('hidden') or []),
+        'legend': [['hit', 'letters inside the Activity ID - the P6 filter reads them as a relationship type'],
+                   ['real', 'the real relationship type - what this report reads']],
+    }
+
+
 def _tiles_note_with_figures(p6c, raw_tiles):
     """The Remaining vs Task Activities Checked note, led by this schedule's own numbers."""
     try:
@@ -556,6 +639,11 @@ def build_presentation(module_result):
     rows = [[_cell_for(kind, f.get(field)) for lab, field, kind in spec['columns']]
             for f in findings]
 
-    return {'tiles': tiles, 'tiles_note': tiles_note, 'columns': columns, 'rows': rows,
+    extra = {}
+    if m.get('module') == 'dangling':
+        check = dangling_p6_check(k)
+        if check:
+            extra['p6_check'] = check
+    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'columns': columns, 'rows': rows,
             'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
             'sections': report_sections(m)}
