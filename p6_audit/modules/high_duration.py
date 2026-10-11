@@ -48,6 +48,17 @@ def run_high_duration(graph, config):
 
     defect_pct = round(100.0 * over / total, 1) if total else 0.0
 
+    # P6's filter 'Original Duration > threshold' also lists Level of Effort / WBS Summary
+    # activities, which span other work and are not checked here - counted so the report can
+    # reconcile with that filter (review tip 4)
+    span_over = 0
+    for oid, act in graph.activities.items():
+        if graph.is_span_activity(oid):
+            cal = graph.calendars.get(act.get('calendar_id'))
+            day_hours = cal.day_hours if (cal and getattr(cal, 'day_hours', None)) else 8.0
+            if (act.get('planned_duration') or 0) / day_hours > threshold:
+                span_over += 1
+
     order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
     findings.sort(key=lambda f: (order.get(f['severity'], 9), -f['duration_days']))
 
@@ -58,6 +69,7 @@ def run_high_duration(graph, config):
         'kpis': {
             'total_activities': total,
             'over_threshold':   over,
+            'span_over_threshold': span_over,   # LOE / WBS Summary over the limit (not counted)
             'high_pct':         defect_pct,
             'threshold':        threshold,
             'max_duration':     round(max_days, 1) if total else 0,

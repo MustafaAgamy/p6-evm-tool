@@ -611,6 +611,41 @@ def _tiles_note_with_figures(p6c, raw_tiles):
             f'Level of Effort and WBS Summary activities. ' + TASKS_CHECKED_NOTE)
 
 
+def _span_over_text(k):
+    """How the High Duration count reconciles with P6's 'Original Duration > limit' filter."""
+    n, over = k.get('span_over_threshold') or 0, k.get('over_threshold') or 0
+    if not n:
+        return ''
+    return (f" In P6 the filter 'Original Duration is greater than {_plain(k.get('threshold', 44))}d' lists "
+            f'{over + n:,} activities: the {over:,} counted here + {n:,} Level of Effort / WBS Summary '
+            f"activit{'y' if n == 1 else 'ies'}, which only span other work and are not counted.")
+
+
+def _highlight_note(m):
+    """The highlighted note under a check's tiles (review comments 1, 2, 9) - what the check
+    covers, said once for the screen, the PDF / Word report and Excel. None when there is none."""
+    mod, k = m.get('module'), (m.get('kpis') or {})
+    if mod == 'dangling':
+        return ('This check covers Task Dependent and Resource Dependent activities only. '
+                'Milestones, Level of Effort and WBS Summary activities are not checked for dangling logic.')
+    if mod == 'high_duration':
+        return (f"The {_plain(k.get('threshold', 44))}-working-day limit is meant for construction / "
+                'execution-of-works activities. The check reads every Task Dependent and Resource Dependent '
+                'activity, so a long engineering, procurement or delivery activity listed here may be '
+                'legitimate - review it before splitting it.' + _span_over_text(k))
+    if mod == 'negative_float':
+        neg, frac = k.get('negative_count') or 0, k.get('fraction_count') or 0
+        if neg and frac * 2 > neg:
+            half = _plain(k.get('fraction_days', 0.5))
+            lead = (f'All {neg:,} negative-float activities are' if frac == neg
+                    else f'{frac:,} of the {neg:,} negative-float activities are')
+            return (f'{lead} negative by no more than {half} day (most negative: '
+                    f"{float_days_text(k.get('most_negative'))}). This is decimal (part-day) float in the "
+                    'baseline - it comes from decimal durations, not from a delay to the finish. '
+                    "The figures are computed from the schedule's own early and late dates.")
+    return None
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -644,6 +679,7 @@ def build_presentation(module_result):
         check = dangling_p6_check(k)
         if check:
             extra['p6_check'] = check
-    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'columns': columns, 'rows': rows,
+    return {**extra, 'tiles': tiles, 'tiles_note': tiles_note, 'highlight': _highlight_note(m),
+            'columns': columns, 'rows': rows,
             'verdict': spec['verdict'](m), 'scoring': _scoring(m), 'severity': _severity(m),
             'sections': report_sections(m)}

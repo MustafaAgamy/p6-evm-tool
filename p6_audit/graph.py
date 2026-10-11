@@ -31,6 +31,13 @@ class ScheduleGraph:
         # every Schedule Health check (final P6 test, comment 5: Grain Bulk 1,466 vs P6 1,467).
         return bool(act) and act.get('task_type') in ('Task', 'ResourceDependent')
 
+    def is_span_activity(self, oid):
+        """Level of Effort / WBS Summary: an activity that only SPANS other work. P6 takes its dates
+        from the activities it is tied to and never drives them, so a chain that returns to its
+        start through one is not a loop in P6 (review comment 3: Alstom, P6 schedules it)."""
+        act = self.activities.get(oid)
+        return bool(act) and act.get('task_type') in ('LOE', 'WBSSummary')
+
     # ── P6's own activity counts (comments 48-52) ─────────────────────────────────────
     # P6 lists — and its Critical / float filters count — EVERY activity type (tasks, milestones,
     # Level of Effort, WBS summaries). Percentages are over the activities still to do (Not

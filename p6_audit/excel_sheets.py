@@ -67,7 +67,7 @@ def _scalar(v):
 
 
 # Figures a check's report no longer shows, so its workbook does not either (comment 80).
-_SKIP_FOR = {'relationship_types': {'non_fs', 'remaining_activities'}}
+_SKIP_FOR = {'relationship_types': {'non_fs', 'remaining_activities'}, 'negative_float': {'fraction_days'}}
 
 
 def _pairs(d, skip=()):
@@ -116,7 +116,7 @@ def _summary_blocks(m):
     tiles = [[_tile_label(t.get('label', '')), _value(t.get('value'))] for t in (p.get('tiles') or [])
              if isinstance(t, dict)]
     if tiles:
-        blocks.append({'title': 'Key figures (as shown on the report)', 'note': p.get('tiles_note') or None,
+        blocks.append({'title': 'Key figures (as shown on the report)', 'note': ' '.join(t for t in (p.get('highlight'), p.get('tiles_note')) if t) or None,
                        'headers': ['Figure', 'Value'], 'rows': tiles})
 
     chk = p.get('p6_check') if isinstance(p.get('p6_check'), dict) else None

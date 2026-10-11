@@ -10,6 +10,8 @@ from p6_audit.scoring import linear_score, uniform_grade
 MODULE = 'negative_float'
 NAME = 'Negative Float'
 
+FRACTION_DAYS = 0.5   # a negative float within half a day is a part-day rounding, not a delay
+
 _RECOMMENDATION = ('Recover the driving path - a baseline must not start with '
                    'negative float (total float must be >= 0)')
 
@@ -36,6 +38,11 @@ def run_negative_float(graph, config):
         })
 
     negative = len(findings)
+    # review comment 9: negative by less than half a day = a decimal (part-day) duration in the
+    # baseline, not a delay - counted so the report can say so
+    floats = [act['total_float_days'] for _oid, act in remaining
+              if act.get('total_float_days') is not None and act['total_float_days'] < 0]
+    fraction = sum(1 for tf in floats if tf >= -FRACTION_DAYS)
     pct = round(100.0 * negative / len(remaining), 1) if remaining else 0.0
 
     findings.sort(key=lambda f: (f['total_float_days'], f['activity_id']))
@@ -49,6 +56,9 @@ def run_negative_float(graph, config):
             'remaining_activities': len(remaining),    # Not Started + In Progress (the % base)
             'negative_count':   negative,
             'neg_pct':          pct,
+            'fraction_count':   fraction,              # negative by no more than half a day
+            'fraction_days':    FRACTION_DAYS,
+            'most_negative':    (round(min(floats), 2) or round(min(floats), 4)) if floats else None,
         },
         'pct':   pct,
         'score': score,

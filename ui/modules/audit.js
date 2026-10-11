@@ -338,6 +338,8 @@ function cellHtml(cell) {
 function presentationTiles(p) {
   return (p.tiles || []).map(t =>
     `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('')
+    // the highlighted note - what the check covers (presentation._highlight_note)
+    + (p.highlight ? `<div class="kpi-highlight">${escapeHtml(p.highlight)}</div>` : '')
     // comment 81: what 'Task Activities Checked' counts, in words under the tiles
     + (p.tiles_note ? `<div class="kpi-note">${escapeHtml(p.tiles_note)}</div>` : '');
 }
@@ -1339,6 +1341,7 @@ function _dngTable(rows, dd, resolved) {
       <span class="dng-sevb crit">Critical</span> on the critical path
       <span class="dng-sevb high">High</span> both ends dangling
       <span class="dng-sevb med">Medium</span> one end dangling</div>
+    ${applyAllBar}
     <div class="tblwrap dng-tblwrap"><table class="audit-table dng-logx">
       <thead>
         <tr class="dng-grp">
@@ -1351,11 +1354,10 @@ function _dngTable(rows, dd, resolved) {
         </tr>
         <tr class="dng-sub">
           <th class="dng-gcol">Predecessors</th><th>Successors</th>
-          <th class="dng-gcol">Start side (predecessor)</th><th>Finish side (successor)</th>
+          <th class="dng-gcol">Predecessor</th><th>Successor</th>
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    ${applyAllBar}
     <div class="dng-flowhint">The tool only proposes a <b>relationship-type change on a link that already exists</b>
       (Finish-to-Finish / Start-to-Start → Finish-to-Start, or the valid alternative). Where an activity has
       <b>no predecessor or no successor at all</b>, there is nothing to re-type, so it is flagged
@@ -2856,7 +2858,7 @@ function renderFloatModule(m) {
     fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'not started + in progress'),
     fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
     fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`, 'of the remaining activities'),
-    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `float 1–${stats.near_band ?? 10} working days`),
+    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `total float above 0, up to ${stats.near_band ?? 10} working days`),
     fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`, 'of the remaining activities'),
   ].join('');
 

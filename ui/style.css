@@ -479,6 +479,8 @@ body:focus { outline: none; }
 .kpi-tiles .kpi .k { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
 .kpi-tiles .kpi .v { font-size: 21px; font-weight: 800; margin-top: 2px; }
 .kpi-tiles .kpi-note { grid-column: 1 / -1; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.kpi-tiles .kpi-highlight { grid-column: 1 / -1; padding: 7px 11px; font-size: 12px; line-height: 1.45; font-weight: 700; color: var(--text);
+  background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 4px solid var(--warning); border-radius: 4px; }
 .ms-note { margin: 8px 0 4px; padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--text);
   background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 4px solid var(--warning); border-radius: 4px; }
 .dng-held { color: var(--warning); font-weight: 600; }

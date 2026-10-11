@@ -618,6 +618,8 @@ def _presentation_dashboard(m):
     score_txt = '—' if score is None else score
     tiles = ''.join(_kpi(t['label'], t['value']) for t in p.get('tiles', []))
     tiles_note = f'<div class="dcma">{_esc(p["tiles_note"])}</div>' if p.get('tiles_note') else ''
+    if p.get('highlight'):      # the highlighted note (what the check covers) - same text as the screen
+        tiles_note = f'<div class="hnote">{_esc(p["highlight"])}</div>' + tiles_note
     return f'''
       <div class="dash">
         <div class="grade-card">
@@ -1205,6 +1207,7 @@ def render_module_report(module_result, meta, sections=None, theme='light', lag_
   .kpi.crit .v {{ color: var(--rpt-bad); }}
   .kpi.near {{ border-color: var(--rpt-warn); background: var(--rpt-warn-bg); }}
   .kpi.near .v {{ color: var(--rpt-warn); }}
+  .hnote {{ margin-top: 8px; padding: 6px 10px; font-size: 10px; font-weight: 700; color: var(--rpt-ink); background: var(--rpt-warn-bg); border-left: 4px solid var(--rpt-warn); border-radius: 3px; }}
   .slegend {{ border: 1px solid var(--rpt-edge); background: var(--rpt-surface); border-radius: 8px; padding: 9px 12px; margin-top: 10px; font-size: 9.5px; }}
   .slegend .t {{ font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: var(--rpt-accent); font-weight: 700; }}
   .slegend .d {{ color: var(--rpt-ink-soft); margin: 3px 0 6px; line-height: 1.4; }}

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>High Duration — WBS scope (mockup)</title>
+<style>
+  :root { --bg:#f4f6fa; --card:#fff; --ink:#1b2433; --muted:#66728a; --edge:#dde3ee; --accent:#1F4E79;
+          --warn:#b45309; --warnbg:#fbeccf; --good:#15803d; --bad:#b91c1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 "Segoe UI",Arial,sans-serif; }
+  .wrap { max-width:1080px; margin:0 auto; padding:22px 16px 60px; }
+  h1 { font-size:20px; margin:0 0 2px; } .sub { color:var(--muted); font-size:12.5px; margin-bottom:16px; }
+  .tag { display:inline-block; background:#e8eef7; color:var(--accent); font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; margin-left:6px; }
+  .card { background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .sec { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--accent); font-weight:800; margin-bottom:8px; }
+  .hero { display:flex; gap:16px; flex-wrap:wrap; }
+  .score { width:190px; text-align:center; border:1px solid var(--edge); border-radius:12px; padding:14px 10px; }
+  .score .n { font-size:44px; font-weight:800; line-height:1; } .score .d { font-size:11px; color:var(--muted); }
+  .badge { display:inline-block; margin-top:8px; padding:3px 12px; border-radius:12px; color:#fff; font-weight:700; font-size:12px; }
+  .tiles { flex:1; min-width:300px; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .kpi { border:1px solid var(--edge); border-radius:10px; padding:10px 12px; }
+  .kpi .k { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700; }
+  .kpi .v { font-size:21px; font-weight:800; margin-top:2px; }
+  .kpi.scope { border-color:var(--accent); background:#f1f6fc; }
+  .hl { grid-column:1/-1; background:var(--warnbg); border-left:4px solid var(--warn); border-radius:4px; padding:7px 11px; font-size:12.5px; font-weight:700; }
+  .hl + .hl { margin-top:-4px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; background:var(--accent); color:#fff; padding:7px 9px; font-size:11.5px; }
+  td { padding:7px 9px; border-bottom:1px solid var(--edge); } td.num, th.num { text-align:center; }
+  tr.off td { color:#a3acbd; } tr.tot td { font-weight:800; background:#f1f6fc; border-top:2px solid var(--accent); }
+  input[type=checkbox] { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+  button { border:1px solid var(--accent); background:#fff; color:var(--accent); border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; font-size:12.5px; }
+  button.on { background:var(--accent); color:#fff; }
+  .hint { color:var(--muted); font-size:12px; }
+  .bars { display:flex; flex-direction:column; gap:7px; }
+  .wb { display:grid; grid-template-columns:26px 210px 1fr 150px; gap:10px; align-items:center; padding:7px 9px; border:1px solid var(--edge); border-radius:9px; cursor:pointer; transition:.15s; }
+  .wb:hover { border-color:var(--accent); } .wb.on { background:#f1f6fc; border-color:var(--accent); }
+  .wb.off { opacity:.55; } .wb .nm { font-weight:700; } .wb .fig { text-align:right; font-size:12.5px; color:var(--muted); }
+  .wb .fig b { color:var(--ink); } .tk { width:18px; height:18px; border-radius:5px; border:2px solid var(--accent); display:grid; place-items:center; color:#fff; font-size:12px; font-weight:800; }
+  .wb.on .tk { background:var(--accent); }
+  .track { height:14px; background:#e6ebf3; border-radius:7px; overflow:hidden; position:relative; }
+  .track i { position:absolute; left:0; top:0; bottom:0; background:#9db7d3; border-radius:7px; } .track u { position:absolute; left:0; top:0; bottom:0; background:var(--bad); border-radius:7px; }
+  .p6 { margin-top:12px; background:#eef4ea; border-left:4px solid var(--good); border-radius:4px; padding:9px 12px; font-size:12.5px; }
+  .p6 code { background:#fff; border:1px solid #cfdcc8; border-radius:4px; padding:1px 6px; font-family:Consolas,monospace; font-size:12px; }
+  .move { font-size:12px; font-weight:700; margin-top:6px; }
+  @media (max-width:640px){ .wb{grid-template-columns:26px 1fr;} .wb .track{grid-column:1/-1;} .wb .fig{grid-column:1/-1;text-align:left;} }
+  .q { background:#fff8e1; border:1px dashed var(--warn); border-radius:10px; padding:12px 14px; font-size:13px; }
+  .q b { color:var(--warn); }
+  @media (max-width:640px){ .tiles{grid-template-columns:repeat(2,1fr);} .score{width:100%;} }
+</style></head>
+<body><div class="wrap">
+  <h1>High Duration — pick the WBS to count <span class="tag">MOCKUP · MAFI numbers</span></h1>
+  <div class="sub">Default = Construction only. Tick or untick a WBS and every figure below changes at once (score, tiles, table, PDF / Word / Excel).</div>
+
+  <div class="card">
+    <div class="hero">
+      <div class="score"><div class="n" id="score">—</div><div class="d">Sub-feature Score / 100</div>
+        <div class="badge" id="badge">—</div><div class="hint" id="verdict" style="margin-top:8px"></div><div class="move" id="move"></div></div>
+      <div class="tiles">
+        <div class="kpi"><div class="k">Total Activities</div><div class="v">6,005</div></div>
+        <div class="kpi"><div class="k">Task Activities (all WBS)</div><div class="v">5,904</div></div>
+        <div class="kpi scope"><div class="k">WBS Counted</div><div class="v" id="scopeName" style="font-size:15px;line-height:1.7">—</div></div>
+        <div class="kpi scope"><div class="k">Task Activities in Scope</div><div class="v" id="inScope">—</div></div>
+        <div class="kpi scope"><div class="k">Over 44 Days</div><div class="v" id="over">—</div></div>
+        <div class="kpi scope"><div class="k">High Duration %</div><div class="v" id="pct">—</div></div>
+        <div class="hl">This check reads Task Dependent activities only. Milestones, Level of Effort and WBS Summary activities are not counted.</div>
+        <div class="hl" id="scopeNote"></div>
+        <div class="hl">Days = hours ÷ 8 h/day — the working day of the calendar assigned to more than 90% of the activities (100% of this schedule's activities are on 8 h/day calendars).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">WBS scope — which WBS to count</div>
+    <div class="btns">
+      <button id="bCon">Construction only (default)</button>
+      <button id="bAll">All WBS</button>
+      <span class="hint">or click any WBS below</span>
+    </div>
+    <div class="bars" id="rows"></div>
+    <div class="hint" style="margin-top:6px">Bar length = number of task activities in the WBS · red = activities over 44 days · click a WBS to count it or leave it out.</div>
+    <div class="p6" id="p6line"></div>
+  </div>
+
+  <div class="q">
+    <b>Two points to confirm before I build it:</b><br>
+    1. The list shows the <b>top-level WBS</b> of the schedule (Construction, Engineering, Procurement …). Is the top level enough, or do you want to open a WBS and pick the levels under it too?<br>
+    2. <b>Hours per day:</b> on Alstom and MAFI no single calendar reaches 90% (Alstom 53.5% / 46.5%, MAFI 48.6% / 29.2% / 15.3%) but all their calendars are 8 h/day. I propose: take the <b>hours per day</b> shared by more than 90% of activities; if nothing reaches 90%, use each activity's own calendar and say so in the report.
+  </div>
+</div>
+<script>
+  const W = [
+    ['Construction Works', 3292, 14, true], ['Engineering', 1616, 9, false], ['Procurement', 940, 160, false],
+    ['Key Dates', 43, 0, false], ['Testing, Commissioning', 11, 0, false], ['Mobilization', 1, 0, false],
+    ['Engineering Variations', 1, 1, false]];
+  const isCon = n => /construction/i.test(n);
+  const f = n => n.toLocaleString('en-US');
+  function draw() {
+    let t = 0, o = 0; const names = [];
+    const mx = Math.max(...W.map(w => w[1]));
+    document.getElementById('rows').innerHTML = W.map((w, i) => {
+      if (w[3]) { t += w[1]; o += w[2]; names.push(w[0]); }
+      const p = w[1] ? (100 * w[2] / w[1]).toFixed(1) : '0.0';
+      const len = Math.max(1.5, 100 * w[1] / mx), red = Math.max(w[2] ? 0.8 : 0, 100 * w[2] / mx);
+      return `<div class="wb ${w[3] ? 'on' : 'off'}" data-i="${i}"><span class="tk">${w[3] ? '✓' : ''}</span><span class="nm">${w[0]}</span>
+        <span class="track"><i style="width:${len}%"></i><u style="width:${red}%"></u></span>
+        <span class="fig"><b>${f(w[2])}</b> over 44 d of <b>${f(w[1])}</b> · ${p}%</span></div>`;
+    }).join('');
+    const pct = t ? Math.round(1000 * o / t) / 10 : 0, score = Math.round((100 - pct) * 10) / 10;
+    const grade = score >= 95 ? ['Pass', 'var(--good)'] : score >= 90 ? ['Review', 'var(--warn)'] : ['Critical', 'var(--bad)'];
+    const all = names.length === W.length, conOnly = names.length && names.every(isCon) && W.filter(w => isCon(w[0])).length === names.length;
+    const label = !names.length ? 'None' : all ? 'All WBS' : conOnly ? 'Construction only' : names.length === 1 ? names[0] : `${names.length} WBS picked`;
+    document.getElementById('score').textContent = names.length ? score : '—';
+    document.getElementById('score').style.color = grade[1];
+    document.getElementById('badge').textContent = names.length ? grade[0] : 'Pick a WBS';
+    document.getElementById('badge').style.background = names.length ? grade[1] : '#8a94a6';
+    document.getElementById('verdict').textContent = names.length ? `${pct}% of the counted activities are over 44 working days.` : '';
+    document.getElementById('scopeName').textContent = label;
+    document.getElementById('inScope').textContent = f(t);
+    document.getElementById('over').textContent = f(o);
+    document.getElementById('pct').textContent = pct + '%';
+    document.getElementById('scopeNote').textContent = names.length
+      ? `Counted WBS: ${names.join(', ')} — ${f(t)} of the 5,904 task activities. The other WBS are not counted in the score.`
+      : 'No WBS picked — tick at least one WBS to count.';
+    document.getElementById('bCon').className = conOnly ? 'on' : '';
+    document.getElementById('bAll').className = all ? 'on' : '';
+    const wbsF = all ? '' : ` <b>and</b> <code>WBS</code> is under <code>${names.join('</code> or <code>')}</code>`;
+    document.getElementById('p6line').innerHTML = names.length
+      ? `<b>Check it in P6:</b> filter <code>Activity Type</code> equals <code>Task Dependent</code> <b>and</b> <code>Original Duration</code> is greater than <code>44d</code>${wbsF} &rarr; P6 lists <b>${f(o)}</b> activities — the same number as this report.`
+      : '';
+    const d = Math.round((score - 96.9) * 10) / 10;
+    document.getElementById('move').innerHTML = !names.length || all ? '' :
+      `<span style="color:${d >= 0 ? 'var(--good)' : 'var(--bad)'}">${d >= 0 ? '▲ +' : '▼ '}${d}</span> <span class="hint">vs all WBS (96.9)</span>`;
+    document.querySelectorAll('#rows .wb').forEach(c => c.onclick = () => { W[c.dataset.i][3] = !W[c.dataset.i][3]; draw(); });
+  }
+  document.getElementById('bCon').onclick = () => { W.forEach(w => w[3] = isCon(w[0])); draw(); };
+  document.getElementById('bAll').onclick = () => { W.forEach(w => w[3] = true); draw(); };
+  draw();
+</script>
+</body></html>
