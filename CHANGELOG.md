@@ -17,6 +17,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Critical Path Length matches P6.** It is measured in working hours on the calendar's own work times, divided by the hours per day (Saint Gobain: 201.82 d, was 203 d). Completion Total Float keeps its decimals.
 - **A new import starts clean.** Browsing to or dropping a file no longer brings back what was typed for an earlier import of the same project — contract milestones, lag justifications, weather location and limits, Narrative setup, an attached baseline — nor an earlier comparison left on screen. Opening a project from Recent Projects still shows it as it was saved.
 - **Calendar Audit — '+ Add shutdown' removed.** Every non-working day is a holiday held in the P6 calendar.
+- **Float Analysis — the Construction count is the Construction WBS as P6 filters it.** Activities with total float above 44 days are counted under the WBS branch named as construction only. Key-date and client-input milestones sitting under other branches are no longer counted as construction (Grain Bulk Terminal: 34 of 809, was 40 of 840).
 - **Schedule Health, Baseline Narrative and Lag Report accept XER files only.** With an XML schedule open, the feature says so and Run stays off until an XER file is imported.
 
 ### Changed — P6 Calendar Audit: statistics from the Data Date to Project Completion, tables that match the histogram (comments 74–79)

@@ -204,3 +204,18 @@ def test_end_to_end_real_xml_through_engine_produces_valid_mgmt():
     # wbs distribution stays sorted worst-concentration-first
     pcts = [r['pct'] for r in fm['wbs']]
     assert pcts == sorted(pcts, reverse=True)
+
+
+def test_construction_count_is_the_wbs_branch_named_construction():
+    """Comment (float): a P6 filter on the Construction WBS gives the count — key-date and
+    client-input milestones under other branches are not construction, whatever their sub-WBS says."""
+    acts = ([_act(i, 60, wbs='Proj > Phase I Construction Works > Silos') for i in range(1, 4)]
+            + [_act(10, 5, wbs='Proj > Phase I Construction Works > Silos'),
+               _act(20, 90, wbs='Proj > Phase I Key Dates > Civil Works Completion'),
+               _act(21, 80, wbs='Proj > Phase I Inputs Required From Client > Release'),
+               _act(30, 70, wbs='Proj > Phase I Engineering > Shop Drawing')])
+    mg = run_float(_g({a['object_id']: a for a in acts}), {'audit': {}})['mgmt']
+    assert (mg['indicators']['constr_over'], mg['indicators']['constr_total']) == (3, 4)
+    tags = {r['wbs']: r['is_construction'] for r in mg['wbs']}
+    assert tags['Phase I Construction Works'] and not tags['Phase I Key Dates']
+    assert not tags['Phase I Inputs Required From Client']
