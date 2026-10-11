@@ -335,6 +335,20 @@ function cellHtml(cell) {
   return `<td${cls}${title}>${escapeHtml(cell.text)}</td>`;
 }
 
+// A check's figures per major WBS beside P6's own activity count (presentation.p6_wbs_table) —
+// the same table the report and Excel print.
+function p6WbsTableHtml(t) {
+  if (!t || !(t.rows || []).length) return '';
+  const tr = (cells, cls) => `<tr${cls ? ` class="${cls}"` : ''}>${cells.map((c, i) =>
+    `<td${i ? ' class="num"' : ''}>${escapeHtml(String(c))}</td>`).join('')}</tr>`;
+  return `
+    <div class="mod-sec">${escapeHtml(t.title)}</div>
+    <div class="kpi-note" style="margin:0 0 6px">${escapeHtml(t.note || '')}</div>
+    <div class="tblwrap"><table class="audit-table p6wbs"><thead><tr>${t.headers.map((h, i) =>
+      `<th${i ? ' class="num"' : ''}>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+      <tbody>${t.rows.map(r => tr(r)).join('')}${t.total ? tr(t.total, 'p6wbs-total') : ''}</tbody></table></div>`;
+}
+
 function presentationTiles(p) {
   return (p.tiles || []).map(t =>
     `<div class="kpi"><div class="k">${escapeHtml(t.label)}</div><div class="v">${escapeHtml(t.value)}</div></div>`).join('')
@@ -376,7 +390,7 @@ function severityLegendHtml(sev) {
 // the PDF and Excel render identical tiles/columns/cells (see cellHtml/presentationTiles).
 
 function wbsSummaryHtml(m) {
-  const ws = m.wbs_summary || [];
+  const ws = (m.wbs_summary || []).filter(r => r && r.high !== undefined);
   if (!ws.length) return '';
   const rows = ws.slice(0, 12).map(r => `
     <tr><td title="${escapeHtml(r.wbs)}">${escapeHtml(shortWbs(r.wbs, 4))}</td>
@@ -2390,6 +2404,7 @@ function renderStandardModule(m) {
     </div>
     ${scoringLegendHtml(p.scoring)}
     ${wbsSummaryHtml(m)}
+    ${p6WbsTableHtml(p.wbs_table)}
     ${hdScopeHtml(m)}
     <div class="mod-sec">Detailed Findings</div>
     ${(m.findings && m.findings.length) ? severityLegendHtml(p.severity) : ''}
@@ -2484,7 +2499,7 @@ function renderCpliModule(m) {
           ${ratioComputable ? `<div style="margin-top:8px">${ruleBadge}</div>` : ''}
         </div>
       </div>
-      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+      <div class="kpi-tiles">${tiles.map(([lab, val]) => `<div class="kpi"><div class="k">${escapeHtml(lab)}</div><div class="v">${escapeHtml(String(val))}</div></div>`).join('')}${(m.presentation || {}).tiles_note ? `<div class="kpi-note">${escapeHtml(m.presentation.tiles_note)}</div>` : ''}</div>
     </div>
     <div class="shr-legend">
       <b>How it's scored.</b> The score is the <b>critical-path density</b> — the share of task-dependent activities on the critical path. A schedule with many critical activities is fragile (small slips ripple), so fewer critical = a higher score.
@@ -2494,6 +2509,7 @@ function renderCpliModule(m) {
     <div class="shr-legend">
       <b>Context — CPLI ratio &amp; baseline rule (not the score).</b> CPLI = (CPL + TF) ÷ CPL = <b>${ratioComputable ? `${ratioPct}%` : '—'}</b> — DCMA 14-Point, Point 13 (target ≥ 95%). Completion total float = <b>${dnum(k.project_total_float_days)}</b>.
     </div>
+    ${p6WbsTableHtml((m.presentation || {}).wbs_table)}
     <div class="mod-sec">Driving path <span class="mod-sub">— the activities P6 flags critical, in sequence</span></div>
     ${cpliGantt(m.findings || [], m.kpis || {})}`;
 }
@@ -2987,9 +3003,10 @@ function renderFloatModule(m) {
     <div class="fh-tiles five">${statsTiles}</div>
     <div class="mod-sec">Float Indicators <span class="mod-sub">— Construction scope only (Engineering / Procurement / Design excluded)</span></div>
     <div class="fh-tiles four">${indTiles}</div>
-    <div class="mod-sec">Float Distribution by WBS</div>
+    ${p6WbsTableHtml((m.presentation || {}).wbs_table)}
+    <div class="mod-sec">Float Distribution by WBS <span class="mod-sub">— the activities not completed (they carry float)</span></div>
     <div class="tblwrap" style="overflow-x:auto"><table class="audit-table fh-wbs"><thead><tr>
-      <th>WBS Package</th><th class="num">Activities</th><th class="num">Average Float</th>
+      <th>WBS Package</th><th class="num">Not Completed</th><th class="num">Average Float</th>
       <th class="num">Maximum Float</th><th class="num">Activities &gt; ${thr} WD</th><th class="num">% &gt; ${thr} WD</th>
     </tr></thead><tbody>${wbsRows}</tbody></table></div>
     <div class="mod-sec">Executive Conclusion</div>

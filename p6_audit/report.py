@@ -138,8 +138,22 @@ def _summary_stats(m):
         <tbody>{rows}</tbody></table>'''
 
 
+def _p6_wbs_table_html(t):
+    """A check's figures per major WBS beside P6's own activity count (presentation.p6_wbs_table)."""
+    if not t or not t.get('rows'):
+        return ''
+    head = ''.join(f'<th{"" if i == 0 else " class=num"}>{_esc(h)}</th>' for i, h in enumerate(t['headers']))
+    def tr(cells, bold=False):
+        b0, b1 = ('<b>', '</b>') if bold else ('', '')
+        return '<tr>' + ''.join(f'<td{"" if i == 0 else " class=num"}>{b0}{_esc(c)}{b1}</td>'
+                                for i, c in enumerate(cells)) + '</tr>'
+    body = ''.join(tr(r) for r in t['rows']) + (tr(t['total'], True) if t.get('total') else '')
+    return (f'<h2 class="sec">{_esc(t["title"])}</h2><div class="dcma">{_esc(t.get("note", ""))}</div>'
+            f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
+
+
 def _wbs_summary(m):
-    ws = m.get('wbs_summary', [])
+    ws = [r for r in m.get('wbs_summary', []) if isinstance(r, dict) and 'high' in r]
     if not ws:
         return ''
     rows = []
@@ -651,7 +665,7 @@ def _presentation_dashboard(m):
         </div>
         <div class="kpis">{tiles}</div>
       </div>{tiles_note}{_p6_check_html(p.get('p6_check'))}
-      <div class="dcma">{_DCMA.get(m['module'], '')}</div>'''
+      <div class="dcma">{_DCMA.get(m['module'], '')}</div>{_p6_wbs_table_html(p.get('wbs_table'))}'''
 
 
 def _presentation_table(m):

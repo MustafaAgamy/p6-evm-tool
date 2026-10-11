@@ -79,6 +79,34 @@ class ScheduleGraph:
         """Every activity not completed (Not Started + In Progress) — the base of each %."""
         return [(oid, a) for oid, a in self.activities.items() if not self.is_completed(a)]
 
+    # -- P6's count under each major WBS (review 2026-10-11) -----------------------------
+    # P6 groups the Activities window by WBS and counts EVERY activity under each band - every
+    # type, completed included. Each check's WBS table starts from these counts.
+    def wbs_key(self):
+        """activity -> its major WBS (the top-level WBS as named in P6)."""
+        if getattr(self, '_wbs_key', None) is None:
+            from p6_audit.modules.float_management import _top_wbs_key
+            self._wbs_key = _top_wbs_key([self.wbs_path(oid) for oid in self.activities])
+        return self._wbs_key
+
+    def major_wbs(self, oid):
+        return self.wbs_key()(self.wbs_path(oid))
+
+    def p6_wbs_rows(self, **counters):
+        """One row per major WBS, biggest first: {'wbs', 'activities' (every activity, as P6
+        counts the band), 'remaining' (not completed)} plus one count per ``name=test(oid, act)``."""
+        rows = {}
+        for oid, act in self.activities.items():
+            r = rows.setdefault(self.major_wbs(oid), dict({'activities': 0, 'remaining': 0},
+                                                         **{name: 0 for name in counters}))
+            r['activities'] += 1
+            r['remaining'] += 0 if self.is_completed(act) else 1
+            for name, test in counters.items():
+                r[name] += 1 if test(oid, act) else 0
+        out = [dict({'wbs': wbs}, **r) for wbs, r in rows.items()]
+        out.sort(key=lambda r: (-r['activities'], r['wbs']))
+        return out
+
     def wbs_path(self, oid):
         act = self.activities.get(oid, {})
         return act.get('wbs_path', '') or ''

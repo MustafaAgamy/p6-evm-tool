@@ -152,7 +152,8 @@ def test_high_duration_evaluates_construction_only():
     assert r['score'] == 50.0
     rows = {x['wbs']: x for x in r['mgmt']['wbs']}
     assert rows['Procurement'] == {'wbs': 'Procurement', 'activities': 3, 'over': 2, 'pct': 66.7,
-                                   'is_construction': False, 'evaluated': False, 'counted': False}
+                                   'is_construction': False, 'evaluated': False, 'counted': False,
+                                   'p6_activities': 3, 'p6_over': 2}
     assert rows['Construction Works']['evaluated'] is True
 
 
@@ -206,7 +207,7 @@ def test_high_duration_presentation_explains_every_figure():
     p = build_presentation(r)
     tiles = {t['label']: t['value'] for t in p['tiles']}
     assert tiles['WBS Evaluated'] == 'Construction only' and tiles['Task Dependent Activities Evaluated'] == '4'
-    assert tiles['Task Dependent Activities (all WBS)'] == '8' and tiles['Over Threshold'] == '2'
+    assert tiles['Task Dependent Activities (all WBS)'] == '8' and tiles['Over Threshold (evaluated)'] == '2'
     assert 'Also Shown (picked WBS)' not in tiles
     assert 'Task Dependent activities only' in p['highlight']
     assert 'considers the Construction WBS only, by default - Construction Works, 4 of the 8 task activities' in p['highlight']
@@ -222,7 +223,7 @@ def test_high_duration_presentation_explains_every_figure():
     assert any('calendar assigned to each activity' in t and '24 h/day: 1 activities' in t for t in p['highlights'])
     picked = build_presentation(rescope(r, ['Procurement']))
     ptiles = {t['label']: t['value'] for t in picked['tiles']}
-    assert ptiles['WBS Evaluated'] == 'Construction only' and ptiles['Over Threshold'] == '2'
+    assert ptiles['WBS Evaluated'] == 'Construction only' and ptiles['Over Threshold (evaluated)'] == '2'
     assert ptiles['Also Shown (picked WBS)'] == 'Procurement' and ptiles['Over Threshold (picked WBS)'] == '2 of 3 - 66.7%'
     assert 'Shown as picked: Procurement - 2 of 3 task activities over the limit (66.7%).' in picked['highlight']
     assert 'WBS is under Procurement - P6 lists 2 activities' in picked['p6_filter']
@@ -311,3 +312,53 @@ def test_wbs_scope_round_trip_through_the_server(test_server, tmp_path):
     back = post('/api/health/high-duration-scope', {'snapshot_id': sid, 'wbs': []})
     assert back['module']['kpis']['view_label'] == 'Construction only' and back['module']['score'] == 50.0
     assert post('/api/health/high-duration-scope', {'wbs': ['Procurement']})['ok'] is False
+
+
+# ── every check counts the activities under each major WBS the way P6 does ──────────────────
+def test_each_check_shows_p6s_activity_count_per_major_wbs():
+    from p6_audit.modules.high_duration import run_high_duration
+    g = _hd_graph()
+    g.activities['c1']['is_critical'] = True
+    g.activities['ms']['is_critical'] = True
+    g.activities['p3']['status'] = 'Completed'
+    g.activities['p3']['is_critical'] = True            # completed: never in P6's Critical filter
+    for oid, tf in (('c1', 0), ('c2', 60), ('p1', 50), ('p3', 90), ('e1', -2), ('loe', 100)):
+        g.activities[oid]['total_float_days'] = tf
+    cp = run_cpli(g, CONFIG)
+    rows = {r['wbs']: r for r in cp['wbs_summary']}
+    # Construction Works: 4 tasks + the LOE + the milestone = 6 activities in P6's WBS band
+    assert rows['Construction Works'] == {'wbs': 'Construction Works', 'activities': 6, 'remaining': 6, 'critical': 2}
+    assert rows['Procurement'] == {'wbs': 'Procurement', 'activities': 3, 'remaining': 2, 'critical': 0}
+    assert sum(r['critical'] for r in cp['wbs_summary']) == cp['kpis']['critical_count'] == len(cp['findings']) == 2
+    assert (cp['kpis']['critical_task'], cp['kpis']['critical_milestone']) == (1, 1)
+    p = build_presentation(cp)
+    assert p['tiles_note'].startswith('Critical Activities 2 = 1 Task Dependent + 1 milestones.')
+    assert p['wbs_table']['total'] == ['Whole schedule', '10', '9', '2']
+
+    fw = {r['wbs']: r for r in float_management(g, {'audit': {'float_threshold_days': 44}})['p6_wbs']}
+    assert (fw['Construction Works']['activities'], fw['Construction Works']['over']) == (6, 2)    # c2 + the LOE
+    assert (fw['Procurement']['over'], fw['Engineering']['negative']) == (1, 1)                  # p3 is completed
+
+    hd = run_high_duration(g, {'audit': {'duration_threshold_days': 44}})
+    hw = {r['wbs']: r for r in hd['mgmt']['wbs']}
+    # P6's 'Original Duration > 44d' lists the LOE too: 3 in Construction Works, 2 of them Task Dependent
+    assert (hw['Construction Works']['p6_activities'], hw['Construction Works']['p6_over'], hw['Construction Works']['over']) == (6, 3, 2)
+    assert (hd['kpis']['p6_over_threshold'], hd['kpis']['all_over_threshold']) == (5, 4)
+    hp = build_presentation(hd)
+    tiles = {t['label']: t['value'] for t in hp['tiles']}
+    assert tiles['Over Threshold - whole schedule (P6 filter)'] == '5' and tiles['of which Task Dependent'] == '4'
+    assert "lists 5 activities in the whole schedule = 4 Task Dependent + 1 of other types" in hp['tiles_note']
+    assert hp['wbs_table']['total'] == ['Whole schedule', '10', '5', '8', '4']
+    js = _read('ui/modules/audit.js')
+    assert js.count('p6WbsTableHtml(') >= 4 and "p.get('wbs_table')" in _read('p6_audit/excel_sheets.py')
+
+
+def test_spreadsheet_check_proves_every_figure_against_the_p6_file(tmp_path):
+    """tests/p6_spreadsheet_check.py reads the P6 file itself (one row per activity) and compares
+    every Schedule Health figure with it - the check run on real schedules before a build is sent."""
+    from tests.p6_spreadsheet_check import check
+    p = tmp_path / 'scope.xer'
+    p.write_text(_SCOPE_XER, encoding='utf-8')
+    res, book = check(str(p), str(tmp_path / 'out'))
+    assert len(res) >= 40 and [r[0] for r in res if not r[3]] == []
+    assert os.path.isfile(book)

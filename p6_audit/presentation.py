@@ -238,9 +238,11 @@ SPECS = {
                               f"({(m.get('kpis') or {}).get('scope_label') or 'all WBS'}) run longer than "
                               f"{_plain((m.get('kpis') or {}).get('threshold'))} working days."),
         'tiles': lambda k: [('Task Dependent Activities (all WBS)', _num(k.get('all_task_activities', k.get('total_activities')))),
+                            ('Over Threshold - whole schedule (P6 filter)', _num(k.get('p6_over_threshold'))),
+                            ('of which Task Dependent', _num(k.get('all_over_threshold'))),
                             ('WBS Evaluated', k.get('scope_label') or 'All WBS'),
                             ('Task Dependent Activities Evaluated', _num(k.get('total_activities'))),
-                            ('Over Threshold', k.get('over_threshold', 0)),
+                            ('Over Threshold (evaluated)', k.get('over_threshold', 0)),
                             ('High-Duration %', _pct(k.get('high_pct'))), ('Threshold', _days(k.get('threshold'))),
                             ('Longest (all WBS)', _days(k.get('max_duration')))]
                            + ([] if k.get('view_default', True) else
@@ -643,6 +645,57 @@ def _scope_text(k):
     return lead
 
 
+def p6_wbs_table(m):
+    """The check's figures per major WBS, each beside P6's own count of the activities under
+    that WBS band (every type, completed included) - {'title', 'note', 'headers', 'rows',
+    'total'} for the screen, the report and Excel. None when the result carries no WBS rows."""
+    mod, k = m.get('module'), (m.get('kpis') or {})
+    thr = _plain(k.get('threshold', 44))
+    if mod == 'cpli':
+        src = [r for r in (m.get('wbs_summary') or []) if isinstance(r, dict) and 'critical' in r]
+        cols = [('Activities in P6', 'activities'), ('Not Completed', 'remaining'), ('Critical', 'critical')]
+        title = 'Critical activities by major WBS'
+        note = ("Activities in P6 = every activity under the WBS band, as P6 counts it (every type, completed "
+                "included). Critical = P6's Critical filter: not completed and flagged Critical.")
+    elif mod == 'float':
+        src = [r for r in ((m.get('mgmt') or {}).get('p6_wbs') or []) if isinstance(r, dict)]
+        thr = _plain(k.get('threshold', 44))
+        cols = [('Activities in P6', 'activities'), ('Not Completed', 'remaining'),
+                (f'Total Float > {thr} d', 'over'), ('Critical', 'critical'), ('Negative Float', 'negative')]
+        title = 'Float by major WBS'
+        note = (f"Activities in P6 = every activity under the WBS band, as P6 counts it. Total Float > {thr} d = "
+                f"P6's filter 'Total Float is greater than {thr}d' (a completed activity has no float).")
+    elif mod == 'high_duration':
+        src = [r for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict) and 'p6_over' in r]
+        cols = [('Activities in P6', 'p6_activities'), (f'Original Duration > {thr} d (P6 filter, every type)', 'p6_over'),
+                ('Task Dependent Activities', 'activities'), (f'Task Dependent > {thr} d', 'over')]
+        title = 'High duration by major WBS'
+        note = (f"Original Duration > {thr} d (P6 filter, every type) = what P6 lists with the filter 'Original "
+                f"Duration is greater than {thr}d'. Task Dependent > {thr} d = the same filter with Activity Type "
+                'equals Task Dependent - the activities this check reads.')
+    else:
+        return None
+    if not src:
+        return None
+    rows = [[r.get('wbs') or '(no WBS)'] + [f"{int(r.get(f) or 0):,}" for _l, f in cols] for r in src]
+    total = ['Whole schedule'] + [f"{sum(int(r.get(f) or 0) for r in src):,}" for _l, f in cols]
+    return {'title': title, 'note': note, 'headers': ['Major WBS (as named in P6)'] + [l for l, _f in cols],
+            'rows': rows, 'total': total}
+
+
+def _critical_split(k):
+    """'380 = 360 Task Dependent + 12 milestones + 8 Level of Effort' - the critical count by type."""
+    parts = [(k.get('critical_task'), 'Task Dependent'), (k.get('critical_resource'), 'Resource Dependent'),
+             (k.get('critical_milestone'), 'milestones'), (k.get('critical_loe'), 'Level of Effort'),
+             (k.get('critical_wbs_summary'), 'WBS Summary')]
+    parts = [f'{n:,} {name}' for n, name in parts if n]
+    if not parts or k.get('critical_count') is None:
+        return None
+    return (f"Critical Activities {k['critical_count']:,} = " + ' + '.join(parts) + ". P6 flags every activity "
+            "type Critical when it is not completed and its total float is within the project's critical "
+            "limit - the same list as P6's Critical filter.")
+
+
 def high_duration_figures_note(k):
     """Every High Duration figure, worked out with this schedule's own numbers."""
     if not k.get('scope_wbs') or k.get('all_activities') is None:
@@ -655,6 +708,10 @@ def high_duration_figures_note(k):
     return (f'In this schedule: Total Activities {every:,}. '
             f'Task Dependent Activities (all WBS) {tasks:,} = {every:,} total - {every - tasks:,} milestones, '
             f'Level of Effort, WBS Summary and Resource Dependent activities. '
+            + (f"In P6 the filter 'Original Duration is greater than {thr}d' lists {k['p6_over_threshold']:,} activities "
+               f"in the whole schedule = {k.get('all_over_threshold', 0):,} Task Dependent + "
+               f"{k['p6_over_threshold'] - (k.get('all_over_threshold') or 0):,} of other types "
+               '(Level of Effort, WBS Summary, Resource Dependent). ' if k.get('p6_over_threshold') is not None else '') +
             f'Task Dependent Activities Evaluated {total:,} = the Task Dependent activities {where}. '
             f'Over Threshold {over:,} = the evaluated activities whose Original Duration is greater than {thr} working days. '
             f'High-Duration % {pct}% = {over:,} / {total:,}. Score {score} = 100 - {pct}. '
@@ -745,9 +802,13 @@ def build_presentation(module_result):
         check = dangling_p6_check(k)
         if check:
             extra['p6_check'] = check
+    extra = dict(extra)
     highlight = _highlight_note(m)
     # every highlighted line under the tiles, in order: what the check covers, then the day basis
     highlights = [t for t in (highlight, hours_basis_text(k)) if t]
+    if m.get('module') == 'cpli' and _critical_split(k):
+        tiles_note = _critical_split(k)
+    extra['wbs_table'] = p6_wbs_table(m)
     if m.get('module') == 'high_duration':
         tiles_note = high_duration_figures_note(k)
         extra['p6_filter'] = high_duration_p6_filter(k)

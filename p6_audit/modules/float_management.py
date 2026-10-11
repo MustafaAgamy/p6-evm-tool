@@ -230,6 +230,11 @@ def float_management(graph, config):
     # top discipline by float concentration (worst first)
     top = wbs[0] if wbs else None
 
+    done = graph.is_completed
+    p6_wbs = graph.p6_wbs_rows(
+        over=lambda _o, a: not done(a) and a.get('total_float_days') is not None and a['total_float_days'] > threshold,
+        critical=lambda _o, a: bool(a.get('is_critical')) and not done(a),
+        negative=lambda _o, a: not done(a) and a.get('total_float_days') is not None and a['total_float_days'] < 0)
     stats = {
         'total': total, 'total_label': total_label, 'is_update': is_update,
         'total_all': len(real),                    # every activity, completed included (comment 48)
@@ -245,6 +250,7 @@ def float_management(graph, config):
         'highest_float': highest_float, 'highest_float_wbs': highest_wbs,
     }
     return {
+        'p6_wbs': p6_wbs,       # every activity under each major WBS, as P6 counts the band
         'float_health': score, 'fh_color': fh_color(score),
         # High Float IS the score driver (100 - this %); neg is context (its own sub-feature).
         'high': {'pct': high_pct, 'penalty': high_pen, 'count': len(constr_over), 'base': len(constr),

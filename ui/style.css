@@ -481,6 +481,7 @@ body:focus { outline: none; }
 .kpi-tiles .kpi-note { grid-column: 1 / -1; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
 .kpi-tiles .kpi-highlight { grid-column: 1 / -1; padding: 7px 11px; font-size: 12px; line-height: 1.45; font-weight: 700; color: var(--text);
   background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 4px solid var(--warning); border-radius: 4px; }
+.p6wbs-total td { font-weight: 800; border-top: 2px solid var(--accent); }
 /* High Duration - WBS scope picker (audit.js hdScopeHtml) */
 .hds { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 14px; }
 .hds-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }

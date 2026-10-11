@@ -120,6 +120,11 @@ def _summary_blocks(m):
                                                    + [p.get('p6_filter'), p.get('tiles_note')]) if t) or None,
                        'headers': ['Figure', 'Value'], 'rows': tiles})
 
+    wt = p.get('wbs_table') if isinstance(p.get('wbs_table'), dict) else None
+    if wt and wt.get('rows'):
+        blocks.append({'title': wt.get('title', 'By major WBS'), 'note': wt.get('note') or None,
+                       'headers': wt['headers'], 'rows': list(wt['rows']) + ([wt['total']] if wt.get('total') else [])})
+
     chk = p.get('p6_check') if isinstance(p.get('p6_check'), dict) else None
     if chk:
         if chk.get('match'):

@@ -203,8 +203,12 @@ def render_float_report(module_result, meta, sections=None, theme='light'):
     # kept whole with its heading rather than continued 5 + 4 rows (the print composer keeps a
     # table marked rpt-keep whole up to report_theme.PAGINATION_KEEP_TABLE of a page)
     keep = ' class="rpt-keep"' if len(mgmt.get('wbs', []) or []) <= _WBS_KEEP_ROWS else ''
-    wbs_html = (f'<h2 class="sec">Float Distribution by WBS</h2>'
-                f'<table{keep}><thead><tr><th>WBS Package</th><th class="num">Activities</th>'
+    from p6_audit.report import _p6_wbs_table_html
+    from p6_audit.presentation import p6_wbs_table
+    wbs_html = (_p6_wbs_table_html(p6_wbs_table(module_result))
+                + f'<h2 class="sec">Float Distribution by WBS</h2>'
+                f'<div class="dcma">The activities not completed - a completed activity carries no float.</div>'
+                f'<table{keep}><thead><tr><th>WBS Package</th><th class="num">Not Completed</th>'
                 f'<th class="num">Average Float</th><th class="num">Maximum Float</th>'
                 f'<th class="num">Activities &gt; {_esc(thr)} WD</th>'
                 f'<th class="num" style="min-width:120px">% &gt; {_esc(thr)} WD</th></tr></thead>'

@@ -147,6 +147,8 @@ def run_cpli(graph, config):
     findings = []
     for oid in graph.critical_ids():
         act = acts.get(oid, {})
+        if graph.is_completed(act):      # finished work is never in P6's Critical filter
+            continue
         sd, fd = _start_date(act), _finish_date(act)
         # Duration in working days on the activity's own calendar (calendar-day
         # fallback), so the Gantt can show a Duration column straight from the data.
@@ -183,6 +185,17 @@ def run_cpli(graph, config):
     remaining = graph.p6_remaining()
     critical_count = sum(1 for _oid, a in remaining if a.get('is_critical'))
     critical_pct = round(100.0 * critical_count / len(remaining), 1) if remaining else None
+    # the same count, split the way P6's Critical filter can be checked: per major WBS band and
+    # per activity type (review 2026-10-11)
+    done = graph.is_completed
+    by_wbs = graph.p6_wbs_rows(critical=lambda _o, a: bool(a.get('is_critical')) and not done(a))
+    by_type = {}
+    for _oid, a in remaining:
+        if a.get('is_critical'):
+            kind = ('milestone' if 'Milestone' in (a.get('task_type') or '') else
+                    {'Task': 'task', 'ResourceDependent': 'resource', 'LOE': 'loe',
+                     'WBSSummary': 'wbs_summary'}.get(a.get('task_type'), 'task'))
+            by_type[kind] = by_type.get(kind, 0) + 1
     density_score, density_grade = _critical_density(critical_pct)
 
     computable = critical_pct is not None            # a density needs >= 1 task activity
@@ -195,7 +208,12 @@ def run_cpli(graph, config):
         'name': NAME,
         'kpis': {
             # --- the sub-feature score driver: critical-path density ---
-            'critical_count':            critical_count,   # critical task-dependent activities
+            'critical_count':            critical_count,   # critical activities, every type (P6)
+            'critical_task':             by_type.get('task', 0),
+            'critical_resource':         by_type.get('resource', 0),
+            'critical_milestone':        by_type.get('milestone', 0),
+            'critical_loe':              by_type.get('loe', 0),
+            'critical_wbs_summary':      by_type.get('wbs_summary', 0),
             'critical_pct':              critical_pct,     # over all task-dependent activities
             'total_activities':          total_real,       # every activity, completed included
             'remaining_activities':      len(remaining),   # Not Started + In Progress (the % base)
@@ -222,5 +240,6 @@ def run_cpli(graph, config):
         'score': score,
         'grade': grade,
         'findings': findings,
+        'wbs_summary': by_wbs,          # P6's activity count and the critical count per major WBS
         'baseline_rule_met': baseline_rule_met,
     }
