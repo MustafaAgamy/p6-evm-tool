@@ -1136,7 +1136,8 @@ function _dngUpdateHero(out) {
   // these, so the report shows the same Dangling % as the screen.
   _dng.live = _dng.hero.applied
     ? { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings,
-        presentation: out.presentation, applied: _dng.hero.applied, held: (_dng.blocked || new Set()).size }
+        presentation: out.presentation, applied: _dng.hero.applied, held: (_dng.blocked || new Set()).size,
+        warned: (out.warned || []).length }
     : null;
   _dngRenderHero();
 }
@@ -1484,6 +1485,7 @@ async function _dngApply(fid) {
     if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — the fix was not applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
     _dngReconcileBlocked(out.blocked, submitted);
+    _dng.warned = new Set(out.warned || []);
     _dngUpdateHero(out);
     renderDngReview();
     _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
@@ -1532,6 +1534,7 @@ async function _dngApplyAll() {
     if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — no fixes were applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
     _dngReconcileBlocked(out.blocked, submitted);
+    _dng.warned = new Set(out.warned || []);
     _dngUpdateHero(out);
     renderDngReview();
     _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
@@ -1542,6 +1545,7 @@ async function _dngApplyAll() {
     const notCleared = applied - resolved;
     const summary = `Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
       + (blockedN ? ` ${blockedN} held back — would exceed the contractual completion milestone.` : '')
+      + ((out.warned || []).length ? ` ${(out.warned || []).length} of them could move the completion milestone past its contract date — schedule the corrected file in P6 (F9) and check.` : '')
       + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : '');
     _dngDlNote(summary);
     _dngToast(summary, blockedN && !resolved ? 'err' : 'ok');
@@ -1664,6 +1668,12 @@ function _dngRenderHero() {
   const held = heldN > 0
     ? `<div class="coverage dng-held">${heldN} fix${heldN === 1 ? '' : 'es'} held back — applying ${heldN === 1 ? 'it' : 'them'} would push the contractual completion milestone past its date, so ${heldN === 1 ? 'that activity still counts' : 'those activities still count'} in Dangling %.</div>`
     : '';
+  // Apply always applies (Dangling % moves); a fix that could move the completion milestone past its
+  // contract date is applied too and flagged here for a check in P6 after F9.
+  const warnN = _dng.warned ? _dng.warned.size : 0;
+  const warnLine = warnN > 0
+    ? `<div class="coverage dng-held">⚠ ${warnN} applied fix${warnN === 1 ? '' : 'es'} could move the contractual completion milestone past its date (in-tool estimate, no F9). ${warnN === 1 ? 'It is' : 'They are'} applied and counted in Dangling % — schedule the corrected file in P6 (F9) and check the completion date.</div>`
+    : '';
   host.innerHTML = `
     <div class="audit-hero">
       <div class="score-card">
@@ -1672,7 +1682,7 @@ function _dngRenderHero() {
           <div class="grade-badge ${gradeClass(h.grade)}">${escapeHtml(h.grade || '')}</div>
           <div class="coverage">${escapeHtml(h.name || '')} — Sub-feature Score</div>
           <div class="coverage">${escapeHtml(p.verdict || '')}</div>
-          ${preview}${held}
+          ${preview}${held}${warnLine}
         </div>
       </div>
       <div class="kpi-tiles">${presentationTiles(p)}</div>
@@ -2007,7 +2017,7 @@ function renderWdReview() {
     </div>
     ${_wd.all.length ? `<div class="dng-applyall">
       <button class="dng-applyall-btn" data-wdact="applyall" ${canAll ? '' : 'disabled'}>⚡ Apply all suggested fixes</button>
-      <div class="dng-applyall-hint"><b>What Apply does:</b> it changes the Original Duration (and the Remaining Duration of a not-started activity) to the whole number of days, on the activity's own calendar. Nothing is written to your file until you press Download. Schedule the corrected file in P6 (F9) so the dates follow the new durations.</div>
+      <div class="dng-applyall-hint"><b>What Apply does:</b> it changes the Original Duration to the whole number of days, on the activity's own calendar. A not-started activity gets the same Remaining Duration; an activity that has started keeps its Remaining Duration. Nothing is written to your file until you press Download. Schedule the corrected file in P6 (F9) so the dates follow the new durations.</div>
     </div>` : ''}
     <div class="wd-legend2">
       <span><i class="dot wd-cal"></i>Calendar hrs/day — likely contributing</span>
@@ -2061,9 +2071,13 @@ function renderWholeDay(m) {
 // ── One roll-up for every sub-feature that previews fixes ─────────────────────────────────────────
 // The modules as they stand on screen: the stored ones, with each sub-feature's re-checked figures
 // swapped in while it has fixes applied. The stored modules are never changed.
+// DEFAULT RULE (owner): any change made in any sub-feature is reflected in the Summary. A sub-feature
+// that can change its figures registers its "figures as on screen" function here once; the Summary
+// score, the Executive Dashboard and the roll-up read every entry.
+export const LIVE_SUBFEATURES = { dangling: dngLiveModule, whole_day: wdLiveModule };
 function _liveModules(am) {
   const mods = Object.assign({}, am.modules);
-  [['dangling', dngLiveModule()], ['whole_day', wdLiveModule()]].forEach(([k, live]) => {
+  Object.keys(LIVE_SUBFEATURES).map(k => [k, LIVE_SUBFEATURES[k]()]).forEach(([k, live]) => {
     if (live && mods[k]) {
       mods[k] = Object.assign({}, mods[k], { score: live.score, grade: live.grade, pct: live.pct,
                                              kpis: live.kpis, findings: live.findings });
@@ -2498,6 +2512,7 @@ async function _submitMilestonesWork(am, milestones, hint, runBtn) {
       am.modules.hard_constraints = resp.milestone_module;   // now carries the evals; needs_input=false
       if (!am.modules.hard_constraints.contract_milestones) am.modules.hard_constraints.contract_milestones = resp.milestones || milestones;
       if (resp.health) am.health = resp.health;              // keep the roll-up (donut/counts) in sync
+      if (state.ranFeatures) state.ranFeatures.add('audit');  // the review has run — re-opening shows it, no second Run
       renderAudit(am);                                        // un-gated
       selectModule('hard_constraints');                      // land on the Milestone Check
     } else if (resp.ok && resp.saved) {

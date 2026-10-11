@@ -3221,13 +3221,17 @@ class Handler(BaseHTTPRequestHandler):
         pres = dict(live.get('presentation') or m.get('presentation') or {})
         try:
             n, held = int(live.get('applied') or 0), int(live.get('held') or 0)
+            warned = int(live.get('warned') or 0)
         except (TypeError, ValueError):
-            n, held = 0, 0
+            n, held, warned = 0, 0, 0
         note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
                 f"to write {'it' if n == 1 else 'them'} to P6.")
         if held:
             note += (f" {held} fix{'' if held == 1 else 'es'} held back (would push the contractual "
                      f"completion milestone past its date).")
+        if warned:
+            note += (f" {warned} of the applied fixes could move the contractual completion milestone "
+                     f"past its date - schedule the corrected file in P6 (F9) and check.")
         pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
         out['presentation'] = pres
         return out

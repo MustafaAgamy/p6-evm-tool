@@ -121,10 +121,12 @@ def milestone_blocked(data, accepted, completion):
 
 def revalidate(data, config, accepted, completion=None):
     """Apply the accepted type-change fixes to a graph copy, re-run the dangling engine, and report
-    which activities are now genuinely no longer dangling. Fixes that would push the contractual
-    completion milestone past its date are NOT applied and are returned in ``blocked``."""
-    blocked = milestone_blocked(data, accepted, completion)
-    effective = [op for op in accepted if op.get('finding_id') not in blocked]
+    which activities are now genuinely no longer dangling. Every accepted fix is applied (owner:
+    Apply must move Dangling %). A fix that, by the offline estimate, would push the contractual
+    completion milestone past its date is still applied and is named in ``warned`` so the screen can
+    tell the planner to check completion in P6 after F9. ``blocked`` stays in the reply, always empty."""
+    warned = milestone_blocked(data, accepted, completion)
+    effective = list(accepted)
     new_rels = apply_ops_to_relationships(data, effective)
     fresh = run_dangling(ScheduleGraph(_shim(data, new_rels)), config)
     still_dangling = {f['activity_id'] for f in fresh['findings']}
@@ -143,7 +145,8 @@ def revalidate(data, config, accepted, completion=None):
         'findings': fresh['findings'],
         'fresh_ids': sorted({f['finding_id'] for f in fresh['findings']}),
         'resolved': resolved,
-        'blocked': sorted(blocked),
+        'blocked': [],
+        'warned': sorted(warned),
         'kpis': fresh['kpis'],
         # The recomputed score/grade/% + presentation of the CORRECTED (post-fix) state, so the screen's
         # execution dashboard (gauge + KPI tiles) updates live as findings resolve — the score rises.
@@ -160,9 +163,7 @@ def revalidate_from_path(path, config, accepted, completion=None):
 
 def write_corrected(source_path, accepted, out_path, completion=None, note=_CORRECTION_NOTE):
     """Write a corrected copy of the imported schedule with the accepted relationship-type changes
-    applied, in the same format as the source (P6 XML or XER). Fixes blocked by the contract-milestone
-    guard are excluded so a milestone-exceeding change is never written. Reuses the shared writers."""
-    if completion:
-        blocked = milestone_blocked(parse_file(source_path), accepted, completion)
-        accepted = [op for op in accepted if op.get('finding_id') not in blocked]
+    applied, in the same format as the source (P6 XML or XER) - exactly the fixes applied on screen
+    (``completion`` is accepted for callers that still pass it; nothing is left out). Reuses the
+    shared writers."""
     return _oos_write_corrected(source_path, accepted, out_path, note=note)

@@ -223,20 +223,21 @@ def _proj():
 _COMPLETION = {'activity_id': 'COMP', 'contract_date': '2026-01-20'}
 
 
-def test_fix_that_pushes_completion_past_contract_is_blocked():
+def test_fix_that_pushes_completion_past_contract_is_applied_with_a_warning():
+    # owner: Apply must move Dangling % - the fix is applied and flagged, never held back
     data = _proj()
     fD = _find(data, 'D')
     out = R.revalidate(data, CONFIG, [_accepted_start(fD)], completion=_COMPLETION)
-    assert fD['finding_id'] in out['blocked']            # held back
-    assert fD['finding_id'] not in out['resolved']       # never counted resolved
-    assert any(x['activity_id'] == 'D' for x in out['findings'])  # stays open (fix not applied)
+    assert out['blocked'] == [] and fD['finding_id'] in out['warned']
+    assert fD['finding_id'] in out['resolved']
+    assert not any(x['activity_id'] == 'D' for x in out['findings'])
 
 
 def test_fix_that_does_not_touch_completion_is_allowed():
     data = _proj()
     fQ = _find(data, 'Q')
     out = R.revalidate(data, CONFIG, [_accepted_start(fQ)], completion=_COMPLETION)
-    assert fQ['finding_id'] not in out['blocked']
+    assert fQ['finding_id'] not in out['warned']
     assert fQ['finding_id'] in out['resolved']           # Q's only dangling side fixed → resolved
 
 

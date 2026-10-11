@@ -238,6 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const gate = document.getElementById('feature-gate');
     // Multi-input features present their own required-inputs + Run inside the panel.
     if (SELF_GATING.has(view)) { gate.classList.add('hidden'); switchView(view); runFeature(view); return; }
+    // Schedule Health asks for the contract milestones first and runs ONCE, from that step's own
+    // Run button — no generic Run gate in front of it (that read as running the review twice).
+    if (view === 'audit' && !needsXer(view) && !(state.ranFeatures && state.ranFeatures.has(view))
+        && ((((state.currentResult || {}).audit_modules || {}).modules || {}).hard_constraints || {}).needs_input) {
+      gate.classList.add('hidden'); switchView(view); runFeature(view); return;
+    }
     // Already run this session → jump straight back to the rendered results.
     if (state.ranFeatures && state.ranFeatures.has(view) && !needsXer(view)) { gate.classList.add('hidden'); switchView(view); return; }
     // First open of a single-input feature → show the Run gate; compute nothing yet.

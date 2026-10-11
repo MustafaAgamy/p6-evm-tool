@@ -11,8 +11,8 @@ duration is a decimal; this module
      an activity that has not started, in hours on the activity's own calendar. Dates are never
      touched: P6 reschedules on F9.
 
-A started activity is never changed automatically (its remaining duration is the planner's
-judgement) — its fix is returned in ``held`` and the finding stays open.
+A started activity is fixed too: the check reads the Original Duration, so that is what is made
+a whole number of days; its Remaining Duration (the planner's judgement) is left as it is.
 """
 import types
 
@@ -63,9 +63,6 @@ def plan(data, accepted):
         if code not in want:
             continue
         days, fid = want[code]
-        if _started(act):
-            held.add(fid)
-            continue
         hours[code] = days * _day_hours(data, act)
     return hours, held
 

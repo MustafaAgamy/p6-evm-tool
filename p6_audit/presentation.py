@@ -512,6 +512,22 @@ TASKS_CHECKED_NOTE = ('Remaining Activities = every activity that is not complet
                       'milestones, Level of Effort and WBS Summary activities.')
 
 
+def _tiles_note_with_figures(p6c, raw_tiles):
+    """The Remaining vs Task Activities Checked note, led by this schedule's own numbers."""
+    try:
+        total, remaining = int(p6c.get('total')), int(p6c.get('remaining'))
+        checked = next(int(str(v).replace(',', '')) for lab, v in raw_tiles if lab == TASKS_CHECKED_LABEL)
+    except (TypeError, ValueError, StopIteration):
+        return TASKS_CHECKED_NOTE
+    done, skipped = total - remaining, total - checked
+    if done < 0 or skipped < 0:
+        return TASKS_CHECKED_NOTE
+    return (f'In this schedule: Total Activities {total:,}. '
+            f'Remaining Activities {remaining:,} = {total:,} total - {done:,} completed. '
+            f'Task Activities Checked {checked:,} = {total:,} total - {skipped:,} milestones, '
+            f'Level of Effort and WBS Summary activities. ' + TASKS_CHECKED_NOTE)
+
+
 def build_presentation(module_result):
     """The normalized presentation for one module — tiles, columns, rows, verdict."""
     m = module_result or {}
@@ -530,7 +546,7 @@ def build_presentation(module_result):
         # still to do — then this check's own base, which is the task activities it examines
         raw_tiles = ([('Total Activities', _num(p6c.get('total'))), ('Remaining Activities', _num(p6c.get('remaining')))]
                      + [((TASKS_CHECKED_LABEL if lab == 'Total Activities' else lab), val) for lab, val in raw_tiles])
-        tiles_note = TASKS_CHECKED_NOTE
+        tiles_note = _tiles_note_with_figures(p6c, raw_tiles)
     if p6c and m.get('module') in _ACTIVITY_CONTEXT:
         raw_tiles = [('Total Activities', _num(p6c.get('total')))] + list(raw_tiles)
     tiles = [{'label': lab, 'value': _plain(val)} for lab, val in raw_tiles]

@@ -70,7 +70,7 @@ def test_dangling_report_prints_the_figures_after_the_applied_fixes():
     stored = {'module': 'dangling', 'name': 'Dangling Activities', 'score': 96.6, 'pct': 3.4,
               'kpis': {'total_dangling': 29}, 'findings': [{}] * 29, 'presentation': {'verdict': 'old'}}
     live = {'score': 98.6, 'grade': 'Pass', 'pct': 1.4, 'kpis': {'total_dangling': 12},
-            'findings': [{}] * 12, 'presentation': {'verdict': '1.4% dangling.'}, 'applied': 17, 'held': 12}
+            'findings': [{}] * 12, 'presentation': {'verdict': '1.4% dangling.'}, 'applied': 17, 'warned': 12}
     out = server._Handler._dangling_as_on_screen(stored, {'dangling_live': live}) \
         if hasattr(server, '_Handler') else None
     if out is None:
@@ -80,7 +80,7 @@ def test_dangling_report_prints_the_figures_after_the_applied_fixes():
         assert cls._dangling_as_on_screen(stored, {}) is stored          # nothing applied: as imported
     assert out['pct'] == 1.4 and out['kpis']['total_dangling'] == 12 and len(out['findings']) == 12
     assert 'After 17 applied fixes' in out['presentation']['verdict']
-    assert '12 fixes held back' in out['presentation']['verdict']
+    assert '12 of the applied fixes could move' in out['presentation']['verdict']
     assert stored['pct'] == 3.4                                           # the stored module is untouched
     assert 'dangling_live' in _read('ui/modules/api.js')
 
@@ -93,3 +93,14 @@ def test_note_tells_remaining_activities_from_task_activities_checked():
     from p6_audit.presentation import TASKS_CHECKED_NOTE
     assert TASKS_CHECKED_NOTE.startswith('Remaining Activities = every activity that is not completed yet')
     assert 'Task Activities Checked = ' in TASKS_CHECKED_NOTE and 'count different things' in TASKS_CHECKED_NOTE
+
+
+def test_schedule_health_asks_for_the_milestones_first_and_runs_once():
+    """Owner: opening Schedule Health goes to the contract-milestone step; its Run is the only Run."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    app = open(os.path.join(root, 'ui', 'app.js'), encoding='utf-8').read()
+    audit = open(os.path.join(root, 'ui', 'modules', 'audit.js'), encoding='utf-8').read()
+    skip = app.split("if (view === 'audit' && !needsXer(view)")[1].split('}')[0]
+    assert 'needs_input' in app.split("if (view === 'audit' && !needsXer(view)")[1][:400]
+    assert 'runFeature(view)' in app.split("if (view === 'audit' && !needsXer(view)")[1][:500] and skip is not None
+    assert "state.ranFeatures.add('audit')" in audit

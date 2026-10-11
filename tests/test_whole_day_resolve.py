@@ -49,13 +49,13 @@ def _fix(m, code, days):
     return {'finding_id': f['finding_id'], 'activity_id': code, 'new_days': days}
 
 
-def test_applied_fix_resolves_and_a_started_activity_is_held(xer):
+def test_applied_fix_resolves_a_started_activity_too(xer):
     m = _check(xer)
     assert {f['activity_id'] for f in m['findings']} == {'A100', 'A300'}      # 14.4 d and 7.5 d
     out = revalidate(parse_file(xer), CONFIG, [_fix(m, 'A100', 15), _fix(m, 'A300', 8)])
-    assert [f['activity_id'] for f in out['findings']] == ['A300']            # started: left open
-    assert len(out['resolved']) == 1 and len(out['held']) == 1
-    assert out['kpis']['decimal_count'] == 1 and out['score'] > m['score']
+    assert out['findings'] == [] and len(out['resolved']) == 2 and out['held'] == []
+    assert out['kpis']['decimal_count'] == 0 and out['score'] > m['score']
+    assert 'In this schedule: Total Activities 3.' in out['presentation']['tiles_note']
     labels = [t['label'] for t in out['presentation']['tiles']]
     assert labels[:3] == ['Total Activities', 'Remaining Activities', 'Task Activities Checked']
 
@@ -70,14 +70,16 @@ def test_corrected_xer_changes_only_the_durations_and_keeps_the_file_as_it_was(x
     m = _check(xer)
     out = str(tmp_path / 'out.xer')
     res = write_corrected(xer, [_fix(m, 'A100', 15), _fix(m, 'A300', 8)], out)
-    assert res['applied'] == 1
+    assert res['applied'] == 2
     src, new = open(xer, 'rb').read(), open(out, 'rb').read()
     assert b'\xa3' in new and b'\r\n' in new                     # encoding and line ends preserved
     a, b = src.split(b'\r\n'), new.split(b'\r\n')
-    assert len(a) == len(b) and sum(1 for x, y in zip(a, b) if x != y) == 1
+    assert len(a) == len(b) and sum(1 for x, y in zip(a, b) if x != y) == 2
     row = next(l for l in b if b'\tA100\t' in l).split(b'\t')
     assert row[9] == b'150' and row[10] == b'150'               # Original + Remaining, 15 d x 10 h
-    assert {f['activity_id'] for f in _check(out)['findings']} == {'A300'}
+    row = next(l for l in b if b'\tA300\t' in l).split(b'\t')
+    assert row[9] == b'80' and row[10] == b'30'                 # started: Remaining Duration kept
+    assert _check(out)['findings'] == []
 
 
 def test_summary_file_carries_every_sub_features_fixes(xer, tmp_path):
@@ -108,6 +110,16 @@ def test_report_and_workbook_print_the_figures_after_the_fixes():
     assert cls._whole_day_as_on_screen(stored, {}) is stored and stored['pct'] == 7.2
 
 
+def test_every_sub_feature_that_can_change_its_figures_feeds_the_summary():
+    # owner's default rule: a change in ANY sub-feature is reflected in the Summary
+    with open(os.path.join(ROOT, 'ui/modules/audit.js'), encoding='utf-8') as f:
+        audit = f.read()
+    reg = audit.split('export const LIVE_SUBFEATURES = {')[1].split('}')[0]
+    for key in fixer_keys():
+        assert key + ':' in reg, key
+    assert 'Object.keys(LIVE_SUBFEATURES)' in audit.split('function _liveModules')[1][:400]
+
+
 def test_ui_is_wired():
     def read(rel):
         with open(os.path.join(ROOT, rel), encoding='utf-8') as f:
@@ -115,7 +127,7 @@ def test_ui_is_wired():
     audit, api = read('ui/modules/audit.js'), read('ui/modules/api.js')
     for s in ('/api/wholeday/validate', '/api/health/corrected-file', 'Whole-day Review &amp; Resolve',
               'Download Corrected XER', 'Apply all suggested fixes in every sub-feature',
-              'Activity has started', 'export function wdLiveModule'):
+              'keeps its Remaining Duration', 'export function wdLiveModule'):
         assert s in audit, s
     assert 'whole_day_live' in api
     assert 'confirm(' not in audit.split('function _wdApply')[1].split('function renderWholeDay')[0]
