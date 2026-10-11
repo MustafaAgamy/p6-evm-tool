@@ -223,21 +223,32 @@ def _proj():
 _COMPLETION = {'activity_id': 'COMP', 'contract_date': '2026-01-20'}
 
 
-def test_fix_that_pushes_completion_past_contract_is_applied_with_a_warning():
-    # owner: Apply must move Dangling % - the fix is applied and flagged, never held back
+def test_fix_that_pushes_completion_is_applied_in_a_way_that_keeps_the_milestone():
+    # owner: Apply must move Dangling % AND must not move the contractual completion milestone -
+    # the existing link is kept and its Start-to-Start partner added instead of the type change
     data = _proj()
     fD = _find(data, 'D')
-    out = R.revalidate(data, CONFIG, [_accepted_start(fD)], completion=_COMPLETION)
-    assert out['blocked'] == [] and fD['finding_id'] in out['warned']
-    assert fD['finding_id'] in out['resolved']
+    asked = _accepted_start(fD)
+    out = R.revalidate(data, CONFIG, [asked], completion=_COMPLETION)
+    assert out['blocked'] == [] and fD['finding_id'] in out['resolved']
     assert not any(x['activity_id'] == 'D' for x in out['findings'])
+    assert len(out['adjusted']) == 1
+    adj = out['adjusted'][0]
+    assert adj['action'] == 'add' and adj['new_type'] == 'SS' and adj['side'] == 'start'
+    comp = [o for o, a in data.activities.items() if a.get('id') == 'COMP']
+    base = R._completion_finish(data, data.relationships, comp)
+    after = R._completion_finish(data, R.apply_ops_to_relationships(data, [adj]), comp)
+    assert after == base                                 # the completion milestone did not move
+    # sending the adjusted fix back (what the screen does) is stable: nothing more to adjust
+    again = R.revalidate(data, CONFIG, [adj], completion=_COMPLETION)
+    assert again['adjusted'] == [] and again['blocked'] == [] and fD['finding_id'] in again['resolved']
 
 
 def test_fix_that_does_not_touch_completion_is_allowed():
     data = _proj()
     fQ = _find(data, 'Q')
     out = R.revalidate(data, CONFIG, [_accepted_start(fQ)], completion=_COMPLETION)
-    assert fQ['finding_id'] not in out['warned']
+    assert fQ['finding_id'] not in out['blocked'] and out['adjusted'] == []
     assert fQ['finding_id'] in out['resolved']           # Q's only dangling side fixed → resolved
 
 

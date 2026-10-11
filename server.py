@@ -3221,7 +3221,7 @@ class Handler(BaseHTTPRequestHandler):
         pres = dict(live.get('presentation') or m.get('presentation') or {})
         try:
             n, held = int(live.get('applied') or 0), int(live.get('held') or 0)
-            warned = int(live.get('warned') or 0)
+            warned = int(live.get('paired') or 0)
         except (TypeError, ValueError):
             n, held, warned = 0, 0, 0
         note = (f"After {n} applied fix{'' if n == 1 else 'es'} - download the corrected schedule "
@@ -3230,8 +3230,9 @@ class Handler(BaseHTTPRequestHandler):
             note += (f" {held} fix{'' if held == 1 else 'es'} held back (would push the contractual "
                      f"completion milestone past its date).")
         if warned:
-            note += (f" {warned} of the applied fixes could move the contractual completion milestone "
-                     f"past its date - schedule the corrected file in P6 (F9) and check.")
+            note += (f" {warned} relationship{'' if warned == 1 else 's'} fixed by keeping the existing link "
+                     f"and adding its Start-to-Start / Finish-to-Finish partner, so the contractual "
+                     f"completion milestone does not move.")
         pres['verdict'] = ((pres.get('verdict') or '') + ' ' + note).strip()
         out['presentation'] = pres
         return out

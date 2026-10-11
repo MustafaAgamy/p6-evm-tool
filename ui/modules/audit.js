@@ -1091,6 +1091,7 @@ export function dngChangeSummary(f, ops) {
     const fx = o.side === 'start' ? (f.start_fix || {}) : (f.finish_fix || {});
     const oldT = DNG_TYPE_NAME[fx.current_type] || fx.current_type || '?';
     const newT = DNG_TYPE_NAME[o.new_type] || o.new_type || '?';
+    if (o.action === 'add') return `${o.pred_id} → ${o.succ_id}: ${oldT} kept, ${newT} added (keeps the completion milestone)`;
     return `${o.pred_id} → ${o.succ_id} from ${oldT} to ${newT}`;
   }).join('; ');
 }
@@ -1137,7 +1138,7 @@ function _dngUpdateHero(out) {
   _dng.live = _dng.hero.applied
     ? { score: out.score, grade: out.grade, pct: out.pct, kpis: out.kpis, findings: out.findings,
         presentation: out.presentation, applied: _dng.hero.applied, held: (_dng.blocked || new Set()).size,
-        warned: (out.warned || []).length }
+        paired: _dngPairedCount() }
     : null;
   _dngRenderHero();
 }
@@ -1440,6 +1441,24 @@ function _dngReconcileBlocked(blockedIds, submittedFindingIds) {
   });
 }
 
+// The engine applied some fixes in a milestone-safe way (the existing link kept, its Start-to-Start /
+// Finish-to-Finish partner added). Swap those ops in, so the screen, the report and the downloaded
+// file all carry exactly what was checked.
+function _dngTakeAdjusted(adjusted) {
+  (adjusted || []).forEach(op => {
+    const entry = _dng.applied[op.activity_id];
+    if (!entry) return;
+    entry.ops = (entry.ops || []).map(o => (o.side === op.side ? op : o));
+  });
+}
+
+// How many applied fixes keep the existing link and add its partner (the milestone-safe way).
+function _dngPairedCount() {
+  let n = 0;
+  Object.values(_dng.applied).forEach(a => (a.ops || []).forEach(o => { if (o.action === 'add') n++; }));
+  return n;
+}
+
 async function _dngValidate() {
   const resp = await fetch(`http://localhost:${state.serverPort}/api/dangling/validate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1485,7 +1504,7 @@ async function _dngApply(fid) {
     if (!out.ok) { restore(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — the fix was not applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
     _dngReconcileBlocked(out.blocked, submitted);
-    _dng.warned = new Set(out.warned || []);
+    _dngTakeAdjusted(out.adjusted);
     _dngUpdateHero(out);
     renderDngReview();
     _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
@@ -1534,7 +1553,7 @@ async function _dngApplyAll() {
     if (!out.ok) { rollback(); _dngDlNote(out.error || 'Validation failed.', true); _dngToast(out.error || 'Validation failed — no fixes were applied.', 'err'); renderDngReview(); return; }
     _dng.fresh = out.findings || [];
     _dngReconcileBlocked(out.blocked, submitted);
-    _dng.warned = new Set(out.warned || []);
+    _dngTakeAdjusted(out.adjusted);
     _dngUpdateHero(out);
     renderDngReview();
     _dngRefreshRollup(out);          // live-update the Dangling tab + Summary roll-up scores
@@ -1545,7 +1564,7 @@ async function _dngApplyAll() {
     const notCleared = applied - resolved;
     const summary = `Applied ${applied} fix${applied === 1 ? '' : 'es'} — ${resolved} moved to Resolved.`
       + (blockedN ? ` ${blockedN} held back — would exceed the contractual completion milestone.` : '')
-      + ((out.warned || []).length ? ` ${(out.warned || []).length} of them could move the completion milestone past its contract date — schedule the corrected file in P6 (F9) and check.` : '')
+      + ((out.adjusted || []).length ? ` ${(out.adjusted || []).length} applied by keeping the existing link and adding its SS / FF partner, so the completion milestone does not move.` : '')
       + (notCleared > 0 ? ` ${notCleared} still dangling on another side — open the row to fix it.` : '');
     _dngDlNote(summary);
     _dngToast(summary, blockedN && !resolved ? 'err' : 'ok');
@@ -1668,11 +1687,11 @@ function _dngRenderHero() {
   const held = heldN > 0
     ? `<div class="coverage dng-held">${heldN} fix${heldN === 1 ? '' : 'es'} held back — applying ${heldN === 1 ? 'it' : 'them'} would push the contractual completion milestone past its date, so ${heldN === 1 ? 'that activity still counts' : 'those activities still count'} in Dangling %.</div>`
     : '';
-  // Apply always applies (Dangling % moves); a fix that could move the completion milestone past its
-  // contract date is applied too and flagged here for a check in P6 after F9.
-  const warnN = _dng.warned ? _dng.warned.size : 0;
+  // A fix never moves the contractual completion milestone: where the type change would, the existing
+  // link is kept and its Start-to-Start / Finish-to-Finish partner is added instead - said here.
+  const warnN = _dngPairedCount();
   const warnLine = warnN > 0
-    ? `<div class="coverage dng-held">⚠ ${warnN} applied fix${warnN === 1 ? '' : 'es'} could move the contractual completion milestone past its date (in-tool estimate, no F9). ${warnN === 1 ? 'It is' : 'They are'} applied and counted in Dangling % — schedule the corrected file in P6 (F9) and check the completion date.</div>`
+    ? `<div class="coverage dng-preview">${warnN} relationship${warnN === 1 ? '' : 's'} fixed by keeping the existing link and adding its Start-to-Start / Finish-to-Finish partner — changing the type would move the contractual completion milestone past its date.</div>`
     : '';
   host.innerHTML = `
     <div class="audit-hero">

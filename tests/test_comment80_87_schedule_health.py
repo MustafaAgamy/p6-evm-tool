@@ -70,7 +70,7 @@ def test_dangling_report_prints_the_figures_after_the_applied_fixes():
     stored = {'module': 'dangling', 'name': 'Dangling Activities', 'score': 96.6, 'pct': 3.4,
               'kpis': {'total_dangling': 29}, 'findings': [{}] * 29, 'presentation': {'verdict': 'old'}}
     live = {'score': 98.6, 'grade': 'Pass', 'pct': 1.4, 'kpis': {'total_dangling': 12},
-            'findings': [{}] * 12, 'presentation': {'verdict': '1.4% dangling.'}, 'applied': 17, 'warned': 12}
+            'findings': [{}] * 12, 'presentation': {'verdict': '1.4% dangling.'}, 'applied': 17, 'held': 2, 'paired': 12}
     out = server._Handler._dangling_as_on_screen(stored, {'dangling_live': live}) \
         if hasattr(server, '_Handler') else None
     if out is None:
@@ -80,7 +80,8 @@ def test_dangling_report_prints_the_figures_after_the_applied_fixes():
         assert cls._dangling_as_on_screen(stored, {}) is stored          # nothing applied: as imported
     assert out['pct'] == 1.4 and out['kpis']['total_dangling'] == 12 and len(out['findings']) == 12
     assert 'After 17 applied fixes' in out['presentation']['verdict']
-    assert '12 of the applied fixes could move' in out['presentation']['verdict']
+    assert '12 relationships fixed by keeping the existing link' in out['presentation']['verdict']
+    assert '2 fixes held back' in out['presentation']['verdict']
     assert stored['pct'] == 3.4                                           # the stored module is untouched
     assert 'dangling_live' in _read('ui/modules/api.js')
 
