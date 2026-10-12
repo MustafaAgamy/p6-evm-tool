@@ -16,6 +16,7 @@ the same construction/civil/structural/concrete/MEP vocabulary used everywhere �
 so it works on any project without relying on per-project config.
 """
 from collections import defaultdict
+from p6_audit.graph import is_near_critical, NEAR_CRITICAL_MIN_DAYS
 from p6_evm.classify import classify_branch_names, classify_wbs_name, DEFAULT_CATEGORY
 
 # DCMA 14-Point float targets → transparent 0-100 penalty curve.
@@ -175,7 +176,7 @@ def float_management(graph, config):
 
     critical = [a for _, a in assessable if a.get('is_critical')]
     near = [a for _, a in assessable
-            if not a.get('is_critical') and 0 < a['total_float_days'] <= near_band]
+            if not a.get('is_critical') and is_near_critical(a['total_float_days'], near_band)]
     negative = [a for _, a in assessable if a['total_float_days'] < 0]
 
     # Distribution grouped by the top-level WBS BRANCH as named in P6 — one row per branch, every
@@ -191,13 +192,16 @@ def float_management(graph, config):
     # construction by meaning (e.g. Mobilization) counts only when no branch carries the name
     constr_branches = ({b for b in branches if 'construction' in (b or '').lower()}
                        or {b for b in branches if classify_wbs_name(b) == 'Construction'})
-    if constr_branches:
-        def in_constr(a):
-            return top_key(a.get('wbs_path') or '') in constr_branches
+    # ONE construction rule for every check (graph.is_construction): every activity under a WBS
+    # node named construction, at whatever level; the old meaning-based guess only when the
+    # schedule names no construction WBS and no top-level WBS reads as construction
+    any_constr = any(graph.is_construction(oid) for oid, _a in real)
+    if any_constr:
+        constr = [(oid, a) for oid, a in assessable if graph.is_construction(oid)]
+        constr_all = [(oid, a) for oid, a in real if graph.is_construction(oid)]
     else:
-        def in_constr(a):
-            return activity_category(a.get('wbs_path')) == 'Construction'
-    constr = [(oid, a) for oid, a in assessable if in_constr(a)]
+        constr = [(oid, a) for oid, a in assessable if activity_category(a.get('wbs_path')) == 'Construction']
+        constr_all = [(oid, a) for oid, a in real if activity_category(a.get('wbs_path')) == 'Construction']
     constr_over = [a for _, a in constr if a['total_float_days'] > threshold]
     by_wbs = defaultdict(list)
     for _, a in assessable:
@@ -240,11 +244,14 @@ def float_management(graph, config):
         'total_all': len(real),                    # every activity, completed included (comment 48)
         'critical': len(critical), 'critical_pct': _pct(len(critical), total),
         'near_critical': len(near), 'near_critical_pct': _pct(len(near), total),
-        'near_band': near_band,
+        'near_band': near_band, 'near_min': NEAR_CRITICAL_MIN_DAYS,
     }
     indicators = {
         'threshold': threshold,
         'constr_total': len(constr), 'constr_over': len(constr_over), 'constr_over_pct': high_pct,
+        # P6's own count of the activities under the Construction WBS: every type, completed included
+        'constr_all': len(constr_all),
+        'constr_completed': sum(1 for _o, a in constr_all if graph.is_completed(a)),
         'top_wbs': (top['short'] if top else '—'),
         'top_wbs_pct': (top['pct'] if top else 0.0),
         'highest_float': highest_float, 'highest_float_wbs': highest_wbs,

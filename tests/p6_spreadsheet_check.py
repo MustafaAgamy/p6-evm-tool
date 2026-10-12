@@ -6,9 +6,11 @@ Schedule Health code is used for the P6 side), writes one row per activity to an
 (the same columns as a P6 spreadsheet export: Activity ID, Type, Status, WBS, Original Duration,
 Total Float, Critical) and counts them the way the P6 filters do:
 
-    Critical                  not completed and Total Float <= the project's critical limit
+    Critical                  not completed, not a Level of Effort / WBS Summary, and Total Float
+                              <= the project's critical limit (P6's default Critical filter)
     Total Float > 44d         not completed and Total Float > 44 days
     Total Float < 0           not completed and Total Float < 0
+    Near critical             not completed and Total Float within range 1d - 10d
     Original Duration > 44d   every activity type; and Activity Type = Task Dependent
 
 Then it runs the tool's own import and compares every figure, whole schedule and per major WBS.
@@ -61,8 +63,8 @@ def p6_rows(path):
         name, hours = cal.get(r.get('clndr_id'), ('', 8.0))
         tf, od = _num(r.get('total_float_hr_cnt')), _num(r.get('target_drtn_hr_cnt')) or 0.0
         done = r.get('status_code') == 'TK_Complete'
-        if done:
-            critical = False
+        if done or r.get('task_type') in ('TT_LOE', 'TT_WBS'):
+            critical = False          # P6 never flags completed work or a Level of Effort / WBS Summary
         elif longest and r.get('driving_path_flag'):
             critical = r.get('driving_path_flag') == 'Y'
         else:
@@ -72,7 +74,7 @@ def p6_rows(path):
             'oid': r.get('task_id'), 'cstr': r.get('cstr_type') or '', 'raw_type': r.get('task_type'),
             'id': r.get('task_code'), 'name': r.get('task_name'), 'type': TYPES.get(r.get('task_type'), r.get('task_type')),
             'status': STATUS.get(r.get('status_code'), r.get('status_code')), 'done': done,
-            'major_wbs': p[0] if p else '(no WBS)', 'wbs': ' > '.join(p), 'calendar': name, 'day_hours': hours,
+            'major_wbs': p[0] if p else '(no WBS)', 'wbs': ' > '.join(p), 'path': p, 'calendar': name, 'day_hours': hours,
             'od_hours': od, 'od_days': od / hours, 'tf_hours': tf, 'tf_days': None if tf is None else tf / hours,
             'critical': critical,
         })
@@ -82,6 +84,27 @@ def p6_rows(path):
 
 
 HARD = {'CS_MANDSTART', 'CS_MANDFIN', 'CS_MSO', 'CS_MEO'}     # Mandatory Start / Finish, Start On, Finish On
+
+
+def p6_construction(rows):
+    """The Construction WBS counted from the raw WBS names: every activity under the WBS node
+    named construction, at the shallowest level that carries the name."""
+    levels = [i for r in rows for i, n in enumerate(r['path']) if 'construction' in n.lower()]
+    if not levels:
+        return None
+    lv = min(levels)
+    con = [r for r in rows if len(r['path']) > lv and 'construction' in r['path'][lv].lower()]
+    live = [r for r in con if not r['done'] and r['tf_days'] is not None]
+    task = [r for r in con if r['type'] == 'Task Dependent']
+    return {
+        'activities':   len(con),
+        'completed':    sum(1 for r in con if r['done']),
+        'tf_over':      sum(1 for r in live if r['tf_days'] > LIMIT),
+        'tf_base':      len(live),
+        'task':         len(task),
+        'od_over_task': sum(1 for r in task if r['od_days'] > LIMIT),
+        'od_over_all':  sum(1 for r in con if r['od_days'] > LIMIT),
+    }
 
 
 def p6_logic_counts(rows, rels):
@@ -144,6 +167,7 @@ def p6_counts(rows):
         'critical':          count(lambda r: r['critical']),
         'tf_over':           count(lambda r: live(r) and r['tf_days'] > LIMIT),
         'tf_negative':       count(lambda r: live(r) and r['tf_days'] < 0),
+        'near_critical':     count(lambda r: live(r) and not r['critical'] and 1 - 1e-9 <= r['tf_days'] <= 10 + 1e-9),
         'od_over_all':       count(lambda r: r['od_days'] > LIMIT),
         'od_over_task':      count(lambda r: r['type'] == 'Task Dependent' and r['od_days'] > LIMIT),
         'task_dependent':    count(lambda r: r['type'] == 'Task Dependent'),
@@ -158,7 +182,12 @@ def tool_counts(path):
     m = audit_modules(parse_file(path), cfg)['modules']
 
     def table(rows, field):
-        return sum(int(r.get(field) or 0) for r in rows), {r['wbs']: int(r.get(field) or 0) for r in rows if r.get(field)}
+        # High Duration lists a deeper Construction WBS as 'Zone > Construction': fold it back
+        # under its major WBS for the per-WBS comparison
+        per = collections.Counter()
+        for r in rows:
+            per[r['wbs'].split(' > ')[0]] += int(r.get(field) or 0)
+        return sum(per.values()), {w: n for w, n in per.items() if n}
     cp, fl, hd = m['cpli'], m['float'], m['high_duration']
     fw, hw = fl['mgmt']['p6_wbs'], hd['mgmt']['wbs']
     out = {
@@ -167,9 +196,9 @@ def tool_counts(path):
         'critical':       table(cp['wbs_summary'], 'critical'),
         'tf_over':        table(fw, 'over'),
         'tf_negative':    table(fw, 'negative'),
+        'near_critical':  (fl['mgmt']['stats']['near_critical'], None),
         'od_over_all':    table(hw, 'p6_over'),
-        'od_over_task':   table(hw, 'over'),
-        'task_dependent': table(hw, 'activities'),
+        'od_over_task':   table(hw, 'task_over'),
     }
     tiles = {
         'CPLI - Total Activities':                 (cp['kpis']['total_activities'], 'activities'),
@@ -180,9 +209,10 @@ def tool_counts(path):
         'Float - Activities above 44 d':           (fl['kpis']['above_threshold'], 'tf_over'),
         'Negative Float - count':                  (m['negative_float']['kpis']['negative_count'], 'tf_negative'),
         'Negative Float - rows':                   (len(m['negative_float']['findings']), 'tf_negative'),
-        'High Duration - whole schedule (P6)':     (hd['kpis']['p6_over_threshold'], 'od_over_all'),
-        'High Duration - Task Dependent':          (hd['kpis']['all_over_threshold'], 'od_over_task'),
-        'High Duration - Task Dependent activities': (hd['kpis']['all_task_activities'], 'task_dependent'),
+        'High Duration - whole schedule (P6 filter)': (hd['kpis']['all_over_threshold'], 'od_over_all'),
+        'High Duration - whole schedule rows':        (len(hd['findings']) + len(hd['mgmt']['not_counted']), 'od_over_all'),
+        'High Duration - of which Task Dependent':    (hd['kpis']['all_task_over'], 'od_over_task'),
+        'High Duration - Task Dependent activities':  (hd['kpis']['all_task_activities'], 'task_dependent'),
     }
     rt = m['relationship_types']['kpis']
     return out, tiles, rt, m['leads']['kpis'], m['lag_lead']['kpis'], m
@@ -224,10 +254,11 @@ def check(path, out_dir=None):
     stored = any(r['tf_hours'] is not None for r in rows if not r['done'])
     tool, tiles, rt, leads, lag, m = tool_counts(path)
     res = []
-    float_keys = {'critical', 'tf_over', 'tf_negative'}
-    for key in p6:
+    float_keys = {'critical', 'tf_over', 'tf_negative', 'near_critical'}
+    for key in tool:
         note = '' if (stored or key not in float_keys) else 'P6 stored no total float in this file'
-        ok = (p6[key][0] == tool[key][0] and {k: v for k, v in p6[key][1].items() if v} == tool[key][1])
+        ok = (p6[key][0] == tool[key][0]
+              and (tool[key][1] is None or {k: v for k, v in p6[key][1].items() if v} == tool[key][1]))
         res.append((f'{key} (whole schedule + every major WBS)', p6[key][0], tool[key][0], ok or bool(note), note))
     for name, (value, key) in tiles.items():
         note = '' if (stored or key not in float_keys) else 'P6 stored no total float in this file'
@@ -270,6 +301,22 @@ def check(path, out_dir=None):
             ('FS %', pct(ty['PR_FS'], len(rels)), rt['fs_pct'])):
         note = '' if (stored or name not in ('Critical %', 'Float % above 44 d', 'Negative Float %')) else 'P6 stored no total float in this file'
         res.append((name, a, b, a == b or bool(note), note))
+    con = p6_construction(rows)
+    if con:
+        ind, hk = m['float']['mgmt']['indicators'], m['high_duration']['kpis']
+        for name, a, b, floaty in (
+                ('Construction - activities in P6 (Float Analysis)', con['activities'], ind['constr_all'], False),
+                ('Construction - completed (Float Analysis)', con['completed'], ind['constr_completed'], False),
+                ('Construction - not completed, with float', con['tf_base'], ind['constr_total'], True),
+                ('Construction - Total Float > 44 d', con['tf_over'], ind['constr_over'], True),
+                ('Construction - activities in P6 (High Duration)', con['activities'], hk['scope_p6_activities'], False),
+                ('Construction - activities evaluated (High Duration)', con['activities'], hk['total_activities'], False),
+                ('Construction - Original Duration > 44 d (the P6 filter)', con['od_over_all'], hk['over_threshold'], False),
+                ('Construction - High Duration rows listed', con['od_over_all'], len(m['high_duration']['findings']), False),
+                ('Construction - of which Task Dependent', con['od_over_task'], hk['scope_task_over'], False),
+                ('High Duration % (Construction)', pct(con['od_over_all'], con['activities']), hk['high_pct'], False)):
+            note = 'P6 stored no total float in this file' if (floaty and not stored) else ''
+            res.append((name, a, b, a == b or bool(note), note))
     book = write_workbook(path, rows, p6, out_dir) if out_dir else None
     return res, book
 

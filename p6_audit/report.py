@@ -361,7 +361,7 @@ def _oos_review_log(m):
         '<div style="font-size:10.5px;color:#64748b;margin:0 0 8px;line-height:1.8;">'
         '<b>Severity</b> &mdash; '
         f'{_chip("Critical", "#FADDDD", "#C02626")} on the critical path (total float &le; 0) &nbsp;·&nbsp; '
-        f'{_chip("High", "#FBECCF", "#B45309")} near-critical (0 &lt; total float &le; {near} working days) &nbsp;·&nbsp; '
+        f'{_chip("High", "#FBECCF", "#B45309")} near-critical (total float 1 to {near} working days) &nbsp;·&nbsp; '
         f'{_chip("Medium", "#EEF1F6", "#41506A")} has float &mdash; not near-critical</div>')
     return f'''
       <h2 class="sec">Out Of Sequence Activity</h2>
@@ -638,7 +638,7 @@ def _wbs_scope_html(p):
             '<div class="dcma">Evaluated = in the score (the Construction WBS, by default). '
             'Listed = shown in the findings (the WBS picked).</div>'
             '<table><thead><tr><th>Evaluated</th><th>Listed</th>'
-            '<th>WBS (as named in P6)</th><th class="num">Task Activities</th>'
+            '<th>WBS (as named in P6)</th><th class="num">Activities</th>'
             '<th class="num">Over Threshold</th><th class="num">High-Duration %</th></tr></thead>'
             f'<tbody>{body}</tbody></table>{p6}</div>')
 

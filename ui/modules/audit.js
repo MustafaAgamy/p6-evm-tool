@@ -760,7 +760,7 @@ function _oosLogTable(rows, dd, resolved) {
   return `
     <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
       <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
-      <span class="oos-sevb high">High</span> near-critical (0 &lt; total float ≤ ${_oos.near} working days)
+      <span class="oos-sevb high">High</span> near-critical (total float 1 to ${_oos.near} working days)
       <span class="oos-sevb med">Medium</span> has float — not near-critical</div>
     <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
       <caption class="oos-cap">Out Of Sequence Activity</caption>
@@ -2946,13 +2946,14 @@ function renderFloatModule(m) {
     fhTile(stats.total_label || 'Total Activities', (stats.total || 0).toLocaleString(), 'not started + in progress'),
     fhTile('Critical Activities', String(stats.critical ?? 0), 'flagged Critical in P6'),
     fhTile('Critical %', `${fhFmt(stats.critical_pct ?? 0)}%`, 'of the remaining activities'),
-    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `total float above 0, up to ${stats.near_band ?? 10} working days`),
+    fhTile('Near-Critical Activities', String(stats.near_critical ?? 0), `P6 filter: total float within range ${stats.near_min ?? 1} - ${stats.near_band ?? 10} days`),
     fhTile('Near-Critical %', `${fhFmt(stats.near_critical_pct ?? 0)}%`, 'of the remaining activities'),
   ].join('');
 
   const indTiles = [
     fhTile(`Construction · Float > ${thr} WD`, String(ind.constr_over ?? 0),
-           `of ${(ind.constr_total || 0).toLocaleString()} construction activities`, true, true),
+           ind.constr_all == null ? `of ${(ind.constr_total || 0).toLocaleString()} construction activities`
+             : `of ${(ind.constr_total || 0).toLocaleString()} not completed - ${Number(ind.constr_all).toLocaleString()} construction activities in P6${ind.constr_completed ? ` (${Number(ind.constr_completed).toLocaleString()} completed)` : ''}`, true, true),
     fhTile(`% of Construction > ${thr} WD`, `${fhFmt(ind.constr_over_pct ?? 0)}%`,
            `threshold = ${thr} working days`, true, true),
     fhTile('Top WBS by Float Concentration', `<span class="tw">${escapeHtml(ind.top_wbs || '—')}</span>`,

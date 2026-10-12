@@ -14,6 +14,7 @@ by the caller from project settings) and print into the PDF and Excel.
 
 Advisory only — it diagnoses and documents, it never edits schedule logic.
 """
+from p6_audit.graph import is_near_critical
 from collections import defaultdict
 
 from p6_audit.scoring import module_score, grade_for_pct
@@ -49,7 +50,7 @@ def _criticality(pred, succ, near_days):
     tfs = [t for t in (pred.get('total_float_days'), succ.get('total_float_days')) if t is not None]
     if pred.get('is_critical') or succ.get('is_critical') or (tfs and min(tfs) <= 0):
         return 'Critical'
-    if tfs and min(tfs) <= near_days:
+    if tfs and is_near_critical(min(tfs), near_days):
         return 'Near-Critical'
     return ''
 
