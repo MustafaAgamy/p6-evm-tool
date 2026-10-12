@@ -68,26 +68,31 @@ def test_completed_predecessor_is_NOT_flagged():
     assert r['kpis']['oos_count'] == 0
 
 
-def test_milestone_predecessor_is_NOT_flagged():
-    # A zero-duration milestone predecessor is not "work" — P6 doesn't count it.
-    g = _g({
-        'm': _act('m', task_type='StartMilestone'),      # incomplete milestone predecessor
-        's': _act('s', actual_start=dt('2026-01-05')),
-    }, [{'pred_id': 'm', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
-    assert run_out_of_sequence(g, CONFIG)['findings'] == []
+def test_milestone_predecessor_counts_until_it_is_reached():
+    # P6's schedule log lists the successor of a milestone that is not reached yet; once the
+    # milestone carries an actual date the relationship is satisfied.
+    def graph(**ms):
+        return _g({'m': _act('m', task_type='StartMilestone', **ms),
+                   's': _act('s', actual_start=dt('2026-01-05'))},
+                  [{'pred_id': 'm', 'succ_id': 's', 'type': 'FS', 'lag_days': 0}])
+    assert [f['activity_id'] for f in run_out_of_sequence(graph(), CONFIG)['findings']] == ['s']
+    assert run_out_of_sequence(graph(actual_start=dt('2026-01-02')), CONFIG)['findings'] == []
 
 
-def test_ss_break_flagged():
-    g = _g({
-        'p': _act('p', actual_start=dt('2026-01-10')),   # incomplete, starts later
-        's': _act('s', actual_start=dt('2026-01-05')),   # started before p started
-    }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
-    f = _by_id(run_out_of_sequence(g, CONFIG))
+def test_ss_is_out_of_sequence_only_while_the_predecessor_has_not_started():
+    """Comment 88 - P6's schedule log (MAFI: 1 out-of-sequence activity where the tool listed 59):
+    a predecessor that HAS started satisfies its Start-to-Start tie, even if it started after its
+    successor; only a predecessor still not started holds the successor out of sequence."""
+    def graph(**pred):
+        return _g({'p': _act('p', **pred), 's': _act('s', actual_start=dt('2026-01-05'))},
+                  [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
+    assert run_out_of_sequence(graph(actual_start=dt('2026-01-10')), CONFIG)['findings'] == []   # started later
+    f = _by_id(run_out_of_sequence(graph(), CONFIG))                                           # not started
     assert 's' in f and f['s']['current_pred_rel'] == 'SS'
-    # SS is violated (successor started before predecessor) but the successor is still
-    # running → repair by changing to FF rather than removing the dependency.
+    # the successor is still running -> repair by changing to FF rather than removing the dependency
     res = f['s']['resolution']
     assert res['action'] == 'change' and res['new_type'] == 'FF'
+
     assert f['s']['suggested_predecessor'].startswith('FF')
     assert f['s']['suggested_predecessor_kind'] == 'change'
 
@@ -390,7 +395,7 @@ def test_completed_activity_on_non_fs_tie_is_removed_not_faked_to_fs():
     # overlap type resolves it, and changing to FS would NOT clear the OOS (a false resolution). The
     # activity is complete, so (no commencement present) the engine removes the tie — never a fake FS.
     g = _g({
-        'p': _act('p', actual_start=dt('2026-02-01')),
+        'p': _act('p'),                                    # the predecessor has not started
         's': _act('s', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-10')),
     }, [{'pred_id': 'p', 'succ_id': 's', 'type': 'SS', 'lag_days': 0}])
     f = _by_id(run_out_of_sequence(g, CONFIG))['s']

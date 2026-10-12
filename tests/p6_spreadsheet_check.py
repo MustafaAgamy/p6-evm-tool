@@ -118,11 +118,14 @@ def p6_logic_counts(rows, rels):
     real = [r for r in rows if r['raw_type'] in ('TT_Task', 'TT_Rsrc')]
     c = collections.Counter()
     c['task_activities'] = len(real)
-    for r in real:
+    c['all_activities'] = len(rows)
+    for r in rows:                   # P6's schedule log lists every activity type
         P, S = preds[r['oid']], succs[r['oid']]
         c['no_pred'] += not P
         c['no_succ'] += not S
         c['open_ends'] += (not P) or (not S)
+    for r in real:
+        P, S = preds[r['oid']], succs[r['oid']]
         sd = not any(k in ('FS', 'SS') for k in P)
         fd = not any(k in ('FS', 'FF') for k in S)
         c['dangling'] += sd or fd
@@ -273,7 +276,7 @@ def check(path, out_dir=None):
     lc = p6_logic_counts(rows, rels)
     k = lambda mod: m[mod]['kpis']
     for name, a, b in (
-            ('Open Ends - task activities checked', lc['task_activities'], k('open_ends')['total_activities']),
+            ('Open Ends - activities checked (every type)', lc['all_activities'], k('open_ends')['total_activities']),
             ('Open Ends - open ends', lc['open_ends'], k('open_ends')['open_ends']),
             ('Open Ends - no predecessor', lc['no_pred'], k('open_ends')['no_predecessor']),
             ('Open Ends - no successor', lc['no_succ'], k('open_ends')['no_successor']),
@@ -294,7 +297,7 @@ def check(path, out_dir=None):
             ('Critical %', pct(p6['critical'][0], nc), m['cpli']['kpis']['critical_pct'] or 0.0),
             ('Float % above 44 d', pct(p6['tf_over'][0], nc), m['float']['kpis']['float_pct']),
             ('Negative Float %', pct(p6['tf_negative'][0], nc), m['negative_float']['kpis']['neg_pct']),
-            ('Open End %', pct(lc['open_ends'], lc['task_activities']), k('open_ends')['open_end_pct']),
+            ('Open End %', pct(lc['open_ends'], lc['all_activities']), k('open_ends')['open_end_pct']),
             ('Dangling %', pct(lc['dangling'], lc['task_activities']), k('dangling')['dangling_pct']),
             ('Decimal %', pct(lc['decimal'], lc['task_activities']), k('whole_day')['decimal_pct']),
             ('Lead %', pct(sum(1 for p in rels if (_num(p['lag_hr_cnt']) or 0) < 0), len(rels)), leads['lead_pct']),

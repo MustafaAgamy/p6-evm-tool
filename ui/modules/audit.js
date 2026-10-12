@@ -438,6 +438,11 @@ function oosKpiTiles(k) {
 
 export function renderOutOfSequence(m) {
   const C = 326.7;
+  // Comment 89: once corrections are applied, the whole page shows the schedule AS CORRECTED -
+  // the Executive Dashboard, the distribution and the impact assessment follow the Resolved list.
+  const base = m;
+  const nApplied = (_oos.sig === _oosSig(base)) ? Object.keys(_oos.applied).length : 0;
+  if (nApplied && _oos.live) m = Object.assign({}, base, _oos.live);
   const k = m.kpis || {};
   const dist = m.wbs_summary || [];
   const findings = m.findings || [];
@@ -458,8 +463,11 @@ export function renderOutOfSequence(m) {
     <div class="mod-sec">Executive Conclusion</div>
     <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
 
+  const preview = nApplied && _oos.live
+    ? `<div class="coverage dng-preview">Preview — the figures reflect ${nApplied} applied correction${nApplied === 1 ? '' : 's'}; before them: ${(base.kpis || {}).oos_count || 0} out-of-sequence (${base.pct}%, score ${base.score}). Download Corrected Schedule to write them to P6.</div>`
+    : '';
   document.getElementById('oos-body').innerHTML = `
-    <div class="mod-sec">Executive Dashboard</div>
+    <div class="mod-sec">Executive Dashboard</div>${preview}
     <div class="audit-hero">
       <div class="score-card">
         <div class="gauge">
@@ -495,8 +503,9 @@ export function renderOutOfSequence(m) {
     <div class="oos-stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
       framework for schedule logic quality — the same methodology as the sibling modules (Dangling Logic → Metric 3,
       Float → Metric 5). Out-of-sequence is a recognised logic-quality check within this framework, complementing the
-      14 core metrics. <b>Detection basis:</b> Primavera P6 out-of-sequence progress — Retained Logic / Progress Override,
-      Schedule Log (F9); best-practice per GAO Schedule Assessment Guide, Best Practice 4.</div>
+      14 core metrics. <b>Detection basis:</b> the list in Primavera P6's Schedule Log (F9) under <i>Out-of-sequence activities</i> —
+      an activity that progressed while a predecessor relationship is still not satisfied at the data date
+      (Finish-to-Start: predecessor not finished · Start-to-Start: predecessor not started); best-practice per GAO Schedule Assessment Guide, Best Practice 4.</div>
 
     <div class="mod-sec">Distribution by WBS Category</div>
     <div class="tblwrap"><table class="audit-table"><thead><tr>
@@ -524,7 +533,7 @@ export function renderOutOfSequence(m) {
 
     ${conclusion}`;
 
-  _oosInit(m);
+  _oosInit(base);
 }
 
 // ── Out-of-Sequence Resolve & Correct — LOG (Baseline vs After Modification) ──
@@ -854,6 +863,21 @@ async function _oosValidate() {
   return resp.json();
 }
 
+// After a re-validation: keep the corrected check and redraw the whole page from it (the dashboard
+// included), then say what Apply did beyond the ties shown.
+function _oosTakeValidated(out) {
+  _oos.fresh = out.findings || [];
+  _oos.live = out.module || null;
+  _oos.auto = out.auto || null;
+  const m = ((state.currentModules || {}).modules || {}).out_of_sequence;
+  if (m && document.getElementById('oos-body')) renderOutOfSequence(m); else renderOosReview();
+}
+function _oosAutoText() {
+  const a = _oos.auto || {};
+  return (a.ties ? ` ${a.ties} further out-of-sequence tie${a.ties === 1 ? '' : 's'} of the same activities corrected with them.` : '')
+       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} added to the project commencement / completion milestone so no activity is left without a predecessor or successor.` : '');
+}
+
 async function _oosApply(fid) {
   const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
   if (!f) return;
@@ -868,8 +892,8 @@ async function _oosApply(fid) {
   try {
     const out = await _oosValidate();
     if (!out.ok) { delete _oos.applied[fid]; _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
-    _oos.fresh = out.findings || [];
-    renderOosReview();
+    _oosTakeValidated(out);
+    if (_oosAutoText()) _oosDlNote('Applied.' + _oosAutoText());
   } catch (e) {
     delete _oos.applied[fid];                        // roll back so a failed Apply leaves no phantom op
     _oosDlNote('Could not reach the analysis engine.', true);
@@ -906,13 +930,12 @@ async function _oosApplyAll() {
   try {
     const out = await _oosValidate();
     if (!out.ok) { rollback(); _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
-    _oos.fresh = out.findings || [];
-    renderOosReview();
+    _oosTakeValidated(out);
     const outcome = oosBulkOutcome(touched, _oos.fresh);          // honest: count what actually cleared
     const stillReview = (_oos.fresh || []).length - outcome.notCleared;   // untouched, still open (review / data)
     _oosDlNote(`Applied ${outcome.applied} correction${outcome.applied === 1 ? '' : 's'} — ${outcome.resolved} moved to Resolved.`
       + (outcome.notCleared ? ` ${outcome.notCleared} applied but still out of sequence (check the actual dates in P6).` : '')
-      + (stillReview ? ` ${stillReview} still need review.` : ''));
+      + (stillReview ? ` ${stillReview} still need review.` : '') + _oosAutoText());
   } catch (e) {
     rollback();
     _oosDlNote('Could not reach the analysis engine.', true);
@@ -926,7 +949,7 @@ async function _oosReopen(fid) {
   delete _oos.applied[fid];
   try {
     const out = await _oosValidate();
-    if (out.ok) _oos.fresh = out.findings || [];
+    if (out.ok) { _oosTakeValidated(out); return; }
   } catch (e) { /* keep local state */ }
   renderOosReview();
 }

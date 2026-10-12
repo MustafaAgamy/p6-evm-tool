@@ -1,7 +1,8 @@
 """Open Ends module (Schedule Health Review).
 
-An open end is a REAL activity that is not tied into the network on at least
-one side: it has NO predecessor at all AND/OR NO successor at all. An activity
+An open end is an activity - of any type, as P6's schedule log lists them - that is not
+tied into the network on at least one side: it has NO predecessor at all AND/OR NO successor
+at all. The project's own start and finish milestones are normally the only two. An activity
 with no predecessor is free to start immediately; one with no successor drives
 nothing downstream — either way the network logic is incomplete.
 
@@ -17,7 +18,10 @@ NAME = 'Open Ends'
 
 def run_open_ends(graph, config):
     findings = []
-    real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
+    # Counted as P6's schedule log does (comment 88): 'Activities without predecessors' /
+    # 'Activities without successors' list EVERY activity type - the project start and finish
+    # milestones included (MAFI in P6: 1 without predecessor, 2 without successor).
+    real = list(graph.activities.items())
     no_pred_n = no_succ_n = 0
 
     for oid, act in real:

@@ -2686,7 +2686,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.modules.oos_resolve import write_corrected
-            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path), config=config)
             self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

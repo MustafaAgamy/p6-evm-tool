@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Out of Sequence matches P6's schedule log (comments 88, 89)
+- **The list is P6's list.** An activity is out of sequence only while a predecessor relationship is still not satisfied at the data date (Finish-to-Start: the predecessor has not finished; Start-to-Start: it has not started) - what the Schedule Log (F9) prints under *Out-of-sequence activities*. A predecessor that has started or finished since, even later than its successor, is no longer listed (MAFI: 1, was 59 - the same activity as P6's log).
+- **One Apply corrects the whole activity.** The table shows the driving tie; every other out-of-sequence tie of the same activity is corrected with it, so the corrected schedule shows none in P6.
+- **No open end is left behind.** An activity that would lose its last predecessor or successor is tied to the project commencement or completion milestone.
+- **The dashboard follows the corrections.** After Apply, the Executive Dashboard, the distribution by WBS and the impact assessment show the schedule as corrected, with the figures before.
+- **Open Ends** (Schedule Health) lists every activity type, as the Schedule Log's *Activities without predecessors / successors* does - the project start and finish milestones included.
+- `tests/p6_schedlog_check.py` compares the tool with a P6 `SCHEDLOG.TXT` list by list (critical, out-of-sequence, without predecessors, without successors).
+
 ### Fixed — Critical Path Analyzer counts critical and near-critical as P6 does
 Critical = what P6's default Critical filter lists: In Progress and Not Started activities of every type, milestones included (they were left out), Level of Effort and WBS Summary never. Near-critical = *Total Float is within range 1d - 10d*, both ends included (was: above 0 and under 10). Each % is over the activities not completed - the same numbers as Schedule Health (MAFI: 58 critical, 35 near-critical).
 
