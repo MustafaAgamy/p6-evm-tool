@@ -74,6 +74,8 @@ def _is_crit(a):
     a record that carries no flag."""
     if 'is_critical' in a:
         return bool(a.get('is_critical'))
+    if a.get('task_type') in ('LOE', 'WBSSummary'):     # never Critical in P6
+        return False
     tf = a.get('total_float_days')
     return tf is not None and tf <= 0
 

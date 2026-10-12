@@ -129,7 +129,9 @@ def schedule_census(data, near_threshold=NEAR_THRESHOLD):
     When it carries NO float (e.g. an unscheduled baseline), critical is derived from the
     critical/longest path so it is still counted, and near-critical is reported as unknown
     (n/a) because it can't be judged without float."""
-    non_ms = [a for a in data.activities.values() if a.get('task_type') not in _MILESTONES]
+    # a Level of Effort / WBS Summary activity only spans other work - never Critical in P6
+    non_ms = [a for a in data.activities.values()
+              if a.get('task_type') not in _MILESTONES and a.get('task_type') not in ('LOE', 'WBSSummary')]
     floated = [a for a in non_ms if a.get('total_float_days') is not None]
 
     if floated:

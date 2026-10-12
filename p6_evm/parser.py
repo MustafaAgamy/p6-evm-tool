@@ -548,7 +548,8 @@ def _parse_xml(path) -> ScheduleData:
         # P6's own Critical flag: the file's critical float limit / longest-path setting (comment 49).
         # A P6 XML exports no longest-path flag, so a Longest Path project falls back to float.
         act['longest_path'] = None
-        act['is_critical'] = p6_is_critical(act['total_float_days'], day_hours, act.get('status'), data.project)
+        act['is_critical'] = p6_is_critical(act['total_float_days'], day_hours, act.get('status'), data.project,
+                                            task_type=act.get('task_type'))
         act['constraint_type'] = text(act_el, 'PrimaryConstraintType')
         act['constraint_date'] = parse_datetime(text(act_el, 'PrimaryConstraintDate'))
         act['secondary_constraint_type'] = text(act_el, 'SecondaryConstraintType')
