@@ -7,6 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Schedule Health: the P6 filters, applied exactly
+- **High Duration** = what P6 lists with *Original Duration is greater than 44d* and the WBS under Construction - every activity type P6 lists (the Task Dependent count is shown beside it). The Construction figures come first; the whole-schedule figures follow, named so.
+- **Float Analysis** = *Total Float is greater than 44d* and the WBS under Construction; the tile also shows P6's total count of construction activities (completed included).
+- **Construction WBS** = every activity under the WBS named Construction, at whatever level it sits (a schedule with *Zone > Construction* no longer falls back to the whole schedule).
+- **Critical** = P6's default Critical filter: In Progress and Not Started activities; Level of Effort and WBS Summary activities are never Critical.
+- **Near-critical** = *Total Float is within range 1d - 10d*, both ends included (was: above 0, up to 10) - the same rule in Float Analysis, Lag and Out of Sequence.
+
 ### Changed — Schedule Health review round (counts as P6 holds them)
 - **Counts per major WBS.** Critical Path, Float Analysis and High Duration each show a table with P6's own count of the activities under every major WBS (every activity type, completed included) beside the check's own figures.
 - **High Duration.** Evaluated on the Construction WBS only, Task Dependent activities only; the report also shows what P6's *Original Duration is greater than 44d* filter lists in the whole schedule and how many of those are Task Dependent. A *WBS scope* picker lists any other WBS as an additional view - the score does not move. Every figure is worked out under the tiles, with the P6 filter that lists the same activities.

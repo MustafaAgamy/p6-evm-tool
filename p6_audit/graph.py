@@ -1,9 +1,26 @@
 from collections import Counter
 
+NEAR_CRITICAL_MIN_DAYS = 1   # P6 filter: Total Float 'is within range' 1d (min) .. 10d (max)
+
+
+def is_near_critical(total_float_days, near_days, min_days=NEAR_CRITICAL_MIN_DAYS):
+    """Near-critical exactly as the P6 filter 'Total Float is within range <min>d - <max>d' lists it
+    (Ibrahim, 2026-10-12): 1 day <= total float <= 10 days, both ends included. A float between 0
+    and 1 day is neither critical nor near-critical. ONE rule for every Schedule Health check."""
+    return total_float_days is not None and (min_days - 1e-9) <= total_float_days <= (near_days + 1e-9)
+
 
 class ScheduleGraph:
     def __init__(self, data):
         self.activities = data.activities
+        # P6 never flags a Level of Effort / WBS Summary activity Critical: its float is only
+        # inherited from the work it spans, so P6's Critical filter does not list it (Ibrahim's
+        # P6, 2026-10-12: MAFI 58 = 54 Task Dependent + 4 milestones; its 3 zero-float Level of
+        # Effort activities are not in the filter). Copies - the parsed schedule is left as read.
+        spans = {oid: dict(a, is_critical=False) for oid, a in data.activities.items()
+                 if a.get('is_critical') and a.get('task_type') in ('LOE', 'WBSSummary')}
+        if spans:
+            self.activities = {**data.activities, **spans}
         self.calendars = getattr(data, 'calendars', {}) or {}  # for working-day lag in suggestions
         self._set_hours_basis()
         self.data_date = (getattr(data, 'project', None) or {}).get('data_date')  # update cut-off
@@ -92,12 +109,48 @@ class ScheduleGraph:
     def major_wbs(self, oid):
         return self.wbs_key()(self.wbs_path(oid))
 
-    def p6_wbs_rows(self, **counters):
+    # -- the Construction WBS (review 2026-10-12) ------------------------------------------
+    # Construction = every activity under a WBS node NAMED construction, at whatever level that
+    # node sits (top level 'Construction Works', or 'Production Zone > Construction'). Only a
+    # schedule with no such node falls back to a top-level WBS that reads as construction.
+    def _segments(self, oid):
+        """The activity's WBS names from its major WBS downwards."""
+        segs = [x.strip() for x in (self.wbs_path(oid) or '').split('>') if x.strip()]
+        major = self.major_wbs(oid)
+        return segs[segs.index(major):] if major in segs else segs
+
+    def _construction_level(self):
+        """How deep the Construction WBS sits: 0 = a major WBS is named construction, 1 = the level
+        under it, ... - the SHALLOWEST level carrying the name, so a deeper 'Construction Drawings'
+        under Engineering is not taken for it. None when no WBS is named construction."""
+        if not hasattr(self, '_con_level'):
+            levels = [i for oid in self.activities for i, x in enumerate(self._segments(oid))
+                      if 'construction' in x.lower()]
+            self._con_level = min(levels) if levels else None
+        return self._con_level
+
+    def is_construction(self, oid):
+        level = self._construction_level()
+        if level is not None:
+            segs = self._segments(oid)
+            return len(segs) > level and 'construction' in segs[level].lower()
+        from p6_evm.classify import classify_wbs_name
+        return classify_wbs_name(self.major_wbs(oid)) == 'Construction'
+
+    def scope_group(self, oid):
+        """The WBS an activity is counted under for a construction scope: the path down to its
+        Construction node when it has one ('Production Zone > Construction'), else its major WBS."""
+        level = self._construction_level()
+        if level and self.is_construction(oid):
+            return ' > '.join(self._segments(oid)[:level + 1])
+        return self.major_wbs(oid)
+
+    def p6_wbs_rows(self, key=None, **counters):
         """One row per major WBS, biggest first: {'wbs', 'activities' (every activity, as P6
         counts the band), 'remaining' (not completed)} plus one count per ``name=test(oid, act)``."""
         rows = {}
         for oid, act in self.activities.items():
-            r = rows.setdefault(self.major_wbs(oid), dict({'activities': 0, 'remaining': 0},
+            r = rows.setdefault((key or self.major_wbs)(oid), dict({'activities': 0, 'remaining': 0},
                                                          **{name: 0 for name in counters}))
             r['activities'] += 1
             r['remaining'] += 0 if self.is_completed(act) else 1

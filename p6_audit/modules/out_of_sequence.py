@@ -13,6 +13,7 @@ The module is a management report, not an activity dump. It answers:
 
 It diagnoses and recommends — it never edits schedule logic.
 """
+from p6_audit.graph import is_near_critical
 from collections import defaultdict
 
 from p6_evm.calendars import signed_working_days
@@ -485,7 +486,7 @@ def _criticality(act, near_days):
     if act.get('is_critical'):
         return 'Critical'
     tf = act.get('total_float_days')
-    if tf is not None and 0 < tf <= near_days:
+    if is_near_critical(tf, near_days):
         return 'Near-Critical'
     return ''
 

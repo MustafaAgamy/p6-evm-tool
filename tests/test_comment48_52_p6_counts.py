@@ -50,16 +50,17 @@ ACTS = [
 def test_every_activity_type_counts_and_pct_is_over_the_remaining():
     g = _graph(ACTS)
     k = run_cpli(g, CONFIG)['kpis']
-    assert (k['total_activities'], k['remaining_activities'], k['critical_count']) == (5, 4, 3)
-    assert k['critical_pct'] == 75.0                                   # 3 of the 4 not completed
+    # P6 never flags a Level of Effort Critical (MAFI in P6: 58, its 3 zero-float LOE not listed)
+    assert (k['total_activities'], k['remaining_activities'], k['critical_count']) == (5, 4, 2)
+    assert k['critical_pct'] == 50.0                                   # 2 of the 4 not completed
     n = run_negative_float(g, CONFIG)['kpis']
     assert (n['negative_count'], n['remaining_activities'], n['neg_pct']) == (2, 4, 50.0)
     s = float_management(g, CONFIG)['stats']
-    assert (s['total_all'], s['total'], s['critical'], s['near_critical']) == (5, 4, 3, 1)
+    assert (s['total_all'], s['total'], s['critical'], s['near_critical']) == (5, 4, 2, 1)
 
 
 def test_with_nothing_completed_the_base_is_every_activity():
     g = _graph([a for a in ACTS if a['status'] != 'Completed'])
     k = run_cpli(g, CONFIG)['kpis']
     assert k['remaining_activities'] == k['total_activities'] == 4
-    assert k['critical_pct'] == 75.0
+    assert k['critical_pct'] == 50.0

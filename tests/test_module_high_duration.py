@@ -92,10 +92,11 @@ def test_ten_hour_calendar_shortens_duration():
     assert r['kpis']['max_duration'] == 40.0
 
 
-def test_milestones_excluded():
-    g = _g({'m': _act('m', task_type='StartMilestone', planned_duration=4000.0)},
+def test_every_activity_type_p6_lists_is_counted():
+    # P6's filter 'Original Duration > 44d' lists any activity type - a Level of Effort too
+    g = _g({'l': _act('l', task_type='LOE', planned_duration=4000.0), 't': _act('t', planned_duration=80.0)},
            {'C1': _Cal(8.0)})
     r = run_high_duration(g, CONFIG)
-    assert r['findings'] == []
-    assert r['kpis']['total_activities'] == 0
-    assert r['kpis']['max_duration'] == 0
+    assert [f['activity_id'] for f in r['findings']] == ['l']
+    assert r['findings'][0]['activity_type'] == 'Level of Effort'
+    assert r['kpis']['total_activities'] == 2 and r['kpis']['over_threshold'] == 1

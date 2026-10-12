@@ -234,22 +234,24 @@ SPECS = {
                     ('Recommendation', 'recommendation', 'mut')],
     },
     'high_duration': {
-        'verdict': lambda m: (f"{_plain(m.get('pct'))}% of the task activities evaluated "
+        'verdict': lambda m: (f"{_plain(m.get('pct'))}% of the activities evaluated "
                               f"({(m.get('kpis') or {}).get('scope_label') or 'all WBS'}) run longer than "
                               f"{_plain((m.get('kpis') or {}).get('threshold'))} working days."),
-        'tiles': lambda k: [('Task Dependent Activities (all WBS)', _num(k.get('all_task_activities', k.get('total_activities')))),
-                            ('Over Threshold - whole schedule (P6 filter)', _num(k.get('p6_over_threshold'))),
-                            ('of which Task Dependent', _num(k.get('all_over_threshold'))),
-                            ('WBS Evaluated', k.get('scope_label') or 'All WBS'),
-                            ('Task Dependent Activities Evaluated', _num(k.get('total_activities'))),
-                            ('Over Threshold (evaluated)', k.get('over_threshold', 0)),
+        # the EVALUATION first (the Construction WBS); the whole-schedule figures after it, named so
+        'tiles': lambda k: [('WBS Evaluated', k.get('scope_label') or 'All WBS'),
+                            (_hd_eval_label(k, 'Activities'), _num(k.get('total_activities'))),
+                            (_hd_eval_label(k, 'Over Threshold'), k.get('over_threshold', 0)),
+                            ('of which Task Dependent', _num(k.get('scope_task_over'))),
                             ('High-Duration %', _pct(k.get('high_pct'))), ('Threshold', _days(k.get('threshold'))),
-                            ('Longest (all WBS)', _days(k.get('max_duration')))]
+                            ('Whole schedule - Activities', _num(k.get('all_activities', k.get('total_activities')))),
+                            ('Whole schedule - Over Threshold', _num(k.get('all_over_threshold'))),
+                            ('Whole schedule - Longest', _days(k.get('max_duration')))]
                            + ([] if k.get('view_default', True) else
                               [('Also Shown (picked WBS)', k.get('view_label') or ''),
                                ('Over Threshold (picked WBS)',
                                 f"{k.get('view_over', 0):,} of {k.get('view_activities', 0):,} - {_plain(k.get('view_pct'))}%")]),
         'columns': [('Activity ID', 'activity_id', 'mono'), ('Activity Name', 'activity_name', 'text'),
+                    ('Activity Type', 'activity_type', 'text'),
                     ('WBS Path', 'wbs_path', 'wbs'), ('Duration', 'duration_days', 'days'), ('Severity', 'severity', 'sev'),
                     ('Recommendation', 'recommendation', 'mut')],
     },
@@ -628,21 +630,26 @@ def _scope_text(k):
     names = k.get('scope_wbs') or []
     if not names:
         return ''
-    total, every = k.get('total_activities') or 0, k.get('all_task_activities') or 0
+    total, every = k.get('total_activities') or 0, k.get('all_activities') or 0
     thr = _plain(k.get('threshold', 44))
     if k.get('scope_fallback'):
         lead = (f'No WBS of this schedule is named Construction, so the evaluation considers every WBS '
-                f'({total:,} task activities).')
+                f'({total:,} activities).')
     else:
         lead = (f"The {thr}-working-day limit is a construction rule: the evaluation (score, band and "
                 f"Summary) considers the Construction WBS only, by default - {', '.join(names)}, "
-                f"{total:,} of the {every:,} task activities.")
+                f"{total:,} of the {every:,} activities.")
     lead += (' The WBS scope is an additional option: picking other WBS shows their count and their '
              'activities - it does not change the evaluation.')
     if not k.get('view_default', True):
         lead += (f" Shown as picked: {k.get('view_label')} - {k.get('view_over', 0):,} of "
-                 f"{k.get('view_activities', 0):,} task activities over the limit ({_plain(k.get('view_pct'))}%).")
+                 f"{k.get('view_activities', 0):,} activities over the limit ({_plain(k.get('view_pct'))}%).")
     return lead
+
+
+def _hd_eval_label(k, what):
+    """'Construction - Over Threshold' (or 'All WBS - ...' when no WBS is named construction)."""
+    return ('All WBS' if k.get('scope_fallback') else 'Construction') + ' - ' + what
 
 
 def p6_wbs_table(m):
@@ -666,13 +673,12 @@ def p6_wbs_table(m):
         note = (f"Activities in P6 = every activity under the WBS band, as P6 counts it. Total Float > {thr} d = "
                 f"P6's filter 'Total Float is greater than {thr}d' (a completed activity has no float).")
     elif mod == 'high_duration':
-        src = [r for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict) and 'p6_over' in r]
-        cols = [('Activities in P6', 'p6_activities'), (f'Original Duration > {thr} d (P6 filter, every type)', 'p6_over'),
-                ('Task Dependent Activities', 'activities'), (f'Task Dependent > {thr} d', 'over')]
-        title = 'High duration by major WBS'
-        note = (f"Original Duration > {thr} d (P6 filter, every type) = what P6 lists with the filter 'Original "
-                f"Duration is greater than {thr}d'. Task Dependent > {thr} d = the same filter with Activity Type "
-                'equals Task Dependent - the activities this check reads.')
+        src = [r for r in ((m.get('mgmt') or {}).get('wbs') or []) if isinstance(r, dict) and 'task_over' in r]
+        cols = [('Activities in P6', 'activities'), (f'Original Duration > {thr} d', 'over'),
+                ('of which Task Dependent', 'task_over')]
+        title = 'High duration by WBS'
+        note = (f"Original Duration > {thr} d = what P6 lists under that WBS with the filter 'Original Duration is "
+                f"greater than {thr}d' (every activity type). The score counts the Construction WBS only.")
     else:
         return None
     if not src:
@@ -691,31 +697,28 @@ def _critical_split(k):
     parts = [f'{n:,} {name}' for n, name in parts if n]
     if not parts or k.get('critical_count') is None:
         return None
-    return (f"Critical Activities {k['critical_count']:,} = " + ' + '.join(parts) + ". P6 flags every activity "
-            "type Critical when it is not completed and its total float is within the project's critical "
-            "limit - the same list as P6's Critical filter.")
+    return (f"Critical Activities {k['critical_count']:,} = " + ' + '.join(parts) + ". The same list as P6's "
+            "Critical filter: In Progress and Not Started activities whose total float is within the project's "
+            "critical limit. Level of Effort and WBS Summary activities are never Critical in P6, and neither "
+            "is completed work.")
 
 
 def high_duration_figures_note(k):
     """Every High Duration figure, worked out with this schedule's own numbers."""
     if not k.get('scope_wbs') or k.get('all_activities') is None:
         return None
-    every, tasks = k.get('all_activities') or 0, k.get('all_task_activities') or 0
-    total, over, thr = k.get('total_activities') or 0, k.get('over_threshold') or 0, _plain(k.get('threshold', 44))
-    pct = _plain(k.get('high_pct'))
+    every, total, over = k.get('all_activities') or 0, k.get('total_activities') or 0, k.get('over_threshold') or 0
+    thr, pct = _plain(k.get('threshold', 44)), _plain(k.get('high_pct'))
     score = _plain(round(100.0 - (k.get('high_pct') or 0), 1))
-    where = 'in every WBS' if k.get('scope_fallback') else f"under the Construction WBS ({', '.join(k['scope_wbs'])})"
+    where = 'the whole schedule' if k.get('scope_fallback') else f"the Construction WBS ({', '.join(k['scope_wbs'])})"
+    task = k.get('scope_task_over') or 0
     return (f'In this schedule: Total Activities {every:,}. '
-            f'Task Dependent Activities (all WBS) {tasks:,} = {every:,} total - {every - tasks:,} milestones, '
-            f'Level of Effort, WBS Summary and Resource Dependent activities. '
-            + (f"In P6 the filter 'Original Duration is greater than {thr}d' lists {k['p6_over_threshold']:,} activities "
-               f"in the whole schedule = {k.get('all_over_threshold', 0):,} Task Dependent + "
-               f"{k['p6_over_threshold'] - (k.get('all_over_threshold') or 0):,} of other types "
-               '(Level of Effort, WBS Summary, Resource Dependent). ' if k.get('p6_over_threshold') is not None else '') +
-            f'Task Dependent Activities Evaluated {total:,} = the Task Dependent activities {where}. '
-            f'Over Threshold {over:,} = the evaluated activities whose Original Duration is greater than {thr} working days. '
+            f'Activities evaluated {total:,} = every activity under {where}, as P6 counts them. '
+            f"Over Threshold {over:,} = the activities P6 lists there with the filter 'Original Duration is greater "
+            f"than {thr}d' = {task:,} Task Dependent + {over - task:,} of other types. "
             f'High-Duration % {pct}% = {over:,} / {total:,}. Score {score} = 100 - {pct}. '
-            f"Longest (all WBS) {_plain(k.get('max_duration'))} d = the longest Original Duration of any Task Dependent activity.")
+            f"Whole schedule - Over Threshold {k.get('all_over_threshold', 0):,} = the same filter without the WBS. "
+            f"Longest {_plain(k.get('max_duration'))} d = the longest Original Duration in the schedule.")
 
 
 def high_duration_p6_filter(k):
@@ -726,7 +729,7 @@ def high_duration_p6_filter(k):
     thr = _plain(k.get('threshold', 44))
     wbs = '' if k.get('view_label') == 'All WBS' else ' and WBS is under ' + ' or '.join(names)
     n = k.get('view_over', k.get('over_threshold', 0))
-    return (f"Check it in P6: filter Activity Type equals Task Dependent and "
+    return (f"Check it in P6: filter "
             f"Original Duration is greater than {thr}d{wbs} - P6 lists {n:,} activities, "
             'the same activities as listed in this report.')
 
@@ -754,8 +757,9 @@ def _highlight_note(m):
         return ('This check covers Task Dependent and Resource Dependent activities only. '
                 'Milestones, Level of Effort and WBS Summary activities are not checked for dangling logic.')
     if mod == 'high_duration':
-        return ('This check reads Task Dependent activities only. Milestones, Level of Effort, '
-                'WBS Summary and Resource Dependent activities are not counted. ' + _scope_text(k))
+        return (f"This check counts what P6 lists with the filter 'Original Duration is greater than "
+                f"{_plain(k.get('threshold', 44))}d' and the WBS under Construction - every activity type, "
+                'as P6 lists them. ' + _scope_text(k))
     if mod == 'negative_float':
         neg, frac = k.get('negative_count') or 0, k.get('fraction_count') or 0
         if neg and frac * 2 > neg:

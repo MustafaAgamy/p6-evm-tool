@@ -102,7 +102,7 @@ def _stats_tiles(mgmt):
         _tile(s.get('total_label', 'Total Activities'), f"{s.get('total', 0):,}", 'not started + in progress'),
         _tile('Critical Activities', str(s.get('critical', 0)), 'flagged Critical in P6'),
         _tile('Critical %', f"{_num(s.get('critical_pct', 0))}%", 'of the remaining activities'),
-        _tile('Near-Critical Activities', str(s.get('near_critical', 0)), f'total float above 0, up to {band} working days'),
+        _tile('Near-Critical Activities', str(s.get('near_critical', 0)), f"P6 filter: total float within range {s.get('near_min', 1)} - {band} days"),
         _tile('Near-Critical %', f"{_num(s.get('near_critical_pct', 0))}%", 'of the remaining activities'),
     ])
 
@@ -113,7 +113,7 @@ def _indicator_tiles(mgmt):
     highest = f'{_wd(i.get("highest_float", 0))}<div class="wbsline">{_esc(i.get("highest_float_wbs", ""))}</div>'
     return ''.join([
         _tile(f'Construction · Float > {thr} WD', str(i.get('constr_over', 0)),
-              f"of {i.get('constr_total', 0):,} construction activities", hot=True, vclass='amber'),
+              _constr_base_text(i), hot=True, vclass='amber'),
         _tile(f'% of Construction > {thr} WD', f"{_num(i.get('constr_over_pct', 0))}%",
               f'threshold = {thr} working days', hot=True, vclass='amber'),
         _tile('Top WBS by Float Concentration',
@@ -124,6 +124,15 @@ def _indicator_tiles(mgmt):
 
 
 _WBS_KEEP_ROWS = 10        # a WBS table of up to 10 packages prints whole with its heading
+
+
+def _constr_base_text(i):
+    """'of 2,431 not completed - 3,301 construction activities in P6 (870 completed)'."""
+    base = f"of {i.get('constr_total', 0):,} not completed"
+    if i.get('constr_all') is None:
+        return f"of {i.get('constr_total', 0):,} construction activities"
+    done = i.get('constr_completed') or 0
+    return base + f" - {i['constr_all']:,} construction activities in P6" + (f" ({done:,} completed)" if done else '')
 
 
 def _wbs_rows(mgmt):

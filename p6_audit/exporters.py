@@ -20,7 +20,7 @@ def excel_severity_meta(module_result, headers):
     near = ((module_result.get('kpis') or {}).get('near_critical_days')) or 10
     legend = [
         ('Critical', 'On the critical path (total float <= 0)'),
-        ('High', f'Near-critical (0 < total float <= {near} working days)'),
+        ('High', f'Near-critical (total float 1 to {near} working days)'),
         ('Medium', 'Has float - not near-critical'),
     ]
     return headers.index('Severity'), legend

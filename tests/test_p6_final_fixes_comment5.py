@@ -32,9 +32,9 @@ def test_resource_dependent_work_is_checked_like_any_task():
             'l': _act('l', 'LOE')})
     assert g.is_real_activity('t') and g.is_real_activity('r')
     assert not g.is_real_activity('m') and not g.is_real_activity('l')
-    # High Duration alone reads Task Dependent activities only (review decision 2026-10-11)
+    # High Duration is P6's 'Original Duration > limit' filter: every activity type it lists
     k = run_high_duration(g, {})['kpis']
-    assert k['total_activities'] == 1 and k['over_threshold'] == 1
+    assert k['total_activities'] == 4 and k['all_task_activities'] == 1
 
 
 def test_a_part_day_lag_is_still_a_lag():

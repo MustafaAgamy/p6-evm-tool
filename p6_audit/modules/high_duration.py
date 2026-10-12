@@ -1,6 +1,8 @@
 """High Duration module (V2).
 
-Flags Task Dependent activities whose planned (original) duration exceeds a day threshold. Long tasks are
+Flags the activities whose planned (original) duration exceeds a day threshold - exactly what
+P6 lists with the filter 'Original Duration is greater than <limit>d' and the WBS under Construction
+(every activity type). Long tasks are
 hard to track and mask progress — break them up or add progress steps.
 
 SCOPE (review decision 2026-10-11): the limit is a construction rule, so the EVALUATION (score,
@@ -15,7 +17,6 @@ Score = 100 − High Duration % (over-limit activities / task activities in the 
 """
 from p6_audit.findings import content_id, bump_severity
 from p6_audit.scoring import linear_score, uniform_grade
-from p6_evm.classify import classify_wbs_name
 
 MODULE = 'high_duration'
 NAME = 'High Duration'
@@ -24,35 +25,32 @@ RECOMMENDATION = ('Break into shorter, trackable activities, or add progress ste
                   'if it is genuinely one continuous quantity-driven job')
 
 _ORDER = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
-
-
-def _construction_branches(branches):
-    """The top-level WBS that IS construction — the same rule as Float Analysis: the branch(es)
-    NAMED construction; only when none carries the name, the ones that read as construction."""
-    return ({b for b in branches if 'construction' in (b or '').lower()}
-            or {b for b in branches if classify_wbs_name(b) == 'Construction'})
+_TYPE_NAMES = {'Task': 'Task Dependent', 'ResourceDependent': 'Resource Dependent', 'LOE': 'Level of Effort',
+               'WBSSummary': 'WBS Summary', 'StartMilestone': 'Start Milestone', 'FinishMilestone': 'Finish Milestone'}
 
 
 def run_high_duration(graph, config):
     audit = config.get('audit', {})
     threshold = audit.get('duration_threshold_days', 44)
-    # Task Dependent activities ONLY (review decision 2026-10-11) - the P6 filter
-    # 'Activity Type equals Task Dependent'; Resource Dependent ones are not read here.
-    real = [(oid, a) for oid, a in graph.activities.items() if a.get('task_type') == 'Task']
-    key = graph.wbs_key()       # the major WBS, the same bands as every check's WBS table
+    # Ibrahim's rule (2026-10-12), exactly the P6 filter: 'Original Duration is greater than
+    # <limit>d' AND the WBS is under Construction - every activity P6 lists, whatever its type.
+    real = list(graph.activities.items())
+    n_task = sum(1 for _o, a in real if a.get('task_type') == 'Task')
+    key_of = graph.scope_group  # the major WBS - or the path down to its Construction node
 
     def over_limit(act):
         return (act.get('planned_duration') or 0) / graph.day_hours(act) > threshold
     # P6's filter 'Original Duration is greater than <limit>d' lists EVERY activity type - counted
     # per major WBS beside the Task Dependent count, so the report reconciles with that filter
-    p6 = {r['wbs']: r for r in graph.p6_wbs_rows(p6_over=lambda _o, a: over_limit(a))}
+    p6 = {r['wbs']: r for r in graph.p6_wbs_rows(key=key_of, p6_over=lambda _o, a: over_limit(a))}
+    constr = {key_of(oid) for oid in graph.activities if graph.is_construction(oid)}
 
-    per = {}                    # branch -> [task activities, over the limit]
+    per = {}                    # WBS -> [activities, over the limit, of which Task Dependent]
     findings = []
     max_days = 0.0
     for oid, act in real:
-        branch = key(graph.wbs_path(oid))
-        row = per.setdefault(branch, [0, 0])
+        branch = key_of(oid)
+        row = per.setdefault(branch, [0, 0, 0])
         row[0] += 1
         duration_days = (act.get('planned_duration') or 0) / graph.day_hours(act)
         if duration_days > max_days:
@@ -60,6 +58,7 @@ def run_high_duration(graph, config):
         if duration_days <= threshold:
             continue
         row[1] += 1
+        row[2] += 1 if act.get('task_type') == 'Task' else 0
         severity = bump_severity('Medium') if act.get('is_critical') else 'Medium'
         findings.append({
             'finding_id':     content_id('HIGHDUR', act['id'], 'long'),
@@ -67,6 +66,7 @@ def run_high_duration(graph, config):
             'activity_name':  act.get('name', ''),
             'wbs_path':       graph.wbs_path(oid),
             'wbs_branch':     branch,
+            'activity_type':  _TYPE_NAMES.get(act.get('task_type'), act.get('task_type') or ''),
             'duration_days':  round(duration_days, 1),
             'severity':       severity,
             'recommendation': RECOMMENDATION,
@@ -80,14 +80,11 @@ def run_high_duration(graph, config):
     span_over = sum(1 for oid, act in graph.activities.items() if graph.is_span_activity(oid)
                     and (act.get('planned_duration') or 0) / graph.day_hours(act) > threshold)
 
-    for b in p6:                # a WBS with no Task Dependent activity still has its P6 row
-        per.setdefault(b, [0, 0])
-    constr = _construction_branches(set(per))
-    wbs = [{'wbs': b, 'activities': n, 'over': o,
+    wbs = [{'wbs': b, 'activities': n, 'over': o, 'task_over': t,
             'pct': round(100.0 * o / n, 1) if n else 0.0, 'is_construction': b in constr,
-            'p6_activities': (p6.get(b) or {}).get('activities', n),     # every type, as P6 counts
-            'p6_over': (p6.get(b) or {}).get('p6_over', o)}              # P6's duration filter
-           for b, (n, o) in per.items()]
+            'p6_activities': (p6.get(b) or {}).get('activities', n),     # the same counts, taken by
+            'p6_over': (p6.get(b) or {}).get('p6_over', o)}              # the shared per-WBS counter
+           for b, (n, o, t) in per.items()]
     wbs.sort(key=lambda r: (not r['is_construction'], -r['p6_activities'], r['wbs']))
 
     module = {
@@ -96,8 +93,9 @@ def run_high_duration(graph, config):
         'kpis': {
             'threshold':            threshold,
             'all_activities':       len(graph.activities),  # every activity type, as P6 lists them
-            'all_task_activities':  len(real),             # Task Dependent, every WBS
-            'all_over_threshold':   len(findings),         # Task Dependent, every WBS
+            'all_task_activities':  n_task,                # Task Dependent, every WBS
+            'all_over_threshold':   len(findings),         # P6's filter, whole schedule, every type
+            'all_task_over':        sum(r[2] for r in per.values()),
             'p6_over_threshold':    sum(r['p6_over'] for r in p6.values()),   # P6's filter, every type
             'span_over_threshold':  span_over,             # LOE / WBS Summary over the limit (not counted)
             'max_duration':         round(max_days, 1) if real else 0,
@@ -151,11 +149,16 @@ def rescope(module, picked=None):
 
     k = dict(m.get('kpis') or {})
     k.update({
-        'total_activities': total,                 # task activities EVALUATED (Construction WBS)
+        'total_activities': total,                 # activities EVALUATED (the Construction WBS)
         'over_threshold':   over,
         'high_pct':         pct,
         'scope_wbs':        [n for n in names if n in evaluated],
         'scope_label':      label(evaluated),
+        # P6's own figures for the evaluated WBS: every activity under it, and what the filter
+        # 'Original Duration > limit' lists there (every activity type)
+        'scope_p6_activities': sum(r.get('p6_activities', r['activities']) for r in rows if r['wbs'] in evaluated),
+        'scope_p6_over':       sum(r.get('p6_over', r['over']) for r in rows if r['wbs'] in evaluated),
+        'scope_task_over':     sum(r.get('task_over', 0) for r in rows if r['wbs'] in evaluated),
         'scope_fallback':   not constr,            # no construction WBS named -> every WBS
         'view_wbs':         [n for n in names if n in view],
         'view_label':       label(view),
