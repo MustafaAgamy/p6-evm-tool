@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Critical Path Analyzer counts critical and near-critical as P6 does
+Critical = what P6's default Critical filter lists: In Progress and Not Started activities of every type, milestones included (they were left out), Level of Effort and WBS Summary never. Near-critical = *Total Float is within range 1d - 10d*, both ends included (was: above 0 and under 10). Each % is over the activities not completed - the same numbers as Schedule Health (MAFI: 58 critical, 35 near-critical).
+
 ### Fixed — Critical activities match P6's Critical filter in every feature
 A Level of Effort or WBS Summary activity is never Critical in P6 - it only spans other work - but the tool flagged it Critical whenever it carried zero or negative float. The rule now sits in the reader itself (XER and XML), so the Critical Activities Gantt, the WBS critical view, Update vs Update, Baseline Revision, the Critical Path Analyzer, the Narrative critical path, the chat answers and Schedule Health all count the same activities P6 lists (MAFI: 58, was 61; Alstom baseline: 372, was 380).
 

@@ -69,11 +69,12 @@ def test_critpath_two_updates(test_server, tmp_path):
     assert r['mode'] == 'two_updates'
     assert set(r['roles']) == {'current', 'previous'}
     assert r['files']['current'] == 'curr.xml' and r['files']['previous'] == 'prev.xml'
-    # current: A100 became critical, A200 critical → 2 critical, 0 near of 3
-    assert r['census']['current']['critical'] == 2
+    # current: A100 became critical, A200 critical, and the finish milestone (TF -10 wd) - P6's
+    # Critical filter lists milestones too → 3 critical, 0 near
+    assert r['census']['current']['critical'] == 3
     assert r['census']['current']['near'] == 0
-    # previous: A200 critical → 1 critical, A100 near → 1 near
-    assert r['census']['previous']['critical'] == 1
+    # previous: A200 and the finish milestone critical → 2 critical, A100 near → 1 near
+    assert r['census']['previous']['critical'] == 2
     assert r['census']['previous']['near'] == 1
     # CPLI present and < 1 (finish milestone TF -80h = -10 wd, behind)
     assert r['census']['current']['cpli'] is not None

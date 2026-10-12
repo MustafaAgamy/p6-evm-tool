@@ -15,7 +15,7 @@ no F9. Definitions (Ibrahim's rules, locked in the scope note):
 """
 from datetime import datetime
 
-NEAR_THRESHOLD = 10.0                       # working days; near-critical is 0 < TF < 10
+NEAR_THRESHOLD = 10.0                       # working days; near-critical is P6's range 1 <= TF <= 10
 _MILESTONES = ('StartMilestone', 'FinishMilestone')
 
 
@@ -125,25 +125,36 @@ def schedule_census(data, near_threshold=NEAR_THRESHOLD):
     (working days, data date → governing forecast finish), the governing finish milestone's
     total float, and the CPLI.
 
-    When the export carries per-activity float, critical = TF ≤ 0 and near = 0 < TF < 10 wd.
-    When it carries NO float (e.g. an unscheduled baseline), critical is derived from the
+    The counts are P6's own (Ibrahim, 2026-10-12): critical = what P6's default Critical filter
+    lists - In Progress and Not Started activities of every type the reader flags Critical
+    (milestones included; a Level of Effort / WBS Summary is never Critical); near-critical =
+    'Total Float is within range 1d - 10d'; each % is over the activities not completed.
+    When the file carries NO float (e.g. an unscheduled baseline), critical is derived from the
     critical/longest path so it is still counted, and near-critical is reported as unknown
     (n/a) because it can't be judged without float."""
-    # a Level of Effort / WBS Summary activity only spans other work - never Critical in P6
-    non_ms = [a for a in data.activities.values()
-              if a.get('task_type') not in _MILESTONES and a.get('task_type') not in ('LOE', 'WBSSummary')]
-    floated = [a for a in non_ms if a.get('total_float_days') is not None]
+    def _done(a):
+        st = (a.get('status') or '').replace(' ', '').lower()
+        return st == 'completed' or (st not in ('inprogress', 'notstarted') and bool(a.get('actual_finish')))
+    remaining = [a for a in data.activities.values() if not _done(a)]
+    floated = [a for a in remaining if a.get('total_float_days') is not None]
+    total = len(remaining)
 
-    if floated:
-        total = len(floated)
-        critical = sum(1 for a in floated if a['total_float_days'] <= 0)
-        near = sum(1 for a in floated if 0 < a['total_float_days'] < near_threshold)
+    if any(a.get('task_type') not in _MILESTONES for a in floated):   # the file carries activity float
+        def _crit(a):
+            if 'is_critical' in a:
+                return bool(a.get('is_critical'))
+            return a.get('task_type') not in ('LOE', 'WBSSummary') and a['total_float_days'] <= 0
+        critical = sum(1 for a in floated if _crit(a))
+        near = sum(1 for a in floated
+                   if not _crit(a) and (1 - 1e-9) <= a['total_float_days'] <= (near_threshold + 1e-9))
         source = 'float'
     else:
-        total = len(non_ms)
+        # no float in the file: the path's task activities are counted, over the task activities
+        total = sum(1 for a in remaining if a.get('task_type') not in _MILESTONES
+                    and a.get('task_type') not in ('LOE', 'WBSSummary'))
         crit_oids = _critical_from_paths(data)
         critical = sum(1 for k, a in data.activities.items()
-                       if k in crit_oids and a.get('task_type') not in _MILESTONES)
+                       if k in crit_oids and a.get('task_type') not in _MILESTONES and not _done(a))
         near = None
         source = 'path'
     pct = lambda n: (round(n / total * 100, 1) if (total and n is not None) else (None if n is None else 0.0))

@@ -682,8 +682,8 @@ function _censusHtml(report) {
   // [label, value-getter, key, unit, cumulative?]  All rows use the PLAIN difference now
   // (e.g. baseline 28% → current 62% = +34 pts). Cumulative kept only as dead capability.
   const rows = [
-    ['Critical activities <span class="cpa-dim">(TF ≤ 0)</span>', cnt('critical', 'critical_pct', true), 'critical_pct', ' pts', false],
-    ['Near-critical <span class="cpa-dim">(0 &lt; TF &lt; 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', ' pts', false],
+    ['Critical activities <span class="cpa-dim">(P6 Critical filter)</span>', cnt('critical', 'critical_pct', true), 'critical_pct', ' pts', false],
+    ['Near-critical <span class="cpa-dim">(TF 1 to 10 wd)</span>', cnt('near', 'near_pct'), 'near_pct', ' pts', false],
     ['Critical path length <span class="cpa-dim">(remaining, to expected finish)</span>', wd('path_length_wd'), 'path_length_wd', ' wd', false],
     ['Total float · finish <span class="cpa-dim">(wd)</span>', wd('total_float_wd'), 'total_float_wd', ' wd', false],
     ['CPLI', o => _fmtCpli(o.cpli), 'cpli', '', false],
