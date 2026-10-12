@@ -374,8 +374,8 @@ def _census(report):
 
     # (label, getter, delta-key, delta-unit, cumulative)  All rows = PLAIN difference now.
     rows = [
-        ('Critical activities (TF ≤ 0)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', False),
-        ('Near-critical (0 &lt; TF &lt; 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', False),
+        ('Critical activities (P6 Critical filter)', lambda o: cnt(o, 'critical', 'critical_pct', True), 'critical_pct', ' pts', False),
+        ('Near-critical (TF 1 to 10 wd)', lambda o: cnt(o, 'near', 'near_pct'), 'near_pct', ' pts', False),
         ('Critical path length (remaining, wd)', lambda o: '—' if o.get('path_length_wd') is None else f"{o['path_length_wd']} wd", 'path_length_wd', ' wd', False),
         ('Total float · finish (wd)', lambda o: '—' if o.get('total_float_wd') is None else f"{o['total_float_wd']} wd", 'total_float_wd', ' wd', False),
         ('CPLI', lambda o: _cpli(o.get('cpli')), 'cpli', '', False),
@@ -638,7 +638,7 @@ def _census_block(report):
 
     rows = [
         ['Total activities counted'] + vals(lambda o: _num_cell(o.get('total_activities'))),
-        ['Critical activities — count (total float ≤ 0)'] + vals(lambda o: _num_cell(o.get('critical'))),
+        ['Critical activities — count (P6 Critical filter)'] + vals(lambda o: _num_cell(o.get('critical'))),
         ['Critical activities — % of counted'] + vals(lambda o: _pct_cell(o.get('critical_pct'))),
         ['Near-critical — count (0 < total float < 10 wd)'] + vals(lambda o: _num_cell(o.get('near'))),
         ['Near-critical — % of counted'] + vals(lambda o: _pct_cell(o.get('near_pct'))),

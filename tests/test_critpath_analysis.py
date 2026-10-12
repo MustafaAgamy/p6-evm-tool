@@ -46,11 +46,12 @@ def test_census_counts_and_percentages():
     d = _schedule(datetime(2026, 7, 19), datetime(2027, 1, 23), datetime(2026, 12, 10),
                   gov_tf=-10.0, acts_tf=[15.0, 5.0, 0.0, -3.0])
     c = schedule_census(d)
-    assert c['total_activities'] == 4
-    assert c['critical'] == 2              # tf 0 and -3
-    assert c['near'] == 1                  # tf 5 (0 < tf < 10)
-    assert c['critical_pct'] == 50.0
-    assert c['near_pct'] == 25.0
+    # counted as P6's Critical filter does: every not-completed activity, the milestone included
+    assert c['total_activities'] == 5
+    assert c['critical'] == 3              # tf 0 and -3, and the finish milestone (tf -10)
+    assert c['near'] == 1                  # tf 5 (P6 range 1d - 10d)
+    assert c['critical_pct'] == 60.0
+    assert c['near_pct'] == 20.0
 
 
 def test_census_cpli_ties_to_formula():
@@ -110,12 +111,21 @@ def test_census_floatless_counts_only_governing_path():
     assert c['critical'] == 3                             # ONLY the governing chain, not 5
 
 
-def test_census_near_threshold_is_strict_under_10():
-    # tf exactly 10 is NOT near-critical (strictly < 10)
+def test_census_near_critical_is_p6s_range_1_to_10_days():
+    # P6 filter 'Total Float is within range 1d - 10d': both ends included, under 1 day left out
     d = _schedule(datetime(2026, 7, 19), datetime(2027, 1, 23), datetime(2026, 12, 10),
-                  gov_tf=0.0, acts_tf=[10.0, 9.99])
+                  gov_tf=0.0, acts_tf=[10.0, 9.99, 1.0, 0.5, 10.5])
     c = schedule_census(d)
-    assert c['near'] == 1                  # only 9.99
+    assert c['near'] == 3                  # 10, 9.99 and 1 - not 0.5, not 10.5
+
+
+def test_census_never_counts_level_of_effort_or_completed_work_as_critical():
+    d = _schedule(datetime(2026, 7, 19), datetime(2027, 1, 23), datetime(2026, 12, 10),
+                  gov_tf=0.0, acts_tf=[0.0, 0.0, 0.0])
+    d.activities['A1']['task_type'] = 'LOE'
+    d.activities['A2']['status'] = 'Completed'
+    c = schedule_census(d)
+    assert c['total_activities'] == 3 and c['critical'] == 2      # the milestone + A0
 
 
 # ── build_report: lanes + milestone list ─────────────────────────────────────
