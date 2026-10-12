@@ -206,6 +206,8 @@ def is_critical(a, status, tf):
         return False
     if 'is_critical' in a:
         return bool(a.get('is_critical'))
+    if a.get('task_type') in ('LOE', 'WBSSummary'):     # never Critical in P6
+        return False
     return tf is not None and tf <= 0
 
 

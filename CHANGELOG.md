@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Critical activities match P6's Critical filter in every feature
+A Level of Effort or WBS Summary activity is never Critical in P6 - it only spans other work - but the tool flagged it Critical whenever it carried zero or negative float. The rule now sits in the reader itself (XER and XML), so the Critical Activities Gantt, the WBS critical view, Update vs Update, Baseline Revision, the Critical Path Analyzer, the Narrative critical path, the chat answers and Schedule Health all count the same activities P6 lists (MAFI: 58, was 61; Alstom baseline: 372, was 380).
+
 ### Changed — Schedule Health: the P6 filters, applied exactly
 - **High Duration** = what P6 lists with *Original Duration is greater than 44d* and the WBS under Construction - every activity type P6 lists (the Task Dependent count is shown beside it). The Construction figures come first; the whole-schedule figures follow, named so.
 - **Float Analysis** = *Total Float is greater than 44d* and the WBS under Construction; the tile also shows P6's total count of construction activities (completed included).

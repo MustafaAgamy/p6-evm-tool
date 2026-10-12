@@ -136,12 +136,22 @@ def critical_path_type(raw):
     return 'longest' if ('longest' in r or 'drivpath' in r) else 'float'
 
 
-def p6_is_critical(total_float_days, day_hours, status, project, longest_path=None):
+SPAN_TASK_TYPES = ('LOE', 'WBSSummary')   # activities that only span other work
+
+
+def p6_is_critical(total_float_days, day_hours, status, project, longest_path=None, task_type=None):
     """P6's Critical flag (comment 49): a remaining activity is critical when its total float is
     less than or equal to the project's critical float limit (Schedule > Options; 0 h unless
     changed) — or, when the project defines critical as the Longest Path, when P6 flags it on the
-    longest path. A completed activity carries no float and is never critical."""
+    longest path. A completed activity carries no float and is never critical.
+
+    A Level of Effort / WBS Summary activity is never critical either: it only spans other work
+    and P6's Critical filter does not list it, whatever float it inherits (checked on Ibrahim's
+    P6, 2026-10-12: MAFI lists 58 = 54 Task Dependent + 4 milestones; its 3 zero-float Level of
+    Effort activities are not in the filter)."""
     if (status or '').replace(' ', '').lower() == 'completed':
+        return False
+    if task_type in SPAN_TASK_TYPES:
         return False
     project = project or {}
     if project.get('critical_path_type') == 'longest' and longest_path is not None:

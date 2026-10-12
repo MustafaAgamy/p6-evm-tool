@@ -13,10 +13,9 @@ def is_near_critical(total_float_days, near_days, min_days=NEAR_CRITICAL_MIN_DAY
 class ScheduleGraph:
     def __init__(self, data):
         self.activities = data.activities
-        # P6 never flags a Level of Effort / WBS Summary activity Critical: its float is only
-        # inherited from the work it spans, so P6's Critical filter does not list it (Ibrahim's
-        # P6, 2026-10-12: MAFI 58 = 54 Task Dependent + 4 milestones; its 3 zero-float Level of
-        # Effort activities are not in the filter). Copies - the parsed schedule is left as read.
+        # P6 never flags a Level of Effort / WBS Summary activity Critical. The reader's is_critical
+        # already follows that (p6_evm.calendars.p6_is_critical); kept here too so a schedule
+        # handed over with its own flags is counted the same way. Copies - the input is not edited.
         spans = {oid: dict(a, is_critical=False) for oid, a in data.activities.items()
                  if a.get('is_critical') and a.get('task_type') in ('LOE', 'WBSSummary')}
         if spans:

@@ -287,7 +287,8 @@ def _parse_xer(path):
             # P6's Longest Path flag (TASK.driving_path_flag) and its Critical flag (comment 49)
             'longest_path': (t.get('driving_path_flag') == 'Y') if t.get('driving_path_flag') else None,
             'is_critical': p6_is_critical(tf_days, day_hours, _status(t.get('status_code')), data.project,
-                                          (t.get('driving_path_flag') == 'Y') if t.get('driving_path_flag') else None),
+                                          (t.get('driving_path_flag') == 'Y') if t.get('driving_path_flag') else None,
+                                          task_type=TASK_TYPE.get(t.get('task_type'), 'Task')),
             'constraint_type': _cstr(t.get('cstr_type')),
             'constraint_date': _dt(t.get('cstr_date')),
             'secondary_constraint_type': _cstr(t.get('cstr_type2')),

@@ -164,7 +164,8 @@ def critical_path(data, path=None):
 
     # ── critical set: P6 total float ≤ 0, else the minimum-float band ──
     crit = [a for a in acts_all
-            if a.get('total_float_days') is not None and a['total_float_days'] <= 0.0001]
+            if a.get('total_float_days') is not None and a['total_float_days'] <= 0.0001
+            and a.get('task_type') not in ('LOE', 'WBSSummary')]      # never Critical in P6
     crit_basis, min_float = 'tf<=0', None
     if not crit:
         floated = [a for a in acts_all if a.get('total_float_days') is not None]

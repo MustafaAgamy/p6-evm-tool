@@ -2,8 +2,9 @@
 
 P6's Activities window and its Critical / float filters count EVERY activity type (tasks,
 milestones, Level of Effort, WBS summaries); the tool counted task-dependent activities only, so
-Alstom UP-006 showed 483 critical where P6 shows 497 (483 tasks + 8 finish milestones + 6 LOE),
-2,450 activities where P6 has 2,502. Ibrahim's rule: counts as P6; every % over the activities
+Alstom UP-006 showed 483 critical; P6 also counts its 8 finish milestones (491) - but NOT its 6
+Level of Effort activities, which P6 never flags Critical (Ibrahim's P6, 2026-10-12) - and lists
+2,502 activities where the tool had 2,450. Ibrahim's rule: counts as P6; every % over the activities
 not completed (Not Started + In Progress) — all activities when nothing is completed.
 """
 from p6_evm.calendars import p6_is_critical, critical_path_type
@@ -21,6 +22,17 @@ def test_p6_critical_follows_the_files_float_limit():
     assert p6_is_critical(0.0, 8, 'Not Started', proj)
     assert not p6_is_critical(0.5, 8, 'Not Started', proj)          # 4 h of float > 0 h limit
     assert p6_is_critical(0.5, 8, 'Not Started', dict(proj, critical_float_limit_hours=8.0))
+
+
+def test_level_of_effort_and_wbs_summary_are_never_critical():
+    # Ibrahim's P6 (2026-10-12): MAFI's Critical filter lists 58 - its 3 zero-float LOE are not in it
+    proj = {'critical_path_type': 'float', 'critical_float_limit_hours': 0.0}
+    assert p6_is_critical(0.0, 8, 'In Progress', proj, task_type='Task')
+    assert p6_is_critical(0.0, 8, 'Not Started', proj, task_type='FinishMilestone')
+    assert not p6_is_critical(0.0, 8, 'In Progress', proj, task_type='LOE')
+    assert not p6_is_critical(-5.0, 8, 'Not Started', proj, task_type='WBSSummary')
+    longest = {'critical_path_type': 'longest'}
+    assert not p6_is_critical(0.0, 8, 'Not Started', longest, longest_path=True, task_type='LOE')
 
 
 def test_p6_critical_longest_path_and_completed():

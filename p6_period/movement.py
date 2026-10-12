@@ -69,7 +69,8 @@ def _is_critical(act, data):
     from p6_evm.calendars import p6_is_critical
     cals = getattr(data, 'calendars', {}) or {}
     return p6_is_critical(act.get('total_float_days'), _day_hours(cals, act), act.get('status'),
-                          getattr(data, 'project', {}) or {}, act.get('longest_path'))
+                          getattr(data, 'project', {}) or {}, act.get('longest_path'),
+                          task_type=act.get('task_type'))
 
 
 def critical_movement(matched, logic_changed_codes=frozenset(), include=None):
