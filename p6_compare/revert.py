@@ -222,6 +222,19 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
         if pc and sc:
             rels_by_codes.setdefault((pc, sc), []).append(r)
 
+    # A new <Relationship> goes right after the last existing one. P6 reads a project's elements in
+    # the schema's order (... Activity, ResourceAssignment, Relationship, ScheduleOptions): one
+    # appended after <ScheduleOptions> is skipped on import, so an added tie never reached P6
+    # (comment 88 follow-up: a replaced predecessor was removed but its replacement missing).
+    def add_rel_el(el):
+        kids = list(project)
+        rel_tag = tag('Relationship')
+        last = max((i for i, c in enumerate(kids) if c.tag == rel_tag), default=None)
+        if last is None:
+            nxt = tag('ScheduleOptions')
+            last = next((i - 1 for i, c in enumerate(kids) if c.tag == nxt), len(kids) - 1)
+        project.insert(last + 1, el)
+
     applied = 0
     for op in ops:
         kind = op.get('kind')
@@ -257,7 +270,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
                 set_child(new, 'ObjectId', str(max_rel_oid))
                 set_child(new, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
                 set_child(new, 'Lag', _fmt_hours(h))
-                project.append(new)
+                add_rel_el(new)
                 keep.append(new)
             rels_by_codes[pair] = keep
             applied += 1
@@ -286,7 +299,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
                     set_child(el, 'ObjectId', str(max_rel_oid))
                 set_child(el, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
                 set_child(el, 'Lag', _fmt_hours(h))
-                project.append(el)
+                add_rel_el(el)
                 rels_by_codes.setdefault(pair, []).append(el)
             applied += 1
 

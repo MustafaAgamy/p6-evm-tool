@@ -181,3 +181,78 @@ def test_schedule_log_reader(tmp_path):
     assert got['no_successor'] == (2, ['A-1010', 'A-5713'])
     assert got['out_of_sequence'] == (1, ['A-3311'])
     assert got['critical'] == (2, ['A-11030', 'A-11040'])
+
+
+# ── follow-up round (12-Oct): XML adds, exports follow the screen, changed ties highlighted ──
+def test_an_added_relationship_is_written_where_p6_reads_it(tmp_path):
+    """P6 reads a project's elements in the schema's order; a <Relationship> appended after
+    <ScheduleOptions> was skipped on import, so a replaced predecessor reached P6 without its
+    replacement. New ties now sit right after the last relationship."""
+    import xml.etree.ElementTree as ET
+    from p6_compare.revert import write_corrected_xml
+    ns = 'http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects'
+    src = tmp_path / 'u.xml'
+    src.write_text(
+        f'<?xml version="1.0"?><APIBusinessObjects xmlns="{ns}"><Project><ObjectId>1</ObjectId>'
+        '<Activity><Id>A</Id><ObjectId>11</ObjectId></Activity><Activity><Id>B</Id><ObjectId>12</ObjectId></Activity>'
+        '<Activity><Id>C</Id><ObjectId>13</ObjectId></Activity>'
+        '<Relationship><Lag>0</Lag><ObjectId>100</ObjectId><PredecessorActivityObjectId>11</PredecessorActivityObjectId>'
+        '<PredecessorProjectObjectId>1</PredecessorProjectObjectId><SuccessorActivityObjectId>12</SuccessorActivityObjectId>'
+        '<SuccessorProjectObjectId>1</SuccessorProjectObjectId><Type>Finish to Start</Type></Relationship>'
+        '<ScheduleOptions><ObjectId>5</ObjectId></ScheduleOptions></Project></APIBusinessObjects>', encoding='utf-8')
+    out = tmp_path / 'c.xml'
+    write_corrected_xml(str(src), [{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                                   {'kind': 'add_rel', 'pred_code': 'C', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0}], str(out))
+    proj = ET.parse(out).getroot().find(f'{{{ns}}}Project')
+    tags = [c.tag.split('}')[1] for c in proj]
+    assert tags[-2:] == ['Relationship', 'ScheduleOptions']
+    rel = proj.find(f'{{{ns}}}Relationship')
+    assert rel.find(f'{{{ns}}}PredecessorActivityObjectId').text == '13'
+    assert rel.find(f'{{{ns}}}SuccessorActivityObjectId').text == '12'
+
+
+def test_every_changed_tie_is_listed_for_both_activities():
+    d = _many_ties()
+    out = R.revalidate(d, CONFIG, _ops(_oos(d)['findings']))
+    ch = out['changes']
+    assert sorted(c['other'] for c in ch['x'] if c['side'] == 'pred') == ['p0', 'p1', 'p2', 'p3']
+    assert all(c['before'] == 'FS' and c['after'].startswith('FF') for c in ch['x'])
+    assert [c['side'] for c in ch['p0']] == ['succ']                 # the predecessor sees it too
+    assert sum(1 for c in ch['x'] if c['auto'] == 'tie') == 3
+
+
+def test_the_report_and_workbook_print_the_check_as_on_screen():
+    """The default for every feature: after fixes, the PDF and Excel print the screen."""
+    import server
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import excel_columns
+    d = _many_ties()
+    stored = _oos(d)
+    out = R.revalidate(d, CONFIG, _ops(stored['findings']))
+    live = dict(out['module'], applied=1,
+                findings=[dict(f, status='Resolved', changes=out['changes'].get(f['activity_id'], []))
+                          for f in stored['findings']])
+    m = server.Handler._live_as_on_screen(dict(stored, module='out_of_sequence'), {'live_module': live})
+    assert m['kpis']['oos_count'] == 0 and m['score'] == out['module']['score']
+    assert 'After 1 applied correction' in m['presentation']['verdict']
+    assert '0% of activities progressed out of logical sequence. After 1 applied correction' in render_module_report(m, {'project_name': 'x'})
+    html = render_module_report(m, {'project_name': 'x'})
+    assert '<th rowspan="2">Status</th>' in html and 'Resolved' in html
+    assert html.count('p0</span> FS → <b>FF') == 1 and 'p3</span> FS → <b>FF' in html
+    headers, rows = excel_columns(m)
+    assert headers[-1] == 'Status' and rows[0][-1] == 'Resolved'
+    runs = rows[0][headers.index('After Predecessor Tie')].runs
+    assert len(runs) == 4 and all(r['b'] and r['color'] == 'FF92400E' for r in runs)
+    # nothing applied: the stored check prints unchanged
+    assert server.Handler._live_as_on_screen(stored, {}) is stored
+    js, api = _read('ui/modules/audit.js'), _read('ui/modules/api.js')
+    assert 'export const LIVE_EXPORTS = { out_of_sequence: oosLiveModule }' in js
+    assert api.count('LIVE_EXPORTS[') >= 3 and 'live_module = live' in api
+
+
+def test_apply_all_sits_above_the_table_and_changed_ties_are_highlighted():
+    js = _read('ui/modules/audit.js')
+    tbl = js[js.index('function _oosLogTable('):]
+    assert tbl.index('${applyAllBar}') < tbl.index('<table class="audit-table oos-logx">')
+    assert "_oosChangedCell(f, 'pred')" in js and "_oosChangedCell(f, 'succ')" in js
+    assert '.oos-relrow.oos-chg' in _read('ui/style.css')

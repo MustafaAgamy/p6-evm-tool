@@ -733,12 +733,22 @@ function _oosLogRow(f, i, dd, resolved) {
       <td class="bl rellist">${_oosRelListCell(predList, 'No predecessor')}</td>
       <td class="bl rellist">${_oosRelListCell(succList, 'No successor')}</td>
       <td class="dd mono mut">${dd}</td>
-      <td class="am rel">${_oosAfterCell(f.pred_after_label)}${remainNote}</td>
-      <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
+      <td class="am rel">${_oosChangedCell(f, 'pred') || (_oosAfterCell(f.pred_after_label) + remainNote)}</td>
+      <td class="am rel">${_oosChangedCell(f, 'succ') || _oosAfterCell(f.succ_after_label)}</td>
       <td class="sev">${_oosSevCell(f)}</td>
       <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
     <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_oosDrawer(f)}</td></tr>`;
+}
+
+// After the corrections were applied: EVERY tie of the activity they changed on that side, each
+// highlighted with the related activity - the driving one and any further tie corrected with it.
+function _oosChangedCell(f, side) {
+  const ch = ((_oos.changes || {})[f.activity_id] || []).filter(c => c.side === side);
+  if (!ch.length || !_oos.applied || !Object.keys(_oos.applied).length) return '';
+  return ch.map(c => `<div class="oos-relrow aff oos-chg"><span class="mono relid">${escapeHtml(c.other || '')}</span> `
+    + `<span class="oos-relb">${escapeHtml(c.before ? c.before + ' → ' : '')}<b>${escapeHtml(c.after || '')}</b></span>`
+    + `${c.auto === 'close' ? ' <span class="oos-affbadge">keeps it connected</span>' : ''}</div>`).join('');
 }
 
 // A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.
@@ -759,18 +769,19 @@ function _oosLogTable(rows, dd, resolved) {
       : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
   }
   const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
-  // "Apply all" sits BELOW the table (the planner reviews the results first, then applies) — shown
-  // only in the Open view and only when at least one open finding has a recommended fix to apply.
+  // "Apply all" sits ABOVE the table (Ibrahim, comment 88 follow-up) — shown only in the Open view
+  // and only when at least one open finding has a recommended fix to apply.
   const applyAllBar = (!resolved && rows.some(oosHasFix)) ? `
     <div class="oos-applyall">
       <button class="oos-applyall-btn" data-oosact="applyall">⚡ Apply all recommended fixes</button>
-      <span class="oos-applyall-hint">Review the results above, then apply every finding that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+      <span class="oos-applyall-hint">Applies every finding below that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
     </div>` : '';
   return `
     <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
       <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
       <span class="oos-sevb high">High</span> near-critical (total float 1 to ${_oos.near} working days)
       <span class="oos-sevb med">Medium</span> has float — not near-critical</div>
+    ${applyAllBar}
     <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
       <caption class="oos-cap">Out Of Sequence Activity</caption>
       <thead>
@@ -787,7 +798,6 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    ${applyAllBar}
     <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
 }
 
@@ -863,12 +873,28 @@ async function _oosValidate() {
   return resp.json();
 }
 
+// The check AS ON SCREEN for the report and the workbook (comment 88 follow-up - the default for every
+// feature): the corrected figures and every finding with its status and the ties changed. null when
+// nothing is applied (the exports then print the file as imported).
+export function oosLiveModule() {
+  const m = state.currentModules && state.currentModules.modules && state.currentModules.modules.out_of_sequence;
+  const n = Object.keys(_oos.applied || {}).length;
+  if (!m || !n || !_oos.live || _oosSig(m) !== _oos.sig) return null;
+  const open = new Set((_oos.fresh || []).map(f => f.activity_id));
+  const findings = (_oos.all || []).map(f => Object.assign({}, f, {
+    status: open.has(f.activity_id) ? 'Open' : 'Resolved',
+    changes: (_oos.changes || {})[f.activity_id] || [],
+  }));
+  return Object.assign({}, _oos.live, { findings, applied: n });
+}
+
 // After a re-validation: keep the corrected check and redraw the whole page from it (the dashboard
 // included), then say what Apply did beyond the ties shown.
 function _oosTakeValidated(out) {
   _oos.fresh = out.findings || [];
   _oos.live = out.module || null;
   _oos.auto = out.auto || null;
+  _oos.changes = out.changes || {};
   const m = ((state.currentModules || {}).modules || {}).out_of_sequence;
   if (m && document.getElementById('oos-body')) renderOutOfSequence(m); else renderOosReview();
 }
@@ -2205,6 +2231,8 @@ function renderWholeDay(m) {
 // that can change its figures registers its "figures as on screen" function here once; the Summary
 // score, the Executive Dashboard and the roll-up read every entry.
 export const LIVE_SUBFEATURES = { dangling: dngLiveModule, whole_day: wdLiveModule };
+// Every check whose screen can differ from the file as imported: its exports print the screen.
+export const LIVE_EXPORTS = { out_of_sequence: oosLiveModule };
 function _liveModules(am) {
   const mods = Object.assign({}, am.modules);
   Object.keys(LIVE_SUBFEATURES).map(k => [k, LIVE_SUBFEATURES[k]()]).forEach(([k, live]) => {

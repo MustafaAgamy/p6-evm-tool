@@ -178,6 +178,48 @@ def _closing_ops(data, acc):
     return out
 
 
+def _rel_text(t, lag):
+    lag = round(float(lag or 0), 1)
+    lag = int(lag) if float(lag).is_integer() else lag
+    return f"{t}({lag})" if lag else t
+
+
+def changed_ties(data, full):
+    """{activity code: [every relationship tie of that activity the corrections changed]} - both
+    ends of each tie (comment 88 follow-up: highlight the relationship changed after the fix, on the
+    predecessor or the successor side). Each entry: side ('pred' = a predecessor tie of the
+    activity, 'succ' = a successor tie), other (the related activity's ID), before, after, auto."""
+    code = _oid_to_code(data)
+    base = {}
+    for r in data.relationships:
+        base.setdefault((code.get(r['pred_id']), code.get(r['succ_id'])), (r.get('type', 'FS'), r.get('lag_days', 0.0)))
+    out = {}
+    for raw in full:
+        o = _norm_op(raw)
+        act, pc, sc = o['action'], o['pred_id'], o['succ_id']
+        if act not in ('change', 'remove', 'replace', 'add') or not sc:
+            continue
+        cur = base.get((pc, sc))
+        before = _rel_text(*cur) if cur else ''
+        if act == 'change':
+            after = _rel_text(o['new_type'] or (cur or ('FS', 0))[0],
+                              o['new_lag_days'] if o['new_lag_days'] is not None else (cur or ('FS', 0))[1])
+            ties = [(pc, sc, before, after)]
+        elif act == 'remove':
+            ties = [(pc, sc, before, 'Removed')]
+        elif act == 'add':
+            ties = [(pc, sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0))]
+        else:   # replace = the offending tie removed + a new predecessor
+            ties = [(pc, sc, before, 'Removed')]
+            if o['new_pred_id']:
+                ties.append((o['new_pred_id'], sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0)))
+        for p, s, b, a in ties:
+            auto = raw.get('auto') or ''
+            out.setdefault(s, []).append({'side': 'pred', 'other': p, 'before': b, 'after': a, 'auto': auto})
+            out.setdefault(p, []).append({'side': 'succ', 'other': s, 'before': b, 'after': a, 'auto': auto})
+    return out
+
+
 def revalidate(data, config, accepted):
     """Apply the accepted corrections to a graph copy, re-run the detection engine, and
     report which accepted findings are now genuinely resolved. Returns the fresh (post-
@@ -210,6 +252,8 @@ def revalidate(data, config, accepted):
         # the whole check as it stands after the corrections (comment 89): the Executive Dashboard,
         # the distribution by WBS and the impact assessment are redrawn from it at once
         'module': {k: fresh.get(k) for k in ('score', 'grade', 'pct', 'kpis', 'wbs_summary')},
+        # every tie the corrections changed, per activity - highlighted on screen, in the report and Excel
+        'changes': changed_ties(data, full),
         # what Apply did beyond the ties shown: further out-of-sequence ties of the same
         # activities, and ties added so no activity is left without a predecessor / successor
         'auto': {'ties': sum(1 for o in full if o.get('auto') == 'tie'),
