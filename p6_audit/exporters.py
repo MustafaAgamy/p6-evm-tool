@@ -100,7 +100,8 @@ def excel_columns(module_result):
             if not ch:
                 return None
             return RichText([{'t': ('\n' if k else '') + f"{c.get('other', '')}  "
-                                   + (f"{c.get('before')} → " if c.get('before') else '') + f"{c.get('after', '')}",
+                                   + (f"{c.get('before')} → " if c.get('before') else '') + f"{c.get('after', '')}"
+                                   + (f"  —  {c.get('other_name')}" if c.get('other_name') else ''),
                               'b': True, 'color': 'FF92400E'} for k, c in enumerate(ch)])
 
         def _after_pred(f):
@@ -111,7 +112,7 @@ def excel_columns(module_result):
                 return ch
             fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
             if len(fx) > 1:     # several driving ties: each with its correction
-                return '\n'.join(f"{x.get('pred_id', '')}  {x.get('after')}" for x in fx)
+                return '\n'.join(f"{x.get('pred_id', '')}  {x.get('after')}  —  {x.get('pred_name', '')}" for x in fx)
             lbl = f.get('pred_after_label', '')
             if (f.get('pred_resolution') or {}).get('action') == 'remove' \
                     and f.get('remaining_preds') is not None:

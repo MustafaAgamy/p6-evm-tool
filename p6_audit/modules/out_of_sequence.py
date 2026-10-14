@@ -666,7 +666,7 @@ def run_out_of_sequence(graph, config):
             r2 = pred_res if o2 == pred_oid else _recommend_correction(
                 graph, t2, l2, act, p2, remaining_preds=_count_other_preds(graph, oid, o2),
                 is_complete=act_complete, commencement=commencement)
-            pred_fixes.append({'pred_id': p2.get('id', ''), 'before': _rel_num(t2, l2),
+            pred_fixes.append({'pred_id': p2.get('id', ''), 'pred_name': p2.get('name', ''), 'before': _rel_num(t2, l2),
                                'after': _after_display(t2, l2, r2), 'action': r2.get('action'),
                                'new_type': r2.get('new_type'), 'new_lag_days': r2.get('new_lag_days'),
                                'new_pred_id': r2.get('new_pred_id') if r2.get('action') == 'replace' else ''})

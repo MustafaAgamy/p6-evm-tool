@@ -356,13 +356,15 @@ def _oos_review_log(m):
         ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
         fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
         if not ch and side == 'pred' and len(fx) > 1:     # several driving ties: each with its correction
-            return ''.join(f'<div><span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}</div>' for x in fx)
+            return ''.join(f'<div><span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}'
+                           f'<br><span class="mut">{_esc(x.get("pred_name"))}</span></div>' for x in fx)
         if not ch:
             return _esc(f.get(f'{side}_after_label'))
         return ''.join('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;margin-bottom:2px;'
                        '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
                        f'<span class="mono">{_esc(c.get("other"))}</span> '
-                       f'{_esc((c.get("before") + " → ") if c.get("before") else "")}<b>{_esc(c.get("after"))}</b></div>'
+                       f'{_esc((c.get("before") + " → ") if c.get("before") else "")}<b>{_esc(c.get("after"))}</b>'
+                       f'<br>{_esc(c.get("other_name") or "")}</div>'
                        for c in ch)
 
     has_status = any(f.get('status') for f in findings)

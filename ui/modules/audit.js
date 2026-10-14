@@ -746,7 +746,7 @@ function _oosFixesCell(f) {
   const fx = (f.pred_fixes || []).filter(x => x.after && x.after !== 'No change');
   if (fx.length < 2) return '';
   return fx.map(x => `<div class="oos-relrow aff"><span class="mono relid">${escapeHtml(x.pred_id || '')}</span> `
-    + `<span class="oos-relb">${escapeHtml(x.after)}</span></div>`).join('');
+    + `<span class="oos-relb">${escapeHtml(x.after)}</span><div class="nm">${escapeHtml(x.pred_name || '')}</div></div>`).join('');
 }
 
 // After the corrections were applied: EVERY tie of the activity they changed on that side, each
@@ -756,7 +756,8 @@ function _oosChangedCell(f, side) {
   if (!ch.length || !_oos.applied || !Object.keys(_oos.applied).length) return '';
   return ch.map(c => `<div class="oos-relrow aff oos-chg"><span class="mono relid">${escapeHtml(c.other || '')}</span> `
     + `<span class="oos-relb">${escapeHtml(c.before ? c.before + ' → ' : '')}<b>${escapeHtml(c.after || '')}</b></span>`
-    + `${c.auto === 'close' ? ' <span class="oos-affbadge">keeps it connected</span>' : ''}</div>`).join('');
+    + `${c.auto === 'close' ? ' <span class="oos-affbadge">keeps it connected</span>' : ''}`
+    + `<div class="nm">${escapeHtml(c.other_name || '')}</div></div>`).join('');
 }
 
 // A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.

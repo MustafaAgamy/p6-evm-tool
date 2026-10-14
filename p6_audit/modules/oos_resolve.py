@@ -204,6 +204,7 @@ def changed_ties(data, full):
     predecessor or the successor side). Each entry: side ('pred' = a predecessor tie of the
     activity, 'succ' = a successor tie), other (the related activity's ID), before, after, auto."""
     code = _oid_to_code(data)
+    name = {a.get('id') or '': a.get('name') or '' for a in data.activities.values()}
     base = {}
     for r in data.relationships:
         base.setdefault((code.get(r['pred_id']), code.get(r['succ_id'])), (r.get('type', 'FS'), r.get('lag_days', 0.0)))
@@ -229,8 +230,10 @@ def changed_ties(data, full):
                 ties.append((o['new_pred_id'], sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0)))
         for p, s, b, a in ties:
             auto = raw.get('auto') or ''
-            out.setdefault(s, []).append({'side': 'pred', 'other': p, 'before': b, 'after': a, 'auto': auto})
-            out.setdefault(p, []).append({'side': 'succ', 'other': s, 'before': b, 'after': a, 'auto': auto})
+            out.setdefault(s, []).append({'side': 'pred', 'other': p, 'other_name': name.get(p, ''),
+                                          'before': b, 'after': a, 'auto': auto})
+            out.setdefault(p, []).append({'side': 'succ', 'other': s, 'other_name': name.get(s, ''),
+                                          'before': b, 'after': a, 'auto': auto})
     return out
 
 

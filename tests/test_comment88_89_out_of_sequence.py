@@ -298,6 +298,7 @@ def test_each_driving_tie_shows_the_correction_it_gets_and_apply_does_exactly_th
     assert all(f'<b>[DRIVING]</b> <b>{a}</b>' in html for a in fixes.values())
     headers, rows = excel_columns(m)
     after = rows[0][headers.index('After Predecessor Tie')]
-    assert all(f'{p}  {a}' in after for p, a in fixes.items())
+    assert all(f'{p}  {a}  —  Act {p}' in after for p, a in fixes.items())        # with the activity name
+    assert all(c['other_name'] == f"Act {c['other']}" for c in ch)
     js = _read('ui/modules/audit.js')
     assert 'oos-fixto' in js and '_oosFixesCell(f)' in js
