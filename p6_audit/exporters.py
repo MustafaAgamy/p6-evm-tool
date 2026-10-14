@@ -65,8 +65,9 @@ def excel_columns(module_result):
                                           'label': single_label, 'affected': True}] if single_id else [])
 
         def _rel_line(p):
+            fix = p.get('fix') if (p.get('affected') and p.get('fix') and p.get('fix') != 'No change') else ''
             return (f"{p.get('id','')}  {p.get('label','')}"
-                    f"{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}")
+                    f"{'  [Driving]' if p.get('affected') else ''}{('  ' + fix) if fix else ''}  —  {p.get('name','')}")
 
         def _rel_lines(items, single_id, single_name, single_label, fallback):
             # Plain multi-line text (successors): the affected tie carries a " [Driving]" tag.
@@ -108,6 +109,9 @@ def excel_columns(module_result):
             ch = _after_changes(f, 'pred')
             if ch is not None:
                 return ch
+            fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
+            if len(fx) > 1:     # several driving ties: each with its correction
+                return '\n'.join(f"{x.get('pred_id', '')}  {x.get('after')}" for x in fx)
             lbl = f.get('pred_after_label', '')
             if (f.get('pred_resolution') or {}).get('action') == 'remove' \
                     and f.get('remaining_preds') is not None:

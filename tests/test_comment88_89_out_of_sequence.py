@@ -277,3 +277,27 @@ def test_every_driving_tie_is_marked_and_every_relationship_listed():
     headers, rows = excel_columns({'module': 'out_of_sequence', 'kpis': {}, 'findings': [f]})
     bold = [r['t'].strip() for r in rows[0][headers.index('Baseline Predecessors')].runs if r['b']]
     assert len(bold) == 3 and all('[Driving]' in t for t in bold)
+
+
+def test_each_driving_tie_shows_the_correction_it_gets_and_apply_does_exactly_that():
+    """15-Oct: with several driving ties the table must say WHICH relationship changes and how -
+    on the tie itself, in the After column, in the PDF and in Excel - and Apply does exactly that."""
+    d = _many_ties()
+    f = _oos(d)['findings'][0]
+    fixes = {x['pred_id']: x['after'] for x in f['pred_fixes']}
+    assert set(fixes) == {'p0', 'p1', 'p2', 'p3'} and all(a.startswith('FS → ') for a in fixes.values())
+    assert {p['id']: p.get('fix') for p in f['all_predecessors'] if p['affected']} == fixes
+    assert 'fix' not in next(p for p in f['all_predecessors'] if p['id'] == 'done')
+    ch = R.revalidate(d, CONFIG, _ops([f]))['changes']['x']
+    assert {c['other'] for c in ch if c['side'] == 'pred'} == set(fixes)
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import excel_columns
+    m = {'module': 'out_of_sequence', 'name': 'Out of Sequence', 'kpis': {'data_date': ''}, 'findings': [f],
+         'score': 90, 'grade': 'Review', 'pct': 1.0, 'wbs_summary': []}
+    html = render_module_report(m, {'project_name': 'x'})
+    assert all(f'<b>[DRIVING]</b> <b>{a}</b>' in html for a in fixes.values())
+    headers, rows = excel_columns(m)
+    after = rows[0][headers.index('After Predecessor Tie')]
+    assert all(f'{p}  {a}' in after for p, a in fixes.items())
+    js = _read('ui/modules/audit.js')
+    assert 'oos-fixto' in js and '_oosFixesCell(f)' in js

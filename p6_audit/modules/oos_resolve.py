@@ -132,6 +132,20 @@ def complete_ops(data, config, accepted):
     seen |= {(o['new_pred_id'], o['succ_id']) for o in norm if o['new_pred_id']}
     if not targets:
         return acc
+    # 1) the corrections the table SHOWS for every driving tie of an accepted activity
+    first = run_out_of_sequence(ScheduleGraph(_shim(data, apply_ops_to_relationships(data, acc))), config)
+    for f in first['findings']:
+        if f.get('activity_id') not in targets:
+            continue
+        for x in f.get('pred_fixes') or []:
+            pair = (x.get('pred_id') or '', f['activity_id'])
+            if x.get('action') not in _FIX_ACTIONS or pair in seen:
+                continue
+            seen.add(pair)
+            acc.append({'finding_id': '', 'pred_id': pair[0], 'succ_id': pair[1], 'action': x['action'],
+                        'new_type': x.get('new_type'), 'new_lag_days': x.get('new_lag_days'),
+                        'new_pred_id': x.get('new_pred_id') or '', 'auto': 'tie'})
+    # 2) anything still out of sequence after them (a tie that only shows once another changed)
     for _round in range(_MAX_ROUNDS):
         fresh = run_out_of_sequence(ScheduleGraph(_shim(data, apply_ops_to_relationships(data, acc))), config)
         new = []

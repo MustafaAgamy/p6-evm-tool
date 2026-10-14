@@ -336,7 +336,8 @@ def _oos_review_log(m):
                            '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
                            f'<span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))} '
                            '<b>[DRIVING]</b>'
-                           f'<br>{_esc(p.get("name"))}</div>')
+                           + (f' <b>{_esc(p.get("fix"))}</b>' if p.get('fix') and p.get('fix') != 'No change' else '')
+                           + f'<br>{_esc(p.get("name"))}</div>')
             else:
                 out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}'
                            f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
@@ -353,6 +354,9 @@ def _oos_review_log(m):
         # After the corrections were applied (comment 88): EVERY changed tie of that side, each
         # highlighted with its related activity; before them: the recommended correction.
         ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
+        fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
+        if not ch and side == 'pred' and len(fx) > 1:     # several driving ties: each with its correction
+            return ''.join(f'<div><span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}</div>' for x in fx)
         if not ch:
             return _esc(f.get(f'{side}_after_label'))
         return ''.join('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;margin-bottom:2px;'

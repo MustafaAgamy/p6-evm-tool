@@ -4590,3 +4590,4 @@ tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: 
 
 /* Out of Sequence - a tie changed by the applied corrections (audit.js _oosChangedCell) */
 .oos-relrow.oos-chg { background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 3px solid var(--warning); border-radius: 4px; padding: 2px 5px; margin-bottom: 2px; }
+.oos-fixto { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-weight: 700; font-size: 11px; color: var(--text); background: color-mix(in srgb, var(--warning) 28%, transparent); }

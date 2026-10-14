@@ -733,12 +733,20 @@ function _oosLogRow(f, i, dd, resolved) {
       <td class="bl rellist">${_oosRelListCell(predList, 'No predecessor')}</td>
       <td class="bl rellist">${_oosRelListCell(succList, 'No successor')}</td>
       <td class="dd mono mut">${dd}</td>
-      <td class="am rel">${_oosChangedCell(f, 'pred') || (_oosAfterCell(f.pred_after_label) + remainNote)}</td>
+      <td class="am rel">${_oosChangedCell(f, 'pred') || _oosFixesCell(f) || (_oosAfterCell(f.pred_after_label) + remainNote)}</td>
       <td class="am rel">${_oosChangedCell(f, 'succ') || _oosAfterCell(f.succ_after_label)}</td>
       <td class="sev">${_oosSevCell(f)}</td>
       <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
     <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_oosDrawer(f)}</td></tr>`;
+}
+
+// Before Apply: with several driving ties, the After cell names EACH one and the correction it gets.
+function _oosFixesCell(f) {
+  const fx = (f.pred_fixes || []).filter(x => x.after && x.after !== 'No change');
+  if (fx.length < 2) return '';
+  return fx.map(x => `<div class="oos-relrow aff"><span class="mono relid">${escapeHtml(x.pred_id || '')}</span> `
+    + `<span class="oos-relb">${escapeHtml(x.after)}</span></div>`).join('');
 }
 
 // After the corrections were applied: EVERY tie of the activity they changed on that side, each
@@ -756,8 +764,9 @@ function _oosRelListCell(list, emptyLabel) {
   if (!list || !list.length) return `<span class="oos-nochg">${escapeHtml(emptyLabel)}</span>`;
   return list.map(p => {
     const badge = p.affected ? `<span class="oos-affbadge">Driving</span>` : '';
+    const fix = (p.affected && p.fix && p.fix !== 'No change') ? ` <span class="oos-fixto">${escapeHtml(p.fix)}</span>` : '';
     return `<div class="oos-relrow${p.affected ? ' aff' : ''}">`
-      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}`
+      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}${fix}`
       + `<div class="nm">${escapeHtml(p.name || '')}</div></div>`;
   }).join('');
 }

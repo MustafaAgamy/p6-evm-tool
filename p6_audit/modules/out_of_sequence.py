@@ -652,9 +652,37 @@ def run_out_of_sequence(graph, config):
                                              is_complete=not _incomplete(succ_act),
                                              commencement=commencement)
 
-        # Full relationship context (Ibrahim): ALL predecessors + successors, driving one marked.
+        # EVERY driving predecessor tie with its own correction (15-Oct: with several driving ties
+        # the table must say which relationship changes, and how) - the driving tie first.
+        pred_fixes = []
+        for link in sorted(graph.preds_of(oid), key=lambda l: l.get('other') != pred_oid):
+            o2 = link.get('other')
+            if graph.is_span_activity(o2):
+                continue
+            p2 = graph.activities.get(o2)
+            t2, l2 = link.get('type', 'FS'), link.get('lag_days', 0.0) or 0.0
+            if not p2 or not _is_oos(t2, act, p2):
+                continue
+            r2 = pred_res if o2 == pred_oid else _recommend_correction(
+                graph, t2, l2, act, p2, remaining_preds=_count_other_preds(graph, oid, o2),
+                is_complete=act_complete, commencement=commencement)
+            pred_fixes.append({'pred_id': p2.get('id', ''), 'before': _rel_num(t2, l2),
+                               'after': _after_display(t2, l2, r2), 'action': r2.get('action'),
+                               'new_type': r2.get('new_type'), 'new_lag_days': r2.get('new_lag_days'),
+                               'new_pred_id': r2.get('new_pred_id') if r2.get('action') == 'replace' else ''})
+        fix_of = {x['pred_id']: x['after'] for x in pred_fixes}
+
+        # Full relationship context (Ibrahim): ALL predecessors + successors, EVERY driving one marked
+        # with the correction it gets.
         all_predecessors = _rel_list(graph, graph.preds_of(oid), _all_offending_preds(graph, oid, act) | {pred_oid})
+        for p in all_predecessors:
+            if p['affected'] and p['id'] in fix_of:
+                p['fix'] = fix_of[p['id']]
         all_successors = _rel_list(graph, graph.succs_of(oid), succ_oid if succ_res is not None else None)
+        if succ_res is not None:
+            for s_ in all_successors:
+                if s_['affected']:
+                    s_['fix'] = _after_display(succ_rel, succ_lag, succ_res)
 
         pred_baseline = _rel_num(rel_type, cur_lag)
         succ_baseline = _rel_num(succ_rel, succ_lag) if succ_id else ''
@@ -694,6 +722,7 @@ def run_out_of_sequence(graph, config):
             'resolution':                 pred_res,          # predecessor tie (the OOS cause)
             'pred_resolution':            pred_res,
             'succ_resolution':            succ_res,          # successor tie, or None (= No change)
+            'pred_fixes':                 pred_fixes,        # every driving predecessor tie + its correction
         })
 
     oos_count = len(findings)
