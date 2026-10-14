@@ -155,6 +155,19 @@ def _find_completion(graph):
     return best[2].get('id', ''), best[2].get('name', ''), best[1]
 
 
+def _all_offending_preds(graph, oid, act):
+    """Every predecessor ObjectId whose tie holds this activity out of sequence - all the driving
+    ties, not only the first (an activity can jump ahead of several unfinished predecessors)."""
+    out = set()
+    for link in graph.preds_of(oid):
+        if graph.is_span_activity(link['other']):
+            continue
+        p = graph.activities.get(link['other'])
+        if p and _is_oos(link.get('type', 'FS'), act, p):
+            out.add(link['other'])
+    return out
+
+
 def _first_offending_pred(graph, oid, act):
     """The predecessor link this activity violated (FS preferred), or None.
     Only predecessors that are still incomplete count, to match P6."""
@@ -506,22 +519,24 @@ def _first_successor(graph, oid):
     return '', '', '', 0.0, None, None
 
 
-def _rel_list(graph, links, affected_oid):
-    """All real predecessor/successor ties for an activity as {id, name, rel, lag, label, affected},
-    marking the affected (driving) one — so the planner sees the FULL relationship context, not just
-    the driving tie. De-duplicated by the related activity's ObjectId."""
+def _rel_list(graph, links, affected):
+    """All predecessor/successor ties for an activity as {id, name, rel, lag, label, affected} -
+    EVERY activity type, as P6 lists the relationships (a milestone or Level of Effort tie included,
+    so a tie a correction changes is always in the current-relationship list too) - with EVERY
+    driving tie marked (``affected`` = one ObjectId or a set of them). De-duplicated by ObjectId."""
+    hit = set(affected) if isinstance(affected, (set, frozenset, list, tuple)) else {affected}
     out, seen = [], set()
     for link in links:
         oid2 = link.get('other')
         other = graph.activities.get(oid2)
-        if not other or not graph.is_real_activity(oid2) or oid2 in seen:
+        if not other or oid2 in seen:
             continue
         seen.add(oid2)
         rel, lag = link.get('type', 'FS'), link.get('lag_days', 0.0) or 0.0
         out.append({'id': other.get('id', ''), 'name': other.get('name', ''),
                     'rel': rel, 'lag': lag, 'label': _rel_num(rel, lag),
-                    'affected': (oid2 == affected_oid)})
-    # Affected tie first, then the rest in their natural order — planner scans the change first.
+                    'affected': (oid2 in hit)})
+    # driving ties first, then the rest in their natural order - the planner scans the changes first
     out.sort(key=lambda r: (not r['affected']))
     return out
 
@@ -638,7 +653,7 @@ def run_out_of_sequence(graph, config):
                                              commencement=commencement)
 
         # Full relationship context (Ibrahim): ALL predecessors + successors, driving one marked.
-        all_predecessors = _rel_list(graph, graph.preds_of(oid), pred_oid)
+        all_predecessors = _rel_list(graph, graph.preds_of(oid), _all_offending_preds(graph, oid, act) | {pred_oid})
         all_successors = _rel_list(graph, graph.succs_of(oid), succ_oid if succ_res is not None else None)
 
         pred_baseline = _rel_num(rel_type, cur_lag)

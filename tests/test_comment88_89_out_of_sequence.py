@@ -256,3 +256,24 @@ def test_apply_all_sits_above_the_table_and_changed_ties_are_highlighted():
     assert tbl.index('${applyAllBar}') < tbl.index('<table class="audit-table oos-logx">')
     assert "_oosChangedCell(f, 'pred')" in js and "_oosChangedCell(f, 'succ')" in js
     assert '.oos-relrow.oos-chg' in _read('ui/style.css')
+
+
+def test_every_driving_tie_is_marked_and_every_relationship_listed():
+    """15-Oct: a predecessor changed by the fix was missing from the current relationships (a
+    milestone tie was left out of the list) and only the first of several driving ties was marked."""
+    acts = {'x': _act('x', actual_start=dt('2026-01-10'), status='In Progress'),
+            'p0': _act('p0'), 'p1': _act('p1'),
+            'ms': _act('ms', task_type='FinishMilestone'),                 # a milestone not reached
+            'ok': _act('ok', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-20'), status='Completed')}
+    d = _data(acts, [('p0', 'x', 'FS'), ('p1', 'x', 'FS'), ('ms', 'x', 'FS'), ('ok', 'x', 'FS')])
+    f = _oos(d)['findings'][0]
+    listed = {p['id']: p['affected'] for p in f['all_predecessors']}
+    assert listed == {'p0': True, 'p1': True, 'ms': True, 'ok': False}
+    assert [p['id'] for p in f['all_predecessors']][-1] == 'ok'               # driving ties listed first
+    ch = R.revalidate(d, CONFIG, _ops([f]))['changes']['x']
+    assert {c['other'] for c in ch if c['side'] == 'pred'} == {'p0', 'p1', 'ms'}
+    assert all(listed[c['other']] for c in ch if c['side'] == 'pred')
+    from p6_audit.exporters import excel_columns
+    headers, rows = excel_columns({'module': 'out_of_sequence', 'kpis': {}, 'findings': [f]})
+    bold = [r['t'].strip() for r in rows[0][headers.index('Baseline Predecessors')].runs if r['b']]
+    assert len(bold) == 3 and all('[Driving]' in t for t in bold)
