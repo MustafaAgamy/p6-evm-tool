@@ -288,6 +288,24 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             if els:
                 rels_by_codes[pair] = []
                 applied += 1
+        elif kind == 'repoint_rel':
+            # the existing relationship keeps its ObjectId and gets its new predecessor / successor,
+            # type and lag - an edit P6 applies on import (a brand-new element was not created)
+            els = rels_by_codes.get(pair, [])
+            np_oids = code_to_oids.get(op.get('new_pred_code'))
+            ns_oids = code_to_oids.get(op.get('new_succ_code'))
+            if not els or not np_oids or not ns_oids:
+                continue
+            el = els[0]
+            set_child(el, 'PredecessorActivityObjectId', np_oids[0])
+            set_child(el, 'SuccessorActivityObjectId', ns_oids[0])
+            set_child(el, 'Type', _REL_TYPE_XML.get(op.get('type', 'FS'), 'Finish to Start'))
+            set_child(el, 'Lag', _fmt_hours(op.get('lag_hours', 0.0)))
+            for extra in els[1:]:      # any other copy of the old tie goes
+                project.remove(extra)
+            rels_by_codes[pair] = []
+            rels_by_codes.setdefault((op.get('new_pred_code'), op.get('new_succ_code')), []).append(el)
+            applied += 1
         elif kind == 'add_rel':
             if rels_by_codes.get(pair):
                 continue     # a copy already exists — don't duplicate the restored link

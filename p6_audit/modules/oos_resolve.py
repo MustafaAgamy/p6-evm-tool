@@ -328,7 +328,36 @@ def to_file_ops(accepted, data):
             if npc:   # no new predecessor → behave as a plain remove (never re-add the same tie)
                 ops.append({'kind': 'add_rel', 'pred_code': npc, 'succ_code': sc,
                             'type': typ, 'lag_hours': lag_hours})
-    return ops
+    return _repoint(ops)
+
+
+def _repoint(ops):
+    """Turn each 'remove a tie' + 'add a tie' that share an activity into ONE 'repoint_rel': the
+    existing relationship keeps its identity in P6 and only changes its predecessor (or
+    successor), type and lag. P6 applies an edit of an existing relationship on import every time;
+    a relationship that is new to the file was not created there (15-Oct: the replacement
+    predecessor showed on screen but never reached P6). Adds with no removed partner stay adds."""
+    removes = [o for o in ops if o['kind'] == 'remove_rel']
+    used = set()
+    out = []
+    for o in ops:
+        if o['kind'] != 'add_rel':
+            continue
+        # same successor (a new predecessor), else same predecessor (a new successor)
+        partner = next((i for i, r in enumerate(removes) if i not in used and r['succ_code'] == o['succ_code']), None)
+        if partner is None:
+            partner = next((i for i, r in enumerate(removes) if i not in used and r['pred_code'] == o['pred_code']), None)
+        if partner is None:
+            out.append(o)
+            continue
+        used.add(partner)
+        r = removes[partner]
+        out.append({'kind': 'repoint_rel', 'pred_code': r['pred_code'], 'succ_code': r['succ_code'],
+                    'new_pred_code': o['pred_code'], 'new_succ_code': o['succ_code'],
+                    'type': o.get('type', 'FS'), 'lag_hours': o.get('lag_hours', 0.0)})
+    kept = [o for o in ops if o['kind'] not in ('add_rel', 'remove_rel')]
+    kept += [r for i, r in enumerate(removes) if i not in used]
+    return kept + out
 
 
 _CORRECTION_NOTE = ('Out-of-Sequence — corrected schedule. Relationship logic revised to '
@@ -408,7 +437,7 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
                 code_to_taskids.setdefault(code, []).append(tid)
 
     # Expand code-pair ops → (pred_task_id, succ_task_id) targets.
-    remove_pairs, set_pairs, add_ops = set(), {}, []
+    remove_pairs, set_pairs, add_ops, repoint = set(), {}, [], {}
     for op in ops:
         kind = op.get('kind')
         pc, sc = op.get('pred_code'), op.get('succ_code')
@@ -424,6 +453,17 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
         elif kind == 'add_rel':
             if p_ids and s_ids:
                 add_ops.append((p_ids[0], s_ids[0], op.get('type', 'FS'), op.get('lag_hours', 0.0)))
+        elif kind == 'repoint_rel':
+            np_ids = code_to_taskids.get(op.get('new_pred_code'), [])
+            ns_ids = code_to_taskids.get(op.get('new_succ_code'), [])
+            if np_ids and ns_ids:
+                first = True
+                for pi in p_ids:
+                    for si in s_ids:
+                        # the first copy is re-pointed, any other copy of the old tie is dropped
+                        repoint[(pi, si)] = (np_ids[0], ns_ids[0], op.get('type', 'FS'),
+                                             op.get('lag_hours', 0.0)) if first else None
+                        first = False
 
     # Pass 2 — rewrite. Track TASKPRED fields + the max row id + a template row for adds.
     tp_fields, tp_template, max_pred_id = [], None, 0
@@ -506,6 +546,19 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
             if pair in remove_pairs:
                 applied += 1
                 continue  # drop the relationship row
+            if pair in repoint:
+                target = repoint.pop(pair)
+                if target is None:
+                    continue      # a duplicate copy of the re-pointed tie
+                npi, nsi, rel_type, lag_hours = target
+                vals[i_pred_task], vals[i_task] = npi, nsi
+                if i_type >= 0 and i_type < len(vals):
+                    vals[i_type] = _XER_PRED_TYPE.get(rel_type, 'PR_FS')
+                if i_lag >= 0 and i_lag < len(vals):
+                    vals[i_lag] = _fmt_hours(lag_hours)
+                applied += 1
+                out_lines.append('%R\t' + '\t'.join(vals))
+                continue
             if pair in set_pairs:
                 rel_type, lag_hours = set_pairs[pair]
                 if i_type >= 0 and i_type < len(vals):

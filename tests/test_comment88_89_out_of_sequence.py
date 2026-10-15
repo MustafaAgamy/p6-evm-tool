@@ -139,8 +139,13 @@ def test_a_removed_tie_never_leaves_an_activity_without_predecessor_or_successor
     out = R.revalidate(d, CONFIG, accepted)
     assert out['findings'] == [] and out['auto']['closed'] == 2
     # the ops reach the corrected file through the same vocabulary
-    kinds = [o['kind'] for o in R.to_file_ops(full, d)]
-    assert kinds.count('remove_rel') == 1 and kinds.count('add_rel') == 2
+    # in the file the removed tie is RE-POINTED (it keeps its identity in P6, which applies an edit on
+    # import every time); only the second new tie has no removed tie to reuse
+    fops = R.to_file_ops(full, d)
+    assert sorted(o['kind'] for o in fops) == ['add_rel', 'repoint_rel']
+    rp = next(o for o in fops if o['kind'] == 'repoint_rel')
+    assert (rp['pred_code'], rp['succ_code']) == ('a', 'x')
+    assert {(rp['new_pred_code'], rp['new_succ_code']), next((o['pred_code'], o['succ_code']) for o in fops if o['kind'] == 'add_rel')} == {('ntp', 'x'), ('a', 'end')}
 
 
 # ── comment 89: the dashboard follows the corrections ───────────────────────────────────────
@@ -304,3 +309,43 @@ def test_each_driving_tie_shows_the_correction_it_gets_and_apply_does_exactly_th
     assert all(c['other_name'] == f"Act {c['other']}" for c in ch)
     js = _read('ui/modules/audit.js')
     assert 'oos-fixto' in js and '_oosFixesCell(f)' in js
+
+
+
+def test_a_replaced_predecessor_is_written_by_editing_the_existing_relationship(tmp_path):
+    """15-Oct: the replacement predecessor showed on screen but never reached P6. The corrected file
+    now edits the removed relationship in place (same ObjectId / task_pred_id, new predecessor) -
+    no brand-new relationship for P6 to skip."""
+    import xml.etree.ElementTree as ET
+    from p6_compare.revert import write_corrected_xml
+    ns = 'http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects'
+    src = tmp_path / 'u.xml'
+    src.write_text(
+        f'<?xml version="1.0"?><APIBusinessObjects xmlns="{ns}"><Project><ObjectId>1</ObjectId>'
+        '<Activity><Id>A</Id><ObjectId>11</ObjectId></Activity><Activity><Id>B</Id><ObjectId>12</ObjectId></Activity>'
+        '<Activity><Id>NTP</Id><ObjectId>13</ObjectId></Activity>'
+        '<Relationship><Lag>8</Lag><ObjectId>100</ObjectId><PredecessorActivityObjectId>11</PredecessorActivityObjectId>'
+        '<PredecessorProjectObjectId>1</PredecessorProjectObjectId><SuccessorActivityObjectId>12</SuccessorActivityObjectId>'
+        '<SuccessorProjectObjectId>1</SuccessorProjectObjectId><Type>Start to Start</Type></Relationship>'
+        '<ScheduleOptions><ObjectId>5</ObjectId></ScheduleOptions></Project></APIBusinessObjects>', encoding='utf-8')
+    ops = R._repoint([{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                      {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0}])
+    assert [o['kind'] for o in ops] == ['repoint_rel']
+    out = tmp_path / 'c.xml'
+    write_corrected_xml(str(src), ops, str(out))
+    rels = ET.parse(out).getroot().find(f'{{{ns}}}Project').findall(f'{{{ns}}}Relationship')
+    assert len(rels) == 1
+    r = {c.tag.split('}')[1]: c.text for c in rels[0]}
+    assert r['ObjectId'] == '100' and r['PredecessorActivityObjectId'] == '13' and r['SuccessorActivityObjectId'] == '12'
+    assert r['Type'] == 'Finish to Start' and r['Lag'] == '0'
+    # the XER writer does the same on the TASKPRED row (same task_pred_id)
+    xer = tmp_path / 'u.xer'
+    xer.write_text(
+        "ERMHDR\t19.12\n%T\tPROJECT\n%F\tproj_id\tproj_short_name\n%R\t1\tP\n"
+        "%T\tTASK\n%F\ttask_id\tproj_id\ttask_code\n%R\t11\t1\tA\n%R\t12\t1\tB\n%R\t13\t1\tNTP\n"
+        "%T\tTASKPRED\n%F\ttask_pred_id\ttask_id\tpred_task_id\tproj_id\tpred_proj_id\tpred_type\tlag_hr_cnt\n"
+        "%R\t500\t12\t11\t1\t1\tPR_SS\t8\n%E\n", encoding='utf-8')
+    outx = tmp_path / 'c.xer'
+    R.write_corrected_xer(str(xer), ops, str(outx))
+    rows = [l.split('\t') for l in outx.read_text(encoding='utf-8').splitlines() if l.startswith('%R\t500')]
+    assert len(rows) == 1 and rows[0][1:4] == ['500', '12', '13'] and rows[0][6:8] == ['PR_FS', '0']
