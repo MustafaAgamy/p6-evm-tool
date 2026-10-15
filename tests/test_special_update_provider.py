@@ -111,7 +111,7 @@ def test_scope_dimension_ready_and_renders_feature_section(temp_db, tmp_path):
     pl = it.produce(ctx)
     assert pl['kind'] == 'html'
     # scope weighting header + a recommendation from the feature's renderer
-    assert 'Weighting by' in pl['html'] and 'Civil' in pl['html']
+    assert 'Scope by' in pl['html'] and 'Civil' in pl['html']
     assert '<h2' not in pl['html']
 
 

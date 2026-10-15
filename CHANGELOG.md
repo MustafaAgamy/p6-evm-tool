@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Update Analysis redesigned (comment 90 and follow-ups)
+- **Driving Path** shows the work fronts only (the WBS each activity sits in); the summary-level choice is gone.
+- **Planned vs Actual by count** is one table per WBS: Activities, then Completed / In Progress / Not Started as *actual / planned*, a % complete bar (actual fill, planned marker) and the gap. **Actual = P6's Activity Status field**, so the counts match P6 exactly (checked on 19 XER and 7 XML files, per WBS); planned = the baseline dates at the data date. Every activity type is counted, as P6 lists them. A *Show WBS* picker shows only the WBS chosen; the report and Excel print the same rows.
+- **Scope by Cost** (was Scope Weight): "Budget" is now **Cost**; each scope shows Planned Value (Cost × planned %), Earned Value (Cost × actual %), EV − PV and SPI, with a figure strip for the whole scope. The recommendation names the scope with the **largest money behind plan**.
+
 ### Fixed — Out of Sequence matches P6's schedule log (comments 88, 89)
 - **The list is P6's list.** An activity is out of sequence only while a predecessor relationship is still not satisfied at the data date (Finish-to-Start: the predecessor has not finished; Start-to-Start: it has not started) - what the Schedule Log (F9) prints under *Out-of-sequence activities*. A predecessor that has started or finished since, even later than its successor, is no longer listed (MAFI: 1, was 59 - the same activity as P6's log).
 - **One Apply corrects the whole activity.** The table shows the driving tie; every other out-of-sequence tie of the same activity is corrected with it, so the corrected schedule shows none in P6.

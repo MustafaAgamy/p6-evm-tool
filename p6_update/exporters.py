@@ -202,67 +202,112 @@ def _driving_html(report):
 
 # ── Section 5 · Scope weight & recommendation ───────────────────────────────
 
+def _m(v):
+    """12,345,678 -> '12.3 M' (as the screen)."""
+    v = float(v or 0)
+    return f"{v / 1e6:,.1f} M" if abs(v) >= 1e6 else f"{v:,.0f}"
+
+
+def _bar(actual, planned, colour):
+    a, p = max(0.0, min(100.0, actual or 0)), max(0.0, min(100.0, planned or 0))
+    return (f'<div style="position:relative;height:11px;background:{report_theme.var("rpt-surface")};border:1px solid {report_theme.var("rpt-edge")};'
+            f'border-radius:6px;min-width:120px;-webkit-print-color-adjust:exact;print-color-adjust:exact">'
+            f'<div style="position:absolute;left:0;top:0;bottom:0;width:{a:.1f}%;background:{colour};border-radius:6px"></div>'
+            f'<div style="position:absolute;top:-3px;bottom:-3px;left:calc({p:.1f}% - 1px);width:3px;background:{report_theme.var("rpt-ink")}"></div></div>')
+
+
 def _scope_html(report, code_type=None):
+    """Section 5 - Scope by Cost (15-Oct redesign): Cost, Planned Value, Earned Value, EV - PV and
+    SPI for the scope, one row per activity-code value, the recommendation by money behind plan."""
     scope = report.get('scope', {}) or {}
     if not scope:
         return '<p class="note">No cost-loaded activity codes to weigh in this update.</p>'
     ct = code_type if code_type in scope else (report.get('scope_default') if report.get('scope_default') in scope else next(iter(scope)))
     s = scope[ct]
     rows = s.get('rows', [])
-    mx = max((r['weight_pct'] for r in rows), default=1) or 1
-    _bad = report_theme.var('rpt-bad')
-    bars = []
-    for i, r in enumerate(rows[:12]):        # match the screen's 12-row cap (was 15)
-        cls = ' top' if i == 0 else ''
-        pl_v, ac_v = r.get('planned', 0), r.get('actual', 0)
-        pv = max(0, min(100, pl_v))
-        av = max(0, min(100, ac_v))
-        # Behind-plan flag: the screen appends a red '· −<gap>' when planned > actual.
-        flag = (f' · <span style="color:{_bad}">−{pl_v - ac_v:.1f}</span>'
-                if pl_v > ac_v else '')
-        bars.append(f'<div class="wrow{cls}"><div class="wname">{_e(r["value"])}</div>'
-                    f'<div class="wtrack"><div class="wfill" style="width:{r["weight_pct"] / mx * 100:.1f}%"></div></div>'
-                    f'<div class="wpct">{r["weight_pct"]:.1f}%</div>'
-                    f'<div class="wcost">{_num(r.get("bac"))}</div>'
-                    f'<div class="wpa"><div class="wpa-t"><div class="wpa-pl" style="width:{pv:.1f}%"></div></div>'
-                    f'<div class="wpa-t"><div class="wpa-ac" style="width:{av:.1f}%"></div></div></div>'
-                    f'<div class="wpanum">P {pl_v:.1f}% · A {ac_v:.1f}%{flag}</div></div>')
-    leg = (f'<div class="bc-leg"><span><i style="background:{report_theme.var("rpt-accent")}"></i>Weight</span>'
-           f'<span><i style="background:{_PLAN}"></i>Planned</span>'
-           f'<span><i style="background:{_ACT}"></i>Actual</span></div>')
-    recs = ''.join(f'<p><span class="star">★</span> {_e(t)}</p>' for t in s.get('recommendation', []))
-    rec = (f'<div class="rec" data-part="scope.recommendation" data-part-label="Recommendation — by weight">'
-           f'<h4>◆ Recommendation — by weight</h4>{recs}</div>') if recs else ''
-    return (f'<div class="scope-h">Weighting by <b>{_e(ct)}</b> · share of the cost-loaded scope</div>'
-            + f'<div data-part="scope.bars" data-part-label="Scope weight by {_e(ct)} — bars">'
-            + ''.join(bars) + leg + '</div>' + rec)
+    good, bad, warn = report_theme.var('rpt-good'), report_theme.var('rpt-bad'), report_theme.var('rpt-warn')
+    pv = s.get('pv') if s.get('pv') is not None else sum(r.get('pv') or 0 for r in rows)
+    ev = s.get('ev') if s.get('ev') is not None else sum(r.get('ev') or 0 for r in rows)
+    d = ev - pv
+    tiles = [('Cost', _m(s.get('total'))), ('Planned Value', _m(pv)), ('Earned Value', _m(ev)),
+             ('EV − PV', f'<span style="color:{bad if d < 0 else good}">{"−" if d < 0 else "+"}{_m(abs(d))}</span>'),
+             ('SPI', f'{ev / pv:.2f}' if pv else '—')]
+    strip = ('<table class="kv5"><tr>' + ''.join(f'<td><div class="t">{t}</div><div class="v">{v}</div></td>' for t, v in tiles)
+             + '</tr></table>')
+    body = []
+    for r in rows:
+        dd = (r.get('ev') or 0) - (r.get('pv') or 0)
+        col = good if dd >= 0 else (warn if r.get('pv') and dd / r['pv'] > -0.1 else bad)
+        body.append(f'<tr><td><b>{_e(r["value"])}</b></td><td class="num">{_m(r.get("bac"))}</td>'
+                    f'<td class="num">{(r.get("weight_pct") or 0):.1f}%</td><td class="num">{_m(r.get("pv"))}</td>'
+                    f'<td class="num">{_m(r.get("ev"))}</td>'
+                    f'<td class="num" style="color:{bad if dd < 0 else good};font-weight:800">{"−" if dd < 0 else "+"}{_m(abs(dd))}</td>'
+                    f'<td>{_bar(r.get("actual"), r.get("planned"), col)}'
+                    f'<div class="note">{(r.get("actual") or 0):.1f}% earned · {(r.get("planned") or 0):.1f}% planned</div></td></tr>')
+    table = ('<table class="ctab"><thead><tr><th>Scope</th><th class="num">Cost</th><th class="num">Weight</th>'
+             '<th class="num">Planned Value</th><th class="num">Earned Value</th><th class="num">EV − PV</th>'
+             '<th>Earned vs planned</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table>')
+    note = ('<div class="note">Planned Value = Cost × planned % at the data date · Earned Value = Cost × actual % · '
+            'bar = earned %, marker = planned %</div>')
+    recs = ''.join(f'<p>{_e(t)}</p>' for t in s.get('recommendation', []))
+    rec = (f'<div class="rec" data-part="scope.recommendation" data-part-label="Recommendation">'
+           f'<h4>◆ Recommendation</h4>{recs}</div>') if recs else ''
+    return (f'<div class="scope-h">Scope by <b>{_e(ct)}</b> · cost-loaded construction scope</div>'
+            + f'<div data-part="scope.bars" data-part-label="Scope by {_e(ct)} — Cost, Planned Value, Earned Value">'
+            + strip + table + note + '</div>' + rec)
 
 
 # ── Section 4 · Planned vs Actual by activity count ─────────────────────────
 
+def _counts_rows(c):
+    """The WBS rows the screen shows (all, or the WBS the planner picked)."""
+    rows = c.get('by_wbs') or []
+    shown = c.get('wbs_shown')
+    if isinstance(shown, list) and shown:
+        keep = set(shown)
+        return [r for r in rows if r.get('wbs') in keep], rows
+    return rows, rows
+
+
 def _counts_html(report):
+    """Section 4 - Planned vs Actual by COUNT of activities, per WBS (15-Oct redesign). Actual =
+    P6 Activity Status, Planned = baseline dates at the data date - the same rows as the screen."""
     c = report.get('counts', {}) or {}
-    if not c or not c.get('total'):
-        return '<p class="note">No construction/execution activities to count in this update.</p>'
-    mx = max(c.get('total', 1), 1)
-    rows = [
-        ('Completed', c.get('planned_completed', 0), c.get('actual_completed', 0)),
-        ('In Progress', c.get('planned_in_progress', 0), c.get('actual_in_progress', 0)),
-        ('Not Started', c.get('planned_not_started', 0), c.get('actual_not_started', 0)),
-    ]
-    body = []
-    for label, pn, an in rows:
-        body.append(
-            f'<div class="cn-row"><div class="cn-lbl">{label}</div>'
-            f'<div class="cn-bars">'
-            f'<div class="cn-track"><div class="cn-pl" style="width:{pn / mx * 100:.1f}%"></div><span>Planned {pn}</span></div>'
-            f'<div class="cn-track"><div class="cn-ac" style="width:{an / mx * 100:.1f}%"></div><span>Actual {an}</span></div>'
-            f'</div></div>')
-    total = (f'<div class="cn-total">Activities: <b>{c.get("total", 0)}</b> '
-             f'(baseline dates on <b>{c.get("planned_total", 0)}</b>)</div>')
-    leg = (f'<div class="bc-leg"><span><i style="background:{_PLAN}"></i>Planned (count)</span>'
-           f'<span><i style="background:{_ACT}"></i>Actual (count)</span></div>')
-    return total + '<div class="cn">' + ''.join(body) + '</div>' + leg
+    shown, rows = _counts_rows(c)
+    if not c or not c.get('total') or not rows:
+        return '<p class="note">No activities to count in this update.</p>'
+    good, bad, warn = report_theme.var('rpt-good'), report_theme.var('rpt-bad'), report_theme.var('rpt-warn')
+
+    def line(name, n, p, a, bold=False):
+        pp = 100.0 * p[0] / n if n else 0.0
+        ap = 100.0 * a[0] / n if n else 0.0
+        g = ap - pp
+        col = good if g >= -0.05 else (warn if g > -10 else bad)
+        st = ' style="font-weight:800;border-top:2px solid #cbd5e1"' if bold else ''
+        cells = ''.join(f'<td class="num"><b>{a[i]:,}</b> <span class="note">/ {p[i]:,}</span></td>' for i in range(3))
+        return (f'<tr{st}><td>{_e(name)}</td><td class="num">{n:,}</td>{cells}'
+                f'<td>{_bar(ap, pp, col)}<div class="note">{ap:.1f}% actual · {pp:.1f}% planned</div></td>'
+                f'<td class="num" style="font-weight:800;color:{bad if g < -0.05 else (good if g > 0.05 else "inherit")}">{"+" if g > 0 else ""}{g:.1f}</td></tr>')
+
+    def total(lst):
+        return (sum(r['activities'] for r in lst), [sum(r['planned'][i] for r in lst) for i in range(3)],
+                [sum(r['actual'][i] for r in lst) for i in range(3)])
+    body = ''.join(line(r['wbs'], r['activities'], r['planned'], r['actual']) for r in shown)
+    if len(shown) != len(rows):
+        n, p, a = total(shown)
+        body += line(f'Shown WBS ({len(shown)} of {len(rows)})', n, p, a, True)
+    n, p, a = total(rows)
+    body += line('Whole schedule', n, p, a, True)
+    nb = (f' · {c["no_baseline"]:,} activities have no baseline dates (counted as planned Not Started)'
+          if c.get('no_baseline') else '')
+    return (f'<div class="note">Actual = P6 Activity Status (Completed / In Progress / Not Started) · '
+            f'Planned = baseline dates at the data date{nb}</div>'
+            '<table class="ctab"><thead><tr><th>WBS</th><th class="num">Activities</th>'
+            '<th class="num">Completed<br><span class="note">actual / planned</span></th>'
+            '<th class="num">In Progress<br><span class="note">actual / planned</span></th>'
+            '<th class="num">Not Started<br><span class="note">actual / planned</span></th>'
+            '<th>% complete by count</th><th class="num">Gap</th></tr></thead><tbody>' + body + '</tbody></table>'
+            '<div class="note">bar = actual % complete by count, marker = planned · gap = actual − planned (points)</div>')
 
 
 # ── Assembly ────────────────────────────────────────────────────────────────
@@ -359,6 +404,14 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
       .cn-pl {{ height: 100%; background: {_PLAN}; opacity: .85; }} .cn-ac {{ height: 100%; background: {_ACT}; opacity: .85; }}
       /* Scope */
       .scope-h {{ font-size: 12.5px; color: {_muted}; margin-bottom: 12px; }}
+      .ctab {{ width: 100%; border-collapse: collapse; font-size: 11.5px; margin: 6px 0; }}
+      .ctab th {{ text-align: left; font-size: 10px; color: {_muted}; text-transform: uppercase; letter-spacing: .3px; padding: 5px 6px; border-bottom: 2px solid {_edge}; }}
+      .ctab td {{ padding: 5px 6px; border-bottom: 1px solid {_edge}; vertical-align: middle; }}
+      .ctab .num {{ text-align: right; white-space: nowrap; }}
+      .ctab .note {{ font-style: normal; font-size: 10px; }}
+      .kv5 {{ width: 100%; border-collapse: separate; border-spacing: 8px 0; margin: 4px -8px 8px; }}
+      .kv5 td {{ background: {_surface}; border: 1px solid {_edge}; border-radius: 8px; padding: 6px 9px; }}
+      .kv5 .t {{ font-size: 9.5px; color: {_muted}; text-transform: uppercase; font-weight: 700; }} .kv5 .v {{ font-size: 15px; font-weight: 800; }}
       .wrow {{ display: flex; align-items: center; gap: 12px; margin-bottom: 7px; }}
       .wname {{ flex: none; width: 220px; font-size: 12px; }}
       .wtrack {{ flex: 1; height: 17px; background: {_surface}; border-radius: 4px; overflow: hidden; }}
@@ -597,19 +650,31 @@ def report_excel_sections(report):
             })
         sheets.append({'name': 'Driving Path', 'blocks': dp_blocks})
 
-    # ── Sheet 4 · Section 4 Planned vs Actual by activity count ─────────────
-    if counts and counts.get('total'):
-        note = (f'Construction / execution activities: {counts.get("total", 0)} '
-                f'(baseline dates on {counts.get("planned_total", 0)}).')
+    # ── Sheet 4 · Section 4 Planned vs Actual by activity count, per WBS ────
+    if counts and counts.get('total') and counts.get('by_wbs'):
+        shown, allrows = _counts_rows(counts)
+
+        def xrow(name, n, p, a):
+            pp = round(100.0 * p[0] / n, 1) if n else 0.0
+            ap = round(100.0 * a[0] / n, 1) if n else 0.0
+            return [name, n, a[0], p[0], a[1], p[1], a[2], p[2], _pcts(pp, 1), _pcts(ap, 1), round(ap - pp, 1)]
+        crow = [xrow(r['wbs'], r['activities'], r['planned'], r['actual']) for r in shown]
+        for label, lst in ((f'Shown WBS ({len(shown)} of {len(allrows)})', shown) if len(shown) != len(allrows) else (None, None),
+                           ('Whole schedule', allrows)):
+            if label:
+                crow.append(xrow(label, sum(r['activities'] for r in lst), [sum(r['planned'][i] for r in lst) for i in range(3)],
+                                 [sum(r['actual'][i] for r in lst) for i in range(3)]))
+        note = ('Actual = P6 Activity Status (Completed / In Progress / Not Started). Planned = baseline dates at the '
+                'data date (finish on or before it = Completed, start on or before it = In Progress).'
+                + (f' {counts["no_baseline"]} activities have no baseline dates (counted as planned Not Started).'
+                   if counts.get('no_baseline') else ''))
         sheets.append({'name': 'Activity Counts', 'blocks': [{
-            'title': '4 - Planned vs Actual - by activity count',
+            'title': '4 - Planned vs Actual - by count of activities, per WBS',
             'note': note,
-            'headers': ['Status', 'Planned (count)', 'Actual (count)'],
-            'rows': [
-                ['Completed', counts.get('planned_completed', 0), counts.get('actual_completed', 0)],
-                ['In Progress', counts.get('planned_in_progress', 0), counts.get('actual_in_progress', 0)],
-                ['Not Started', counts.get('planned_not_started', 0), counts.get('actual_not_started', 0)],
-            ],
+            'headers': ['WBS', 'Activities', 'Completed - actual', 'Completed - planned', 'In Progress - actual',
+                        'In Progress - planned', 'Not Started - actual', 'Not Started - planned',
+                        'Planned % complete (count)', 'Actual % complete (count)', 'Gap (points)'],
+            'rows': crow,
         }]})
 
     # ── Sheet 5 · Section 5 Scope Weight & Recommendation ───────────────────
@@ -618,17 +683,21 @@ def report_excel_sections(report):
     if s and s.get('rows'):
         ct = s.get('code_type', 'Scope')
         scope_blocks = [{
-            'title': f'5 - Scope Weight - by {ct}',
-            'note': "Each value's share of the cost-loaded scope (baseline budget), heaviest first.",
-            'headers': [str(ct), 'Weight (% of cost scope)', 'Budget at Completion (BAC, cost)',
-                        'Planned % (vs baseline)', 'Actual % (complete)'],
-            'rows': [[r.get('value', ''), _pcts(r.get('weight_pct'), 1), _cost(r.get('bac')),
-                      _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1)] for r in s['rows']],
+            'title': f'5 - Scope by Cost - by {ct}',
+            'note': ('Cost = baseline cost of each scope. Planned Value = Cost x planned % at the data date. '
+                     'Earned Value = Cost x actual %. SPI = Earned Value / Planned Value.'),
+            'headers': [str(ct), 'Cost', 'Weight (% of cost)', 'Planned Value', 'Earned Value', 'EV - PV', 'SPI',
+                        'Planned %', 'Actual %'],
+            'rows': [[r.get('value', ''), _cost(r.get('bac')), _pcts(r.get('weight_pct'), 1), _cost(r.get('pv')),
+                      _cost(r.get('ev')), _cost(r.get('ev_minus_pv')), r.get('spi'),
+                      _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1)] for r in s['rows']]
+                    + [['Total', _cost(s.get('total')), _pcts(100.0, 1), _cost(s.get('pv')), _cost(s.get('ev')),
+                        _cost(s.get('ev_minus_pv')), s.get('spi'), '', '']],
         }]
         recs = s.get('recommendation') or []
         if recs:
             scope_blocks.append({
-                'title': '5 - Recommendation - by weight',
+                'title': '5 - Recommendation',
                 'headers': ['Recommendation'],
                 'rows': [[t] for t in recs],
             })
@@ -641,13 +710,14 @@ def report_excel_sections(report):
         ct = (sc or {}).get('code_type') or key
         for r in (sc or {}).get('rows') or []:
             all_rows.append([str(ct), r.get('value', ''), _pcts(r.get('weight_pct'), 1), _cost(r.get('bac')),
+                             _cost(r.get('pv')), _cost(r.get('ev')), _cost(r.get('ev_minus_pv')),
                              _pcts(r.get('planned'), 1), _pcts(r.get('actual'), 1)])
     if len(scope or {}) > 1 and all_rows:
         sheets.append({'name': 'Scope Weight - All Codes', 'blocks': [{
-            'title': '5 - Scope Weight - by every activity code',
-            'note': "Each value's share of the cost-loaded scope (baseline budget), per activity code.",
-            'headers': ['Activity code', 'Code value', 'Weight (% of cost scope)',
-                        'Budget at Completion (BAC, cost)', 'Planned % (vs baseline)', 'Actual % (complete)'],
+            'title': '5 - Scope by Cost - by every activity code',
+            'note': "Each value's share of the cost-loaded scope, with its Planned Value and Earned Value, per activity code.",
+            'headers': ['Activity code', 'Code value', 'Weight (% of cost)', 'Cost', 'Planned Value', 'Earned Value',
+                        'EV - PV', 'Planned %', 'Actual %'],
             'rows': all_rows,
         }]})
 

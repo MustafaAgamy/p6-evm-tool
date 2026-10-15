@@ -122,6 +122,23 @@ function _injectStyle() {
     .ua-empty { color: var(--muted); padding: 40px; text-align: center; }
     /* Scope */
     .ua-scope-h { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+    .ua-cnt { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+    .ua-cnt th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; padding: 6px 8px; border-bottom: 2px solid var(--border); }
+    .ua-cnt td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .ua-cnt .ua-n { text-align: right; white-space: nowrap; }
+    .ua-cnt tr.ua-tot td { font-weight: 800; border-top: 2px solid var(--border); }
+    .ua-of { color: var(--muted); font-size: 11.5px; font-weight: 400; }
+    .ua-gap { font-weight: 800; } .ua-good { color: var(--success, #15803d); }
+    .ua-cbar { position: relative; height: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; min-width: 140px; }
+    .ua-cbar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+    .ua-cbar > u { position: absolute; top: -3px; bottom: -3px; width: 3px; border-radius: 2px; background: var(--text); }
+    .ua-cnwbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 8px; }
+    .ua-cnhow { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .ua-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 8px 0 10px; }
+    .ua-k5 { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; }
+    .ua-k5 .t { font-size: 10.5px; color: var(--muted); text-transform: uppercase; font-weight: 700; } .ua-k5 .v { font-size: 18px; font-weight: 800; }
+    .ua-rec2 { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: color-mix(in srgb, var(--warning) 14%, transparent); border-left: 4px solid var(--warning); font-size: 12.5px; }
+    .ua-rec2 p { margin: 4px 0 0; }
     .ua-wrow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .ua-wname { flex: none; width: 220px; font-size: 12.5px; color: var(--text); }
     .ua-wtrack { flex: 1; height: 19px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
@@ -262,34 +279,32 @@ function _scopeControls(report) {
   return `<div class="ua-slicer"><span style="color:var(--muted)">Weight by</span>${chips}
     <span style="margin-left:auto;color:var(--muted);font-size:12px">pick one or more · recommendation updates with the codes</span></div>`;
 }
+function _m(v) { v = +v || 0; return Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : Math.round(v).toLocaleString(); }
 function _scopeRender(s) {
   if (!s) return `<div class="ua-note">No cost-loaded activity codes to weigh.</div>`;
   const rows = s.rows || [];
-  const mx = Math.max(...rows.map(r => r.weight_pct), 1) || 1;
-  const head = `<div class="ua-whead">
-    <span style="flex:none;width:220px">Scope</span>
-    <span style="flex:1">Weight</span>
-    <span style="flex:none;width:52px;text-align:right">%</span>
-    <span style="flex:none;width:120px;text-align:right">Budget</span>
-    <span style="flex:none;width:150px">Planned vs Actual</span></div>`;
-  const bars = rows.slice(0, 12).map((r, i) => {
-    const g = +((r.planned || 0) - (r.actual || 0)).toFixed(1);
-    const behindHtml = g > 0 ? ` · <span class="ua-bad">−${g}</span>` : '';
-    return `<div class="ua-wrow ${i === 0 ? 'top' : ''}">
-    <div class="ua-wname">${escapeHtml(r.value)}</div>
-    <div class="ua-wtrack"><div class="ua-wfill" style="width:${r.weight_pct / mx * 100}%"></div></div>
-    <div class="ua-wpct">${r.weight_pct.toFixed(1)}%</div>
-    <div class="ua-wcost">${_num(r.bac)}</div>
-    <div class="ua-wpa">
-      <div class="ua-wpa-t"><i style="width:${Math.max(0, Math.min(100, r.planned || 0))}%;background:${C.plan}"></i></div>
-      <div class="ua-wpa-t"><i style="width:${Math.max(0, Math.min(100, r.actual || 0))}%;background:${C.actual}"></i></div>
-      <div class="ua-wpanum">P ${(r.planned || 0).toFixed(1)}% · A ${(r.actual || 0).toFixed(1)}%${behindHtml}</div>
-    </div></div>`;
+  const pv = s.pv != null ? s.pv : rows.reduce((t, r) => t + (r.pv || 0), 0);
+  const ev = s.ev != null ? s.ev : rows.reduce((t, r) => t + (r.ev || 0), 0);
+  const d = ev - pv;
+  const tile = (t, v) => `<div class="ua-k5"><div class="t">${t}</div><div class="v">${v}</div></div>`;
+  const strip = `<div class="ua-strip">${tile('Cost', _m(s.total))}${tile('Planned Value', _m(pv))}${tile('Earned Value', _m(ev))}`
+    + tile('EV − PV', `<span class="${d < 0 ? 'ua-bad' : 'ua-good'}">${d < 0 ? '−' : '+'}${_m(Math.abs(d))}</span>`)
+    + tile('SPI', pv ? (ev / pv).toFixed(2) : '—') + `</div>`;
+  const body = rows.map(r => {
+    const dd = (r.ev || 0) - (r.pv || 0);
+    const col = dd >= 0 ? C.actual : ((r.pv && dd / r.pv > -0.1) ? '#d68a1c' : '#c0392b');
+    return `<tr><td><b>${escapeHtml(r.value)}</b></td><td class="ua-n">${_m(r.bac)}</td><td class="ua-n">${(r.weight_pct || 0).toFixed(1)}%</td>
+      <td class="ua-n">${_m(r.pv)}</td><td class="ua-n">${_m(r.ev)}</td>
+      <td class="ua-n ua-gap ${dd < 0 ? 'ua-bad' : 'ua-good'}">${dd < 0 ? '−' : '+'}${_m(Math.abs(dd))}</td>
+      <td><div class="ua-cbar"><i style="width:${Math.max(0, Math.min(100, r.actual || 0))}%;background:${col}"></i><u style="left:calc(${Math.max(0, Math.min(100, r.planned || 0))}% - 1px)"></u></div>
+        <div class="ua-of">${(r.actual || 0).toFixed(1)}% earned · ${(r.planned || 0).toFixed(1)}% planned</div></td></tr>`;
   }).join('');
-  const leg = `<div class="ua-leg"><span class="ua-sw" style="background:rgba(42,120,214,.4)"></span>Weight<span class="ua-sw" style="background:${C.plan}"></span>Planned<span class="ua-sw" style="background:${C.actual}"></span>Actual</div>`;
-  const recs = (s.recommendation || []).map(t => `<p><span class="ua-star">★</span>${escapeHtml(t)}</p>`).join('');
-  const rec = recs ? `<div class="ua-rec"><h4>◆ Recommendation — by weight</h4>${recs}</div>` : '';
-  return `<div class="ua-scope-h">Weighting by <b>${escapeHtml(s.code_type || '')}</b> · share of the cost-loaded scope</div>${head}${bars}${leg}${rec}`;
+  const recs = (s.recommendation || []).map(t => `<p>${escapeHtml(t)}</p>`).join('');
+  return `<div class="ua-scope-h">Scope by <b>${escapeHtml(s.code_type || '')}</b> · cost-loaded construction scope</div>${strip}
+    <table class="ua-cnt"><thead><tr><th>Scope</th><th class="ua-n">Cost</th><th class="ua-n">Weight</th><th class="ua-n">Planned Value</th>
+      <th class="ua-n">Earned Value</th><th class="ua-n">EV − PV</th><th style="width:200px">Earned vs planned</th></tr></thead><tbody>${body}</tbody></table>
+    <div class="ua-leg"><span class="ua-sw" style="background:${C.actual}"></span>earned % <span class="ua-sw" style="background:#1b2433;width:3px"></span>planned % · Planned Value = Cost × planned % · Earned Value = Cost × actual %</div>
+    ${recs ? `<div class="ua-rec2"><b>Recommendation</b>${recs}</div>` : ''}`;
 }
 function _scopeHtml(report) {
   const scope = report.scope || {};
@@ -406,12 +421,9 @@ function _wireByCode(report) {
 // Section 3 — driving path
 function _drivingHtml(report) {
   const cp = report.critical_path || {};
-  const levelSel = `<div class="ua-slicer"><span style="color:var(--muted)">Summarise at</span>
-    <select id="ua-cp-level" class="ua-sel">
-      <option value="0"${_summaryLevel === 0 ? ' selected' : ''}>Work front</option>
-      <option value="1"${_summaryLevel === 1 ? ' selected' : ''}>Area / zone</option>
-      <option value="2"${_summaryLevel === 2 ? ' selected' : ''}>Phase</option>
-    </select><span style="margin-left:auto;color:var(--muted);font-size:12px">construction / execution work only</span></div>`;
+  // Work fronts only - the WBS each activity sits in (15-Oct: no other summary level)
+  const levelSel = `<div class="ua-slicer"><span style="color:var(--muted)">Work fronts on the driving path, in order — the WBS each activity sits in</span>
+    <span style="margin-left:auto;color:var(--muted);font-size:12px">construction / execution work only</span></div>`;
   if (!cp.charts || !cp.charts.length) return levelSel + `<div class="ua-note">No governing completion milestone with a driving path was found.</div>`;
   const parts = [levelSel];
   if (cp.headline) parts.push(`<div class="ua-dphead">${escapeHtml(cp.headline)}</div>`);
@@ -454,24 +466,60 @@ function _wireSummaryLevel() {
 // Section 4 — counts
 function _countControls(report) {
   const types = report.code_types || [];
-  const opts = ['<option value="">— all construction activities —</option>'].concat(types.map(t => `<option${_countFilter.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`)).join('');
+  const opts = ['<option value="">— all activities —</option>'].concat(types.map(t => `<option${_countFilter.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`)).join('');
   return `<div class="ua-slicer"><span style="color:var(--muted)">Filter by activity code</span>
     <select id="ua-cn-type" class="ua-sel">${opts}</select>
     <select id="ua-cn-val" class="ua-sel" ${_countFilter.type ? '' : 'disabled'}></select>
-    <span style="margin-left:auto;color:var(--muted);font-size:12px">construction / execution activities only</span></div>`;
+    <span style="margin-left:auto;color:var(--muted);font-size:12px">every activity of each WBS, as P6 lists them</span></div>`;
+}
+// Section 4 - Planned vs Actual by COUNT of activities, per WBS (15-Oct redesign). Actual = P6's
+// Activity Status; Planned = baseline dates at the data date. The planner can show only the WBS
+// picked; the report and the workbook print the same rows (report.counts.wbs_shown).
+let _cnWbs = null;          // null = every WBS, else a Set of the WBS names shown
+function _cnRow(name, n, p, a, cls) {
+  const pp = n ? 100 * p[0] / n : 0, ap = n ? 100 * a[0] / n : 0, g = ap - pp;
+  const col = g >= -0.05 ? C.actual : (g > -10 ? '#d68a1c' : '#c0392b');
+  const cell = i => `<td class="ua-n"><b>${a[i].toLocaleString()}</b> <span class="ua-of">/ ${p[i].toLocaleString()}</span></td>`;
+  return `<tr class="${cls || ''}"><td>${escapeHtml(name)}</td><td class="ua-n">${n.toLocaleString()}</td>${cell(0)}${cell(1)}${cell(2)}
+    <td><div class="ua-cbar"><i style="width:${ap}%;background:${col}"></i><u style="left:calc(${pp}% - 1px)"></u></div>
+      <div class="ua-of">${ap.toFixed(1)}% actual · ${pp.toFixed(1)}% planned</div></td>
+    <td class="ua-n ua-gap ${g < -0.05 ? 'ua-bad' : (g > 0.05 ? 'ua-good' : '')}">${g > 0 ? '+' : ''}${g.toFixed(1)}</td></tr>`;
 }
 function _countsHtml(c) {
-  if (!c || !c.total) return `<div class="ua-note">No construction/execution activities to count.</div>`;
-  const mx = Math.max(c.total, 1);
-  const row = (lbl, pn, an) => `<div class="ua-cnrow"><div class="ua-cnlbl">${lbl}</div><div class="ua-cnbars">
-    <div class="ua-cntrack"><i style="width:${pn / mx * 100}%;background:${C.plan};opacity:.85"></i><span>Planned ${pn}</span></div>
-    <div class="ua-cntrack"><i style="width:${an / mx * 100}%;background:${C.actual};opacity:.85"></i><span>Actual ${an}</span></div></div></div>`;
-  const total = `<div class="ua-cntt">Activities: <b>${c.total}</b> (baseline dates on <b>${c.planned_total}</b>)</div>`;
-  const leg = `<div class="ua-leg"><span class="ua-sw" style="background:${C.plan}"></span>Planned (count)<span class="ua-sw" style="background:${C.actual}"></span>Actual (count)</div>`;
-  return total +
-    row('Completed', c.planned_completed, c.actual_completed) +
-    row('In Progress', c.planned_in_progress, c.actual_in_progress) +
-    row('Not Started', c.planned_not_started, c.actual_not_started) + leg;
+  const rows = (c && c.by_wbs) || [];
+  if (!c || !c.total || !rows.length) return `<div class="ua-note">No activities to count.</div>`;
+  const shown = rows.filter(r => !_cnWbs || _cnWbs.has(r.wbs));
+  c.wbs_shown = _cnWbs ? shown.map(r => r.wbs) : null;          // the exports print the same rows
+  const chips = `<div class="ua-cnwbs"><span style="color:var(--muted)">Show WBS</span>
+    <button class="ua-scope-btn ${_cnWbs ? '' : 'on'}" data-cnwbs="__all__">All</button>`
+    + rows.map(r => `<button class="ua-scope-btn ${_cnWbs && _cnWbs.has(r.wbs) ? 'on' : ''}" data-cnwbs="${escapeHtml(r.wbs)}">${escapeHtml(r.wbs)}</button>`).join('')
+    + `</div>`;
+  const sum = list => list.reduce((t, r) => [t[0] + r.activities, t[1].map((x, i) => x + r.planned[i]), t[2].map((x, i) => x + r.actual[i])], [0, [0, 0, 0], [0, 0, 0]]);
+  const body = shown.map(r => _cnRow(r.wbs, r.activities, r.planned, r.actual)).join('');
+  const st = sum(shown), all = sum(rows);
+  const totals = (_cnWbs ? _cnRow(`Shown WBS (${shown.length} of ${rows.length})`, st[0], st[1], st[2], 'ua-tot') : '')
+    + _cnRow('Whole schedule', all[0], all[1], all[2], 'ua-tot');
+  const nb = c.no_baseline ? ` · ${c.no_baseline.toLocaleString()} activit${c.no_baseline === 1 ? 'y has' : 'ies have'} no baseline dates (counted as planned Not Started)` : '';
+  return chips + `<div class="ua-cnhow">Actual = P6 Activity Status (Completed / In Progress / Not Started) · Planned = baseline dates at the data date${nb}</div>
+    <table class="ua-cnt"><thead><tr><th>WBS</th><th class="ua-n">Activities</th><th class="ua-n">Completed<br><span class="ua-of">actual / planned</span></th>
+      <th class="ua-n">In Progress<br><span class="ua-of">actual / planned</span></th><th class="ua-n">Not Started<br><span class="ua-of">actual / planned</span></th>
+      <th style="width:210px">% complete by count</th><th class="ua-n">Gap</th></tr></thead><tbody>${body}${totals}</tbody></table>
+    <div class="ua-leg"><span class="ua-sw" style="background:${C.actual}"></span>actual % complete <span class="ua-sw" style="background:#1b2433;width:3px"></span>planned % complete · gap = actual − planned (points)</div>`;
+}
+function _wireCnWbs(report) {
+  const box = document.getElementById('ua-cn-body');
+  if (!box) return;
+  box.querySelectorAll('[data-cnwbs]').forEach(b => b.addEventListener('click', () => {
+    const w = b.dataset.cnwbs;
+    if (w === '__all__') _cnWbs = null;
+    else {
+      const next = new Set(_cnWbs || []);
+      next.has(w) ? next.delete(w) : next.add(w);
+      _cnWbs = next.size ? next : null;
+    }
+    box.innerHTML = _countsHtml(report.counts);
+    _wireCnWbs(report);
+  }));
 }
 function _wireCounts(report) {
   const typeSel = document.getElementById('ua-cn-type');
@@ -495,11 +543,12 @@ function _wireCounts(report) {
         body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', code_filter: cf }),
       });
       const data = await resp.json();
-      if (data.ok) { report.counts = data.counts; if (_shownReport) _shownReport.counts = data.counts; box.innerHTML = _countsHtml(data.counts); }
+      if (data.ok) { report.counts = data.counts; if (_shownReport) _shownReport.counts = data.counts; box.innerHTML = _countsHtml(data.counts); _wireCnWbs(report); }
       else box.innerHTML = `<div class="ua-note">Could not apply that filter.</div>`;
     } catch { box.innerHTML = `<div class="ua-note">Could not reach the server.</div>`; }
   };
   fillVals();
+  _wireCnWbs(report);
   typeSel.addEventListener('change', () => { fillVals(); if (!typeSel.value) refresh(); });
   valSel.addEventListener('change', refresh);
 }
