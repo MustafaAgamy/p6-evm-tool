@@ -342,7 +342,7 @@ def test_update_analysis_workbook_has_scope_weight_for_every_activity_code():
     sheets = {s['name']: s for s in report_excel_sections(report)}
     rows = sheets['Scope Weight - All Codes']['blocks'][0]['rows']
     assert [(r[0], r[1]) for r in rows] == [('Phase', 'Phase A'), ('Phase', 'Phase B'), ('Trade', 'Civil')]
-    assert len(sheets['Scope Weight']['blocks'][0]['rows']) == 2          # the default one is unchanged
+    assert len(sheets['Scope Weight']['blocks'][0]['rows']) == 3          # the default one + its Total row
     one = {'scope_default': 'Phase', 'scope': {'Phase': report['scope']['Phase']}}
     assert 'Scope Weight - All Codes' not in {s['name'] for s in report_excel_sections(one)}
 

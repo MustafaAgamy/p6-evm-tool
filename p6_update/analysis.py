@@ -239,12 +239,20 @@ def by_code(data):
 
 # ── Section 4 · Planned vs Actual by activity count ──────────────────────────
 
-def activity_counts(data, construction_only=True, code_filter=None):
-    """Count activities by status — Completed / In Progress / Not Started — on the Planned
-    side (from the baseline dates at the data date) and the Actual side (from % complete),
-    over construction/execution activities only. Optionally filtered to one activity-code
-    value. The three actual buckets sum to `total`; the three planned buckets sum to
-    `planned_total` (activities that carry a baseline)."""
+def activity_counts(data, construction_only=False, code_filter=None):
+    """Section 4 - Planned vs Actual BY COUNT OF ACTIVITIES, per WBS (Ibrahim, 15-Oct redesign).
+
+      Actual  = P6's own Activity Status field (Completed / In Progress / Not Started) - the same
+                list as P6's filter 'Activity Status equals ...', so the counts match P6 exactly.
+      Planned = the baseline dates at the data date: baseline finish on or before it = Completed,
+                baseline start on or before it = In Progress, otherwise Not Started (an activity
+                with no baseline dates counts as planned Not Started and is reported).
+
+    Every activity of the file, every type, as P6 lists them (``construction_only`` keeps the old
+    construction-only reading for callers that ask for it). Optionally one activity-code value.
+    Returns the whole-schedule totals (the old keys) + ``by_wbs``: one row per major WBS, in the
+    file's own order - {wbs, activities, planned[3], actual[3], no_baseline}."""
+    from p6_audit.graph import ScheduleGraph
     cons = None
     if construction_only:
         try:
@@ -255,36 +263,57 @@ def activity_counts(data, construction_only=True, code_filter=None):
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     ft = (code_filter or {}).get('type')
     fv = (code_filter or {}).get('value')
+    graph = ScheduleGraph(data)
 
     c = {'planned_completed': 0, 'planned_in_progress': 0, 'planned_not_started': 0,
          'actual_completed': 0, 'actual_in_progress': 0, 'actual_not_started': 0,
-         'total': 0, 'planned_total': 0}
-    for a in data.activities.values():
-        if a.get('task_type') in _MILESTONES:
-            continue
+         'total': 0, 'planned_total': 0, 'no_baseline': 0,
+         'basis': 'Actual = P6 Activity Status · Planned = baseline dates at the data date'}
+    rows = {}
+    order = []
+    status_idx = {'completed': 0, 'inprogress': 1, 'notstarted': 2}
+    for oid, a in data.activities.items():
         if cons is not None and a.get('id') not in cons:
             continue
         if ft and fv and (a.get('activity_codes') or {}).get(ft) != fv:
             continue
-        c['total'] += 1
-        pc = a.get('percent_complete') or 0.0
-        if pc >= 1.0 or a.get('actual_finish'):
-            c['actual_completed'] += 1
-        elif pc > 0.0 or a.get('actual_start'):
-            c['actual_in_progress'] += 1
-        else:
-            c['actual_not_started'] += 1
+        st = (a.get('status') or '').replace(' ', '').lower()
+        ai = status_idx.get(st)
+        if ai is None:     # no status in the file: what P6 shows from the actuals / % complete
+            pc = a.get('percent_complete') or 0.0
+            ai = 0 if (a.get('actual_finish') or pc >= 1.0) else (1 if (a.get('actual_start') or pc > 0) else 2)
         bl = _baseline_of(data, a)
         bs, bf = bl.get('planned_start'), bl.get('planned_finish')
         if bf and data_date and bf <= data_date:
-            c['planned_completed'] += 1
-            c['planned_total'] += 1
+            pi = 0
         elif bs and data_date and bs <= data_date:
-            c['planned_in_progress'] += 1
+            pi = 1
+        else:
+            pi = 2
+        wbs = graph.major_wbs(oid)
+        if wbs not in rows:
+            rows[wbs] = {'wbs': wbs, 'activities': 0, 'planned': [0, 0, 0], 'actual': [0, 0, 0], 'no_baseline': 0}
+            order.append(wbs)
+        r = rows[wbs]
+        r['activities'] += 1
+        r['actual'][ai] += 1
+        r['planned'][pi] += 1
+        c['total'] += 1
+        c[('actual_completed', 'actual_in_progress', 'actual_not_started')[ai]] += 1
+        c[('planned_completed', 'planned_in_progress', 'planned_not_started')[pi]] += 1
+        if bs or bf:
             c['planned_total'] += 1
-        elif bs:
-            c['planned_not_started'] += 1
-            c['planned_total'] += 1
+        else:
+            r['no_baseline'] += 1
+            c['no_baseline'] += 1
+    # the WBS in P6's own order (the file's WBS sequence), biggest first when the file gives none
+    seq = {}
+    for wid, w in (getattr(data, 'wbs', None) or {}).items():
+        try:
+            seq.setdefault(w.get('name'), int(w.get('seq') or 0))
+        except (TypeError, ValueError):
+            pass
+    c['by_wbs'] = sorted((rows[w] for w in order), key=lambda r: (seq.get(r['wbs'], 10 ** 9), -r['activities']))
     return c
 
 
@@ -300,12 +329,31 @@ def _default_scope_code(types):
     return types[0] if types else None
 
 
+def _money(v):
+    """12,345,678 -> '12.3 M'; small amounts in full."""
+    v = float(v or 0)
+    return f"{v / 1e6:,.1f} M" if abs(v) >= 1e6 else f"{v:,.0f}"
+
+
 def _recommendation(rows, code_type):
     """Smarter advice: prioritise the scope with the largest cost weight that is ALSO behind
     plan (biggest, most-slipped part of the scope). Falls back to the largest weight when
     nothing is behind. Recomputed for whatever code(s) are chosen."""
     if not rows:
         return []
+    # the scope with the most MONEY behind plan (Earned Value short of Planned Value) first
+    money = [r for r in rows if (r.get('ev_minus_pv') or 0) < 0]
+    if money:
+        pick = min(money, key=lambda r: r['ev_minus_pv'])
+        out = [f"Focus on {pick['value']} — it is {_money(-pick['ev_minus_pv'])} of earned value behind plan "
+               f"({pick['actual']:.1f}% earned against {pick['planned']:.1f}% planned) and carries "
+               f"{pick['weight_pct']:.1f}% of the cost — the largest money behind plan in the {code_type} scope."]
+        big = max(rows, key=lambda r: r['weight_pct'])
+        if big is not pick:
+            state = ('ahead of plan by ' + _money(big['ev_minus_pv'])) if (big.get('ev_minus_pv') or 0) >= 0 else \
+                    ('behind plan by ' + _money(-big['ev_minus_pv']))
+            out.append(f"{big['value']} is the largest cost ({big['weight_pct']:.1f}%) and is {state}.")
+        return out
     def gap(r):
         return round((r.get('planned') or 0.0) - (r.get('actual') or 0.0), 1)
     behind = [r for r in rows if gap(r) > 0.5]
@@ -377,11 +425,18 @@ def scope_weights(data, code_type, construction_only=True, _cons=_UNSET):
     rows = []
     if total > 0:
         for v, (cost, pn, pd, an) in agg.items():
+            planned = round(pn / pd * 100, 1) if pd else 0.0
+            actual = round(an / cost * 100, 1) if cost else 0.0
+            pv, ev = cost * planned / 100.0, cost * actual / 100.0
             rows.append({'value': v, 'bac': round(cost), 'weight_pct': round(cost / total * 100, 1),
-                         'planned': round(pn / pd * 100, 1) if pd else 0.0,
-                         'actual': round(an / cost * 100, 1) if cost else 0.0})
+                         'planned': planned, 'actual': actual,
+                         # Planned Value = Cost x planned %, Earned Value = Cost x actual % (15-Oct)
+                         'pv': round(pv), 'ev': round(ev), 'ev_minus_pv': round(ev - pv),
+                         'spi': round(ev / pv, 2) if pv else None})
     rows.sort(key=lambda r: -r['weight_pct'])
+    pv_t, ev_t = sum(r['pv'] for r in rows), sum(r['ev'] for r in rows)
     return {'code_type': label, 'total': round(total), 'rows': rows,
+            'pv': pv_t, 'ev': ev_t, 'ev_minus_pv': ev_t - pv_t, 'spi': round(ev_t / pv_t, 2) if pv_t else None,
             'recommendation': _recommendation(rows, label)}
 
 
@@ -754,6 +809,5 @@ def _report_conclusion(ts, cp):
         parts.append(f"{ep:.0f}% of the baseline time has elapsed and {ap:.0f}% is earned{clock}{exceeded}.")
     if pp is not None and ap is not None and ts.get('behind_plan') is not None and ts['behind_plan'] > 0:
         parts.append(f"That is {ts['behind_plan']} points behind the {pp:.0f}% planned.")
-    if cp.get('headline'):
-        parts.append(cp['headline'])
+    # the driving-path sentence is shown in the Driving Path section, not here (Ibrahim, 15-Oct)
     return ' '.join(parts)

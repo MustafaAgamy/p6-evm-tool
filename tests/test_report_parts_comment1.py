@@ -137,7 +137,7 @@ def test_update_analysis_names_its_parts():
     labels = dict(_parts(html))
     assert labels['time.values'] == 'Planned Value / Earned Value / Variance'
     assert labels['bycode.c1'].startswith('Planned vs Actual — ')
-    assert labels['scope.bars'].startswith('Scope weight by ')
+    assert labels['scope.bars'].startswith('Scope by ')
 
 
 def test_update_vs_update_names_its_parts():

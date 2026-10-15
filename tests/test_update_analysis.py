@@ -424,10 +424,11 @@ def test_report_excel_sections_mirrors_report():
     # Section 5 scope keeps BAC numeric and weight as a percent string
     sc_sheet = next(sh for sh in sheets if sh['name'] == 'Scope Weight')
     sc_blk = sc_sheet['blocks'][0]
-    assert any('Budget at Completion (BAC, cost)' in h for h in sc_blk['headers'])
+    assert 'Cost' in sc_blk['headers'] and 'Planned Value' in sc_blk['headers'] and 'Earned Value' in sc_blk['headers']
     civ = next(r for r in sc_blk['rows'] if r[0] == 'Civil')
-    assert isinstance(civ[2], (int, float))   # BAC numeric
-    assert civ[1].endswith('%')               # weight percent string
+    assert isinstance(civ[1], (int, float))   # Cost numeric (first column after the scope)
+    assert civ[2].endswith('%')               # weight percent string
+    assert isinstance(civ[3], (int, float)) and isinstance(civ[4], (int, float))   # Planned Value, Earned Value
 
     # the shared writer produces a non-empty workbook from the sheets
     import tempfile as _tf
@@ -491,6 +492,7 @@ def test_scope_weights_and_recommendation():
         (11, 'C1', 'Civil 1', 0.2, '2025-01-01', '2025-12-31', 800, 100, {'Discipline': 'Civil'}),
     ])
     data, _ = _parse_and_compute(xml)
+    from p6_update.analysis import scope_weights
     s = scope_weights(data, 'Discipline')
     rows = s['rows']
 
@@ -510,7 +512,7 @@ def test_scope_weights_and_recommendation():
     assert mech['planned'] < mech['actual']      # light scope is ahead
 
     # (iv) recommendation prioritises the largest-weight scope that is ALSO behind plan
-    assert s['recommendation'][0].startswith('Prioritise')
+    assert s['recommendation'][0].startswith('Focus on')
     assert 'Civil' in s['recommendation'][0]
 
     # (iii) a LIST of two code dimensions buckets by the combination — value keys joined by ' · '
@@ -527,3 +529,72 @@ def test_scope_weights_and_recommendation():
     assert all(' · ' in r['value'] for r in combo['rows'])
     vals = {r['value'] for r in combo['rows']}
     assert 'Civil · Zone A' in vals and 'Mechanical · Zone A' in vals
+
+
+
+# ── 15-Oct redesign: counts per WBS from P6's Activity Status; Scope by Cost with PV / EV ──
+def test_counts_per_wbs_read_p6_activity_status_and_print_only_the_wbs_picked():
+    from p6_evm.parser import ScheduleData
+    from datetime import datetime
+    from p6_update.exporters import _counts_html
+    d = ScheduleData()
+    d.project = {'data_date': datetime(2026, 8, 9)}
+    d.wbs = {'1': {'name': 'Construction', 'parent_object_id': None, 'seq': '1'},
+             '2': {'name': 'Design', 'parent_object_id': None, 'seq': '2'}}
+    def act(i, wbs, status, bs, bf, pc=0.0):
+        return {'object_id': i, 'id': i, 'name': i, 'task_type': 'Task', 'wbs_id': wbs, 'status': status,
+                'percent_complete': pc, 'wbs_path': {'1': 'Construction', '2': 'Design'}[wbs]}
+    d.activities = {
+        'c1': act('c1', '1', 'Completed', '2026-01-01', '2026-02-01'),
+        'c2': act('c2', '1', 'In Progress', '2026-07-01', '2026-09-01', pc=0.0),     # status wins over 0 %
+        'c3': act('c3', '1', 'Not Started', '2026-09-01', '2026-10-01', pc=0.5),     # status wins over 50 %
+        'd1': act('d1', '2', 'Completed', '2026-01-01', '2026-03-01'),
+    }
+    d.baseline_by_id = {k: {'planned_start': datetime.fromisoformat(v[0]), 'planned_finish': datetime.fromisoformat(v[1])}
+                        for k, v in {'c1': ('2026-01-01', '2026-02-01'), 'c2': ('2026-07-01', '2026-09-01'),
+                                     'c3': ('2026-09-01', '2026-10-01'), 'd1': ('2026-01-01', '2026-03-01')}.items()}
+    d.relationships = []
+    d.calendars = {}
+    c = activity_counts(d)
+    assert (c['actual_completed'], c['actual_in_progress'], c['actual_not_started']) == (2, 1, 1)
+    rows = {r['wbs']: r for r in c['by_wbs']}
+    assert rows['Construction'] == {'wbs': 'Construction', 'activities': 3, 'planned': [1, 1, 1],
+                                    'actual': [1, 1, 1], 'no_baseline': 0}
+    assert [r['wbs'] for r in c['by_wbs']] == ['Construction', 'Design']
+    c['wbs_shown'] = ['Design']
+    html = _counts_html({'counts': c})
+    assert 'Design' in html and '>Construction<' not in html and 'Shown WBS (1 of 2)' in html and 'Whole schedule' in html
+    assert 'P6 Activity Status' in html
+
+
+def test_scope_by_cost_gives_planned_and_earned_value_and_names_the_money_behind():
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Done', 1.0, '2025-01-01', '2025-06-30', 80, 100, {'Discipline': 'Civil'}),
+        (11, 'A2', 'Mid', 0.2, '2025-03-01', '2025-09-30', 80, 300, {'Discipline': 'Civil'}),
+        (12, 'A3', 'Future', 0.0, '2025-08-01', '2025-12-31', 80, 100, {'Discipline': 'Mechanical'}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    from p6_update.analysis import scope_weights
+    s = scope_weights(data, 'Discipline')
+    civ = next(r for r in s['rows'] if r['value'] == 'Civil')
+    assert civ['pv'] == round(civ['bac'] * civ['planned'] / 100) and civ['ev'] == round(civ['bac'] * civ['actual'] / 100)
+    assert civ['ev_minus_pv'] == civ['ev'] - civ['pv'] and s['pv'] == sum(r['pv'] for r in s['rows'])
+    assert s['recommendation'][0].startswith('Focus on Civil') and 'earned value behind plan' in s['recommendation'][0]
+    from p6_update.exporters import _scope_html
+    html = _scope_html({'scope': {'Discipline': s}, 'scope_default': 'Discipline'})
+    assert 'Planned Value' in html and 'Earned Value' in html and 'Budget' not in html
+
+
+def test_round5_title_and_code_filter_drop_totals():
+    """15-Oct: the report name typed on screen heads the exports; with one activity-code value
+    picked the count table has no total rows (screen, PDF and Excel alike)."""
+    from p6_update.exporters import render_html, report_excel_sections
+    r = {'title': 'Grain Bulk Weekly Update', 'project_name': 'X',
+         'counts': {'total': 2, 'by_wbs': [{'wbs': 'A', 'activities': 2, 'planned': [1, 0, 1], 'actual': [1, 0, 1]}],
+                    'code_filter': {'type': 't', 'value': 'v'}}}
+    h = render_html(r)
+    assert 'Grain Bulk Weekly Update' in h and 'Whole schedule' not in h
+    sheet = [x for x in report_excel_sections(r) if x['name'] == 'Activity Counts'][0]
+    assert [row[0] for row in sheet['blocks'][0]['rows']] == ['A']
+    r['counts'].pop('code_filter')
+    assert 'Whole schedule' in render_html(r)
