@@ -85,9 +85,11 @@ def apply_ops_to_relationships(data, accepted):
                     if o['new_lag_days'] is not None:
                         r['lag_days'] = o['new_lag_days']
         if act in ('add', 'replace'):
-            npc = o['new_pred_id']
+            # an 'add' names its predecessor as pred_id (as the file writer reads it); a
+            # 'replace' names the NEW predecessor as new_pred_id
+            npc = o['new_pred_id'] or (pc if act == 'add' else '')
             if not npc:
-                continue   # a replace/add with no new predecessor = the remove above; nothing to re-add
+                continue   # a replace with no new predecessor = the remove above; nothing to re-add
             p_oids, s_oids = code_to_oids.get(npc), code_to_oids.get(sc)
             if p_oids and s_oids:
                 rels.append({
@@ -98,16 +100,152 @@ def apply_ops_to_relationships(data, accepted):
     return rels
 
 
+def _shim(data, rels):
+    return types.SimpleNamespace(activities=data.activities, relationships=rels,
+                                 calendars=getattr(data, 'calendars', {}) or {},
+                                 project=getattr(data, 'project', None))
+
+
+_FIX_ACTIONS = ('change', 'remove', 'replace')
+_MAX_ROUNDS = 200          # one more out-of-sequence tie of an activity is found per round
+
+
+def complete_ops(data, config, accepted):
+    """The accepted corrections, completed so the corrected schedule is clean in P6 (comment 88:
+    after importing the corrected file, P6's schedule log still listed out-of-sequence activities
+    and showed activities with no predecessor).
+
+    1. EVERY out-of-sequence tie of an accepted activity is corrected. A finding shows the driving
+       tie; an activity that started ahead of twenty unfinished predecessors has twenty such ties,
+       and P6 lists it until all are corrected. Each further tie gets the engine's own
+       recommendation - the same rule the planner accepted for the first one.
+    2. The network stays closed. An activity that had a predecessor (successor) before the
+       corrections and has none after them is tied to the project commencement (completion)
+       milestone, so no correction leaves an open end.
+
+    Returns the full op list: the accepted ops first, the added ones marked ``auto``."""
+    acc = [dict(o) for o in accepted]
+    norm = [_norm_op(o) for o in acc]
+    targets = {o['succ_id'] for o in norm if o['action'] in _FIX_ACTIONS and o['succ_id']}
+    seen = {(o['pred_id'], o['succ_id']) for o in norm}
+    # a tie the planner chose (a replacement predecessor) is the planner's decision - never re-corrected
+    seen |= {(o['new_pred_id'], o['succ_id']) for o in norm if o['new_pred_id']}
+    if not targets:
+        return acc
+    # 1) the corrections the table SHOWS for every driving tie of an accepted activity
+    first = run_out_of_sequence(ScheduleGraph(_shim(data, apply_ops_to_relationships(data, acc))), config)
+    for f in first['findings']:
+        if f.get('activity_id') not in targets:
+            continue
+        for x in f.get('pred_fixes') or []:
+            pair = (x.get('pred_id') or '', f['activity_id'])
+            if x.get('action') not in _FIX_ACTIONS or pair in seen:
+                continue
+            seen.add(pair)
+            acc.append({'finding_id': '', 'pred_id': pair[0], 'succ_id': pair[1], 'action': x['action'],
+                        'new_type': x.get('new_type'), 'new_lag_days': x.get('new_lag_days'),
+                        'new_pred_id': x.get('new_pred_id') or '', 'auto': 'tie'})
+    # 2) anything still out of sequence after them (a tie that only shows once another changed)
+    for _round in range(_MAX_ROUNDS):
+        fresh = run_out_of_sequence(ScheduleGraph(_shim(data, apply_ops_to_relationships(data, acc))), config)
+        new = []
+        for f in fresh['findings']:
+            res = f.get('pred_resolution') or {}
+            pair = (f.get('pred_id') or '', f.get('activity_id') or '')
+            if f.get('activity_id') not in targets or res.get('action') not in _FIX_ACTIONS or pair in seen:
+                continue
+            seen.add(pair)
+            new.append({'finding_id': '', 'pred_id': pair[0], 'succ_id': pair[1], 'action': res['action'],
+                        'new_type': res.get('new_type'), 'new_lag_days': res.get('new_lag_days'),
+                        'new_pred_id': (res.get('new_pred_id') or '') if res['action'] == 'replace' else '',
+                        'auto': 'tie'})
+        if not new:
+            break
+        acc += new
+    return acc + _closing_ops(data, acc)
+
+
+def _closing_ops(data, acc):
+    """'add' ops that tie an activity the corrections left without any predecessor (successor)
+    to the project commencement (completion) milestone."""
+    from p6_audit.modules.out_of_sequence import _find_commencement, _find_completion
+    acts = data.activities
+
+    def ends(rels):
+        ok = [r for r in rels if r['pred_id'] in acts and r['succ_id'] in acts]
+        return {r['succ_id'] for r in ok}, {r['pred_id'] for r in ok}
+    had_pred, had_succ = ends(data.relationships)
+    now_pred, now_succ = ends(apply_ops_to_relationships(data, acc))
+    graph = ScheduleGraph(_shim(data, data.relationships))
+    start, finish = _find_commencement(graph), _find_completion(graph)
+    out = []
+    for oid in sorted(had_pred - now_pred, key=str):
+        code = acts[oid].get('id') or ''
+        if start and start[0] and start[0] != code and code:
+            out.append({'finding_id': '', 'pred_id': start[0], 'succ_id': code, 'action': 'add',
+                        'new_type': 'FS', 'new_lag_days': 0.0, 'new_pred_id': '', 'auto': 'close'})
+    for oid in sorted(had_succ - now_succ, key=str):
+        code = acts[oid].get('id') or ''
+        if finish and finish[0] and finish[0] != code and code:
+            out.append({'finding_id': '', 'pred_id': code, 'succ_id': finish[0], 'action': 'add',
+                        'new_type': 'FS', 'new_lag_days': 0.0, 'new_pred_id': '', 'auto': 'close'})
+    return out
+
+
+def _rel_text(t, lag):
+    lag = round(float(lag or 0), 1)
+    lag = int(lag) if float(lag).is_integer() else lag
+    return f"{t}({lag})" if lag else t
+
+
+def changed_ties(data, full):
+    """{activity code: [every relationship tie of that activity the corrections changed]} - both
+    ends of each tie (comment 88 follow-up: highlight the relationship changed after the fix, on the
+    predecessor or the successor side). Each entry: side ('pred' = a predecessor tie of the
+    activity, 'succ' = a successor tie), other (the related activity's ID), before, after, auto."""
+    code = _oid_to_code(data)
+    name = {a.get('id') or '': a.get('name') or '' for a in data.activities.values()}
+    base = {}
+    for r in data.relationships:
+        base.setdefault((code.get(r['pred_id']), code.get(r['succ_id'])), (r.get('type', 'FS'), r.get('lag_days', 0.0)))
+    out = {}
+    for raw in full:
+        o = _norm_op(raw)
+        act, pc, sc = o['action'], o['pred_id'], o['succ_id']
+        if act not in ('change', 'remove', 'replace', 'add') or not sc:
+            continue
+        cur = base.get((pc, sc))
+        before = _rel_text(*cur) if cur else ''
+        if act == 'change':
+            after = _rel_text(o['new_type'] or (cur or ('FS', 0))[0],
+                              o['new_lag_days'] if o['new_lag_days'] is not None else (cur or ('FS', 0))[1])
+            ties = [(pc, sc, before, after)]
+        elif act == 'remove':
+            ties = [(pc, sc, before, 'Removed')]
+        elif act == 'add':
+            ties = [(pc, sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0))]
+        else:   # replace = the offending tie removed + a new predecessor
+            ties = [(pc, sc, before, 'Removed')]
+            if o['new_pred_id']:
+                ties.append((o['new_pred_id'], sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0)))
+        for p, s, b, a in ties:
+            auto = raw.get('auto') or ''
+            out.setdefault(s, []).append({'side': 'pred', 'other': p, 'other_name': name.get(p, ''),
+                                          'before': b, 'after': a, 'auto': auto})
+            out.setdefault(p, []).append({'side': 'succ', 'other': s, 'other_name': name.get(s, ''),
+                                          'before': b, 'after': a, 'auto': auto})
+    return out
+
+
 def revalidate(data, config, accepted):
     """Apply the accepted corrections to a graph copy, re-run the detection engine, and
     report which accepted findings are now genuinely resolved. Returns the fresh (post-
-    correction) findings plus the resolved finding_ids and the recomputed KPIs."""
-    new_rels = apply_ops_to_relationships(data, accepted)
-    shim = types.SimpleNamespace(
-        activities=data.activities, relationships=new_rels,
-        calendars=getattr(data, 'calendars', {}) or {},
-        project=getattr(data, 'project', None))
-    fresh = run_out_of_sequence(ScheduleGraph(shim), config)
+    correction) findings plus the resolved finding_ids and the recomputed KPIs. The corrections
+    are completed first (complete_ops): every out-of-sequence tie of an accepted activity, and no
+    open end left behind - the same op list the corrected file is written from."""
+    full = complete_ops(data, config, accepted)
+    new_rels = apply_ops_to_relationships(data, full)
+    fresh = run_out_of_sequence(ScheduleGraph(_shim(data, new_rels)), config)
     fresh_ids = {f['finding_id'] for f in fresh['findings']}
     still_oos_acts = {f['activity_id'] for f in fresh['findings']}
     # A finding is resolved only when its out-of-sequence condition genuinely no longer holds. For a
@@ -128,6 +266,15 @@ def revalidate(data, config, accepted):
         'fresh_ids': sorted(fresh_ids),
         'resolved': resolved,
         'kpis': fresh['kpis'],
+        # the whole check as it stands after the corrections (comment 89): the Executive Dashboard,
+        # the distribution by WBS and the impact assessment are redrawn from it at once
+        'module': {k: fresh.get(k) for k in ('score', 'grade', 'pct', 'kpis', 'wbs_summary')},
+        # every tie the corrections changed, per activity - highlighted on screen, in the report and Excel
+        'changes': changed_ties(data, full),
+        # what Apply did beyond the ties shown: further out-of-sequence ties of the same
+        # activities, and ties added so no activity is left without a predecessor / successor
+        'auto': {'ties': sum(1 for o in full if o.get('auto') == 'tie'),
+                 'closed': sum(1 for o in full if o.get('auto') == 'close')},
     }
 
 
@@ -181,7 +328,36 @@ def to_file_ops(accepted, data):
             if npc:   # no new predecessor → behave as a plain remove (never re-add the same tie)
                 ops.append({'kind': 'add_rel', 'pred_code': npc, 'succ_code': sc,
                             'type': typ, 'lag_hours': lag_hours})
-    return ops
+    return _repoint(ops)
+
+
+def _repoint(ops):
+    """Turn each 'remove a tie' + 'add a tie' that share an activity into ONE 'repoint_rel': the
+    existing relationship keeps its identity in P6 and only changes its predecessor (or
+    successor), type and lag. P6 applies an edit of an existing relationship on import every time;
+    a relationship that is new to the file was not created there (15-Oct: the replacement
+    predecessor showed on screen but never reached P6). Adds with no removed partner stay adds."""
+    removes = [o for o in ops if o['kind'] == 'remove_rel']
+    used = set()
+    out = []
+    for o in ops:
+        if o['kind'] != 'add_rel':
+            continue
+        # same successor (a new predecessor), else same predecessor (a new successor)
+        partner = next((i for i, r in enumerate(removes) if i not in used and r['succ_code'] == o['succ_code']), None)
+        if partner is None:
+            partner = next((i for i, r in enumerate(removes) if i not in used and r['pred_code'] == o['pred_code']), None)
+        if partner is None:
+            out.append(o)
+            continue
+        used.add(partner)
+        r = removes[partner]
+        out.append({'kind': 'repoint_rel', 'pred_code': r['pred_code'], 'succ_code': r['succ_code'],
+                    'new_pred_code': o['pred_code'], 'new_succ_code': o['succ_code'],
+                    'type': o.get('type', 'FS'), 'lag_hours': o.get('lag_hours', 0.0)})
+    kept = [o for o in ops if o['kind'] not in ('add_rel', 'remove_rel')]
+    kept += [r for i, r in enumerate(removes) if i not in used]
+    return kept + out
 
 
 _CORRECTION_NOTE = ('Out-of-Sequence — corrected schedule. Relationship logic revised to '
@@ -189,10 +365,15 @@ _CORRECTION_NOTE = ('Out-of-Sequence — corrected schedule. Relationship logic 
                     'untouched — reschedule (F9) in P6.')
 
 
-def write_corrected(source_path, accepted, out_path, note=_CORRECTION_NOTE):
+def write_corrected(source_path, accepted, out_path, note=_CORRECTION_NOTE, config=None):
     """Write a corrected copy of the imported schedule with the accepted relationship
-    corrections applied, in the same format as the source (P6 XML or XER)."""
+    corrections applied, in the same format as the source (P6 XML or XER). With ``config`` the
+    corrections are completed first (complete_ops), exactly as the on-screen re-check does."""
     data = parse_file(source_path)
+    if config is not None:
+        from p6_audit.engine import _enrich
+        _enrich(data, config)
+        accepted = complete_ops(data, config, accepted)
     ops = to_file_ops(accepted, data)
     low = source_path.lower()
     if low.endswith('.xml'):
@@ -256,7 +437,7 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
                 code_to_taskids.setdefault(code, []).append(tid)
 
     # Expand code-pair ops → (pred_task_id, succ_task_id) targets.
-    remove_pairs, set_pairs, add_ops = set(), {}, []
+    remove_pairs, set_pairs, add_ops, repoint = set(), {}, [], {}
     for op in ops:
         kind = op.get('kind')
         pc, sc = op.get('pred_code'), op.get('succ_code')
@@ -272,6 +453,17 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
         elif kind == 'add_rel':
             if p_ids and s_ids:
                 add_ops.append((p_ids[0], s_ids[0], op.get('type', 'FS'), op.get('lag_hours', 0.0)))
+        elif kind == 'repoint_rel':
+            np_ids = code_to_taskids.get(op.get('new_pred_code'), [])
+            ns_ids = code_to_taskids.get(op.get('new_succ_code'), [])
+            if np_ids and ns_ids:
+                first = True
+                for pi in p_ids:
+                    for si in s_ids:
+                        # the first copy is re-pointed, any other copy of the old tie is dropped
+                        repoint[(pi, si)] = (np_ids[0], ns_ids[0], op.get('type', 'FS'),
+                                             op.get('lag_hours', 0.0)) if first else None
+                        first = False
 
     # Pass 2 — rewrite. Track TASKPRED fields + the max row id + a template row for adds.
     tp_fields, tp_template, max_pred_id = [], None, 0
@@ -354,6 +546,19 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
             if pair in remove_pairs:
                 applied += 1
                 continue  # drop the relationship row
+            if pair in repoint:
+                target = repoint.pop(pair)
+                if target is None:
+                    continue      # a duplicate copy of the re-pointed tie
+                npi, nsi, rel_type, lag_hours = target
+                vals[i_pred_task], vals[i_task] = npi, nsi
+                if i_type >= 0 and i_type < len(vals):
+                    vals[i_type] = _XER_PRED_TYPE.get(rel_type, 'PR_FS')
+                if i_lag >= 0 and i_lag < len(vals):
+                    vals[i_lag] = _fmt_hours(lag_hours)
+                applied += 1
+                out_lines.append('%R\t' + '\t'.join(vals))
+                continue
             if pair in set_pairs:
                 rel_type, lag_hours = set_pairs[pair]
                 if i_type >= 0 and i_type < len(vals):

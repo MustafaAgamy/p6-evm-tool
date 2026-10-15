@@ -4587,3 +4587,7 @@ tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: 
 .p6c-q.pass .a { color: var(--success); }
 .p6c-q.fail { background: var(--warning-bg); border-color: var(--warning); } .p6c-q.fail .a { color: var(--warning); }
 .p6c-res { margin-top: 6px; font-size: 12.5px; background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 6px; padding: 6px 10px; }
+
+/* Out of Sequence - a tie changed by the applied corrections (audit.js _oosChangedCell) */
+.oos-relrow.oos-chg { background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 3px solid var(--warning); border-radius: 4px; padding: 2px 5px; margin-bottom: 2px; }
+.oos-fixto { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-weight: 700; font-size: 11px; color: var(--text); background: color-mix(in srgb, var(--warning) 28%, transparent); }

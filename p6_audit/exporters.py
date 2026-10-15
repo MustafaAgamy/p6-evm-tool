@@ -65,8 +65,9 @@ def excel_columns(module_result):
                                           'label': single_label, 'affected': True}] if single_id else [])
 
         def _rel_line(p):
+            fix = p.get('fix') if (p.get('affected') and p.get('fix') and p.get('fix') != 'No change') else ''
             return (f"{p.get('id','')}  {p.get('label','')}"
-                    f"{'  [Driving]' if p.get('affected') else ''}  —  {p.get('name','')}")
+                    f"{'  [Driving]' if p.get('affected') else ''}{('  ' + fix) if fix else ''}  —  {p.get('name','')}")
 
         def _rel_lines(items, single_id, single_name, single_label, fallback):
             # Plain multi-line text (successors): the affected tie carries a " [Driving]" tag.
@@ -92,9 +93,26 @@ def excel_columns(module_result):
                     runs.append({'t': text, 'b': False, 'color': None})
             return RichText(runs)
 
+        def _after_changes(f, side):
+            # After the corrections were applied: every changed tie of that side, bold amber in-cell
+            # (comment 88 follow-up - the changed relationship highlighted in Excel too)
+            ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
+            if not ch:
+                return None
+            return RichText([{'t': ('\n' if k else '') + f"{c.get('other', '')}  "
+                                   + (f"{c.get('before')} → " if c.get('before') else '') + f"{c.get('after', '')}"
+                                   + (f"  —  {c.get('other_name')}" if c.get('other_name') else ''),
+                              'b': True, 'color': 'FF92400E'} for k, c in enumerate(ch)])
+
         def _after_pred(f):
             # Mirror the on-screen After-Predecessor cell, incl. the "Remaining predecessors: N"
             # sub-note shown there for an auto-remove.
+            ch = _after_changes(f, 'pred')
+            if ch is not None:
+                return ch
+            fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
+            if len(fx) > 1:     # several driving ties: each with its correction
+                return '\n'.join(f"{x.get('pred_id', '')}  {x.get('after')}  —  {x.get('pred_name', '')}" for x in fx)
             lbl = f.get('pred_after_label', '')
             if (f.get('pred_resolution') or {}).get('action') == 'remove' \
                     and f.get('remaining_preds') is not None:
@@ -107,15 +125,18 @@ def excel_columns(module_result):
         headers = ['#', 'Activity ID', 'Activity Name',
                    'Baseline Predecessors', 'Baseline Successors', 'Data Date',
                    'After Predecessor Tie', 'After Successor Tie', 'Severity']
+        has_status = any(f.get('status') for f in findings)
+        if has_status:
+            headers.append('Status')
         rows = [[
             i, f.get('activity_id', ''), f.get('activity_name', ''),
             _pred_rich(f),
             _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),
                        f.get('succ_baseline_label'), 'No successor'),
             cutoff,
-            _after_pred(f), f.get('succ_after_label', ''),
+            _after_pred(f), (_after_changes(f, 'succ') or f.get('succ_after_label', '')),
             f.get('severity', 'Medium'),
-        ] for i, f in enumerate(findings, 1)]
+        ] + ([f.get('status') or ''] if has_status else []) for i, f in enumerate(findings, 1)]
         return headers, rows
 
     if module == 'lag_lead':

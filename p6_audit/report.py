@@ -236,6 +236,13 @@ def _verdict(m):
 
 # ── Out of Sequence — Consultant Review Report sections ────────────────────
 
+def _applied_note(m):
+    """' After 12 applied corrections - ...' when the report prints the check as on screen."""
+    v = ((m.get('presentation') or {}).get('verdict') or '')
+    i = v.find(' After ')
+    return _esc(v[i:]) if (i >= 0 and 'applied correction' in v[i:]) else ''
+
+
 def _oos_dashboard(m):
     k = m.get('kpis', {})
     grade = m.get('grade', '')
@@ -257,7 +264,7 @@ def _oos_dashboard(m):
           <div class="score-num" style="color:{color}">{score}</div>
           <div class="score-den">Module Score / 100</div>
           <div class="grade-badge" style="background:{color}">{_esc(grade)}</div>
-          <div class="verdict">{pct}% of activities progressed out of logical sequence.</div>
+          <div class="verdict">{pct}% of activities progressed out of logical sequence.{_applied_note(m)}</div>
         </div>
         <div class="kpis k4">{''.join(tiles)}</div>
       </div>'''
@@ -329,7 +336,8 @@ def _oos_review_log(m):
                            '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
                            f'<span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))} '
                            '<b>[DRIVING]</b>'
-                           f'<br>{_esc(p.get("name"))}</div>')
+                           + (f' <b>{_esc(p.get("fix"))}</b>' if p.get('fix') and p.get('fix') != 'No change' else '')
+                           + f'<br>{_esc(p.get("name"))}</div>')
             else:
                 out.append(f'<div><span class="mono">{_esc(p.get("id"))}</span> {_esc(p.get("label"))}'
                            f'<br><span class="mut">{_esc(p.get("name"))}</span></div>')
@@ -342,15 +350,36 @@ def _oos_review_log(m):
                            (f.get('succ_id'), f.get('succ_name'), f.get('succ_baseline_label')))
         return [{'id': pid, 'name': pname, 'label': lbl, 'affected': True}] if pid else []
 
+    def _after(f, side):
+        # After the corrections were applied (comment 88): EVERY changed tie of that side, each
+        # highlighted with its related activity; before them: the recommended correction.
+        ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
+        fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
+        if not ch and side == 'pred' and len(fx) > 1:     # several driving ties: each with its correction
+            return ''.join(f'<div><span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}'
+                           f'<br><span class="mut">{_esc(x.get("pred_name"))}</span></div>' for x in fx)
+        if not ch:
+            return _esc(f.get(f'{side}_after_label'))
+        return ''.join('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;margin-bottom:2px;'
+                       '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
+                       f'<span class="mono">{_esc(c.get("other"))}</span> '
+                       f'{_esc((c.get("before") + " → ") if c.get("before") else "")}<b>{_esc(c.get("after"))}</b>'
+                       f'<br>{_esc(c.get("other_name") or "")}</div>'
+                       for c in ch)
+
+    has_status = any(f.get('status') for f in findings)
+    if has_status:
+        head = head.replace('<th rowspan="2">Severity</th></tr>', '<th rowspan="2">Severity</th><th rowspan="2">Status</th></tr>')
     rows = ''.join(
         f'<tr><td class="num">{i}</td><td class="mono">{_esc(f.get("activity_id"))}</td>'
         f'<td>{_esc(f.get("activity_name"))}</td>'
         f'<td class="bl">{_rel_list(f.get("all_predecessors") or _fallback_list(f, "pred"), "No predecessor")}</td>'
         f'<td class="bl">{_rel_list(f.get("all_successors") or _fallback_list(f, "succ"), "No successor")}</td>'
         f'<td class="mut">{cutoff}</td>'
-        f'<td class="am">{_esc(f.get("pred_after_label"))}</td>'
-        f'<td class="am">{_esc(f.get("succ_after_label"))}</td>'
-        f'<td>{_esc(f.get("severity", "Medium"))}</td></tr>'
+        f'<td class="am">{_after(f, "pred")}</td>'
+        f'<td class="am">{_after(f, "succ")}</td>'
+        f'<td>{_esc(f.get("severity", "Medium"))}</td>'
+        + (f'<td>{_esc(f.get("status") or "")}</td>' if has_status else '') + '</tr>'
         for i, f in enumerate(findings, 1))
     def _chip(text, bg, fg):
         return (f'<span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;'

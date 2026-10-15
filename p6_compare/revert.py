@@ -222,6 +222,26 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
         if pc and sc:
             rels_by_codes.setdefault((pc, sc), []).append(r)
 
+    # A new <Relationship> goes right after the last existing one. P6 reads a project's elements in
+    # the schema's order (... Activity, ResourceAssignment, Relationship, ScheduleOptions): one
+    # appended after <ScheduleOptions> is skipped on import, so an added tie never reached P6
+    # (comment 88 follow-up: a replaced predecessor was removed but its replacement missing).
+    def add_rel_el(el):
+        # A NEW relationship carries no ObjectId: P6 gives it one on import. A copied or invented
+        # number (the file's highest + 1) can already belong to another relationship in the P6
+        # database, and P6 then updates that one instead of creating the tie (15-Oct: the added
+        # predecessor showed on screen but not in P6 after importing the corrected file).
+        oid = el.find(tag('ObjectId'))
+        if oid is not None:
+            el.remove(oid)
+        kids = list(project)
+        rel_tag = tag('Relationship')
+        last = max((i for i, c in enumerate(kids) if c.tag == rel_tag), default=None)
+        if last is None:
+            nxt = tag('ScheduleOptions')
+            last = next((i - 1 for i, c in enumerate(kids) if c.tag == nxt), len(kids) - 1)
+        project.insert(last + 1, el)
+
     applied = 0
     for op in ops:
         kind = op.get('kind')
@@ -257,7 +277,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
                 set_child(new, 'ObjectId', str(max_rel_oid))
                 set_child(new, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
                 set_child(new, 'Lag', _fmt_hours(h))
-                project.append(new)
+                add_rel_el(new)
                 keep.append(new)
             rels_by_codes[pair] = keep
             applied += 1
@@ -268,6 +288,24 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
             if els:
                 rels_by_codes[pair] = []
                 applied += 1
+        elif kind == 'repoint_rel':
+            # the existing relationship keeps its ObjectId and gets its new predecessor / successor,
+            # type and lag - an edit P6 applies on import (a brand-new element was not created)
+            els = rels_by_codes.get(pair, [])
+            np_oids = code_to_oids.get(op.get('new_pred_code'))
+            ns_oids = code_to_oids.get(op.get('new_succ_code'))
+            if not els or not np_oids or not ns_oids:
+                continue
+            el = els[0]
+            set_child(el, 'PredecessorActivityObjectId', np_oids[0])
+            set_child(el, 'SuccessorActivityObjectId', ns_oids[0])
+            set_child(el, 'Type', _REL_TYPE_XML.get(op.get('type', 'FS'), 'Finish to Start'))
+            set_child(el, 'Lag', _fmt_hours(op.get('lag_hours', 0.0)))
+            for extra in els[1:]:      # any other copy of the old tie goes
+                project.remove(extra)
+            rels_by_codes[pair] = []
+            rels_by_codes.setdefault((op.get('new_pred_code'), op.get('new_succ_code')), []).append(el)
+            applied += 1
         elif kind == 'add_rel':
             if rels_by_codes.get(pair):
                 continue     # a copy already exists — don't duplicate the restored link
@@ -286,7 +324,7 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
                     set_child(el, 'ObjectId', str(max_rel_oid))
                 set_child(el, 'Type', _REL_TYPE_XML.get(t, 'Finish to Start'))
                 set_child(el, 'Lag', _fmt_hours(h))
-                project.append(el)
+                add_rel_el(el)
                 rels_by_codes.setdefault(pair, []).append(el)
             applied += 1
 

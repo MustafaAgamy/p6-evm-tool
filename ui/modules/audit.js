@@ -438,6 +438,11 @@ function oosKpiTiles(k) {
 
 export function renderOutOfSequence(m) {
   const C = 326.7;
+  // Comment 89: once corrections are applied, the whole page shows the schedule AS CORRECTED -
+  // the Executive Dashboard, the distribution and the impact assessment follow the Resolved list.
+  const base = m;
+  const nApplied = (_oos.sig === _oosSig(base)) ? Object.keys(_oos.applied).length : 0;
+  if (nApplied && _oos.live) m = Object.assign({}, base, _oos.live);
   const k = m.kpis || {};
   const dist = m.wbs_summary || [];
   const findings = m.findings || [];
@@ -458,8 +463,11 @@ export function renderOutOfSequence(m) {
     <div class="mod-sec">Executive Conclusion</div>
     <div class="oos-concl">${escapeHtml(k.executive_conclusion)}</div>` : '';
 
+  const preview = nApplied && _oos.live
+    ? `<div class="coverage dng-preview">Preview — the figures reflect ${nApplied} applied correction${nApplied === 1 ? '' : 's'}; before them: ${(base.kpis || {}).oos_count || 0} out-of-sequence (${base.pct}%, score ${base.score}). Download Corrected Schedule to write them to P6.</div>`
+    : '';
   document.getElementById('oos-body').innerHTML = `
-    <div class="mod-sec">Executive Dashboard</div>
+    <div class="mod-sec">Executive Dashboard</div>${preview}
     <div class="audit-hero">
       <div class="score-card">
         <div class="gauge">
@@ -495,8 +503,9 @@ export function renderOutOfSequence(m) {
     <div class="oos-stdref"><b>Standard Reference:</b> Based on the <b>DCMA 14-Point Schedule Assessment</b>
       framework for schedule logic quality — the same methodology as the sibling modules (Dangling Logic → Metric 3,
       Float → Metric 5). Out-of-sequence is a recognised logic-quality check within this framework, complementing the
-      14 core metrics. <b>Detection basis:</b> Primavera P6 out-of-sequence progress — Retained Logic / Progress Override,
-      Schedule Log (F9); best-practice per GAO Schedule Assessment Guide, Best Practice 4.</div>
+      14 core metrics. <b>Detection basis:</b> the list in Primavera P6's Schedule Log (F9) under <i>Out-of-sequence activities</i> —
+      an activity that progressed while a predecessor relationship is still not satisfied at the data date
+      (Finish-to-Start: predecessor not finished · Start-to-Start: predecessor not started); best-practice per GAO Schedule Assessment Guide, Best Practice 4.</div>
 
     <div class="mod-sec">Distribution by WBS Category</div>
     <div class="tblwrap"><table class="audit-table"><thead><tr>
@@ -524,7 +533,7 @@ export function renderOutOfSequence(m) {
 
     ${conclusion}`;
 
-  _oosInit(m);
+  _oosInit(base);
 }
 
 // ── Out-of-Sequence Resolve & Correct — LOG (Baseline vs After Modification) ──
@@ -724,12 +733,31 @@ function _oosLogRow(f, i, dd, resolved) {
       <td class="bl rellist">${_oosRelListCell(predList, 'No predecessor')}</td>
       <td class="bl rellist">${_oosRelListCell(succList, 'No successor')}</td>
       <td class="dd mono mut">${dd}</td>
-      <td class="am rel">${_oosAfterCell(f.pred_after_label)}${remainNote}</td>
-      <td class="am rel">${_oosAfterCell(f.succ_after_label)}</td>
+      <td class="am rel">${_oosChangedCell(f, 'pred') || _oosFixesCell(f) || (_oosAfterCell(f.pred_after_label) + remainNote)}</td>
+      <td class="am rel">${_oosChangedCell(f, 'succ') || _oosAfterCell(f.succ_after_label)}</td>
       <td class="sev">${_oosSevCell(f)}</td>
       <td class="oos-rescell">${_oosResCell(f, resolved)}</td>
     </tr>
     <tr class="oos-drawer" id="oosdr-${escapeHtml(f.finding_id)}"><td colspan="10">${_oosDrawer(f)}</td></tr>`;
+}
+
+// Before Apply: with several driving ties, the After cell names EACH one and the correction it gets.
+function _oosFixesCell(f) {
+  const fx = (f.pred_fixes || []).filter(x => x.after && x.after !== 'No change');
+  if (fx.length < 2) return '';
+  return fx.map(x => `<div class="oos-relrow aff"><span class="mono relid">${escapeHtml(x.pred_id || '')}</span> `
+    + `<span class="oos-relb">${escapeHtml(x.after)}</span><div class="nm">${escapeHtml(x.pred_name || '')}</div></div>`).join('');
+}
+
+// After the corrections were applied: EVERY tie of the activity they changed on that side, each
+// highlighted with the related activity - the driving one and any further tie corrected with it.
+function _oosChangedCell(f, side) {
+  const ch = ((_oos.changes || {})[f.activity_id] || []).filter(c => c.side === side);
+  if (!ch.length || !_oos.applied || !Object.keys(_oos.applied).length) return '';
+  return ch.map(c => `<div class="oos-relrow aff oos-chg"><span class="mono relid">${escapeHtml(c.other || '')}</span> `
+    + `<span class="oos-relb">${escapeHtml(c.before ? c.before + ' → ' : '')}<b>${escapeHtml(c.after || '')}</b></span>`
+    + `${c.auto === 'close' ? ' <span class="oos-affbadge">keeps it connected</span>' : ''}`
+    + `<div class="nm">${escapeHtml(c.other_name || '')}</div></div>`).join('');
 }
 
 // A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.
@@ -737,8 +765,9 @@ function _oosRelListCell(list, emptyLabel) {
   if (!list || !list.length) return `<span class="oos-nochg">${escapeHtml(emptyLabel)}</span>`;
   return list.map(p => {
     const badge = p.affected ? `<span class="oos-affbadge">Driving</span>` : '';
+    const fix = (p.affected && p.fix && p.fix !== 'No change') ? ` <span class="oos-fixto">${escapeHtml(p.fix)}</span>` : '';
     return `<div class="oos-relrow${p.affected ? ' aff' : ''}">`
-      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}`
+      + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}${fix}`
       + `<div class="nm">${escapeHtml(p.name || '')}</div></div>`;
   }).join('');
 }
@@ -750,18 +779,19 @@ function _oosLogTable(rows, dd, resolved) {
       : 'No open findings — every out-of-sequence condition has been resolved. 🎉'}</div>`;
   }
   const body = rows.map((f, i) => _oosLogRow(f, i, dd, resolved)).join('');
-  // "Apply all" sits BELOW the table (the planner reviews the results first, then applies) — shown
-  // only in the Open view and only when at least one open finding has a recommended fix to apply.
+  // "Apply all" sits ABOVE the table (Ibrahim, comment 88 follow-up) — shown only in the Open view
+  // and only when at least one open finding has a recommended fix to apply.
   const applyAllBar = (!resolved && rows.some(oosHasFix)) ? `
     <div class="oos-applyall">
       <button class="oos-applyall-btn" data-oosact="applyall">⚡ Apply all recommended fixes</button>
-      <span class="oos-applyall-hint">Review the results above, then apply every finding that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
+      <span class="oos-applyall-hint">Applies every finding below that has a recommended fix in one step — no need to Apply each activity. Findings that need planner review stay open.</span>
     </div>` : '';
   return `
     <div class="oos-sevlegend"><span class="oos-sevlegend-t">Severity</span>
       <span class="oos-sevb crit">Critical</span> on the critical path (total float ≤ 0)
       <span class="oos-sevb high">High</span> near-critical (total float 1 to ${_oos.near} working days)
       <span class="oos-sevb med">Medium</span> has float — not near-critical</div>
+    ${applyAllBar}
     <div class="tblwrap oos-tblwrap"><table class="audit-table oos-logx">
       <caption class="oos-cap">Out Of Sequence Activity</caption>
       <thead>
@@ -778,7 +808,6 @@ function _oosLogTable(rows, dd, resolved) {
         </tr>
       </thead>
       <tbody>${body}</tbody></table></div>
-    ${applyAllBar}
     <div class="oos-flowhint">The engine corrects each tie to match actual execution, preserving as much logic as possible: it <b>changes the relationship type/lag</b> to the one that fits the real overlap (SS/FF, lag from the logic); if no type fits but the activity keeps other valid predecessors (or is 100% complete), it <b>removes / re-ties the driving link</b> (valid logic remains); only when removal would leave an in-progress activity with <b>no predecessor</b> is it flagged <b>Needs Planner Review</b> (unresolved). "No change" = the tie is already correct. <b>Apply</b> writes the After-Modification logic; <b>Download</b> exports the corrected XER/XML.</div>`;
 }
 
@@ -854,6 +883,37 @@ async function _oosValidate() {
   return resp.json();
 }
 
+// The check AS ON SCREEN for the report and the workbook (comment 88 follow-up - the default for every
+// feature): the corrected figures and every finding with its status and the ties changed. null when
+// nothing is applied (the exports then print the file as imported).
+export function oosLiveModule() {
+  const m = state.currentModules && state.currentModules.modules && state.currentModules.modules.out_of_sequence;
+  const n = Object.keys(_oos.applied || {}).length;
+  if (!m || !n || !_oos.live || _oosSig(m) !== _oos.sig) return null;
+  const open = new Set((_oos.fresh || []).map(f => f.activity_id));
+  const findings = (_oos.all || []).map(f => Object.assign({}, f, {
+    status: open.has(f.activity_id) ? 'Open' : 'Resolved',
+    changes: (_oos.changes || {})[f.activity_id] || [],
+  }));
+  return Object.assign({}, _oos.live, { findings, applied: n });
+}
+
+// After a re-validation: keep the corrected check and redraw the whole page from it (the dashboard
+// included), then say what Apply did beyond the ties shown.
+function _oosTakeValidated(out) {
+  _oos.fresh = out.findings || [];
+  _oos.live = out.module || null;
+  _oos.auto = out.auto || null;
+  _oos.changes = out.changes || {};
+  const m = ((state.currentModules || {}).modules || {}).out_of_sequence;
+  if (m && document.getElementById('oos-body')) renderOutOfSequence(m); else renderOosReview();
+}
+function _oosAutoText() {
+  const a = _oos.auto || {};
+  return (a.ties ? ` ${a.ties} further out-of-sequence tie${a.ties === 1 ? '' : 's'} of the same activities corrected with them.` : '')
+       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} added to the project commencement / completion milestone so no activity is left without a predecessor or successor.` : '');
+}
+
 async function _oosApply(fid) {
   const f = (_oos.fresh.find(x => x.finding_id === fid) || _oos.all.find(x => x.finding_id === fid));
   if (!f) return;
@@ -868,8 +928,8 @@ async function _oosApply(fid) {
   try {
     const out = await _oosValidate();
     if (!out.ok) { delete _oos.applied[fid]; _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
-    _oos.fresh = out.findings || [];
-    renderOosReview();
+    _oosTakeValidated(out);
+    if (_oosAutoText()) _oosDlNote('Applied.' + _oosAutoText());
   } catch (e) {
     delete _oos.applied[fid];                        // roll back so a failed Apply leaves no phantom op
     _oosDlNote('Could not reach the analysis engine.', true);
@@ -906,13 +966,12 @@ async function _oosApplyAll() {
   try {
     const out = await _oosValidate();
     if (!out.ok) { rollback(); _oosDlNote(out.error || 'Validation failed.', true); renderOosReview(); return; }
-    _oos.fresh = out.findings || [];
-    renderOosReview();
+    _oosTakeValidated(out);
     const outcome = oosBulkOutcome(touched, _oos.fresh);          // honest: count what actually cleared
     const stillReview = (_oos.fresh || []).length - outcome.notCleared;   // untouched, still open (review / data)
     _oosDlNote(`Applied ${outcome.applied} correction${outcome.applied === 1 ? '' : 's'} — ${outcome.resolved} moved to Resolved.`
       + (outcome.notCleared ? ` ${outcome.notCleared} applied but still out of sequence (check the actual dates in P6).` : '')
-      + (stillReview ? ` ${stillReview} still need review.` : ''));
+      + (stillReview ? ` ${stillReview} still need review.` : '') + _oosAutoText());
   } catch (e) {
     rollback();
     _oosDlNote('Could not reach the analysis engine.', true);
@@ -926,7 +985,7 @@ async function _oosReopen(fid) {
   delete _oos.applied[fid];
   try {
     const out = await _oosValidate();
-    if (out.ok) _oos.fresh = out.findings || [];
+    if (out.ok) { _oosTakeValidated(out); return; }
   } catch (e) { /* keep local state */ }
   renderOosReview();
 }
@@ -2182,6 +2241,8 @@ function renderWholeDay(m) {
 // that can change its figures registers its "figures as on screen" function here once; the Summary
 // score, the Executive Dashboard and the roll-up read every entry.
 export const LIVE_SUBFEATURES = { dangling: dngLiveModule, whole_day: wdLiveModule };
+// Every check whose screen can differ from the file as imported: its exports print the screen.
+export const LIVE_EXPORTS = { out_of_sequence: oosLiveModule };
 function _liveModules(am) {
   const mods = Object.assign({}, am.modules);
   Object.keys(LIVE_SUBFEATURES).map(k => [k, LIVE_SUBFEATURES[k]()]).forEach(([k, live]) => {

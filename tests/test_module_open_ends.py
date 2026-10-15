@@ -60,9 +60,16 @@ def test_no_predecessor_only_medium():
     assert by['a']['recommendation'] == 'Link from its upstream work (FS)'
 
 
-def test_start_milestone_excluded():
-    g = _g({'m': _act('m', task_type='StartMilestone')}, [])
-    assert run_open_ends(g, CONFIG)['findings'] == []
+def test_every_activity_type_is_listed_as_p6s_schedule_log_does():
+    # P6's log 'Activities without predecessors / successors' lists milestones too - on MAFI the
+    # project commencement (no predecessor) and the project finish date (no successor)
+    g = _g({'m': _act('m', task_type='StartMilestone'), 'f': _act('f', task_type='FinishMilestone'),
+            't': _act('t')},
+           [{'pred_id': 'm', 'succ_id': 't', 'type': 'FS', 'lag_days': 0},
+            {'pred_id': 't', 'succ_id': 'f', 'type': 'FS', 'lag_days': 0}])
+    r = run_open_ends(g, CONFIG)
+    assert sorted(x['activity_id'] for x in r['findings']) == ['f', 'm']
+    assert (r['kpis']['total_activities'], r['kpis']['no_predecessor'], r['kpis']['no_successor']) == (3, 1, 1)
 
 
 def test_critical_activity_bumps_severity():

@@ -2686,7 +2686,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             sys.path.insert(0, resource_path('.'))
             from p6_audit.modules.oos_resolve import write_corrected
-            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path))
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = write_corrected(os.path.abspath(resolved), accepted, os.path.abspath(output_path), config=config)
             self._json(200, {'ok': True, 'applied': res['applied'], 'out_path': res['out_path']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
@@ -3263,6 +3265,33 @@ class Handler(BaseHTTPRequestHandler):
         return out
 
     @staticmethod
+    def _live_as_on_screen(m, body):
+        """Comment 88 follow-up, the DEFAULT for every feature: when the screen shows a check after
+        fixes were applied (``live_module`` = the check as on screen), the report and the workbook
+        print that same check - figures, tables and findings - not the file as imported. The
+        verdict says so, so nobody reads it as the P6 file."""
+        live = body.get('live_module')
+        if not (isinstance(live, dict) and isinstance(live.get('findings'), list)
+                and isinstance(live.get('kpis'), dict)):
+            return m
+        out = dict(m)
+        for k in ('score', 'grade', 'pct', 'kpis', 'findings', 'wbs_summary'):
+            if live.get(k) is not None:
+                out[k] = live[k]
+        try:
+            n = int(live.get('applied') or 0)
+        except (TypeError, ValueError):
+            n = 0
+        from p6_audit.presentation import build_presentation
+        pres = dict(build_presentation(out))
+        if n:
+            pres['verdict'] = ((pres.get('verdict') or '') + f" After {n} applied correction{'' if n == 1 else 's'} "
+                               f"- download the corrected schedule to write {'it' if n == 1 else 'them'} to P6.").strip()
+        out['presentation'] = pres
+        out['live_note'] = live.get('note') or ''
+        return out
+
+    @staticmethod
     def _whole_day_as_on_screen(m, body):
         """After fixes are applied in Whole-day Review & Resolve, the report and the workbook print
         the re-checked figures the screen shows (the stored module is the file as imported)."""
@@ -3308,6 +3337,8 @@ class Handler(BaseHTTPRequestHandler):
                 m = self._dangling_as_on_screen(m, body)
             if module == 'whole_day':
                 m = self._whole_day_as_on_screen(m, body)
+            if module not in ('dangling', 'whole_day'):
+                m = self._live_as_on_screen(m, body)   # the workbook follows the screen (any feature)
             lag_justifications = body.get('lag_justifications')
             if module == 'lag_lead' and lag_justifications:
                 # Print the justifications the planner has on screen (typed or previously saved).
@@ -3378,6 +3409,8 @@ class Handler(BaseHTTPRequestHandler):
                 m = self._dangling_as_on_screen(m, body)
             if not is_summary and module == 'whole_day':
                 m = self._whole_day_as_on_screen(m, body)
+            if not is_summary and module not in ('dangling', 'whole_day'):
+                m = self._live_as_on_screen(m, body)   # the report follows the screen (any feature)
             lag_justifications = body.get('lag_justifications')
             if not is_summary and module == 'lag_lead' and lag_justifications:
                 # Print the on-screen justifications (typed or saved) — the DB module has none

@@ -27,17 +27,65 @@ NAME = 'Out of Sequence'
 
 # ── Detection ──────────────────────────────────────────────────────────────
 
+def _pred_started(pred):
+    """The predecessor has started by the data date. A milestone is one event: reached = started."""
+    if 'Milestone' in (pred.get('task_type') or ''):
+        return _milestone_reached(pred)
+    return bool(pred.get('actual_start'))
+
+
+def _pred_finished(pred):
+    """The predecessor has finished by the data date. A milestone is one event: reached = finished."""
+    if 'Milestone' in (pred.get('task_type') or ''):
+        return _milestone_reached(pred)
+    return bool(pred.get('actual_finish'))
+
+
+def _milestone_reached(act):
+    return bool(act.get('actual_start') or act.get('actual_finish')
+                or (act.get('status') or '').replace(' ', '').lower() == 'completed')
+
+
 def _is_oos(rel_type, succ, pred):
-    """True when the successor progressed ahead of what the relationship allows."""
+    """True when P6's schedule log lists the successor as out of sequence on this relationship
+    (comment 88): the successor has progressed while the relationship is STILL NOT SATISFIED at
+    the data date -
+
+        FS  the successor started, the predecessor has not finished
+        SS  the successor started, the predecessor has not started
+        FF  the successor finished, the predecessor has not finished
+        SF  the successor finished, the predecessor has not started
+
+    A predecessor that did start / finish - even later than its successor - satisfies the
+    relationship now, holds nothing back in P6's retained logic, and is not in the log (the tool
+    used to list those too: MAFI 59 where the relationship rule gives 1)."""
+    s_as, s_af = succ.get('actual_start'), succ.get('actual_finish')
+    if rel_type == 'FS':   # must not start until the predecessor finishes
+        return bool(s_as) and not _pred_finished(pred)
+    if rel_type == 'SS':   # must not start until the predecessor starts
+        return bool(s_as) and not _pred_started(pred)
+    if rel_type == 'FF':   # must not finish until the predecessor finishes
+        return bool(s_af) and not _pred_finished(pred)
+    if rel_type == 'SF':   # must not finish until the predecessor starts
+        return bool(s_af) and not _pred_started(pred)
+    return False
+
+
+def _out_of_actual_order(rel_type, succ, pred):
+    """True when the relationship type does not describe what actually happened: the successor
+    progressed before the predecessor event the type waits for, by the ACTUAL dates. Used only to
+    pick a correction that fits the executed sequence (a type P6 would accept today may still
+    misdescribe it - e.g. SS where the predecessor started after its successor); what counts as
+    out of sequence is decided by _is_oos, the P6 log's rule."""
     s_as, s_af = succ.get('actual_start'), succ.get('actual_finish')
     p_as, p_af = pred.get('actual_start'), pred.get('actual_finish')
-    if rel_type == 'FS':   # must not start until predecessor finishes
+    if rel_type == 'FS':
         return bool(s_as) and (p_af is None or p_af > s_as)
-    if rel_type == 'SS':   # must not start until predecessor starts
+    if rel_type == 'SS':
         return bool(s_as) and (p_as is None or p_as > s_as)
-    if rel_type == 'FF':   # must not finish until predecessor finishes
+    if rel_type == 'FF':
         return bool(s_af) and (p_af is None or p_af > s_af)
-    if rel_type == 'SF':   # must not finish until predecessor starts
+    if rel_type == 'SF':
         return bool(s_af) and (p_as is None or p_as > s_af)
     return False
 
@@ -91,17 +139,46 @@ def _find_commencement(graph):
     return None, None, None
 
 
+def _find_completion(graph):
+    """The project completion milestone - the finish milestone with the latest finish that drives
+    nothing further - used to keep an activity connected when a correction removes its last
+    successor. Returns (id, name, oid) or (None, None, None)."""
+    best = None
+    for oid, a in graph.activities.items():
+        if a.get('task_type') != 'FinishMilestone' or graph.succs_of(oid):
+            continue
+        when = a.get('remaining_early_finish') or a.get('planned_finish') or a.get('actual_finish')
+        if when and (best is None or when > best[0]):
+            best = (when, oid, a)
+    if not best:
+        return None, None, None
+    return best[2].get('id', ''), best[2].get('name', ''), best[1]
+
+
+def _all_offending_preds(graph, oid, act):
+    """Every predecessor ObjectId whose tie holds this activity out of sequence - all the driving
+    ties, not only the first (an activity can jump ahead of several unfinished predecessors)."""
+    out = set()
+    for link in graph.preds_of(oid):
+        if graph.is_span_activity(link['other']):
+            continue
+        p = graph.activities.get(link['other'])
+        if p and _is_oos(link.get('type', 'FS'), act, p):
+            out.add(link['other'])
+    return out
+
+
 def _first_offending_pred(graph, oid, act):
     """The predecessor link this activity violated (FS preferred), or None.
     Only predecessors that are still incomplete count, to match P6."""
     offenders = []
     for link in graph.preds_of(oid):
-        # Task→Task logic only: out-of-sequence is jumping ahead of unfinished WORK, so a
-        # zero-duration milestone (or LOE) predecessor is not counted — matches P6.
-        if not graph.is_real_activity(link['other']):
+        # every predecessor P6 schedules from counts - a milestone not yet reached included; a
+        # Level of Effort / WBS Summary only spans other work and never holds its successor
+        if graph.is_span_activity(link['other']):
             continue
         p = graph.activities.get(link['other'])
-        if not _incomplete(p):
+        if not p:
             continue
         t = link.get('type', 'FS')
         if _is_oos(t, act, p):
@@ -287,7 +364,7 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
     #    an incidental call on a valid tie and keeps "No change" honest. NOTE: a same-type,
     #    lag-only correction can never *clear* a detected out-of-sequence condition (the predecessor
     #    is incomplete, so the type must change), which is why there is no lag-only repair branch.
-    if not _is_oos(cur_type, succ, pred):
+    if not _out_of_actual_order(cur_type, succ, pred):
         return _resolution(
             'nochange', False, 'No change',
             reasoning='This relationship already matches the actual execution — no correction needed.',
@@ -301,9 +378,9 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
     for new_type in ('SS', 'FF'):
         if new_type == cur_type:
             continue
-        if not _is_oos(new_type, succ, pred):
+        if not _out_of_actual_order(new_type, succ, pred):
             clearing.append((new_type, _repair_lag(graph, new_type, succ, pred)))
-    if not clearing and cur_type != 'SF' and not _is_oos('SF', succ, pred):
+    if not clearing and cur_type != 'SF' and not _out_of_actual_order('SF', succ, pred):
         clearing.append(('SF', _repair_lag(graph, 'SF', succ, pred)))
     if clearing:
         new_type, lag = clearing[0]
@@ -442,22 +519,24 @@ def _first_successor(graph, oid):
     return '', '', '', 0.0, None, None
 
 
-def _rel_list(graph, links, affected_oid):
-    """All real predecessor/successor ties for an activity as {id, name, rel, lag, label, affected},
-    marking the affected (driving) one — so the planner sees the FULL relationship context, not just
-    the driving tie. De-duplicated by the related activity's ObjectId."""
+def _rel_list(graph, links, affected):
+    """All predecessor/successor ties for an activity as {id, name, rel, lag, label, affected} -
+    EVERY activity type, as P6 lists the relationships (a milestone or Level of Effort tie included,
+    so a tie a correction changes is always in the current-relationship list too) - with EVERY
+    driving tie marked (``affected`` = one ObjectId or a set of them). De-duplicated by ObjectId."""
+    hit = set(affected) if isinstance(affected, (set, frozenset, list, tuple)) else {affected}
     out, seen = [], set()
     for link in links:
         oid2 = link.get('other')
         other = graph.activities.get(oid2)
-        if not other or not graph.is_real_activity(oid2) or oid2 in seen:
+        if not other or oid2 in seen:
             continue
         seen.add(oid2)
         rel, lag = link.get('type', 'FS'), link.get('lag_days', 0.0) or 0.0
         out.append({'id': other.get('id', ''), 'name': other.get('name', ''),
                     'rel': rel, 'lag': lag, 'label': _rel_num(rel, lag),
-                    'affected': (oid2 == affected_oid)})
-    # Affected tie first, then the rest in their natural order — planner scans the change first.
+                    'affected': (oid2 in hit)})
+    # driving ties first, then the rest in their natural order - the planner scans the changes first
     out.sort(key=lambda r: (not r['affected']))
     return out
 
@@ -573,9 +652,37 @@ def run_out_of_sequence(graph, config):
                                              is_complete=not _incomplete(succ_act),
                                              commencement=commencement)
 
-        # Full relationship context (Ibrahim): ALL predecessors + successors, driving one marked.
-        all_predecessors = _rel_list(graph, graph.preds_of(oid), pred_oid)
+        # EVERY driving predecessor tie with its own correction (15-Oct: with several driving ties
+        # the table must say which relationship changes, and how) - the driving tie first.
+        pred_fixes = []
+        for link in sorted(graph.preds_of(oid), key=lambda l: l.get('other') != pred_oid):
+            o2 = link.get('other')
+            if graph.is_span_activity(o2):
+                continue
+            p2 = graph.activities.get(o2)
+            t2, l2 = link.get('type', 'FS'), link.get('lag_days', 0.0) or 0.0
+            if not p2 or not _is_oos(t2, act, p2):
+                continue
+            r2 = pred_res if o2 == pred_oid else _recommend_correction(
+                graph, t2, l2, act, p2, remaining_preds=_count_other_preds(graph, oid, o2),
+                is_complete=act_complete, commencement=commencement)
+            pred_fixes.append({'pred_id': p2.get('id', ''), 'pred_name': p2.get('name', ''), 'before': _rel_num(t2, l2),
+                               'after': _after_display(t2, l2, r2), 'action': r2.get('action'),
+                               'new_type': r2.get('new_type'), 'new_lag_days': r2.get('new_lag_days'),
+                               'new_pred_id': r2.get('new_pred_id') if r2.get('action') == 'replace' else ''})
+        fix_of = {x['pred_id']: x['after'] for x in pred_fixes}
+
+        # Full relationship context (Ibrahim): ALL predecessors + successors, EVERY driving one marked
+        # with the correction it gets.
+        all_predecessors = _rel_list(graph, graph.preds_of(oid), _all_offending_preds(graph, oid, act) | {pred_oid})
+        for p in all_predecessors:
+            if p['affected'] and p['id'] in fix_of:
+                p['fix'] = fix_of[p['id']]
         all_successors = _rel_list(graph, graph.succs_of(oid), succ_oid if succ_res is not None else None)
+        if succ_res is not None:
+            for s_ in all_successors:
+                if s_['affected']:
+                    s_['fix'] = _after_display(succ_rel, succ_lag, succ_res)
 
         pred_baseline = _rel_num(rel_type, cur_lag)
         succ_baseline = _rel_num(succ_rel, succ_lag) if succ_id else ''
@@ -615,6 +722,7 @@ def run_out_of_sequence(graph, config):
             'resolution':                 pred_res,          # predecessor tie (the OOS cause)
             'pred_resolution':            pred_res,
             'succ_resolution':            succ_res,          # successor tie, or None (= No change)
+            'pred_fixes':                 pred_fixes,        # every driving predecessor tie + its correction
         })
 
     oos_count = len(findings)

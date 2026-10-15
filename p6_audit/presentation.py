@@ -206,7 +206,7 @@ SPECS = {
                     ('Suggested Logic Fix', 'suggested_fix', 'text'), ('Suggested Logic Fix 2', 'suggested_fix_2', 'mut')],
     },
     'open_ends': {
-        'verdict': lambda m: _v_pct(m, 'of activities are open on at least one side — no predecessor and/or no successor.'),
+        'verdict': lambda m: _v_pct(m, "of activities are open on at least one side — no predecessor and/or no successor (as P6's schedule log lists them, every activity type)."),
         'tiles': lambda k: [('Total Activities', _num(k.get('total_activities'))), ('Open Ends', k.get('open_ends', 0)),
                             ('Open-End %', _pct(k.get('open_end_pct'))), ('No Predecessor', k.get('no_predecessor', 0)),
                             ('No Successor', k.get('no_successor', 0))],
@@ -510,7 +510,7 @@ def report_sections(m):
 
 
 # checks that examine the task activities only (Task / Resource Dependent, completed included)
-_TASK_BASED = {'dangling', 'open_ends', 'hard_constraints', 'whole_day'}
+_TASK_BASED = {'dangling', 'hard_constraints', 'whole_day'}
 # checks on relationships: P6's activity total shown beside them for context (comment 47;
 # comment 80 took 'Remaining Activities' and 'Non-FS' off the Relationship Types report)
 _ACTIVITY_CONTEXT = {'relationship_types'}
