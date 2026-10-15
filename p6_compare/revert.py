@@ -227,6 +227,13 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
     # appended after <ScheduleOptions> is skipped on import, so an added tie never reached P6
     # (comment 88 follow-up: a replaced predecessor was removed but its replacement missing).
     def add_rel_el(el):
+        # A NEW relationship carries no ObjectId: P6 gives it one on import. A copied or invented
+        # number (the file's highest + 1) can already belong to another relationship in the P6
+        # database, and P6 then updates that one instead of creating the tie (15-Oct: the added
+        # predecessor showed on screen but not in P6 after importing the corrected file).
+        oid = el.find(tag('ObjectId'))
+        if oid is not None:
+            el.remove(oid)
         kids = list(project)
         rel_tag = tag('Relationship')
         last = max((i for i, c in enumerate(kids) if c.tag == rel_tag), default=None)

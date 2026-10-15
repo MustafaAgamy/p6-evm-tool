@@ -209,6 +209,8 @@ def test_an_added_relationship_is_written_where_p6_reads_it(tmp_path):
     rel = proj.find(f'{{{ns}}}Relationship')
     assert rel.find(f'{{{ns}}}PredecessorActivityObjectId').text == '13'
     assert rel.find(f'{{{ns}}}SuccessorActivityObjectId').text == '12'
+    # no ObjectId of its own: P6 numbers a new tie on import (a reused number can belong to another tie)
+    assert rel.find(f'{{{ns}}}ObjectId') is None
 
 
 def test_every_changed_tie_is_listed_for_both_activities():
