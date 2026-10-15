@@ -384,6 +384,116 @@ def write_corrected(source_path, accepted, out_path, note=_CORRECTION_NOTE, conf
     raise ValueError('Corrected schedule export supports P6 XML (.xml) or XER (.xer) only.')
 
 
+# ── The corrections as an Excel workbook (Ibrahim, 15-Oct) ──────────────────────
+_P6_TYPE = {'FS': 'PR_FS', 'SS': 'PR_SS', 'FF': 'PR_FF', 'SF': 'PR_SF'}
+
+
+def write_corrections_xlsx(source_path, accepted, out_path, config):
+    """The same corrections as the corrected schedule, as a workbook the planner can check and
+    import into P6 (File > Import > Spreadsheet):
+
+      * 'TASKPRED'      - P6's spreadsheet-import layout for relationships: row 1 the P6 field
+                          codes, row 2 the titles, then one row per relationship to update, add or
+                          delete ('Delete This Row' = Y);
+      * 'Changes'       - every change exactly as the screen lists it: activity, related activity,
+                          side, before -> after, why;
+      * 'After the fix' - every relationship of each corrected activity after the corrections, to
+                          compare with the corrected XML / XER and with P6 after importing.
+    Returns {'rows', 'changes', 'out_path'}."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    data = parse_file(source_path)
+    from p6_audit.engine import _enrich
+    _enrich(data, config)
+    full = complete_ops(data, config, accepted)
+    fops = to_file_ops(full, data)
+    code = _oid_to_code(data)
+    name = {a.get('id') or '': a.get('name') or '' for a in data.activities.values()}
+    hours = {}
+    for r in data.relationships:
+        hours[(code.get(r['pred_id']), code.get(r['succ_id']))] = (r.get('type', 'FS'), r.get('lag_hours'))
+
+    def cur(pc, sc):
+        t, h = hours.get((pc, sc), ('FS', 0.0))
+        return _P6_TYPE.get(t, 'PR_FS'), (h if h is not None else 0.0)
+
+    rows = []
+    for o in fops:
+        k, pc, sc = o['kind'], o.get('pred_code'), o.get('succ_code')
+        if k == 'set_rel':
+            rows.append([sc, pc, _P6_TYPE.get(o.get('type'), 'PR_FS'), round(o.get('lag_hours') or 0.0, 2), '', 'Changed'])
+        elif k == 'remove_rel':
+            t, h = cur(pc, sc)
+            rows.append([sc, pc, t, round(h, 2), 'Y', 'Removed'])
+        elif k == 'add_rel':
+            rows.append([sc, pc, _P6_TYPE.get(o.get('type'), 'PR_FS'), round(o.get('lag_hours') or 0.0, 2), '', 'Added'])
+        elif k == 'repoint_rel':
+            t, h = cur(pc, sc)
+            rows.append([sc, pc, t, round(h, 2), 'Y', 'Removed (replaced)'])
+            rows.append([o['new_succ_code'], o['new_pred_code'], _P6_TYPE.get(o.get('type'), 'PR_FS'),
+                         round(o.get('lag_hours') or 0.0, 2), '', 'Added (replacement)'])
+
+    wb = Workbook()
+    hdr = Font(bold=True, color='FFFFFF')
+    fill = PatternFill('solid', fgColor='1F4E79')
+    amber = PatternFill('solid', fgColor='FEF3C7')
+
+    ws = wb.active
+    ws.title = 'TASKPRED'
+    ws.append(['task_id', 'pred_task_id', 'pred_type', 'lag_hr_cnt', 'delete_record_flag', 'controlyx_change'])
+    ws.append(['Successor', 'Predecessor', 'Relationship Type', 'Lag (h)', 'Delete This Row', 'Change'])
+    for r in rows:
+        ws.append(r)
+    for c in ws[2]:
+        c.font, c.fill = hdr, fill
+
+    ch = changed_ties(data, full)
+    focus = sorted({f for f in ch})
+    wc = wb.create_sheet('Changes')
+    wc.append(['Activity ID', 'Activity Name', 'Side', 'Related Activity ID', 'Related Activity Name',
+               'Before', 'After', 'Why'])
+    n_changes = 0
+    seen = set()
+    for act in focus:
+        for c in ch[act]:
+            key = (act, c['side'], c['other'], c['after'])
+            if c['side'] != 'pred' or key in seen:
+                continue                     # each tie once, on its successor's row (as the screen)
+            seen.add(key)
+            why = {'tie': 'further out-of-sequence tie of the same activity',
+                   'close': 'keeps the activity connected (commencement / completion)'}.get(c.get('auto'), 'driving tie')
+            wc.append([act, name.get(act, ''), 'Predecessor', c['other'], c.get('other_name', ''),
+                       c.get('before', ''), c.get('after', ''), why])
+            n_changes += 1
+    for c in wc[1]:
+        c.font, c.fill = hdr, fill
+
+    after_rels = apply_ops_to_relationships(data, full)
+    touched = {act for act in focus}
+    wa = wb.create_sheet('After the fix')
+    wa.append(['Predecessor ID', 'Predecessor Name', 'Successor ID', 'Successor Name', 'Type', 'Lag (d)', 'Changed'])
+    changed_pairs = {(c['other'], a) for a in ch for c in ch[a] if c['side'] == 'pred'}
+    for r in after_rels:
+        pc, sc = code.get(r['pred_id']), code.get(r['succ_id'])
+        if sc not in touched and pc not in touched:
+            continue
+        flag = 'Yes' if (pc, sc) in changed_pairs else ''
+        wa.append([pc, name.get(pc, ''), sc, name.get(sc, ''), r.get('type', 'FS'), round(r.get('lag_days') or 0.0, 2), flag])
+        if flag:
+            for c in wa[wa.max_row]:
+                c.fill = amber
+    for c in wa[1]:
+        c.font, c.fill = hdr, fill
+    for sheet in (ws, wc, wa):
+        for col in sheet.columns:
+            sheet.column_dimensions[col[0].column_letter].width = 22
+        for row in sheet.iter_rows():
+            for c in row:
+                c.alignment = Alignment(vertical='top', wrap_text=True)
+    wb.save(out_path)
+    return {'rows': len(rows), 'changes': n_changes, 'out_path': out_path}
+
+
 # ── XER writer (in-place TASKPRED edit — no XER writer existed before) ────────
 
 _XER_PRED_TYPE = {'FS': 'PR_FS', 'SS': 'PR_SS', 'FF': 'PR_FF', 'SF': 'PR_SF'}

@@ -651,6 +651,7 @@ function renderOosReview() {
       <div style="flex:1"></div>
       <div style="text-align:right">
         <button class="oos-dl" data-oosact="download" ${anyOps ? '' : 'disabled'}>⬇ Download Corrected Schedule</button>
+        <button class="oos-dl" data-oosact="dlxlsx" ${anyOps ? '' : 'disabled'} title="The same corrections as a workbook: P6's spreadsheet-import layout for relationships, every change as listed here, and the corrected relationships">⬇ Corrections as Excel (for P6)</button>
         <div class="oos-dlnote">${anyOps
           ? `${resolvedF.length} finding(s) resolved · exports the same format you imported (XER / XML) — open in P6 and F9.`
           : `Apply at least one correction to enable. Exports the same format you imported (XER / XML).`}</div>
@@ -990,6 +991,31 @@ async function _oosReopen(fid) {
   renderOosReview();
 }
 
+async function _oosDownloadXlsx() {
+  const applied = _oosAppliedOps();
+  if (!applied.length) return;
+  const base = (state.currentXmlPath || 'schedule').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  let outputPath;
+  try { outputPath = await window.pywebview.api.choose_save_path(`${stem}_OOS_corrections.xlsx`, 'xlsx'); }
+  catch (e) { outputPath = null; }
+  if (!outputPath) return;
+  _oosDlNote('Writing the corrections workbook…');
+  try {
+    const out = await fetch(`http://localhost:${state.serverPort}/api/oos/corrections-excel`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xml_path: state.currentXmlPath, cached_path: state.currentCachedPath,
+                             output_path: outputPath, accepted: applied }),
+    }).then(r => r.json());
+    _oosDlNote(out.ok
+      ? `Saved — ${out.changes} change(s), ${out.rows} relationship row(s) in P6's import layout (sheet TASKPRED).`
+      : (out.error || 'Could not write the workbook.'), !out.ok);
+  } catch (e) {
+    _oosDlNote('Could not write the workbook.', true);
+  }
+}
+
 async function _oosDownload() {
   const applied = _oosAppliedOps();
   if (!applied.length) return;
@@ -1060,6 +1086,7 @@ function _oosWire() {
     else if (act === 'reopen') { _oosReopen(fid); }
     else if (act === 'fullscreen') { _oos.fullscreen = !_oos.fullscreen; renderOosReview(); }
     else if (act === 'download') { _oosDownload(); }
+    else if (act === 'dlxlsx') { _oosDownloadXlsx(); }
     else if (act === 'pickalt') {
       // Click a valid alternative → pre-fill that tie's editor with the alternative type + lag.
       const side = t.getAttribute('data-side');

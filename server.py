@@ -484,6 +484,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_report(body)
         elif self.path == '/api/oos/validate':
             self._handle_oos_validate(body)
+        elif self.path == '/api/oos/corrections-excel':
+            self._handle_oos_corrections_excel(body)
         elif self.path == '/api/oos/corrected-file':
             self._handle_oos_corrected(body)
         elif self.path == '/api/prodintel/query':
@@ -2662,6 +2664,33 @@ class Handler(BaseHTTPRequestHandler):
             with open(resource_path('config.json')) as f:
                 config = json.load(f)
             res = revalidate_from_path(resolved, config, accepted)
+            self._json(200, {'ok': True, **res})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/oos/corrections-excel ────────────────────────────────────────
+    def _handle_oos_corrections_excel(self, body):
+        """Out-of-Sequence - the corrections as an Excel workbook: P6's spreadsheet-import layout for
+        relationships, every change as the screen lists it, and the corrected relationships - the
+        same corrections the corrected schedule carries."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        output_path = body.get('output_path', '')
+        accepted = body.get('accepted') or []
+        if not output_path:
+            self._json(200, {'ok': False, 'error': 'No output path provided'})
+            return
+        if not resolved or not os.path.isfile(resolved):
+            self._json(200, {'ok': False, 'error': 'Schedule not available. Re-import it first.'})
+            return
+        if not accepted:
+            self._json(200, {'ok': False, 'error': 'No corrections have been applied yet.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_audit.modules.oos_resolve import write_corrections_xlsx
+            with open(resource_path('config.json')) as f:
+                config = json.load(f)
+            res = write_corrections_xlsx(os.path.abspath(resolved), accepted, os.path.abspath(output_path), config)
             self._json(200, {'ok': True, **res})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})

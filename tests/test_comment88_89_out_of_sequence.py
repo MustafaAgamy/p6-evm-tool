@@ -349,3 +349,28 @@ def test_a_replaced_predecessor_is_written_by_editing_the_existing_relationship(
     R.write_corrected_xer(str(xer), ops, str(outx))
     rows = [l.split('\t') for l in outx.read_text(encoding='utf-8').splitlines() if l.startswith('%R\t500')]
     assert len(rows) == 1 and rows[0][1:4] == ['500', '12', '13'] and rows[0][6:8] == ['PR_FS', '0']
+
+
+
+def test_the_corrections_workbook_matches_the_corrected_file(tmp_path, monkeypatch):
+    """15-Oct: the corrections as an Excel workbook - P6's relationship import layout, every change
+    as the screen lists it, and the relationships after the fix - from the same op list as the file."""
+    from openpyxl import load_workbook
+    d = _many_ties()
+    accepted = _ops(_oos(d)['findings'])
+    monkeypatch.setattr(R, 'parse_file', lambda _p: d)
+    out = tmp_path / 'c.xlsx'
+    res = R.write_corrections_xlsx('x.xer', accepted, str(out), CONFIG)
+    wb = load_workbook(out)
+    assert wb.sheetnames == ['TASKPRED', 'Changes', 'After the fix']
+    tp = list(wb['TASKPRED'].iter_rows(values_only=True))
+    assert tp[0][:5] == ('task_id', 'pred_task_id', 'pred_type', 'lag_hr_cnt', 'delete_record_flag')
+    assert sorted(r[1] for r in tp[2:]) == ['p0', 'p1', 'p2', 'p3'] and all(r[0] == 'x' for r in tp[2:])
+    assert all(r[2] == 'PR_FF' for r in tp[2:]) and res['rows'] == 4
+    ch = list(wb['Changes'].iter_rows(values_only=True))[1:]
+    assert sorted(r[3] for r in ch) == ['p0', 'p1', 'p2', 'p3'] and res['changes'] == 4
+    after = list(wb['After the fix'].iter_rows(values_only=True))[1:]
+    assert {(r[0], r[2], r[4], r[6]) for r in after} >= {('p0', 'x', 'FF', 'Yes'), ('done', 'x', 'FS', None)}
+    js = _read('ui/modules/audit.js')
+    assert 'data-oosact="dlxlsx"' in js and "act === 'dlxlsx'" in js
+    assert "'/api/oos/corrections-excel'" in _read('server.py')
