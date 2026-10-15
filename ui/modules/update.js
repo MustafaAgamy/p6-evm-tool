@@ -75,6 +75,18 @@ function _injectStyle() {
     .ua-cv { font-size: 18px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; color: var(--text); }
     /* Slicer */
     .ua-slicer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ua-pk { position: relative; display: inline-block; }
+    .ua-pkbtn { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); border-radius: 20px; padding: 6px 14px; font-weight: 700; cursor: pointer; font-size: 12.5px; }
+    .ua-pkbtn b { color: var(--text); }
+    .ua-pkpop { position: absolute; z-index: 30; top: 38px; left: 0; width: 540px; max-width: 86vw; max-height: 380px; overflow: auto; background: var(--card-bg, var(--bg)); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 10px; display: none; }
+    .ua-pkpop.open { display: block; }
+    .ua-pksearch { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; background: var(--bg); color: var(--text); }
+    .ua-pkgrp { margin: 6px 0 10px; } .ua-pkgh { font-size: 11.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+    .ua-pkpop button { margin: 0 5px 6px 0; } .ua-pkpop button i { font-style: normal; opacity: .65; font-size: 11px; margin-left: 5px; }
+    .ua-code-btn i { font-style: normal; opacity: .65; font-size: 11px; margin-left: 5px; }
+    .ua-rename-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .ua-title { font-weight: 800; font-size: 15px; padding: 3px 6px; border-radius: 5px; border-bottom: 2px dashed transparent; outline: none; }
+    .ua-title:hover { border-bottom-color: var(--border); } .ua-title:focus { background: var(--bg); border-bottom-color: var(--accent); }
     .ua-code-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; }
     .ua-code-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
     .ua-scope-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; }
@@ -239,6 +251,9 @@ function _render(report) {
   body.innerHTML = `
     <div class="cmp-exports" style="margin-bottom:6px">
       <span class="cmp-file" style="margin-right:auto"><b>${escapeHtml(report.project_name || 'Project')}</b> · data date ${escapeHtml(_fdate(report.data_date))} · ${escapeHtml(_fileName())}</span>
+      <span class="ua-rename-wrap"><span id="ua-title" class="ua-title" contenteditable="true" spellcheck="false" title="Click to rename this report">${escapeHtml(report.title || 'Update Analysis')}</span>
+        <button class="btn-secondary" id="ua-title-edit" title="Rename the report">✎ Rename</button>
+        <button class="btn-secondary" id="ua-title-reset" title="Back to the default name">Reset</button></span>
       <button class="btn-secondary" id="ua-export-pdf">Export PDF</button>
       <button class="btn-secondary" id="ua-export-xlsx">Export Excel</button>
     </div>
@@ -260,12 +275,68 @@ function _render(report) {
     <div class="ua-sec">5 · Scope Weight &amp; Recommendation</div>
     <div class="ua-card">${_scopeControls(report)}<div id="ua-scope-body">${_scopeHtml(report)}</div></div>`;
 
+  _wireTitle(report);
   document.getElementById('ua-export-pdf').addEventListener('click', _exportPdf);
   document.getElementById('ua-export-xlsx').addEventListener('click', _exportExcel);
   _wireByCode(report);
   _wireSummaryLevel();
   _wireCounts(report);
   _wireScope(report);
+}
+
+// The report name - editable on screen, carried into the PDF / Word / Excel (report.title).
+function _wireTitle(report) {
+  const t = document.getElementById('ua-title');
+  if (!t) return;
+  const save = () => {
+    const v = (t.textContent || '').replace(/\s+/g, ' ').trim();
+    report.title = v && v !== 'Update Analysis' ? v : '';
+    if (_shownReport) _shownReport.title = report.title;
+    t.textContent = v || 'Update Analysis';
+  };
+  t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
+  t.addEventListener('blur', save);
+  document.getElementById('ua-title-edit')?.addEventListener('click', () => {
+    t.focus();
+    const r = document.createRange(); r.selectNodeContents(t);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  });
+  document.getElementById('ua-title-reset')?.addEventListener('click', () => { t.textContent = 'Update Analysis'; save(); });
+}
+
+// One "Activity code" button: a click opens a panel listing every activity code (and its values
+// where the section filters by value), with a search box (Ibrahim, 15-Oct). The chips inside keep
+// each section's own data attributes, so each section's wiring is unchanged.
+function _codePicker(id, label, inner) {
+  return `<span class="ua-pk" id="${id}"><button class="ua-pkbtn" type="button">Activity code: <b class="ua-pkcur">${escapeHtml(label)}</b> ▾</button>
+    <div class="ua-pkpop"><input class="ua-pksearch" placeholder="Search codes or values…">${inner}</div></span>`;
+}
+function _wirePicker(id) {
+  const pk = document.getElementById(id);
+  if (!pk) return;
+  const pop = pk.querySelector('.ua-pkpop');
+  pk.querySelector('.ua-pkbtn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.ua-pkpop.open').forEach(p => { if (p !== pop) p.classList.remove('open'); });
+    pop.classList.toggle('open');
+    if (pop.classList.contains('open')) pk.querySelector('.ua-pksearch').focus();
+  });
+  pop.addEventListener('click', e => e.stopPropagation());
+  pk.querySelector('.ua-pksearch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    pop.querySelectorAll('button[data-q]').forEach(b => { b.style.display = !q || b.dataset.q.includes(q) ? '' : 'none'; });
+    pop.querySelectorAll('.ua-pkgrp').forEach(g => {
+      const any = [...g.querySelectorAll('button[data-q]')].some(b => b.style.display !== 'none');
+      g.style.display = any ? '' : 'none';
+    });
+  });
+}
+function _pickerLabel(id, text) {
+  const el = document.querySelector(`#${id} .ua-pkcur`);
+  if (el) el.textContent = text;
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('click', () => document.querySelectorAll('.ua-pkpop.open').forEach(p => p.classList.remove('open')));
 }
 
 // Section 5 — scope weight + recommendation (multi-select; one code renders instantly, several are combined server-side)
@@ -275,8 +346,8 @@ function _scopeControls(report) {
   if (!types.length) return '';
   _scopePicked = _scopePicked.filter(t => scope[t]);
   if (!_scopePicked.length) _scopePicked = [scope[report.scope_default] ? report.scope_default : types[0]];
-  const chips = types.map(t => `<button class="ua-scope-btn ${_scopePicked.includes(t) ? 'on' : ''}" data-scope="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('');
-  return `<div class="ua-slicer"><span style="color:var(--muted)">Weight by</span>${chips}
+  const chips = types.map(t => `<button class="ua-scope-btn ${_scopePicked.includes(t) ? 'on' : ''}" data-scope="${escapeHtml(t)}" data-q="${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}<i>${(scope[t].rows || []).length} values</i></button>`).join('');
+  return `<div class="ua-slicer">${_codePicker('ua-pk-scope', _scopePicked.join(', '), `<div class="ua-pkgrp"><div class="ua-pkgh">Cost-loaded activity codes</div>${chips}</div>`)}
     <span style="margin-left:auto;color:var(--muted);font-size:12px">pick one or more · recommendation updates with the codes</span></div>`;
 }
 function _m(v) { v = +v || 0; return Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : Math.round(v).toLocaleString(); }
@@ -316,7 +387,11 @@ function _wireScope(report) {
   const box = document.getElementById('ua-scope-body');
   if (!box) return;
   const scope = report.scope || {};
-  const paint = () => document.querySelectorAll('.ua-scope-btn[data-scope]').forEach(b => b.classList.toggle('on', _scopePicked.includes(b.dataset.scope)));
+  _wirePicker('ua-pk-scope');
+  const paint = () => {
+    document.querySelectorAll('.ua-scope-btn[data-scope]').forEach(b => b.classList.toggle('on', _scopePicked.includes(b.dataset.scope)));
+    _pickerLabel('ua-pk-scope', _scopePicked.join(', '));
+  };
   const refresh = async () => {
     if (_scopePicked.length <= 1) { box.innerHTML = _scopeRender(scope[_scopePicked[0]]); return; }
     box.innerHTML = `<div class="ua-note">Weighting…</div>`;
@@ -385,8 +460,9 @@ function _timeStatusHtml(report) {
 function _byCodeControls(report) {
   const types = report.code_types || [];
   if (!types.length) return '';
-  const chips = types.map(t => `<button class="ua-code-btn ${_pickedTypes.includes(t) ? 'on' : ''}" data-type="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('');
-  return `<div class="ua-slicer"><span style="color:var(--muted)">Activity code</span>${chips}
+  const by = report.by_code || {};
+  const chips = types.map(t => `<button class="ua-code-btn ${_pickedTypes.includes(t) ? 'on' : ''}" data-type="${escapeHtml(t)}" data-q="${escapeHtml(t.toLowerCase())}">${escapeHtml(t)}<i>${(by[t] || []).length} values</i></button>`).join('');
+  return `<div class="ua-slicer">${_codePicker('ua-pk-bycode', _pickedTypes.join(', ') || 'pick a code', `<div class="ua-pkgrp"><div class="ua-pkgh">Activity codes</div>${chips}</div>`)}
     <span style="margin-left:auto;color:var(--muted);font-size:12px">pick one or more — each gets its own chart</span></div>`;
 }
 function _oneChart(title, rows) {
@@ -408,11 +484,13 @@ function _byCodeCharts(report) {
 }
 function _wireByCode(report) {
   const box = document.getElementById('ua-bc-charts');
+  _wirePicker('ua-pk-bycode');
   document.querySelectorAll('.ua-code-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const t = btn.dataset.type, i = _pickedTypes.indexOf(t);
       if (i >= 0) { if (_pickedTypes.length > 1) _pickedTypes.splice(i, 1); } else _pickedTypes.push(t);
       document.querySelectorAll('.ua-code-btn').forEach(b => b.classList.toggle('on', _pickedTypes.includes(b.dataset.type)));
+      _pickerLabel('ua-pk-bycode', _pickedTypes.join(', '));
       box.innerHTML = _byCodeCharts(report);
     });
   });
@@ -466,10 +544,15 @@ function _wireSummaryLevel() {
 // Section 4 — counts
 function _countControls(report) {
   const types = report.code_types || [];
-  const opts = ['<option value="">— all activities —</option>'].concat(types.map(t => `<option${_countFilter.type === t ? ' selected' : ''}>${escapeHtml(t)}</option>`)).join('');
-  return `<div class="ua-slicer"><span style="color:var(--muted)">Filter by activity code</span>
-    <select id="ua-cn-type" class="ua-sel">${opts}</select>
-    <select id="ua-cn-val" class="ua-sel" ${_countFilter.type ? '' : 'disabled'}></select>
+  const by = report.by_code || {};
+  const on = (t, v) => _countFilter.type === t && _countFilter.value === v;
+  const groups = types.map(t => {
+    const vals = (by[t] || []).map(r => `<button class="ua-scope-btn ${on(t, r.value) ? 'on' : ''}" data-cnt="${escapeHtml(t)}" data-cnv="${escapeHtml(r.value)}" data-q="${escapeHtml((t + ' ' + r.value).toLowerCase())}">${escapeHtml(r.value)}${r.activity_count != null ? `<i>${Number(r.activity_count).toLocaleString()}</i>` : ''}</button>`).join('');
+    return vals ? `<div class="ua-pkgrp"><div class="ua-pkgh">${escapeHtml(t)}</div>${vals}</div>` : '';
+  }).join('');
+  const all = `<button class="ua-scope-btn ${_countFilter.value ? '' : 'on'}" data-cnt="" data-cnv="" data-q="all activities">All activities</button>`;
+  const cur = _countFilter.value ? `${_countFilter.type}: ${_countFilter.value}` : 'All activities';
+  return `<div class="ua-slicer">${_codePicker('ua-pk-cn', cur, all + groups)}
     <span style="margin-left:auto;color:var(--muted);font-size:12px">every activity of each WBS, as P6 lists them</span></div>`;
 }
 // Section 4 - Planned vs Actual by COUNT of activities, per WBS (15-Oct redesign). Actual = P6's
@@ -497,7 +580,9 @@ function _countsHtml(c) {
   const sum = list => list.reduce((t, r) => [t[0] + r.activities, t[1].map((x, i) => x + r.planned[i]), t[2].map((x, i) => x + r.actual[i])], [0, [0, 0, 0], [0, 0, 0]]);
   const body = shown.map(r => _cnRow(r.wbs, r.activities, r.planned, r.actual)).join('');
   const st = sum(shown), all = sum(rows);
-  const totals = (_cnWbs ? _cnRow(`Shown WBS (${shown.length} of ${rows.length})`, st[0], st[1], st[2], 'ua-tot') : '')
+  // one activity-code value picked: no total rows (Ibrahim, 15-Oct)
+  const totals = (c.code_filter || _countFilter.value) ? '' :
+    (_cnWbs ? _cnRow(`Shown WBS (${shown.length} of ${rows.length})`, st[0], st[1], st[2], 'ua-tot') : '')
     + _cnRow('Whole schedule', all[0], all[1], all[2], 'ua-tot');
   const nb = c.no_baseline ? ` · ${c.no_baseline.toLocaleString()} activit${c.no_baseline === 1 ? 'y has' : 'ies have'} no baseline dates (counted as planned Not Started)` : '';
   return chips + `<div class="ua-cnhow">Actual = P6 Activity Status (Completed / In Progress / Not Started) · Planned = baseline dates at the data date${nb}</div>
@@ -522,20 +607,11 @@ function _wireCnWbs(report) {
   }));
 }
 function _wireCounts(report) {
-  const typeSel = document.getElementById('ua-cn-type');
-  const valSel = document.getElementById('ua-cn-val');
   const box = document.getElementById('ua-cn-body');
-  if (!typeSel) return;
-  const fillVals = () => {
-    const t = typeSel.value;
-    if (!t) { valSel.innerHTML = ''; valSel.disabled = true; return; }
-    const vals = (report.by_code[t] || []).map(r => r.value);
-    valSel.disabled = !vals.length;
-    valSel.innerHTML = vals.map(v => `<option${_countFilter.value === v ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
-  };
+  if (!box) return;
+  _wirePicker('ua-pk-cn');
   const refresh = async () => {
-    const cf = typeSel.value && valSel.value ? { type: typeSel.value, value: valSel.value } : null;
-    _countFilter = cf || { type: typeSel.value, value: '' };
+    const cf = _countFilter.type && _countFilter.value ? { type: _countFilter.type, value: _countFilter.value } : null;
     box.innerHTML = `<div class="ua-note">Counting…</div>`;
     try {
       const resp = await fetch(`http://localhost:${state.serverPort}/api/update/counts`, {
@@ -543,14 +619,21 @@ function _wireCounts(report) {
         body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', code_filter: cf }),
       });
       const data = await resp.json();
-      if (data.ok) { report.counts = data.counts; if (_shownReport) _shownReport.counts = data.counts; box.innerHTML = _countsHtml(data.counts); _wireCnWbs(report); }
-      else box.innerHTML = `<div class="ua-note">Could not apply that filter.</div>`;
+      if (data.ok) {
+        data.counts.code_filter = cf;                 // the exports drop the total rows too
+        report.counts = data.counts; if (_shownReport) _shownReport.counts = data.counts;
+        box.innerHTML = _countsHtml(data.counts); _wireCnWbs(report);
+      } else box.innerHTML = `<div class="ua-note">Could not apply that filter.</div>`;
     } catch { box.innerHTML = `<div class="ua-note">Could not reach the server.</div>`; }
   };
-  fillVals();
+  document.querySelectorAll('#ua-pk-cn [data-cnt]').forEach(btn => btn.addEventListener('click', () => {
+    _countFilter = { type: btn.dataset.cnt, value: btn.dataset.cnv };
+    document.querySelectorAll('#ua-pk-cn [data-cnt]').forEach(b => b.classList.toggle('on', b === btn));
+    _pickerLabel('ua-pk-cn', _countFilter.value ? `${_countFilter.type}: ${_countFilter.value}` : 'All activities');
+    document.querySelector('#ua-pk-cn .ua-pkpop')?.classList.remove('open');
+    refresh();
+  }));
   _wireCnWbs(report);
-  typeSel.addEventListener('change', () => { fillVals(); if (!typeSel.value) refresh(); });
-  valSel.addEventListener('change', refresh);
 }
 
 // ── Exports ──────────────────────────────────────────────────────────────────

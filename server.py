@@ -1503,7 +1503,7 @@ class Handler(BaseHTTPRequestHandler):
             from p6_evm.xlsx_writer import write_sections_xlsx
             bl = report.get('baseline_label')
             write_sections_xlsx(os.path.abspath(output_path), report_excel_sections(report),
-                                meta=_excel_meta('Update Analysis', report,
+                                meta=_excel_meta(report.get('title') or 'Update Analysis', report,
                                                  **({'baseline': bl} if bl else {})))
             self._json(200, {'ok': True})
         except Exception as exc:

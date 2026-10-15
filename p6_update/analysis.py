@@ -809,6 +809,5 @@ def _report_conclusion(ts, cp):
         parts.append(f"{ep:.0f}% of the baseline time has elapsed and {ap:.0f}% is earned{clock}{exceeded}.")
     if pp is not None and ap is not None and ts.get('behind_plan') is not None and ts['behind_plan'] > 0:
         parts.append(f"That is {ts['behind_plan']} points behind the {pp:.0f}% planned.")
-    if cp.get('headline'):
-        parts.append(cp['headline'])
+    # the driving-path sentence is shown in the Driving Path section, not here (Ibrahim, 15-Oct)
     return ' '.join(parts)

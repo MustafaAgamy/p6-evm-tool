@@ -293,11 +293,12 @@ def _counts_html(report):
         return (sum(r['activities'] for r in lst), [sum(r['planned'][i] for r in lst) for i in range(3)],
                 [sum(r['actual'][i] for r in lst) for i in range(3)])
     body = ''.join(line(r['wbs'], r['activities'], r['planned'], r['actual']) for r in shown)
-    if len(shown) != len(rows):
-        n, p, a = total(shown)
-        body += line(f'Shown WBS ({len(shown)} of {len(rows)})', n, p, a, True)
-    n, p, a = total(rows)
-    body += line('Whole schedule', n, p, a, True)
+    if not c.get('code_filter'):          # one activity-code value picked: no total rows (15-Oct)
+        if len(shown) != len(rows):
+            n, p, a = total(shown)
+            body += line(f'Shown WBS ({len(shown)} of {len(rows)})', n, p, a, True)
+        n, p, a = total(rows)
+        body += line('Whole schedule', n, p, a, True)
     nb = (f' · {c["no_baseline"]:,} activities have no baseline dates (counted as planned Not Started)'
           if c.get('no_baseline') else '')
     return (f'<div class="note">Actual = P6 Activity Status (Completed / In Progress / Not Started) · '
@@ -316,7 +317,7 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
     """`sections` = list of keys to include (None = all): conclusion · time · bycode ·
     driving · counts · scope. `code_filter` = {'types': [...]} picks Section 2's charts;
     `scope_code` picks Section 5's activity-code dimension."""
-    header = (f'<div class="rh"><div><h1>Update Analysis</h1>'
+    header = (f'<div class="rh"><div><h1>{_e(report.get("title") or "Update Analysis")}</h1>'
               f'<div class="meta">{_e(report.get("project_name"))} · single-update read against its baseline</div>'
               + (f'<div class="meta">Baseline: {_e(report.get("baseline_label"))}</div>' if report.get('baseline_label') else '')
               + '</div>'
@@ -659,8 +660,9 @@ def report_excel_sections(report):
             ap = round(100.0 * a[0] / n, 1) if n else 0.0
             return [name, n, a[0], p[0], a[1], p[1], a[2], p[2], _pcts(pp, 1), _pcts(ap, 1), round(ap - pp, 1)]
         crow = [xrow(r['wbs'], r['activities'], r['planned'], r['actual']) for r in shown]
-        for label, lst in ((f'Shown WBS ({len(shown)} of {len(allrows)})', shown) if len(shown) != len(allrows) else (None, None),
-                           ('Whole schedule', allrows)):
+        for label, lst in (() if counts.get('code_filter') else
+                           ((f'Shown WBS ({len(shown)} of {len(allrows)})', shown) if len(shown) != len(allrows) else (None, None),
+                            ('Whole schedule', allrows))):
             if label:
                 crow.append(xrow(label, sum(r['activities'] for r in lst), [sum(r['planned'][i] for r in lst) for i in range(3)],
                                  [sum(r['actual'][i] for r in lst) for i in range(3)]))

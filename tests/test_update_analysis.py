@@ -583,3 +583,18 @@ def test_scope_by_cost_gives_planned_and_earned_value_and_names_the_money_behind
     from p6_update.exporters import _scope_html
     html = _scope_html({'scope': {'Discipline': s}, 'scope_default': 'Discipline'})
     assert 'Planned Value' in html and 'Earned Value' in html and 'Budget' not in html
+
+
+def test_round5_title_and_code_filter_drop_totals():
+    """15-Oct: the report name typed on screen heads the exports; with one activity-code value
+    picked the count table has no total rows (screen, PDF and Excel alike)."""
+    from p6_update.exporters import render_html, report_excel_sections
+    r = {'title': 'Grain Bulk Weekly Update', 'project_name': 'X',
+         'counts': {'total': 2, 'by_wbs': [{'wbs': 'A', 'activities': 2, 'planned': [1, 0, 1], 'actual': [1, 0, 1]}],
+                    'code_filter': {'type': 't', 'value': 'v'}}}
+    h = render_html(r)
+    assert 'Grain Bulk Weekly Update' in h and 'Whole schedule' not in h
+    sheet = [x for x in report_excel_sections(r) if x['name'] == 'Activity Counts'][0]
+    assert [row[0] for row in sheet['blocks'][0]['rows']] == ['A']
+    r['counts'].pop('code_filter')
+    assert 'Whole schedule' in render_html(r)
