@@ -14,6 +14,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **The dashboard follows the corrections.** After Apply, the Executive Dashboard, the distribution by WBS and the impact assessment show the schedule as corrected, with the figures before.
 - **Open Ends** (Schedule Health) lists every activity type, as the Schedule Log's *Activities without predecessors / successors* does - the project start and finish milestones included.
 - `tests/p6_schedlog_check.py` compares the tool with a P6 `SCHEDLOG.TXT` list by list (critical, out-of-sequence, without predecessors, without successors).
+- **The corrected P6 file carries every change the screen shows.** A replaced predecessor is written by editing the existing relationship in place (it keeps its identity, P6 applies the edit on import); a relationship that is truly new carries no ObjectId of its own and sits where P6 reads relationships.
+- **Exports print the screen.** After Apply, the PDF, Word, HTML and Excel show the corrected figures, a Status column and every changed tie highlighted (the default for every check with on-screen fixes).
+- **Every driving tie** is marked and shows the correction it gets, with the related activity's name; every relationship of the activity is listed (milestones and Level of Effort included). *Apply all recommended fixes* sits above the table.
 
 ### Fixed — Critical Path Analyzer counts critical and near-critical as P6 does
 Critical = what P6's default Critical filter lists: In Progress and Not Started activities of every type, milestones included (they were left out), Level of Effort and WBS Summary never. Near-critical = *Total Float is within range 1d - 10d*, both ends included (was: above 0 and under 10). Each % is over the activities not completed - the same numbers as Schedule Health (MAFI: 58 critical, 35 near-critical).
