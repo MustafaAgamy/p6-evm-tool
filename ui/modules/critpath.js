@@ -213,10 +213,11 @@ function _renderReport(report) {
     <div class="cpa-card">${_milestonesHtml(report)}</div>
 
     <div class="cpa-sech">Float migration</div>
-    <div class="cpa-card">${_migrationHtml(report)}</div>
+    <div class="cpa-card" id="cpa-mig">${_migrationHtml(report)}</div>
 
     <div class="cpa-sech">Effect on completion &amp; recommendation</div>
     <div class="cpa-card">${_recoHtml(report)}</div>`;
+  _migPick = null; _wireMigration(report);
   document.getElementById('cpa-export-pdf').addEventListener('click', _openPreview);
   document.getElementById('cpa-export-xlsx').addEventListener('click', _exportExcel);
 }
@@ -611,23 +612,65 @@ function _milestonesHtml(report) {
 
 // ── Float migration ──────────────────────────────────────────────────────────
 
+// Float migration (comments 91-92): the bands are P6's own filters, each card says where its
+// number comes from, the totals on both sides can be ticked in P6, and a card click lists the
+// activities behind it.
+const _MIG_CARDS = [
+  ['near_to_crit', 'Near → CRITICAL', 'bad', 'worsened', 'near-critical (1–10 d) last period, critical now'],
+  ['safe_to_crit', 'Safe → CRITICAL', 'bad', 'worsened', 'float above 10 d last period, critical now'],
+  ['safe_to_near', 'Safe → near', 'warn', 'eroding', 'float above 10 d last period, 1–10 d now'],
+  ['crit_to_recovered', 'Critical → recovered', 'good', 'improved', 'critical last period, not critical now (still open)'],
+  ['held_crit', 'Held critical', 'flat', 'unchanged', 'critical in both'],
+];
+const _BANDW = { crit: 'Critical', near: 'Near-critical', safe: 'Safe' };
+let _migPick = null;
+function _migRows(m) {
+  const rows = (m.rows || []).filter(r => !_migPick || r.kind === _migPick);
+  if (!rows.length) return `<div class="cpa-note">No activities for this move.</div>`;
+  const word = Object.fromEntries(_MIG_CARDS.map(c => [c[0], c[1]]));
+  const shown = rows.slice(0, 300);
+  return `<table class="cpa-migt"><thead><tr><th>Activity ID</th><th>Activity name</th><th>Move</th><th class="num">TF before (d)</th><th class="num">TF now (d)</th></tr></thead><tbody>`
+    + shown.map(r => `<tr><td>${escapeHtml(r.id || '')}</td><td>${escapeHtml(r.name || '')}</td><td>${escapeHtml(word[r.kind] || r.kind)}</td>
+      <td class="num">${_n1(r.base_tf) ?? '—'}</td><td class="num">${_n1(r.curr_tf) ?? '—'}</td></tr>`).join('')
+    + `</tbody></table>${rows.length > shown.length ? `<div class="cpa-note">First ${shown.length} of ${rows.length} — the Excel export lists every one.</div>` : ''}`;
+}
 function _migrationHtml(report) {
   const m = report.float_migration;
   if (!m) return `<div class="cpa-note">Load a previous update or a baseline to see how float moved.</div>`;
   const c = m.counts || {};
-  const base = report.float_migration_base === 'baseline' ? 'baseline' : 'last period';
-  const bands = [
-    ['Near → CRITICAL', c.near_to_crit, 'bad', 'worsened'],
-    ['Safe → near', c.safe_to_near, 'warn', 'eroding'],
-    ['Critical → recovered', c.crit_to_recovered, 'good', 'improved'],
-    ['Held critical', c.held_crit, 'flat', 'unchanged'],
-  ];
-  const toward = (c.near_to_crit || 0) + (c.safe_to_near || 0);
-  const cells = bands.map(([lbl, n, cls, tag]) => `<div class="cpa-band">
-      <div class="cpa-bandl">${lbl}</div><div class="cpa-bandv ${cls}">${n || 0}</div>
-      <div class="cpa-bandt ${cls}">${tag}</div></div>`).join('');
-  return `<div class="cpa-bands">${cells}</div>
-    <div class="cpa-leg">${toward} activities lost float toward the critical path vs ${base} — early warning of the coming slip. Matched by activity ID.</div>`;
+  const t = m.totals || null;
+  const isBl = report.float_migration_base === 'baseline';
+  const base = isBl ? 'baseline' : 'last period';
+  const baseLbl = isBl ? 'Baseline' : 'Previous update';
+  const dd = role => { const d = (report.data_dates || {})[role]; return d ? ' — ' + _fdate(d) : ''; };
+  const side = (lbl, x) => `<div class="cpa-migside"><h4>${lbl}</h4>
+      <div class="cpa-migr"><span>Critical (P6 Critical filter)</span><b class="bad">${(x.critical || 0).toLocaleString()}</b></div>
+      <div class="cpa-migr"><span>Near-critical (TF 1–10 d)</span><b class="warn">${(x.near || 0).toLocaleString()}</b></div></div>`;
+  const flow = t ? `<div class="cpa-migflow">${side(baseLbl + dd(isBl ? 'baseline' : 'previous'), t.base)}<div class="cpa-migarw">➜</div>${side('Current update' + dd('current'), t.current)}</div>` : '';
+  const cells = _MIG_CARDS.map(([k, lbl, cls, tag, rule]) => `<div class="cpa-band cpa-bandclick ${_migPick === k ? 'on' : ''}" data-mig="${k}">
+      <div class="cpa-bandl">${lbl}</div><div class="cpa-bandv ${cls}">${(c[k] || 0).toLocaleString()}</div>
+      <div class="cpa-bandt ${cls}">${tag}</div><div class="cpa-bandf">${rule}</div></div>`).join('');
+  const turned = c.turned_crit != null ? c.turned_crit : (c.near_to_crit || 0) + (c.safe_to_crit || 0);
+  const other = t ? t.current.critical - (c.held_crit || 0) - turned : null;
+  const recon = t ? ` Of the ${t.current.critical.toLocaleString()} critical now: ${(c.held_crit || 0).toLocaleString()} held + ${turned.toLocaleString()} turned critical`
+    + (other ? ` + ${other.toLocaleString()} in no band ${base} (not in that file, completed there, or without float)` : '') + '.' : '';
+  return `<div class="cpa-leg" style="margin:0 0 8px">Bands are P6's own filters: <b>Critical</b> = P6 Critical filter (In Progress + Not Started that P6 flags Critical; never LOE / WBS Summary) · <b>Near-critical</b> = Total Float within 1d – 10d · <b>Safe</b> = the other open activities with float. Completed activities are in no band; milestones are counted, as in P6. Matched by Activity ID.</div>
+    ${flow}<div class="cpa-bands cpa-bands5">${cells}</div>
+    <div class="cpa-leg"><b>${turned.toLocaleString()} activities turned critical vs ${base}</b> (${(c.near_to_crit || 0)} from near + ${(c.safe_to_crit || 0)} from safe).${recon}</div>
+    <div class="cpa-migh">Activities behind the numbers — ${_migPick ? escapeHtml(_MIG_CARDS.find(x => x[0] === _migPick)[1]) + ' · <a href="#" data-mig="__all__">show all</a>' : 'all moves · click a card to filter'}</div>
+    <div id="cpa-migrows">${_migRows(m)}</div>`;
+}
+function _wireMigration(report) {
+  const host = document.getElementById('cpa-mig');
+  if (!host) return;
+  host.addEventListener('click', e => {
+    const el = e.target.closest('[data-mig]');
+    if (!el) return;
+    e.preventDefault();
+    const k = el.dataset.mig;
+    _migPick = (k === '__all__' || _migPick === k) ? null : k;
+    host.innerHTML = _migrationHtml(report);
+  });
 }
 
 // ── Small formatters ─────────────────────────────────────────────────────────
@@ -820,6 +863,16 @@ function _injectStyle() {
     .cpa-godot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
     /* float bands */
     .cpa-bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .cpa-bands5 { grid-template-columns: repeat(5, 1fr); }
+    @media (max-width: 760px) { .cpa-bands5 { grid-template-columns: repeat(2, 1fr); } .cpa-migflow { grid-template-columns: 1fr !important; } }
+    .cpa-bandclick { cursor: pointer; } .cpa-bandclick:hover, .cpa-bandclick.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+    .cpa-bandf { font-size: 10.5px; color: var(--muted); margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--border); text-align: left; }
+    .cpa-migflow { display: grid; grid-template-columns: 1fr 50px 1fr; gap: 10px; align-items: center; margin: 0 0 12px; }
+    .cpa-migside { border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; } .cpa-migside h4 { margin: 0 0 5px; font-size: 12.5px; }
+    .cpa-migr { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; } .cpa-migr b.bad { color: var(--danger); } .cpa-migr b.warn { color: var(--warning, #d68a1c); }
+    .cpa-migarw { text-align: center; font-size: 22px; color: var(--muted); }
+    .cpa-migh { font-weight: 700; font-size: 12.5px; margin: 14px 0 6px; }
+    .cpa-migt { width: 100%; border-collapse: collapse; font-size: 12px; } .cpa-migt th, .cpa-migt td { padding: 5px 7px; border-bottom: 1px solid var(--border); text-align: left; } .cpa-migt .num { text-align: right; }
     .cpa-band { border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
     .cpa-bandl { font-size: 11px; color: var(--muted); font-weight: 700; }
     .cpa-bandv { font-size: 20px; font-weight: 800; margin-top: 3px; }

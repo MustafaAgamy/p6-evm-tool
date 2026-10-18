@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Critical Path Analyzer counts match P6 (comments 91, 92)
+- **Float Migration** bands are now P6's own filters: Critical = P6's Critical filter (In Progress + Not Started that P6 flags Critical; never LOE / WBS Summary), Near-critical = Total Float within 1d – 10d. Completed activities are in no band; milestones are counted, as in P6. Before, completed and LOE activities were banded, milestones skipped and near-critical was "under 10 d".
+- New **Safe → CRITICAL** move: activities that lost all float straight from above 10 d were not counted before (Grain Bulk 19 Jul → 09 Aug: 25). "Turned critical" now counts both moves (30, not 5).
+- Where the numbers come from: the critical / near-critical totals of both schedules (to tick in P6), the rule under every card, a line reconciling the totals, and a card click lists the activities behind it. Same in the PDF, Word and Excel.
+
 ### Changed — Update Analysis redesigned (comment 90 and follow-ups)
 - **Driving Path** shows the work fronts only (the WBS each activity sits in); the summary-level choice is gone.
 - **Planned vs Actual by count** is one table per WBS: Activities, then Completed / In Progress / Not Started as *actual / planned*, a % complete bar (actual fill, planned marker) and the gap. **Actual = P6's Activity Status field**, so the counts match P6 exactly (checked on 19 XER and 7 XML files, per WBS); planned = the baseline dates at the data date. Every activity type is counted, as P6 lists them. A *Show WBS* picker shows only the WBS chosen; the report and Excel print the same rows.

@@ -9,7 +9,7 @@ float_migration — how activities moved between float bands from the comparison
 """
 from p6_critpath.analysis import (
     _forecast_finish, _ref_calendar, _wd_between, _iso, _baseline_finish, cpli,
-    _MILESTONES, NEAR_THRESHOLD,
+    _MILESTONES, NEAR_THRESHOLD, p6_done, p6_critical, p6_near,
 )
 
 
@@ -20,53 +20,61 @@ def _d0(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0) if isinstance(d, datetime) else d
 
 
-def _band(tf, near=NEAR_THRESHOLD):
-    if tf is None:
+def _band(a, near=NEAR_THRESHOLD):
+    """The activity's float band by P6's own filters (Ibrahim, comment 91): 'crit' = P6's Critical
+    filter, 'near' = Total Float within 1d - 10d, 'safe' = every other activity with float.
+    Completed activities and activities without float are in no band (P6 lists them in none)."""
+    if p6_done(a) or a.get('total_float_days') is None:
         return None
-    if tf <= 0:
+    if p6_critical(a):
         return 'crit'
-    if tf < near:
+    if p6_near(a, near):
         return 'near'
     return 'safe'
 
 
+_KINDS = ('near_to_crit', 'safe_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
+
+
 def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
-    """Band moves from base → current, matched by activity code. Counts the four moves the
-    dashboard shows, and keeps the ids for drill-down."""
+    """Band moves from base -> current, matched by activity ID, every activity type P6's filters
+    list (milestones included). Counts each move, the critical / near-critical totals on each
+    side (so the planner can tick them against P6's filters in both files), and keeps the
+    activities for drill-down."""
     def bands(data, facts):
         out = {}
         for a in data.activities.values():
-            if a.get('task_type') in _MILESTONES:
+            band = _band(a, near)
+            if band is None:
                 continue
-            tf = a.get('total_float_days')
-            if tf is None:
-                continue
-            out[a.get('id')] = _band(tf, near)
-            facts[a.get('id')] = (a.get('name') or '', tf)
+            out[a.get('id')] = band
+            facts[a.get('id')] = (a.get('name') or '', a.get('total_float_days'))
         return out
 
-    pf, cf = {}, {}            # id → (name, total float) on each side, for the Excel list
+    pf, cf = {}, {}            # id -> (name, total float) on each side, for the Excel list
     pb, cb = bands(base_data, pf), bands(curr_data, cf)
-    counts = {'near_to_crit': 0, 'safe_to_near': 0, 'crit_to_recovered': 0, 'held_crit': 0}
+    counts = {k: 0 for k in _KINDS}
     rows = []
     for code, cur in cb.items():
         prev = pb.get(code)
         if prev is None:
             continue
         kind = None
-        if prev == 'near' and cur == 'crit':
-            kind = 'near_to_crit'
+        if cur == 'crit':
+            kind = {'near': 'near_to_crit', 'safe': 'safe_to_crit', 'crit': 'held_crit'}[prev]
         elif prev == 'safe' and cur == 'near':
             kind = 'safe_to_near'
-        elif prev == 'crit' and cur != 'crit':
+        elif prev == 'crit':
             kind = 'crit_to_recovered'
-        elif prev == 'crit' and cur == 'crit':
-            kind = 'held_crit'
         if kind:
             counts[kind] += 1
             rows.append({'id': code, 'from': prev, 'to': cur, 'kind': kind,
                          'name': cf[code][0], 'base_tf': pf[code][1], 'curr_tf': cf[code][1]})
-    return {'counts': counts, 'rows': rows}
+    counts['turned_crit'] = counts['near_to_crit'] + counts['safe_to_crit']
+    totals = {side: {'critical': sum(1 for v in bb.values() if v == 'crit'),
+                     'near': sum(1 for v in bb.values() if v == 'near')}
+              for side, bb in (('base', pb), ('current', cb))}
+    return {'counts': counts, 'rows': rows, 'totals': totals}
 
 
 def _finish_ms(data, code):

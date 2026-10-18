@@ -440,22 +440,67 @@ def _milestones(report):
     return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>'
 
 
+_MIG_RULES = {
+    'near_to_crit': 'near-critical (1–10 d) before, critical now',
+    'safe_to_crit': 'float above 10 d before, critical now',
+    'safe_to_near': 'float above 10 d before, 1–10 d now',
+    'crit_to_recovered': 'critical before, not critical now (still open)',
+    'held_crit': 'critical in both',
+}
+_MIG_BANDS_NOTE = ("Bands are P6's own filters: Critical = P6 Critical filter (In Progress + Not Started that "
+                   "P6 flags Critical; never LOE / WBS Summary) · Near-critical = Total Float within 1d – 10d · "
+                   "Safe = the other open activities with float. Completed activities are in no band; milestones "
+                   "are counted, as in P6. Matched by Activity ID.")
+
+
+def _mig_recon(report):
+    """'N activities turned critical ... Of the X critical now: held + turned (+ in no band before).'"""
+    m = report.get('float_migration') or {}
+    c, t = m.get('counts', {}) or {}, m.get('totals')
+    base = 'the baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
+    turned = c.get('turned_crit', (c.get('near_to_crit', 0) or 0) + (c.get('safe_to_crit', 0) or 0))
+    out = (f"{turned:,} activities turned critical vs {base} ({c.get('near_to_crit', 0) or 0} from near + "
+           f"{c.get('safe_to_crit', 0) or 0} from safe).")
+    if t:
+        other = t['current']['critical'] - (c.get('held_crit', 0) or 0) - turned
+        out += (f" Of the {t['current']['critical']:,} critical now: {c.get('held_crit', 0) or 0:,} held + {turned:,} turned critical"
+                + (f" + {other:,} in no band {base} (not in that file, completed there, or without float)" if other else '') + '.')
+    return out
+
+
 def _migration(report):
     m = report.get('float_migration')
     if not m:
         return '<div class="note">Load a previous update or a baseline to see how float moved.</div>'
     c = m.get('counts', {})
-    base = 'baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
-    cards = [('Near → CRITICAL', c.get('near_to_crit', 0), _BAD, 'worsened'),
-             ('Safe → near', c.get('safe_to_near', 0), _WARN, 'eroding'),
-             ('Critical → recovered', c.get('crit_to_recovered', 0), _GOOD, 'improved'),
-             ('Held critical', c.get('held_crit', 0), _MUTED, 'unchanged')]
+    t = m.get('totals')
+    is_bl = report.get('float_migration_base') == 'baseline'
+    dd = report.get('data_dates') or {}
+    flow = ''
+    if t:
+        def side(lbl, role, x):
+            d = dd.get(role)
+            return (f'<td style="border:1px solid {report_theme.var("rpt-edge")};border-radius:8px;padding:8px 10px;width:45%">'
+                    f'<b>{_e(lbl)}{(" — " + _e(d)) if d else ""}</b>'
+                    f'<div>Critical (P6 Critical filter): <b style="color:{_BAD}">{x["critical"]:,}</b></div>'
+                    f'<div>Near-critical (TF 1–10 d): <b style="color:{_WARN}">{x["near"]:,}</b></div></td>')
+        flow = ('<table style="width:100%;border-collapse:separate;border-spacing:0;margin:0 0 10px"><tr>'
+                + side('Baseline' if is_bl else 'Previous update', 'baseline' if is_bl else 'previous', t['base'])
+                + '<td style="text-align:center;font-size:20px;color:#888">➜</td>'
+                + side('Current update', 'current', t['current']) + '</tr></table>')
+    cards = [('near_to_crit', 'Near → CRITICAL', _BAD, 'worsened'),
+             ('safe_to_crit', 'Safe → CRITICAL', _BAD, 'worsened'),
+             ('safe_to_near', 'Safe → near', _WARN, 'eroding'),
+             ('crit_to_recovered', 'Critical → recovered', _GOOD, 'improved'),
+             ('held_crit', 'Held critical', _MUTED, 'unchanged')]
     cells = ''.join(f'<div class="band"><div class="bandl">{_e(lbl)}</div>'
-                    f'<div class="bandv" style="color:{col}">{n}</div>'
-                    f'<div class="bandt" style="color:{col}">{tag}</div></div>' for lbl, n, col, tag in cards)
-    toward = (c.get('near_to_crit', 0) or 0) + (c.get('safe_to_near', 0) or 0)
-    return (f'<div class="bands">{cells}</div>'
-            f'<div class="note">{toward} activities lost float toward the critical path vs {base}. Matched by activity ID.</div>')
+                    f'<div class="bandv" style="color:{col}">{c.get(k, 0) or 0:,}</div>'
+                    f'<div class="bandt" style="color:{col}">{tag}</div>'
+                    f'<div class="note" style="text-align:left;border-top:1px dashed #ccc;margin-top:4px;padding-top:3px">{_e(_MIG_RULES[k])}</div></div>'
+                    for k, lbl, col, tag in cards)
+    return (f'<div class="note">{_e(_MIG_BANDS_NOTE)}</div>' + flow
+            + f'<div class="bands" style="grid-template-columns:repeat(5,1fr)">{cells}</div>'
+            + f'<div class="note"><b>{_e(_mig_recon(report))}</b></div>')
 
 
 def _recommendation(report):
@@ -728,23 +773,28 @@ def _migration_block(report):
     cc = (report.get('float_migration') or {}).get('counts', {}) or {}
     base = 'the previous update' if report.get('float_migration_base') == 'previous' else 'the baseline'
     rows = [
-        ['Near-critical → CRITICAL', _num_cell(cc.get('near_to_crit', 0)), 'Lost all float — worsened'],
-        ['Safe → near-critical', _num_cell(cc.get('safe_to_near', 0)), 'Float eroding'],
-        ['Critical → recovered', _num_cell(cc.get('crit_to_recovered', 0)), 'Gained float — improved'],
-        ['Held critical', _num_cell(cc.get('held_crit', 0)), 'Stayed critical — unchanged'],
+        ['Near-critical → CRITICAL', _num_cell(cc.get('near_to_crit', 0)), 'Lost all float — worsened', _MIG_RULES['near_to_crit']],
+        ['Safe → CRITICAL', _num_cell(cc.get('safe_to_crit', 0)), 'Lost all float — worsened', _MIG_RULES['safe_to_crit']],
+        ['Safe → near-critical', _num_cell(cc.get('safe_to_near', 0)), 'Float eroding', _MIG_RULES['safe_to_near']],
+        ['Critical → recovered', _num_cell(cc.get('crit_to_recovered', 0)), 'Gained float — improved', _MIG_RULES['crit_to_recovered']],
+        ['Held critical', _num_cell(cc.get('held_crit', 0)), 'Stayed critical — unchanged', _MIG_RULES['held_crit']],
     ]
-    toward = (cc.get('near_to_crit', 0) or 0) + (cc.get('safe_to_near', 0) or 0)
+    t = (report.get('float_migration') or {}).get('totals')
+    if t:
+        rows += [[f'Critical (P6 Critical filter) — {base}', _num_cell(t['base']['critical']), 'Total', 'tick in P6 in that file'],
+                 ['Critical (P6 Critical filter) — current update', _num_cell(t['current']['critical']), 'Total', 'tick in P6 in this file'],
+                 [f'Near-critical (TF 1–10 d) — {base}', _num_cell(t['base']['near']), 'Total', 'tick in P6 in that file'],
+                 ['Near-critical (TF 1–10 d) — current update', _num_cell(t['current']['near']), 'Total', 'tick in P6 in this file']]
     return {'title': 'Float migration',
-            'note': f'{toward} activities lost float toward the critical path vs {base}. '
-                    'Matched by activity ID.',
-            'headers': ['Float band move (matched by activity ID)', 'Activities (count)', 'Effect'],
+            'note': _mig_recon(report) + ' ' + _MIG_BANDS_NOTE,
+            'headers': ['Float band move (matched by activity ID)', 'Activities (count)', 'Effect', 'Where the number comes from'],
             'rows': rows}
 
 
-_MOVE_WORDS = {'near_to_crit': 'Near-critical → CRITICAL', 'safe_to_near': 'Safe → near-critical',
+_MOVE_WORDS = {'near_to_crit': 'Near-critical → CRITICAL', 'safe_to_crit': 'Safe → CRITICAL', 'safe_to_near': 'Safe → near-critical',
                'crit_to_recovered': 'Critical → recovered', 'held_crit': 'Held critical'}
 _BAND_WORDS = {'crit': 'Critical', 'near': 'Near-critical', 'safe': 'Safe'}
-_MOVE_ORDER = ('near_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
+_MOVE_ORDER = ('near_to_crit', 'safe_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
 
 
 def _migration_rows_block(report):

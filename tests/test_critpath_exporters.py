@@ -121,3 +121,39 @@ def test_critpath_excel_sections_write_roundtrip(tmp_path):
     write_sections_xlsx(str(out), critpath_excel_sections(_report()))
     wb = load_workbook(out)
     assert {'Census', 'Milestones', 'Driving path (current)', 'Float migration'} <= set(wb.sheetnames)
+
+
+def test_float_migration_p6_bands_comment91():
+    """Comment 91/92: the bands are P6's filters - completed / LOE never critical, milestones
+    counted, near = TF 1-10 d inclusive, safe -> critical is its own move, totals on each side."""
+    from types import SimpleNamespace as NS
+    from p6_critpath.tables import float_migration
+    from p6_critpath.exporters import critpath_excel_sections, render_html
+
+    def sched(acts):
+        return NS(activities={i: a for i, a in enumerate(acts)}, project={})
+    base = sched([
+        {'id': 'A', 'total_float_days': 5, 'status': 'Not Started'},            # near
+        {'id': 'B', 'total_float_days': 30, 'status': 'Not Started'},           # safe
+        {'id': 'M', 'task_type': 'FinishMilestone', 'total_float_days': 0, 'status': 'Not Started'},
+        {'id': 'L', 'task_type': 'LOE', 'total_float_days': -5, 'status': 'In Progress'},
+        {'id': 'D', 'total_float_days': -2, 'status': 'Completed'},             # in no band
+        {'id': 'N', 'total_float_days': 10, 'status': 'Not Started'},           # 10 d = near
+    ])
+    curr = sched([
+        {'id': 'A', 'total_float_days': 0, 'status': 'In Progress'},
+        {'id': 'B', 'total_float_days': -1, 'status': 'Not Started'},
+        {'id': 'M', 'task_type': 'FinishMilestone', 'total_float_days': 0, 'status': 'Not Started'},
+        {'id': 'L', 'task_type': 'LOE', 'total_float_days': -5, 'status': 'In Progress'},
+        {'id': 'D', 'total_float_days': -2, 'status': 'Completed'},
+        {'id': 'N', 'total_float_days': 10, 'status': 'Not Started'},
+    ])
+    m = float_migration(base, curr)
+    c = m['counts']
+    assert (c['near_to_crit'], c['safe_to_crit'], c['held_crit'], c['turned_crit']) == (1, 1, 1, 2)
+    assert m['totals'] == {'base': {'critical': 1, 'near': 2}, 'current': {'critical': 3, 'near': 1}}
+    rep = {'float_migration': m, 'float_migration_base': 'previous'}
+    html = render_html(rep, sections=['float_migration'])
+    assert 'Safe → CRITICAL' in html and '2 activities turned critical' in html
+    sh = [s for s in critpath_excel_sections(rep) if s['name'] == 'Float migration'][0]
+    assert any(r[0] == 'Safe → CRITICAL' for r in sh['blocks'][0]['rows'])
