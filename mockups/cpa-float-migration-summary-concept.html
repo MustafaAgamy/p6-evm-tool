@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Float Migration Summary</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1050px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 10px;color:var(--accent);font-size:16px}h4{margin:0 0 8px;font-size:13.5px}.note{color:var(--muted);font-size:12.5px}
+.head{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}
+.big{flex:1;min-width:220px;border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.big .v{font-size:30px;font-weight:800}.big .t{font-size:12.5px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1.25fr;gap:16px;margin-top:14px}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+table.mx{border-collapse:separate;border-spacing:4px;width:100%;font-size:12.5px}
+.mx th{font-size:11.5px;color:var(--muted);font-weight:700;padding:4px}
+.mx td{text-align:center;border-radius:7px;padding:10px 4px;font-weight:800;font-size:16px}
+.mx td.rl{background:none;text-align:right;font-size:12px;font-weight:700;color:var(--text)}
+.c-bad{background:#f9d8d4;color:var(--bad)}.c-hold{background:#f3e3e1;color:#8a3a30}.c-warn{background:#fbe9cc;color:#9a5b08}.c-good{background:#d6efe0;color:var(--good)}.c-flat{background:#eef1f5;color:var(--muted)}.c-zero{background:#f7f8fa;color:#c3c9d2;font-weight:600}
+.wf{display:grid;grid-template-columns:minmax(0,1fr) 160px 34px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f2f5;font-size:12.5px}
+.wf .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wf .n small{color:var(--muted);display:block;font-size:11px}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:#eef1f5}.bar i{display:block}
+.more{color:var(--accent);font-size:12.5px;margin-top:8px;cursor:pointer}
+.leg span{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px;vertical-align:-1px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Grain Bulk: Update 19 Jul.2026 → 09 Aug.2026 · real numbers from the fixed engine</div>
+
+<div class="card">
+<h3>Float Migration — what changed this period</h3>
+<div class="ann">No long activity list on screen. The section is summarised in three views; the full activity list stays in the <b>Excel</b> export only.</div>
+
+<!-- 1 headline -->
+<div class="head">
+  <div class="big" style="border-left:5px solid var(--bad)"><div class="v" style="color:var(--bad)">30</div><div class="t"><b>activities turned critical</b> this period — 5 from near-critical, 25 from safe</div></div>
+  <div class="big" style="border-left:5px solid var(--warn)"><div class="v" style="color:#9a5b08">29.5 d</div><div class="t"><b>average float lost</b> by each of them (largest 35.3 d) — they did not drift, they dropped</div></div>
+  <div class="big" style="border-left:5px solid var(--accent)"><div class="v">742 → 764</div><div class="t"><b>critical activities</b> (P6 Critical filter) · near-critical 6 → 2</div></div>
+</div>
+
+<div class="grid2">
+<!-- 2 matrix -->
+<div>
+ <h4>① Where every activity moved — one grid</h4>
+ <table class="mx">
+  <tr><th></th><th colspan="3">NOW (09 Aug)</th></tr>
+  <tr><th>LAST PERIOD (19 Jul)</th><th>Critical</th><th>Near 1–10 d</th><th>Safe &gt;10 d</th></tr>
+  <tr><td class="rl">Critical</td><td class="c-hold">730<br><span style="font-size:10.5px;font-weight:600">held</span></td><td class="c-zero">0</td><td class="c-zero">0</td></tr>
+  <tr><td class="rl">Near 1–10 d</td><td class="c-bad">5</td><td class="c-zero">0</td><td class="c-zero">0</td></tr>
+  <tr><td class="rl">Safe &gt;10 d</td><td class="c-bad">25</td><td class="c-warn">2</td><td class="c-flat">415</td></tr>
+  <tr><td class="rl" style="color:var(--muted)">not open*</td><td class="c-flat">4</td><td class="c-zero">0</td><td class="c-zero">0</td></tr>
+ </table>
+ <div class="note">Red = lost float into critical · amber = eroding · green (below the diagonal) = recovered. Columns add up to P6's totals now: Critical 764, Near 2. *not in the previous file, completed there, or without float.</div>
+</div>
+
+<!-- 3 work fronts -->
+<div>
+ <h4>② Where float was lost — by work front</h4>
+ <div class="wf"><div class="n">Installation of Silo Mechanical Works<small>Silo 1</small></div><div class="bar"><i style="width:100%;background:var(--bad)"></i></div><b>6</b></div>
+ <div class="wf"><div class="n">Catwalks From S2 Till S3<small>Catwalks Above Silos S1–S5</small></div><div class="bar"><i style="width:83%;background:var(--bad)"></i></div><b>5</b></div>
+ <div class="wf"><div class="n">RC SOG For Conveyor Under SOG<small>RC SOG @L=+00.10</small></div><div class="bar"><i style="width:50%;background:var(--bad)"></i></div><b>3</b></div>
+ <div class="wf"><div class="n">PC SOG For Conveyor Under SOG<small>RC SOG @L=+00.10</small></div><div class="bar"><i style="width:50%;background:var(--bad)"></i></div><b>3</b></div>
+ <div class="wf"><div class="n">PC with Fiber For SOG @L=+00.10<small>SOG Works</small></div><div class="bar"><i style="width:50%;background:var(--bad)"></i></div><b>3</b></div>
+ <div class="wf"><div class="n">Installation<small>Belt Conveyor 1 – BC1</small></div><div class="bar"><i style="width:17%;background:var(--bad)"></i><i style="width:17%;background:var(--warn)"></i></div><b>2</b></div>
+ <div class="more">+ 10 more work fronts (1 activity each) ▾</div>
+ <div class="note leg" style="margin-top:6px"><span style="background:var(--bad)"></span>turned critical<span style="background:var(--warn)"></span>safe → near (eroding) · work front = the WBS the activity sits in</div>
+</div>
+</div>
+</div>
+</div></body></html>

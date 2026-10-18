@@ -10,7 +10,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Fixed — Critical Path Analyzer counts match P6 (comments 91, 92)
 - **Float Migration** bands are now P6's own filters: Critical = P6's Critical filter (In Progress + Not Started that P6 flags Critical; never LOE / WBS Summary), Near-critical = Total Float within 1d – 10d. Completed activities are in no band; milestones are counted, as in P6. Before, completed and LOE activities were banded, milestones skipped and near-critical was "under 10 d".
 - New **Safe → CRITICAL** move: activities that lost all float straight from above 10 d were not counted before (Grain Bulk 19 Jul → 09 Aug: 25). "Turned critical" now counts both moves (30, not 5).
-- Where the numbers come from: the critical / near-critical totals of both schedules (to tick in P6), the rule under every card, a line reconciling the totals, and a card click lists the activities behind it. Same in the PDF, Word and Excel.
+- **Float Migration summarised** (no long activity list on screen): three headline figures (activities turned critical, average float they lost, critical count before → now), ONE grid of where every open activity moved (band last period × band now; columns add up to P6's totals) and the work fronts where float was lost. "Safe → near-critical" is spelled out: float dropped from above 10 d to 1–10 d — not critical yet, the early warning. Same in the PDF and Word; the Excel export keeps the grid, the work fronts and every activity.
+- Safe = P6 'Total Float greater than 10d' exactly; anything outside the three P6 filters is in no band. Checked against P6's own fields on 7 schedule pairs (XER and XML).
 
 ### Changed — Update Analysis redesigned (comment 90 and follow-ups)
 - **Driving Path** shows the work fronts only (the WBS each activity sits in); the summary-level choice is gone.

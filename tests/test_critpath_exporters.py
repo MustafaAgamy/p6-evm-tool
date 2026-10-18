@@ -154,6 +154,7 @@ def test_float_migration_p6_bands_comment91():
     assert m['totals'] == {'base': {'critical': 1, 'near': 2}, 'current': {'critical': 3, 'near': 1}}
     rep = {'float_migration': m, 'float_migration_base': 'previous'}
     html = render_html(rep, sections=['float_migration'])
-    assert 'Safe → CRITICAL' in html and '2 activities turned critical' in html
+    assert 'activities turned critical' in html and 'Where every open activity moved' in html
+    assert m['matrix'] == {'near>crit': 1, 'safe>crit': 1, 'crit>crit': 1, 'near>near': 1}
     sh = [s for s in critpath_excel_sections(rep) if s['name'] == 'Float migration'][0]
     assert any(r[0] == 'Safe → CRITICAL' for r in sh['blocks'][0]['rows'])
