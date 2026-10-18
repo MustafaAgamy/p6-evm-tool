@@ -39,7 +39,24 @@ def _governing_milestone(data):
     pool = fin_ms or [a for a in data.activities.values() if _forecast_finish(a)]
     if not pool:
         return None
-    return max(pool, key=_forecast_finish)
+    return latest_finish(data, pool)
+
+
+def latest_finish(data, pool):
+    """The latest-finishing of ``pool``; on a tie (two completion milestones on the same day) the
+    project finish - the one no other activity follows - then the lower total float."""
+    last = max(_forecast_finish(a) for a in pool)
+    tied = [a for a in pool if _forecast_finish(a) == last]
+    if len(tied) == 1:
+        return tied[0]
+    has_succ = set()
+    for r in (getattr(data, 'relationships', None) or []):
+        p = r.get('pred_id') if isinstance(r, dict) else getattr(r, 'pred_id', None)
+        if p is not None:
+            has_succ.add(p)
+    oid = {id(a): k for k, a in data.activities.items()}
+    return min(tied, key=lambda a: (oid.get(id(a)) in has_succ,
+                                    a.get('total_float_days') if a.get('total_float_days') is not None else 0))
 
 
 def _ref_calendar(data, act=None):
@@ -323,6 +340,11 @@ def _build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code
         'float_migration': migration,
         'float_migration_base': base_role,
     }
+    if migration:
+        from p6_critpath.migration_advice import advice
+        report['mig_codes'] = dict(migration.get('advice_codes') or {})
+        report['float_migration_advice'] = advice(migration, report['mig_codes'].get('location'),
+                                                  report['mig_codes'].get('trade'))
     # The current update's baseline-derived values (BL finish, Planned %, Slip) are approximate
     # when its own Planned dates stand in for the baseline P6 names (none in the file, none
     # attached) — marked '· approx' + one 'Baseline:' line on screen, PDF and Excel (R4 F2).

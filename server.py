@@ -522,6 +522,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_critpath_analyze(body)
         elif self.path == '/api/critpath/report':
             self._handle_critpath_report(body)
+        elif self.path == '/api/critpath/advice':
+            self._handle_critpath_advice(body)
         elif self.path == '/api/critpath/excel':
             self._handle_critpath_excel(body)
         elif self.path == '/api/update/analyze':
@@ -1943,6 +1945,21 @@ class Handler(BaseHTTPRequestHandler):
             _chrome_print_pdf(html_path, os.path.abspath(output_path), chrome)
             os.unlink(html_path)
             self._json(200, {'ok': True})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_critpath_advice(self, body):
+        """Float-migration recommendation for the location / trade codes the planner picked
+        (computed from the float_migration the client holds - no file is read)."""
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_critpath.migration_advice import advice
+            from p6_critpath.dashboard import build_narrative
+            rep = body.get('report') or {}
+            loc, trade = body.get('location') or None, body.get('trade') or None
+            rep['mig_codes'] = {'location': loc, 'trade': trade}
+            self._json(200, {'ok': True, 'advice': advice(rep.get('float_migration') or {}, loc, trade),
+                             'recommendation': build_narrative(rep)['recommendation']})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

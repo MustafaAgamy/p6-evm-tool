@@ -68,7 +68,10 @@ def _governing_finish_ms(data):
     fin = [a for a in data.activities.values()
            if a.get('task_type') == 'FinishMilestone' and _forecast_finish(a)]
     pool = fin or [a for a in data.activities.values() if _forecast_finish(a)]
-    return max(pool, key=_forecast_finish) if pool else None
+    if not pool:
+        return None
+    from p6_critpath.analysis import latest_finish
+    return latest_finish(data, pool)
 
 
 def _find_milestone(data, milestone_code):

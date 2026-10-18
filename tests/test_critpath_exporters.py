@@ -158,3 +158,37 @@ def test_float_migration_p6_bands_comment91():
     assert m['matrix'] == {'near>crit': 1, 'safe>crit': 1, 'crit>crit': 1, 'near>near': 1}
     sh = [s for s in critpath_excel_sections(rep) if s['name'] == 'Float migration'][0]
     assert any(r[0] == 'Safe → CRITICAL' for r in sh['blocks'][0]['rows'])
+
+
+def test_migration_advice_building_by_trade_round3():
+    """Round 3: the recommendation crosses the activities that turned critical by a location and
+    a trade code (auto-picked by name), names the worst cells with a mitigation, and the PDF /
+    Excel follow the codes picked on screen."""
+    from p6_critpath.migration_advice import advice, pick_codes
+    from p6_critpath.exporters import render_html, critpath_excel_sections
+    rows = ([{'kind': 'safe_to_crit', 'to': 'crit', 'base_tf': 20, 'curr_tf': -2, 'codes': {'Building': 'Tower A', 'Trade': 'Civil Works'}}] * 3
+            + [{'kind': 'near_to_crit', 'to': 'crit', 'base_tf': 5, 'curr_tf': 0, 'codes': {'Building': 'Tower B', 'Trade': 'Steel Works'}}]
+            + [{'kind': 'held_crit', 'to': 'crit', 'base_tf': 0, 'curr_tf': -9, 'codes': {'Building': 'Tower B', 'Trade': 'Civil Works'}}])
+    assert pick_codes(rows) == {'location': 'Building', 'trade': 'Trade'}
+    a = advice({'rows': rows}, 'Building', 'Trade')
+    assert a['items'][0]['location'] == 'Tower A' and a['items'][0]['turned_crit'] == 3 and a['items'][0]['avg_lost'] == 22
+    assert 'civil crew' in a['items'][0]['mitigation']
+    assert a['worst'][0] == {'location': 'Tower B', 'trade': 'Civil Works', 'activities': 1, 'min_tf': -9}
+    mig = {'rows': rows, 'counts': {'near_to_crit': 1, 'safe_to_crit': 3, 'turned_crit': 4}, 'matrix': {},
+           'code_types': [{'type': 'Building', 'covered': 4}], 'advice_codes': {'location': 'Building', 'trade': 'Trade'}}
+    rep = {'float_migration': mig, 'float_migration_base': 'baseline', 'mig_front_code': {'type': 'Building', 'value': 'Tower A'}}
+    html = render_html(rep, sections=['float_migration'])
+    assert 'Tower A — Civil Works' in html and 'Mitigation' in html
+    sh = [s for s in critpath_excel_sections(rep) if s['name'] == 'Float migration'][0]
+    assert any(b['title'].startswith('Recommendation') for b in sh['blocks'])
+
+
+def test_governing_tie_takes_the_project_finish():
+    from types import SimpleNamespace as NS
+    from datetime import datetime
+    from p6_critpath.analysis import _governing_milestone
+    d = datetime(2027, 5, 2, 16)
+    acts = {1: {'id': 'KD', 'name': 'Cable Erection Completion', 'task_type': 'FinishMilestone', 'remaining_early_finish': d, 'total_float_days': -60},
+            2: {'id': 'CM', 'name': 'Phase I Scope Completion', 'task_type': 'FinishMilestone', 'remaining_early_finish': d, 'total_float_days': -60}}
+    data = NS(activities=acts, relationships=[{'pred_id': 1, 'succ_id': 2}], project={})
+    assert _governing_milestone(data)['id'] == 'CM'

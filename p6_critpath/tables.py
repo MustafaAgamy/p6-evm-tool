@@ -49,7 +49,7 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
     list (milestones included). Counts each move, the critical / near-critical totals on each
     side (so the planner can tick them against P6's filters in both files), and keeps the
     activities for drill-down."""
-    fronts_of = {}
+    fronts_of, codes_of = {}, {}
 
     def bands(data, facts, keep_front=False):
         out = {}
@@ -61,6 +61,7 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
             facts[a.get('id')] = (a.get('name') or '', a.get('total_float_days'))
             if keep_front:
                 fronts_of[a.get('id')] = _work_front(a)
+                codes_of[a.get('id')] = {k: v for k, v in (a.get('activity_codes') or {}).items() if v}
         return out
 
     pf, cf = {}, {}            # id -> (name, total float) on each side, for the Excel list
@@ -82,7 +83,8 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
             counts[kind] += 1
             rows.append({'id': code, 'from': prev, 'to': cur, 'kind': kind,
                          'name': cf[code][0], 'base_tf': pf[code][1], 'curr_tf': cf[code][1],
-                         'front': fronts_of.get(code, ('', ''))[0], 'front_parent': fronts_of.get(code, ('', ''))[1]})
+                         'front': fronts_of.get(code, ('', ''))[0], 'front_parent': fronts_of.get(code, ('', ''))[1],
+                         'codes': codes_of.get(code, {})})
     counts['turned_crit'] = counts['near_to_crit'] + counts['safe_to_crit']
     # one grid: band last period (or 'none' = in no band there) x band now - every open activity
     matrix = {}
@@ -106,8 +108,9 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
     totals = {side: {'critical': sum(1 for v in bb.values() if v == 'crit'),
                      'near': sum(1 for v in bb.values() if v == 'near')}
               for side, bb in (('base', pb), ('current', cb))}
+    from p6_critpath.migration_advice import code_types, pick_codes
     return {'counts': counts, 'rows': rows, 'totals': totals, 'matrix': matrix, 'fronts': fronts,
-            'float_lost': float_lost}
+            'float_lost': float_lost, 'code_types': code_types(rows), 'advice_codes': pick_codes(rows)}
 
 
 def _finish_ms(data, code):

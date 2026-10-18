@@ -217,7 +217,7 @@ function _renderReport(report) {
 
     <div class="cpa-sech">Effect on completion &amp; recommendation</div>
     <div class="cpa-card">${_recoHtml(report)}</div>`;
-  _migMore = false; _wireMigration(report);
+  _migMore = false; _migCode = { type: '', value: '' }; _wireMigration(report);
   document.getElementById('cpa-export-pdf').addEventListener('click', _openPreview);
   document.getElementById('cpa-export-xlsx').addEventListener('click', _exportExcel);
 }
@@ -576,7 +576,7 @@ function _recoHtml(report) {
   const rec = (report.recommendation || []).map(r => `<li>${escapeHtml(r)}</li>`).join('');
   return `<div class="cpa-effect">${escapeHtml(report.effect || '')}</div>
     <div class="cpa-recoh">Recommendation</div>
-    <ol class="cpa-reco">${rec}</ol>`;
+    <ol class="cpa-reco" id="cpa-reco-list">${rec}</ol>`;
 }
 
 // ── Every-milestone table ────────────────────────────────────────────────────
@@ -618,57 +618,147 @@ function _milestonesHtml(report) {
 const MIG_KEY = 'Critical = P6 Critical filter (total float ≤ 0; In Progress + Not Started; never LOE / WBS Summary) · '
   + 'Near-critical = Total Float within 1d – 10d · Safe = Total Float above 10 d. Only open activities (P6 lists completed ones in no band); milestones counted, as in P6. Matched by Activity ID.';
 let _migMore = false;
+let _migCode = { type: '', value: '' };     // ② activity-code filter on the work fronts
+const _NOV = '(no value)';
+const _TURNED = k => k === 'near_to_crit' || k === 'safe_to_crit';
+// ② the work fronts, from the activities that moved (filtered by the activity-code value picked)
+function _migFronts(m) {
+  const rows = (m.rows || []).filter(r => _TURNED(r.kind) || r.kind === 'safe_to_near')
+    .filter(r => !_migCode.value || ((r.codes || {})[_migCode.type] || _NOV) === _migCode.value);
+  const fr = new Map();
+  rows.forEach(r => {
+    const k = (r.front || '—') + '|' + (r.front_parent || '');
+    const f = fr.get(k) || { front: r.front || '—', parent: r.front_parent || '', turned_crit: 0, safe_to_near: 0, vals: new Map() };
+    f[_TURNED(r.kind) ? 'turned_crit' : 'safe_to_near'] += 1;
+    if (_migCode.type) { const v = (r.codes || {})[_migCode.type] || _NOV; f.vals.set(v, (f.vals.get(v) || 0) + 1); }
+    fr.set(k, f);
+  });
+  return [...fr.values()].sort((x, y) => (y.turned_crit + y.safe_to_near) - (x.turned_crit + x.safe_to_near) || y.turned_crit - x.turned_crit || x.front.localeCompare(y.front));
+}
+function _migCodePicker(m) {
+  const types = (m.code_types || []).map(t => t.type);
+  if (!types.length) return '';
+  const movers = (m.rows || []).filter(r => _TURNED(r.kind) || r.kind === 'safe_to_near');
+  const vals = t => { const c = new Map(); movers.forEach(r => { const v = (r.codes || {})[t] || _NOV; c.set(v, (c.get(v) || 0) + 1); }); return [...c.entries()].sort((a, b) => b[1] - a[1]); };
+  const groups = types.map(t => `<div class="cpa-pkgrp"><div class="cpa-pkgh"><a href="#" data-migtype="${escapeHtml(t)}" class="${_migCode.type === t && !_migCode.value ? 'on' : ''}">${escapeHtml(t)}</a></div>`
+    + vals(t).map(([v, n]) => `<a href="#" class="cpa-pkv ${_migCode.type === t && _migCode.value === v ? 'on' : ''}" data-migtype="${escapeHtml(t)}" data-migval="${escapeHtml(v)}" data-q="${escapeHtml((t + ' ' + v).toLowerCase())}">${escapeHtml(v)} <i>${n}</i></a>`).join('') + '</div>').join('');
+  const cur = _migCode.value ? `${_migCode.type}: ${_migCode.value}` : (_migCode.type || 'none');
+  return `<span class="cpa-pk"><button type="button" class="cpa-pkbtn" data-migpk="1">Activity code: <b>${escapeHtml(cur)}</b> ▾</button>
+    <div class="cpa-pkpop"><input class="cpa-pksearch" placeholder="Search codes or values…"><a href="#" class="cpa-pkv ${_migCode.type ? '' : 'on'}" data-migtype="" data-migval="">No code (WBS only)</a>${groups}</div></span>`;
+}
+// ③ the building x trade recommendation (server-computed so screen, PDF and Excel agree)
+function _migAdviceHtml(report) {
+  const a = report.float_migration_advice;
+  const types = ((report.float_migration || {}).code_types || []).map(t => t.type);
+  if (!a || !types.length) return `<div class="cpa-note">No activity codes in this file to tell the building and trade apart.</div>`;
+  const opt = (sel) => types.map(t => `<option${t === sel ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('');
+  const locs = (a.locations || []).slice(0, 8), trs = (a.trades || []).slice(0, 6);
+  const max = Math.max(1, ...locs.flatMap(l => trs.map(t => ((a.cells || {})[l] || {})[t] || 0)));
+  const table = `<table class="cpa-hm"><tr><th>${escapeHtml(a.location || '')} \\ ${escapeHtml(a.trade || '')}</th>${trs.map(t => `<th>${escapeHtml(t)}</th>`).join('')}<th>Total</th></tr>`
+    + locs.map(l => `<tr><td class="l">${escapeHtml(l)}</td>` + trs.map(t => { const n = ((a.cells || {})[l] || {})[t] || 0;
+        return `<td style="${n ? `background:color-mix(in srgb, var(--danger) ${Math.round(8 + 40 * n / max)}%, transparent)` : ''}">${n ? `<b>${n}</b>` : ''}</td>`; }).join('')
+      + `<td><b>${(a.loc_totals || {})[l] || 0}</b></td></tr>`).join('') + `</table>`;
+  const more = (a.locations || []).length > locs.length ? `<div class="cpa-note">${(a.locations || []).length - locs.length} more ${escapeHtml(a.location || 'locations')} values in the Excel export.</div>` : '';
+  const nm = (x) => [x.location, x.trade].filter(v => v && v !== _NOV && v !== '—').join(' — ') || 'Activities with no building / trade code';
+  const items = (a.items || []).map((i, k) => `<div class="cpa-rec"><b>${k + 1} · ${escapeHtml(nm(i))}</b> — ${i.turned_crit} activities turned critical${i.avg_lost != null ? `, losing ${_n1(i.avg_lost)} d of float each on average` : ''}.
+      <div><span class="good">Mitigation:</span> ${escapeHtml(i.mitigation)}.</div></div>`).join('');
+  const worst = (a.worst || []).length ? `<div class="cpa-rec warn"><b>Deepest negative float now</b> — ${(a.worst || []).map(w => `${escapeHtml(nm(w))} (${_n1(w.min_tf)} d, ${w.activities} critical)`).join(' · ')}: the furthest behind — recover them first.</div>` : '';
+  return `<div class="cpa-sel"><span>Building / location code</span><select id="cpa-adv-loc">${opt(a.location)}</select>
+      <span>Trade code</span><select id="cpa-adv-trade">${opt(a.trade)}</select></div>
+    <div class="cpa-mgrid2"><div>${table}${more}<div class="cpa-leg">Where the ${(a.turned_crit || 0).toLocaleString()} activities that turned critical sit — darker = more.</div></div><div>${items}${worst}
+    <div class="cpa-leg">Building, trade, counts and float are measured from the file; the mitigation is a planner's suggestion picked from the trade.</div></div></div>`;
+}
 function _migrationHtml(report) {
   const m = report.float_migration;
   if (!m) return `<div class="cpa-note">Load a previous update or a baseline to see how float moved.</div>`;
   const c = m.counts || {}, t = m.totals || null, mx = m.matrix || {}, fl = m.float_lost || {};
   const isBl = report.float_migration_base === 'baseline';
   const base = isBl ? 'baseline' : 'last period';
+  const baseIn = isBl ? 'in the baseline' : 'last period';
   const dd = role => { const d = (report.data_dates || {})[role]; return d ? _fdate(d) : ''; };
   const bRole = isBl ? 'baseline' : 'previous';
   const turned = c.turned_crit != null ? c.turned_crit : (c.near_to_crit || 0) + (c.safe_to_crit || 0);
   const big = (col, v, t1, t2) => `<div class="cpa-mbig" style="border-left-color:${col}"><div class="v" style="color:${col}">${v}</div><div class="t"><b>${t1}</b> ${t2}</div></div>`;
-  const heads = big('var(--danger)', turned.toLocaleString(), 'activities turned critical', `vs ${base} — ${c.near_to_crit || 0} from near-critical, ${c.safe_to_crit || 0} from safe`)
+  const heads = big('var(--danger)', turned.toLocaleString(), 'activities turned critical', `vs ${base} — ${c.near_to_crit || 0} from near-critical + ${c.safe_to_crit || 0} from safe`)
     + (fl.avg != null ? big('#b26a00', `${_n1(fl.avg)} d`, 'average float lost', `by each of them (largest ${_n1(fl.max)} d)`) : '')
     + (t ? big('var(--accent)', `${t.base.critical.toLocaleString()} → ${t.current.critical.toLocaleString()}`, 'critical activities', `(P6 Critical filter) · near-critical ${t.base.near} → ${t.current.near}`) : '');
-  // the grid
   const B = [['crit', 'Critical'], ['near', 'Near-critical 1–10 d'], ['safe', 'Safe >10 d']];
   const cls = (f, to, n) => !n ? 'z' : (f === to ? (f === 'crit' ? 'hold' : 'flat') : (to === 'crit' ? 'bad' : (to === 'near' && f === 'safe' ? 'warn' : (f === 'none' ? 'flat' : 'good'))));
-  const tip = (f, to) => f === 'none' ? 'in no band last period (not in that file, completed there, or without float)'
-    : (f === to ? (f === 'crit' ? 'held critical' : 'stayed in the same band') : `${B.find(x => x[0] === f)[1]} last period → ${B.find(x => x[0] === to)[1]} now`);
-  const rowsFrom = B.concat(mx['none>crit'] || mx['none>near'] || mx['none>safe'] ? [['none', 'In no band*']] : []);
+  const tip = (f, to) => f === 'none' ? `open now but in no band ${baseIn} (not in that file, completed there, or without float)`
+    : (f === to ? (f === 'crit' ? 'held critical' : 'stayed in the same band') : `${B.find(x => x[0] === f)[1]} ${baseIn} → ${B.find(x => x[0] === to)[1]} now`);
+  const rowsFrom = B.concat(mx['none>crit'] || mx['none>near'] || mx['none>safe'] ? [['none', isBl ? 'Not in the baseline*' : 'In no band*']] : []);
+  const colTot = to => rowsFrom.reduce((s, [f]) => s + (mx[`${f}>${to}`] || 0), 0);
   const grid = `<table class="cpa-mx"><tr><th></th><th colspan="3">NOW${dd('current') ? ' — ' + dd('current') : ''}</th></tr>
     <tr><th>${isBl ? 'BASELINE' : 'LAST PERIOD'}${dd(bRole) ? ' — ' + dd(bRole) : ''}</th>${B.map(x => `<th>${x[1]}</th>`).join('')}</tr>`
     + rowsFrom.map(([f, lbl]) => `<tr><td class="rl">${lbl}</td>` + B.map(([to]) => {
         const n = mx[`${f}>${to}`] || 0;
         return `<td class="${cls(f, to, n)}" title="${escapeHtml(tip(f, to))}">${n.toLocaleString()}${f === 'crit' && to === 'crit' && n ? '<span>held</span>' : ''}</td>`;
-      }).join('') + '</tr>').join('') + `</table>`;
-  const colTot = to => rowsFrom.reduce((s, [f]) => s + (mx[`${f}>${to}`] || 0), 0);
-  // work fronts
-  const fr = m.fronts || [];
+      }).join('') + '</tr>').join('')
+    + `<tr><td class="rl">Total now (P6 filter)</td>${B.map(([to]) => `<td class="tot">${colTot(to).toLocaleString()}</td>`).join('')}</tr></table>`;
+  const none = mx['none>crit'] || 0;
+  const how = `<div class="cpa-calc"><b>How the numbers are made</b> — each open activity of the current update is matched to the same Activity ID ${baseIn} and put in one cell: its band then (row) → its band now (column).
+    <div>Turned critical = ${(c.near_to_crit || 0).toLocaleString()} (near → critical) + ${(c.safe_to_crit || 0).toLocaleString()} (safe → critical) = <b>${turned.toLocaleString()}</b></div>
+    ${t ? `<div>Critical now = ${(c.held_crit || 0).toLocaleString()} held + ${turned.toLocaleString()} turned${none ? ` + ${none} ${isBl ? 'not in the baseline' : 'in no band last period'}` : ''} = <b>${colTot('crit').toLocaleString()}</b> — P6 Critical filter in the current file (${t.current.critical.toLocaleString()})</div>
+    <div>${isBl ? 'In the baseline' : 'Last period'}: Critical ${t.base.critical.toLocaleString()} · Near-critical ${t.base.near.toLocaleString()} — the same P6 filters in that file</div>` : ''}</div>`;
+  const fr = _migFronts(m);
   const top = Math.max(1, ...fr.map(f => f.turned_crit + f.safe_to_near));
   const showN = _migMore ? fr.length : Math.min(6, fr.length);
-  const frHtml = fr.length ? fr.slice(0, showN).map(f => `<div class="cpa-wf"><div class="n">${escapeHtml(f.front)}${f.parent ? `<small>${escapeHtml(f.parent)}</small>` : ''}</div>
-      <div class="cpa-wfbar"><i style="width:${100 * f.turned_crit / top}%;background:var(--danger)"></i><i style="width:${100 * f.safe_to_near / top}%;background:#e0a030"></i></div><b>${f.turned_crit + f.safe_to_near}</b></div>`).join('')
+  const frHtml = fr.length ? fr.slice(0, showN).map(f => {
+      const codeLine = _migCode.type ? `<small class="cpa-wfc">${escapeHtml(_migCode.type)}: ${[...f.vals.entries()].sort((a, b) => b[1] - a[1]).map(([v, n]) => escapeHtml(v) + (f.vals.size > 1 ? ` (${n})` : '')).join(', ')}</small>` : '';
+      return `<div class="cpa-wf"><div class="n">${escapeHtml(f.front)}${f.parent ? `<small>${escapeHtml(f.parent)}</small>` : ''}${codeLine}</div>
+      <div class="cpa-wfbar"><i style="width:${100 * f.turned_crit / top}%;background:var(--danger)"></i><i style="width:${100 * f.safe_to_near / top}%;background:#e0a030"></i></div><b>${f.turned_crit + f.safe_to_near}</b></div>`; }).join('')
     + (fr.length > 6 ? `<a href="#" class="cpa-wfmore" data-migmore="1">${_migMore ? 'show fewer ▴' : `+ ${fr.length - 6} more work front${fr.length - 6 === 1 ? '' : 's'} ▾`}</a>` : '')
-    : `<div class="cpa-note">No activity lost float into the near-critical or critical band.</div>`;
+    : `<div class="cpa-note">No activity lost float into the near-critical or critical band${_migCode.value ? ' for this code value' : ''}.</div>`;
   return `<div class="cpa-mheads">${heads}</div>
     <div class="cpa-mgrid2">
-      <div><div class="cpa-mh">① Where every open activity moved — one grid</div>${grid}
-        <div class="cpa-leg">Read a row across: the band last period → the band now. <b class="bad">Red</b> = lost all float, now critical · <b style="color:#b26a00">Amber</b> = <b>Safe → near-critical</b>: float dropped from above 10 d to 1–10 d — not critical yet, the early warning · <b class="good">Green</b> = recovered (float gained). Columns add up to the totals now: Critical ${colTot('crit').toLocaleString()}, Near-critical ${colTot('near').toLocaleString()}.${rowsFrom.some(x => x[0] === 'none') ? ' *not in the previous file, completed there, or without float.' : ''}</div></div>
-      <div><div class="cpa-mh">② Where float was lost — by work front</div>${frHtml}
-        <div class="cpa-leg"><span class="cpa-sw" style="background:var(--danger)"></span>turned critical <span class="cpa-sw" style="background:#e0a030"></span>safe → near-critical · work front = the WBS the activity sits in (the WBS above it in grey)</div></div>
+      <div><div class="cpa-mh">① Where every open activity moved — one grid</div>${grid}${how}
+        <div class="cpa-leg">Read a row across: the band ${baseIn} → the band now. <b class="bad">Red</b> = lost all float, now critical · <b style="color:#b26a00">Amber</b> = <b>Safe → near-critical</b>: float dropped from above 10 d to 1–10 d — not critical yet, the early warning · <b class="good">Green</b> = recovered.${rowsFrom.some(x => x[0] === 'none') ? ` *open now but in no band ${baseIn}: not in that file, completed there, or without float.` : ''} Hover a cell for its meaning.</div></div>
+      <div><div class="cpa-mh">② Where float was lost — by work front</div><div class="cpa-sel">${_migCodePicker(m)}</div>${frHtml}
+        <div class="cpa-leg"><span class="cpa-sw" style="background:var(--danger)"></span>turned critical <span class="cpa-sw" style="background:#e0a030"></span>safe → near-critical · work front = the WBS the activity sits in (the WBS above it in grey; the activity code picked in blue)</div></div>
     </div>
+    <div class="cpa-mh" style="margin-top:16px">③ Recommendation — where the problem is and how to mitigate it, by building and trade</div>
+    <div id="cpa-adv">${_migAdviceHtml(report)}</div>
     <div class="cpa-leg" style="margin-top:10px"><b>Bands:</b> ${MIG_KEY} The Excel export lists every activity behind these numbers.</div>`;
 }
 function _wireMigration(report) {
   const host = document.getElementById('cpa-mig');
   if (!host) return;
+  const redraw = () => { host.innerHTML = _migrationHtml(report); };
   host.addEventListener('click', e => {
-    if (!e.target.closest('[data-migmore]')) return;
-    e.preventDefault();
-    _migMore = !_migMore;
-    host.innerHTML = _migrationHtml(report);
+    if (e.target.closest('[data-migpk]')) { e.preventDefault(); host.querySelector('.cpa-pkpop')?.classList.toggle('open'); host.querySelector('.cpa-pksearch')?.focus(); return; }
+    const pick = e.target.closest('[data-migtype]');
+    if (pick) {
+      e.preventDefault(); _migCode = { type: pick.dataset.migtype, value: pick.dataset.migval || '' };
+      report.mig_front_code = { ..._migCode }; if (_shownReport) _shownReport.mig_front_code = { ..._migCode };   // the exports print the same
+      redraw(); return;
+    }
+    if (e.target.closest('[data-migmore]')) { e.preventDefault(); _migMore = !_migMore; redraw(); return; }
+  });
+  host.addEventListener('input', e => {
+    if (!e.target.classList.contains('cpa-pksearch')) return;
+    const q = e.target.value.toLowerCase();
+    host.querySelectorAll('.cpa-pkpop [data-q]').forEach(x => { x.style.display = !q || x.dataset.q.includes(q) ? '' : 'none'; });
+  });
+  host.addEventListener('change', async e => {
+    if (e.target.id !== 'cpa-adv-loc' && e.target.id !== 'cpa-adv-trade') return;
+    const loc = host.querySelector('#cpa-adv-loc').value, trade = host.querySelector('#cpa-adv-trade').value;
+    const box = host.querySelector('#cpa-adv');
+    box.innerHTML = `<div class="cpa-note">Working out where the problem is…</div>`;
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/critpath/advice`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: { ...report, lanes: [], milestone_paths: [] }, location: loc, trade }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { box.innerHTML = `<div class="cpa-note">${escapeHtml(data.error || 'Could not work it out.')}</div>`; return; }
+      report.float_migration_advice = data.advice;
+      report.mig_codes = { location: loc, trade };
+      report.recommendation = data.recommendation;          // the report's Recommendation follows
+      if (_shownReport && _shownReport !== report) { _shownReport.float_migration_advice = data.advice; _shownReport.mig_codes = report.mig_codes; _shownReport.recommendation = data.recommendation; }
+      box.innerHTML = _migAdviceHtml(report);
+      const rl = document.getElementById('cpa-reco-list');
+      if (rl) rl.innerHTML = (data.recommendation || []).map(x => `<li>${escapeHtml(x)}</li>`).join('');
+    } catch { box.innerHTML = `<div class="cpa-note">Could not reach the local server.</div>`; }
   });
 }
 
@@ -810,6 +900,21 @@ function _injectStyle() {
     .cpa-chip.down { background: rgba(22,163,74,.12); color: var(--success); }
     .cpa-chip.flat { background: var(--border); color: var(--muted); }
     .cpa-leg { color: var(--muted); font-size: 11.5px; margin-top: 10px; line-height: 1.6; }
+    .cpa-mx td.tot { border-top: 2px solid var(--muted); border-radius: 0; color: var(--text); }
+    .cpa-calc { margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.6; background: color-mix(in srgb, var(--accent) 5%, transparent); }
+    .cpa-sel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+    .cpa-sel select { font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+    .cpa-pk { position: relative; display: inline-block; }
+    .cpa-pkbtn { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); border-radius: 20px; padding: 5px 13px; font-weight: 700; cursor: pointer; font-size: 12px; } .cpa-pkbtn b { color: var(--text); }
+    .cpa-pkpop { position: absolute; z-index: 30; top: 34px; left: 0; width: 460px; max-width: 86vw; max-height: 360px; overflow: auto; background: var(--card-bg, var(--bg)); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 10px; display: none; }
+    .cpa-pkpop.open { display: block; }
+    .cpa-pksearch { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; background: var(--bg); color: var(--text); }
+    .cpa-pkgrp { margin: 6px 0 8px; } .cpa-pkgh a { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; text-decoration: none; }
+    .cpa-pkv, .cpa-pkpop > .cpa-pkv { display: inline-block; border: 1px solid var(--border); border-radius: 14px; padding: 3px 10px; margin: 0 5px 5px 0; font-size: 12px; color: var(--text); text-decoration: none; }
+    .cpa-pkv.on, .cpa-pkgh a.on { background: var(--accent); color: #fff; border-color: var(--accent); } .cpa-pkv i { font-style: normal; opacity: .65; font-size: 10.5px; }
+    .cpa-wf .n small.cpa-wfc { color: var(--accent); }
+    .cpa-hm { border-collapse: collapse; width: 100%; font-size: 11.5px; } .cpa-hm th, .cpa-hm td { border: 1px solid var(--border); padding: 4px 5px; text-align: center; } .cpa-hm td.l { text-align: left; font-weight: 700; }
+    .cpa-rec { border: 1px solid var(--border); border-left: 5px solid var(--danger); border-radius: 8px; padding: 8px 11px; margin: 0 0 8px; font-size: 12.5px; } .cpa-rec.warn { border-left-color: #e0a030; } .cpa-rec .good { color: var(--success); font-weight: 700; }
     .cpa-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin: 0 5px 0 14px; }
     .cpa-leg .cpa-sw:first-child { margin-left: 0; }
     /* Critical Path Analyzer — per-milestone blocks */
