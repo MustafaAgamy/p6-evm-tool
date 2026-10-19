@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Float Migration Grid</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1000px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 6px;color:var(--accent);font-size:16px}.note{color:var(--muted);font-size:12.5px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+.wrapt{overflow-x:auto}
+table.mx{border-collapse:separate;border-spacing:4px;font-size:12.5px;min-width:720px}
+.mx th{font-size:11.5px;color:var(--muted);padding:4px 6px;font-weight:700;vertical-align:bottom}
+.mx th.grp{color:var(--text);font-size:12px;border-bottom:2px solid var(--accent)}
+.mx th.grp2{color:var(--muted);font-size:12px;border-bottom:2px dashed #aab3c0}
+.mx td{text-align:center;border-radius:7px;padding:9px 10px;font-weight:800;font-size:15px}
+.mx td span{display:block;font-size:10px;font-weight:600}
+.mx td.rl{text-align:right;font-size:12px;font-weight:700}
+.bad{background:#f9d8d4;color:var(--bad)}.hold{background:#f3e3e1;color:#8a3a30}.warn{background:#fbe9cc;color:#9a5b08}.flat{background:#eef1f5;color:var(--muted)}.z{color:#c3c9d2;font-weight:600}
+.fin{background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#eceef1 6px,#eceef1 12px);color:#7a8494;font-weight:700}
+.sep{width:14px;background:none;border-left:2px dashed #aab3c0;border-radius:0;padding:0}
+.tb{background:#eef4fb;color:var(--accent)}
+.tot td{border-top:2px solid #8a96a6;border-radius:0;background:none}
+.calc{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;background:#f8fafc;margin-top:8px}
+.calc b.r{color:var(--bad)}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — your run: Grain Bulk Baseline (11-Dec.2025) → Update 19 Jul.2026 · real numbers</div>
+
+<div class="card">
+<h3>① Where every activity of the baseline went</h3>
+<div class="note">Each row = one P6 filter in the <b>baseline</b> · each column = where those activities are in the <b>19 Jul update</b> (matched by Activity ID).</div>
+<div class="wrapt"><table class="mx">
+<tr><th></th><th class="grp" colspan="3">OPEN IN THE UPDATE — 19 Jul.2026 (P6 filters)</th><th class="sep"></th><th class="grp2">FINISHED</th><th></th></tr>
+<tr><th style="text-align:right">IN THE BASELINE — 11 Dec.2025</th><th>Critical now</th><th>Near-critical now<br>(TF 1–10 d)</th><th>Safe now<br>(TF &gt; 10 d)</th><th class="sep"></th><th>Completed since the baseline<br><span style="font-weight:600">not on the critical path — no float band</span></th><th>Total in the baseline<br>(P6 filter)</th></tr>
+<tr><td class="rl">Critical</td><td class="hold">387<span>still critical</span></td><td class="z">0</td><td class="z">0</td><td class="sep"></td><td class="fin">23<span>finished</span></td><td class="tb">410</td></tr>
+<tr><td class="rl">Near-critical (TF 1–10 d)</td><td class="bad">244<span>turned critical</span></td><td class="z">0</td><td class="z">0</td><td class="sep"></td><td class="fin">34<span>finished</span></td><td class="tb">278</td></tr>
+<tr><td class="rl">Safe (TF &gt; 10 d)</td><td class="bad">108<span>turned critical</span></td><td class="warn">6<span>eroding</span></td><td class="flat">442</td><td class="sep"></td><td class="fin">194<span>finished</span></td><td class="tb">750</td></tr>
+<tr><td class="rl" style="color:var(--muted)">TF 0–1 d (in no P6 band)</td><td class="flat">3</td><td class="z">0</td><td class="z">0</td><td class="sep"></td><td class="z">0</td><td class="tb" style="color:var(--muted)">3</td></tr>
+<tr class="tot"><td class="rl">Total in the update (P6 filter)</td><td>742</td><td>6</td><td>442</td><td class="sep"></td><td style="color:#7a8494">251</td><td></td></tr>
+</table></div>
+
+<div class="ann"><b>Finished activities are never critical.</b> The grey column is the baseline activities that have been <b>completed by 19 Jul</b> — they have left the schedule's float bands, so they are <b>not</b> counted in "Critical now". It is shown only so each row adds up to the baseline's own P6 count (e.g. near-critical 244 + 34 = 278).</div>
+
+<div class="calc"><b>How to read it</b><br>
+• <b>Each row</b> adds up to the baseline's P6 filter: Near-critical <b>244 + 34 = 278</b> · Critical <b>387 + 23 = 410</b> · Safe <b>108 + 6 + 442 + 194 = 750</b><br>
+• <b>The "Critical now" column</b> adds up to P6's Critical filter in the update: <b>387 + 244 + 108 + 3 = 742</b> — open activities only (In Progress / Not Started)<br>
+• <b class="r">Turned critical = 244 + 108 = 352</b> — critical in the update, but near-critical or safe in the baseline<br>
+• <b>Still critical = 387</b> — critical in both · <b>Finished = 251</b> — completed since the baseline, no longer on the path<br>
+• The <b>3</b> activities had 0.67 d of float in the baseline — above 0 (not critical) and below 1 d (not in P6's near-critical range)</div>
+</div>
+</div></body></html>

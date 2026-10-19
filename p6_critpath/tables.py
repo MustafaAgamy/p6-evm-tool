@@ -91,6 +91,17 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
     for code, cur in cb.items():
         key = f"{pb.get(code) or 'none'}>{cur}"
         matrix[key] = matrix.get(key, 0) + 1
+    # ... and where the rest of each base band went (Ibrahim, 19-Oct): completed since, or no
+    # longer in the current file - so every row adds up to the base file's own P6 filter.
+    # A finished activity is never critical; it is counted here only to close the row.
+    cur_by_id = {a.get('id'): a for a in curr_data.activities.values()}
+    finished, gone, other = {}, {}, {}
+    for code, band in pb.items():
+        if code in cb:
+            continue
+        a = cur_by_id.get(code)
+        tgt = gone if a is None else (finished if p6_done(a) else other)
+        tgt[band] = tgt.get(band, 0) + 1
     # where float was lost: the work front (the WBS the activity sits in) of every activity that
     # turned critical or dropped into near-critical, biggest first
     fr = {}
@@ -110,7 +121,8 @@ def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
               for side, bb in (('base', pb), ('current', cb))}
     from p6_critpath.migration_advice import code_types, pick_codes
     return {'counts': counts, 'rows': rows, 'totals': totals, 'matrix': matrix, 'fronts': fronts,
-            'float_lost': float_lost, 'code_types': code_types(rows), 'advice_codes': pick_codes(rows)}
+            'float_lost': float_lost, 'code_types': code_types(rows), 'advice_codes': pick_codes(rows),
+            'finished': finished, 'not_in_current': gone, 'no_band_now': other}
 
 
 def _finish_ms(data, code):

@@ -178,7 +178,7 @@ def test_migration_advice_building_by_trade_round3():
            'code_types': [{'type': 'Building', 'covered': 4}], 'advice_codes': {'location': 'Building', 'trade': 'Trade'}}
     rep = {'float_migration': mig, 'float_migration_base': 'baseline', 'mig_front_code': {'type': 'Building', 'value': 'Tower A'}}
     html = render_html(rep, sections=['float_migration'])
-    assert 'Tower A — Civil Works' in html and 'Mitigation' in html
+    assert 'Tower A' in html and 'Civil Works' in html and 'Do this' in html and 'Hotspot map' in html
     sh = [s for s in critpath_excel_sections(rep) if s['name'] == 'Float migration'][0]
     assert any(b['title'].startswith('Recommendation') for b in sh['blocks'])
 

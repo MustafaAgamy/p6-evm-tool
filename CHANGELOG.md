@@ -15,6 +15,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Where float was lost** filters by an activity code (one button listing every code and value) and shows the code value under each WBS.
 - **Recommendation by building and trade:** the activities that turned critical are crossed by a location code and a trade code (picked automatically, changeable), the worst building × trade cells are named with their average float lost and a mitigation, plus the deepest negative float now. The report's Recommendation list follows the codes picked; PDF, Word and Excel the same.
 - On a tie of the latest finish, the governing milestone is the project finish (the one nothing follows).
+- The grid shows where **every** activity of the base file went: the open columns (Critical / Near-critical / Safe now) and, apart behind a dashed divider, **Completed since** (never critical, shown only so each row adds up to the base file's own P6 filter) and the **Total in the base file**. A *How to read it* box gives each sum. Same in all three modes (update + baseline, two updates, two updates + baseline).
+- **Recommendation redesigned:** a hotspot map of building × trade (bubble size = activities turned critical, colour = average float lost), an action board of the top 3 (turned critical, float lost, deepest float now, a *Do this* checklist) and a *Protect first* strip of the deepest negative float now.
 - Safe = P6 'Total Float greater than 10d' exactly; anything outside the three P6 filters is in no band. Checked against P6's own fields on 7 schedule pairs (XER and XML).
 
 ### Changed — Update Analysis redesigned (comment 90 and follow-ups)

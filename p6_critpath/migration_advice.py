@@ -45,6 +45,13 @@ def mitigation_for(*texts):
     return _DEFAULT_MITIGATION
 
 
+def actions_of(mitigation):
+    """The mitigation as a short checklist: 'do A, and do B' / 'do A, or do B' -> ['Do A', 'Do B']."""
+    import re
+    parts = [p.strip(' .') for p in re.split(r',\s*(?:and|or)\s+|;\s*', mitigation) if p.strip(' .')]
+    return [p[0].upper() + p[1:] for p in parts] or [mitigation]
+
+
 def code_types(rows):
     """Every activity-code type carried by the activities that moved, with how many of the
     turned-critical activities carry a value - the picker lists them, most used first."""
@@ -100,6 +107,12 @@ def advice(mig, location=None, trade=None, top=3):
         cells[k[0]][k[1]] = cells[k[0]].get(k[1], 0) + 1
         if r.get('base_tf') is not None and r.get('curr_tf') is not None:
             lost.setdefault(k, []).append(r['base_tf'] - r['curr_tf'])
+    cell_lost = {l: {t: round(sum(v) / len(v), 1) for (l2, t), v in lost.items() if l2 == l and v} for l in cells}
+    deepest = {}
+    for r in rows:
+        if r.get('to') == 'crit' and r.get('curr_tf') is not None:
+            k = (val(r, location), val(r, trade))
+            deepest[k] = min(deepest.get(k, r['curr_tf']), r['curr_tf'])
     loc_tot = {l: sum(t.values()) for l, t in cells.items()}
     trade_tot = {}
     for t in cells.values():
@@ -112,9 +125,11 @@ def advice(mig, location=None, trade=None, top=3):
     items = []
     for l, t, n in flat[:top]:
         ls = lost.get((l, t)) or []
+        mit = mitigation_for(t, l)
         items.append({'location': l, 'trade': t, 'turned_crit': n,
                       'avg_lost': round(sum(ls) / len(ls), 1) if ls else None,
-                      'mitigation': mitigation_for(t, l)})
+                      'deepest_tf': deepest.get((l, t)),
+                      'mitigation': mit, 'actions': actions_of(mit)})
     # deepest negative float now, among the open critical activities (held + turned)
     crit_now = [r for r in rows if r.get('to') == 'crit' and r.get('curr_tf') is not None]
     worst = {}
@@ -125,5 +140,5 @@ def advice(mig, location=None, trade=None, top=3):
         w['min_tf'] = min(w['min_tf'], r['curr_tf'])
     worst = sorted((w for w in worst.values() if w['min_tf'] < 0), key=lambda w: (w['min_tf'], -w['activities']))[:3]
     return {'location': location, 'trade': trade, 'locations': locations, 'trades': trades,
-            'cells': cells, 'loc_totals': loc_tot, 'trade_totals': trade_tot,
+            'cells': cells, 'cell_lost': cell_lost, 'loc_totals': loc_tot, 'trade_totals': trade_tot,
             'turned_crit': len(turned), 'items': items, 'worst': worst}
