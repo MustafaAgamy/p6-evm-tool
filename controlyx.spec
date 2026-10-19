@@ -168,7 +168,7 @@ except Exception:
 # dropped from the .exe — this bit us before (an empty catalog / missing feature that
 # only showed on the built exe, never in dev or tests). p6_report registers the
 # Global Print-Preview features on import, so its submodules must ship.
-for _pkg in ('p6_export', 'p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat', 'p6_narrative', 'p6_calendar', 'p6_copilot', 'p6_claims'):
+for _pkg in ('p6_export', 'p6_kb', 'p6_report', 'p6_evm', 'p6_audit', 'p6_compare', 'p6_prodintel', 'p6_revcompare', 'p6_chat', 'p6_narrative', 'p6_calendar', 'p6_copilot', 'p6_claims', 'p6_critpath', 'p6_update', 'p6_period'):
     try:
         hiddenimports += collect_submodules(_pkg)
     except Exception:

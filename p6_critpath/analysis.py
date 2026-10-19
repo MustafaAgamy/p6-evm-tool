@@ -4,8 +4,9 @@ Compares the critical path across 2–3 schedules. Every figure comes from what
 each file already carries (total float, dates, driving logic) — no rescheduling,
 no F9. Definitions (Ibrahim's rules, locked in the scope note):
 
-  * Critical        total float ≤ 0
-  * Near-critical   0 < total float < 10 working days   (strictly under 10)
+  * Critical        P6's Critical filter: In Progress / Not Started activities P6 flags
+                    Critical (total float ≤ 0; never a Level of Effort / WBS Summary)
+  * Near-critical   P6 'Total Float is within range 1d - 10d', not completed
   * Critical path length   remaining working days, data date → finish milestone
                            (a baseline has no progress → its data date is the
                            project start, so its length is the full path)
@@ -38,7 +39,24 @@ def _governing_milestone(data):
     pool = fin_ms or [a for a in data.activities.values() if _forecast_finish(a)]
     if not pool:
         return None
-    return max(pool, key=_forecast_finish)
+    return latest_finish(data, pool)
+
+
+def latest_finish(data, pool):
+    """The latest-finishing of ``pool``; on a tie (two completion milestones on the same day) the
+    project finish - the one no other activity follows - then the lower total float."""
+    last = max(_forecast_finish(a) for a in pool)
+    tied = [a for a in pool if _forecast_finish(a) == last]
+    if len(tied) == 1:
+        return tied[0]
+    has_succ = set()
+    for r in (getattr(data, 'relationships', None) or []):
+        p = r.get('pred_id') if isinstance(r, dict) else getattr(r, 'pred_id', None)
+        if p is not None:
+            has_succ.add(p)
+    oid = {id(a): k for k, a in data.activities.items()}
+    return min(tied, key=lambda a: (oid.get(id(a)) in has_succ,
+                                    a.get('total_float_days') if a.get('total_float_days') is not None else 0))
 
 
 def _ref_calendar(data, act=None):
@@ -119,6 +137,27 @@ def _critical_from_paths(data):
     return oids
 
 
+def p6_done(a):
+    """Completed in P6 (Activity Status), else by its actual finish when the file has no status."""
+    st = (a.get('status') or '').replace(' ', '').lower()
+    return st == 'completed' or (st not in ('inprogress', 'notstarted') and bool(a.get('actual_finish')))
+
+
+def p6_critical(a):
+    """What P6's Critical filter lists (the activity not completed is checked by the caller):
+    the reader's Critical flag, else total float ≤ 0 - never a Level of Effort / WBS Summary."""
+    if 'is_critical' in a:
+        return bool(a.get('is_critical'))
+    tf = a.get('total_float_days')
+    return tf is not None and a.get('task_type') not in ('LOE', 'WBSSummary') and tf <= 0
+
+
+def p6_near(a, near_threshold=NEAR_THRESHOLD):
+    """P6 'Total Float is within range 1d - 10d' (and not critical)."""
+    tf = a.get('total_float_days')
+    return tf is not None and not p6_critical(a) and (1 - 1e-9) <= tf <= (near_threshold + 1e-9)
+
+
 def schedule_census(data, near_threshold=NEAR_THRESHOLD):
     """One schedule's critical-path headline: how many activities are critical and near-
     critical (count + % of the counted activities), the remaining critical-path length
@@ -132,21 +171,14 @@ def schedule_census(data, near_threshold=NEAR_THRESHOLD):
     When the file carries NO float (e.g. an unscheduled baseline), critical is derived from the
     critical/longest path so it is still counted, and near-critical is reported as unknown
     (n/a) because it can't be judged without float."""
-    def _done(a):
-        st = (a.get('status') or '').replace(' ', '').lower()
-        return st == 'completed' or (st not in ('inprogress', 'notstarted') and bool(a.get('actual_finish')))
+    _done = p6_done
     remaining = [a for a in data.activities.values() if not _done(a)]
     floated = [a for a in remaining if a.get('total_float_days') is not None]
     total = len(remaining)
 
     if any(a.get('task_type') not in _MILESTONES for a in floated):   # the file carries activity float
-        def _crit(a):
-            if 'is_critical' in a:
-                return bool(a.get('is_critical'))
-            return a.get('task_type') not in ('LOE', 'WBSSummary') and a['total_float_days'] <= 0
-        critical = sum(1 for a in floated if _crit(a))
-        near = sum(1 for a in floated
-                   if not _crit(a) and (1 - 1e-9) <= a['total_float_days'] <= (near_threshold + 1e-9))
+        critical = sum(1 for a in floated if p6_critical(a))
+        near = sum(1 for a in floated if p6_near(a, near_threshold))
         source = 'float'
     else:
         # no float in the file: the path's task activities are counted, over the task activities
@@ -308,6 +340,11 @@ def _build_report(schedules, mode, near_threshold=NEAR_THRESHOLD, milestone_code
         'float_migration': migration,
         'float_migration_base': base_role,
     }
+    if migration:
+        from p6_critpath.migration_advice import advice
+        report['mig_codes'] = dict(migration.get('advice_codes') or {})
+        report['float_migration_advice'] = advice(migration, report['mig_codes'].get('location'),
+                                                  report['mig_codes'].get('trade'))
     # The current update's baseline-derived values (BL finish, Planned %, Slip) are approximate
     # when its own Planned dates stand in for the baseline P6 names (none in the file, none
     # attached) — marked '· approx' + one 'Baseline:' line on screen, PDF and Excel (R4 F2).

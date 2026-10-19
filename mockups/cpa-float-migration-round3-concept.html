@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Float Migration Round 3</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1080px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 10px;color:var(--accent);font-size:16px}h4{margin:0 0 8px;font-size:13.5px}.note{color:var(--muted);font-size:12.5px}
+.q{display:inline-block;background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;text-align:center;font-weight:800;font-size:12px;line-height:22px;margin-right:6px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:9px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+.ask{border-left:4px solid var(--accent);background:#eef4fb;padding:9px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+.calc{font-family:Consolas,monospace;background:#f6f8fb;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12.5px;margin:6px 0;white-space:pre-wrap}
+table.mx{border-collapse:separate;border-spacing:4px;font-size:12.5px}
+.mx th{font-size:11.5px;color:var(--muted);padding:4px}.mx td{text-align:center;border-radius:7px;padding:9px 12px;font-weight:800;font-size:15px}
+.mx td.rl{text-align:right;font-size:12px}.bad{background:#f9d8d4;color:var(--bad)}.hold{background:#f3e3e1;color:#8a3a30}.warn{background:#fbe9cc;color:#9a5b08}.flat{background:#eef1f5;color:var(--muted)}.z{color:#c3c9d2;font-weight:600}
+.mx td.tot{background:none;border-top:2px solid #9aa6b5;border-radius:0;color:var(--text)}
+.colhl{outline:3px solid var(--bad);outline-offset:1px}
+.sel{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px}
+.pk{border:1px solid var(--accent);border-radius:20px;padding:5px 13px;font-weight:700;color:var(--accent);background:#fff;font-size:12.5px}
+.pk b{color:var(--text)}
+.wf{display:grid;grid-template-columns:minmax(0,1fr) 170px 34px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f2f5;font-size:12.5px}
+.wf small{display:block;color:var(--muted);font-size:11px}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:#eef1f5}
+.rec{border:1px solid var(--border);border-left:5px solid var(--bad);border-radius:8px;padding:10px 13px;margin:8px 0}
+.rec h5{margin:0 0 4px;font-size:13.5px}.rec .m{color:var(--good);font-weight:700}
+table.hm{border-collapse:collapse;font-size:12px;width:100%}.hm th,.hm td{border:1px solid #e3e7ee;padding:5px 6px;text-align:center}.hm th{background:#f1f4f8}.hm td.l{text-align:left;font-weight:700}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — your run: Grain Bulk Baseline (11-Dec.2025) → Update 19 Jul.2026 · real numbers</div>
+
+<h2 style="font-size:17px;margin:16px 0 4px">Part A — your five points answered</h2>
+<div class="note">01 path length · 02 how 352 is calculated · 04 how the grid's current column is made — answered here; 03 and 05 are new features, shown in Part B.</div>
+<!-- 01 -->
+<div class="card"><h3><span class="q">1</span>Critical path length</h3>
+<div class="calc">Today the tool shows 231 working days for the 19 Jul update:
+data date 19-Jul.2026 08:00  →  governing milestone forecast finish 02-May.2027 16:00
+counted in working days on that milestone's calendar.</div>
+<div class="ask"><b>To match P6 to the day I need one thing from you:</b> which P6 value do you compare it with? For example
+(a) the <b>Remaining Duration</b> of the finish milestone / project in the Projects window,
+(b) <b>Finish − Data Date</b> in the project calendar, or
+(c) the remaining duration summed along the longest path (Schedule log / Trace Logic).
+Tell me the P6 number you see for this 19 Jul update and the field, and the tool will use exactly that field.</div>
+<div class="note">Also seen: in this file two finish milestones tie (Cable Erection Completion and Phase I Scope Completion, both −60 d, 02-May.2027). The tool will name the project finish (Phase I Scope Completion) as governing on a tie.</div>
+</div>
+
+<!-- 02 + 04 -->
+<div class="card"><h3><span class="q">2</span>"352 activities turned critical" and <span class="q">4</span> the grid — how each number is made</h3>
+<div class="ann">Each open activity in the 19 Jul update is matched to the same <b>Activity ID</b> in the baseline, and put in one cell: its band in the baseline (row) → its band now (column). Bands = P6 filters (Critical filter / Total Float 1d–10d / Total Float &gt; 10d).</div>
+<table class="mx">
+ <tr><th></th><th>Critical now</th><th>Near 1–10 d now</th><th>Safe &gt;10 d now</th></tr>
+ <tr><td class="rl">Critical in baseline</td><td class="hold">387<br><span style="font-size:10px">held</span></td><td class="z">0</td><td class="z">0</td></tr>
+ <tr><td class="rl">Near 1–10 d in baseline</td><td class="bad colhl">244</td><td class="z">0</td><td class="z">0</td></tr>
+ <tr><td class="rl">Safe &gt;10 d in baseline</td><td class="bad colhl">108</td><td class="warn">6</td><td class="flat">442</td></tr>
+ <tr><td class="rl">Not in the baseline*</td><td class="flat">3</td><td class="z">0</td><td class="z">0</td></tr>
+ <tr><td class="rl"><b>Total now (= P6 filter)</b></td><td class="tot">742</td><td class="tot">6</td><td class="tot">442</td></tr>
+</table>
+<div class="calc">Turned critical  = 244 (near → critical) + 108 (safe → critical) = 352
+Critical now     = 387 held + 352 turned + 3 not in the baseline = 742  ← P6 Critical filter in the 19 Jul file
+Near now         = 6  ← P6 "Total Float within 1d–10d"      Safe now = 442 ← P6 "Total Float > 10d"
+Baseline side    = 387 + 244 + 108 … the rows: Critical 410 / Near 278 in the baseline file (P6 filters there)</div>
+<div class="note">*open now but no band in the baseline — the ID is not in the baseline, or it was completed / had no float there. On screen, hovering any cell shows this same sentence for that cell.</div>
+</div>
+
+<h2 style="font-size:17px;margin:22px 0 4px">Part B — the suggested new Float Migration screen</h2>
+<div class="card"><h3>Headline (top of the section)</h3>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+<div style="flex:1;min-width:200px;border:1px solid var(--border);border-left:5px solid var(--bad);border-radius:9px;padding:10px 13px"><div style="font-size:26px;font-weight:800;color:var(--bad)">352</div><div class="note"><b style="color:var(--text)">activities turned critical</b> vs baseline — 244 from near-critical + 108 from safe</div></div>
+<div style="flex:1;min-width:200px;border:1px solid var(--border);border-left:5px solid var(--warn);border-radius:9px;padding:10px 13px"><div style="font-size:26px;font-weight:800;color:#9a5b08">35.8 d</div><div class="note"><b style="color:var(--text)">average float lost</b> by each of them (largest 100 d)</div></div>
+<div style="flex:1;min-width:200px;border:1px solid var(--border);border-left:5px solid var(--accent);border-radius:9px;padding:10px 13px"><div style="font-size:26px;font-weight:800">410 → 742</div><div class="note"><b style="color:var(--text)">critical activities</b> (P6 Critical filter) · near-critical 278 → 6</div></div>
+</div>
+<div class="note" style="margin-top:8px">Then ① the grid (as in Part A point 4, now with a "Total now = P6 filter" row and the calculation line under it), ② where float was lost with the activity-code filter, ③ the building × trade recommendation:</div></div>
+<!-- 03 -->
+<div class="card"><h3><span class="q">3</span>② Where float was lost — filter by activity code</h3>
+<div class="sel"><span class="note">Group by</span><span class="pk">WBS (work front) ▾</span><span class="pk">Activity code: <b>Silos Area Name</b> ▾</span><span class="note">— one button, every code with its values, as in Update Analysis</span></div>
+<div class="wf"><div>PC SOG For Conveyor Under SOG<small>RC SOG @L=+00.10</small><small style="color:var(--accent)">Silos Area Name: Chain Conveyor</small></div><div class="bar"><i style="width:100%;background:var(--bad)"></i></div><b>24</b></div>
+<div class="wf"><div>PC with Fiber For SOG @L=+00.10<small>SOG Works</small><small style="color:var(--accent)">Silos Area Name: Silo 2 – Silo 8</small></div><div class="bar"><i style="width:100%;background:var(--bad)"></i></div><b>24</b></div>
+<div class="wf"><div>PC Foundation<small>Civil Works</small><small style="color:var(--accent)">Silos Area Name: Tower 34</small></div><div class="bar"><i style="width:46%;background:var(--bad)"></i></div><b>11</b></div>
+<div class="note">Each work front shows the activity-code value picked, under the WBS. Pick a value (e.g. <b>Silos Area Name = Tower 34</b>) to show only its work fronts. Grouping by the code instead of the WBS lists the values themselves (Tower 34 · 35, Catwalk · 31, Machine Tower T33 · 26 …).</div>
+</div>
+
+<!-- 05 -->
+<div class="card"><h3><span class="q">5</span>③ Recommendation — where the problem is and how to mitigate</h3>
+<div class="ann">Built from two activity codes the tool finds in the file: a <b>location</b> code (here <i>Silos Area Name</i>) and a <b>trade</b> code (here <i>Type of Works</i>) — the planner can change either. The cross-table shows where the 352 sit.</div>
+<table class="hm"><tr><th>Location \ Trade</th><th>Civil</th><th>Steel</th><th>Mechanical</th><th>Equipment</th><th>Total</th></tr>
+<tr><td class="l">Tower 34</td><td style="background:#f6c9c3"><b>31</b></td><td>2</td><td>1</td><td>1</td><td>35</td></tr>
+<tr><td class="l">Catwalk</td><td></td><td style="background:#f6c9c3"><b>31</b></td><td></td><td></td><td>31</td></tr>
+<tr><td class="l">Chain Conveyor</td><td>1</td><td></td><td style="background:#f8d6d1"><b>25</b></td><td></td><td>26</td></tr>
+<tr><td class="l">Machine Tower T33</td><td style="background:#fbe3df">17</td><td>5</td><td>2</td><td>2</td><td>26</td></tr>
+<tr><td class="l">Silo 7</td><td style="background:#fbe3df">17</td><td></td><td>5</td><td>4</td><td>26</td></tr></table>
+<div class="note">(cells other than the five main ones are illustrative in this mockup; the build fills every cell from the file)</div>
+<div class="rec"><h5>1 · Tower 34 — Civil Works: 31 activities turned critical, losing 34 d of float each on average</h5>
+Problem: the civil sequence at Tower 34 (PC / pile foundations) has no float left. <span class="m">Mitigation:</span> add a second civil crew / formwork set at Tower 34 or overlap the foundation pours (FS → SS with lag) to recover the 34 d.</div>
+<div class="rec"><h5>2 · Catwalk — Steel Works: 31 turned critical (avg 36.9 d lost)</h5>
+<span class="m">Mitigation:</span> start catwalk pre-assembly at ground level in parallel with the silo erection; expedite steel delivery for S1–S5.</div>
+<div class="rec"><h5>3 · Chain Conveyor — Mechanical Installation: 25 turned critical (avg 41.8 d lost)</h5>
+<span class="m">Mitigation:</span> split installation into two fronts (Path 1 / Path 2 crews) and release the SOG under the conveyor first.</div>
+<div class="rec" style="border-left-color:var(--warn)"><h5>Deepest negative float now</h5>Silo 10 Civil (−71 d) and Silo 9 Civil (−64 d) — the furthest behind; protect them first.</div>
+<div class="note">The mitigation text is a planner's suggestion picked from the trade and the logic (crew / parallel front / logic overlap / delivery); the location, trade, counts and float are measured from the file.</div>
+</div>
+</div></body></html>

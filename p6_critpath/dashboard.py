@@ -47,7 +47,7 @@ def build_dashboard(report):
     cpli = cur.get('cpli')
     health = _worst(_cpli_band(cpli),
                     'warn' if reroute else 'good',
-                    'bad' if (mig.get('near_to_crit') or 0) else 'good')
+                    'bad' if (mig.get('turned_crit', mig.get('near_to_crit')) or 0) else 'good')
 
     def dlt(key):
         a, b = cur.get(key), base.get(key)
@@ -107,8 +107,28 @@ def _health_factors(cpli, reroute, mig):
             out.append(f"CPLI {cpli:.2f} — on or ahead of the finish")
     if reroute:
         out.append(f"Rerouted into {', '.join(reroute[:2])}" + ('…' if len(reroute) > 2 else ''))
-    if mig.get('near_to_crit'):
-        out.append(f"{mig['near_to_crit']} activities turned critical this period")
+    if mig.get('turned_crit', mig.get('near_to_crit')):
+        out.append(f"{mig.get('turned_crit', mig.get('near_to_crit'))} activities turned critical this period")
+    return out
+
+
+def _where_lines(report):
+    """Where the problem is and how to mitigate it - by building (location code) and trade, the
+    worst cells of the turned-critical activities, then the deepest negative float now."""
+    m = report.get('float_migration') or {}
+    if not m.get('rows'):
+        return []
+    from p6_critpath.migration_advice import advice, NO_VALUE
+    codes = report.get('mig_codes') or m.get('advice_codes') or {}
+    a = advice(m, codes.get('location'), codes.get('trade'))
+    out = []
+    for i in a['items']:
+        where = ' — '.join(x for x in (i['location'], i['trade']) if x and x not in (NO_VALUE, '—')) or 'Activities with no building / trade code'
+        lost = f", losing {i['avg_lost']} d of float each on average" if i.get('avg_lost') is not None else ''
+        out.append(f"{where}: {i['turned_crit']} activities turned critical{lost}. Mitigation: {i['mitigation']}.")
+    if a['worst']:
+        w = '; '.join(f"{' — '.join(x for x in (v['location'], v['trade']) if x not in (NO_VALUE, '—'))} ({v['min_tf']:g} d)" for v in a['worst'][:2])
+        out.append(f"Deepest negative float now: {w} — the furthest behind; recover them first.")
     return out
 
 
@@ -140,8 +160,9 @@ def build_narrative(report):
     rec = []
     if reroute:
         rec.append(f"Shift recovery focus to {', '.join(reroute[:2])} — the critical path left its old route and now runs through this work; compress it to claw back the slip.")
-    if mig.get('near_to_crit'):
-        rec.append(f"Protect the {mig['near_to_crit']} activities that just turned critical — any slip on them now pushes the finish day-for-day.")
+    if mig.get('turned_crit', mig.get('near_to_crit')):
+        rec.append(f"Protect the {mig.get('turned_crit', mig.get('near_to_crit'))} activities that just turned critical — any slip on them now pushes the finish day-for-day.")
+        rec.extend(_where_lines(report))
     if mig.get('safe_to_near'):
         rec.append(f"Watch the {mig['safe_to_near']} activities eroding toward the path — they are the next reroute if recovery stalls.")
     if cpli is not None and cpli < 1.0:

@@ -256,8 +256,10 @@ def test_float_migration_rows_carry_the_name_and_both_floats():
     act = lambda tf: {1: {'id': 'A-1', 'name': 'Erect steel', 'task_type': 'TaskDependent', 'total_float_days': tf}}
     out = float_migration(SimpleNamespace(activities=act(0)), SimpleNamespace(activities=act(-4)))
     assert out['counts']['held_crit'] == 1
-    assert out['rows'] == [{'id': 'A-1', 'from': 'crit', 'to': 'crit', 'kind': 'held_crit',
-                            'name': 'Erect steel', 'base_tf': 0, 'curr_tf': -4}]
+    row = out['rows'][0]
+    assert {k: row[k] for k in ('id', 'from', 'to', 'kind', 'name', 'base_tf', 'curr_tf')} == {
+        'id': 'A-1', 'from': 'crit', 'to': 'crit', 'kind': 'held_crit', 'name': 'Erect steel', 'base_tf': 0, 'curr_tf': -4}
+    assert 'front' in row and len(out['rows']) == 1          # + the work front (comment 91 summary)
 
 
 # ── Consultant Review · Constructability ────────────────────────────────────────

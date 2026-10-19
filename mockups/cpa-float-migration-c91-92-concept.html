@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Float Migration Clarified</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1050px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 4px;color:var(--accent);font-size:16px}.note{color:var(--muted);font-size:12.5px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+.flow{display:grid;grid-template-columns:1fr 70px 1fr;gap:10px;align-items:center;margin:12px 0}
+.side{border:1px solid var(--border);border-radius:9px;padding:10px 12px}.side h4{margin:0 0 6px;font-size:13px}
+.side .r{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}.side b{font-size:15px}
+.arrow{text-align:center;font-size:26px;color:var(--muted)}
+.bands{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px}
+.band{border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center}
+.band .l{font-size:12px;font-weight:700}.band .v{font-size:26px;font-weight:800}.band .t{font-size:11.5px;color:var(--muted)}
+.band .f{font-size:11px;color:var(--muted);margin-top:6px;border-top:1px dashed var(--border);padding-top:5px;text-align:left}
+.bad{color:var(--bad)}.warn{color:var(--warn)}.good{color:var(--good)}.flat{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}th,td{padding:6px 8px;border-bottom:1px solid #edf0f4;text-align:left}th{background:#f1f4f8}
+@media(max-width:700px){.bands{grid-template-columns:repeat(2,1fr)}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Grain Bulk: Update 19 Jul.2026 → Update 09 Aug.2026 · real counts from the fixed engine</div>
+
+<div class="card">
+<h3>Float Migration — how activities moved between float bands since last period</h3>
+<div class="ann"><b>#91</b> — every band now uses P6's own filters, so each total can be ticked in P6 in both files:
+<b>Critical</b> = P6 Critical filter (In Progress + Not Started, P6 flags Critical; LOE / WBS Summary never) ·
+<b>Near-critical</b> = Total Float within 1d – 10d · <b>Safe</b> = the other not-completed activities with float. Completed activities are in no band. Milestones included, as in P6.</div>
+
+<div class="flow">
+ <div class="side"><h4>Previous — 19 Jul.2026</h4>
+  <div class="r"><span>Critical (P6 filter)</span><b class="bad">742</b></div>
+  <div class="r"><span>Near-critical 1–10 d</span><b class="warn">6</b></div></div>
+ <div class="arrow">➜</div>
+ <div class="side"><h4>Current — 09 Aug.2026</h4>
+  <div class="r"><span>Critical (P6 filter)</span><b class="bad">764</b></div>
+  <div class="r"><span>Near-critical 1–10 d</span><b class="warn">2</b></div></div>
+</div>
+
+<div class="ann"><b>#92</b> — each card says exactly where its number comes from (the rule under the line), matched by Activity ID between the two files.</div>
+<div class="bands">
+ <div class="band"><div class="l">Near → CRITICAL</div><div class="v bad">5</div><div class="t">worsened</div><div class="f">near-critical (1–10 d) last period, critical now</div></div>
+ <div class="band"><div class="l">Safe → CRITICAL</div><div class="v bad">25</div><div class="t">worsened — new card</div><div class="f">float above 10 d last period, critical now (was not counted before)</div></div>
+ <div class="band"><div class="l">Safe → near</div><div class="v warn">2</div><div class="t">eroding</div><div class="f">float above 10 d last period, 1–10 d now</div></div>
+ <div class="band"><div class="l">Critical → recovered</div><div class="v good">0</div><div class="t">improved</div><div class="f">critical last period, not critical now (still open)</div></div>
+ <div class="band"><div class="l">Held critical</div><div class="v flat">730</div><div class="t">unchanged</div><div class="f">critical in both updates</div></div>
+</div>
+<div class="note" style="margin-top:10px"><b>30 activities turned critical this period</b> (5 from near + 25 from safe). Of the 764 critical now: 730 held + 30 turned critical + 4 that were in no band last period (not in that file, completed there, or without float).</div>
+
+<h4 style="margin:16px 0 0;font-size:13px">Activities behind the numbers (click a card to filter)</h4>
+<table><thead><tr><th>Activity ID</th><th>Activity name</th><th>Move</th><th>TF last period</th><th>TF now</th></tr></thead><tbody>
+<tr><td>CB-S6-120</td><td>Cable pulling S6–S7</td><td class="bad">Safe → CRITICAL</td><td>14</td><td>0</td></tr>
+<tr><td>CB-S8-040</td><td>Cable termination S8</td><td class="bad">Near → CRITICAL</td><td>6</td><td>−3</td></tr>
+<tr><td colspan="5" class="note">… example rows; the real list comes from the file</td></tr>
+</tbody></table>
+</div>
+</div></body></html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recommendation Hotspots</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1080px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 4px;color:var(--accent);font-size:16px}h4{margin:0 0 8px;font-size:13.5px}.note{color:var(--muted);font-size:12.5px}
+.sel{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0 12px}
+.sel span.pk{border:1px solid var(--accent);border-radius:20px;padding:4px 12px;color:var(--accent);font-weight:700;background:#fff}
+.two{display:grid;grid-template-columns:1.05fr 1fr;gap:18px}@media(max-width:860px){.two{grid-template-columns:1fr}}
+/* hotspot map */
+table.hm{border-collapse:collapse;width:100%;font-size:11.5px}
+.hm th{color:var(--muted);font-weight:700;padding:4px;font-size:11px;vertical-align:bottom}
+.hm td{text-align:center;padding:3px;height:46px;border-bottom:1px solid #f0f2f5}
+.hm td.l{text-align:right;font-weight:700;font-size:12px;padding-right:8px;white-space:nowrap}
+.dot{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800;cursor:pointer;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.dot:hover{transform:scale(1.12)}.dot.sel{outline:3px solid var(--accent);outline-offset:2px}
+.leg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--muted);margin-top:8px}
+.ramp{display:inline-block;width:120px;height:10px;border-radius:5px;background:linear-gradient(90deg,#f2b84b,#e0603a,#9e1f14);vertical-align:middle;margin:0 4px}
+/* action board */
+.act{border:1px solid var(--border);border-radius:10px;margin:0 0 10px;overflow:hidden;transition:box-shadow .15s}
+.act.hl{box-shadow:0 0 0 3px var(--accent)}
+.act .top{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#fbf3f2}
+.pri{background:var(--bad);color:#fff;border-radius:6px;font-weight:800;font-size:12px;padding:3px 8px}
+.act .where{font-weight:800;font-size:14px}.act .who{color:var(--muted);font-size:12px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #f0e3e1}
+.facts div{padding:7px 10px;border-right:1px solid #f0f2f5}.facts div:last-child{border-right:0}
+.facts .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}.facts .v{font-weight:800;font-size:16px}
+.do{padding:8px 12px;border-top:1px solid #f0f2f5;font-size:12.5px}
+.do b{color:var(--good)}.do ul{margin:4px 0 0 18px;padding:0}
+.protect{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.pc{flex:1;min-width:160px;border:1px solid var(--border);border-top:4px solid #9e1f14;border-radius:8px;padding:8px 10px}
+.pc .v{font-size:20px;font-weight:800;color:#9e1f14}.pc .t{font-size:12px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:12.5px;margin:10px 0}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — your run: Grain Bulk Baseline → Update 19 Jul.2026 · real numbers from the file</div>
+
+<div class="card">
+<h3>③ Recommendation — where the problem is and what to do</h3>
+<div class="sel">Building / location <span class="pk">Silos Area Name ▾</span> Trade <span class="pk">Type of Works ▾</span> <span>— picked automatically from the file, change either</span></div>
+
+<div class="two">
+<!-- HOTSPOT MAP -->
+<div>
+<h4>Hotspot map — where the 352 activities turned critical</h4>
+<table class="hm" id="hm"></table>
+<div class="leg"><span>bubble size = activities turned critical</span><span>colour = average float lost <span class="ramp"></span> more</span><span>click a bubble → its action</span></div>
+</div>
+
+<!-- ACTION BOARD -->
+<div>
+<h4>Action board — top 3, worst first</h4>
+<div class="act" id="a-Catwalk|Steel Works"><div class="top"><span class="pri">P1</span><div><div class="where">Catwalk</div><div class="who">Steel Works</div></div></div>
+ <div class="facts"><div><div class="k">turned critical</div><div class="v" style="color:var(--bad)">31</div></div><div><div class="k">float lost (avg)</div><div class="v">36.9 d</div></div><div><div class="k">deepest float now</div><div class="v">−60 d</div></div></div>
+ <div class="do"><b>Do this:</b><ul><li>Pre-assemble the catwalk at ground level in parallel with the erection</li><li>Expedite the steel delivery</li></ul></div></div>
+<div class="act" id="a-Tower 34|Civil Works"><div class="top"><span class="pri">P2</span><div><div class="where">Tower 34</div><div class="who">Civil Works</div></div></div>
+ <div class="facts"><div><div class="k">turned critical</div><div class="v" style="color:var(--bad)">31</div></div><div><div class="k">float lost (avg)</div><div class="v">34.0 d</div></div><div><div class="k">deepest float now</div><div class="v">−29 d</div></div></div>
+ <div class="do"><b>Do this:</b><ul><li>Add a second civil crew / formwork set</li><li>Overlap the pours (FS → SS with a lag) to win back the float</li></ul></div></div>
+<div class="act" id="a-Chain Conveyor|Mechanical Installation Works"><div class="top"><span class="pri" style="background:#d4572f">P3</span><div><div class="where">Chain Conveyor</div><div class="who">Mechanical Installation Works</div></div></div>
+ <div class="facts"><div><div class="k">turned critical</div><div class="v" style="color:var(--bad)">25</div></div><div><div class="k">float lost (avg)</div><div class="v">41.8 d</div></div><div><div class="k">deepest float now</div><div class="v">−60 d</div></div></div>
+ <div class="do"><b>Do this:</b><ul><li>Split the installation into two fronts or add a crew</li><li>Release the work areas ahead of it first</li></ul></div></div>
+</div>
+</div>
+
+<h4 style="margin-top:12px">Protect first — deepest negative float now (open critical activities)</h4>
+<div class="protect">
+ <div class="pc"><div class="v">−71 d</div><div class="t"><b>Silo 10 · Civil Works</b> — 32 critical activities</div></div>
+ <div class="pc"><div class="v">−64 d</div><div class="t"><b>Silo 9 · Civil Works</b> — 30 critical activities</div></div>
+ <div class="pc"><div class="v">−60 d</div><div class="t"><b>Catwalk · Steel Works</b> — 58 critical activities</div></div>
+</div>
+<div class="ann">Building, trade, counts and float are measured from the file. "Do this" is the planner's suggestion picked from the trade. The PDF prints the map + the three action cards + the protect-first strip; Excel keeps the full building × trade table.</div>
+</div>
+</div>
+<script>
+const T=["Civil Works","Mechanical Installation Works","Steel Works","Equipment Works"];
+const S={"Civil":"Civil","Mechanical Installation Works":"Mechanical","Steel Works":"Steel","Equipment Works":"Equipment","Civil Works":"Civil"};
+const D={"Tower 34":{"Civil Works":[31,34.0],"Steel Works":[4,39.0]},"Catwalk":{"Steel Works":[31,36.9]},"Chain Conveyor":{"Mechanical Installation Works":[25,41.8],"Equipment Works":[1,60.0]},"Machine Tower - T33":{"Civil Works":[17,36.0],"Steel Works":[4,36.0],"Equipment Works":[5,38.0]},"Silo 7":{"Civil Works":[17,25.8],"Mechanical Installation Works":[8,25.1],"Equipment Works":[1,60.0]},"MCC Room":{"Civil Works":[7,57.0]},"Silo 3":{"Civil Works":[17,7.1],"Mechanical Installation Works":[7,6.0],"Equipment Works":[1,39.0]}};
+const col=v=>{const t=Math.min(1,Math.max(0,(v-5)/55));const a=[242,184,75],b=[224,96,58],c=[158,31,20];const m=t<.5?[a,b,t*2]:[b,c,(t-.5)*2];return `rgb(${m[0].map((x,i)=>Math.round(x+(m[1][i]-x)*m[2])).join(',')})`};
+let h='<tr><th></th>'+T.map(t=>`<th>${S[t]}</th>`).join('')+'</tr>';
+for(const l in D){h+=`<tr><td class="l">${l}</td>`+T.map(t=>{const c=D[l][t];if(!c)return'<td></td>';const s=Math.round(16+26*Math.sqrt(c[0]/31));return `<td><span class="dot" data-k="${l}|${t}" title="${l} · ${t}: ${c[0]} turned critical, ${c[1]} d float lost on average" style="width:${s}px;height:${s}px;background:${col(c[1])};font-size:${s>28?12:10}px">${c[0]}</span></td>`}).join('')+'</tr>';}
+document.getElementById('hm').innerHTML=h;
+document.querySelectorAll('.dot').forEach(d=>d.onclick=()=>{document.querySelectorAll('.dot').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');document.querySelectorAll('.act').forEach(a=>a.classList.toggle('hl',a.id==='a-'+d.dataset.k));const a=document.getElementById('a-'+d.dataset.k);if(a)a.scrollIntoView({block:'nearest',behavior:'smooth'});});
+</script>
+</body></html>

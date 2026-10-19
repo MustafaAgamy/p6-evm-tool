@@ -7,6 +7,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Critical Path Analyzer counts match P6 (comments 91, 92)
+- **Float Migration** bands are now P6's own filters: Critical = P6's Critical filter (In Progress + Not Started that P6 flags Critical; never LOE / WBS Summary), Near-critical = Total Float within 1d – 10d. Completed activities are in no band; milestones are counted, as in P6. Before, completed and LOE activities were banded, milestones skipped and near-critical was "under 10 d".
+- New **Safe → CRITICAL** move: activities that lost all float straight from above 10 d were not counted before (Grain Bulk 19 Jul → 09 Aug: 25). "Turned critical" now counts both moves (30, not 5).
+- **Float Migration summarised** (no long activity list on screen): three headline figures (activities turned critical, average float they lost, critical count before → now), ONE grid of where every open activity moved (band last period × band now; columns add up to P6's totals) and the work fronts where float was lost. "Safe → near-critical" is spelled out: float dropped from above 10 d to 1–10 d — not critical yet, the early warning. Same in the PDF and Word; the Excel export keeps the grid, the work fronts and every activity.
+- **How the numbers are made** under the grid (turned critical = near → critical + safe → critical; critical now = held + turned + not in the base = P6 Critical filter) and a *Total now* row.
+- **Where float was lost** filters by an activity code (one button listing every code and value) and shows the code value under each WBS.
+- **Recommendation by building and trade:** the activities that turned critical are crossed by a location code and a trade code (picked automatically, changeable), the worst building × trade cells are named with their average float lost and a mitigation, plus the deepest negative float now. The report's Recommendation list follows the codes picked; PDF, Word and Excel the same.
+- On a tie of the latest finish, the governing milestone is the project finish (the one nothing follows).
+- The grid shows where **every** activity of the base file went: the open columns (Critical / Near-critical / Safe now) and, apart behind a dashed divider, **Completed since** (never critical, shown only so each row adds up to the base file's own P6 filter) and the **Total in the base file**. A *How to read it* box gives each sum. Same in all three modes (update + baseline, two updates, two updates + baseline).
+- **Recommendation redesigned:** a hotspot map of building × trade (bubble size = activities turned critical, colour = average float lost), an action board of the top 3 (turned critical, float lost, deepest float now, a *Do this* checklist) and a *Protect first* strip of the deepest negative float now.
+- Safe = P6 'Total Float greater than 10d' exactly; anything outside the three P6 filters is in no band. Checked against P6's own fields on 7 schedule pairs (XER and XML).
+
 ### Changed — Update Analysis redesigned (comment 90 and follow-ups)
 - **Driving Path** shows the work fronts only (the WBS each activity sits in); the summary-level choice is gone.
 - **Planned vs Actual by count** is one table per WBS: Activities, then Completed / In Progress / Not Started as *actual / planned*, a % complete bar (actual fill, planned marker) and the gap. **Actual = P6's Activity Status field**, so the counts match P6 exactly (checked on 19 XER and 7 XML files, per WBS); planned = the baseline dates at the data date. Every activity type is counted, as P6 lists them. A *Show WBS* picker shows only the WBS chosen; the report and Excel print the same rows.

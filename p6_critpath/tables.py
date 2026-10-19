@@ -9,7 +9,7 @@ float_migration — how activities moved between float bands from the comparison
 """
 from p6_critpath.analysis import (
     _forecast_finish, _ref_calendar, _wd_between, _iso, _baseline_finish, cpli,
-    _MILESTONES, NEAR_THRESHOLD,
+    _MILESTONES, NEAR_THRESHOLD, p6_done, p6_critical, p6_near,
 )
 
 
@@ -20,53 +20,109 @@ def _d0(d):
     return d.replace(hour=0, minute=0, second=0, microsecond=0) if isinstance(d, datetime) else d
 
 
-def _band(tf, near=NEAR_THRESHOLD):
-    if tf is None:
+def _work_front(a):
+    """(work front, the WBS above it): the WBS the activity sits in, as P6 shows its path."""
+    segs = [x.strip() for x in (a.get('wbs_path') or '').split('>') if x.strip()]
+    return (segs[-1] if segs else (a.get('wbs_name') or '—'), segs[-2] if len(segs) > 1 else '')
+
+
+def _band(a, near=NEAR_THRESHOLD):
+    """The activity's float band by P6's own filters (Ibrahim, comment 91): 'crit' = P6's Critical
+    filter, 'near' = Total Float within 1d - 10d, 'safe' = Total Float greater than 10d.
+    Completed activities and activities without float are in no band (P6 lists them in none)."""
+    if p6_done(a) or a.get('total_float_days') is None:
         return None
-    if tf <= 0:
+    if p6_critical(a):
         return 'crit'
-    if tf < near:
+    if p6_near(a, near):
         return 'near'
-    return 'safe'
+    # Safe = P6 'Total Float is greater than 10d'; anything outside the three P6 filters (an LOE
+    # with negative float, float between 0 and 1 d) is in no band, so every band ticks in P6
+    return 'safe' if a['total_float_days'] > near + 1e-9 else None
+
+
+_KINDS = ('near_to_crit', 'safe_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
 
 
 def float_migration(base_data, curr_data, near=NEAR_THRESHOLD):
-    """Band moves from base → current, matched by activity code. Counts the four moves the
-    dashboard shows, and keeps the ids for drill-down."""
-    def bands(data, facts):
+    """Band moves from base -> current, matched by activity ID, every activity type P6's filters
+    list (milestones included). Counts each move, the critical / near-critical totals on each
+    side (so the planner can tick them against P6's filters in both files), and keeps the
+    activities for drill-down."""
+    fronts_of, codes_of = {}, {}
+
+    def bands(data, facts, keep_front=False):
         out = {}
         for a in data.activities.values():
-            if a.get('task_type') in _MILESTONES:
+            band = _band(a, near)
+            if band is None:
                 continue
-            tf = a.get('total_float_days')
-            if tf is None:
-                continue
-            out[a.get('id')] = _band(tf, near)
-            facts[a.get('id')] = (a.get('name') or '', tf)
+            out[a.get('id')] = band
+            facts[a.get('id')] = (a.get('name') or '', a.get('total_float_days'))
+            if keep_front:
+                fronts_of[a.get('id')] = _work_front(a)
+                codes_of[a.get('id')] = {k: v for k, v in (a.get('activity_codes') or {}).items() if v}
         return out
 
-    pf, cf = {}, {}            # id → (name, total float) on each side, for the Excel list
-    pb, cb = bands(base_data, pf), bands(curr_data, cf)
-    counts = {'near_to_crit': 0, 'safe_to_near': 0, 'crit_to_recovered': 0, 'held_crit': 0}
+    pf, cf = {}, {}            # id -> (name, total float) on each side, for the Excel list
+    pb, cb = bands(base_data, pf), bands(curr_data, cf, keep_front=True)
+    counts = {k: 0 for k in _KINDS}
     rows = []
     for code, cur in cb.items():
         prev = pb.get(code)
         if prev is None:
             continue
         kind = None
-        if prev == 'near' and cur == 'crit':
-            kind = 'near_to_crit'
+        if cur == 'crit':
+            kind = {'near': 'near_to_crit', 'safe': 'safe_to_crit', 'crit': 'held_crit'}[prev]
         elif prev == 'safe' and cur == 'near':
             kind = 'safe_to_near'
-        elif prev == 'crit' and cur != 'crit':
+        elif prev == 'crit':
             kind = 'crit_to_recovered'
-        elif prev == 'crit' and cur == 'crit':
-            kind = 'held_crit'
         if kind:
             counts[kind] += 1
             rows.append({'id': code, 'from': prev, 'to': cur, 'kind': kind,
-                         'name': cf[code][0], 'base_tf': pf[code][1], 'curr_tf': cf[code][1]})
-    return {'counts': counts, 'rows': rows}
+                         'name': cf[code][0], 'base_tf': pf[code][1], 'curr_tf': cf[code][1],
+                         'front': fronts_of.get(code, ('', ''))[0], 'front_parent': fronts_of.get(code, ('', ''))[1],
+                         'codes': codes_of.get(code, {})})
+    counts['turned_crit'] = counts['near_to_crit'] + counts['safe_to_crit']
+    # one grid: band last period (or 'none' = in no band there) x band now - every open activity
+    matrix = {}
+    for code, cur in cb.items():
+        key = f"{pb.get(code) or 'none'}>{cur}"
+        matrix[key] = matrix.get(key, 0) + 1
+    # ... and where the rest of each base band went (Ibrahim, 19-Oct): completed since, or no
+    # longer in the current file - so every row adds up to the base file's own P6 filter.
+    # A finished activity is never critical; it is counted here only to close the row.
+    cur_by_id = {a.get('id'): a for a in curr_data.activities.values()}
+    finished, gone, other = {}, {}, {}
+    for code, band in pb.items():
+        if code in cb:
+            continue
+        a = cur_by_id.get(code)
+        tgt = gone if a is None else (finished if p6_done(a) else other)
+        tgt[band] = tgt.get(band, 0) + 1
+    # where float was lost: the work front (the WBS the activity sits in) of every activity that
+    # turned critical or dropped into near-critical, biggest first
+    fr = {}
+    for r in rows:
+        if r['kind'] not in ('near_to_crit', 'safe_to_crit', 'safe_to_near'):
+            continue
+        f = fr.setdefault((r['front'], r['front_parent']), {'front': r['front'], 'parent': r['front_parent'],
+                                                            'turned_crit': 0, 'safe_to_near': 0})
+        f['turned_crit' if r['kind'] != 'safe_to_near' else 'safe_to_near'] += 1
+    fronts = sorted(fr.values(), key=lambda f: (-(f['turned_crit'] + f['safe_to_near']), -f['turned_crit'], f['front']))
+    lost = [r['base_tf'] - r['curr_tf'] for r in rows if r['kind'] in ('near_to_crit', 'safe_to_crit')
+            and r['base_tf'] is not None and r['curr_tf'] is not None]
+    float_lost = {'avg': round(sum(lost) / len(lost), 1) if lost else None,
+                  'max': round(max(lost), 1) if lost else None}
+    totals = {side: {'critical': sum(1 for v in bb.values() if v == 'crit'),
+                     'near': sum(1 for v in bb.values() if v == 'near')}
+              for side, bb in (('base', pb), ('current', cb))}
+    from p6_critpath.migration_advice import code_types, pick_codes
+    return {'counts': counts, 'rows': rows, 'totals': totals, 'matrix': matrix, 'fronts': fronts,
+            'float_lost': float_lost, 'code_types': code_types(rows), 'advice_codes': pick_codes(rows),
+            'finished': finished, 'not_in_current': gone, 'no_band_now': other}
 
 
 def _finish_ms(data, code):

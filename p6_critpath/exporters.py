@@ -440,22 +440,258 @@ def _milestones(report):
     return f'<table class="t"><thead>{head}</thead><tbody>{body}</tbody></table>'
 
 
+_MIG_RULES = {
+    'near_to_crit': 'near-critical (1–10 d) before, critical now',
+    'safe_to_crit': 'float above 10 d before, critical now',
+    'safe_to_near': 'float above 10 d before, 1–10 d now',
+    'crit_to_recovered': 'critical before, not critical now (still open)',
+    'held_crit': 'critical in both',
+}
+_MIG_BANDS_NOTE = ("Bands are P6's own filters: Critical = P6 Critical filter (In Progress + Not Started that "
+                   "P6 flags Critical; never LOE / WBS Summary) · Near-critical = Total Float within 1d – 10d · "
+                   "Safe = the other open activities with float. Completed activities are in no band; milestones "
+                   "are counted, as in P6. Matched by Activity ID.")
+
+
+def _mig_recon(report):
+    """'N activities turned critical ... Of the X critical now: held + turned (+ in no band before).'"""
+    m = report.get('float_migration') or {}
+    c, t = m.get('counts', {}) or {}, m.get('totals')
+    base = 'the baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
+    turned = c.get('turned_crit', (c.get('near_to_crit', 0) or 0) + (c.get('safe_to_crit', 0) or 0))
+    out = (f"{turned:,} activities turned critical vs {base} ({c.get('near_to_crit', 0) or 0} from near + "
+           f"{c.get('safe_to_crit', 0) or 0} from safe).")
+    if t:
+        other = t['current']['critical'] - (c.get('held_crit', 0) or 0) - turned
+        out += (f" Of the {t['current']['critical']:,} critical now: {c.get('held_crit', 0) or 0:,} held + {turned:,} turned critical"
+                + (f" + {other:,} in no band {base} (not in that file, completed there, or without float)" if other else '') + '.')
+    return out
+
+
+_MIG_B = (('crit', 'Critical'), ('near', 'Near-critical 1–10 d'), ('safe', 'Safe >10 d'))
+_MIG_KEY = ("Bands - Critical = P6 Critical filter (total float ≤ 0; In Progress + Not Started; never LOE / WBS "
+            "Summary) · Near-critical = Total Float within 1d – 10d · Safe = Total Float above 10 d. Only open "
+            "activities (P6 lists completed ones in no band); milestones counted, as in P6. Matched by Activity ID.")
+_MIG_READ = ("Read a row across: the band last period -> the band now. Red = lost all float, now critical · "
+             "Amber = Safe -> near-critical: float dropped from above 10 d to 1–10 d - not critical yet, the early "
+             "warning · Green = recovered (float gained).")
+
+
+def _mig_rows_from(mx):
+    return list(_MIG_B) + ([('none', 'In no band*')] if any(mx.get(f'none>{t}') for t, _ in _MIG_B) else [])
+
+
+def _fronts_for(report):
+    """The work fronts as the screen shows them: filtered by the activity-code value picked, with
+    that code's values per front. Returns (fronts, code type or None)."""
+    m = report.get('float_migration') or {}
+    pc = report.get('mig_front_code') or {}
+    t, v = pc.get('type') or None, pc.get('value') or None
+    if not t:
+        return (m.get('fronts') or []), None
+    fr = {}
+    for r in m.get('rows') or []:
+        if r.get('kind') not in ('near_to_crit', 'safe_to_crit', 'safe_to_near'):
+            continue
+        val = (r.get('codes') or {}).get(t) or '(no value)'
+        if v and val != v:
+            continue
+        f = fr.setdefault((r.get('front'), r.get('front_parent')), {'front': r.get('front') or '—', 'parent': r.get('front_parent') or '',
+                                                                   'turned_crit': 0, 'safe_to_near': 0, 'vals': {}})
+        f['safe_to_near' if r['kind'] == 'safe_to_near' else 'turned_crit'] += 1
+        f['vals'][val] = f['vals'].get(val, 0) + 1
+    out = sorted(fr.values(), key=lambda f: (-(f['turned_crit'] + f['safe_to_near']), -f['turned_crit'], f['front']))
+    return out, t
+
+
+def _code_div(code_t, f):
+    if not code_t or not f.get('vals'):
+        return ''
+    vals = sorted(f['vals'].items(), key=lambda x: -x[1])
+    txt = ', '.join(f'{k} ({n})' if len(vals) > 1 else k for k, n in vals)
+    return f'<div class="note" style="color:{_ACCENT}">{_e(code_t)}: {_e(txt)}</div>'
+
+
+def _hot_col(v):
+    t = min(1.0, max(0.0, ((5 if v is None else v) - 5) / 55.0))
+    a, b, c = (242, 184, 75), (224, 96, 58), (158, 31, 20)
+    p, q, k = (a, b, t * 2) if t < 0.5 else (b, c, (t - 0.5) * 2)
+    return 'rgb({},{},{})'.format(*(round(x + (y - x) * k) for x, y in zip(p, q)))
+
+
+def _advice_html(report):
+    """③ Recommendation (19-Oct design): hotspot map of building x trade (bubble size = activities
+    turned critical, colour = average float lost), the action board (top 3, worst first) and the
+    protect-first strip - for the codes picked on screen."""
+    from p6_critpath.migration_advice import advice, NO_VALUE
+    m = report.get('float_migration') or {}
+    if not m.get('rows') or not m.get('code_types'):
+        return ''
+    codes = report.get('mig_codes') or m.get('advice_codes') or {}
+    a = advice(m, codes.get('location'), codes.get('trade'))
+    locs, trs = a['locations'][:8], a['trades'][:5]
+    mx = max([a['cells'].get(l, {}).get(t, 0) for l in locs for t in trs] or [1]) or 1
+    pe = '-webkit-print-color-adjust:exact;print-color-adjust:exact'
+
+    def dot(l, t):
+        n = a['cells'].get(l, {}).get(t, 0)
+        if not n:
+            return '<td></td>'
+        sz = round(16 + 24 * (n / mx) ** 0.5)
+        col = _hot_col((a.get('cell_lost') or {}).get(l, {}).get(t))
+        return (f'<td style="text-align:center;height:{sz + 8}px"><span style="display:inline-block;width:{sz}px;height:{sz}px;'
+                f'line-height:{sz}px;border-radius:50%;background:{col};color:#fff;font-weight:800;font-size:{11 if sz > 28 else 9}px;{pe}">{n}</span></td>')
+    hmap = (f'<table style="width:100%;border-collapse:collapse;font-size:10px"><tr><th></th>'
+            + ''.join(f'<th style="color:#6b7686">{_e(t)}</th>' for t in trs) + '</tr>'
+            + ''.join(f'<tr><td style="text-align:right;font-weight:700;padding-right:6px">{_e(l)}</td>' + ''.join(dot(l, t) for t in trs) + '</tr>' for l in locs)
+            + '</table><div class="note">bubble size = activities turned critical · colour = average float lost (amber less → deep red more)</div>')
+    nm = lambda x: ' · '.join(v for v in (x['location'], x['trade']) if v and v not in (NO_VALUE, '—')) or 'No building / trade code'
+    cards = ''
+    for k, i in enumerate(a['items']):
+        acts = ''.join(f'<li>{_e(x)}</li>' for x in (i.get('actions') or [i['mitigation']]))
+        dtf = f"{_n1(round(i['deepest_tf']))} d" if i.get('deepest_tf') is not None else '—'
+        lost = f"{_n1(i['avg_lost'])} d" if i.get('avg_lost') is not None else '—'
+        cards += (f'<div style="border:1px solid #d9dfe8;border-radius:8px;margin:0 0 6px;page-break-inside:avoid">'
+                  f'<div style="padding:5px 9px;background:#fbf3f2;{pe}"><span style="background:{_BAD};color:#fff;border-radius:4px;padding:1px 6px;font-weight:800;{pe}">P{k + 1}</span> '
+                  f'<b>{_e(i["location"] if i["location"] != NO_VALUE else "No building code")}</b> · <span style="color:#6b7686">{_e(i["trade"] if i["trade"] != NO_VALUE else "No trade code")}</span></div>'
+                  f'<table style="width:100%;font-size:10px;border-top:1px solid #eee"><tr>'
+                  f'<td>turned critical<br><b style="font-size:13px;color:{_BAD}">{i["turned_crit"]}</b></td>'
+                  f'<td>float lost (avg)<br><b style="font-size:13px">{lost}</b></td><td>deepest float now<br><b style="font-size:13px">{dtf}</b></td></tr></table>'
+                  f'<div style="padding:4px 9px;font-size:10.5px"><b style="color:{_GOOD}">Do this:</b><ul style="margin:2px 0 0 16px;padding:0">{acts}</ul></div></div>')
+    protect = ''
+    if a['worst']:
+        protect = ('<div style="margin-top:6px"><b>Protect first — deepest negative float now</b><table style="width:100%;border-collapse:separate;border-spacing:6px 0"><tr>'
+                   + ''.join(f'<td style="border:1px solid #d9dfe8;border-top:4px solid #9e1f14;padding:5px 8px"><b style="font-size:14px;color:#9e1f14">{_n1(round(w["min_tf"]))} d</b>'
+                             f'<div class="note"><b>{_e(nm(w))}</b> — {w["activities"]} critical activities</div></td>' for w in a['worst'])
+                   + '</tr></table></div>')
+    return ('<div data-part="float_migration.advice" data-part-label="Recommendation by building and trade">'
+            '<h3 style="margin:12px 0 4px;font-size:13px">③ Recommendation — where the problem is and what to do</h3>'
+            f'<div class="note">Building / location: <b>{_e(a["location"] or "—")}</b> · Trade: <b>{_e(a["trade"] or "—")}</b></div>'
+            '<table style="width:100%"><tr><td style="width:52%;vertical-align:top;padding-right:8px">'
+            f'<b>Hotspot map — where the {a["turned_crit"]:,} activities turned critical</b>{hmap}</td>'
+            f'<td style="vertical-align:top"><b>Action board — top {len(a["items"])}, worst first</b>{cards}</td></tr></table>'
+            + protect
+            + '<div class="note">Building, trade, counts and float are measured from the file; "Do this" is a planner\'s suggestion picked from the trade.</div></div>')
+
+
+def _parent_div(f):
+    return f'<div class="note">{_e(f["parent"])}</div>' if f.get('parent') else ''
+
+
 def _migration(report):
+    """Float migration, summarised (comments 91-92): three headline figures, one grid of band
+    moves, the work fronts where float was lost. No activity list (the Excel export has it)."""
     m = report.get('float_migration')
     if not m:
         return '<div class="note">Load a previous update or a baseline to see how float moved.</div>'
-    c = m.get('counts', {})
-    base = 'baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
-    cards = [('Near → CRITICAL', c.get('near_to_crit', 0), _BAD, 'worsened'),
-             ('Safe → near', c.get('safe_to_near', 0), _WARN, 'eroding'),
-             ('Critical → recovered', c.get('crit_to_recovered', 0), _GOOD, 'improved'),
-             ('Held critical', c.get('held_crit', 0), _MUTED, 'unchanged')]
-    cells = ''.join(f'<div class="band"><div class="bandl">{_e(lbl)}</div>'
-                    f'<div class="bandv" style="color:{col}">{n}</div>'
-                    f'<div class="bandt" style="color:{col}">{tag}</div></div>' for lbl, n, col, tag in cards)
-    toward = (c.get('near_to_crit', 0) or 0) + (c.get('safe_to_near', 0) or 0)
-    return (f'<div class="bands">{cells}</div>'
-            f'<div class="note">{toward} activities lost float toward the critical path vs {base}. Matched by activity ID.</div>')
+    c, t, mx, fl = m.get('counts', {}) or {}, m.get('totals'), m.get('matrix') or {}, m.get('float_lost') or {}
+    is_bl = report.get('float_migration_base') == 'baseline'
+    base = 'the baseline' if is_bl else 'last period'
+    dd = report.get('data_dates') or {}
+    turned = c.get('turned_crit', (c.get('near_to_crit', 0) or 0) + (c.get('safe_to_crit', 0) or 0))
+    edge = report_theme.var('rpt-edge')
+
+    def big(col, v, t1, t2):
+        return (f'<td style="border:1px solid {edge};border-left:5px solid {col};padding:8px 10px;vertical-align:top">'
+                f'<div style="font-size:20px;font-weight:800;color:{col}">{v}</div>'
+                f'<div class="note"><b>{_e(t1)}</b> {_e(t2)}</div></td>')
+    heads = [big(_BAD, f'{turned:,}', 'activities turned critical',
+                 f"vs {base} - {c.get('near_to_crit', 0) or 0} from near-critical, {c.get('safe_to_crit', 0) or 0} from safe")]
+    if fl.get('avg') is not None:
+        heads.append(big(_WARN, f"{_n1(fl['avg'])} d", 'average float lost', f"by each of them (largest {_n1(fl['max'])} d)"))
+    if t:
+        heads.append(big(_ACCENT, f"{t['base']['critical']:,} → {t['current']['critical']:,}",
+                         'critical activities', f"(P6 Critical filter) · near-critical {t['base']['near']} → {t['current']['near']}"))
+    head = '<table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin-bottom:10px"><tr>' + ''.join(heads) + '</tr></table>'
+
+    def cell(f, to):
+        n = mx.get(f'{f}>{to}', 0)
+        if not n:
+            return '<td style="text-align:center;color:#bbb">0</td>'
+        if f == to:
+            col, bg = (_BAD, '#f6e4e1') if f == 'crit' else (_MUTED, '#eef1f5')
+        elif to == 'crit':
+            col, bg = _BAD, '#f9d8d4'
+        elif f == 'safe' and to == 'near':
+            col, bg = _WARN, '#fbe9cc'
+        elif f == 'none':
+            col, bg = _MUTED, '#eef1f5'
+        else:
+            col, bg = _GOOD, '#d6efe0'
+        held = '<div style="font-size:9px;font-weight:600">held</div>' if f == to == 'crit' else ''
+        return (f'<td style="text-align:center;font-weight:800;font-size:14px;color:{col};background:{bg};'
+                f'-webkit-print-color-adjust:exact;print-color-adjust:exact">{n:,}{held}</td>')
+    rows_from = _mig_rows_from(mx)
+    fin, gone, nob = m.get('finished') or {}, m.get('not_in_current') or {}, m.get('no_band_now') or {}
+    has_gone, has_nob = any(gone.values()), any(nob.values())
+    row_tot = lambda f: sum(mx.get(f'{f}>{to}', 0) for to, _ in _MIG_B) + fin.get(f, 0) + gone.get(f, 0) + nob.get(f, 0)
+    tot = lambda to: sum(mx.get(f'{f}>{to}', 0) for f, _ in rows_from)
+    fin_tot = sum(fin.values())
+    base_in = 'in the baseline' if is_bl else 'last period'
+    base_word = 'baseline' if is_bl else 'last-period'
+    bl = ('IN THE BASELINE' if is_bl else 'LAST PERIOD') + (f" — {dd.get('baseline' if is_bl else 'previous')}" if dd.get('baseline' if is_bl else 'previous') else '')
+    sep = '<td style="width:6px;border-left:2px dashed #9aa6b5;background:none"></td>'
+    finstyle = ('text-align:center;color:#7a8494;font-weight:700;background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#e8eaee 6px,#e8eaee 12px);'
+                '-webkit-print-color-adjust:exact;print-color-adjust:exact')
+    extra_h = ('<th style="text-align:center">Not in the update</th>' if has_gone else '') + ('<th style="text-align:center">Open, no float band now</th>' if has_nob else '')
+
+    def fin_cells(f):
+        if f == 'none':
+            return f'<td style="{finstyle}">—</td>' + (f'<td style="{finstyle}">—</td>' if has_gone else '') + (f'<td style="{finstyle}">—</td>' if has_nob else '')
+        return (f'<td style="{finstyle}">{fin.get(f, 0):,}</td>' + (f'<td style="{finstyle}">{gone.get(f, 0):,}</td>' if has_gone else '')
+                + (f'<td style="{finstyle}">{nob.get(f, 0):,}</td>' if has_nob else ''))
+    grid = (f'<table class="t" style="width:100%"><thead>'
+            f'<tr><th></th><th colspan="3" style="text-align:center;border-bottom:2px solid {_ACCENT}">OPEN IN THE UPDATE'
+            f'{(" — " + _e(dd["current"])) if dd.get("current") else ""} (P6 filters)</th><th style="border:0"></th>'
+            f'<th colspan="{1 + has_gone + has_nob}" style="text-align:center;border-bottom:2px dashed #9aa6b5">FINISHED / LEFT</th><th></th></tr>'
+            f'<tr><th>{_e(bl)}</th>' + ''.join(f'<th style="text-align:center">{_e(l)} now</th>' for _, l in _MIG_B)
+            + '<th style="border:0"></th>'
+            + f'<th style="text-align:center">Completed since{" the baseline" if is_bl else ""}<br><span style="font-weight:600;font-size:9px">not on the critical path — no float band</span></th>'
+            + extra_h + f'<th style="text-align:center">Total {base_in}<br>(P6 filter)</th></tr></thead><tbody>'
+            + ''.join(f'<tr><td><b>{_e(lbl)}</b></td>' + ''.join(cell(f, to) for to, _ in _MIG_B) + sep + fin_cells(f)
+                      + f'<td style="text-align:center;font-weight:800;color:{_ACCENT};background:#eef4fb;-webkit-print-color-adjust:exact;print-color-adjust:exact">{row_tot(f):,}</td></tr>'
+                      for f, lbl in rows_from)
+            + '<tr><td><b>Total in the update (P6 filter)</b></td>'
+            + ''.join(f'<td style="text-align:center;font-weight:800;border-top:2px solid #888">{tot(to):,}</td>' for to, _ in _MIG_B)
+            + sep + f'<td style="text-align:center;color:#7a8494;border-top:2px solid #888">{fin_tot:,}</td>'
+            + ('<td></td>' if has_gone else '') + ('<td></td>' if has_nob else '') + '<td></td></tr></tbody></table>')
+    finnote = (f'<div class="note" style="border-left:4px solid {_WARN};padding:5px 9px;margin-top:6px"><b>Finished activities are never critical.</b> '
+               f'The grey column is the {base_word} activities completed by {_e(dd.get("current") or "the update")} — they have left the float bands '
+               f'and are <b>not</b> counted in "Critical now". It is shown only so each row adds up to the {base_word} file\'s own P6 count.</div>')
+    none = mx.get('none>crit', 0)
+    parts = lambda f: ' + '.join(str(x) for x in [*(mx.get(f'{f}>{to}', 0) for to, _ in _MIG_B), fin.get(f, 0), gone.get(f, 0), nob.get(f, 0)] if x)
+    how = (f'<div class="note" style="border:1px solid #d9dfe8;border-radius:6px;padding:6px 9px;margin-top:6px;line-height:1.6">'
+           f'<b>How to read it</b><br>'
+           f'• <b>Each row</b> adds up to the {base_word} P6 filter: '
+           + ' · '.join(f'{_e(l)} <b>{parts(f)} = {row_tot(f):,}</b>' for f, l in _MIG_B if row_tot(f)) + '<br>'
+           + f"• <b>The \"Critical now\" column</b> adds up to P6's Critical filter in the update: <b>{' + '.join(str(mx.get(f'{f}>crit', 0)) for f, _ in rows_from if mx.get(f'{f}>crit', 0))} = {tot('crit'):,}</b> — open activities only (In Progress / Not Started)<br>"
+           + f"• <b style=\"color:{_BAD}\">Turned critical = {c.get('near_to_crit', 0) or 0:,} + {c.get('safe_to_crit', 0) or 0:,} = {turned:,}</b> — critical in the update, but near-critical or safe {base_in}<br>"
+           + f"• <b>Still critical = {c.get('held_crit', 0) or 0:,}</b> — critical in both · <b>Finished = {fin_tot:,}</b> — completed since, no longer on the path"
+           + (f"<br>• <b>{none}</b> critical now were in no {base_word} band — not in that file, or float above 0 and below 1 d there (not critical, not in P6's 1–10 d range)" if none else '')
+           + '</div>')
+    grid_note = finnote + how
+    fr, code_t = _fronts_for(report)
+    top = max([f['turned_crit'] + f['safe_to_near'] for f in fr] or [1])
+    shown = fr[:8]
+    if fr:
+        frows = ''.join(
+            f'<tr><td>{_e(f["front"])}{_parent_div(f)}{_code_div(code_t, f)}</td>'
+            f'<td style="width:45%"><div style="display:flex;height:10px;border-radius:5px;overflow:hidden;background:#eef1f5;-webkit-print-color-adjust:exact;print-color-adjust:exact">'
+            f'<div style="width:{100 * f["turned_crit"] / top:.1f}%;background:{_BAD}"></div>'
+            f'<div style="width:{100 * f["safe_to_near"] / top:.1f}%;background:{_WARN}"></div></div></td>'
+            f'<td class="num"><b>{f["turned_crit"] + f["safe_to_near"]}</b></td></tr>' for f in shown)
+        more = (f'<div class="note">+ {len(fr) - len(shown)} more work fronts - every one is in the Excel export.</div>'
+                if len(fr) > len(shown) else '')
+        fronts = (f'<table class="t" style="width:100%"><thead><tr><th>Work front (the WBS the activity sits in)</th>'
+                  f'<th>turned critical (red) · safe → near-critical (amber)</th><th class="num">Activities</th></tr></thead>'
+                  f'<tbody>{frows}</tbody></table>{more}')
+    else:
+        fronts = '<div class="note">No activity lost float into the near-critical or critical band.</div>'
+    return (head
+            + '<div data-part="float_migration.grid" data-part-label="Where every open activity moved"><h3 style="margin:8px 0 4px;font-size:13px">① Where every open activity moved</h3>' + grid + grid_note + '</div>'
+            + '<div data-part="float_migration.fronts" data-part-label="Where float was lost - by work front"><h3 style="margin:12px 0 4px;font-size:13px">② Where float was lost — by work front</h3>' + fronts + '</div>'
+            + _advice_html(report)
+            + f'<div class="note" style="margin-top:8px">{_e(_MIG_KEY)}</div>')
 
 
 def _recommendation(report):
@@ -728,23 +964,78 @@ def _migration_block(report):
     cc = (report.get('float_migration') or {}).get('counts', {}) or {}
     base = 'the previous update' if report.get('float_migration_base') == 'previous' else 'the baseline'
     rows = [
-        ['Near-critical → CRITICAL', _num_cell(cc.get('near_to_crit', 0)), 'Lost all float — worsened'],
-        ['Safe → near-critical', _num_cell(cc.get('safe_to_near', 0)), 'Float eroding'],
-        ['Critical → recovered', _num_cell(cc.get('crit_to_recovered', 0)), 'Gained float — improved'],
-        ['Held critical', _num_cell(cc.get('held_crit', 0)), 'Stayed critical — unchanged'],
+        ['Near-critical → CRITICAL', _num_cell(cc.get('near_to_crit', 0)), 'Lost all float — worsened', _MIG_RULES['near_to_crit']],
+        ['Safe → CRITICAL', _num_cell(cc.get('safe_to_crit', 0)), 'Lost all float — worsened', _MIG_RULES['safe_to_crit']],
+        ['Safe → near-critical', _num_cell(cc.get('safe_to_near', 0)), 'Float dropped below 10 d - not critical yet, early warning', _MIG_RULES['safe_to_near']],
+        ['Critical → recovered', _num_cell(cc.get('crit_to_recovered', 0)), 'Gained float — improved', _MIG_RULES['crit_to_recovered']],
+        ['Held critical', _num_cell(cc.get('held_crit', 0)), 'Stayed critical — unchanged', _MIG_RULES['held_crit']],
     ]
-    toward = (cc.get('near_to_crit', 0) or 0) + (cc.get('safe_to_near', 0) or 0)
+    t = (report.get('float_migration') or {}).get('totals')
+    if t:
+        rows += [[f'Critical (P6 Critical filter) — {base}', _num_cell(t['base']['critical']), 'Total', 'tick in P6 in that file'],
+                 ['Critical (P6 Critical filter) — current update', _num_cell(t['current']['critical']), 'Total', 'tick in P6 in this file'],
+                 [f'Near-critical (TF 1–10 d) — {base}', _num_cell(t['base']['near']), 'Total', 'tick in P6 in that file'],
+                 ['Near-critical (TF 1–10 d) — current update', _num_cell(t['current']['near']), 'Total', 'tick in P6 in this file']]
     return {'title': 'Float migration',
-            'note': f'{toward} activities lost float toward the critical path vs {base}. '
-                    'Matched by activity ID.',
-            'headers': ['Float band move (matched by activity ID)', 'Activities (count)', 'Effect'],
+            'note': _mig_recon(report) + ' ' + _MIG_BANDS_NOTE,
+            'headers': ['Float band move (matched by activity ID)', 'Activities (count)', 'Effect', 'Where the number comes from'],
             'rows': rows}
 
 
-_MOVE_WORDS = {'near_to_crit': 'Near-critical → CRITICAL', 'safe_to_near': 'Safe → near-critical',
+_MOVE_WORDS = {'near_to_crit': 'Near-critical → CRITICAL', 'safe_to_crit': 'Safe → CRITICAL', 'safe_to_near': 'Safe → near-critical',
                'crit_to_recovered': 'Critical → recovered', 'held_crit': 'Held critical'}
 _BAND_WORDS = {'crit': 'Critical', 'near': 'Near-critical', 'safe': 'Safe'}
-_MOVE_ORDER = ('near_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
+_MOVE_ORDER = ('near_to_crit', 'safe_to_crit', 'safe_to_near', 'crit_to_recovered', 'held_crit')
+
+
+def _migration_summary_blocks(report):
+    """The grid of band moves and the work fronts where float was lost (as the screen / PDF)."""
+    m = report.get('float_migration') or {}
+    mx = m.get('matrix') or {}
+    out = []
+    if mx:
+        rf = _mig_rows_from(mx)
+        fin, gone, nob = m.get('finished') or {}, m.get('not_in_current') or {}, m.get('no_band_now') or {}
+        has_gone, has_nob = any(gone.values()), any(nob.values())
+        rt = lambda f: sum(mx.get(f'{f}>{to}', 0) for to, _ in _MIG_B) + fin.get(f, 0) + gone.get(f, 0) + nob.get(f, 0)
+        base = 'baseline' if report.get('float_migration_base') == 'baseline' else 'last period'
+        out.append({'title': f'Where every activity of the {base} went (band then -> band now)',
+                    'note': (_MIG_READ + ' Completed = finished since the ' + base + ' - finished activities are never critical; '
+                             'the column only closes each row to the ' + base + " file's own P6 count."),
+                    'headers': [f'Band in the {base}'] + [f'{l} now' for _, l in _MIG_B] + [f'Completed since the {base} (not critical)']
+                               + (['Not in the update'] if has_gone else []) + (['Open, no float band now'] if has_nob else []) + [f'Total in the {base} (P6 filter)'],
+                    'rows': [[lbl] + [_num_cell(mx.get(f'{f}>{to}', 0)) for to, _ in _MIG_B]
+                             + [('' if f == 'none' else _num_cell(fin.get(f, 0)))]
+                             + ([('' if f == 'none' else _num_cell(gone.get(f, 0)))] if has_gone else [])
+                             + ([('' if f == 'none' else _num_cell(nob.get(f, 0)))] if has_nob else [])
+                             + [_num_cell(rt(f))] for f, lbl in rf]
+                            + [['Total in the update (P6 filter)'] + [_num_cell(sum(mx.get(f'{f}>{to}', 0) for f, _ in rf)) for to, _ in _MIG_B]
+                               + [_num_cell(sum(fin.values()))] + ([''] if has_gone else []) + ([''] if has_nob else []) + ['']]})
+    fr, code_t = _fronts_for(report)
+    if fr:
+        out.append({'title': 'Where float was lost - by work front' + (f' ({code_t})' if code_t else ''),
+                    'note': 'Work front = the WBS the activity sits in. Every activity that turned critical or dropped from safe to near-critical.',
+                    'headers': ['Work front', 'WBS above it'] + ([code_t] if code_t else []) + ['Turned critical', 'Safe -> near-critical', 'Total'],
+                    'rows': [[f['front'], f.get('parent') or '']
+                             + ([', '.join(f'{k} ({n})' for k, n in sorted((f.get('vals') or {}).items(), key=lambda x: -x[1]))] if code_t else [])
+                             + [_num_cell(f['turned_crit']), _num_cell(f['safe_to_near']), _num_cell(f['turned_crit'] + f['safe_to_near'])] for f in fr]})
+    if m.get('rows') and m.get('code_types'):
+        from p6_critpath.migration_advice import advice
+        codes = report.get('mig_codes') or m.get('advice_codes') or {}
+        a = advice(m, codes.get('location'), codes.get('trade'))
+        trs = a['trades']
+        out.append({'title': f"Where the activities that turned critical sit - {a['location']} x {a['trade']}",
+                    'note': 'Count of activities that turned critical per building / location and trade (activity codes of the current update).',
+                    'headers': [f"{a['location']} / {a['trade']}"] + trs + ['Total'],
+                    'rows': [[l] + [_num_cell(a['cells'].get(l, {}).get(t, 0)) for t in trs] + [_num_cell(a['loc_totals'].get(l, 0))]
+                             for l in a['locations']]})
+        out.append({'title': 'Recommendation - where the problem is and how to mitigate it',
+                    'headers': ['Priority', 'Building / location', 'Trade', 'Turned critical', 'Average float lost (d)', 'Deepest float now (d)', 'Do this'],
+                    'rows': [[f'P{k + 1}', i['location'], i['trade'], _num_cell(i['turned_crit']), _num_cell(i['avg_lost']),
+                              _num_cell(i.get('deepest_tf')), ' · '.join(i.get('actions') or [i['mitigation']])] for k, i in enumerate(a['items'])]
+                            + [['Protect first', w['location'], w['trade'], _num_cell(w['activities']), '', _num_cell(w['min_tf']), 'deepest negative float now - recover first']
+                               for w in a['worst']]})
+    return out
 
 
 def _migration_rows_block(report):
@@ -783,7 +1074,7 @@ def critpath_excel_sections(report):
         _driving_path_sheet(report),
     ]
     if report.get('float_migration'):
-        blocks = [_migration_block(report)]
+        blocks = [_migration_block(report)] + _migration_summary_blocks(report)
         moved = _migration_rows_block(report)
         if moved:
             blocks.append(moved)
