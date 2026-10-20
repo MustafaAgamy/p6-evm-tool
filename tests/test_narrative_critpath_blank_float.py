@@ -101,10 +101,10 @@ def test_activity_ids_work_for_any_separator():
     pl = actids.activity_id_analysis(dash, [])
     assert pl['blocks'] and pl['anatomy']
     roles = [c['role'] for c in pl['anatomy']['cols']]
-    assert roles[0] == 'stage' and roles[1] == 'serial' and 'dash-separated' in pl['intro']
+    assert roles[0] == 'stage' and roles[1] == 'serial' and 'dash ("-")' in pl['intro']
     dot = [{'id': 'CONS.PL.S1.%d' % (1000 + 10 * i), 'name': 'Pile works', 'activity_codes': {}} for i in range(6)]
     pl = actids.activity_id_analysis(dot, [])
-    assert pl['anatomy']['cols'][-1]['role'] == 'serial' and 'dot-separated' in pl['intro']
+    assert pl['anatomy']['cols'][-1]['role'] == 'serial' and 'dot (".")' in pl['intro']
 
 
 def test_activity_ids_any_coding_style():
