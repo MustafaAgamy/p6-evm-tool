@@ -195,19 +195,38 @@ def _category_table(result, approx=False):
         wa = w * ap * 100
         tot_pw += pw
         tot_wa += wa
+        k = c.get('counts') or {}
+        meth = {'count': 'by count', 'override': 'E1 log'}.get(c.get('method'), 'by cost')
+        cnt = lambda key: f'{k[key]:,}' if k else '—'
         rows.append(
-            f'<tr><td>{_esc(name)}</td><td class="num">{w*100:.1f}%</td>'
+            f'<tr><td>{_esc(name)}</td><td>{meth}</td><td class="num">{cnt("activities") if k else c.get("activity_count", "—")}</td>'
+            f'<td class="num">{cnt("completed")}</td><td class="num">{cnt("in_progress")}</td><td class="num">{cnt("planned_done")}</td>'
+            f'<td class="num">{w*100:.1f}%</td>'
             f'<td class="num">{pp*100:.1f}%</td><td class="num">{ap*100:.1f}%</td>'
             f'<td class="num">{pw:.2f}%</td><td class="num">{wa:.2f}%</td></tr>')
+        for sw in (c.get('sub_wbs') or []):
+            rows.append(
+                f'<tr><td style="padding-left:18px;color:#6b7686">{_esc(sw["code"])}</td><td></td>'
+                f'<td class="num">{sw["activities"]:,}</td><td class="num">{sw["completed"]:,}</td><td class="num">{sw["in_progress"]:,}</td>'
+                f'<td class="num">{sw["planned_done"]:,}</td><td></td><td class="num">{sw["planned_pct"]*100:.2f}%</td>'
+                f'<td class="num">{sw["actual_pct"]*100:.2f}%</td><td></td><td></td></tr>')
     rows.append(
-        f'<tr class="tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>'
+        f'<tr class="tot"><td>Overall</td><td></td><td></td><td></td><td></td><td></td><td class="num">—</td><td class="num">—</td>'
         f'<td class="num">—</td><td class="num">{tot_pw:.2f}%</td><td class="num">{tot_wa:.2f}%</td></tr>')
+    how = ''
+    if any((c or {}).get('method') == 'count' for c in cats.values()):
+        how = ('<p class="note">By cost: cost-weighted, as P6 Planned Value · By count (scope with no cost): '
+               'Actual % = activities with Activity Status = Completed ÷ all activities of the scope; '
+               'Planned % = activities whose BL Project Finish is on or before the data date ÷ all; '
+               'In Progress is shown apart (not in Actual %). Indented rows = the Sub-WBS activity codes.</p>')
     # a short category table (one row per WBS category + Overall) prints whole with its
     # heading - the print composer keeps a table marked rpt-keep whole up to
     # report_theme.PAGINATION_KEEP_TABLE of a page (GBT: 11 rows were continued 6 + 5)
-    keep = ' class="rpt-keep"' if len(cats) <= 12 else ''
-    return _part('category.table', 'Category weights table', (
-        f'<table{keep}><thead><tr><th>WBS Category</th><th class="num">Weight %</th>'
+    keep = ' class="rpt-keep"' if len(rows) <= 13 else ''
+    return _part('category.table', 'Category weights table', how + (
+        f'<table{keep} style="font-size:10.5px"><thead><tr><th style="min-width:170px">WBS Category</th><th>Method</th><th class="num">Activities</th>'
+        f'<th class="num">Completed</th><th class="num">In Progress</th><th class="num">Planned done<br>BL finish ≤ data date</th>'
+        f'<th class="num">Weight %</th>'
         f'<th class="num">Planned %{ax}</th><th class="num">Actual %</th>'
         f'<th class="num">Planned Weight %{ax}</th><th class="num">Weighted Actual %</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table>'))

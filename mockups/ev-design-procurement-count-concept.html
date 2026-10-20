@@ -1,0 +1,61 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design Procurement Progress</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1080px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 6px;color:var(--accent);font-size:16px}h4{margin:12px 0 6px;font-size:13.5px}.note{color:var(--muted);font-size:12.5px}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+.box{border:1px solid var(--border);border-radius:8px;padding:9px 12px;background:#f8fafc;font-size:12.5px;line-height:1.7}
+.wrapt{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:760px}th,td{padding:6px 8px;border-bottom:1px solid #edf0f4;text-align:left}th{background:#f1f4f8;font-size:11.5px}
+.n{text-align:right}.of{color:var(--muted);font-size:11px}
+.m{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700}.mc{background:#e6f0fa;color:var(--accent)}.mn{background:#eef7ee;color:var(--good)}
+.bar{position:relative;height:10px;background:#eef1f5;border-radius:6px;min-width:120px}.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--good)}.bar u{position:absolute;top:-3px;bottom:-3px;width:3px;background:#1b2433}
+tr.sub td{background:#fafbfc;font-size:12px}tr.sub td:first-child{padding-left:26px;color:#3b4656}
+.old{color:#9aa3af;text-decoration:line-through;font-size:11px}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Grain Bulk "Update Till 09 Aug.2026" (XML with its baseline) · real counts from the file</div>
+
+<div class="card">
+<h3>#95 · Earned Value accepts only an XML update with its baseline</h3>
+<div class="box">If the planner opens Earned Value with an <b>XER</b> or an <b>XML exported without its baseline</b>, the screen shows only this card (no numbers):<br>
+<b>"Earned Value reads an XML update exported with its baseline"</b> — why (P6 measures Planned Value against the project baseline, only the XML carries it) + the 4 steps in P6 (check the assigned baseline → File ▸ Export ▸ XML → tick "export baseline" → import here). Every other feature keeps working with that file.</div>
+<div class="note" style="margin-top:6px">Planned Value = every cost-loaded activity's <b>baseline cost × the part of its baseline duration planned up to the data date</b>, summed — as you described. Grain 09 Aug: <b>652,633,400.05</b>.</div>
+</div>
+
+<div class="card">
+<h3>#96 · #97 · Design / Engineering / Procurement — Planned % and Actual % by count of activities</h3>
+<div class="ann"><b>Today</b> these scopes carry no cost, so the tool weights each activity by its <b>duration</b> and uses its <b>% complete</b> — that is why it does not match your count in P6 (e.g. Phase I Design shows 98.53%, your count gives 68 ÷ 70 = 97.14%).<br>
+<b>Proposed:</b> any scope with no cost is measured <b>by count of activities</b>, exactly as you check it in P6. Cost-loaded scope (Construction) stays cost-weighted, as P6's Planned Value.</div>
+
+<div class="box"><b>How each number is made (P6 filters, per WBS / per Sub-WBS code):</b><br>
+• <b>Actual %</b> = activities with <b>Activity Status = Completed</b> ÷ all activities of the scope<br>
+• <b>Planned %</b> = activities whose <b>BL Project Finish ≤ data date</b> ÷ all activities of the scope<br>
+• In Progress is shown in its own column (counted as not yet complete)</div>
+
+<div class="wrapt"><table style="margin-top:10px">
+<tr><th>Scope (WBS) · Sub-WBS code</th><th>Method</th><th class="n">Activities</th><th class="n">Completed</th><th class="n">In Progress</th><th class="n">Planned done<br><span class="of">BL finish ≤ data date</span></th><th class="n">Planned %</th><th class="n">Actual %</th><th style="width:150px">actual vs planned</th></tr>
+<tr><td><b>Phase I Construction Works</b></td><td><span class="m mc">by cost</span></td><td class="n">816</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">71.23%</td><td class="n">45.70%</td><td><div class="bar"><i style="width:45.7%;background:var(--bad)"></i><u style="left:71%"></u></div></td></tr>
+<tr><td><b>Phase I Design</b></td><td><span class="m mn">by count</span></td><td class="n">70</td><td class="n">68</td><td class="n">0</td><td class="n">70</td><td class="n">100.00%</td><td class="n"><b>97.14%</b> <span class="old">98.53%</span></td><td><div class="bar"><i style="width:97%"></i><u style="left:99.5%"></u></div></td></tr>
+<tr class="sub"><td>Schematic Submittal</td><td></td><td class="n">11</td><td class="n">11</td><td class="n">0</td><td class="n">11</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>Schematic Approval</td><td></td><td class="n">13</td><td class="n">13</td><td class="n">0</td><td class="n">13</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>Detailed Design Submittal / Approval</td><td></td><td class="n">24</td><td class="n">24</td><td class="n">0</td><td class="n">24</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>IFC Submittal / Approval</td><td></td><td class="n">22</td><td class="n">20</td><td class="n">0</td><td class="n">22</td><td class="n">100%</td><td class="n">90.9%</td><td></td></tr>
+<tr><td><b>Phase I Engineering</b></td><td><span class="m mn">by count</span></td><td class="n">78</td><td class="n">76</td><td class="n">0</td><td class="n">78</td><td class="n">100.00%</td><td class="n"><b>97.44%</b> <span class="old">99.43%</span></td><td><div class="bar"><i style="width:97.4%"></i><u style="left:99.5%"></u></div></td></tr>
+<tr class="sub"><td>Shop Drawing Submittal</td><td></td><td class="n">39</td><td class="n">38</td><td class="n">0</td><td class="n">39</td><td class="n">100%</td><td class="n">97.4%</td><td></td></tr>
+<tr class="sub"><td>Shop Drawing Approval</td><td></td><td class="n">39</td><td class="n">38</td><td class="n">0</td><td class="n">39</td><td class="n">100%</td><td class="n">97.4%</td><td></td></tr>
+<tr><td><b>Phase I Procurement</b></td><td><span class="m mn">by count</span></td><td class="n">37</td><td class="n">36</td><td class="n">0</td><td class="n">37</td><td class="n">100.00%</td><td class="n"><b>97.30%</b> <span class="old">95.14%</span></td><td><div class="bar"><i style="width:97.3%"></i><u style="left:99.5%"></u></div></td></tr>
+<tr class="sub"><td>Material Submittal</td><td></td><td class="n">10</td><td class="n">10</td><td class="n">0</td><td class="n">10</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>Material Approval</td><td></td><td class="n">9</td><td class="n">9</td><td class="n">0</td><td class="n">9</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>POs</td><td></td><td class="n">9</td><td class="n">9</td><td class="n">0</td><td class="n">9</td><td class="n">100%</td><td class="n">100%</td><td></td></tr>
+<tr class="sub"><td>Material Delivery</td><td></td><td class="n">9</td><td class="n">8</td><td class="n">0</td><td class="n">9</td><td class="n">100%</td><td class="n">88.9%</td><td></td></tr>
+<tr><td><b>Phase II Design</b></td><td><span class="m mn">by count</span></td><td class="n">430</td><td class="n">38</td><td class="n">0</td><td class="n">382</td><td class="n">88.84% <span class="old">90.48%</span></td><td class="n"><b>8.84%</b> <span class="old">10.51%</span></td><td><div class="bar"><i style="width:8.8%;background:var(--bad)"></i><u style="left:88.8%"></u></div></td></tr>
+<tr class="sub"><td>Schematic Submittal / Approval</td><td></td><td class="n">128</td><td class="n">38</td><td class="n">0</td><td class="n">128</td><td class="n">100%</td><td class="n">29.7%</td><td></td></tr>
+<tr class="sub"><td>Detailed Design Submittal / Approval</td><td></td><td class="n">300</td><td class="n">0</td><td class="n">0</td><td class="n">254</td><td class="n">84.7%</td><td class="n">0%</td><td></td></tr>
+</table></div>
+<div class="note" style="margin-top:6px">Grey strike-through = today's duration-weighted figure, shown here only to compare. Sub-WBS rows come from the activity codes (Design / Engineering / Procurement SUB WBS); one click opens or closes them. Same table in the PDF and the Excel.</div>
+</div>
+</div></body></html>

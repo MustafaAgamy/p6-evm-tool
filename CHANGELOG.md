@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed — Earned Value matches P6 (comments 95–97)
+- **Earned Value reads only an XML update exported with its baseline.** P6 measures Planned Value, SPI and Delay against the project baseline assigned to the update, and only the XML carries it. An XER update, or an XML exported without its baseline, shows a card explaining why and the four steps to re-export from P6; every other feature keeps working with that file. A baseline programme with no baseline assigned in P6 is exact on its own dates and passes.
+- **Design / Engineering / Procurement (any scope with no cost) are measured by count of activities**, as the planner checks them in P6: Actual % = activities with Activity Status = Completed ÷ all activities of the scope; Planned % = activities whose BL Project Finish is on or before the data date ÷ all; In Progress is counted in its own column (not in Actual %). Each scope opens into its Sub-WBS code rows (Schematic / Detailed / IFC / Shop Drawing Submittal and Approval, Material Submittal, POs, Delivery…). Cost-loaded scope stays cost-weighted. Same table in the PDF and Excel.
+
 ### Fixed — Critical Path Analyzer counts match P6 (comments 91, 92)
 - **Float Migration** bands are now P6's own filters: Critical = P6's Critical filter (In Progress + Not Started that P6 flags Critical; never LOE / WBS Summary), Near-critical = Total Float within 1d – 10d. Completed activities are in no band; milestones are counted, as in P6. Before, completed and LOE activities were banded, milestones skipped and near-critical was "under 10 d".
 - New **Safe → CRITICAL** move: activities that lost all float straight from above 10 d were not counted before (Grain Bulk 19 Jul → 09 Aug: 25). "Turned critical" now counts both moves (30, not 5).

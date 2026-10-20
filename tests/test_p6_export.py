@@ -284,11 +284,11 @@ def test_xlsx_tables_keep_numbers_numeric_with_the_same_look(tmp_path):
     wb = _xlsx(evm_html(), tmp_path)
     ws = wb['Category Weights & Overall']
     rows = _rows(ws)
-    hdr = rows.index(('WBS Category', 'Weight %', 'Planned %', 'Actual %', 'Planned Weight %',
-                      'Weighted Actual %'))
+    hdr = next(i for i, r in enumerate(rows) if r and r[0] == 'WBS Category' and 'Weight %' in r)
+    wcol = rows[hdr].index('Weight %')
     con = rows[hdr + 1]
-    assert con[0] == 'Construction' and con[1] == pytest.approx(0.95)
-    cell = next(c for c in ws['B'] if c.value == pytest.approx(0.95))
+    assert con[0] == 'Construction' and con[wcol] == pytest.approx(0.95)
+    cell = next(c for c in ws['ABCDEFGHIJK'[wcol]] if c.value == pytest.approx(0.95))
     assert cell.number_format == '0.0%'
     tot = next(r for r in rows if r and r[0] == 'Overall')
     assert tot[-1] == pytest.approx(0.3438)
