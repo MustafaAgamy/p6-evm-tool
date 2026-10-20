@@ -863,7 +863,7 @@ def _render_activity_ids(document, p, number, note):
 
     # ── 12.1 How to read an Activity ID (the colour-coded anatomy + role legend) ──
     _subhead(document, '%s.1' % number, 'How to read an Activity ID')
-    para(document, ANATOMY_INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
+    para(document, (p.get('anatomy') or {}).get('intro') or ANATOMY_INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
     if anatomy and anatomy.get('cols'):
         ex = para(document, 'Example:  %s' % anatomy.get('sample'), size=11, bold=True,
                   color=NAVY, before=2, after=3, font=CAL)

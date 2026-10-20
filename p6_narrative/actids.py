@@ -56,8 +56,27 @@ ANATOMY_INTRO = ('An Activity ID reads left to right as dot-separated segments. 
                  'position.')
 
 
+_SEP = ['.']          # the separator THIS schedule's IDs use (set per analysis; '.' by default)
+_SEPS = ('.', '-', '_', '/')
+
+
+def _detect_sep(ids):
+    """The separator most Activity IDs carry: Grain 'CONS.PL.S1.1010' -> '.', Saint Gobain
+    'EX-1000-GC-CON-BAT' -> '-' (comment 103: the section was empty for dash-separated IDs)."""
+    best, best_n = '.', 0
+    for sep in _SEPS:
+        n = sum(1 for i in ids if sep in (i or ''))
+        if n > best_n:
+            best, best_n = sep, n
+    return best
+
+
 def _segs(i):
-    return (i or '').split('.')
+    return (i or '').split(_SEP[0])
+
+
+def _is_serial(tok):
+    return bool(re.fullmatch(r'[A-Za-z]{0,2}\d{2,}[A-Za-z]?', tok or ''))
 
 
 def _acode(a, dim):
@@ -70,6 +89,8 @@ def activity_id_analysis(activities, code_types=None):
     code_dims = list(code_types or [])
     if not acts:
         return {'intro': INTRO, 'anatomy': None, 'blocks': []}
+    _SEP[0] = _detect_sep([a['id'] for a in acts])
+    sep_word = {'.': 'dot', '-': 'dash', '_': 'underscore', '/': 'slash'}[_SEP[0]]
 
     # ── GENERIC per-token meaning: dominant activity-code value among the activities that
     #    carry that token as a segment, else the dominant significant word in their names. ──
@@ -169,10 +190,18 @@ def activity_id_analysis(activities, code_types=None):
         sample = reps[0]['id']
         cols = []
         npos = modal
+        # the serial is the segment that is a number in most IDs - the LAST one in a dot coding
+        # (CONS.PL.S1.1010), the 2nd in Saint Gobain's dash coding (EX-1000-GC-CON-BAT)
+        share = [sum(1 for a in reps if _is_serial(_segs(a['id'])[pos])) / len(reps) for pos in range(npos)]
+        serial_pos = npos - 1
+        if npos > 1 and share[serial_pos] < 0.6:
+            cand = max(range(1, npos), key=lambda k: (share[k], k))
+            if share[cand] >= 0.6:
+                serial_pos = cand
         for pos in range(npos):
             toks = sorted({_segs(a['id'])[pos] for a in reps if len(_segs(a['id'])) > pos})
-            if pos == npos - 1:                                  # the LAST segment is ALWAYS the serial
-                ex_serial = _segs(sample)[-1]                    # e.g. "1010", or "A1020" (letter-prefixed)
+            if pos == serial_pos:                                # the serial segment
+                ex_serial = _segs(sample)[pos]                   # e.g. "1010", or "A1020" (letter-prefixed)
                 cols.append((ex_serial, 'Sequencing serial — P6 sequence number ordering the '
                                         'activities within the group', 'serial'))
                 continue
@@ -205,7 +234,8 @@ def activity_id_analysis(activities, code_types=None):
     if 'CONS|Civil Works' in fam:
         anatomy_raw = build_block('CONS|Civil Works', fam['CONS|Civil Works'])
     elif blocks_raw:
-        anatomy_raw = blocks_raw[-1]
+        # any other coding: the biggest ID family is the one a reader meets most
+        anatomy_raw = max(blocks_raw, key=lambda b: b['count'])
     else:
         anatomy_raw = None
 
@@ -216,4 +246,7 @@ def activity_id_analysis(activities, code_types=None):
     blocks = [{'title': b['title'], 'sample': b['sample'], 'cols': _cols_out(b['cols']),
                'note': b['note'], 'count': b['count']} for b in blocks_raw]
 
-    return {'intro': INTRO, 'anatomy': anatomy, 'blocks': blocks}
+    intro = INTRO.replace('dot-separated', '%s-separated ("%s")' % (sep_word, _SEP[0]))
+    if anatomy:
+        anatomy['intro'] = ANATOMY_INTRO.replace('dot-separated', '%s-separated ("%s")' % (sep_word, _SEP[0]))
+    return {'intro': intro, 'anatomy': anatomy, 'blocks': blocks}

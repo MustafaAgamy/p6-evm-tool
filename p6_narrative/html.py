@@ -921,7 +921,7 @@ def _actids(p, number, title, meta, cur):
 
     # 12.1 — how to read an Activity ID (the colour-coded anatomy + role legend)
     out += '<div class="sub">%s.1 &middot; How to read an Activity ID</div>' % _esc(number)
-    out += '<p>%s</p>' % _esc(ANATOMY_INTRO)
+    out += '<p>%s</p>' % _esc((p.get('anatomy') or {}).get('intro') or ANATOMY_INTRO)
     if anatomy and anatomy.get('cols'):
         out += ('<div class="actidblk"><p class="actidex">Example:&nbsp; %s</p>%s'
                 % (_esc(anatomy.get('sample')), _table(anatomy.get('cols'))))
