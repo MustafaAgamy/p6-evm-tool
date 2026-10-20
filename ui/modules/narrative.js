@@ -1224,13 +1224,13 @@ function streamLatest(thread) {
   })(last);
   const think = document.createElement('div'); think.className = 'bn-think'; think.innerHTML = '<span></span><span></span><span></span> thinking…';
   last.parentNode.insertBefore(think, last);
-  last.style.display = 'none'; if (ctl) ctl.style.visibility = 'hidden';
+  last.style.display = 'none'; if (ctl) ctl.style.opacity = '0';
   setTimeout(() => {
     think.remove(); last.style.display = '';
     const step = Math.max(8, Math.min(28, 1800 / Math.max(words.length, 1)));
     words.forEach((w, i) => setTimeout(() => w.classList.add('on'), i * step));
-    setTimeout(() => { if (ctl) ctl.style.visibility = ''; thread.scrollTop = thread.scrollHeight; }, words.length * step + 60);
-  }, 650);
+    setTimeout(() => { if (ctl) { ctl.style.transition = 'opacity .25s'; ctl.style.opacity = '1'; } thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' }); }, words.length * step + 60);
+  }, 450);
 }
 
 // ── live "if you pick … this is the result" examples (from the planner's own file) ──
@@ -1296,8 +1296,11 @@ function _findCodes(txt) {
 }
 function chatTyped(raw) {
   const txt = (raw || '').trim(), low = txt.toLowerCase(), s = getSetup();
-  if (!txt) return;
   const step = CHAT_STEPS[_chatCur];
+  if (!txt) {                                    // send with nothing typed = "my answer is what is set above"
+    if (step === 'generate') { const g = document.getElementById('bn-gen'); if (g) g.click(); return; }
+    _chatCur = Math.min(CHAT_STEPS.length - 1, _chatCur + 1); renderChat(); return;
+  }
   _chatNote = '';
   const go = d => { _chatCur = Math.max(0, Math.min(CHAT_STEPS.length - 1, _chatCur + d)); renderChat(); };
   if (/^(go )?back$|^previous$/.test(low)) return go(-1);
@@ -1335,30 +1338,47 @@ function chatTyped(raw) {
   renderChat();
 }
 
+// The thread GROWS like AI Chat: moving forward appends your answer and the next question below
+// what is already there (no re-draw, no blank screen); only going back redraws it.
+let _shownUpTo = -1;
+const _bot = html => `<div class="bn-row bn-ai"><div class="bn-av">✦</div><div class="bn-bub"><div class="bn-who">AI Assistant</div><div class="bn-say">${html}</div></div></div>`;
+const _tagOf = i => `<div class="bn-chap">Question ${i + 1} of ${CHAT_STEPS.length} — ${_esc(CHAT_TITLE[CHAT_STEPS[i]] || '')}</div>`;
+const _ansOf = i => { const sum = chatSummary(CHAT_STEPS[i]); return sum ? `<div class="bn-row me"><div class="bn-ans">${_esc(sum)}</div></div>` : ''; };
 function renderChat() {
   const thread = document.getElementById('bn-thread');
   if (!thread) return;
-  const bot = html => `<div class="bn-row bn-ai"><div class="bn-av">✦</div><div class="bn-bub"><div class="bn-who">AI Assistant</div><div class="bn-say">${html}</div></div></div>`;
-  const tagOf = i => `<div class="bn-chap">Question ${i + 1} of ${CHAT_STEPS.length} — ${_esc(CHAT_TITLE[CHAT_STEPS[i]] || '')}</div>`;
-  let h = bot(chatIntro());
-  for (let i = 0; i < _chatCur; i++) {
-    h += tagOf(i) + bot(_esc(CHAT_Q[CHAT_STEPS[i]]));
-    const sum = chatSummary(CHAT_STEPS[i]);
-    if (sum) h += `<div class="bn-row me"><div class="bn-ans">${_esc(sum)}</div></div>`;
+  const old = document.getElementById('bn-active');
+  const grow = old && _shownUpTo >= 0 && _chatCur >= _shownUpTo;
+  if (grow) {
+    old.remove();
+    let h = '';
+    for (let i = _shownUpTo; i < _chatCur; i++) {
+      if (i > _shownUpTo) h += _tagOf(i) + _bot(_esc(CHAT_Q[CHAT_STEPS[i]]));
+      h += _ansOf(i);
+    }
+    if (_chatCur > _shownUpTo) h += _tagOf(_chatCur) + _bot(_esc(CHAT_Q[CHAT_STEPS[_chatCur]]));
+    if (_chatNote) h += _bot(_chatNote);
+    h += `<div class="bn-ctl" id="bn-active"></div>`;
+    thread.insertAdjacentHTML('beforeend', h);
+    paintActive();
+    streamLatest(thread);
+  } else {
+    let h = _bot(chatIntro());
+    for (let i = 0; i < _chatCur; i++) h += _tagOf(i) + _bot(_esc(CHAT_Q[CHAT_STEPS[i]])) + _ansOf(i);
+    h += _tagOf(_chatCur) + _bot(_esc(CHAT_Q[CHAT_STEPS[_chatCur]]));
+    if (_chatNote) h += _bot(_chatNote);
+    h += `<div class="bn-ctl" id="bn-active"></div>`;
+    thread.innerHTML = h;
+    paintActive();
+    if (_shownUpTo < 0) streamLatest(thread);              // first open: the greeting streams in
   }
-  h += tagOf(_chatCur) + bot(_esc(CHAT_Q[CHAT_STEPS[_chatCur]]));
-  if (_chatNote) h += bot(_chatNote);
-  h += `<div class="bn-ctl" id="bn-active"></div>`;
-  thread.innerHTML = h;
-  paintActive();
-  streamLatest(thread);
-  thread.scrollTop = thread.scrollHeight;
+  _shownUpTo = _chatCur;
+  _chatNote = '';
+  thread.scrollTo({ top: thread.scrollHeight, behavior: grow ? 'smooth' : 'auto' });
   const prog = document.getElementById('bn-prog');
   if (prog) prog.textContent = 'Question ' + (_chatCur + 1) + ' of ' + CHAT_STEPS.length;
   const back = document.getElementById('bn-back');
   if (back) back.style.visibility = _chatCur === 0 ? 'hidden' : 'visible';
-  const cont = document.getElementById('bn-continue');
-  if (cont) cont.style.display = CHAT_STEPS[_chatCur] === 'generate' ? 'none' : 'inline-block';
 }
 
 // Wire the events for the ACTIVE step's control (targeted re-render keeps the thread stable).
@@ -1367,6 +1387,13 @@ function wireActive() {
   if (!box) return;
   const s = getSetup();
   box.querySelectorAll('input[data-k]').forEach(inp => inp.addEventListener('input', () => { s[inp.dataset.k] = inp.value; saveSetup(); }));
+  // Enter in an answer field = send the answer and move on (like the box below)
+  box.querySelectorAll('input.bn-ci').forEach(inp => inp.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (inp.dataset.k) { s[inp.dataset.k] = inp.value; saveSetup(); }
+    chatTyped('');
+  }));
   box.querySelectorAll('[data-ct]').forEach(b => b.addEventListener('click', () => {
     s.contract_type = b.dataset.ct; saveSetup();
     box.querySelectorAll('[data-ct]').forEach(x => x.classList.toggle('on', x === b));
@@ -1465,10 +1492,9 @@ async function startSetupChat(opts) {
        <div class="bn-chat-head"><div class="bn-chat-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div>
          <div><div class="bn-chat-title">AI Assistant</div><div class="bn-chat-sub" id="bn-readnote">I am your AI Planning Engineer · reading your schedule…</div></div></div>
        <div class="bn-thread" id="bn-thread"><div class="cmp-loading" style="padding:18px">Reading your schedule…</div></div>
-       <div class="bn-type"><input id="bn-typed" placeholder="Type your answer, or “skip” / “go back” / “change …”" autocomplete="off"><button id="bn-send" title="Send">➤</button></div>
-       <div class="bn-chat-foot"><button class="bn-back" id="bn-back">← Back</button><span class="bn-chat-sub" id="bn-prog"></span><button class="bn-continue" id="bn-continue">Continue →</button></div>
+       <div class="bn-type"><input id="bn-typed" placeholder="Type your answer, or just send to keep what is set above — “go back” / “change …” work too" autocomplete="off"><button id="bn-send" title="Send">➤</button></div>
+       <div class="bn-chat-foot"><button class="bn-back" id="bn-back">← Back</button><span class="bn-chat-sub" id="bn-prog"></span><span></span></div>
      </div>`;
-  document.getElementById('bn-continue').addEventListener('click', () => { _chatNote = ''; if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
   document.getElementById('bn-back').addEventListener('click', () => { _chatNote = ''; if (_chatCur > 0) { _chatCur--; renderChat(); } });
   const typed = document.getElementById('bn-typed');
   const send = () => { const v = typed.value; typed.value = ''; chatTyped(v); typed.focus(); };
@@ -1482,7 +1508,7 @@ async function startSetupChat(opts) {
   const proj = meta.project_name || 'your project';
   const acts = meta.activity_count ? (' · ' + meta.activity_count + ' activities') : '';
   if (note) note.textContent = 'I am your AI Planning Engineer · read ' + proj + acts;
-  _chatCur = 0; _chatNote = '';
+  _chatCur = 0; _chatNote = ''; _shownUpTo = -1; _lastStreamed = '';
   renderChat();
 }
 
