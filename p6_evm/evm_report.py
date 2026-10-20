@@ -199,7 +199,7 @@ def _category_table(result, approx=False):
         meth = {'count': 'by count', 'override': 'E1 log'}.get(c.get('method'), 'by cost')
         cnt = lambda key: f'{k[key]:,}' if k else '—'
         rows.append(
-            f'<tr><td>{_esc(name)}</td><td>{meth}</td><td class="num">{cnt("activities") if k else c.get("activity_count", "—")}</td>'
+            f'<tr><td style="min-width:110px">{_esc(name)}</td><td>{meth}</td><td class="num">{cnt("activities") if k else c.get("activity_count", "—")}</td>'
             f'<td class="num">{cnt("completed")}</td><td class="num">{cnt("in_progress")}</td><td class="num">{cnt("planned_done")}</td>'
             f'<td class="num">{w*100:.1f}%</td>'
             f'<td class="num">{pp*100:.1f}%</td><td class="num">{ap*100:.1f}%</td>'
@@ -224,7 +224,7 @@ def _category_table(result, approx=False):
     # report_theme.PAGINATION_KEEP_TABLE of a page (GBT: 11 rows were continued 6 + 5)
     keep = ' class="rpt-keep"' if len(rows) <= 13 else ''
     return _part('category.table', 'Category weights table', how + (
-        f'<table{keep} style="font-size:10.5px"><thead><tr><th style="min-width:170px">WBS Category</th><th>Method</th><th class="num">Activities</th>'
+        f'<table{keep}><thead><tr><th>WBS Category</th><th>Method</th><th class="num">Activities</th>'
         f'<th class="num">Completed</th><th class="num">In Progress</th><th class="num">Planned done<br>BL finish ≤ data date</th>'
         f'<th class="num">Weight %</th>'
         f'<th class="num">Planned %{ax}</th><th class="num">Actual %</th>'
