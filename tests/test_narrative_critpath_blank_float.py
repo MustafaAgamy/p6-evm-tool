@@ -105,3 +105,26 @@ def test_activity_ids_work_for_any_separator():
     dot = [{'id': 'CONS.PL.S1.%d' % (1000 + 10 * i), 'name': 'Pile works', 'activity_codes': {}} for i in range(6)]
     pl = actids.activity_id_analysis(dot, [])
     assert pl['anatomy']['cols'][-1]['role'] == 'serial' and 'dot-separated' in pl['intro']
+
+
+def test_activity_ids_any_coding_style():
+    """Comment 103: must work for ANY project - every common P6 ID style yields a filled section
+    with the serial read where it really sits."""
+    from p6_narrative import actids
+    mk = lambda ids: [{'id': i, 'name': 'Concrete works', 'activity_codes': {}} for i in ids]
+    cases = {
+        'p6 default': (['A%d' % (1000 + 10 * k) for k in range(20)], 1),
+        'numbers only': ([str(1000 + 10 * k) for k in range(20)], 0),
+        'underscore': (['CIV_%s_%d' % (z, 1000 + k) for z in ('FDN', 'COL') for k in range(6)], -1),
+        'slash': (['B%d/CIV/%d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+        'mixed': (['B%d-CIV.%d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+        'serial first': (['%d-CIV-B%d' % (1000 + k, b) for b in (1, 2) for k in range(6)], 0),
+        'spaces': (['B%d CIV %d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+    }
+    for name, (ids, serial_at) in cases.items():
+        pl = actids.activity_id_analysis(mk(ids), [])
+        assert pl['blocks'] and pl['anatomy'], name
+        roles = [c['role'] for c in pl['anatomy']['cols']]
+        assert roles[serial_at] == 'serial', (name, roles)
+    pl = actids.activity_id_analysis(mk(['Start', 'Mobilisation', 'Handover']), [])
+    assert pl['blocks'] and 'serial' not in [c['role'] for c in pl['anatomy']['cols']]

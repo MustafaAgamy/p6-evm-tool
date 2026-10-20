@@ -56,23 +56,39 @@ ANATOMY_INTRO = ('An Activity ID reads left to right as dot-separated segments. 
                  'position.')
 
 
-_SEP = ['.']          # the separator THIS schedule's IDs use (set per analysis; '.' by default)
-_SEPS = ('.', '-', '_', '/')
+_SEP = ['.']          # the separator(s) THIS schedule's IDs use, set per analysis ('.' by default)
+_SPLIT = [None]       # compiled splitter for this schedule; None = split on _SEP[0]
+_SEPS = ('.', '-', '_', '/', ' ')
+_SEP_WORD = {'.': 'dot', '-': 'dash', '_': 'underscore', '/': 'slash', ' ': 'space'}
 
 
 def _detect_sep(ids):
-    """The separator most Activity IDs carry: Grain 'CONS.PL.S1.1010' -> '.', Saint Gobain
-    'EX-1000-GC-CON-BAT' -> '-' (comment 103: the section was empty for dash-separated IDs)."""
-    best, best_n = '.', 0
-    for sep in _SEPS:
-        n = sum(1 for i in ids if sep in (i or ''))
-        if n > best_n:
-            best, best_n = sep, n
-    return best
+    """How THIS schedule's Activity IDs are built - works for any project's coding (comment 103):
+    'CONS.PL.S1.1010' -> '.', 'EX-1000-GC-CON-BAT' -> '-', 'CIV_FDN_1000' -> '_', mixed
+    'B1-CIV.1000' -> both, and P6's default 'A1000' (no separator) -> letters | number runs.
+    Sets the splitter used by _segs and returns the plain-language description of the coding."""
+    ids = [i for i in ids if i]
+    n = len(ids) or 1
+    share = {sep: sum(1 for i in ids if sep in i.strip()) / n for sep in _SEPS}
+    used = [sep for sep in _SEPS if share[sep] >= 0.2]
+    if used and max(share[u] for u in used) >= 0.5:
+        _SEP[0] = max(used, key=lambda u: share[u])
+        _SPLIT[0] = re.compile('[%s]+' % ''.join(re.escape(u) for u in used)) if len(used) > 1 else None
+        words = ' / '.join('%s ("%s")' % (_SEP_WORD[u], u) for u in sorted(used, key=lambda u: -share[u]))
+        return '%s-separated' % words if len(used) == 1 else 'separated by %s' % words
+    # no separator: split letters from numbers (A1000 -> A | 1000; ACT1020B -> ACT | 1020 | B)
+    _SEP[0] = ''
+    _SPLIT[0] = 'runs'
+    return 'letters-and-numbers'
 
 
 def _segs(i):
-    return (i or '').split(_SEP[0])
+    i = (i or '').strip()
+    if _SPLIT[0] == 'runs':
+        return re.findall(r'[A-Za-z]+|\d+', i) or [i]
+    if _SPLIT[0] is not None:
+        return [t for t in _SPLIT[0].split(i) if t] or [i]
+    return i.split(_SEP[0])
 
 
 def _is_serial(tok):
@@ -89,8 +105,7 @@ def activity_id_analysis(activities, code_types=None):
     code_dims = list(code_types or [])
     if not acts:
         return {'intro': INTRO, 'anatomy': None, 'blocks': []}
-    _SEP[0] = _detect_sep([a['id'] for a in acts])
-    sep_word = {'.': 'dot', '-': 'dash', '_': 'underscore', '/': 'slash'}[_SEP[0]]
+    coding = _detect_sep([a['id'] for a in acts])
 
     # ── GENERIC per-token meaning: dominant activity-code value among the activities that
     #    carry that token as a segment, else the dominant significant word in their names. ──
@@ -151,7 +166,9 @@ def activity_id_analysis(activities, code_types=None):
 
     fam = OrderedDict()
     for a in acts:
-        p = _segs(a['id']); f = p[0]
+        p = _segs(a['id'])
+        # the family = the first coded (non-number) segment; IDs that are only numbers form one family
+        f = next((t for t in p if not _is_serial(t) and not t.isdigit()), None) or 'ALL'
         if f == 'CONS':
             f = 'CONS|' + (trade_of(a) or 'Other')
         fam.setdefault(f, []).append(a)
@@ -194,10 +211,10 @@ def activity_id_analysis(activities, code_types=None):
         # (CONS.PL.S1.1010), the 2nd in Saint Gobain's dash coding (EX-1000-GC-CON-BAT)
         share = [sum(1 for a in reps if _is_serial(_segs(a['id'])[pos])) / len(reps) for pos in range(npos)]
         serial_pos = npos - 1
-        if npos > 1 and share[serial_pos] < 0.6:
-            cand = max(range(1, npos), key=lambda k: (share[k], k))
-            if share[cand] >= 0.6:
-                serial_pos = cand
+        if share[serial_pos] < 0.6:
+            # the number can sit anywhere (EX-1000-GC…, 1000-CIV-B1); none at all = free-text IDs
+            cand = max(range(npos), key=lambda k: (share[k], k))
+            serial_pos = cand if share[cand] >= 0.6 else (serial_pos if share[serial_pos] >= 0.3 else None)
         for pos in range(npos):
             toks = sorted({_segs(a['id'])[pos] for a in reps if len(_segs(a['id'])) > pos})
             if pos == serial_pos:                                # the serial segment
@@ -212,7 +229,7 @@ def activity_id_analysis(activities, code_types=None):
                 mn, dim = token_meaning(t, members)
                 meanings[mn] = None
                 roles[dim_role(dim)] += 1
-            if pos == 0:
+            if pos == 0 or (pos == 1 and serial_pos == 0):
                 role = 'stage'
             else:
                 r = roles.most_common(1)[0][0]
@@ -228,6 +245,12 @@ def activity_id_analysis(activities, code_types=None):
         return [{'code': c, 'meaning': m, 'role': r} for (c, m, r) in cols]
 
     blocks_raw = [build_block(k, m) for k, m in families if len(m) >= 3]  # skip 1-off stray ids
+    if not blocks_raw:
+        # no repeating ID family (e.g. plain numbers, or every ID unique): still explain the coding
+        # from ALL the activities, so the section is never empty for any project
+        blocks_raw = [build_block('ALL', acts)]
+        blocks_raw[0]['title'] = 'All activities'
+        blocks_raw[0]['note'] = 'For all activities'
 
     # ── the colour-coded anatomy: a representative construction family (Civil Works), else the
     #    smallest family (blocks_raw[-1]). Ported verbatim; None-safe when no family qualifies. ──
@@ -246,7 +269,7 @@ def activity_id_analysis(activities, code_types=None):
     blocks = [{'title': b['title'], 'sample': b['sample'], 'cols': _cols_out(b['cols']),
                'note': b['note'], 'count': b['count']} for b in blocks_raw]
 
-    intro = INTRO.replace('dot-separated', '%s-separated ("%s")' % (sep_word, _SEP[0]))
+    intro = INTRO.replace('dot-separated', coding)
     if anatomy:
-        anatomy['intro'] = ANATOMY_INTRO.replace('dot-separated', '%s-separated ("%s")' % (sep_word, _SEP[0]))
+        anatomy['intro'] = ANATOMY_INTRO.replace('dot-separated', coding)
     return {'intro': intro, 'anatomy': anatomy, 'blocks': blocks}

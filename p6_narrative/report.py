@@ -436,8 +436,11 @@ def _activity_ids(data):
     type found in the schedule — fully generic (nothing project-specific is hardcoded). Mirrors
     the other section builders: emits DATA only; both renderers draw straight from the payload."""
     from p6_narrative import actids
-    payload = actids.activity_id_analysis(list(data.activities.values()),
-                                          data.activity_code_types)
+    try:
+        payload = actids.activity_id_analysis(list(data.activities.values()),
+                                              data.activity_code_types)
+    except Exception:                                   # any project's coding: never break the report
+        payload = {'intro': actids.INTRO.replace('a structured, dot-separated', 'an'), 'anatomy': None, 'blocks': []}
     return Section('12', 'Activity IDs', 'activity_ids', 'auto', payload=payload, editable=True,
                    note='The ID types, segments and code lists are read directly from the '
                         'schedule; the plain-language meanings are auto-suggested and editable.')
