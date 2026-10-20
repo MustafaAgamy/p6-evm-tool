@@ -480,6 +480,27 @@ def _placeholder_box(document, text):
 
 
 def _render_image(document, p, number, note):
+    imgs = p.get('images') or []
+    if len(imgs) > 1:
+        # several drawings: one per page, Figure 2.1, 2.2 ... (twin of html._image)
+        from docx.enum.text import WD_BREAK
+        for k, im in enumerate(imgs):
+            data = docx_template._img_bytes(im.get('image'))
+            if k:
+                document.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+            if not data:
+                _placeholder_box(document, 'The attached drawing "%s" could not be displayed.' % (im.get('caption') or ''))
+                continue
+            try:
+                document.add_picture(data, width=Inches(6.6))
+                document.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                document.paragraphs[-1].paragraph_format.keep_with_next = True
+            except Exception:
+                _placeholder_box(document, 'The attached drawing "%s" could not be displayed.' % (im.get('caption') or ''))
+                continue
+            para(document, 'Figure %s.%d — %s' % (number or '2', k + 1, im.get('caption') or 'Project layout'),
+                 size=10, italic=True, color=GREY, align=WD_ALIGN_PARAGRAPH.CENTER, before=4)
+        return
     img = docx_template._img_bytes(p.get('image'))
     if not img:
         # C01a — no drawing attached: show the payload placeholder text in a clean framed box
@@ -1525,6 +1546,35 @@ def _render_critpath(document, p, number, note):
             run(cv.paragraphs[0], v, font=CAL, size=13, bold=True, color=NAVY)
             run(cl.paragraphs[0], l, font=CAL, size=8, color=GREY)
         _keep_table_together(kt, header=False)
+
+    # the critical path itself: the driving chain to completion, by work front (twin of html)
+    ch = p.get('chain') or {}
+    fronts = ch.get('fronts') or []
+    if fronts:
+        ms = ch.get('milestone') or {}
+        hp = para(document, 'The critical path — the driving chain to %s, by work front' % (ms.get('name') or 'completion'),
+                  font=CAL, size=11, bold=True, color=NAVY, before=10, after=5)
+        hp.paragraph_format.keep_with_next = True
+        cells = [('%d' % (i + 1), f.get('name') or '', f.get('where') or '', 'finish ' + (f.get('finish') or ''), False)
+                 for i, f in enumerate(fronts)] + [('◆', ms.get('name') or 'Completion', '', ms.get('finish') or '', True)]
+        nrow = (len(cells) + 3) // 4
+        ct = document.add_table(rows=nrow, cols=4)
+        ct.style = 'Table Grid'
+        ct.autofit = False
+        for k, (n, nm, wh, fin, is_ms) in enumerate(cells):
+            c = ct.cell(k // 4, k % 4)
+            _no_space(c); _set_w(c, 1.72); _shade(c, 'EEF4FB' if is_ms else 'FFFFFF')
+            pp = c.paragraphs[0]
+            run(pp, n + '  ', font=CAL, size=8, bold=True, color=(NAVY if is_ms else RGBColor(0xC0, 0x39, 0x2B)))
+            run(pp, nm, font=CAL, size=9, bold=True, color=BODYNAVY)
+            if wh:
+                run(c.add_paragraph(), wh, font=CAL, size=7.5, color=GREY)
+            run(c.add_paragraph(), fin, font=CAL, size=7.5, bold=True, color=NAVY)
+        for k in range(len(cells), nrow * 4):
+            _set_w(ct.cell(k // 4, k % 4), 1.72)
+        _keep_table_together(ct, header=False)
+        _muted(document, 'Read left to right, row by row: each box is a work front (the WBS the driving activities '
+                         'sit in) in path order, with its finish date — the chain that sets the completion date.')
 
     sp = para(document, p.get('subhead')
               or 'Critical-path sweep — when each zone drives the schedule',

@@ -352,6 +352,18 @@ def _overview(p, number, title, meta, cur):
 def _image(p, number, title, meta, cur):
     img = p.get('image')
     cap = p.get('caption') or 'Project general layout'
+    imgs = p.get('images') or []
+    if len(imgs) > 1:
+        # several drawings: one per page, Figure 2.1, 2.2 ... in the planner's order
+        out = []
+        for k, im in enumerate(imgs):
+            c = im.get('caption') or 'Project layout'
+            out.append('<div style="%s"><img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
+                       'border:1px solid #b9c6d3;border-radius:6px"><div style="text-align:center;font-size:10.5px;'
+                       'color:#5a5f66;font-style:italic;margin-top:5px">Figure %s.%d &mdash; %s</div></div>'
+                       % ('break-before:page;page-break-before:always;margin-top:4mm' if k else '',
+                          _esc(im.get('image')), _esc(c), _esc(number or '2'), k + 1, _esc(c)))
+        return ''.join(out)
     if img:
         # a real layout drawing → figure + caption
         fig = ('<img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
@@ -1249,6 +1261,24 @@ def _critpath(p, number, title, meta, cur):
             '<div class="cpk"><div class="cpk-v">%s</div><div class="cpk-l">%s</div></div>'
             % (_esc(v), _esc(l)) for v, l in kpis))
 
+    ch = p.get('chain') or {}
+    fronts = ch.get('fronts') or []
+    if fronts:
+        ms = ch.get('milestone') or {}
+        cells = ['<td class="cpch"><div class="cpch-n">%d</div><b>%s</b><div class="cpch-w">%s</div>'
+                 '<div class="cpch-f">finish %s</div></td>' % (i + 1, _esc(f.get('name')), _esc(f.get('where')), _esc(f.get('finish')))
+                 for i, f in enumerate(fronts)]
+        cells.append('<td class="cpch cpch-ms"><div class="cpch-n">◆</div><b>%s</b><div class="cpch-f">%s</div></td>'
+                     % (_esc(ms.get('name')), _esc(ms.get('finish'))))
+        rows_ = ''.join('<tr>%s</tr>' % ''.join(cells[i:i + 4]) + ('<td></td>' * (4 - len(cells[i:i + 4])))
+                        for i in range(0, len(cells), 4))
+        out.append('<div class="sub">The critical path — the driving chain to %s, by work front</div>'
+                   % _esc(ms.get('name') or 'completion'))
+        out.append('<table class="cpchain">%s</table>' % rows_)
+        out.append('<p class="note">Read left to right, row by row: each box is a work front (the WBS the '
+                   'driving activities sit in) in path order, with its finish date — the chain that '
+                   'sets the completion date.</p>')
+
     out.append('<div class="sub">%s</div>' % _esc(p.get('subhead')
                or 'Critical-path sweep — when each zone drives the schedule'))
     leg = p.get('legend') or []
@@ -1627,6 +1657,12 @@ table { border-collapse: collapse; }
         font-family:Calibri,sans-serif; }
 .cplg i { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px;
           margin-right:4px; }
+.cpchain { width:100%; border-collapse:separate; border-spacing:6px; table-layout:fixed; margin:4px 0 6px; }
+.cpchain td { vertical-align:top; }
+.cpch { border:1px solid #e5b4ad; border-top:4px solid #C0392B; border-radius:6px; padding:6px 8px; font-size:9pt; background:#fff; }
+.cpch-n { display:inline-block; background:#C0392B; color:#fff; border-radius:9px; padding:0 6px; font-size:8pt; font-weight:700; margin-bottom:2px; }
+.cpch-w { color:#5a626b; font-size:8pt; } .cpch-f { color:#1F4E79; font-size:8pt; font-weight:700; margin-top:2px; }
+.cpch-ms { border:2px solid #1F4E79; background:#eef4fb; } .cpch-ms .cpch-n { background:#1F4E79; }
 .cpgrid { width:100%; border-collapse:collapse; table-layout:fixed;
           font-family:Calibri,sans-serif; break-inside:avoid; page-break-inside:avoid; }
 .cpgrid th, .cpgrid td { border:1px solid #e4e8ee; }

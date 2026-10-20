@@ -560,6 +560,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_report_name(body)
         elif self.path == '/api/narrative/setup':           # Narrative project setup (DB)
             self._handle_narrative_setup(body)
+        elif self.path == '/api/narrative/preview':          # AI Assistant code-pick examples
+            self._handle_narrative_preview(body)
         elif self.path == '/api/narrative/choices':
             self._handle_narrative_choices(body)
         elif self.path == '/api/narrative/docx':
@@ -4631,6 +4633,34 @@ class Handler(BaseHTTPRequestHandler):
             data = parse_file(resolved)
             setup = body.get('setup') or {}
             self._json(200, {'ok': True, 'meta': report.narrative_choices(data, setup)})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    # ── /api/narrative/preview ────────────────────────────────────────────
+    _narr_preview_cache = {}
+
+    def _handle_narrative_preview(self, body):
+        """AI Assistant: "if you pick these activity codes, section 7 / 11 reads like this" -
+        previews from the SAME engines as the report, for the detected code sets and the
+        planner's own picks. The parsed schedule is kept for the chat session (one file)."""
+        resolved = db.resolve_xml_path(body.get('xml_path', ''), body.get('cached_path'))
+        if not resolved:
+            self._json(200, {'ok': False, 'error': 'Schedule not found — re-import it and try again.'})
+            return
+        try:
+            sys.path.insert(0, resource_path('.'))
+            from p6_evm.parser import parse_file
+            from p6_narrative import preview
+            key = (resolved, os.path.getmtime(resolved))
+            cache = Handler._narr_preview_cache
+            data = cache.get(key)
+            if data is None:
+                data = parse_file(resolved)
+                cache.clear()
+                cache[key] = data
+            kind = 'sequence' if body.get('kind') == 'sequence' else 'scope'
+            self._json(200, {'ok': True, 'examples': preview.examples(
+                data, kind, body.get('auto_codes') or [], body.get('picks') or [])})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 

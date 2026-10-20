@@ -52,6 +52,10 @@ def _overview(p, sec):
 
 
 def _image(p, sec):
+    imgs = p.get('images') or []
+    if imgs:
+        return [_block('Project layout drawings (in the report)', ['Figure', 'Title'],
+                       [['2.%d' % (k + 1), _s(im.get('caption'))] for k, im in enumerate(imgs)])]
     return [_text_block('Project layout', [p.get('placeholder') or
                                            ('A project layout drawing is attached in the report.' if p.get('image') else _EMPTY)])]
 
@@ -264,8 +268,16 @@ def _critpath(p, sec):
             else:
                 row.append(_s(c))
         rows.append(row + [''] * (len(heads) - len(row)))
+    ch = p.get('chain') or {}
+    chain = []
+    if ch.get('fronts'):
+        ms = ch.get('milestone') or {}
+        chain = [_block('The critical path — driving chain to %s, by work front' % _s(ms.get('name')),
+                        ['Step', 'Work front', 'Where (WBS above)', 'Finish'],
+                        [[k + 1, _s(f.get('name')), _s(f.get('where')), _s(f.get('finish'))] for k, f in enumerate(ch['fronts'])]
+                        + [['◆', _s(ms.get('name')), '', _s(ms.get('finish'))]])]
     return [_text_block('Critical path', [p.get('narrative')]),
-            _block('Key figures', ['Item', 'Value'], [[_s(k[1]), _s(k[0])] for k in (p.get('kpis') or [])]),
+            _block('Key figures', ['Item', 'Value'], [[_s(k[1]), _s(k[0])] for k in (p.get('kpis') or [])])] + chain + [
             _block(p.get('subhead') or 'Critical-path sweep — which zone drives the schedule, month by month', heads, rows,
                    note=p.get('note')),
             # the chart's colour key, as the list of trades it shows (a colour means nothing in a cell)

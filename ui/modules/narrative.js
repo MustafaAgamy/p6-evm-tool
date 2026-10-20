@@ -892,17 +892,34 @@ function wireSetupForm(root) {
 // loading — matching the planner's steer that it needs no input.
 
 const CONTRACT_TYPES = ['Lump sum', 'Remeasurable', 'EPC / turnkey', 'Cost plus', 'Unit rate', 'Design and build'];
-const CHAT_STEPS = ['location', 'contract_type', 'revision', 'branding', 'milestones', 'scope', 'sequence', 'generate'];
+// AI Assistant (Ibrahim, 20-Oct): the setup is a chat with "your AI Planning Engineer" - 10
+// questions, typed answers or one-click suggestions, and for the scope / sequence questions live
+// examples from the planner's own file ("if you pick this code, section 7 reads like this").
+const CHAT_STEPS = ['location', 'contract_type', 'revision', 'parties', 'layout', 'milestones', 'key_dates', 'scope', 'sequence', 'generate'];
 const CHAT_Q = {
-  location:      "I've read your schedule. Let's set up your Baseline Narrative Report together. First — where is the project?",
-  contract_type: 'What type of contract is it?',
-  revision:      "And which revision is this? (The contract value I'll take automatically from your cost loading — nothing to enter.)",
-  branding:      'Add the parties and their logos for the page header, and your project layout drawing. All optional — skip any you don’t have.',
-  milestones:    'I found your milestones and key dates and ticked the main ones. Confirm what appears in sections 4 and 5.',
-  scope:         'How should I describe the scope of work (section 7)? I detected this order — reorder it, or add an activity code above or below.',
-  sequence:      'And the sequence of work (section 11)? Same idea — add or remove sequence analyses; each is one code, or two to sequence by building.',
-  generate:      "That's everything I need. I'll build the full report — all sections plus the Critical Path and Mapping Sheet appendix — matched across Word, PDF and on screen.",
+  location:      'Where is the project? It goes on the cover and in section 3 (Project Brief).',
+  contract_type: 'What type of contract is it? (section 3)',
+  revision:      'Which revision is this baseline? It goes on the cover and in every page header. (The contract value I take from your cost loading — nothing to enter.)',
+  parties:       'Who are the parties? Their names go in section 3 and their logos in the page header. Skip any you don’t have.',
+  layout:        'Add your project layout drawings for section 2 — one or several. Give each a title; it becomes the figure caption (Figure 2.1, 2.2 …), one drawing per page.',
+  milestones:    'I found your milestones and ticked the main ones. Confirm what appears in section 4 (Contract Milestones).',
+  key_dates:     'And the key dates for section 5 — the client inputs and deliveries the works depend on. Keep, untick or add.',
+  scope:         'Now the Scope of Work (section 7). I describe it with your activity codes, weighted by the baseline cost: code 1 = the main split of the scope (chart 7.1), code 2 = where each part is built, code 3 = the type of work inside it — one paragraph and one breakdown per level. Below is exactly what section 7 says for each choice, from your own file. Pick 1 to 3 codes, in order. Tip: pick codes that every construction activity carries — a code that only a few activities carry leaves the rest as “Unclassified”.',
+  sequence:      'Next the Sequence of Work (section 11). Each analysis puts the work in the order your baseline logic runs it (read from the relationships, not assumed), drawn as a chevron flow: ONE code = the order of the whole project (e.g. which trade comes first); TWO codes = the order inside each area (e.g. per building, which work comes first) — areas with the same order are grouped. Below is exactly what section 11 shows for each choice, from your own file. Pick one or more analyses.',
+  generate:      'That’s everything I need. Here is your setup — click Back to change any answer. Shall I build the report?',
 };
+const CHAT_TITLE = { location: 'Location', contract_type: 'Contract type', revision: 'Revision', parties: 'Parties & logos (optional)',
+  layout: 'Project layout drawings (optional)', milestones: 'Contract milestones', key_dates: 'Key dates', scope: 'Scope of Work (section 7)',
+  sequence: 'Sequence of Work (section 11)', generate: 'Build the report' };
+// The opening message: who the assistant is + what it read from the file.
+function chatIntro() {
+  const m = _chatMeta || {};
+  const facts = [m.activity_count ? `<b>${Number(m.activity_count).toLocaleString()} activities</b>` : '',
+    m.contract_value ? `contract value from the cost loading <b>${(m.contract_value / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })} M</b>` : ''].filter(Boolean).join(', ');
+  return `<b>I am your AI Planning Engineer and I will build for you the narrative report for the baseline — but let me ask you some questions.</b><br><br>`
+    + `I've read <b>${_esc(m.project_name || 'your schedule')}</b>${facts ? ': ' + facts : ''}. Most answers are already filled in from the file — you mostly confirm. `
+    + `There are ${CHAT_STEPS.length} short questions. Type your answer below, click a suggestion, or say <i>skip</i>, <i>go back</i> or <i>change …</i> at any time.`;
+}
 let _chatMeta = {};
 let _chatMetaFor = null;   // which file the detected choices were read from (Edit setup reuses them)
 let _chatCur = 0;
@@ -910,7 +927,7 @@ const chatFileKey = () => [state.currentXmlPath || '', state.currentCachedPath |
 
 function chatCss() {
   return `<style>
-    .bn-chat{max-width:760px;margin:0 auto;border:1px solid var(--border,#dadee4);border-radius:14px;background:var(--surface-2,#fff);overflow:hidden}
+    .bn-chat{max-width:900px;margin:0 auto;border:1px solid var(--border,#dadee4);border-radius:14px;background:var(--surface-2,#fff);overflow:hidden}
     .bn-chat-head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border,#e4e8ee)}
     .bn-chat-av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:#1F4E79;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
     .bn-chat-title{font-size:14px;font-weight:700;color:#1a1d21;line-height:1.15}
@@ -962,7 +979,42 @@ function chatCss() {
     .bn-report-bar{max-width:900px;margin:0 auto 10px;text-align:right}
     .bn-edit-setup{font:inherit;font-size:12.5px;border:1px solid #3487ae;color:#3487ae;background:transparent;border-radius:7px;padding:6px 13px;cursor:pointer}
     .bn-edit-setup:hover{background:rgba(52,135,174,.08)}
-  </style>`;
+  
+    .bn-ai .bn-bub{background:transparent;border:0;padding:2px 0;max-width:100%}
+    .bn-who{font-size:11.5px;font-weight:700;color:var(--muted,#6b7686);margin-bottom:2px}
+    .bn-say{font-size:13.5px;line-height:1.6;color:var(--text,#1a1d21)}
+    .bn-w{opacity:0;transition:opacity .18s}.bn-w.on{opacity:1}
+    .bn-think{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted,#6b7686)}
+    .bn-think span{width:6px;height:6px;border-radius:50%;background:var(--muted,#9aa6b5);animation:bnth 1s infinite}
+    .bn-think span:nth-child(2){animation-delay:.2s}.bn-think span:nth-child(3){animation-delay:.4s}
+    @keyframes bnth{0%,100%{opacity:.25}50%{opacity:1}}
+    .bn-chap{align-self:center;margin:6px auto;font-size:11px;font-weight:700;color:#fff;background:var(--accent,#1F4E79);border-radius:10px;padding:2px 12px;width:max-content}
+    .bn-type{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border,#e4e8ee)}
+    .bn-type input{flex:1;border:1px solid var(--border,#dadee4);border-radius:20px;padding:8px 14px;font:inherit;font-size:13px;background:var(--bg,#fff);color:var(--text,#1a1d21);outline:0}
+    .bn-type input:focus{border-color:var(--accent,#1F4E79)}
+    .bn-type button{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent,#1F4E79);color:#fff;cursor:pointer;font-size:14px}
+    .bn-pv{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+    .bn-ex{border:1px solid var(--border,#dadee4);border-radius:10px;padding:8px 10px;background:var(--surface-2,#fff)}
+    .bn-exh{font-size:12.5px;font-weight:700;color:var(--accent,#1F4E79);margin-bottom:5px}
+    .bn-rep{border:1px solid #c9d2de;border-radius:6px;background:#fff;padding:8px 10px;font-size:12px;color:#1a1d21}
+    .bn-rh{color:#1F4E79;font-weight:800;border-bottom:2px solid #1F4E79;padding-bottom:2px;margin-bottom:5px}
+    .bn-rh2{color:#1F4E79;font-weight:700;margin:6px 0 3px}
+    .bn-hb{display:flex;align-items:center;gap:6px;margin:2px 0}.bn-hb span{width:190px;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bn-hb i{display:block;height:10px;background:#1F4E79;border-radius:2px}.bn-hb b{font-size:11px;color:#3b4656;white-space:nowrap;font-weight:600}
+    .bn-pt{border-collapse:collapse;width:100%;font-size:11.5px}.bn-pt td{padding:2px 6px;border-bottom:1px solid #edf0f4;vertical-align:top}
+    .bn-chev{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0}
+    .bn-chev span{background:#1F4E79;color:#fff;font-size:10.5px;padding:3px 13px 3px 11px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%,6px 50%)}
+    .bn-grp{font-size:11px;font-weight:700;margin-top:4px}
+    .bn-warn{border-left:3px solid #d68a1c;background:#fff8ea;padding:4px 8px;margin-top:5px;font-size:11.5px;color:#5a4a1a}
+    .bn-lays{display:flex;flex-wrap:wrap;gap:10px}
+    .bn-lay{width:190px;border:1px solid var(--border,#dadee4);border-radius:9px;overflow:hidden;background:#fff}
+    .bn-lay img{display:block;width:100%;height:110px;object-fit:cover;background:#eef2f7}
+    .bn-lay .bn-ci{width:100%;box-sizing:border-box;border:0;border-top:1px solid var(--border,#dadee4);border-radius:0;margin:0}
+    .bn-layact{display:flex;align-items:center;gap:8px;padding:4px 8px;border-top:1px solid var(--border,#dadee4);font-size:12px}
+    .bn-layadd{width:190px;min-height:170px;border:2px dashed #9fb3c8;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent,#1F4E79);font-weight:700;cursor:pointer;position:relative}
+    .bn-layadd span{font-weight:400;font-size:11.5px;color:var(--muted,#6b7686)}
+    .bn-layadd input{position:absolute;inset:0;opacity:0;cursor:pointer}
+</style>`;
 }
 
 // The toolbar Word/PDF/HTML export bar only makes sense once a report is mounted; hide it during
@@ -1037,22 +1089,32 @@ function chatControl(step) {
     return chips + `<div style="margin-top:4px"><input class="bn-ci" data-k="contract_type" style="width:60%" placeholder="or type another contract type" value="${esc(custom)}"></div>`;
   }
   if (step === 'revision') return `<input class="bn-ci" data-k="revision" style="width:40%" placeholder="e.g. REV.03" value="${esc(s.revision)}">`;
-  if (step === 'branding') {
+  if (step === 'parties') {
     // Each party: its NAME (feeds the §3 Project Brief owner/consultant/contractor rows — the report
-    // can't derive these) plus its logo (the Word page header). Then the §2 layout drawing.
+    // can't derive these) plus its logo (the Word page header).
     const row = (k, label) => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;max-width:480px">` +
       `<input class="bn-ci" data-k="${k}" style="flex:1;width:auto" placeholder="${label} name" value="${esc(s[k])}">` +
       `<label class="bn-tile${s[k + '_logo'] ? ' on' : ''}" style="width:116px;height:38px;margin:0;font-size:11px">${s[k + '_logo'] ? '✓ logo' : '+ logo'}<input type="file" accept="image/*" data-logo="${k}_logo"></label></div>`;
     return row('owner', 'Owner') + row('consultant', 'Consultant') + row('contractor', 'Contractor') +
-      `<label class="bn-tile${s.layout ? ' on' : ''}" style="max-width:480px;height:46px">${s.layout ? '✓ Layout drawing' : 'Project layout drawing — section 2'}<input type="file" accept="image/*" data-logo="layout"></label>`;
+      `<label class="bn-ck"><input type="checkbox" data-incl="1"${s.include_logos === false ? '' : ' checked'}> show the logos in the page header</label>`;
   }
-  if (step === 'milestones') {
+  if (step === 'layout') {
+    // Several layout drawings (comment 103-01): title = figure caption; order = report order.
+    const lays = layoutsOf(s);
+    const cards = lays.map((l, i) => `<div class="bn-lay"><img src="${l.image}" alt=""><input class="bn-ci" data-lay="${i}" value="${esc(l.caption || '')}" placeholder="Drawing title">` +
+      `<div class="bn-layact"><i class="bn-ch" data-laymv="up" data-i="${i}"${i === 0 ? ' style="opacity:.3"' : ''}>◀</i><i class="bn-ch" data-laymv="down" data-i="${i}"${i === lays.length - 1 ? ' style="opacity:.3"' : ''}>▶</i>` +
+      `<span style="flex:1"></span><i class="bn-x" data-layrm="${i}" title="remove">✕ remove</i></div></div>`).join('');
+    return `<div class="bn-lays">${cards}<label class="bn-layadd">＋ Add layout drawings<span>one or several · PNG / JPG</span><input type="file" accept="image/*" multiple data-layadd="1"></label></div>`;
+  }
+  if (step === 'milestones' || step === 'key_dates') {
     const col = (title, items, key) => {
       const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;
       const rows = items.map(l => `<label class="bn-ck"><input type="checkbox" data-sel="${key}" value="${esc(l)}"${(!sel || sel.has(l)) ? ' checked' : ''}> ${esc(l)}</label>`).join('');
       return `<div><div class="bn-cktitle">${title} — <a data-all="${key}">all</a> · <a data-none="${key}">none</a></div>${rows || '<span class="bn-hint2">none in the file</span>'}</div>`;
     };
-    return `<div class="bn-cklist">${col('Major milestones', _chatMeta.milestone_choices || [], 'milestone_keys')}${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
+    return step === 'milestones'
+      ? `<div class="bn-cklist">${col('Major milestones', _chatMeta.milestone_choices || [], 'milestone_keys')}</div>`
+      : `<div class="bn-cklist">${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
   }
   if (step === 'scope') {
     const sc = curScope(), codes = chatCodes();
@@ -1065,8 +1127,10 @@ function chatControl(step) {
       '<span class="bn-hint2">No codes — the report auto-detects a sensible breakdown.</span>';
     const addSel = pos => remaining.length
       ? `<select class="bn-addsel" data-addscope="${pos}"><option value="">+ add code ${pos === 'above' ? 'above' : 'below'}…</option>${remaining.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>` : '';
-    return `<div class="bn-cflow">${addSel('above')}<div class="bn-cchain">${chain}</div>${addSel('below')}</div>` +
-      (sc.length ? `<div class="bn-hint2">The 1st code splits the contract value (section 6); each below drills one level deeper.</div>` : '');
+    return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
+      `<div class="bn-cktitle" style="margin-top:8px">Your pick, in order</div>` +
+      `<div class="bn-cflow">${addSel('above')}<div class="bn-cchain">${chain}</div>${addSel('below')}</div>` +
+      (sc.length ? `<div class="bn-hint2">The 1st code splits the contract value; each below drills one level deeper. Your pick is previewed at the end of the examples.</div>` : '');
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1079,7 +1143,9 @@ function chatControl(step) {
       `<i class="bn-ch" data-sqmv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
       `<i class="bn-ch" data-sqmv="down" data-i="${i}" title="move down"${i === list.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
       `<i class="bn-x" data-seqrm="${i}" title="remove">✕</i></div>`).join('');
-    return `<button type="button" class="bn-add2" data-seqadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add sequence above</button>` +
+    return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
+      `<div class="bn-cktitle" style="margin-top:8px">Your analyses</div>` +
+      `<button type="button" class="bn-add2" data-seqadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add sequence above</button>` +
       `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No analyses — section 11 auto-detects a sensible sequence.</span>'}</div>` +
       `<button type="button" class="bn-add2" data-seqadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add sequence below</button>`;
   }
@@ -1094,11 +1160,12 @@ function chatControl(step) {
       row('Location', s.location || '—') +
       row('Contract type', s.contract_type || '—') +
       row('Revision', s.revision || '—') +
-      row('Header', logos + ' logo(s)' + (s.layout ? ' · layout added' : '')) +
+      row('Parties', ['owner', 'consultant', 'contractor'].filter(k => s[k]).length + ' name(s) · ' + logos + ' logo(s)') +
+      row('Layout drawings', layoutsOf(s).length ? layoutsOf(s).map(l => l.caption || 'drawing').join(' · ') : 'none') +
       row('Milestones · key dates', ms + ' · ' + kd) +
       row('Scope', sc.length ? sc.join(' › ') : 'auto-detected') +
       row('Sequence', (sq.length || 'auto') + (sq.length ? ' analysis(es)' : '')) +
-      `</div><button type="button" class="bn-gen" id="bn-gen"><i class="ti ti-wand" style="vertical-align:-2px" aria-hidden="true"></i>&nbsp; Generate report</button>`;
+      `</div><button type="button" class="bn-gen" id="bn-gen"><i class="ti ti-wand" style="vertical-align:-2px" aria-hidden="true"></i>&nbsp; Build the report</button>`;
   }
   return '';
 }
@@ -1109,16 +1176,14 @@ function chatSummary(step) {
   if (step === 'location') return s.location || 'Not specified';
   if (step === 'contract_type') return s.contract_type || 'Not specified';
   if (step === 'revision') return s.revision || 'Not specified';
-  if (step === 'branding') {
-    const nm = ['owner', 'consultant', 'contractor'].filter(k => s[k]).length;
+  if (step === 'parties') {
+    const nm = ['owner', 'consultant', 'contractor'].filter(k => s[k]).map(k => s[k]);
     const n = ['owner_logo', 'consultant_logo', 'contractor_logo'].filter(k => s[k]).length;
-    return (nm ? nm + ' parties' : 'No parties') + (n ? ' · ' + n + ' logo(s)' : '') + (s.layout ? ' · layout' : '');
+    return (nm.length ? nm.join(' · ') : 'No parties') + (n ? ' · ' + n + ' logo(s)' : '');
   }
-  if (step === 'milestones') {
-    const ms = Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length;
-    const kd = Array.isArray(s.key_date_keys) ? s.key_date_keys.length : (_chatMeta.key_date_choices || []).length;
-    return ms + ' milestones · ' + kd + ' key dates';
-  }
+  if (step === 'layout') { const l = layoutsOf(s); return l.length ? l.length + ' drawing(s): ' + l.map(x => x.caption || 'drawing').join(' · ') : 'No drawings'; }
+  if (step === 'milestones') return (Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length) + ' milestones';
+  if (step === 'key_dates') return (Array.isArray(s.key_date_keys) ? s.key_date_keys.length : (_chatMeta.key_date_choices || []).length) + ' key dates';
   if (step === 'scope') { const sc = curScope(); return sc.length ? sc.join(' › ') : 'Auto-detected'; }
   if (step === 'sequence') { const sq = curSeq(); return sq.length ? sq.length + ' analysis(es)' : 'Auto-detected'; }
   return '';
@@ -1129,21 +1194,165 @@ function paintActive() {
   if (!box) return;
   box.innerHTML = chatControl(CHAT_STEPS[_chatCur]);
   wireActive();
+  const st = CHAT_STEPS[_chatCur];
+  if (st === 'scope' || st === 'sequence') loadExamples(st);
+}
+
+// Like AI Chat: the newest assistant message "thinks" for a moment, then appears word by word.
+let _lastStreamed = '';
+function streamLatest(thread) {
+  const says = thread.querySelectorAll('.bn-ai .bn-say');
+  const last = says[says.length - 1];
+  if (!last) return;
+  const key = _chatCur + '|' + last.textContent.length;
+  if (key === _lastStreamed) return;                       // a re-paint of the same message: no replay
+  _lastStreamed = key;
+  const ctl = document.getElementById('bn-active');
+  const words = [];
+  (function wrap(node) {
+    [...node.childNodes].forEach(ch => {
+      if (ch.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        ch.textContent.split(/(\s+)/).forEach(w => {
+          if (!w) return;
+          if (/^\s+$/.test(w)) { frag.appendChild(document.createTextNode(w)); return; }
+          const sp = document.createElement('span'); sp.className = 'bn-w'; sp.textContent = w; frag.appendChild(sp); words.push(sp);
+        });
+        node.replaceChild(frag, ch);
+      } else if (ch.nodeType === 1) wrap(ch);
+    });
+  })(last);
+  const think = document.createElement('div'); think.className = 'bn-think'; think.innerHTML = '<span></span><span></span><span></span> thinking…';
+  last.parentNode.insertBefore(think, last);
+  last.style.display = 'none'; if (ctl) ctl.style.visibility = 'hidden';
+  setTimeout(() => {
+    think.remove(); last.style.display = '';
+    const step = Math.max(8, Math.min(28, 1800 / Math.max(words.length, 1)));
+    words.forEach((w, i) => setTimeout(() => w.classList.add('on'), i * step));
+    setTimeout(() => { if (ctl) ctl.style.visibility = ''; thread.scrollTop = thread.scrollHeight; }, words.length * step + 60);
+  }, 650);
+}
+
+// ── live "if you pick … this is the result" examples (from the planner's own file) ──
+let _pvSeq = 0;
+async function loadExamples(kind) {
+  const box = document.getElementById('bn-pv');
+  if (!box) return;
+  const my = ++_pvSeq;
+  const codes = chatCodes();
+  const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
+  const picks = kind === 'scope' ? [curScope()] : curSeq().map(a => a.codes);
+  try {
+    const resp = await fetch(`http://localhost:${state.serverPort}/api/narrative/preview`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', kind, auto_codes: auto, picks }),
+    });
+    const data = await resp.json();
+    if (my !== _pvSeq || !document.getElementById('bn-pv')) return;
+    if (!data.ok || !(data.examples || []).length) { box.innerHTML = '<div class="bn-hint2">No example could be worked out from this file\'s activity codes.</div>'; return; }
+    box.innerHTML = data.examples.map((ex, i) => (kind === 'scope' ? scopeExample(ex, i) : seqExample(ex, i))).join('');
+  } catch { box.innerHTML = '<div class="bn-hint2">Could not reach the local server for the examples.</div>'; }
+}
+const _codesTxt = codes => codes.map(c => `“${_esc(c)}”`).join(' → ');
+function scopeExample(ex, i) {
+  const n = ex.codes.length;
+  const head = `If you pick ${n === 1 ? 'the activity code' : 'these ' + n + ' codes'} ${_codesTxt(ex.codes)}, section 7 reads:`;
+  const bars = (ex.top || []).map(t => `<div class="bn-hb"><span>${_esc(t.name)}</span><i style="width:${Math.max(2, Math.round((t.pct || 0) * 2.2))}px"></i><b>${_esc(t.value)} · ${t.pct}%</b></div>`).join('');
+  let drill = '';
+  if (ex.drill && ex.drill.rows && ex.drill.rows.length) {
+    drill = `<div class="bn-rh2">7.2 ${_esc(ex.drill.parent)} by ${_esc(ex.codes[1])}${n >= 3 ? ' → ' + _esc(ex.codes[2]) : ''}</div><table class="bn-pt">`
+      + ex.drill.rows.map(r => `<tr><td><b>${_esc(r.name)}</b>${r.count ? ` (${r.count})` : ''}</td><td>${_esc(r.value)} · ${r.pct}%</td>`
+        + (r.parts ? `<td>${r.parts.map(p => `${_esc(p.name)} ${p.pct}%`).join(' · ')}</td>` : '') + '</tr>').join('') + '</table>';
+  }
+  const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the cost carries no value of “${_esc(ex.codes[0])}” — it would show as Unclassified.</div>` : '';
+  return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">7) Scope of Work</div>`
+    + `<div class="bn-rh2">7.1 Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}${drill}</div>${warn}</div>`;
+}
+function seqExample(ex, i) {
+  const chev = steps => `<div class="bn-chev">${steps.map(x => `<span>${_esc(x)}</span>`).join('')}</div>`;
+  const head = ex.codes.length === 1
+    ? `If you pick ONE code ${_codesTxt(ex.codes)}, section 11 shows the order of the whole project:`
+    : `If you pick TWO codes ${_codesTxt(ex.codes)}, section 11 shows the order inside each ${_esc(ex.codes[0])}:`;
+  let body = '';
+  if (ex.kind === 'single') body = chev(ex.steps || []);
+  else body = (ex.groups || []).map(g => `<div class="bn-grp">${_esc(g.label)}${g.count > 1 ? ` (${g.count}, same order)` : ''}</div>${chev(g.steps || [])}`).join('')
+    + (ex.more_groups ? `<div class="bn-hint2">+ ${ex.more_groups} more in the report</div>` : '')
+    + ((ex.no_code || []).length ? `<div class="bn-warn">${ex.no_code.map(_esc).join(', ')} carry no “${_esc(ex.codes[1])}” — they are listed as “no code”. Add another analysis to cover them.</div>` : '');
+  return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">11) Sequence of Work</div><div class="bn-rh2">${_esc(ex.title || '')}</div>${body}</div></div>`;
+}
+
+// ── several project layout drawings (setup.layouts; the legacy single setup.layout still reads) ──
+function layoutsOf(s) {
+  if (Array.isArray(s.layouts)) return s.layouts.filter(l => l && l.image);
+  return s.layout ? [{ image: s.layout, caption: 'Project general layout' }] : [];
+}
+function setLayouts(s, list) { s.layouts = list; delete s.layout; saveSetup(); }
+
+// ── typed answers: the planner can answer in words, like AI Chat ──
+let _chatNote = '';
+function _findCodes(txt) {
+  const codes = chatCodes(), low = txt.toLowerCase();
+  return codes.map(c => ({ c, at: low.indexOf(c.toLowerCase()) })).filter(x => x.at >= 0).sort((a, b) => a.at - b.at).map(x => x.c);
+}
+function chatTyped(raw) {
+  const txt = (raw || '').trim(), low = txt.toLowerCase(), s = getSetup();
+  if (!txt) return;
+  const step = CHAT_STEPS[_chatCur];
+  _chatNote = '';
+  const go = d => { _chatCur = Math.max(0, Math.min(CHAT_STEPS.length - 1, _chatCur + d)); renderChat(); };
+  if (/^(go )?back$|^previous$/.test(low)) return go(-1);
+  if (/^(skip|next|ok|okay|confirm(ed)?|yes|keep( it)?|continue)$/.test(low)) return go(1);
+  const ch = /^change (the )?(.+)$/.exec(low);
+  if (ch) {
+    const k = Object.keys(CHAT_TITLE).find(k => CHAT_TITLE[k].toLowerCase().includes(ch[2].split(' ')[0]) || k.replace('_', ' ').includes(ch[2].split(' ')[0]));
+    if (k) { _chatCur = CHAT_STEPS.indexOf(k); renderChat(); return; }
+  }
+  if (step === 'location') { s.location = txt; saveSetup(); return go(1); }
+  if (step === 'contract_type') {
+    const rv = /rev\.?\s*0*(\d+)/i.exec(txt);
+    const ct = CONTRACT_TYPES.find(t => low.includes(t.toLowerCase().split(' ')[0])) || txt.replace(/,?\s*rev.*$/i, '').trim();
+    s.contract_type = ct; if (rv) s.revision = 'REV.' + rv[1].padStart(2, '0'); saveSetup();
+    if (rv) { _chatNote = `Noted both: <b>${_esc(ct)}</b> and <b>${_esc(s.revision)}</b> — I'll skip the revision question.`; _chatCur += 2; renderChat(); return; }
+    return go(1);
+  }
+  if (step === 'revision') { const rv = /(\d+)/.exec(txt); s.revision = rv ? 'REV.' + rv[1].padStart(2, '0') : txt.toUpperCase(); saveSetup(); return go(1); }
+  if (step === 'milestones' || step === 'key_dates') {
+    const key = step === 'milestones' ? 'milestone_keys' : 'key_date_keys';
+    if (/^all$/.test(low)) s[key] = (_chatMeta[step === 'milestones' ? 'milestone_choices' : 'key_date_choices'] || []).slice();
+    if (/^none$/.test(low)) s[key] = [];
+    saveSetup(); return go(1);
+  }
+  if (step === 'scope') {
+    const picked = _findCodes(txt);
+    if (picked.length) { setScope(picked.slice(0, 3)); _chatNote = `Done — section 7 will use <b>${picked.slice(0, 3).map(_esc).join(' → ')}</b>.`; return go(1); }
+  }
+  if (step === 'sequence') {
+    const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p.slice(0, 2) }));
+    if (parts.length) { setSeq(parts); _chatNote = `Section 11 will have <b>${parts.length}</b> analysis(es): ${parts.map(p => p.codes.map(_esc).join(' → ')).join(' · ')}.`; return go(1); }
+  }
+  if (step === 'generate' && /build|generate|yes/.test(low)) { const g = document.getElementById('bn-gen'); if (g) g.click(); return; }
+  _chatNote = `I didn't catch that for this question. You can use the options below, type <i>skip</i> to move on, <i>go back</i>, or <i>change location / revision / scope …</i>`;
+  renderChat();
 }
 
 function renderChat() {
   const thread = document.getElementById('bn-thread');
   if (!thread) return;
-  let h = '';
+  const bot = html => `<div class="bn-row bn-ai"><div class="bn-av">✦</div><div class="bn-bub"><div class="bn-who">AI Assistant</div><div class="bn-say">${html}</div></div></div>`;
+  const tagOf = i => `<div class="bn-chap">Question ${i + 1} of ${CHAT_STEPS.length} — ${_esc(CHAT_TITLE[CHAT_STEPS[i]] || '')}</div>`;
+  let h = bot(chatIntro());
   for (let i = 0; i < _chatCur; i++) {
-    h += `<div class="bn-row"><div class="bn-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div><div class="bn-bub">${_esc(CHAT_Q[CHAT_STEPS[i]])}</div></div>`;
+    h += tagOf(i) + bot(_esc(CHAT_Q[CHAT_STEPS[i]]));
     const sum = chatSummary(CHAT_STEPS[i]);
     if (sum) h += `<div class="bn-row me"><div class="bn-ans">${_esc(sum)}</div></div>`;
   }
-  h += `<div class="bn-row"><div class="bn-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div><div class="bn-bub">${_esc(CHAT_Q[CHAT_STEPS[_chatCur]])}</div></div>`;
+  h += tagOf(_chatCur) + bot(_esc(CHAT_Q[CHAT_STEPS[_chatCur]]));
+  if (_chatNote) h += bot(_chatNote);
   h += `<div class="bn-ctl" id="bn-active"></div>`;
   thread.innerHTML = h;
   paintActive();
+  streamLatest(thread);
+  thread.scrollTop = thread.scrollHeight;
   const prog = document.getElementById('bn-prog');
   if (prog) prog.textContent = 'Question ' + (_chatCur + 1) + ' of ' + CHAT_STEPS.length;
   const back = document.getElementById('bn-back');
@@ -1210,6 +1419,15 @@ function wireActive() {
     if (b.dataset.seqadd === 'above') list.unshift(na); else list.push(na);
     setSeq(list); paintActive();
   }));
+  box.querySelectorAll('input[data-incl]').forEach(c => c.addEventListener('change', () => { s.include_logos = c.checked; saveSetup(); }));
+  box.querySelectorAll('input[data-layadd]').forEach(inp => inp.addEventListener('change', async () => {
+    const list = layoutsOf(s).slice();
+    for (const f of Array.from(inp.files || [])) list.push({ image: await fileToDataUrl(f), caption: f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') });
+    setLayouts(s, list); paintActive();
+  }));
+  box.querySelectorAll('input[data-lay]').forEach(inp => inp.addEventListener('input', () => { const list = layoutsOf(s).slice(); if (list[+inp.dataset.lay]) { list[+inp.dataset.lay].caption = inp.value; setLayouts(s, list); } }));
+  box.querySelectorAll('[data-layrm]').forEach(b => b.addEventListener('click', () => { const list = layoutsOf(s).slice(); list.splice(+b.dataset.layrm, 1); setLayouts(s, list); paintActive(); }));
+  box.querySelectorAll('[data-laymv]').forEach(b => b.addEventListener('click', () => { setLayouts(s, moveItem(layoutsOf(s).slice(), +b.dataset.i, b.dataset.laymv)); paintActive(); }));
   const gen = document.getElementById('bn-gen');
   if (gen) gen.addEventListener('click', () => finishSetup(gen));
 }
@@ -1245,12 +1463,17 @@ async function startSetupChat(opts) {
   chat.innerHTML = chatCss() +
     `<div class="bn-chat">
        <div class="bn-chat-head"><div class="bn-chat-av"><i class="ti ti-sparkles" aria-hidden="true"></i></div>
-         <div><div class="bn-chat-title">Report setup</div><div class="bn-chat-sub" id="bn-readnote">reading your schedule…</div></div></div>
+         <div><div class="bn-chat-title">AI Assistant</div><div class="bn-chat-sub" id="bn-readnote">I am your AI Planning Engineer · reading your schedule…</div></div></div>
        <div class="bn-thread" id="bn-thread"><div class="cmp-loading" style="padding:18px">Reading your schedule…</div></div>
+       <div class="bn-type"><input id="bn-typed" placeholder="Type your answer, or “skip” / “go back” / “change …”" autocomplete="off"><button id="bn-send" title="Send">➤</button></div>
        <div class="bn-chat-foot"><button class="bn-back" id="bn-back">← Back</button><span class="bn-chat-sub" id="bn-prog"></span><button class="bn-continue" id="bn-continue">Continue →</button></div>
      </div>`;
-  document.getElementById('bn-continue').addEventListener('click', () => { if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
-  document.getElementById('bn-back').addEventListener('click', () => { if (_chatCur > 0) { _chatCur--; renderChat(); } });
+  document.getElementById('bn-continue').addEventListener('click', () => { _chatNote = ''; if (_chatCur < CHAT_STEPS.length - 1) { _chatCur++; renderChat(); } });
+  document.getElementById('bn-back').addEventListener('click', () => { _chatNote = ''; if (_chatCur > 0) { _chatCur--; renderChat(); } });
+  const typed = document.getElementById('bn-typed');
+  const send = () => { const v = typed.value; typed.value = ''; chatTyped(v); typed.focus(); };
+  document.getElementById('bn-send').addEventListener('click', send);
+  typed.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
   // A fresh read is a whole-file read: the open Run bar names that step (RUNUX-R2).
   if (!reuse) revealStage('Reading your schedule');
   const meta = reuse ? _chatMeta : await fetchDetected();
@@ -1258,8 +1481,8 @@ async function startSetupChat(opts) {
   if (!meta) { document.getElementById('bn-thread').innerHTML = '<p class="ai-empty" style="padding:16px">Open a baseline schedule first — the setup then reads it.</p>'; if (note) note.textContent = ''; return; }
   const proj = meta.project_name || 'your project';
   const acts = meta.activity_count ? (' · ' + meta.activity_count + ' activities') : '';
-  if (note) note.textContent = 'read ' + proj + acts;
-  _chatCur = 0;
+  if (note) note.textContent = 'I am your AI Planning Engineer · read ' + proj + acts;
+  _chatCur = 0; _chatNote = '';
   renderChat();
 }
 

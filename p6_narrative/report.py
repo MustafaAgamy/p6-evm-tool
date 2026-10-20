@@ -154,8 +154,14 @@ def _overview(ctx, r):
 def _layout(setup):
     # Always present so the report is a consistent 10 sections (Ibrahim): show the uploaded
     # drawing when provided, else a clear placeholder prompting one to be attached in setup.
-    img = setup.get('layout')
-    payload = {'image': img, 'caption': 'Project general layout'} if img else {
+    # Several layout drawings (Ibrahim, 20-Oct): setup['layouts'] = [{image, caption}] in the
+    # planner's order; the legacy single setup['layout'] still reads as one drawing.
+    lays = [l for l in (setup.get('layouts') or []) if isinstance(l, dict) and l.get('image')]
+    if not lays and setup.get('layout'):
+        lays = [{'image': setup.get('layout'), 'caption': 'Project general layout'}]
+    lays = [{'image': l['image'], 'caption': (l.get('caption') or '').strip() or 'Project layout'} for l in lays]
+    img = lays[0]['image'] if lays else None
+    payload = {'image': img, 'caption': lays[0]['caption'], 'images': lays} if img else {
         'image': None,
         'placeholder': 'No project layout drawing was attached. Add one in the report '
                        'setup (Project Layout) to show the general arrangement here.'}

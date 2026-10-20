@@ -1,0 +1,149 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Assistant Full Chat</title>
+<style>
+:root{--bg:#eef2f7;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--warn:#d68a1c;--bad:#c0392b}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Segoe UI,Arial,sans-serif;padding:14px}
+.top{max-width:900px;margin:0 auto 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+button{border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:16px;padding:4px 12px;font-weight:700;cursor:pointer}
+.prog{max-width:900px;margin:0 auto 8px;height:5px;background:#dde4ec;border-radius:3px;overflow:hidden}.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
+.chat{max-width:900px;margin:auto;background:#fff;border:1px solid var(--border);border-radius:14px;height:80vh;min-height:520px;display:flex;flex-direction:column;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 auto}
+.thread{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+.bot{display:flex;gap:8px;max-width:94%;animation:in .35s ease}
+.bot .b{background:#f3f6fa;border:1px solid #e3e8ef;border-radius:4px 14px 14px 14px;padding:10px 13px;font-size:13.5px}
+.me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:14px 4px 14px 14px;padding:8px 13px;max-width:75%;animation:in .35s ease;font-size:13.5px}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.typing{display:inline-flex;gap:3px}.typing i{width:6px;height:6px;border-radius:50%;background:#9aa6b5;animation:t 1s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes t{0%,100%{opacity:.3}50%{opacity:1}}
+.chap{align-self:center;font-size:11.5px;color:#fff;background:var(--accent);border-radius:10px;padding:2px 12px;font-weight:700}
+.card{margin-top:8px;border:1px solid var(--border);border-radius:9px;background:#fff;padding:8px 11px;font-size:12.5px}
+.card h5{margin:0 0 6px;font-size:11.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.03em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips span{border:1px solid var(--accent);color:var(--accent);border-radius:16px;padding:3px 10px;font-size:12px;background:#fff}
+.lvl{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed #edf0f4}.lvl:last-child{border:0}.lvl .k{background:var(--accent);color:#fff;border-radius:6px;padding:0 8px;font-weight:700;font-size:12px;white-space:nowrap;height:20px}
+.lvl .d{color:var(--muted);font-size:12px}
+.row{display:flex;gap:7px;align-items:center;padding:2px 0}
+.rep{margin-top:8px;border:1px solid #c9d2de;border-radius:6px;background:#fff;padding:9px 11px;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+.rep .h{color:#1F4E79;font-weight:800;font-size:12.5px;border-bottom:2px solid #1F4E79;padding-bottom:2px;margin-bottom:6px}
+.rep .h2{color:#1F4E79;font-weight:700;margin:6px 0 3px}
+.hb{display:flex;align-items:center;gap:6px;margin:2px 0}.hb span{width:170px;font-size:11.5px}.hb i{display:block;height:10px;background:#1F4E79;border-radius:2px}.hb b{font-size:11px;color:#3b4656;white-space:nowrap}
+.chev{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0}.chev span{background:#1F4E79;color:#fff;font-size:10.5px;padding:3px 12px 3px 10px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%,6px 50%)}
+.grp{font-size:11px;font-weight:700;margin-top:4px}
+table{border-collapse:collapse;width:100%;font-size:11.5px}td,th{padding:2px 6px;border-bottom:1px solid #edf0f4;text-align:left}th{color:var(--muted)}
+.tip{border-left:3px solid var(--warn);background:#fff8ea;padding:5px 9px;margin-top:6px;font-size:12px}
+.thumbs{display:flex;gap:6px;margin-top:6px}.thumbs div{width:90px;height:56px;border-radius:5px;background:linear-gradient(135deg,#dfe8f2,#f5f8fb);font-size:10px;color:#6b7686;display:flex;align-items:flex-end;padding:3px;box-sizing:border-box}
+.foot{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}.foot div{flex:1;border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:#9aa6b5}.foot b{background:var(--accent);color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center}
+</style></head><body>
+<div class="top"><span class="tag">MOCKUP VIDEO — AI Assistant · all 10 questions · Grain Bulk Terminal (baseline, real data)</span>
+<button id="replay">↺ Replay</button><button id="skip">⏭ Show all</button></div>
+<div class="prog"><i id="pg"></i></div>
+<div class="chat">
+ <div class="head"><div class="av">✦</div><div><b>AI Assistant</b><div style="font-size:11.5px;color:var(--muted)">Baseline Narrative Report · Grain Bulk Terminal Detailed Schedule - Phase I</div></div></div>
+ <div class="thread" id="th"></div>
+ <div class="foot"><div>Type your answer, or "skip" / "go back" / "change …"</div><b>➤</b></div>
+</div>
+<script>
+const B='bot',M='me',C='chap';
+const S=[
+[B,`<b>I am your AI Planning Engineer and I will build for you the narrative report for the baseline — but let me ask you some questions.</b><br><br>
+I've read <b>Grain Bulk Terminal Detailed Schedule - Phase I</b>: <b>1,503 activities</b>, 11-Dec.2025 → 09-Feb.2027, <b>410 critical activities</b> (P6 Critical filter), contract value from the cost loading <b>EGP 916.3 M</b>. Most answers are already filled in from the file — you mostly confirm. There are 10 short questions.`],
+[C,'Question 1 of 10 — Location'],
+[B,`Where is the project? It goes on the cover and in section 3 (Project Brief).<div class="chips"><span>Egypt</span><span>type the city / port…</span></div>`],
+[M,'Egypt'],
+[C,'Question 2 of 10 — Contract type'],
+[B,`What type of contract is it? (section 3)<div class="chips"><span>Lump sum</span><span>Remeasurable</span><span>EPC / turnkey</span><span>Cost plus</span><span>Unit rate</span><span>Design and build</span></div>`],
+[M,'Lump sum'],
+[C,'Question 3 of 10 — Revision'],
+[B,`Which revision is this baseline? It goes on the cover and in every page header.<div class="chips"><span>REV.00</span><span>REV.01</span><span>REV.02</span></div>`],
+[M,'REV.00'],
+[C,'Question 4 of 10 — Parties & logos (optional)'],
+[B,`Who are the parties? Their names and logos go in the page header. Skip any you don't have.
+ <div class="card"><div class="row"><b style="width:90px">Owner</b> name … ＋ logo</div><div class="row"><b style="width:90px">Consultant</b> name … ＋ logo</div><div class="row"><b style="width:90px">Contractor</b> name … ＋ logo</div><div class="row"><input type="checkbox" checked> show the logos in the page header</div></div>`],
+[M,'Added the three names and logos'],
+[C,'Question 5 of 10 — Project layout drawings (optional)'],
+[B,`Add your project layout drawings for section 2 — one or several. Give each a title; it becomes the figure caption.
+ <div class="card"><b>＋ Add layout drawings</b><div class="thumbs"><div>General layout</div><div>Silos area</div><div>Conveyors &amp; towers</div></div></div>`],
+[M,'Added 3 drawings'],
+[B,`Section 2 will show them one per page: <b>Figure 2.1</b> General layout · <b>2.2</b> Silos area · <b>2.3</b> Conveyors &amp; towers.`],
+[C,'Question 6 of 10 — Contract milestones'],
+[B,`I found <b>36 milestones</b>. I ticked the ones that finish the main scope — confirm what appears in section 4:
+ <div class="card"><div class="row"><input type="checkbox" checked> Commencement Date</div><div class="row"><input type="checkbox" checked> All Steel Structure Works Completion</div><div class="row"><input type="checkbox" checked> EQP Completion</div><div class="row"><input type="checkbox" checked> Cable Erection Completion</div><div class="row"><input type="checkbox" checked> Phase C Mechanical Installation Completion</div><div class="row"><input type="checkbox" checked> Phase I Scope Completion</div><div class="row" style="color:var(--muted)">+ 30 more (unticked) · all · none</div></div>`],
+[M,'Confirmed'],
+[C,'Question 7 of 10 — Key dates'],
+[B,`And the key dates for section 5 — the client inputs and deliveries the works depend on:
+ <div class="card"><div class="row"><input type="checkbox" checked> Delivery of 1st Patch delivery of Reinforcement Steel</div><div class="row"><input type="checkbox" checked> Delivery of 1st Patch of Bentonite</div><div class="row"><input type="checkbox" checked> Full Release for Quay to Start Construction Works on Quay</div><div class="row"><input type="checkbox" checked> Silo &amp; Accessories for Phase A and B</div><div class="row" style="color:var(--muted)">+ more · all · none</div></div>`],
+[M,'Confirmed'],
+[C,'Question 8 of 10 — Scope of Work (section 7)'],
+[B,`Now the <b>Scope of Work</b>. I describe it with your <b>activity codes</b>, weighted by the <b>baseline cost</b>:
+ <b>code 1</b> = the main split of the scope (chart 7.1) · <b>code 2</b> = where each part is built · <b>code 3</b> = the type of work inside it. One paragraph and one breakdown per level.
+ <div class="card"><h5>Codes in your file that suit this</h5>
+  <div class="lvl"><span class="k">Type of Works</span><span class="d">Civil · Mechanical Installation · Steel · Equipment · Cable Erection</span></div>
+  <div class="lvl"><span class="k">Silos Area Name</span><span class="d">Silo 1 … Silo 10 · Machine Tower T33 · Delivery Bins · Towers on Quay · Tower 34 / 35 / 36 · MCC Room …</span></div>
+  <div class="lvl"><span class="k">Type of Civil Work</span><span class="d">Pile Works · Elevated Raft · Columns · Soil Replacement · PC / RC for SOG …</span></div>
+  <div class="lvl"><span class="k">AGI Phase</span><span class="d">Phase A · B · C · D</span></div>
+  <div class="lvl"><span class="k">Main WBS · Phase</span><span class="d">the WBS-level split (Phase I Construction Works, MCC Design &amp; Engineering, …)</span></div></div>
+ <div class="tip">Pick codes that every construction activity carries. A code like <i>“PL - DR Movement”</i> covers only a few activities — the rest would land in “Unclassified”.</div>`],
+[B,`<b>This is exactly how section 7 will look</b> with <b>Type of Works → Silos Area Name → Type of Civil Work</b> (real figures from your file):
+ <div class="rep"><div class="h">7) Scope of Work</div>
+  <div class="h2">7.1 Scope by Type of Works — share of the baseline cost (EGP 916.3 M)</div>
+  <div class="hb"><span>Civil Works</span><i style="width:240px"></i><b>EGP 860.5 M · 93.9%</b></div>
+  <div class="hb"><span>Mechanical Installation</span><i style="width:8px"></i><b>29.7 M · 3.2%</b></div>
+  <div class="hb"><span>Steel Works</span><i style="width:4px"></i><b>10.8 M · 1.2%</b></div>
+  <div class="hb"><span>Equipment Works</span><i style="width:3px"></i><b>6.8 M · 0.7%</b></div>
+  <div class="hb"><span>Cable Erection Works</span><i style="width:2px"></i><b>5.3 M · 0.6%</b></div>
+  <div class="h2">7.2 Civil Works by Silos Area Name → Type of Civil Work</div>
+  <table><tr><th>Area</th><th>Cost</th><th>Type of Civil Work (share of the area)</th></tr>
+  <tr><td><b>Silos 1–10</b> (10 silos)</td><td>772.3 M · 89.7%</td><td>Pile Works 64.2% · Elevated Raft 17.9% · Columns 12.2% · Soil Replacement 2.1% · PC for SOG 1.9% · RC for SOG 1.3%</td></tr>
+  <tr><td><b>Machine Tower - T33</b></td><td>26.0 M · 3.0%</td><td>Pile Works 52.4% · Foundation 28.6% · Columns 16.2% · SOG 2.9%</td></tr>
+  <tr><td><b>Delivery Bins</b></td><td>16.7 M · 1.9%</td><td>Pile Works 31.9% · Foundation 27.2% · Beams &amp; Slab 17.0% · Columns 13.6% · …</td></tr>
+  <tr><td><b>Towers On Quay</b></td><td>16.3 M · 1.9%</td><td>Towers on Quay Pedestals 100%</td></tr></table></div>
+ <b>Which codes should describe the scope, and in what order?</b> (1 to 3 codes, first = the main split)
+ <div class="chips"><span>✓ Type of Works → Silos Area Name → Type of Civil Work (detected)</span><span>Silos Area Name → Type of Works</span><span>AGI Phase → Silos Area Name</span><span>choose my own…</span></div>`],
+[M,'Keep Type of Works → Silos Area Name → Type of Civil Work'],
+[B,`Done — section 7 uses <b>Type of Works → Silos Area Name → Type of Civil Work</b>, as in the preview.`],
+[C,'Question 9 of 10 — Sequence of Work (section 11)'],
+[B,`Next the <b>Sequence of Work</b>. Each analysis puts the work in the order your <b>baseline logic</b> runs it (read from the relationships, not assumed), drawn as a chevron flow:
+ <b>one code</b> = the order of the whole project (e.g. which trade comes first) · <b>two codes</b> = the order <i>inside each area</i> (e.g. per silo, which civil work comes first); areas with the same order are grouped.`],
+[B,`<b>This is exactly how section 11 will look</b> (real sequence from your file):
+ <div class="rep"><div class="h">11) Sequence of Work</div>
+  <div class="h2">11.1 General sequence — Type of Works</div>
+  <div class="chev"><span>Civil Works</span><span>Steel Works</span><span>Mechanical Installation</span><span>Equipment Works</span><span>Cable Erection</span></div>
+  <div class="h2">11.2 Silos Area Name → Type of Civil Work</div>
+  <div class="grp">Silos 1–10 (10 silos, same order)</div><div class="chev"><span>Pile Works</span><span>Columns Works</span><span>Insulation Works</span><span>Soil Replacement</span><span>Elevated Raft</span><span>PC for SOG</span><span>RC for SOG</span></div>
+  <div class="grp">Machine Tower - T33</div><div class="chev"><span>Pile Works</span><span>Foundation</span><span>Columns</span><span>SOG</span></div>
+  <div class="grp">Delivery Bins</div><div class="chev"><span>Pile Works</span><span>Foundation</span><span>Columns</span><span>Insulation Works</span><span>SOG</span><span>Beams &amp; Slab</span></div>
+  <div class="grp">Towers 35–36 (same order)</div><div class="chev"><span>Pile Works</span><span>Foundation</span><span>Columns</span><span>Beams &amp; Slab</span></div></div>
+ <div class="tip">Catwalk, Chain Conveyor, Belt Conveyor, Conveyors under SOG and All Silos carry no <i>Type of Civil Work</i> — they would be listed as "no code". To include them, add a second analysis with <i>Silos Area Name → Type of Works</i>.</div>
+ <b>Which sequence analyses should I include?</b> One or more; for two codes write "A → B".
+ <div class="chips"><span>✓ Type of Works</span><span>✓ Silos Area Name → Type of Civil Work</span><span>Silos Area Name → Type of Works</span><span>AGI Phase</span><span>add another…</span></div>`],
+[M,'Keep both, and add Silos Area Name → Type of Works'],
+[B,`Section 11 will have <b>3 analyses</b>: 11.1 Type of Works · 11.2 Silos Area Name → Type of Civil Work · 11.3 Silos Area Name → Type of Works (covers the catwalk and conveyors too).`],
+[C,'Question 10 of 10 — Build the report'],
+[B,`That's everything I need. Here is your setup — click any line to change it:
+ <div class="card"><h5>Summary</h5>
+ Location: Egypt · Contract: Lump sum · Revision: REV.00 · Contract value: EGP 916.3 M (auto)<br>
+ Parties: 3 names + logos · §2 Layout: 3 drawings<br>
+ §4 Milestones: 6 ticked · §5 Key dates: 4 ticked<br>
+ §7 Scope: Type of Works → Silos Area Name → Type of Civil Work<br>
+ §11 Sequence: 3 analyses<br>
+ Appendix: Critical Path — 410 critical activities (P6 Critical filter) + the driving chain to Phase I Scope Completion</div>
+ Shall I build the report?<div class="chips"><span>Build the report</span><span>Change something</span></div>`],
+[M,'Build the report'],
+[B,`Building… reading the logic ✓ · calendars ✓ · cost loading ✓ · resources ✓ · critical path ✓<br><b>Your Baseline Narrative Report is ready</b> — all sections plus the appendices. Open it, or export Word / PDF / Excel. Your answers are saved for this project, so next time I only ask what changed.`],
+];
+const th=document.getElementById('th'),pg=document.getElementById('pg');let i=0,timer=null;
+function add(k,h){const e=document.createElement('div');
+ if(k===B){e.className='bot';e.innerHTML=`<div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">${h}</div>`}
+ else if(k===M){e.className='me';e.textContent=h}else{e.className='chap';e.textContent=h}
+ th.appendChild(e);th.scrollTop=th.scrollHeight;pg.style.width=(100*i/S.length)+'%';}
+function next(){if(i>=S.length)return;const[k,h]=S[i++];
+ if(k===B){const t=document.createElement('div');t.className='bot';t.innerHTML='<div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b"><span class="typing"><i></i><i></i><i></i></span></div>';th.appendChild(t);th.scrollTop=th.scrollHeight;
+  timer=setTimeout(()=>{t.remove();add(k,h);timer=setTimeout(next,2400+Math.min(6500,h.length*5))},1000)}
+ else{add(k,h);timer=setTimeout(next,k===M?1400:800)}}
+function play(){clearTimeout(timer);th.innerHTML='';i=0;pg.style.width='0';timer=setTimeout(next,400)}
+document.getElementById('replay').onclick=play;
+document.getElementById('skip').onclick=()=>{clearTimeout(timer);th.innerHTML='';i=0;S.forEach(([k,h])=>{i++;add(k,h)})};
+play();
+</script></body></html>

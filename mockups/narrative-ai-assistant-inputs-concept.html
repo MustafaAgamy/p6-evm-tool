@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Assistant Inputs</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:900px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.intro{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:14px 0;display:flex;gap:10px}
+.av{width:34px;height:34px;border-radius:50%;background:#e8f1fb;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 auto}
+.q{background:#fff;border:1px solid var(--border);border-radius:12px;margin:10px 0;overflow:hidden}
+.qh{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f7f9fc;border-bottom:1px solid var(--border)}
+.n{background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:0 0 auto}
+.qh b{font-size:14px}.sec{margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.qb{padding:10px 14px;font-size:13px}
+.ask{background:#f3f6fa;border:1px solid #e3e8ef;border-radius:4px 12px 12px 12px;padding:8px 11px;display:inline-block;max-width:92%}
+.how{margin-top:8px;color:var(--muted);font-size:12.5px}.how b{color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips span{border:1px solid var(--accent);color:var(--accent);border-radius:16px;padding:2px 10px;font-size:12px;background:#fff}
+.ex{margin-top:6px;font-size:12.5px}.ex span{background:var(--accent);color:#fff;border-radius:10px;padding:2px 9px}
+.auto{border-left:4px solid var(--good);background:#eef8f1;padding:8px 12px;border-radius:4px;font-size:12.5px;margin:10px 0}
+.opt{font-size:11px;font-weight:700;color:var(--good);border:1px solid var(--good);border-radius:8px;padding:0 6px;margin-left:6px}
+.req{font-size:11px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:8px;padding:0 6px;margin-left:6px}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Baseline Narrative Report · every input the AI Assistant asks for · example answers: Saint Gobain AS2 PKG3</div>
+
+<div class="intro"><div class="av">✦</div><div><b>AI Assistant</b><br>
+"<b>I am your AI Planning Engineer and I will build for you the narrative report for the baseline — but let me ask you some questions.</b>" Then: "I've read <b>SNT_GBN_Baseline_AS2-Fin-3</b> — 896 activities, 19-Dec.2024 → 30-Aug.2025, 223 critical activities; most answers are already filled in from the file — you just confirm. Type your answer, click a suggestion, or say <i>skip</i>, <i>go back</i> or <i>change …</i> at any time."</div></div>
+
+<div class="auto"><b>Taken from the file automatically — never asked:</b> project name · activity count · project start / finish · contract value (from the cost loading, e.g. EGP 243.8 M) · calendars · WBS · critical path (P6 Critical filter) · resources, productivity, volume of work.</div>
+
+<div class="q"><div class="qh"><div class="n">1</div><b>Project location</b><span class="req">needed</span><span class="sec">Cover · §3 Project Brief</span></div><div class="qb">
+ <div class="ask">Where is the project?</div>
+ <div class="how"><b>Answer:</b> type it, or pick a suggestion read from the project name / notes.</div>
+ <div class="chips"><span>Egypt</span><span>Sadat City, Egypt</span><span>type it…</span></div>
+ <div class="ex">e.g. <span>10th of Ramadan City, Egypt</span></div></div></div>
+
+<div class="q"><div class="qh"><div class="n">2</div><b>Contract type</b><span class="req">needed</span><span class="sec">§3 Project Brief</span></div><div class="qb">
+ <div class="ask">What type of contract is it?</div>
+ <div class="chips"><span>Lump sum</span><span>Remeasurable</span><span>EPC / turnkey</span><span>Cost plus</span><span>Unit rate</span><span>Design and build</span><span>type another…</span></div>
+ <div class="ex">e.g. <span>Lump sum</span></div></div></div>
+
+<div class="q"><div class="qh"><div class="n">3</div><b>Revision</b><span class="req">needed</span><span class="sec">Cover · page header</span></div><div class="qb">
+ <div class="ask">Which revision is this baseline?</div>
+ <div class="chips"><span>REV.00</span><span>REV.01</span><span>REV.02</span><span>type it…</span></div>
+ <div class="ex">e.g. <span>REV.01</span> — if you already said it in an earlier answer ("Lump sum, Rev.01") I skip this question.</div></div></div>
+
+<div class="q"><div class="qh"><div class="n">4</div><b>Parties &amp; logos</b><span class="opt">optional</span><span class="sec">Cover · Word page header</span></div><div class="qb">
+ <div class="ask">Who are the parties? Add a logo for each if you have it — they go in the page header.</div>
+ <div class="how"><b>Answer card in the chat:</b> Owner · Consultant · Contractor — a name box and a logo upload for each, plus "show logos in the header" yes / no.</div>
+ <div class="ex">e.g. <span>Owner: Saint-Gobain</span> <span>Consultant: …</span> <span>Contractor: …</span></div></div></div>
+
+<div class="q"><div class="qh"><div class="n">5</div><b>Project layout drawings</b><span class="opt">optional</span><span class="sec">§2 Project Layout</span></div><div class="qb">
+ <div class="ask">Add your project layout drawings — one or several. Give each a title; it becomes the figure caption.</div>
+ <div class="how"><b>Answer card:</b> "＋ Add layout drawings" (several at once) → a thumbnail per drawing with its title, ◀ ▶ to order, ✕ to remove. One drawing per page in the report (Figure 2.1, 2.2 …).</div>
+ <div class="ex">e.g. <span>General layout</span> <span>Batch house</span> <span>Mixer building</span></div></div></div>
+
+<div class="q"><div class="qh"><div class="n">6</div><b>Milestones</b><span class="req">confirm</span><span class="sec">§4 Contract Milestones</span></div><div class="qb">
+ <div class="ask">I found 12 milestones and ticked the main ones. Untick or add any.</div>
+ <div class="how"><b>Answer card:</b> a checklist of the file's milestones with their dates; "all" / "none" buttons.</div></div></div>
+
+<div class="q"><div class="qh"><div class="n">7</div><b>Key dates</b><span class="req">confirm</span><span class="sec">§5 Key Dates</span></div><div class="qb">
+ <div class="ask">And these key dates — keep, untick or add?</div>
+ <div class="how"><b>Answer card:</b> the same checklist for the key-date activities.</div></div></div>
+
+<div class="q"><div class="qh"><div class="n">8</div><b>Scope of work — activity codes</b><span class="req">confirm</span><span class="sec">§7 Scope of Work</span></div><div class="qb">
+ <div class="ask">How should I describe the scope of work? I detected this order of activity codes — reorder, remove or add a code.</div>
+ <div class="how"><b>Answer card:</b> the detected codes in order (e.g. <i>Building → Trade</i>) with ▲ ▼ ✕ and "add a code".</div>
+ <div class="ex">e.g. <span>Building</span> → <span>Trade</span></div></div></div>
+
+<div class="q"><div class="qh"><div class="n">9</div><b>Sequence of work</b><span class="req">confirm</span><span class="sec">§11 Sequence of Work</span></div><div class="qb">
+ <div class="ask">For the sequence of work, which analyses should I include? Each is one code, or two to sequence by building.</div>
+ <div class="how"><b>Answer card:</b> a list of analyses (e.g. <i>Trade</i>, <i>Building + Trade</i>) — add / remove.</div></div></div>
+
+<div class="q"><div class="qh"><div class="n">10</div><b>Build the report</b><span class="sec">all sections + appendices</span></div><div class="qb">
+ <div class="ask">That's everything I need. Here's a summary — shall I build the report?</div>
+ <div class="how">Summary of every answer (click one to change it) → <b>"Build the report"</b> → progress in the chat → the report opens with Word / PDF / Excel. The setup is saved for this project, so the next time you open it I only ask what changed.</div></div></div>
+</div></body></html>

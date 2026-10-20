@@ -1,0 +1,55 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Narrative Layouts</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1000px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:14px 0}
+h3{margin:0 0 6px;color:var(--accent);font-size:16px}.note{color:var(--muted);font-size:12.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:10px}
+.lay{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:#fff}
+.thumb{height:120px;background:linear-gradient(135deg,#dfe8f2,#f5f8fb);display:flex;align-items:center;justify-content:center;color:#7b8aa0;font-size:12px;position:relative}
+.thumb b{position:absolute;top:6px;left:6px;background:var(--accent);color:#fff;border-radius:5px;padding:1px 7px;font-size:11px}
+.lay input{width:100%;box-sizing:border-box;border:0;border-top:1px solid var(--border);padding:7px 9px;font-size:12.5px}
+.acts{display:flex;justify-content:space-between;padding:5px 8px;border-top:1px solid var(--border);font-size:12px}
+.acts a{color:var(--accent);text-decoration:none;cursor:pointer}.acts a.rm{color:var(--bad)}
+.add{border:2px dashed #9fb3c8;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent);font-weight:700;min-height:190px;cursor:pointer}
+.add span{font-weight:400;color:var(--muted);font-size:12px;margin-top:4px;text-align:center;padding:0 10px}
+.page{border:1px solid #c9d2de;background:#fff;width:300px;height:212px;padding:12px;box-sizing:border-box;display:inline-flex;flex-direction:column;margin:6px 10px 6px 0;vertical-align:top;font-size:11px}
+.page .h{font-weight:800;color:var(--accent);font-size:12px}
+.page .img{flex:1;margin:6px 0;background:linear-gradient(135deg,#dfe8f2,#f5f8fb);display:flex;align-items:center;justify-content:center;color:#7b8aa0}
+.page .c{text-align:center;color:#3b4656;font-style:italic}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Baseline Narrative Report · #01 more than one project layout · #02 critical = total float below 0.5 day</div>
+
+<div class="card">
+<h3>Report setup — Project layout drawings (section 2)</h3>
+<div class="note">Add as many drawings as the project needs (general layout, zones / buildings, phasing, site logistics…). Select several files at once. Give each a title; it becomes the figure caption in the report.</div>
+<div class="grid">
+ <div class="lay"><div class="thumb"><b>1</b>General layout.png</div><input value="Project general layout"><div class="acts"><span><a>◀</a> &nbsp; <a>▶</a></span><a class="rm">✕ remove</a></div></div>
+ <div class="lay"><div class="thumb"><b>2</b>Silos area.jpg</div><input value="Silos area — Silo 1 to Silo 10"><div class="acts"><span><a>◀</a> &nbsp; <a>▶</a></span><a class="rm">✕ remove</a></div></div>
+ <div class="lay"><div class="thumb"><b>3</b>Conveyors &amp; towers.png</div><input value="Conveyors and transfer towers"><div class="acts"><span><a>◀</a> &nbsp; <a>▶</a></span><a class="rm">✕ remove</a></div></div>
+ <div class="add">＋ Add layout drawings<span>one or several images · PNG / JPG</span></div>
+</div>
+<div class="note" style="margin-top:8px">◀ ▶ change the order in the report · ✕ removes a drawing · saved with the report setup for this project (as today).</div>
+</div>
+
+<div class="card">
+<h3>In the report — Section 2 Project Layout</h3>
+<div class="note">One drawing per page, in the order chosen, each with its numbered caption. Word and PDF the same; the Excel lists the drawing titles.</div>
+<div style="margin-top:8px">
+ <div class="page"><div class="h">2) Project Layout</div><div class="img">drawing 1</div><div class="c">Figure 2.1 — Project general layout</div></div>
+ <div class="page"><div class="h">2) Project Layout (continued)</div><div class="img">drawing 2</div><div class="c">Figure 2.2 — Silos area — Silo 1 to Silo 10</div></div>
+ <div class="page"><div class="h">2) Project Layout (continued)</div><div class="img">drawing 3</div><div class="c">Figure 2.3 — Conveyors and transfer towers</div></div>
+</div>
+<div class="note">No drawing added → the section shows the same placeholder as today.</div>
+</div>
+
+<div class="card">
+<h3>#02 — Appendix (Critical Path): critical = total float below 0.5 day</h3>
+<div class="ann">An activity whose total float is a decimal below half a day (e.g. 0.01 d, 0.33 d) is now counted as critical. Level of Effort / WBS Summary stay excluded, as in P6. The appendix text reads "… critical activities (total float below 0.5 day, read directly from P6)".</div>
+<div class="note">Effect on your baselines: SNT 223 → <b>273</b> critical (50 activities at 0.01 d) · Grain 410, Alstom 372, MAFI 58 unchanged (no float between 0 and 0.5 d). Already built.</div>
+</div>
+</div></body></html>
