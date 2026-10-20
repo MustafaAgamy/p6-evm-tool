@@ -78,6 +78,46 @@ def classify_activity(activity, wbs_map, categories, classifier=None):
     return None
 
 
+def _is_completed(activity):
+    st = (activity.get('status') or '').replace(' ', '').lower()
+    if st:
+        return st == 'completed'
+    return bool(activity.get('actual_finish')) or (activity.get('percent_complete') or 0) >= 1.0
+
+
+def _is_in_progress(activity):
+    st = (activity.get('status') or '').replace(' ', '').lower()
+    if st:
+        return st == 'inprogress'
+    return not _is_completed(activity) and (bool(activity.get('actual_start')) or (activity.get('percent_complete') or 0) > 0)
+
+
+def _sub_wbs_code(activity):
+    """The activity's 'SUB WBS' activity-code value (Design / Engineering / Procurement SUB WBS -
+    Schematic Submittal, Shop Drawing Approval, POs ...), the planner's own split of a scope."""
+    for t, v in (activity.get('activity_codes') or {}).items():
+        if v and 'sub wbs' in t.lower():
+            return v
+    return None
+
+
+def count_progress(acts, baseline_by_id, data_date):
+    """Progress BY COUNT of activities - how a planner checks a scope with no cost in P6
+    (Ibrahim, comments 96-97): Actual % = activities with Activity Status = Completed / all;
+    Planned % = activities whose baseline finish is on or before the data date / all; In Progress
+    is counted on its own (not in Actual %)."""
+    n = len(acts)
+    done = sum(1 for a in acts if _is_completed(a))
+    ip = sum(1 for a in acts if _is_in_progress(a))
+    pl = 0
+    for a in acts:
+        bf = (baseline_by_id.get(a.get('id')) or {}).get('planned_finish')
+        if bf is not None and data_date is not None and bf <= data_date:
+            pl += 1
+    return {'activities': n, 'completed': done, 'in_progress': ip, 'planned_done': pl,
+            'planned_pct': pl / n if n else 0.0, 'actual_pct': done / n if n else 0.0}
+
+
 def compute(data, config, overrides=None, classifier=None):
     """Compute per-activity records and rolled-up EVM metrics.
 
@@ -138,6 +178,22 @@ def compute(data, config, overrides=None, classifier=None):
         total_weight = sum(weight_of(r) for r in cat_records) or 1.0
         planned_pct = sum(weight_of(r) * r['planned_pct'] for r in cat_records) / total_weight
         actual_pct = sum(weight_of(r) * r['actual_pct'] for r in cat_records) / total_weight
+        method, counts, subs = 'cost', None, None
+        if total_bac <= 0:
+            # No cost loaded (Design / Engineering / Procurement): measured BY COUNT of
+            # activities, exactly as the planner counts them in P6 (comments 96-97) - every
+            # activity of the scope, with or without a baseline.
+            acts = [r['activity'] for r in records if r['category'] == cat['name']]
+            if acts:
+                method = 'count'
+                counts = count_progress(acts, data.baseline_by_id, data_date)
+                planned_pct, actual_pct = counts['planned_pct'], counts['actual_pct']
+                groups = {}
+                for a in acts:
+                    groups.setdefault(_sub_wbs_code(a), []).append(a)
+                if any(k for k in groups):
+                    subs = [dict({'code': k or '(no Sub-WBS code)'}, **count_progress(v, data.baseline_by_id, data_date))
+                            for k, v in sorted(groups.items(), key=lambda kv: (kv[0] is None, kv[0] or ''))]
 
         override = overrides.get(cat['name'])
         is_overridden = False
@@ -155,8 +211,11 @@ def compute(data, config, overrides=None, classifier=None):
             'actual_pct': actual_pct,
             'bac': total_bac,
             'ac': sum(r['ac'] for r in cat_records),
-            'activity_count': len(cat_records),
+            'activity_count': counts['activities'] if counts else len(cat_records),
             'overridden': is_overridden,
+            'method': 'override' if is_overridden else method,
+            'counts': counts,
+            'sub_wbs': subs,
         }
 
     overall_planned_pct = sum(

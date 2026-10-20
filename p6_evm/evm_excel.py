@@ -183,16 +183,25 @@ def _core_blocks(result, weights, actual_cost, meta):
         wa = w * ap * 100
         tot_pw += pw
         tot_wa += wa
-        cat_rows.append([name, _round2(w * 100), _round2(pp * 100), _round2(ap * 100),
-                         _round2(pw), _round2(wa)])
+        k = c.get('counts') or {}
+        meth = {'count': 'by count', 'override': 'E1 log'}.get(c.get('method'), 'by cost')
+        cat_rows.append([name, meth, k.get('activities', c.get('activity_count', '')), k.get('completed', '—') if k else '—',
+                         k.get('in_progress', '—') if k else '—', k.get('planned_done', '—') if k else '—',
+                         _round2(w * 100), _round2(pp * 100), _round2(ap * 100), _round2(pw), _round2(wa)])
+        for sw in (c.get('sub_wbs') or []):
+            cat_rows.append(['   ' + sw['code'], '', sw['activities'], sw['completed'], sw['in_progress'], sw['planned_done'],
+                             '', _round2(sw['planned_pct'] * 100), _round2(sw['actual_pct'] * 100), '', ''])
     if cat_rows:
-        cat_rows.append(['Overall', '—', '—', '—', _round2(tot_pw), _round2(tot_wa)])
+        cat_rows.append(['Overall', '', '', '', '', '', '—', '—', '—', _round2(tot_pw), _round2(tot_wa)])
     else:
-        cat_rows = [['No weighted categories', '—', '—', '—', '—', '—']]
+        cat_rows = [['No weighted categories', '', '', '', '', '', '—', '—', '—', '—', '—']]
     category = {
         'title': 'Category Weights & Overall Progress',
-        'headers': ['WBS Category', 'Weight %', 'Planned %' + ax, 'Actual %',
-                    'Planned Weight %' + ax, 'Weighted Actual %'],
+        'note': ('By cost: cost-weighted, as P6 Planned Value. By count (no cost): Actual % = Activity Status Completed / all '
+                 'activities; Planned % = BL Project Finish on or before the data date / all; In Progress apart. '
+                 'Indented rows = Sub-WBS activity codes.'),
+        'headers': ['WBS Category', 'Method', 'Activities', 'Completed', 'In Progress', 'Planned done (BL finish <= data date)',
+                    'Weight %', 'Planned %' + ax, 'Actual %', 'Planned Weight %' + ax, 'Weighted Actual %'],
         'rows': cat_rows,
     }
 

@@ -139,8 +139,44 @@ function _effectiveAC(result) {
 }
 
 // ── main render ─────────────────────────────────────────────────────────
+// Earned Value reads ONLY an XML update exported with its baseline inside it (Ibrahim, 20-Oct):
+// P6 measures Planned Value, SPI and Delay against the assigned project baseline, and only the
+// XML carries it - an XER update (or an XML exported without its baseline) cannot match P6.
+// A baseline programme with no baseline assigned in P6 is exact on its own dates, so it passes.
+export function evmGate(result, path) {
+  const isXer = sourceType(path) === 'XER';
+  if (isXer) return { ok: false, why: 'xer' };
+  const src = (result && result.baseline_source) || baselineSource(result, path);
+  if (src === 'embedded') return { ok: true };
+  if (src === 'self' && !baselineExpected(result)) return { ok: true };
+  return { ok: false, why: 'xml_no_baseline' };
+}
+function _gateHtml(why, result) {
+  const name = escapeHtml(sourceName(state.currentXmlPath) || 'this file');
+  const bl = result && result.baseline_expected_name ? ` (<b>${escapeHtml(result.baseline_expected_name)}</b>)` : '';
+  const what = why === 'xer'
+    ? `<b>${name}</b> is an <b>XER</b> file. A P6 XER update does not carry its baseline, so Planned Value, SPI and Delay could not match P6.`
+    : `<b>${name}</b> is an XML exported <b>without its baseline project</b>, so Planned Value, SPI and Delay could not match P6.`;
+  return `<div class="evm-gate">
+    <div class="evm-gate-h">Earned Value reads an XML update exported with its baseline</div>
+    <p>${what}</p>
+    <p>P6 measures Planned Value against the <b>project baseline</b> assigned to the update${bl}. Only an XML export carries that baseline inside it, so the results match P6 exactly.</p>
+    <div class="evm-gate-steps"><b>In P6:</b><ol>
+      <li>Open the update and check its project baseline (Project ▸ Assign Baselines).</li>
+      <li>File ▸ Export ▸ <b>Primavera PM – (XML)</b>.</li>
+      <li>In the export, tick the option to <b>export the baseline</b> (“Include baselines” / “Export baseline project”).</li>
+      <li>Import that XML here and open Earned Value again.</li></ol></div>
+    <p class="evm-gate-note">Every other feature still works with this file.</p></div>`;
+}
+
 export function renderEvm(result) {
   if (!result) return;
+  const gate = evmGate(result, state.currentXmlPath);
+  if (!gate.ok) {
+    const b = document.getElementById('evm-body');
+    if (b) b.innerHTML = _gateHtml(gate.why, result);
+    return;
+  }
   _loadInputs(result);
   _gap = result.gap || null;
   const body = document.getElementById('evm-body');
@@ -298,8 +334,15 @@ function renderBar(result) {
     row('Planned Value (PV)', pv, 'var(--chart-1)') + row('Earned Value (EV)', ev, 'var(--chart-2)');
 }
 
+// Category table (comments 96-97): cost-loaded scope is weighted by cost (P6 Planned Value);
+// a scope with no cost is measured BY COUNT of activities - Actual % = Completed / all,
+// Planned % = baseline finish on or before the data date / all, In Progress counted apart -
+// and opens into its Sub-WBS code rows (Schematic Submittal, Shop Drawing Approval, POs ...).
+let _catOpen = new Set();
 function renderCats(result) {
   const cats = result.categories || {};
+  const pc = v => `${((v || 0) * 100).toFixed(2)}%`;
+  const n = v => (v == null ? '—' : Number(v).toLocaleString());
   let rows = '', totPW = 0, totWA = 0;
   for (const [name, c] of Object.entries(cats)) {
     const w = _weights[name] != null ? _weights[name] : (c.weight || 0);
@@ -308,16 +351,38 @@ function renderCats(result) {
     if (!(w > 0)) continue;
     const pw = w * (c.planned_pct || 0) * 100, wa = w * (c.actual_pct || 0) * 100;
     totPW += pw; totWA += wa;
-    rows += `<tr><td>${escapeHtml(name)}</td><td class="num">${(w * 100).toFixed(2)}%</td>
-      <td class="num">${((c.planned_pct || 0) * 100).toFixed(2)}%</td>
-      <td class="num">${((c.actual_pct || 0) * 100).toFixed(2)}%</td>
+    const k = c.counts, subs = c.sub_wbs || [];
+    const method = c.method === 'override' ? '<span class="evm-m evm-mo">E1 log</span>'
+      : (c.method === 'count' ? '<span class="evm-m evm-mn">by count</span>' : '<span class="evm-m evm-mc">by cost</span>');
+    const open = _catOpen.has(name);
+    const tog = subs.length ? `<a href="#" class="evm-cattog" data-cat="${escapeHtml(name)}">${open ? '▾' : '▸'}</a> ` : '';
+    rows += `<tr><td>${tog}${escapeHtml(name)}</td><td>${method}</td>
+      <td class="num">${n(k ? k.activities : c.activity_count)}</td><td class="num">${k ? n(k.completed) : '—'}</td>
+      <td class="num">${k ? n(k.in_progress) : '—'}</td><td class="num">${k ? n(k.planned_done) : '—'}</td>
+      <td class="num">${(w * 100).toFixed(2)}%</td><td class="num">${pc(c.planned_pct)}</td><td class="num">${pc(c.actual_pct)}</td>
       <td class="num">${pw.toFixed(2)}%</td><td class="num">${wa.toFixed(2)}%</td></tr>`;
+    if (open) rows += subs.map(sw => `<tr class="evm-subrow"><td>${escapeHtml(sw.code)}</td><td></td>
+      <td class="num">${n(sw.activities)}</td><td class="num">${n(sw.completed)}</td><td class="num">${n(sw.in_progress)}</td>
+      <td class="num">${n(sw.planned_done)}</td><td></td><td class="num">${pc(sw.planned_pct)}</td><td class="num">${pc(sw.actual_pct)}</td><td></td><td></td></tr>`).join('');
   }
-  document.getElementById('evm-cats').innerHTML = `<div class="tblwrap"><table class="evm-table">
-    <thead><tr><th>WBS Category</th><th class="num">Weight %</th><th class="num">Planned %${_evmApprox(result) ? ' · approx' : ''}</th>
+  const hasCount = Object.values(cats).some(c => c.method === 'count');
+  const how = hasCount ? `<div class="evm-how"><b>How each % is made</b> — <b>by cost</b>: cost-weighted, as P6's Planned Value ·
+    <b>by count</b> (scope with no cost): <b>Actual %</b> = activities with Activity Status = Completed ÷ all activities of the scope ·
+    <b>Planned %</b> = activities whose BL Project Finish is on or before the data date ÷ all · In Progress is shown apart (not in Actual %).
+    ▸ opens the Sub-WBS code rows.</div>` : '';
+  document.getElementById('evm-cats').innerHTML = `${how}<div class="tblwrap" style="overflow-x:auto"><table class="evm-table" style="min-width:900px">
+    <thead><tr><th>WBS Category</th><th>Method</th><th class="num">Activities</th><th class="num">Completed</th><th class="num">In Progress</th>
+    <th class="num">Planned done<br><span style="font-weight:500">BL finish ≤ data date</span></th>
+    <th class="num">Weight %</th><th class="num">Planned %${_evmApprox(result) ? ' · approx' : ''}</th>
     <th class="num">Actual %</th><th class="num">Planned Wt %${_evmApprox(result) ? ' · approx' : ''}</th><th class="num">Weighted Act %</th></tr></thead>
-    <tbody>${rows}<tr class="evm-tot"><td>Overall</td><td class="num">—</td><td class="num">—</td>
+    <tbody>${rows}<tr class="evm-tot"><td>Overall</td><td></td><td></td><td></td><td></td><td></td><td class="num">—</td><td class="num">—</td>
     <td class="num">—</td><td class="num">${totPW.toFixed(2)}%</td><td class="num">${totWA.toFixed(2)}%</td></tr></tbody></table></div>`;
+  document.querySelectorAll('#evm-cats .evm-cattog').forEach(t => t.addEventListener('click', e => {
+    e.preventDefault();
+    const nm = t.dataset.cat;
+    _catOpen.has(nm) ? _catOpen.delete(nm) : _catOpen.add(nm);
+    renderCats(result);
+  }));
 }
 
 function _applyE1ToCategories(result) {
@@ -591,6 +656,7 @@ function renderBaselineBanner(result) {
 // is blocked); shown once per import.
 export function maybePromptBaseline(result) {
   if (!result) return;
+  if (!evmGate(result, state.currentXmlPath).ok) return;      // the gate card already explains it
   const needsBaseline = baselineSource(result, state.currentXmlPath) === 'self' && baselineExpected(result);
   const isXer = sourceType(state.currentXmlPath) === 'XER';
   const hasBaseline = state.baselineName || result.baseline_name;

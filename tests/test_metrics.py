@@ -298,20 +298,22 @@ def test_multi_category_pv_ev():
 
 # ── Zero-BAC duration-weighted fallback ─────────────────────────────────────
 
-def test_zero_bac_uses_duration_weight(test_config):
+def test_zero_bac_counts_activities(test_config):
+    """A scope with no cost is measured BY COUNT of activities (Ibrahim, comments 96-97):
+    Actual % = Activity Status Completed / all, Planned % = baseline finish on/before the data
+    date / all, In Progress counted apart."""
     data = make_schedule()
-    data.bac_by_activity = {}  # no BAC → duration fallback
-    # OBJ001: planned_duration=180, planned_pct=1.0, actual_pct=0.5
-    # OBJ002: planned_duration=184, planned_pct=0.0, actual_pct=0.0
-    # weighted planned_pct = (180*1.0 + 184*0.0) / 364 = 180/364
-    # weighted actual_pct  = (180*0.5 + 184*0.0) / 364 = 90/364
+    data.bac_by_activity = {}  # no BAC -> by count
     result = compute(data, test_config)
     assert result['pv'] == pytest.approx(0.0)
     assert result['ev'] == pytest.approx(0.0)
     cat = result['categories']['Construction']
-    assert cat['bac'] == 0.0
-    assert cat['planned_pct'] == pytest.approx(180 / 364, abs=0.001)
-    assert cat['actual_pct']  == pytest.approx(90  / 364, abs=0.001)
+    assert cat['bac'] == 0.0 and cat['method'] == 'count'
+    k = cat['counts']
+    acts = [a for a in data.activities.values()]
+    assert k['activities'] == cat['activity_count']
+    assert cat['actual_pct'] == pytest.approx(k['completed'] / k['activities'])
+    assert cat['planned_pct'] == pytest.approx(k['planned_done'] / k['activities'])
 
 
 # ── WBS ancestor nesting ─────────────────────────────────────────────────────
@@ -333,3 +335,16 @@ def test_spi_equals_weighted_overall(sample_schedule, test_config):
     r = compute(sample_schedule, test_config)
     if r['overall_planned_pct']:
         assert r['spi'] == pytest.approx(r['overall_actual_pct'] / r['overall_planned_pct'])
+
+
+def test_count_progress_completed_only_in_actual():
+    from datetime import datetime
+    from p6_evm.metrics import count_progress
+    dd = datetime(2026, 8, 9)
+    acts = [{'id': 'A', 'status': 'Completed'}, {'id': 'B', 'status': 'In Progress'}, {'id': 'C', 'status': 'Not Started'},
+            {'id': 'D', 'status': 'Not Started'}]
+    bl = {'A': {'planned_finish': datetime(2026, 7, 1)}, 'B': {'planned_finish': datetime(2026, 8, 9)},
+          'C': {'planned_finish': datetime(2026, 9, 1)}}
+    k = count_progress(acts, bl, dd)
+    assert (k['activities'], k['completed'], k['in_progress'], k['planned_done']) == (4, 1, 1, 2)
+    assert k['actual_pct'] == 0.25 and k['planned_pct'] == 0.5

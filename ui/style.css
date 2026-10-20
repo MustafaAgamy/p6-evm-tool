@@ -4591,3 +4591,19 @@ tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: 
 /* Out of Sequence - a tie changed by the applied corrections (audit.js _oosChangedCell) */
 .oos-relrow.oos-chg { background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 3px solid var(--warning); border-radius: 4px; padding: 2px 5px; margin-bottom: 2px; }
 .oos-fixto { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-weight: 700; font-size: 11px; color: var(--text); background: color-mix(in srgb, var(--warning) 28%, transparent); }
+
+/* Earned Value gate: only an XML update exported with its baseline (comment 95, 20-Oct) */
+.evm-gate { max-width: 760px; margin: 18px auto; background: var(--card-bg); border: 1px solid var(--border); border-left: 5px solid var(--warning, #d68a1c); border-radius: 10px; padding: 16px 20px; color: var(--text); font-size: 13.5px; line-height: 1.6; }
+.evm-gate-h { font-size: 16px; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+.evm-gate p { margin: 6px 0; }
+.evm-gate-steps { background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 8px; padding: 8px 14px; margin: 10px 0; }
+.evm-gate-steps ol { margin: 4px 0 0 18px; padding: 0; }
+.evm-gate-note { color: var(--muted); font-size: 12.5px; }
+.evm-m { display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.evm-mc { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.evm-mn { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.evm-mo { background: color-mix(in srgb, #d68a1c 18%, transparent); color: #b26a00; }
+.evm-subrow td { font-size: 12px; background: color-mix(in srgb, var(--muted) 6%, transparent); }
+.evm-subrow td:first-child { padding-left: 28px; color: var(--muted); }
+.evm-cattog { text-decoration: none; color: var(--accent); font-weight: 800; }
+.evm-how { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; margin-bottom: 8px; line-height: 1.6; }
