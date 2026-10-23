@@ -180,3 +180,20 @@ def test_activity_id_parts_read_from_the_activity_codes():
     assert 'BAT = Batch Area' in area and 'MIX = Mixer Building' in area
     assert 'fixed code' in cols['GC']
     assert pl['blocks'][0]['title'] == 'Construction'
+
+
+def test_scope_says_what_each_code_consists_of():
+    """Comment 103: §7 says what each picked code consists of (cost-loaded values only), then
+    combines them - and the AI Assistant example shows the same."""
+    from p6_narrative import scope
+    acts = []
+    for i, (tw, b, c) in enumerate([('Construction', 'Batch Area', 100), ('Construction', 'Mixer Building', 60),
+                                    ('Procurement', 'Batch Area', 40), ('Design', 'Batch Area', 0)]):
+        acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                     'activity_codes': {'Type of Work': tw, 'Building': b}, 'wbs_id': None})
+    bac = {0: 100, 1: 60, 2: 40, 3: 0}
+    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'], {'scope_codes': ['Type of Work', 'Building']}, '')
+    lists = {cl['code']: [v['name'] for v in cl['values']] for cl in sc['code_lists']}
+    assert lists['Type of Work'] == ['Construction', 'Procurement']          # Design has no cost
+    assert lists['Building'] == ['Batch Area', 'Mixer Building']
+    assert 'Design' not in [d['name'] for d in sc['disciplines']]

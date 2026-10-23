@@ -349,11 +349,27 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
 
     cascade = build(work, 0, total_cost) if codes else []
 
+    # what EACH picked code consists of (Ibrahim, comment 103): Type of Work = Civil, MEP, ...;
+    # Building = Batch, Conveyors, ... - cost-loaded values only, largest first, % of the total
+    code_lists = []
+    for dim in codes:
+        g = OrderedDict()
+        for a in work:
+            v = code(a, dim)
+            if v:
+                g.setdefault(v, []).append(a)
+        vals = [(v, round(cost_of(acts), 2)) for v, acts in g.items()]
+        vals = [(v, c) for v, c in sorted(vals, key=lambda x: -x[1]) if c > 0]
+        if vals:
+            code_lists.append({'code': dim, 'values': [
+                {'name': v, 'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0} for v, c in vals]})
+
     payload = {
         'total': round(total_cost, 2),
         'codes': list(codes),
         'disciplines': disciplines,
         'cascade': cascade,
+        'code_lists': code_lists,
     }
     if currency:
         payload['unit'] = currency

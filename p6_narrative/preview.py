@@ -29,7 +29,16 @@ def scope_preview(data, codes, currency=''):
                 row['parts'] = [{'name': g.get('name'), 'pct': g.get('pct')} for g in (ch.get('children') or [])[:5]]
             drill.append(row)
         drill = {'parent': first.get('name'), 'rows': drill}
+    lists = [{'code': cl['code'], 'values': [v['name'] for v in cl['values'][:8]], 'more': max(0, len(cl['values']) - 8)}
+             for cl in (sc.get('code_lists') or [])]
+    combo = []                                     # each level-1 value with what it consists of
+    if len(codes) >= 2:
+        for c in casc[:3]:
+            kids = c.get('children') or []
+            combo.append({'name': c.get('name'), 'pct': c.get('pct'),
+                          'parts': [k.get('name') for k in kids[:6]], 'more': max(0, len(kids) - 6)})
     return {'codes': codes, 'total': _m(sc.get('total')), 'top': top, 'drill': drill or None,
+            'lists': lists, 'combo': combo,
             'unclassified': next((d.get('pct') for d in (sc.get('disciplines') or []) if d.get('name') == 'Unclassified'), None)}
 
 

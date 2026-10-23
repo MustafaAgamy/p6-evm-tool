@@ -474,6 +474,13 @@ def _scope(p, number, title, meta, cur):
     codes_txt = (' &rarr; '.join(_esc(c) for c in codes)) if codes else 'the picked activity codes'
     out = ('<p>The scope is analysed by cross-filtering the picked activity codes, '
            'cost-weighted: %s.</p>' % codes_txt)
+    # what each picked code consists of, then (7.2) how they combine
+    lists = p.get('code_lists') or []
+    if lists:
+        out += '<div class="kv" style="margin:6px 0 10px">' + ''.join(
+            '<p style="margin:3px 0"><b>%s</b> consists of: %s.</p>'
+            % (_esc(cl['code']), ' &middot; '.join('%s (%s%%)' % (_esc(v['name']), v['pct']) for v in cl['values']))
+            for cl in lists) + '</div>'
 
     # {number}.1 — scope overview: 100% composition bar of discipline shares + narrative
     out += (_subhead(1, 'Scope overview', 'by discipline')
@@ -490,12 +497,13 @@ def _scope(p, number, title, meta, cur):
     # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
     # ➢/▸/– heading per non-leaf level, "• …" bullet per deepest leaf, indented by depth)
     out += _subhead(2, 'Detailed scope by activity codes',
-                    'cross-filtered through the picked codes, cost-weighted')
+                    ('%s — each %s with the %s it consists of' % (codes_txt, _esc(codes[0]), _esc(codes[1]))
+                     if len(codes) >= 2 else 'cross-filtered through the picked codes, cost-weighted'))
     cascade = p.get('cascade') or []
     if not cascade:
         out += '<p class="note">No activity-code breakdown available.</p>'
     else:
-        out += _casc_html(cascade, cur, 0)
+        out += _casc_html(cascade, cur or '', 0)
     return out
 
 

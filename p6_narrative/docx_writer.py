@@ -729,6 +729,11 @@ def _render_scope(document, p, number, note):
          'The scope is analysed by cross-filtering the picked activity codes, cost-weighted: '
          '%s.' % codes_txt,
          align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
+    # what each picked code consists of, then (x.2) how they combine
+    for cl in (p.get('code_lists') or []):
+        pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
+        run(pp, '%s' % cl['code'], bold=True)
+        run(pp, ' consists of: ' + ' · '.join('%s (%s%%)' % (v['name'], v['pct']) for v in cl['values']) + '.')
 
     # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
     # one ramp-coloured segment per discipline, sized to its % share of value)

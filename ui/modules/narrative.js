@@ -1027,6 +1027,9 @@ function chatCss() {
     .bn-msrow{min-width:0;display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12.5px;border-bottom:1px dashed var(--border,#eef0f3);cursor:pointer}
     .bn-msrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .bn-msrow .dt{color:var(--muted,#6b7686);font-size:11.5px;white-space:nowrap}
+
+    .bn-cons{font-size:11.5px;margin:2px 0;color:#1a1d21}.bn-cons b{color:#1F4E79}
+    .bn-combo{font-size:11.5px;margin:4px 0 4px 4px}.bn-combo b{color:#1F4E79}.bn-combo div{color:#3b4656;margin:1px 0 0 14px}
 </style>`;
 }
 
@@ -1301,9 +1304,13 @@ function scopeExample(ex, i) {
       + ex.drill.rows.map(r => `<tr><td><b>${_esc(r.name)}</b>${r.count ? ` (${r.count})` : ''}</td><td>${_esc(r.value)} · ${r.pct}%</td>`
         + (r.parts ? `<td>${r.parts.map(p => `${_esc(p.name)} ${p.pct}%`).join(' · ')}</td>` : '') + '</tr>').join('') + '</table>';
   }
+  // what each picked code consists of + how they combine - exactly as section 7 now opens
+  const lists = (ex.lists || []).map(l => `<div class="bn-cons"><b>${_esc(l.code)}</b> consists of: ${l.values.map(_esc).join(' · ')}${l.more ? ` · +${l.more} more` : ''}</div>`).join('');
+  const combo = (ex.combo || []).length ? `<div class="bn-rh2">7.2 ${_esc(ex.codes[0])} → ${_esc(ex.codes[1])} — each with what it consists of</div>`
+    + ex.combo.map(c => `<div class="bn-combo"><b>➢ ${_esc(c.name)}</b> (${c.pct}%)<div>${c.parts.map(x => '• ' + _esc(x)).join('&nbsp;&nbsp; ')}${c.more ? `&nbsp;&nbsp; +${c.more} more` : ''}</div></div>`).join('') : '';
   const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the cost carries no value of “${_esc(ex.codes[0])}” — it would show as Unclassified.</div>` : '';
   return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">7) Scope of Work</div>`
-    + `<div class="bn-rh2">7.1 Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}${drill}</div>${warn}</div>`;
+    + lists + `<div class="bn-rh2">7.1 Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}${combo || drill}</div>${warn}</div>`;
 }
 function seqExample(ex, i) {
   const chev = steps => `<div class="bn-chev">${steps.map(x => `<span>${_esc(x)}</span>`).join('')}</div>`;

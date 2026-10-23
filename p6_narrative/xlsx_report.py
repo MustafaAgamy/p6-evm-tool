@@ -81,6 +81,9 @@ def _scope(p, sec):
     out = []
     if p.get('narrative'):
         out.append(_text_block('Scope of work', [p['narrative']]))
+    for cl in (p.get('code_lists') or []):
+        out.append(_block('%s consists of' % _s(cl['code']), [_s(cl['code']), 'Share of cost (%)'],
+                          [[_s(v['name']), _num(v['pct'])] for v in cl['values']]))
     out.append(_block('Share of contract value by discipline', ['Discipline', 'Cost', 'Share (%)'],
                       [[_s(d.get('name')), _num(d.get('cost')), _num(d.get('pct'))] for d in (p.get('disciplines') or [])]))
     flat = []
