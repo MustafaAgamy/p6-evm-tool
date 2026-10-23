@@ -567,6 +567,7 @@ def narrative_choices(data, setup=None):
         'activity_count': len(data.activities),
         'milestone_choices': list(ms_names),
         'key_date_choices': list(ms_names),
+        'milestone_dates': {name: ds for _, name, ds in all_ms},     # shown beside each in the AI Assistant
         'code_choices': list(data.activity_code_types or []),
         'scope_codes_auto': default_scope_codes(data.activity_code_types, setup),
         'contract_value': cval,
@@ -662,6 +663,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
     # Before-run pick lists surfaced on the meta for the UI checklists / dropdowns.
     meta['milestone_choices'] = list(ms_names)
     meta['key_date_choices'] = list(ms_names)
+    meta['milestone_dates'] = {name: ds for _, name, ds in all_ms}
     meta['code_choices'] = list(data.activity_code_types or [])
     # the sensible auto-detected ordered scope cascade → the UI pre-populates the picker with it
     from p6_narrative.scope import default_scope_codes

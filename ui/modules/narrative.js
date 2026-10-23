@@ -932,7 +932,8 @@ function chatCss() {
     .bn-chat-av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:#1F4E79;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
     .bn-chat-title{font-size:14px;font-weight:700;color:#1a1d21;line-height:1.15}
     .bn-chat-sub{font-size:11.5px;color:var(--text-secondary,#5a626b)}
-    .bn-thread{padding:16px 18px 4px;max-height:none}
+    .bn-thread{padding:16px 18px 4px;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;position:relative}
+    .bn-chat{display:flex;flex-direction:column;height:calc(100vh - 190px);min-height:460px}
     .bn-row{display:flex;gap:9px;margin-bottom:14px}
     .bn-row.me{justify-content:flex-end}
     .bn-av{width:26px;height:26px;border-radius:50%;background:#e8f1fb;color:#1F4E79;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -1014,6 +1015,18 @@ function chatCss() {
     .bn-layadd{width:190px;min-height:170px;border:2px dashed #9fb3c8;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent,#1F4E79);font-weight:700;cursor:pointer;position:relative}
     .bn-layadd span{font-weight:400;font-size:11.5px;color:var(--muted,#6b7686)}
     .bn-layadd input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+    .bn-cklist:has(.bn-msbox){display:block;width:100%;max-width:none}
+    .bn-msbox{width:100%;box-sizing:border-box;border:1px solid var(--border,#dadee4);border-radius:10px;background:var(--surface-2,#fff);overflow:hidden;max-width:100%}
+    .bn-mshead{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--border,#e4e8ee);font-size:12.5px;flex-wrap:wrap}
+    .bn-mshead a{color:var(--accent,#1F4E79);cursor:pointer;font-weight:600}
+    .bn-mscount{color:var(--muted,#6b7686);font-size:12px}
+    .bn-mssearch{margin-left:auto;border:1px solid var(--border,#dadee4);border-radius:14px;padding:3px 10px;font:inherit;font-size:12px;width:150px;background:var(--bg,#fff);color:var(--text,#1a1d21)}
+    .bn-mslist{max-height:min(46vh,330px);overflow-y:auto;overflow-x:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 14px;padding:6px 10px}
+    @media (max-width:760px){.bn-mslist{grid-template-columns:minmax(0,1fr)}}
+    .bn-msrow{min-width:0;display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12.5px;border-bottom:1px dashed var(--border,#eef0f3);cursor:pointer}
+    .bn-msrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bn-msrow .dt{color:var(--muted,#6b7686);font-size:11.5px;white-space:nowrap}
 </style>`;
 }
 
@@ -1107,10 +1120,15 @@ function chatControl(step) {
     return `<div class="bn-lays">${cards}<label class="bn-layadd">＋ Add layout drawings<span>one or several · PNG / JPG</span><input type="file" accept="image/*" multiple data-layadd="1"></label></div>`;
   }
   if (step === 'milestones' || step === 'key_dates') {
+    const dates = _chatMeta.milestone_dates || {};
     const col = (title, items, key) => {
       const sel = Array.isArray(s[key]) ? new Set(s[key]) : null;
-      const rows = items.map(l => `<label class="bn-ck"><input type="checkbox" data-sel="${key}" value="${esc(l)}"${(!sel || sel.has(l)) ? ' checked' : ''}> ${esc(l)}</label>`).join('');
-      return `<div><div class="bn-cktitle">${title} — <a data-all="${key}">all</a> · <a data-none="${key}">none</a></div>${rows || '<span class="bn-hint2">none in the file</span>'}</div>`;
+      const n = items.filter(l => !sel || sel.has(l)).length;
+      const rows = items.map(l => `<label class="bn-msrow" data-q="${esc(String(l).toLowerCase())}"><input type="checkbox" data-sel="${key}" value="${esc(l)}"${(!sel || sel.has(l)) ? ' checked' : ''}>` +
+        `<span class="nm">${esc(l)}</span><span class="dt">${esc(dates[l] || '')}</span></label>`).join('');
+      return `<div class="bn-msbox"><div class="bn-mshead"><b>${title}</b><span class="bn-mscount" data-cnt="${key}">${n} of ${items.length} ticked</span>` +
+        `<input class="bn-mssearch" placeholder="Search…" data-msq="${key}"><a data-all="${key}">All</a><a data-none="${key}">None</a></div>` +
+        `<div class="bn-mslist">${rows || '<span class="bn-hint2">none in the file</span>'}</div></div>`;
     };
     return step === 'milestones'
       ? `<div class="bn-cklist">${col('Major milestones', _chatMeta.milestone_choices || [], 'milestone_keys')}</div>`
@@ -1198,6 +1216,16 @@ function paintActive() {
   if (st === 'scope' || st === 'sequence') loadExamples(st);
 }
 
+// Like Claude: the new question sits at the TOP of the chat, with its answer box right under it,
+// so the planner never scrolls to find the question or the items the tool found.
+function scrollToQuestion(thread, smooth) {
+  const tags = thread.querySelectorAll('.bn-chap');
+  const tag = tags[tags.length - 1];
+  const top = tag ? tag.getBoundingClientRect().top - thread.getBoundingClientRect().top + thread.scrollTop - 6 : thread.scrollHeight;
+  thread.style.scrollBehavior = 'auto';
+  thread.scrollTop = Math.max(0, top);
+}
+
 // Like AI Chat: the newest assistant message "thinks" for a moment, then appears word by word.
 let _lastStreamed = '';
 function streamLatest(thread) {
@@ -1229,7 +1257,7 @@ function streamLatest(thread) {
     think.remove(); last.style.display = '';
     const step = Math.max(8, Math.min(28, 1800 / Math.max(words.length, 1)));
     words.forEach((w, i) => setTimeout(() => w.classList.add('on'), i * step));
-    setTimeout(() => { if (ctl) { ctl.style.transition = 'opacity .25s'; ctl.style.opacity = '1'; } thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' }); }, words.length * step + 60);
+    setTimeout(() => { if (ctl) { ctl.style.transition = 'opacity .25s'; ctl.style.opacity = '1'; } if (_shownUpTo > 0) scrollToQuestion(thread, true); }, words.length * step + 60);
   }, 450);
 }
 
@@ -1374,7 +1402,7 @@ function renderChat() {
   }
   _shownUpTo = _chatCur;
   _chatNote = '';
-  thread.scrollTo({ top: thread.scrollHeight, behavior: grow ? 'smooth' : 'auto' });
+  scrollToQuestion(thread, grow);
   const prog = document.getElementById('bn-prog');
   if (prog) prog.textContent = 'Question ' + (_chatCur + 1) + ' of ' + CHAT_STEPS.length;
   const back = document.getElementById('bn-back');
@@ -1405,9 +1433,14 @@ function wireActive() {
   }));
   // milestone / key-date checklists
   const collect = key => Array.from(box.querySelectorAll(`input[data-sel="${key}"]`)).filter(c => c.checked).map(c => c.value);
-  box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); }));
-  box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); }));
-  box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); }));
+  const recount = key => { const el = box.querySelector(`[data-cnt="${key}"]`); if (el) { const all = box.querySelectorAll(`input[data-sel="${key}"]`); el.textContent = collect(key).length + ' of ' + all.length + ' ticked'; } };
+  box.querySelectorAll('input[data-msq]').forEach(q => q.addEventListener('input', () => {
+    const v = q.value.toLowerCase();
+    box.querySelectorAll('.bn-msrow').forEach(r => { r.style.display = !v || r.dataset.q.includes(v) ? '' : 'none'; });
+  }));
+  box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); recount(c.dataset.sel); }));
+  box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); recount(a.dataset.all); }));
+  box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); recount(a.dataset.none); }));
   // scope — reorder / remove / add above|below
   box.querySelectorAll('[data-smv]').forEach(b => b.addEventListener('click', () => {
     const sc = curScope(), i = +b.dataset.i, mv = b.dataset.smv;
