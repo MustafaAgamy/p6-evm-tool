@@ -755,8 +755,18 @@ def _render_scope(document, p, number, note):
     cascade = [n for n in (p.get('cascade') or []) if n]
     if not cascade:
         _muted(document, 'No activity-code breakdown is available for this scope.')
-        return
-    _render_cascade(document, cascade, _cur, 0)
+    else:
+        _render_cascade(document, cascade, _cur, 0)
+    # x.3, x.4 … — every further analysis (one code, or a combination), like the HTML twin
+    for k, m in enumerate(p.get('more') or [], 3):
+        mc = m.get('codes') or []
+        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Scope analysis')
+        for cl in (m.get('code_lists') or []):
+            pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
+            run(pp, cl['code'], bold=True)
+            run(pp, ' consists of: ' + ' · '.join('%s (%s%%)' % (v['name'], v['pct']) for v in cl['values']) + '.')
+        if len(mc) >= 2 and m.get('cascade'):
+            _render_cascade(document, [n for n in m['cascade'] if n], _cur, 0)
 
 
 # ── §11 Sequence of Work ──────────────────────────────────────────────────────

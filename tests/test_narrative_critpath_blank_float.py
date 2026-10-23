@@ -197,3 +197,14 @@ def test_scope_says_what_each_code_consists_of():
     assert lists['Type of Work'] == ['Construction', 'Procurement']          # Design has no cost
     assert lists['Building'] == ['Batch Area', 'Mixer Building']
     assert 'Design' not in [d['name'] for d in sc['disciplines']]
+
+
+def test_scope_analyses_like_sequence():
+    """Comment 103: Scope of Work takes several analyses (one code, or two combined), like the
+    Sequence of Work; the first drives 7.1/7.2 and each further one gets its own sub-section."""
+    from p6_narrative.report import scope_analyses_of
+    types = ['Type of Work', 'Building', 'Trade']
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Type of Work', 'Building']}, {'codes': ['Trade']}]}, types) == \
+        [['Type of Work', 'Building'], ['Trade']]
+    assert scope_analyses_of({'scope_codes': ['Building', 'Trade']}, types) == [['Building', 'Trade']]   # older setups
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Nope']}]}, types) == []

@@ -98,6 +98,21 @@ def _scope(p, sec):
     codes = ' › '.join(_s(c) for c in (p.get('codes') or []))
     out.append(_block('Detailed cost-weighted breakdown', ['Level', 'Path', 'Name', 'Cost', 'Share (%)', 'Count', 'Each'],
                       flat, note=('By activity code: ' + codes) if codes else None))
+    for m in (p.get('more') or []):
+        mc = ' › '.join(_s(c) for c in (m.get('codes') or []))
+        for cl in (m.get('code_lists') or []):
+            out.append(_block('%s — %s consists of' % (mc, _s(cl['code'])), [_s(cl['code']), 'Share of cost (%)'],
+                              [[_s(v['name']), _num(v['pct'])] for v in cl['values']]))
+        rows = []
+
+        def walk2(nodes, depth, trail):
+            for n in nodes or []:
+                name = _s(n.get('name'))
+                rows.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct'))])
+                walk2(n.get('children'), depth + 1, trail + [name])
+        walk2(m.get('cascade'), 0, [])
+        if rows and len(m.get('codes') or []) >= 2:
+            out.append(_block('%s — combined' % mc, ['Level', 'Path', 'Name', 'Cost', 'Share (%)'], rows))
     return out
 
 

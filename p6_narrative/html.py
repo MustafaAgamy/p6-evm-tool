@@ -504,6 +504,18 @@ def _scope(p, number, title, meta, cur):
         out += '<p class="note">No activity-code breakdown available.</p>'
     else:
         out += _casc_html(cascade, cur or '', 0)
+    # 7.3, 7.4 … — every further analysis the planner added (one code, or a combination)
+    for k, m in enumerate(p.get('more') or [], 3):
+        mc = m.get('codes') or []
+        title = ' → '.join(str(c) for c in mc)          # _subhead escapes it
+        out += _subhead(k, title or 'Scope analysis',
+                        ('each %s with the %s it consists of' % (_esc(mc[0]), _esc(mc[1]))) if len(mc) >= 2
+                        else 'share of the cost-loaded scope')
+        for cl in (m.get('code_lists') or []):
+            out += ('<p style="margin:3px 0"><b>%s</b> consists of: %s.</p>'
+                    % (_esc(cl['code']), ' &middot; '.join('%s (%s%%)' % (_esc(v['name']), v['pct']) for v in cl['values'])))
+        if len(mc) >= 2 and m.get('cascade'):
+            out += _casc_html(m['cascade'], cur or '', 0)
     return out
 
 

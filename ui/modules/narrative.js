@@ -904,7 +904,7 @@ const CHAT_Q = {
   layout:        'Add your project layout drawings for section 2 — one or several. Give each a title; it becomes the figure caption (Figure 2.1, 2.2 …), one drawing per page.',
   milestones:    'I found your milestones and ticked the main ones. Confirm what appears in section 4 (Contract Milestones).',
   key_dates:     'And the key dates for section 5 — the client inputs and deliveries the works depend on. Keep, untick or add.',
-  scope:         'Now the Scope of Work (section 7). I describe it with your activity codes, weighted by the baseline cost: code 1 = the main split of the scope (chart 7.1), code 2 = where each part is built, code 3 = the type of work inside it — one paragraph and one breakdown per level. Below is exactly what section 7 says for each choice, from your own file. Pick 1 to 3 codes, in order. Tip: pick codes that every construction activity carries — a code that only a few activities carry leaves the rest as “Unclassified”.',
+  scope:         'Now the Scope of Work (section 7). I describe the scope in detail from your activity codes, weighted by the baseline cost. Each analysis is ONE code (what the scope consists of, e.g. Type of Work: Civil Works · Steel Works · MEP …) or TWO codes combined (e.g. Type of Work + Building: Civil Works and under it every building that has civil works, then Steel Works and its buildings, and so on). Add one or more analyses, like the Sequence of Work. Below is exactly what section 7 says for each choice, from your own file. Tip: pick codes that every construction activity carries — a code that only a few activities carry leaves the rest as “Unclassified”.',
   sequence:      'Next the Sequence of Work (section 11). Each analysis puts the work in the order your baseline logic runs it (read from the relationships, not assumed), drawn as a chevron flow: ONE code = the order of the whole project (e.g. which trade comes first); TWO codes = the order inside each area (e.g. per building, which work comes first) — areas with the same order are grouped. Below is exactly what section 11 shows for each choice, from your own file. Pick one or more analyses.',
   generate:      'That’s everything I need. Here is your setup — click Back to change any answer. Shall I build the report?',
 };
@@ -1077,6 +1077,25 @@ function curScope() {
 }
 function setScope(sc) { const s = getSetup(); s.scope_codes = sc.slice(); saveSetup(); }
 
+// Scope analyses (comment 103 - the same as the Sequence of Work): each one code, or a combination.
+function curScopeAn() {
+  const s = getSetup(), codes = chatCodes();
+  if (Array.isArray(s.scope_analyses)) {
+    return s.scope_analyses.map(a => ({ codes: (Array.isArray(a.codes) ? a.codes : []).filter(c => codes.includes(c)).slice(0, 2) }))
+      .filter(a => a.codes.length);
+  }
+  const sc = curScope();
+  const seeded = sc.length ? [{ codes: sc.slice(0, 2) }] : [];
+  if (sc.length >= 3) seeded.push({ codes: [sc[1], sc[2]] });
+  return seeded;
+}
+function setScopeAn(list) {
+  const s = getSetup();
+  s.scope_analyses = list.map(a => ({ codes: a.codes.filter(Boolean).slice(0, 2) })).filter(a => a.codes.length);
+  s.scope_codes = s.scope_analyses.length ? s.scope_analyses[0].codes.slice() : [];
+  saveSetup();
+}
+
 // Current sequence analyses ([{codes:[a]|[a,b]}]) from the setup (seeded from auto-detect).
 function curSeq() {
   const s = getSetup(), codes = chatCodes();
@@ -1138,29 +1157,24 @@ function chatControl(step) {
       : `<div class="bn-cklist">${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
   }
   if (step === 'scope') {
-    // Same input as the Sequence of Work (Ibrahim, comment 103): one row per level, each its own
-    // code picker, ▲ ▼ to reorder, ✕ to remove, and add a level above / below. Level 1 = the main
-    // split of the scope; each level below drills one step deeper (up to 3).
-    const sc = curScope(), codes = chatCodes();
-    const opt = (sel, i) => codes.filter(c => c === sel || !sc.includes(c))
-      .map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
-    const lvl = ['main split', 'where it is built', 'type of work inside it'];
-    const rows = sc.map((c, i) =>
+    // Same input as the Sequence of Work (comment 103): one row per analysis - one activity code,
+    // or two to combine them (e.g. Type of Work + Building) - reorder, swap, remove, add above/below.
+    const list = curScopeAn(), codes = chatCodes();
+    const opt = (sel, ph) => [`<option value="">${ph}</option>`].concat(codes.map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+    const rows = list.map((a, i) =>
       `<div class="bn-srow"><span class="bn-lvl2">${i + 1}</span>` +
-      `<select class="bn-sc" data-sci="${i}" title="activity code for level ${i + 1}">${opt(c, i)}</select>` +
-      `<span class="bn-hint2" style="min-width:150px">level ${i + 1} — ${lvl[i] || 'one level deeper'}</span>` +
-      `<i class="bn-ch" data-scmv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
-      `<i class="bn-ch" data-scmv="down" data-i="${i}" title="move down"${i === sc.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
-      `<i class="bn-x" data-scrm="${i}" title="remove">✕</i></div>`).join('');
-    const canAdd = sc.length < 3 && codes.some(c => !sc.includes(c));
-    const addBtn = pos => `<button type="button" class="bn-add2" data-scadd="${pos}"${canAdd ? '' : ' disabled style="opacity:.4"'}>` +
-      `<i class="ti ti-arrow-bar-to-${pos === 'above' ? 'up' : 'down'}" aria-hidden="true"></i> add level ${pos}</button>`;
+      `<select class="bn-sq bn-sa" data-sai="${i}" data-saslot="0" title="1st activity code">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
+      `<i class="bn-ch bn-sw" data-saswap="${i}" title="swap: make the 2nd code 1st"${a.codes.length === 2 ? '' : ' style="opacity:.3"'}>⇄</i>` +
+      `<select class="bn-sq bn-sa" data-sai="${i}" data-saslot="1" title="2nd activity code - combines with the 1st">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<i class="bn-ch" data-samv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
+      `<i class="bn-ch" data-samv="down" data-i="${i}" title="move down"${i === list.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
+      `<i class="bn-x" data-sarm="${i}" title="remove">✕</i></div>`).join('');
     return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
-      `<div class="bn-cktitle" style="margin-top:8px">Your pick, in order (1 to 3 codes)</div>` +
-      addBtn('above') +
-      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No codes — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
-      addBtn('below') +
-      (sc.length ? `<div class="bn-hint2">Your pick is previewed at the end of the examples above.</div>` : '');
+      `<div class="bn-cktitle" style="margin-top:8px">Your scope analyses — each one code, or two to combine them</div>` +
+      `<button type="button" class="bn-add2" data-saadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add analysis above</button>` +
+      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No analyses — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
+      `<button type="button" class="bn-add2" data-saadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add analysis below</button>` +
+      `<div class="bn-hint2">The 1st analysis also gives the scope overview chart (7.1); each further analysis gets its own sub-section (7.3, 7.4 …).</div>`;
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1193,7 +1207,7 @@ function chatControl(step) {
       row('Parties', ['owner', 'consultant', 'contractor'].filter(k => s[k]).length + ' name(s) · ' + logos + ' logo(s)') +
       row('Layout drawings', layoutsOf(s).length ? layoutsOf(s).map(l => l.caption || 'drawing').join(' · ') : 'none') +
       row('Milestones · key dates', ms + ' · ' + kd) +
-      row('Scope', sc.length ? sc.join(' › ') : 'auto-detected') +
+      row('Scope', curScopeAn().length ? curScopeAn().map(a => a.codes.join(' → ')).join(' · ') : 'auto-detected') +
       row('Sequence', (sq.length || 'auto') + (sq.length ? ' analysis(es)' : '')) +
       `</div><button type="button" class="bn-gen" id="bn-gen"><i class="ti ti-wand" style="vertical-align:-2px" aria-hidden="true"></i>&nbsp; Build the report</button>`;
   }
@@ -1214,7 +1228,7 @@ function chatSummary(step) {
   if (step === 'layout') { const l = layoutsOf(s); return l.length ? l.length + ' drawing(s): ' + l.map(x => x.caption || 'drawing').join(' · ') : 'No drawings'; }
   if (step === 'milestones') return (Array.isArray(s.milestone_keys) ? s.milestone_keys.length : (_chatMeta.milestone_choices || []).length) + ' milestones';
   if (step === 'key_dates') return (Array.isArray(s.key_date_keys) ? s.key_date_keys.length : (_chatMeta.key_date_choices || []).length) + ' key dates';
-  if (step === 'scope') { const sc = curScope(); return sc.length ? sc.join(' › ') : 'Auto-detected'; }
+  if (step === 'scope') { const sa = curScopeAn(); return sa.length ? sa.map(a => a.codes.join(' → ')).join(' · ') : 'Auto-detected'; }
   if (step === 'sequence') { const sq = curSeq(); return sq.length ? sq.length + ' analysis(es)' : 'Auto-detected'; }
   return '';
 }
@@ -1281,7 +1295,7 @@ async function loadExamples(kind) {
   const my = ++_pvSeq;
   const codes = chatCodes();
   const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
-  const picks = kind === 'scope' ? [curScope()] : curSeq().map(a => a.codes);
+  const picks = kind === 'scope' ? curScopeAn().map(a => a.codes) : curSeq().map(a => a.codes);
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/narrative/preview`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1370,8 +1384,8 @@ function chatTyped(raw) {
     saveSetup(); return go(1);
   }
   if (step === 'scope') {
-    const picked = _findCodes(txt);
-    if (picked.length) { setScope(picked.slice(0, 3)); _chatNote = `Done — section 7 will use <b>${picked.slice(0, 3).map(_esc).join(' → ')}</b>.`; return go(1); }
+    const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p.slice(0, 2) }));
+    if (parts.length) { setScopeAn(parts); _chatNote = `Section 7 will have <b>${parts.length}</b> scope analysis(es): ${parts.map(p => p.codes.map(_esc).join(' → ')).join(' · ')}.`; return go(1); }
   }
   if (step === 'sequence') {
     const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p.slice(0, 2) }));
@@ -1457,22 +1471,31 @@ function wireActive() {
   box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); recount(c.dataset.sel); }));
   box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); recount(a.dataset.all); }));
   box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); recount(a.dataset.none); }));
-  // scope — one picker per level, reorder / remove / add a level above|below (same as sequence)
-  box.querySelectorAll('.bn-sc').forEach(sel => sel.addEventListener('change', () => {
-    const sc = curScope(), i = +sel.dataset.sci;
-    if (sel.value && !sc.some((c, j) => c === sel.value && j !== i)) { sc[i] = sel.value; setScope(sc); }
-    paintActive();
+  // scope analyses — same handlers as the sequence analyses
+  box.querySelectorAll('.bn-sa').forEach(sel => sel.addEventListener('change', () => {
+    const list = curScopeAn(), i = +sel.dataset.sai, slot = +sel.dataset.saslot;
+    if (!list[i]) return;
+    const cc = list[i].codes.slice();
+    if (slot === 0) {
+      if (!sel.value) list.splice(i, 1);
+      else list[i].codes = [sel.value].concat(cc[1] && cc[1] !== sel.value ? [cc[1]] : []);
+    } else {
+      const first = cc[0];
+      list[i].codes = first ? (sel.value && sel.value !== first ? [first, sel.value] : [first]) : [];
+    }
+    setScopeAn(list.filter(a => a.codes.length)); paintActive();
   }));
-  box.querySelectorAll('[data-scmv]').forEach(b => b.addEventListener('click', () => { setScope(moveItem(curScope(), +b.dataset.i, b.dataset.scmv)); paintActive(); }));
-  box.querySelectorAll('[data-scrm]').forEach(b => b.addEventListener('click', () => { const sc = curScope(); sc.splice(+b.dataset.scrm, 1); setScope(sc); paintActive(); }));
-  box.querySelectorAll('[data-scadd]').forEach(b => b.addEventListener('click', () => {
-    const sc = curScope(), codes = chatCodes();
-    if (sc.length >= 3) return;
-    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c) && !sc.includes(c));
-    const next = auto[0] || codes.find(c => !sc.includes(c));
-    if (!next) return;
-    if (b.dataset.scadd === 'above') sc.unshift(next); else sc.push(next);
-    setScope(sc); paintActive();
+  box.querySelectorAll('[data-sarm]').forEach(b => b.addEventListener('click', () => { const list = curScopeAn(); list.splice(+b.dataset.sarm, 1); setScopeAn(list); paintActive(); }));
+  box.querySelectorAll('[data-saswap]').forEach(b => b.addEventListener('click', () => { setScopeAn(swapSeqCodes(curScopeAn(), +b.dataset.saswap)); paintActive(); }));
+  box.querySelectorAll('[data-samv]').forEach(b => b.addEventListener('click', () => { setScopeAn(moveItem(curScopeAn(), +b.dataset.i, b.dataset.samv)); paintActive(); }));
+  box.querySelectorAll('[data-saadd]').forEach(b => b.addEventListener('click', () => {
+    const list = curScopeAn(), codes = chatCodes();
+    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
+    const used = new Set(list.map(a => a.codes.join('|')));
+    const cand = [[auto[0], auto[1]], [auto[1], auto[2]], [auto[0]], [auto[1]], [codes[0]]].map(x => x.filter(Boolean)).find(x => x.length && !used.has(x.join('|'))) || [codes[0]];
+    const na = { codes: cand };
+    if (b.dataset.saadd === 'above') list.unshift(na); else list.push(na);
+    setScopeAn(list); paintActive();
   }));
   // sequence — per-analysis code selects, remove, add above|below
   box.querySelectorAll('.bn-sq').forEach(sel => sel.addEventListener('change', () => {

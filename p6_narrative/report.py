@@ -238,8 +238,8 @@ def _contract_value(data, setup):
     # Distribute the contract value by the same discipline (Type-of-Works) code that §6 uses,
     # so §5's "distribution by type of work" and §6.1's discipline split stay consistent.
     from p6_narrative.scope import default_scope_codes
-    scope_codes = [c for c in (setup.get('scope_codes') or [])
-                   if c and c in (data.activity_code_types or [])]
+    _an = scope_analyses_of(setup, data.activity_code_types)
+    scope_codes = _an[0] if _an else []
     # Resolve the discipline dimension through the SAME path §7.1 uses (scope.default_scope_codes),
     # so the Contract Value split and the §7.1 discipline chart can never split by different codes:
     # the planner's 1st picked code, else the auto-detected level-1 code.
@@ -276,11 +276,45 @@ def _contract_value(data, setup):
 
 
 # ── §7 Scope of Work ──────────────────────────────────────────────────────────
+def scope_analyses_of(setup, code_types):
+    """The planner's scope analyses - each one activity code or a combination (Ibrahim, comment
+    103: the same as the Sequence of Work). setup['scope_analyses'] = [{'codes': [a] | [a, b]}];
+    an older setup with only setup['scope_codes'] is one analysis."""
+    setup = setup or {}
+    out = []
+    for a in (setup.get('scope_analyses') or []):
+        cs = [c for c in (a.get('codes') if isinstance(a, dict) else a) or [] if c and c in (code_types or [])]
+        if cs:
+            out.append(list(dict.fromkeys(cs))[:3])
+    if not out and setup.get('scope_codes'):
+        cs = [c for c in setup['scope_codes'] if c and c in (code_types or [])]
+        if cs:
+            out.append(cs)
+    return out
+
+
 def _scope(data, setup):
+    setup = dict(setup or {})
+    analyses = scope_analyses_of(setup, data.activity_code_types)
+    if analyses:
+        setup['scope_codes'] = analyses[0]                 # the first analysis drives 7.1 / 7.2
     payload = scope_sections(list(data.activities.values()), data.wbs,
                              bac_by_activity=data.bac_by_activity,
-                             code_types=data.activity_code_types, setup=setup or {},
-                             currency=(setup or {}).get('currency') or '')
+                             code_types=data.activity_code_types, setup=setup,
+                             currency=setup.get('currency') or '')
+    more = []
+    for cs in analyses[1:]:                                # every further analysis: its own sub-section
+        try:
+            extra = scope_sections(list(data.activities.values()), data.wbs,
+                                   bac_by_activity=data.bac_by_activity,
+                                   code_types=data.activity_code_types,
+                                   setup=dict(setup, scope_codes=cs),
+                                   currency=setup.get('currency') or '')
+            more.append({'codes': extra.get('codes') or cs, 'code_lists': extra.get('code_lists') or [],
+                         'cascade': extra.get('cascade') or [], 'disciplines': extra.get('disciplines') or []})
+        except Exception:
+            continue
+    payload['more'] = more
     return Section('7', 'Scope of Work', 'scope', 'auto', payload=payload, editable=True,
                    note='Share of contract value by discipline, then the detailed cost-weighted '
                         'breakdown by work type — driven by the activity codes.')
