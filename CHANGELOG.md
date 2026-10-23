@@ -17,6 +17,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - **Word export no longer fails** when an activity-code name contains `&`, `<` or `"` (Alstom's Word export failed in section 10).
 - The whole report was built for every test schedule (14 baselines and updates, XER and XML) — all 19 sections on screen, Word and Excel.
 - AI Assistant behaves like Claude: the chat fills the screen with the answer box always visible; each new question is brought to the top; milestones and key dates show as a compact two-column list with their dates, a search box and All / None, scrolling inside their own box.
+- AI Assistant: the Scope of Work input works like the Sequence of Work one — one row per level with its own code picker, ▲ ▼ to reorder, ✕ to remove, and *add level above / below* (up to 3); the old 'add code below' list that did not respond is gone.
 - AI Assistant: no Continue button — Enter / send answers and moves on; the conversation grows below without redrawing (no blank screen).
 - **Critical Path appendix shows the critical path itself** — the driving chain to the completion milestone by work front, in path order with each front's finish (same view as the Critical Path Analyzer), above the month-by-zone sweep. Critical activities stay P6's Critical filter (Saint Gobain baseline 223).
 

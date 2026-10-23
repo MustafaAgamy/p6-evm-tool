@@ -965,7 +965,7 @@ function chatCss() {
     .bn-carrow{color:#9aa4b0;font-size:12px}
     .bn-sw{font-size:15px;color:#1F4E79}
     .bn-srow{display:flex;align-items:center;gap:7px;border:1px solid var(--border,#dadee4);border-radius:8px;padding:6px 9px;background:var(--surface-2,#fff);max-width:520px}
-    .bn-sq{flex:1;min-width:0;padding:5px 8px;border:1px solid #c7cdd4;border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
+    .bn-sq,.bn-sc{flex:1;min-width:0;padding:5px 8px;border:1px solid #c7cdd4;border-radius:6px;font:inherit;font-size:12px;background:var(--surface-2,#fff);color:var(--text-primary,#1a1d21)}
     .bn-lvl2{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:#1F4E79;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
     .bn-x{color:#b3402f;cursor:pointer;font-size:14px;flex:0 0 auto}
     .bn-hint2{font-size:11.5px;color:var(--text-muted,#8a9099);margin:4px 0 2px}
@@ -1135,20 +1135,29 @@ function chatControl(step) {
       : `<div class="bn-cklist">${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
   }
   if (step === 'scope') {
+    // Same input as the Sequence of Work (Ibrahim, comment 103): one row per level, each its own
+    // code picker, ▲ ▼ to reorder, ✕ to remove, and add a level above / below. Level 1 = the main
+    // split of the scope; each level below drills one step deeper (up to 3).
     const sc = curScope(), codes = chatCodes();
-    const remaining = codes.filter(c => !sc.includes(c));
-    const chip = (c, i) => `<span class="bn-cchip"><b>${i + 1}</b> ${esc(c)}` +
-      `<i class="bn-ch" data-smv="up" data-i="${i}" title="up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
-      `<i class="bn-ch" data-smv="down" data-i="${i}" title="down"${i === sc.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
-      `<i class="bn-ch" data-smv="rm" data-i="${i}" title="remove">✕</i></span>`;
-    const chain = sc.map((c, i) => chip(c, i)).join('<span class="bn-carrow">›</span>') ||
-      '<span class="bn-hint2">No codes — the report auto-detects a sensible breakdown.</span>';
-    const addSel = pos => remaining.length
-      ? `<select class="bn-addsel" data-addscope="${pos}"><option value="">+ add code ${pos === 'above' ? 'above' : 'below'}…</option>${remaining.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>` : '';
+    const opt = (sel, i) => codes.filter(c => c === sel || !sc.includes(c))
+      .map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join('');
+    const lvl = ['main split', 'where it is built', 'type of work inside it'];
+    const rows = sc.map((c, i) =>
+      `<div class="bn-srow"><span class="bn-lvl2">${i + 1}</span>` +
+      `<select class="bn-sc" data-sci="${i}" title="activity code for level ${i + 1}">${opt(c, i)}</select>` +
+      `<span class="bn-hint2" style="min-width:150px">level ${i + 1} — ${lvl[i] || 'one level deeper'}</span>` +
+      `<i class="bn-ch" data-scmv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
+      `<i class="bn-ch" data-scmv="down" data-i="${i}" title="move down"${i === sc.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
+      `<i class="bn-x" data-scrm="${i}" title="remove">✕</i></div>`).join('');
+    const canAdd = sc.length < 3 && codes.some(c => !sc.includes(c));
+    const addBtn = pos => `<button type="button" class="bn-add2" data-scadd="${pos}"${canAdd ? '' : ' disabled style="opacity:.4"'}>` +
+      `<i class="ti ti-arrow-bar-to-${pos === 'above' ? 'up' : 'down'}" aria-hidden="true"></i> add level ${pos}</button>`;
     return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
-      `<div class="bn-cktitle" style="margin-top:8px">Your pick, in order</div>` +
-      `<div class="bn-cflow">${addSel('above')}<div class="bn-cchain">${chain}</div>${addSel('below')}</div>` +
-      (sc.length ? `<div class="bn-hint2">The 1st code splits the contract value; each below drills one level deeper. Your pick is previewed at the end of the examples.</div>` : '');
+      `<div class="bn-cktitle" style="margin-top:8px">Your pick, in order (1 to 3 codes)</div>` +
+      addBtn('above') +
+      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No codes — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
+      addBtn('below') +
+      (sc.length ? `<div class="bn-hint2">Your pick is previewed at the end of the examples above.</div>` : '');
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1441,19 +1450,22 @@ function wireActive() {
   box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); recount(c.dataset.sel); }));
   box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); recount(a.dataset.all); }));
   box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); recount(a.dataset.none); }));
-  // scope — reorder / remove / add above|below
-  box.querySelectorAll('[data-smv]').forEach(b => b.addEventListener('click', () => {
-    const sc = curScope(), i = +b.dataset.i, mv = b.dataset.smv;
-    if (mv === 'rm') sc.splice(i, 1);
-    else if (mv === 'up' && i > 0) [sc[i - 1], sc[i]] = [sc[i], sc[i - 1]];
-    else if (mv === 'down' && i < sc.length - 1) [sc[i + 1], sc[i]] = [sc[i], sc[i + 1]];
-    setScope(sc); paintActive();
-  }));
-  box.querySelectorAll('[data-addscope]').forEach(sel => sel.addEventListener('change', () => {
-    if (!sel.value) return;
-    const sc = curScope();
-    if (!sc.includes(sel.value)) { if (sel.dataset.addscope === 'above') sc.unshift(sel.value); else sc.push(sel.value); setScope(sc); }
+  // scope — one picker per level, reorder / remove / add a level above|below (same as sequence)
+  box.querySelectorAll('.bn-sc').forEach(sel => sel.addEventListener('change', () => {
+    const sc = curScope(), i = +sel.dataset.sci;
+    if (sel.value && !sc.some((c, j) => c === sel.value && j !== i)) { sc[i] = sel.value; setScope(sc); }
     paintActive();
+  }));
+  box.querySelectorAll('[data-scmv]').forEach(b => b.addEventListener('click', () => { setScope(moveItem(curScope(), +b.dataset.i, b.dataset.scmv)); paintActive(); }));
+  box.querySelectorAll('[data-scrm]').forEach(b => b.addEventListener('click', () => { const sc = curScope(); sc.splice(+b.dataset.scrm, 1); setScope(sc); paintActive(); }));
+  box.querySelectorAll('[data-scadd]').forEach(b => b.addEventListener('click', () => {
+    const sc = curScope(), codes = chatCodes();
+    if (sc.length >= 3) return;
+    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c) && !sc.includes(c));
+    const next = auto[0] || codes.find(c => !sc.includes(c));
+    if (!next) return;
+    if (b.dataset.scadd === 'above') sc.unshift(next); else sc.push(next);
+    setScope(sc); paintActive();
   }));
   // sequence — per-analysis code selects, remove, add above|below
   box.querySelectorAll('.bn-sq').forEach(sel => sel.addEventListener('change', () => {
