@@ -315,6 +315,8 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
             g1.setdefault(code(a, codes[0]) or 'Unclassified', []).append(a)
         for d in sorted(g1, key=lambda x: (-cost_of(g1[x]), _trade_rank(x), _first_index(g1, x))):
             c = round(cost_of(g1[d]), 2)
+            if c <= 0 and total_cost > 0:
+                continue        # no cost loaded (e.g. Design / Engineering): not in the scope chart (comment 103)
             disciplines.append({'name': d, 'cost': c,
                                 'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0})
 
