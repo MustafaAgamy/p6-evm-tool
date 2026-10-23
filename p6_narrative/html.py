@@ -1023,8 +1023,8 @@ def _materials(p, number, title, meta, cur):
     Twin of ``docx_writer._render_materials``."""
     p = p or {}
     if not p.get('available'):
-        return ('<p class="note">This schedule carries no unit-bearing material resources in '
-                'its baseline.</p>')
+        return ('<p class="note">%s</p>' % _esc(p.get('no_unit_note') or
+                'This schedule carries no unit-bearing material resources in its baseline.'))
     out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
     cap = ''
     if (p.get('total_n') or 0) > (p.get('charted_n') or 0):
@@ -1049,7 +1049,9 @@ def _materials(p, number, title, meta, cur):
     out.append('<div class="sub">%s.2 &middot; Materials Major Quantities</div>' % _esc(number))
     out.append('<table class="dt">%s%s</table>' % (thead, body))
     exc = p.get('excluded')
-    if exc:
+    if p.get('no_unit_note'):
+        out.append('<p class="note">%s</p>' % _esc(p['no_unit_note']))
+    elif exc:
         out.append('<p class="note">%s unit-less &ldquo;material&rdquo; assignments '
                    '(total %s) are the cost model &mdash; the contract value &mdash; and are '
                    'reported in the cost sections, not charted as physical quantities.</p>'

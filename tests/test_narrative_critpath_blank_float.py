@@ -128,3 +128,32 @@ def test_activity_ids_any_coding_style():
         assert roles[serial_at] == 'serial', (name, roles)
     pl = actids.activity_id_analysis(mk(['Start', 'Mobilisation', 'Handover']), [])
     assert pl['blocks'] and 'serial' not in [c['role'] for c in pl['anatomy']['cols']]
+
+
+def test_equipment_same_content_any_loading():
+    """Comment 103: §13.2 Equipment is the same content for any project - machines on site per
+    month and 'Total plant loaded' - whether P6 loads the equipment as a count or in hours."""
+    from p6_narrative import resload as R
+    count = R._equipment_group({'window': 'w', 'span': [], 'values': [], 'peak_val': 0, 'peak_label': '',
+                                'total': 3, 'rows': [('Excavator', 3, 2)]}, 'count')
+    hours = R._equipment_group({'window': 'w', 'span': [], 'values': [], 'peak_val': 0, 'peak_label': '',
+                                'total': 2, 'rows': [('Water Truck', 2, 2)]}, 'hours')
+    for g in (count, hours):
+        assert g['row_headers'] == ['Resource', 'Total plant loaded', 'Peak no. on site']
+        assert g['total_unit'] == 'plant units'
+    assert 'loaded in hours' in hours['basis_note'] and 'number of machines' in count['basis_note']
+
+
+def test_no_unit_material_note_names_the_resources():
+    from types import SimpleNamespace as NS
+    from p6_narrative import resload as R
+    data = NS(assignments_by_activity={1: [{'resource_id': 'R1', 'budget_units': 100}, {'resource_id': 'R1', 'budget_units': 50}]},
+              resources={'R1': {'name': 'EX-resource'}})
+    rows = R._no_unit_materials(data, {'R1': {'type': 'RT_Mat', 'unit': None}})
+    assert rows == [('EX-resource', 2, 150.0)]
+
+
+def test_word_code_box_survives_special_characters():
+    """Alstom's Word export failed: a code name with '&' went unescaped into the text-box XML."""
+    from p6_narrative.docx_writer import _xml_attr
+    assert _xml_attr('Doors & Windows "A" <B>') == 'Doors &amp; Windows &quot;A&quot; &lt;B&gt;'

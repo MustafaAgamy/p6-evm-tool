@@ -215,8 +215,11 @@ def _resload(p, sec):
 
 
 def _materials(p, sec):
+    nou = ([_block('Material resources with no unit of measure', ['Material resource', 'Assignments', 'Budgeted units'],
+                   [[_s(r[0]), _s(r[1]), _s(r[2])] for r in p.get('no_unit_rows')], note=p.get('no_unit_note'))]
+           if p.get('no_unit_rows') else [])
     if not p.get('available'):
-        return [_text_block('Material resources', [p.get('intro') or p.get('note') or _EMPTY])]
+        return [_text_block('Material resources', [p.get('no_unit_note') or p.get('intro') or p.get('note') or _EMPTY])] + nou
     out = [_text_block('Material resources', [p.get('intro')]),
            _block('Material resources — totals', p.get('table_headers') or ['Material resource', 'Unit', 'Total'],
                   [[(_num(c) if i else _s(c)) for i, c in enumerate(r)] for r in (p.get('table_rows') or [])])]
@@ -224,7 +227,7 @@ def _materials(p, sec):
         out.append(_block(f"{_s(c.get('name'))} — monthly quantity", ['Month', 'Quantity' + (f" ({c.get('unit')})" if c.get('unit') else '')],
                           [[_s(m), _num(v)] for m, v in zip(c.get('span') or [], c.get('values') or [])],
                           note=f"Total {_s(c.get('total'))} · peak {_s(c.get('peak_val'))} in {_s(c.get('peak_label'))}"))
-    return out
+    return out + nou
 
 
 def _prodrate(p, sec):

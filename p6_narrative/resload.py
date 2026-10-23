@@ -408,7 +408,7 @@ def _profile(recs, basis, calendars=None):
         gmax = pf if (gmax is None or pf > gmax) else gmax
         rid = r['rid']
         names[rid] = r['name']
-        sigma[rid] += r['qty']
+        sigma[rid] += crew            # machines (or men) this assignment puts on site - same unit for any project
         wd_by_month = defaultdict(int)
         d = s
         while d <= f:
@@ -455,6 +455,29 @@ def _profile(recs, basis, calendars=None):
 
 
 # ── material monthly quantities ───────────────────────────────────────────────
+def _no_unit_materials(data, meta):
+    """The material resources that carry NO unit of measure in P6, by name (comment 103: say so
+    plainly in §14 - their budgeted units can't be read as quantities)."""
+    out = defaultdict(lambda: [0, 0.0])
+    resources = getattr(data, 'resources', None) or {}
+    for _oid, alist in (getattr(data, 'assignments_by_activity', None) or {}).items():
+        for a in alist or []:
+            rm = meta.get(a.get('resource_id')) or {}
+            if rm.get('type') != 'RT_Mat' or rm.get('unit'):
+                continue
+            try:
+                qty = float(a.get('budget_units') or 0)
+            except Exception:
+                qty = 0.0
+            if qty <= 0:
+                continue
+            rid = a.get('resource_id')
+            nm = (a.get('resource_name') or (resources.get(rid) or {}).get('name') or rm.get('name') or str(rid))
+            out[nm][0] += 1
+            out[nm][1] += qty
+    return sorted(((k, v[0], v[1]) for k, v in out.items()), key=lambda x: -x[2])
+
+
 def _excluded_costmodel(data, meta):
     """Count the unit-less "material" assignments — the cost model (contract value) reported in
     §14's note but never charted. Counted over ALL assignments (independent of whether the
@@ -548,6 +571,20 @@ def resource_loading(data, path=None):
 
     mats = _materials(recs, cals)
     excl_n, excl_total = _excluded_costmodel(data, rmeta)
+    nou = _no_unit_materials(data, rmeta)
+    no_unit_note = None
+    if nou:
+        eg = ', '.join(n for n, _c, _q in nou[:3]) + (' …' if len(nou) > 3 else '')
+        one = len(nou) == 1
+        no_unit_note = (
+            '{n} material resource{s} in this schedule carr{y} no unit of measure in P6 ({eg}), so {its} '
+            'budgeted units cannot be read as quantities (m³, ton, m² …) and {are} not charted here. '
+            '{Its} {na} assignments total {tot} — the cost loading reported in the Contract Value '
+            'section. To chart {them} as quantities, give each material resource a unit of measure in '
+            'P6 and export the schedule again.'
+        ).format(n=len(nou), s='' if one else 's', y='ies' if one else 'y', eg=eg,
+                 its='its' if one else 'their', are='is' if one else 'are', Its='Its' if one else 'Their',
+                 na='{:,}'.format(excl_n), tot=_fmt0(excl_total), them='it' if one else 'them')
     materials = {
         'available': bool(mats),
         'intro': ('The material resources loaded in the baseline, each shown as the quantity '
@@ -559,6 +596,8 @@ def resource_loading(data, path=None):
         'table_headers': ['Material resource', 'Unit', 'Total Quantity'],
         'table_rows': [[m['name'], m['unit'], _fmt0(m['total'])] for m in mats],
         'excluded': ({'n': excl_n, 'total_label': _fmt0(excl_total)} if excl_n else None),
+        'no_unit_note': no_unit_note,
+        'no_unit_rows': [[n, '{:,}'.format(c), _fmt0(q)] for n, c, q in nou],
     }
     return {'loading': loading, 'materials': materials}
 
@@ -583,12 +622,19 @@ def _manpower_group(hrs):
 
 
 def _equipment_group(num, basis):
-    """§13.2 Equipment — number of machines on site per month + the per-resource totals table."""
-    tcol = 'Total plant loaded' if basis == 'count' else 'Total equipment-hours'
+    """§13.2 Equipment — number of machines on site per month + the per-resource totals table.
+    The SAME content for any project (comment 103): when P6 loads the equipment as hours, each
+    assignment's machines = its budgeted equipment-hours ÷ the activity's working hours."""
+    tcol = 'Total plant loaded'
+    how = ('In this schedule the equipment is loaded as a number of machines, so each assignment '
+           'puts that many machines on site over the activity’s working days.' if basis == 'count' else
+           'In this schedule the equipment is loaded in hours, so each assignment’s machines = its '
+           'budgeted equipment-hours ÷ the activity’s working hours, on site over the activity’s '
+           'working days.')
     return {
         'key': 'equipment', 'title': 'Equipment',
         'basis_note': ('Read from the Non-labour (equipment) resource assignments — the number of '
-                       'machines on site per month, loaded over each activity’s working days.'),
+                       'machines on site per month, loaded over each activity’s working days. ' + how),
         'window': num['window'],
         'charts': [
             {'chart_title': 'Equipment — number per month', 'color': EQUIP_HEX,
@@ -596,7 +642,7 @@ def _equipment_group(num, basis):
              'peak_val': num['peak_val'], 'peak_label': num['peak_label'], 'peak_unit': ''},
         ],
         'total_label': _fmt0(num['total']),
-        'total_unit': ('plant units' if basis == 'count' else 'equipment-hours'),
+        'total_unit': 'plant units',
         'row_headers': ['Resource', tcol, 'Peak no. on site'],
         'rows': [[nm, _fmt0(tot), _fmt_peak(peak)] for nm, tot, peak in num['rows']],
     }

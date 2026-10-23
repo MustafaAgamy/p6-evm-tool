@@ -1018,6 +1018,9 @@ def _render_materials(document, p, number, note):
     total, each in its own unit), then a full totals table and the cost-model note. Never mixes
     units. Mirrors the HTML/PDF twin (``html._materials``); None-safe chart fallback."""
     p = p or {}
+    if not p.get('available') and p.get('no_unit_note'):
+        _muted(document, p['no_unit_note'])
+        return
     if not p.get('available'):
         _muted(document, 'This schedule carries no unit-bearing material resources in its '
                          'baseline.')
@@ -1051,7 +1054,9 @@ def _render_materials(document, p, number, note):
     data_table(document, p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity'],
                p.get('table_rows') or [], aligns=['l', 'l', 'r'])
     exc = p.get('excluded')
-    if exc:
+    if p.get('no_unit_note'):
+        _muted(document, p['no_unit_note'])
+    elif exc:
         _muted(document, '%s unit-less “material” assignments (total %s) are the cost model — '
                          'the contract value — and are reported in the cost sections, not charted '
                          'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
@@ -1386,6 +1391,11 @@ _TB_XML = (
 _EMU_IN, _EMU_PT = 914400, 12700
 
 
+def _xml_attr(v):
+    from xml.sax.saxutils import escape
+    return escape(str(v if v is not None else ''), {'"': '&quot;'})
+
+
 def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
     """A 1 pt paragraph that keeps with the next block and carries ``tbl`` in a borderless
     text box on the same line, ``x_in`` from the left margin (in front of the text — it sits
@@ -1394,7 +1404,8 @@ def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
     from docx.oxml import parse_xml
     lins = int(0.08 * _EMU_IN)                        # room for the table's own left border
     p = parse_xml(_TB_XML.format(x=int((x_in - 0.08) * _EMU_IN), cx=int((w_in + 0.1) * _EMU_IN),
-                                 cy=int(h_pt * _EMU_PT), id=9000, name=name, lins=lins))
+                                 cy=int(h_pt * _EMU_PT), id=9000, lins=lins,
+                                 name=_xml_attr(name)))   # a code name with & < " (any project) must not break Word
     box = p.find('.//' + qn('w:txbxContent'))
     tbl.getparent().remove(tbl)
     box.append(tbl)
