@@ -157,3 +157,26 @@ def test_word_code_box_survives_special_characters():
     """Alstom's Word export failed: a code name with '&' went unescaped into the text-box XML."""
     from p6_narrative.docx_writer import _xml_attr
     assert _xml_attr('Doors & Windows "A" <B>') == 'Doors &amp; Windows &quot;A&quot; &lt;B&gt;'
+
+
+def test_activity_id_parts_read_from_the_activity_codes():
+    """Comment 103: each part of the ID is explained by the activity code it stands for -
+    the code whose values differ between the sibling parts (ARC/CON/SS = Trade), checked
+    against the activities; a part that is the same on every activity is called a fixed code."""
+    from p6_narrative import actids
+    acts, k = [], 0
+    for tr, trv, nm in (('CON', 'Civil Works', 'RC Footing'), ('SS', 'Steel Structure Works', 'Erect Steel'), ('ARC', 'Arc. Works', 'Plastering')):
+        for b, bv in (('BAT', 'Batch Area'), ('MIX', 'Mixer Building')):
+            for i in range(3):
+                k += 1
+                acts.append({'id': 'EX-%d-GC-%s-%s' % (1000 + 10 * k, tr, b), 'name': '%s %s' % (nm, bv),
+                             'activity_codes': {'Type of Work': 'Construction', 'Trade': trv, 'Building': bv},
+                             'wbs_path': 'Construction > %s > %s' % (bv, trv)})
+    pl = actids.activity_id_analysis(acts, ['Type of Work', 'Trade', 'Building'])
+    cols = {c['code']: c['meaning'] for c in pl['blocks'][0]['cols']}
+    trade = next(v for c, v in cols.items() if 'CON' in c)
+    assert 'CON = Civil Works' in trade and 'SS = Steel Structure Works' in trade and 'ARC = Arc. Works' in trade
+    area = next(v for c, v in cols.items() if 'BAT' in c)
+    assert 'BAT = Batch Area' in area and 'MIX = Mixer Building' in area
+    assert 'fixed code' in cols['GC']
+    assert pl['blocks'][0]['title'] == 'Construction'

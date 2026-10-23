@@ -95,6 +95,14 @@ def _is_serial(tok):
     return bool(re.fullmatch(r'[A-Za-z]{0,2}\d{2,}[A-Za-z]?', tok or ''))
 
 
+_STOP_ABBR = {'of', 'and', 'the', 'for', 'to', 'in', 'on', 'at', 'a', 'by', 'with', '&'}
+
+
+def _subseq(t, w):
+    it = iter(w)
+    return all(ch in it for ch in t)
+
+
 def _acode(a, dim):
     return (a.get('activity_codes') or {}).get(dim)
 
@@ -117,38 +125,130 @@ def activity_id_analysis(activities, code_types=None):
         for _v, _n in _c.items():
             _dim_val_global[(_dim, _v)] = _n / max(_Nall, 1)
 
-    def token_meaning(tok, pool):
-        """A DISTINCTIVE, data-grounded meaning for a segment code: the activity-code value that
-        is specific to the code's holders (held by most of them, but NOT shared by most of the
-        whole schedule, so a global 'Phase 1' is rejected in favour of 'Pile Works'); else the
-        dominant significant word in those activities' names. Returns (meaning, dim|None)."""
-        if tok in _tok_cache:
-            return _tok_cache[tok]
+    # WBS names count as candidate meanings too (many IDs are built from the WBS)
+    _WBS = '(WBS)'
+
+    def _vals(a, dim):
+        if dim == _WBS:
+            return [x.strip() for x in re.split(r'\s*>\s*', a.get('wbs_path') or '') if x.strip()]
+        v = _acode(a, dim)
+        return [v] if v else []
+    _glob = Counter()
+    for _a in acts:
+        for _dim in list(code_dims) + [_WBS]:
+            for _v in set(_vals(_a, _dim)):
+                _glob[(_dim, _v)] += 1
+
+    def _abbrev(tok, value):
+        """How much ``tok`` reads like an abbreviation of ``value`` (0..1): BAT -> Batch Area,
+        SOL -> Soil Replacement, SS -> Steel Structure, EXC -> Execution, CB3C -> CB3C Conveyor."""
+        t = re.sub(r'[^a-z0-9]', '', tok.lower())
+        if len(t) < 2:
+            return 0.0
+        words = [w for w in re.findall(r'[a-z0-9]+', value.lower()) if w not in _STOP_ABBR]
+        if not words:
+            return 0.0
+        if any(w == t for w in words) or words[0].startswith(t):
+            return 1.0
+        if any(w.startswith(t) for w in words):
+            return 0.95
+        initials = ''.join(w[0] for w in words)
+        if len(t) >= 2 and (initials == t or initials.startswith(t)):
+            return 0.9
+        for w in words:                                  # SOL in "soil", BLD in "building"
+            if len(t) >= 3 and w[0] == t[0] and _subseq(t, w):
+                return 0.8
+        return 0.0
+
+    def _name_evidence(value, holders):
+        """Share of the activities carrying the segment whose NAME mentions the value (any of its
+        significant words) - the check that a meaning fits what those activities actually are."""
+        words = [w for w in re.findall(r'[a-z]{4,}', (value or '').lower()) if w not in _STOP_ABBR]
+        if not words or not holders:
+            return 0.0
+        hit = sum(1 for a in holders if any(w[:5] in (a.get('name') or '').lower() for w in words))
+        return hit / len(holders)
+
+    def token_meaning(tok, pool, siblings=True):
+        """The meaning of one ID segment, read from the ACTIVITY CODES (Ibrahim, comment 103):
+        among the activities whose ID carries the segment, the code value (or WBS name) they
+        share - preferring a value the segment abbreviates (BAT -> Batch Area, SOL -> Soil
+        Replacement Works). Else the dominant word in their names. Returns (meaning, dim|None)."""
+        key = (tok, id(pool), siblings)
+        if key in _tok_cache:
+            return _tok_cache[key]
         holders = [a for a in pool if tok in _segs(a['id'])]
         best, best_score = (tok, None), 0.0
         if holders:
-            for dim in code_dims:
-                vals = Counter(_acode(a, dim) for a in holders if _acode(a, dim))
-                if not vals:
-                    continue
-                v, n = vals.most_common(1)[0]
-                if not v:
-                    continue
-                frac_in = n / len(holders)
-                gfrac = _dim_val_global.get((dim, v), 1.0)     # how global this value is
-                if frac_in >= 0.6 and gfrac < 0.45:            # specific to this token, not global
-                    score = frac_in * (1.0 - gfrac)
+            n = len(holders)
+            npool = max(len(pool), 1)
+            for dim in list(code_dims) + [_WBS]:
+                vals = Counter(v for a in holders for v in set(_vals(a, dim)))
+                grp = Counter(v for a in pool for v in set(_vals(a, dim))) if len(holders) < len(pool) else None
+                for v, k in vals.most_common(12):
+                    if grp is not None and grp[v] / npool >= 0.8 and (siblings or not _abbrev(tok, v)):
+                        continue        # shared by the whole group (a lone code may still spell it: CVL = Civil)
+                    prec = k / n                                   # share of the holders with v
+                    rec = k / max(_glob.get((dim, v), k), 1)       # share of v's activities carrying tok
+                    ab = _abbrev(tok, v) if prec >= 0.5 else 0.0     # the letters count only if the activities agree
+                    if prec < 0.4:
+                        continue
+                    score = prec * (0.5 + 0.5 * rec) + ab * 2.0 + 0.6 * _name_evidence(v, holders)
+                    if dim == _WBS:
+                        score *= 0.9                               # an activity code says it first
                     if score > best_score:
-                        base = re.split(r'\s*[-–]\s', v, 1)[0].strip()   # drop " - <area>" suffix
+                        base = re.split(r'\s*[-–]\s', v, 1)[0].strip() if not ab else v.strip()
                         best, best_score = (base, dim), score
-            if best[1] is None:                                # no distinctive code → name words
+            if best[1] is None:                                # no code fits -> name words
                 words = Counter(w.title() for a in holders
                                 for w in re.findall(r'[A-Za-z]{3,}', a.get('name') or '')
                                 if w.lower() not in _STOP)
                 if words:
                     best = (words.most_common(1)[0][0], None)
-        _tok_cache[tok] = best
+        _tok_cache[key] = best
         return best
+
+    def column_reading(pos, toks, reps):
+        """The SMART step (Ibrahim, comment 103): decide which activity code a whole segment
+        POSITION stands for, by comparing its sibling values. In ARC / CON / SS the code whose
+        values differ between the siblings (Trade: Arc. Works / Civil Works / Steel Structure
+        Works) is the one the position encodes - not a code all of them share (Type of Work:
+        Construction). Returns ({token: (meaning, dim)}, dim) or (None, None)."""
+        by_tok = {}
+        for t in toks[:16]:
+            h = [a for a in reps if len(_segs(a['id'])) > pos and _segs(a['id'])[pos] == t]
+            if h:
+                by_tok[t] = h
+        if len(by_tok) < 2:
+            return None, None
+        best, best_score = None, 0.0
+        nrep = max(len(reps), 1)
+        for dim in list(code_dims) + [_WBS]:
+            picks, precs, abbs = {}, [], []
+            grp = Counter(v for a in reps for v in set(_vals(a, dim)))
+            for t, h in by_tok.items():
+                c = Counter(v for a in h for v in set(_vals(a, dim)))
+                # a value the WHOLE group shares (Construction, Submittal…) can't be what ONE part means
+                c = Counter({v: k for v, k in c.items() if grp[v] / nrep < 0.8}) or (c if len(c) == 1 else Counter())
+                if not c:
+                    precs.append(0.0); abbs.append(0.0); continue
+                # within this code, the value the token abbreviates wins, else the most shared one
+                v, k = max(c.items(), key=lambda kv: (_abbrev(t, kv[0]) > 0 and kv[1] / len(h) >= 0.5, kv[1]))
+                picks[t] = v
+                precs.append(k / len(h))
+                abbs.append(1.0 if (_abbrev(t, v) and k / len(h) >= 0.5) else 0.0)
+                abbs[-1] += 0.5 * _name_evidence(v, h)
+            if not picks:
+                continue
+            distinct = len(set(picks.values())) / len(by_tok)
+            mprec = sum(precs) / len(precs)
+            score = (mprec * distinct + 0.35 * (sum(abbs) / len(abbs))) * (0.8 if dim == _WBS else 1.0)
+            if mprec >= 0.5 and distinct >= 0.6 and score > best_score:
+                best, best_score = (dim, picks), score
+        if not best:
+            return None, None
+        dim, picks = best
+        return {t: (v, dim) for t, v in picks.items()}, dim
 
     def dim_role(dim):
         if not dim:
@@ -184,7 +284,11 @@ def activity_id_analysis(activities, code_types=None):
         if key.startswith('CONS|'):
             tr = key.split('|', 1)[1]
             return 'Construction — %s' % (tr if tr != 'Other' else 'other works')
-        # non-construction family: label by the most common 2-word PHRASE (bigram) in the names
+        # what the activity codes say this group is (SDS -> Shop Drawing Submittal, DE -> Design)
+        code_m, code_dim = token_meaning(key, members, siblings=False) if key != 'ALL' else (None, None)
+        if code_dim is not None and code_m and code_m != key:
+            return code_m
+        # else: label by the most common 2-word PHRASE (bigram) in the names
         # that names the deliverable/stage (e.g. "Detailed Design", "Shop Drawing"), skipping area
         # words — a phrase is far more stable than picking two frequent single words.
         bg = Counter()
@@ -225,9 +329,24 @@ def activity_id_analysis(activities, code_types=None):
             # role: first = stage; else by the dominant dimension of the tokens' meanings
             roles = Counter()
             meanings = OrderedDict()
+            pairs = []
+            col, _cdim = column_reading(pos, toks, reps) if pos > 0 else (None, None)
             for t in toks[:8]:
-                mn, dim = token_meaning(t, members)
+                if col and t in col and _abbrev(t, col[t][0]):
+                    mn, dim = col[t]
+                elif col and t in col:
+                    mn, dim = col[t]
+                    tm = token_meaning(t, members)
+                    if tm[1] is not None and _abbrev(t, tm[0]):
+                        mn, dim = tm                              # the code that spells it wins
+                else:
+                    mn, dim = token_meaning(t, members, siblings=len(toks) > 1)
+                    if pos > 0 and len(toks) == 1 and dim is not None and not _abbrev(t, mn):
+                        # one code on every activity of the group and no activity code spells it:
+                        # it carries no information of its own - say so instead of guessing
+                        mn, dim = 'fixed code for the whole group (not found in the activity codes)', None
                 meanings[mn] = None
+                pairs.append((t, mn))
                 roles[dim_role(dim)] += 1
             if pos == 0 or (pos == 1 and serial_pos == 0):
                 role = 'stage'
@@ -235,7 +354,8 @@ def activity_id_analysis(activities, code_types=None):
                 r = roles.most_common(1)[0][0]
                 role = r if r in ('area', 'work') else 'step'
             code_str = '/'.join(toks[:6]) + ('…' if len(toks) > 6 else '')
-            mean_str = ' / '.join(list(meanings)[:6]) or code_str
+            mean_str = (pairs[0][1] if len(pairs) == 1 else
+                        ' · '.join('%s = %s' % (t, m) for t, m in pairs[:6]) + (' …' if len(toks) > 6 else '')) or code_str
             cols.append((code_str, mean_str, role))
         note = 'For %s activities' % family_title(key, members)
         return {'title': family_title(key, members), 'sample': sample, 'cols': cols,
