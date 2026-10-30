@@ -11,7 +11,7 @@ def _m(v):
 
 
 def scope_preview(data, codes, currency=''):
-    """Compact §7 preview for an ordered list of 1-3 activity codes."""
+    """Compact §7 preview for an ordered list of activity codes (any number)."""
     from p6_narrative import scope as S
     codes = [c for c in (codes or []) if c]
     if not codes:
@@ -29,13 +29,14 @@ def scope_preview(data, codes, currency=''):
                 row['parts'] = [{'name': g.get('name'), 'pct': g.get('pct')} for g in (ch.get('children') or [])[:5]]
             drill.append(row)
         drill = {'parent': first.get('name'), 'rows': drill}
-    lists = [{'code': cl['code'], 'values': [v['name'] for v in cl['values'][:8]], 'more': max(0, len(cl['values']) - 8)}
+    lists = [{'code': cl['code'], 'values': [v['name'] for v in cl['values'][:8]], 'more': max(0, len(cl['values']) - 8),
+              'by_count': cl.get('basis') == 'count'}
              for cl in (sc.get('code_lists') or [])]
     combo = []                                     # each level-1 value with what it consists of
     if len(codes) >= 2:
         for c in casc[:3]:
             kids = c.get('children') or []
-            combo.append({'name': c.get('name'), 'pct': c.get('pct'),
+            combo.append({'name': c.get('name'), 'pct': c.get('pct'), 'share': S.share_label(c),
                           'parts': [k.get('name') for k in kids[:6]], 'more': max(0, len(kids) - 6)})
     return {'codes': codes, 'total': _m(sc.get('total')), 'top': top, 'drill': drill or None,
             'lists': lists, 'combo': combo,

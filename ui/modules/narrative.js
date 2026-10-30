@@ -904,7 +904,7 @@ const CHAT_Q = {
   layout:        'Add your project layout drawings for section 2 — one or several. Give each a title; it becomes the figure caption (Figure 2.1, 2.2 …), one drawing per page.',
   milestones:    'I found your milestones and ticked the main ones. Confirm what appears in section 4 (Contract Milestones).',
   key_dates:     'And the key dates for section 5 — the client inputs and deliveries the works depend on. Keep, untick or add.',
-  scope:         'Now the Scope of Work (section 7). I describe the scope in detail from your activity codes, weighted by the baseline cost. Each analysis is ONE code (what the scope consists of, e.g. Type of Work: Civil Works · Steel Works · MEP …) or TWO codes combined (e.g. Type of Work + Building: Civil Works and under it every building that has civil works, then Steel Works and its buildings, and so on). Add one or more analyses, like the Sequence of Work. Below is exactly what section 7 says for each choice, from your own file. Tip: pick codes that every construction activity carries — a code that only a few activities carry leaves the rest as “Unclassified”.',
+  scope:         'Now the Scope of Work (section 7). Describe the scope with your activity codes: add as many descriptions as you need, and give each one as many codes as you like, in order. For example Engineering + Building describes the engineering scope building by building, and Type of Work describes the scope of work by its types. Each description gets its own sub-section. Codes with cost loaded are weighted by the baseline cost; a code with no cost loaded (e.g. design submittals) is described by its activities. Below is exactly what section 7 says for each choice, from your own file. Tip: pick codes that every construction activity carries — a code that only a few activities carry leaves the rest as “Unclassified”.',
   sequence:      'Next the Sequence of Work (section 11). Each analysis puts the work in the order your baseline logic runs it (read from the relationships, not assumed), drawn as a chevron flow: ONE code = the order of the whole project (e.g. which trade comes first); TWO codes = the order inside each area (e.g. per building, which work comes first) — areas with the same order are grouped. Below is exactly what section 11 shows for each choice, from your own file. Pick one or more analyses.',
   generate:      'That’s everything I need. Here is your setup — click Back to change any answer. Shall I build the report?',
 };
@@ -1077,11 +1077,12 @@ function curScope() {
 }
 function setScope(sc) { const s = getSetup(); s.scope_codes = sc.slice(); saveSetup(); }
 
-// Scope analyses (comment 103 - the same as the Sequence of Work): each one code, or a combination.
+// Scope descriptions: each one by as many activity codes as the planner picks, in order (not limited
+// to 1-2 codes like the Sequence of Work) - e.g. Engineering + Building, then Type of Work.
 function curScopeAn() {
   const s = getSetup(), codes = chatCodes();
   if (Array.isArray(s.scope_analyses)) {
-    return s.scope_analyses.map(a => ({ codes: (Array.isArray(a.codes) ? a.codes : []).filter(c => codes.includes(c)).slice(0, 2) }))
+    return s.scope_analyses.map(a => ({ codes: [...new Set((Array.isArray(a.codes) ? a.codes : []).filter(c => codes.includes(c)))] }))
       .filter(a => a.codes.length);
   }
   const sc = curScope();
@@ -1091,7 +1092,7 @@ function curScopeAn() {
 }
 function setScopeAn(list) {
   const s = getSetup();
-  s.scope_analyses = list.map(a => ({ codes: a.codes.filter(Boolean).slice(0, 2) })).filter(a => a.codes.length);
+  s.scope_analyses = list.map(a => ({ codes: [...new Set(a.codes.filter(Boolean))] })).filter(a => a.codes.length);
   s.scope_codes = s.scope_analyses.length ? s.scope_analyses[0].codes.slice() : [];
   saveSetup();
 }
@@ -1157,24 +1158,25 @@ function chatControl(step) {
       : `<div class="bn-cklist">${col('Key dates', _chatMeta.key_date_choices || [], 'key_date_keys')}</div>`;
   }
   if (step === 'scope') {
-    // Same input as the Sequence of Work (comment 103): one row per analysis - one activity code,
-    // or two to combine them (e.g. Type of Work + Building) - reorder, swap, remove, add above/below.
+    // One row per scope description; each row is a chain of code pickers (as many codes as the
+    // planner wants, in order) with + code; rows reorder / remove / add above|below.
     const list = curScopeAn(), codes = chatCodes();
-    const opt = (sel, ph) => [`<option value="">${ph}</option>`].concat(codes.map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+    const opt = (row, sel, ph) => [`<option value="">${ph}</option>`].concat(codes.filter(c => c === sel || !row.includes(c))
+      .map(c => `<option value="${esc(c)}"${c === sel ? ' selected' : ''}>${esc(c)}</option>`)).join('');
     const rows = list.map((a, i) =>
-      `<div class="bn-srow"><span class="bn-lvl2">${i + 1}</span>` +
-      `<select class="bn-sq bn-sa" data-sai="${i}" data-saslot="0" title="1st activity code">${opt(a.codes[0] || '', '— pick a code —')}</select>` +
-      `<i class="bn-ch bn-sw" data-saswap="${i}" title="swap: make the 2nd code 1st"${a.codes.length === 2 ? '' : ' style="opacity:.3"'}>⇄</i>` +
-      `<select class="bn-sq bn-sa" data-sai="${i}" data-saslot="1" title="2nd activity code - combines with the 1st">${opt(a.codes[1] || '', '— none (single) —')}</select>` +
+      `<div class="bn-srow" style="flex-wrap:wrap;max-width:none"><span class="bn-lvl2">${i + 1}</span>` +
+      a.codes.map((c, j) => (j ? '<span class="bn-carrow">›</span>' : '') +
+        `<select class="bn-sq bn-sa" style="flex:0 1 auto" data-sai="${i}" data-saslot="${j}" title="activity code ${j + 1} of this description">${opt(a.codes, c, j ? '— remove this code —' : '— remove this description —')}</select>`).join('') +
+      (codes.some(c => !a.codes.includes(c)) ? `<button type="button" class="bn-add2" data-sacode="${i}" title="describe this scope by one more activity code">+ code</button>` : '') +
       `<i class="bn-ch" data-samv="up" data-i="${i}" title="move up"${i === 0 ? ' style="opacity:.3"' : ''}>▲</i>` +
       `<i class="bn-ch" data-samv="down" data-i="${i}" title="move down"${i === list.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
-      `<i class="bn-x" data-sarm="${i}" title="remove">✕</i></div>`).join('');
+      `<i class="bn-x" data-sarm="${i}" title="remove this description">✕</i></div>`).join('');
     return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
-      `<div class="bn-cktitle" style="margin-top:8px">Your scope analyses — each one code, or two to combine them</div>` +
-      `<button type="button" class="bn-add2" data-saadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add analysis above</button>` +
-      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No analyses — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
-      `<button type="button" class="bn-add2" data-saadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add analysis below</button>` +
-      `<div class="bn-hint2">The 1st analysis also gives the scope overview chart (7.1); each further analysis gets its own sub-section (7.3, 7.4 …).</div>`;
+      `<div class="bn-cktitle" style="margin-top:8px">Your scope descriptions — each by as many activity codes as you like, in order</div>` +
+      `<button type="button" class="bn-add2" data-saadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add description above</button>` +
+      `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No descriptions — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
+      `<button type="button" class="bn-add2" data-saadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add description below</button>` +
+      `<div class="bn-hint2">Each description gets its own sub-section (7.2, 7.3 …). The overview chart (7.1) uses the first description whose codes carry cost.</div>`;
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1319,12 +1321,12 @@ function scopeExample(ex, i) {
         + (r.parts ? `<td>${r.parts.map(p => `${_esc(p.name)} ${p.pct}%`).join(' · ')}</td>` : '') + '</tr>').join('') + '</table>';
   }
   // what each picked code consists of + how they combine - exactly as section 7 now opens
-  const lists = (ex.lists || []).map(l => `<div class="bn-cons"><b>${_esc(l.code)}</b> consists of: ${l.values.map(_esc).join(' · ')}${l.more ? ` · +${l.more} more` : ''}</div>`).join('');
-  const combo = (ex.combo || []).length ? `<div class="bn-rh2">7.2 ${_esc(ex.codes[0])} → ${_esc(ex.codes[1])} — each with what it consists of</div>`
-    + ex.combo.map(c => `<div class="bn-combo"><b>➢ ${_esc(c.name)}</b> (${c.pct}%)<div>${c.parts.map(x => '• ' + _esc(x)).join('&nbsp;&nbsp; ')}${c.more ? `&nbsp;&nbsp; +${c.more} more` : ''}</div></div>`).join('') : '';
+  const lists = (ex.lists || []).map(l => `<div class="bn-cons"><b>${_esc(l.code)}</b> consists of: ${l.values.map(_esc).join(' · ')}${l.more ? ` · +${l.more} more` : ''}${l.by_count ? ' <i>(no cost loaded — described by its activities)</i>' : ''}</div>`).join('');
+  const combo = (ex.combo || []).length ? `<div class="bn-rh2">${ex.codes.map(_esc).join(' → ')} — each ${_esc(ex.codes[0])} with what it consists of</div>`
+    + ex.combo.map(c => `<div class="bn-combo"><b>➢ ${_esc(c.name)}</b> (${_esc(c.share || c.pct + '%')})<div>${c.parts.map(x => '• ' + _esc(x)).join('&nbsp;&nbsp; ')}${c.more ? `&nbsp;&nbsp; +${c.more} more` : ''}</div></div>`).join('') : '';
   const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the cost carries no value of “${_esc(ex.codes[0])}” — it would show as Unclassified.</div>` : '';
   return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">7) Scope of Work</div>`
-    + lists + `<div class="bn-rh2">7.1 Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}${combo || drill}</div>${warn}</div>`;
+    + lists + (bars ? `<div class="bn-rh2">Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}` : '') + `${combo || drill}</div>${warn}</div>`;
 }
 function seqExample(ex, i) {
   const chev = steps => `<div class="bn-chev">${steps.map(x => `<span>${_esc(x)}</span>`).join('')}</div>`;
@@ -1384,8 +1386,8 @@ function chatTyped(raw) {
     saveSetup(); return go(1);
   }
   if (step === 'scope') {
-    const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p.slice(0, 2) }));
-    if (parts.length) { setScopeAn(parts); _chatNote = `Section 7 will have <b>${parts.length}</b> scope analysis(es): ${parts.map(p => p.codes.map(_esc).join(' → ')).join(' · ')}.`; return go(1); }
+    const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p }));
+    if (parts.length) { setScopeAn(parts); _chatNote = `Section 7 will have <b>${parts.length}</b> scope description(s): ${parts.map(p => p.codes.map(_esc).join(' → ')).join(' · ')}.`; return go(1); }
   }
   if (step === 'sequence') {
     const parts = txt.split(/,|;|\band\b/i).map(p => _findCodes(p)).filter(p => p.length).map(p => ({ codes: p.slice(0, 2) }));
@@ -1471,22 +1473,25 @@ function wireActive() {
   box.querySelectorAll('input[data-sel]').forEach(c => c.addEventListener('change', () => { s[c.dataset.sel] = collect(c.dataset.sel); saveSetup(); recount(c.dataset.sel); }));
   box.querySelectorAll('[data-all]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.all}"]`).forEach(c => { c.checked = true; }); s[a.dataset.all] = collect(a.dataset.all); saveSetup(); recount(a.dataset.all); }));
   box.querySelectorAll('[data-none]').forEach(a => a.addEventListener('click', () => { box.querySelectorAll(`input[data-sel="${a.dataset.none}"]`).forEach(c => { c.checked = false; }); s[a.dataset.none] = []; saveSetup(); recount(a.dataset.none); }));
-  // scope analyses — same handlers as the sequence analyses
+  // scope descriptions — per-code pickers, + code, reorder / remove / add above|below
   box.querySelectorAll('.bn-sa').forEach(sel => sel.addEventListener('change', () => {
-    const list = curScopeAn(), i = +sel.dataset.sai, slot = +sel.dataset.saslot;
+    const list = curScopeAn(), i = +sel.dataset.sai, j = +sel.dataset.saslot;
     if (!list[i]) return;
     const cc = list[i].codes.slice();
-    if (slot === 0) {
-      if (!sel.value) list.splice(i, 1);
-      else list[i].codes = [sel.value].concat(cc[1] && cc[1] !== sel.value ? [cc[1]] : []);
-    } else {
-      const first = cc[0];
-      list[i].codes = first ? (sel.value && sel.value !== first ? [first, sel.value] : [first]) : [];
-    }
+    if (!sel.value) cc.splice(j, 1);
+    else if (!cc.some((c, k) => c === sel.value && k !== j)) cc[j] = sel.value;
+    list[i].codes = cc;
     setScopeAn(list.filter(a => a.codes.length)); paintActive();
   }));
+  box.querySelectorAll('[data-sacode]').forEach(b => b.addEventListener('click', () => {
+    const list = curScopeAn(), i = +b.dataset.sacode, codes = chatCodes();
+    if (!list[i]) return;
+    const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
+    const next = auto.concat(codes).find(c => !list[i].codes.includes(c));
+    if (!next) return;
+    list[i].codes.push(next); setScopeAn(list); paintActive();
+  }));
   box.querySelectorAll('[data-sarm]').forEach(b => b.addEventListener('click', () => { const list = curScopeAn(); list.splice(+b.dataset.sarm, 1); setScopeAn(list); paintActive(); }));
-  box.querySelectorAll('[data-saswap]').forEach(b => b.addEventListener('click', () => { setScopeAn(swapSeqCodes(curScopeAn(), +b.dataset.saswap)); paintActive(); }));
   box.querySelectorAll('[data-samv]').forEach(b => b.addEventListener('click', () => { setScopeAn(moveItem(curScopeAn(), +b.dataset.i, b.dataset.samv)); paintActive(); }));
   box.querySelectorAll('[data-saadd]').forEach(b => b.addEventListener('click', () => {
     const list = curScopeAn(), codes = chatCodes();

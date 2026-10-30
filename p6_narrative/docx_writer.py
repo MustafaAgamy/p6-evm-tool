@@ -39,6 +39,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 from p6_narrative import docx_calendar, docx_native, docx_template
 from p6_narrative.util import restable_title
+from p6_narrative.scope import share_label
 
 # ── palette / fonts (mirror the approved builder) ─────────────────────────────
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
@@ -68,8 +69,10 @@ _LEADS = {
                  'in chronological order.',
     'Contract Value': 'The contract value and its distribution by type of work '
                       '(discipline activity code), from cost loading.',
-    'Scope of Work': 'The scope is analysed from the activity codes, weighted by cost '
-                     'loading.',
+    'Scope of Work': 'The scope is described by the activity codes the planner picked — the '
+                     'overview by cost first, then one sub-section per description. Codes with '
+                     'cost loaded are weighted by the baseline cost; a code with no cost loaded '
+                     'is described by its activities.',
     'Work Breakdown Structure': 'The project WBS is presented as an organisation chart, '
                                 'then each major branch is expanded — to Level 4 where a '
                                 'branch’s Level-4 nodes are 4 or fewer, otherwise to Level 3.',
@@ -702,9 +705,8 @@ def _render_cascade(document, nodes, cur_fn, depth):
             run(wp, n.get('name') or '—')
             continue
         mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
-        pct = n.get('pct')
-        pct_txt = (' (%s%%)' % _pct(pct)) if pct is not None else ''
-        money = (' — %s' % cur_fn(n.get('cost'))) if depth == 0 else ''
+        pct_txt = (' (%s)' % share_label(n)) if n.get('pct') is not None else ''
+        money = (' — %s' % cur_fn(n.get('cost'))) if (depth == 0 and n.get('basis') != 'count') else ''
         hp = para(document, before=(9 if depth == 0 else 3), after=2)
         if depth > 0:
             hp.paragraph_format.left_indent = Inches(0.28 * depth)
@@ -722,19 +724,6 @@ def _render_scope(document, p, number, note):
         m = _money(v)
         return ('%s %s' % (unit, m)) if (unit and m) else m
 
-    # intro — the scope is derived by cross-filtering the picked activity codes (in order)
-    codes = p.get('codes') or []
-    codes_txt = ' → '.join(codes) if codes else 'the picked activity codes'
-    para(document,
-         'The scope is analysed by cross-filtering the picked activity codes, cost-weighted: '
-         '%s.' % codes_txt,
-         align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
-    # what each picked code consists of, then (x.2) how they combine
-    for cl in (p.get('code_lists') or []):
-        pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
-        run(pp, '%s' % cl['code'], bold=True)
-        run(pp, ' consists of: ' + ' · '.join('%s (%s%%)' % (v['name'], v['pct']) for v in cl['values']) + '.')
-
     # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
     # one ramp-coloured segment per discipline, sized to its % share of value)
     disciplines = p.get('disciplines') or []
@@ -749,24 +738,26 @@ def _render_scope(document, p, number, note):
     if narrative:
         para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
 
-    # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
-    # ➢/▸/– heading per non-leaf level, '•' bullet per deepest leaf, indented by depth)
-    _subhead(document, '%s.2' % number, 'Detailed scope by activity codes')
-    cascade = [n for n in (p.get('cascade') or []) if n]
-    if not cascade:
-        _muted(document, 'No activity-code breakdown is available for this scope.')
-    else:
-        _render_cascade(document, cascade, _cur, 0)
-    # x.3, x.4 … — every further analysis (one code, or a combination), like the HTML twin
-    for k, m in enumerate(p.get('more') or [], 3):
+    # {number}.2, .3 … — one sub-section per description, like the HTML twin
+    descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
+              'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
+    for k, m in enumerate(descs, 2):
         mc = m.get('codes') or []
-        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Scope analysis')
+        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Detailed scope by activity codes')
+        if len(mc) >= 2:
+            _muted(document, 'Each %s by %s.' % (mc[0], ', then '.join(mc[1:])))
         for cl in (m.get('code_lists') or []):
             pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
             run(pp, cl['code'], bold=True)
-            run(pp, ' consists of: ' + ' · '.join('%s (%s%%)' % (v['name'], v['pct']) for v in cl['values']) + '.')
-        if len(mc) >= 2 and m.get('cascade'):
-            _render_cascade(document, [n for n in m['cascade'] if n], _cur, 0)
+            run(pp, ' consists of: ' + ' · '.join('%s (%s)' % (v['name'], share_label(v)) for v in cl['values']) + '.')
+        cascade = [n for n in (m.get('cascade') or []) if n]
+        if len(mc) >= 2:
+            if cascade:
+                _render_cascade(document, cascade, _cur, 0)
+            else:
+                _muted(document, 'No activity-code breakdown is available for this scope.')
+        elif not m.get('code_lists'):
+            _muted(document, 'No activity-code breakdown is available for this scope.')
 
 
 # ── §11 Sequence of Work ──────────────────────────────────────────────────────

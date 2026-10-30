@@ -77,42 +77,37 @@ def _value_bars(p, sec):
     return [_block('Contract value by type of work', ['Type of work', 'Amount' + (f' ({unit})' if unit else ''), 'Share (%)'], rows)]
 
 
+def _basis(v):
+    return 'activity count' if (v or {}).get('basis') == 'count' else 'cost'
+
+
 def _scope(p, sec):
     out = []
     if p.get('narrative'):
         out.append(_text_block('Scope of work', [p['narrative']]))
-    for cl in (p.get('code_lists') or []):
-        out.append(_block('%s consists of' % _s(cl['code']), [_s(cl['code']), 'Share of cost (%)'],
-                          [[_s(v['name']), _num(v['pct'])] for v in cl['values']]))
     out.append(_block('Share of contract value by discipline', ['Discipline', 'Cost', 'Share (%)'],
                       [[_s(d.get('name')), _num(d.get('cost')), _num(d.get('pct'))] for d in (p.get('disciplines') or [])]))
-    flat = []
-
-    def walk(nodes, depth, trail):
-        for n in nodes or []:
-            name = _s(n.get('name'))
-            flat.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct')),
-                         n.get('count') if n.get('count') is not None else '', _num(n.get('each')) if n.get('each') is not None else ''])
-            walk(n.get('children'), depth + 1, trail + [name])
-    walk(p.get('cascade'), 0, [])
-    codes = ' › '.join(_s(c) for c in (p.get('codes') or []))
-    out.append(_block('Detailed cost-weighted breakdown', ['Level', 'Path', 'Name', 'Cost', 'Share (%)', 'Count', 'Each'],
-                      flat, note=('By activity code: ' + codes) if codes else None))
-    for m in (p.get('more') or []):
+    descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
+              'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
+    for m in descs:
         mc = ' › '.join(_s(c) for c in (m.get('codes') or []))
         for cl in (m.get('code_lists') or []):
-            out.append(_block('%s — %s consists of' % (mc, _s(cl['code'])), [_s(cl['code']), 'Share of cost (%)'],
-                              [[_s(v['name']), _num(v['pct'])] for v in cl['values']]))
+            out.append(_block('%s — %s consists of' % (mc, _s(cl['code'])), [_s(cl['code']), 'Share (%)', 'Activities', 'Weighted by'],
+                              [[_s(v['name']), _num(v['pct']), v.get('acts', ''), _basis(v)] for v in cl['values']]))
         rows = []
 
-        def walk2(nodes, depth, trail):
+        def walk(nodes, depth, trail):
             for n in nodes or []:
                 name = _s(n.get('name'))
-                rows.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct'))])
-                walk2(n.get('children'), depth + 1, trail + [name])
-        walk2(m.get('cascade'), 0, [])
+                rows.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct')),
+                             n.get('acts', ''), _basis(n),
+                             n.get('count') if n.get('count') is not None else '',
+                             _num(n.get('each')) if n.get('each') is not None else ''])
+                walk(n.get('children'), depth + 1, trail + [name])
+        walk(m.get('cascade'), 0, [])
         if rows and len(m.get('codes') or []) >= 2:
-            out.append(_block('%s — combined' % mc, ['Level', 'Path', 'Name', 'Cost', 'Share (%)'], rows))
+            out.append(_block('%s — detailed scope' % mc,
+                              ['Level', 'Path', 'Name', 'Cost', 'Share (%)', 'Activities', 'Weighted by', 'Grouped', 'Each'], rows))
     return out
 
 

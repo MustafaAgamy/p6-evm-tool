@@ -199,12 +199,66 @@ def test_scope_says_what_each_code_consists_of():
     assert 'Design' not in [d['name'] for d in sc['disciplines']]
 
 
-def test_scope_analyses_like_sequence():
-    """Comment 103: Scope of Work takes several analyses (one code, or two combined), like the
-    Sequence of Work; the first drives 7.1/7.2 and each further one gets its own sub-section."""
+def test_scope_descriptions_take_any_number_of_codes():
+    """Scope of Work takes several descriptions, each by as MANY activity codes as the planner
+    picks (not 1-2 like the Sequence of Work): e.g. Engineering + Building, then Type of Work."""
     from p6_narrative.report import scope_analyses_of
-    types = ['Type of Work', 'Building', 'Trade']
-    assert scope_analyses_of({'scope_analyses': [{'codes': ['Type of Work', 'Building']}, {'codes': ['Trade']}]}, types) == \
-        [['Type of Work', 'Building'], ['Trade']]
+    types = ['Type of Work', 'Building', 'Trade', 'Engineering']
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Engineering', 'Building']}, {'codes': ['Type of Work']}]}, types) == \
+        [['Engineering', 'Building'], ['Type of Work']]
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Type of Work', 'Building', 'Trade', 'Engineering']}]}, types) == \
+        [['Type of Work', 'Building', 'Trade', 'Engineering']]                    # no code limit
     assert scope_analyses_of({'scope_codes': ['Building', 'Trade']}, types) == [['Building', 'Trade']]   # older setups
     assert scope_analyses_of({'scope_analyses': [{'codes': ['Nope']}]}, types) == []
+
+
+def _eng_acts():
+    acts, bac = [], {}
+    rows = [('Construction', None, 'Batch Area', 100), ('Construction', None, 'Mixer Building', 60),
+            ('Engineering', 'Structural Submittal', 'Batch Area', 0), ('Engineering', 'Structural Submittal', 'Batch Area', 0),
+            ('Engineering', 'Structural Submittal', 'Mixer Building', 0), ('Engineering', 'Steel Submittal', 'Mixer Building', 0)]
+    for i, (tw, eng, b, c) in enumerate(rows):
+        codes = {'Type of Work': tw, 'Building': b}
+        if eng:
+            codes['Engineering'] = eng
+        acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                     'activity_codes': codes, 'wbs_id': None})
+        bac[i] = c
+    return acts, bac
+
+
+def test_scope_code_without_cost_is_described_by_activities():
+    """Engineering submittals carry no cost: "Engineering + Building" must still describe the
+    engineering scope building by building (by activity count), never come out empty."""
+    from p6_narrative import scope
+    acts, bac = _eng_acts()
+    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building', 'Engineering'],
+                              {'scope_codes': ['Engineering', 'Building']}, '')
+    lists = {cl['code']: cl for cl in sc['code_lists']}
+    eng = lists['Engineering']
+    assert eng['basis'] == 'count'
+    assert [(v['name'], v['acts']) for v in eng['values']] == [('Structural Submittal', 3), ('Steel Submittal', 1)]
+    top = {n['name']: n for n in sc['cascade']}
+    assert top['Structural Submittal']['basis'] == 'count'
+    assert {k['name']: k['acts'] for k in top['Structural Submittal']['children']} == {'Batch Area': 2, 'Mixer Building': 1}
+    assert scope.share_label(top['Structural Submittal']) == '3 activities'
+    # a cost-loaded code keeps its cost weighting and still leaves the zero-cost value out
+    sc2 = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building', 'Engineering'],
+                               {'scope_codes': ['Type of Work', 'Building']}, '')
+    assert [n['name'] for n in sc2['cascade']] == ['Construction']
+    assert scope.share_label(sc2['cascade'][0]) == '100%'
+
+
+def test_scope_overview_chart_uses_a_cost_loaded_description():
+    """When the first description has no cost (Engineering + Building), the 7.1 chart and the
+    Contract Value split come from the next description that carries cost (Type of Work)."""
+    from types import SimpleNamespace
+    from p6_narrative.report import _scope
+    acts, bac = _eng_acts()
+    data = SimpleNamespace(activities={a['object_id']: a for a in acts}, wbs={}, bac_by_activity=bac,
+                           activity_code_types=['Type of Work', 'Building', 'Engineering'])
+    sec = _scope(data, {'scope_analyses': [{'codes': ['Engineering', 'Building']}, {'codes': ['Type of Work']}]})
+    p = sec.payload
+    assert p['codes'] == ['Engineering', 'Building']
+    assert [d['name'] for d in p['disciplines']] == ['Construction']
+    assert [m['codes'] for m in p['more']] == [['Type of Work']]
