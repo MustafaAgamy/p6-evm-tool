@@ -18,7 +18,9 @@ def scope_preview(data, codes, currency=''):
         return None
     sc = S.scope_sections(list(data.activities.values()), data.wbs, getattr(data, 'bac_by_activity', None),
                           data.activity_code_types, {'scope_codes': codes}, currency)
-    top = [{'name': d.get('name'), 'value': _m(d.get('cost')), 'pct': d.get('pct')} for d in (sc.get('disciplines') or [])[:6]]
+    led_by_count = any(cl.get('basis') == 'count' for cl in (sc.get('code_lists') or []) if cl.get('code') == codes[0])
+    top = [] if led_by_count else [{'name': d.get('name'), 'value': _m(d.get('cost')), 'pct': d.get('pct')}
+                                   for d in (sc.get('disciplines') or [])[:6]]      # no cost bar for a no-cost code
     drill = []
     casc = (sc.get('cascade') or [])
     if len(codes) >= 2 and casc:
