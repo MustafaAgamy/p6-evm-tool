@@ -3,10 +3,13 @@
  * Run: node tests/js/test_calendar.js
  */
 import assert from 'node:assert/strict';
-import { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass,
-         SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria, histBarGeom,
-         hist3Geom }
-  from '../../ui/modules/calendar.js';
+// calendar.js → api.js → overview.js → reportname.js wires document listeners at load time;
+// Node has no DOM, so stub it before the (dynamic) import.
+globalThis.document ??= { addEventListener() {} };
+const { fmtCalDate, statusClass, monthGridCells, conflictSeverityClass,
+        SITE_TYPES, SITE_TYPE_ORDER, matchSiteType, buildSiteCriteria, histBarGeom,
+        hist3Geom, monthSplitRows, monthHeadline }
+  = await import('../../ui/modules/calendar.js');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -23,6 +26,25 @@ console.log('\nstatusClass');
 test('work',      () => assert.equal(statusClass('work'), 'cs-work'));
 test('a long holiday run reads as a holiday (no shutdown in P6)',  () => assert.equal(statusClass('shutdown'), 'cs-holiday'));
 test('unknown -> work', () => assert.equal(statusClass('???'), 'cs-work'));
+
+console.log('\nmonthHeadline (open month grid header)');
+{
+  // Course file, main calendar 'Silos Phase I Scope', Mar 2027: holidays 3, 4 and 6–11 March.
+  const mar = { label: 'Mar 2027', working_days: 19, nonworking_days: 12, calendar_days: 31,
+                rest_days: 4, off_days: 8, holidays: 2, working_hours: 152 };
+  test('counts holiday DAYS — the 6-day run included', () =>
+    assert.equal(monthHeadline(mar), 'Mar 2027 — 19 working · 8 holidays · 152 hrs'));
+  test('equals section 3.1 Holidays for the same month', () =>
+    assert.equal(monthHeadline(mar).match(/(\d+) holidays?/)[1], String(monthSplitRows([mar])[0][4])));
+  test('fresh result (holidays = off_days) reads the same', () =>
+    assert.equal(monthHeadline({ ...mar, holidays: 8 }), 'Mar 2027 — 19 working · 8 holidays · 152 hrs'));
+  test('one holiday is singular', () =>
+    assert.equal(monthHeadline({ label: 'Jan 2027', working_days: 22, off_days: 1, working_hours: 176 }),
+      'Jan 2027 — 22 working · 1 holiday · 176 hrs'));
+  test('a result without off_days falls back to holidays', () =>
+    assert.equal(monthHeadline({ label: 'Feb 2025', working_days: 18, holidays: 1, working_hours: 144 }),
+      'Feb 2025 — 18 working · 1 holiday · 144 hrs'));
+}
 
 console.log('\nmonthGridCells');
 test('pads leading blanks by weekday', () => {

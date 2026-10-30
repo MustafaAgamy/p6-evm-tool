@@ -30,15 +30,18 @@ export function conflictSeverityClass(sev) {
   return { High: 'cf-high', Medium: 'cf-med', Low: 'cf-low' }[sev] || 'cf-low';
 }
 
-// Per-month bar geometry for the Calendar Timeline histogram (Feature 1 §2). Heights are in
-// px, scaled so the tallest month (working + non-working) fills ~100px; the non-working
-// segment stacks under the working one. Shared by the primary and the compare histogram.
+// A month's holiday DAYS — a long run included (P6 has no shutdown type). `off_days` first: a
+// result stored before the fix kept the run's days out of `holidays`.
+function monthHolidayDays(m) {
+  return m.off_days != null ? m.off_days : (m.holidays || 0);
+}
+
 // §3.1 rows — one per month + a Total row: [Month, Calendar days, Working days, Weekly rest
 // days, Holidays, Total non-working]. The same numbers the histogram draws. Pure — unit-tested.
 export function monthSplitRows(months) {
   const rows = (months || []).map(m => {
     const wd = m.working_days || 0, nw = m.nonworking_days || 0;
-    const off = m.off_days != null ? m.off_days : (m.holidays || 0);
+    const off = monthHolidayDays(m);
     return [m.label, m.calendar_days != null ? m.calendar_days : wd + nw, wd,
             m.rest_days != null ? m.rest_days : nw - off, off, nw];
   });
@@ -46,6 +49,15 @@ export function monthSplitRows(months) {
   return rows;
 }
 
+// Header of an opened month grid (§2) — the same holiday count as the §3.1 row. Pure — unit-tested.
+export function monthHeadline(m) {
+  const hol = monthHolidayDays(m);
+  return `${m.label} — ${m.working_days || 0} working · ${hol} holiday${hol === 1 ? '' : 's'} · ${m.working_hours || 0} hrs`;
+}
+
+// Per-month bar geometry for the Calendar Timeline histogram (Feature 1 §2). Heights are in
+// px, scaled so the tallest month (working + non-working) fills ~100px; the non-working
+// segment stacks under the working one. Shared by the primary and the compare histogram.
 export function histBarGeom(months) {
   const mx = Math.max(1, ...months.map(m => (m.working_days || 0) + (m.nonworking_days || 0)));
   return months.map(m => {
@@ -467,8 +479,7 @@ function _monthDetailHtml() {
     const cells = monthGridCells(m).map(c => c.blank
       ? '<div class="cal-mcell blank"></div>'
       : `<div class="cal-mcell ${statusClass(c.status)}"><span class="cal-dn">${c.d}</span>${c.name ? `<div class="cal-cn">${escapeHtml(c.name)}</div>` : ''}</div>`).join('');
-    return `<div class="cal-month-open"><div class="cal-month-open-t">${escapeHtml(m.label)} —
-      ${m.working_days} working · ${m.holidays} holiday${m.holidays === 1 ? '' : 's'} · ${m.working_hours} hrs</div>
+    return `<div class="cal-month-open"><div class="cal-month-open-t">${escapeHtml(monthHeadline(m))}</div>
       <div class="cal-month-grid">${head}${cells}</div></div>`;
   }).join('');
 }
