@@ -86,6 +86,18 @@ def test_exceptions_split_holiday_vs_shutdown(tmp_path):
     assert r['dashboard']['shutdown_periods'] == 1
 
 
+def test_month_holidays_count_every_holiday_day(tmp_path):
+    """The month's holiday count is per DAY and includes a long run — P6 has no shutdown type,
+    every non-working date that is not the weekly rest day is a holiday. Feb 2025 = 03 Feb + the
+    7-day run 10–16 Feb = 8 holidays, the same figure section 3.1 shows (`off_days`), not 1."""
+    r = _run(tmp_path)
+    ms = r['by_calendar'][r['primary_calendar_id']]['monthly_stats']
+    feb = next(m for m in ms if m['label'] == 'Feb 2025')
+    assert feb['off_days'] == 8
+    assert feb['holidays'] == 8
+    assert all(m['holidays'] == m['off_days'] for m in ms)
+
+
 def test_manual_shutdown_added(tmp_path):
     r = _run(tmp_path, settings={'manual_shutdowns': [
         {'start': '2025-03-03', 'end': '2025-03-07', 'reason': 'Client turnaround'}]})

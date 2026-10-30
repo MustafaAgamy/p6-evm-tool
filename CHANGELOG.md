@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Calendar Audit: an opened month counts its holiday days
+- Clicking a month bar now heads its calendar with the month's holiday **days**, a long run included — the same figure as 3.1 *Non-working days per month* and the histogram (course file, *Silos Phase I Scope*, March 2027: **19 working · 8 holidays · 152 hrs**, before "2 holidays"). P6 has no shutdown type: every non-working date that is not the weekly rest day is a holiday, counted per day. The Excel *Monthly Statistics* › Holidays column now gives the same number. Projects already imported show the right count without re-importing.
+
 ### Changed — Earned Value matches P6 (comments 95–97)
 - **Earned Value reads only an XML update exported with its baseline.** P6 measures Planned Value, SPI and Delay against the project baseline assigned to the update, and only the XML carries it. An XER update, or an XML exported without its baseline, shows a card explaining why and the four steps to re-export from P6; every other feature keeps working with that file. A baseline programme with no baseline assigned in P6 is exact on its own dates and passes.
 - **Design / Engineering / Procurement (any scope with no cost) are measured by count of activities**, as the planner checks them in P6: Actual % = activities with Activity Status = Completed ÷ all activities of the scope; Planned % = activities whose BL Project Finish is on or before the data date ÷ all; In Progress is counted in its own column (not in Actual %). Each scope opens into its Sub-WBS code rows (Schematic / Detailed / IFC / Shop Drawing Submittal and Approval, Material Submittal, POs, Delivery…). Cost-loaded scope stays cost-weighted. Same table in the PDF and Excel.

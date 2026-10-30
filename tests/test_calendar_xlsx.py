@@ -170,6 +170,21 @@ def test_comparison_sheet_has_nonworking_days(tmp_path):
         assert 'Non-Working Days' in z.read('xl/worksheets/sheet1.xml').decode()
 
 
+def test_monthly_statistics_holidays_are_holiday_days(tmp_path):
+    """Monthly Statistics › Holidays = the month's holiday DAYS (section 3.1's `off_days`), a
+    long run included — also for a result stored before the fix, whose `holidays` key still
+    counted only the short-run days (course file, Mar 2027: 2 → 8)."""
+    from p6_evm.xlsx_writer import _timeline_sheet_xml
+    m = {'label': 'Mar 2027', 'first_weekday': 0, 'working_days': 19, 'nonworking_days': 12,
+         'holidays': 2, 'off_days': 8, 'exceptions': 8, 'working_hours': 152.0, 'days': []}
+    xml = _timeline_sheet_xml([m], 'Silos Phase I Scope', '')
+    row = xml[xml.index('Monthly Statistics'):]
+    row = row[row.index('Mar 2027'):]
+    row = row[:row.index('</row>')]
+    import re
+    assert re.search(r'<c r="D\d+"><v>8</v>', row)      # column D = Holidays
+
+
 def test_workbook_from_real_audit_end_to_end(tmp_path):
     """parse → calendar_audit → workbook, so the REAL audit output shape is exercised
     (not a hand-built dict). Guards against a shape drift between audit and the writer."""

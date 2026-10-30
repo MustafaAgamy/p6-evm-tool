@@ -278,7 +278,7 @@ def _months_for_calendar(cal, start, finish, shutdown_dates, date_names=None):
     for y, m in _month_iter(start, finish):
         m_first = max(date(y, m, 1), start)
         m_last = min(_month_last_day(y, m), finish)
-        days, wd, hol, exc, off, hours = [], 0, 0, 0, 0, 0.0
+        days, wd, exc, off, hours = [], 0, 0, 0, 0.0
         d = m_first
         while d <= m_last:
             st = _day_status(cal, d, shutdown_dates)
@@ -290,8 +290,6 @@ def _months_for_calendar(cal, start, finish, shutdown_dates, date_names=None):
             if st == 'work' or st == 'special':
                 wd += 1
                 hours += cal.day_working_hours(d)
-            if st == 'holiday':
-                hol += 1
             if st in ('holiday', 'shutdown'):
                 off += 1
             if st in ('holiday', 'shutdown', 'special'):
@@ -307,7 +305,9 @@ def _months_for_calendar(cal, start, finish, shutdown_dates, date_names=None):
         months.append({
             'label': f'{_MONTH_ABBR[m]} {y}', 'year': y, 'month': m,
             'first_weekday': m_first.weekday(),  # Mon=0
-            'working_days': wd, 'nonworking_days': len(days) - wd, 'holidays': hol,
+            # holidays = holiday DAYS, a long run ('shutdown' status) included — P6 has no
+            # shutdown type, so this equals off_days (the §3.1 / histogram figure)
+            'working_days': wd, 'nonworking_days': len(days) - wd, 'holidays': off,
             # §3 per-month table (comment 76): calendar days = working + weekly rest days + holidays
             # (holidays and shutdowns together) — the same split the histogram bar draws
             'calendar_days': len(days), 'off_days': off, 'rest_days': len(days) - wd - off,
