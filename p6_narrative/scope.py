@@ -306,19 +306,23 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
 
     work = [a for a in activities if a.get('task_type') not in _NON_WORK]
     total_cost = cost_of(work)
+    # The scope is described over the activities that CARRY the picked code only (Ibrahim,
+    # 2026-11-08): a code not assigned to every activity is analysed on its own activities -
+    # no "Unclassified" share; by their cost, or by activity count when they carry no cost.
+    coded = [a for a in work if code(a, codes[0])] if codes else []
+    first_cost = cost_of(coded)
 
-    # ── level-1 split for the §7.1 chart (uncoded → "Unclassified", to match §6 doughnut) ──
+    # ── level-1 split for the §7.1 chart: the picked code's own activities, % of their cost ──
     disciplines = []
-    if codes:
+    if codes and first_cost > 0:
         g1 = OrderedDict()
-        for a in work:
-            g1.setdefault(code(a, codes[0]) or 'Unclassified', []).append(a)
+        for a in coded:
+            g1.setdefault(code(a, codes[0]), []).append(a)
         for d in sorted(g1, key=lambda x: (-cost_of(g1[x]), _trade_rank(x), _first_index(g1, x))):
             c = round(cost_of(g1[d]), 2)
-            if c <= 0 and total_cost > 0:
+            if c <= 0:
                 continue        # no cost loaded (e.g. Design / Engineering): not in the scope chart (comment 103)
-            disciplines.append({'name': d, 'cost': c,
-                                'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0})
+            disciplines.append({'name': d, 'cost': c, 'pct': round(100 * c / first_cost, 1)})
 
     # ── the N-level cross-filtered cascade tree (each deeper picked code nested; siblings
     #    with an identical sub-structure grouped; pct is share of the PARENT level) ──
@@ -349,23 +353,25 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
             raw.append(node)
         raw.sort(key=(lambda n: -n['acts']) if by_count else (lambda n: -n['cost']))
         grouped = _group_identical(raw)
+        # each level is shared over the activities that carry ITS code (no "Unclassified" rest)
+        coded_cost = sum(n['cost'] for n in grouped)
         for n in grouped:
             if by_count:
                 n['pct'] = round(100 * n['acts'] / n_coded, 1) if n_coded else 0.0
             else:
-                n['pct'] = round(100 * n['cost'] / base, 1) if base > 0 else 0.0
+                n['pct'] = round(100 * n['cost'] / coded_cost, 1) if coded_cost > 0 else 0.0
         return grouped
 
     # a first code whose activities carry no cost at all is described by activity count
-    first_cost = cost_of([a for a in work if code(a, codes[0])]) if codes else 0.0
-    cascade = build(work, 0, total_cost, by_count=first_cost <= 0) if codes else []
+    cascade = build(coded, 0, first_cost, by_count=first_cost <= 0) if codes else []
 
     # what EACH picked code consists of (Ibrahim, comment 103): Type of Work = Civil, MEP, ...;
-    # Building = Batch, Conveyors, ... - cost-loaded values only, largest first, % of the total
+    # Building = Batch, Conveyors, ... - cost-loaded values only, largest first, % of the cost of
+    # the activities that carry that code
     code_lists = []
     # a description led by a code with no cost (Engineering -> Building) lists the later codes
     # over that code's activities only - the buildings that HAVE engineering, by activity count
-    led = [a for a in work if code(a, codes[0])] if (codes and first_cost <= 0) else work
+    led = coded if (codes and first_cost <= 0) else work
     for dim in codes:
         g = OrderedDict()
         for a in (work if dim == codes[0] else led):
@@ -374,10 +380,10 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
                 g.setdefault(v, []).append(a)
         vals = [(v, round(cost_of(acts), 2), len(acts)) for v, acts in g.items()]
         dim_cost = sum(c for _, c, _ in vals)
-        if dim_cost > 0:            # cost-loaded code: cost-loaded values only, % of the total
+        if dim_cost > 0:            # cost-loaded code: cost-loaded values only, % of its own cost
             vals = [x for x in sorted(vals, key=lambda x: -x[1]) if x[1] > 0]
             code_lists.append({'code': dim, 'values': [
-                {'name': v, 'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0, 'acts': n}
+                {'name': v, 'pct': round(100 * c / dim_cost, 1), 'acts': n}
                 for v, c, n in vals]})
         elif vals:                  # no cost on this code at all: described by its activities
             vals.sort(key=lambda x: -x[2])
@@ -387,7 +393,11 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
                 for v, c, n in vals]})
 
     payload = {
-        'total': round(total_cost, 2),
+        # the value the scope paragraph states = the cost of the activities carrying the code
+        'total': round(first_cost if first_cost > 0 else total_cost, 2),
+        # share of the cost left out because it carries no value of the first code (assistant tip)
+        'uncoded_pct': (round(100 * (total_cost - first_cost) / total_cost, 1)
+                        if (codes and first_cost > 0 and total_cost > 0) else 0.0),
         'codes': list(codes),
         'disciplines': disciplines,
         'cascade': cascade,

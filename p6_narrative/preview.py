@@ -42,7 +42,7 @@ def scope_preview(data, codes, currency=''):
                           'parts': [k.get('name') for k in kids[:6]], 'more': max(0, len(kids) - 6)})
     return {'codes': codes, 'total': _m(sc.get('total')), 'top': top, 'drill': drill or None,
             'lists': lists, 'combo': combo,
-            'unclassified': next((d.get('pct') for d in (sc.get('disciplines') or []) if d.get('name') == 'Unclassified'), None)}
+            'unclassified': sc.get('uncoded_pct') or None}
 
 
 def sequence_preview(data, codes):

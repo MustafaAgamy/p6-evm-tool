@@ -262,3 +262,25 @@ def test_scope_overview_chart_uses_a_cost_loaded_description():
     assert p['codes'] == ['Engineering', 'Building']
     assert [d['name'] for d in p['disciplines']] == ['Construction']
     assert [m['codes'] for m in p['more']] == [['Type of Work']]
+
+
+def test_scope_shares_are_of_the_activities_carrying_the_code():
+    """Ibrahim (2026-11-08): no "Unclassified" in the scope - a picked code that is not assigned to
+    every activity is analysed over the activities that carry it (their cost, else their count)."""
+    from p6_narrative import scope
+    acts, bac = [], {}
+    for i, (tw, b, c) in enumerate([('Construction', 'Batch Area', 60), ('Construction', None, 20),
+                                    ('Procurement', 'Mixer Building', 20), (None, 'Mixer Building', 100)]):
+        codes = {k: v for k, v in (('Type of Work', tw), ('Building', b)) if v}
+        acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                     'activity_codes': codes, 'wbs_id': None})
+        bac[i] = c
+    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'],
+                              {'scope_codes': ['Type of Work', 'Building']}, '')
+    assert [(d['name'], d['pct']) for d in sc['disciplines']] == [('Construction', 80.0), ('Procurement', 20.0)]
+    assert 'Unclassified' not in [d['name'] for d in sc['disciplines']]
+    assert sc['total'] == 100 and sc['uncoded_pct'] == 50.0
+    tw = next(cl for cl in sc['code_lists'] if cl['code'] == 'Type of Work')
+    assert [(v['name'], v['pct']) for v in tw['values']] == [('Construction', 80.0), ('Procurement', 20.0)]
+    con = next(n for n in sc['cascade'] if n['name'] == 'Construction')
+    assert [(k['name'], k['pct']) for k in con['children']] == [('Batch Area', 100.0)]   # of Construction's Building-coded cost
