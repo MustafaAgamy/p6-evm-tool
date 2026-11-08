@@ -39,6 +39,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 from p6_narrative import docx_calendar, docx_native, docx_template
 from p6_narrative.util import restable_title
+from p6_narrative.scope import share_label
 
 # ── palette / fonts (mirror the approved builder) ─────────────────────────────
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
@@ -68,8 +69,10 @@ _LEADS = {
                  'in chronological order.',
     'Contract Value': 'The contract value and its distribution by type of work '
                       '(discipline activity code), from cost loading.',
-    'Scope of Work': 'The scope is analysed from the activity codes, weighted by cost '
-                     'loading.',
+    'Scope of Work': 'The scope is described by the activity codes the planner picked — the '
+                     'overview by cost first, then one sub-section per description. Codes with '
+                     'cost loaded are weighted by the baseline cost; a code with no cost loaded '
+                     'is described by its activities.',
     'Work Breakdown Structure': 'The project WBS is presented as an organisation chart, '
                                 'then each major branch is expanded — to Level 4 where a '
                                 'branch’s Level-4 nodes are 4 or fewer, otherwise to Level 3.',
@@ -480,6 +483,27 @@ def _placeholder_box(document, text):
 
 
 def _render_image(document, p, number, note):
+    imgs = p.get('images') or []
+    if len(imgs) > 1:
+        # several drawings: one per page, Figure 2.1, 2.2 ... (twin of html._image)
+        from docx.enum.text import WD_BREAK
+        for k, im in enumerate(imgs):
+            data = docx_template._img_bytes(im.get('image'))
+            if k:
+                document.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+            if not data:
+                _placeholder_box(document, 'The attached drawing "%s" could not be displayed.' % (im.get('caption') or ''))
+                continue
+            try:
+                document.add_picture(data, width=Inches(6.6))
+                document.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                document.paragraphs[-1].paragraph_format.keep_with_next = True
+            except Exception:
+                _placeholder_box(document, 'The attached drawing "%s" could not be displayed.' % (im.get('caption') or ''))
+                continue
+            para(document, 'Figure %s.%d — %s' % (number or '2', k + 1, im.get('caption') or 'Project layout'),
+                 size=10, italic=True, color=GREY, align=WD_ALIGN_PARAGRAPH.CENTER, before=4)
+        return
     img = docx_template._img_bytes(p.get('image'))
     if not img:
         # C01a — no drawing attached: show the payload placeholder text in a clean framed box
@@ -681,9 +705,8 @@ def _render_cascade(document, nodes, cur_fn, depth):
             run(wp, n.get('name') or '—')
             continue
         mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
-        pct = n.get('pct')
-        pct_txt = (' (%s%%)' % _pct(pct)) if pct is not None else ''
-        money = (' — %s' % cur_fn(n.get('cost'))) if depth == 0 else ''
+        pct_txt = (' (%s)' % share_label(n)) if n.get('pct') is not None else ''
+        money = (' — %s' % cur_fn(n.get('cost'))) if (depth == 0 and n.get('basis') != 'count') else ''
         hp = para(document, before=(9 if depth == 0 else 3), after=2)
         if depth > 0:
             hp.paragraph_format.left_indent = Inches(0.28 * depth)
@@ -701,14 +724,6 @@ def _render_scope(document, p, number, note):
         m = _money(v)
         return ('%s %s' % (unit, m)) if (unit and m) else m
 
-    # intro — the scope is derived by cross-filtering the picked activity codes (in order)
-    codes = p.get('codes') or []
-    codes_txt = ' → '.join(codes) if codes else 'the picked activity codes'
-    para(document,
-         'The scope is analysed by cross-filtering the picked activity codes, cost-weighted: '
-         '%s.' % codes_txt,
-         align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=8)
-
     # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
     # one ramp-coloured segment per discipline, sized to its % share of value)
     disciplines = p.get('disciplines') or []
@@ -723,14 +738,26 @@ def _render_scope(document, p, number, note):
     if narrative:
         para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
 
-    # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
-    # ➢/▸/– heading per non-leaf level, '•' bullet per deepest leaf, indented by depth)
-    _subhead(document, '%s.2' % number, 'Detailed scope by activity codes')
-    cascade = [n for n in (p.get('cascade') or []) if n]
-    if not cascade:
-        _muted(document, 'No activity-code breakdown is available for this scope.')
-        return
-    _render_cascade(document, cascade, _cur, 0)
+    # {number}.2, .3 … — one sub-section per description, like the HTML twin
+    descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
+              'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
+    for k, m in enumerate(descs, 2):
+        mc = m.get('codes') or []
+        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Detailed scope by activity codes')
+        if len(mc) >= 2:
+            _muted(document, 'Each %s by %s.' % (mc[0], ', then '.join(mc[1:])))
+        for cl in (m.get('code_lists') or []):
+            pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
+            run(pp, cl['code'], bold=True)
+            run(pp, ' consists of: ' + ' · '.join('%s (%s)' % (v['name'], share_label(v)) for v in cl['values']) + '.')
+        cascade = [n for n in (m.get('cascade') or []) if n]
+        if len(mc) >= 2:
+            if cascade:
+                _render_cascade(document, cascade, _cur, 0)
+            else:
+                _muted(document, 'No activity-code breakdown is available for this scope.')
+        elif not m.get('code_lists'):
+            _muted(document, 'No activity-code breakdown is available for this scope.')
 
 
 # ── §11 Sequence of Work ──────────────────────────────────────────────────────
@@ -842,7 +869,7 @@ def _render_activity_ids(document, p, number, note):
 
     # ── 12.1 How to read an Activity ID (the colour-coded anatomy + role legend) ──
     _subhead(document, '%s.1' % number, 'How to read an Activity ID')
-    para(document, ANATOMY_INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
+    para(document, (p.get('anatomy') or {}).get('intro') or ANATOMY_INTRO, align=WD_ALIGN_PARAGRAPH.JUSTIFY, after=6)
     if anatomy and anatomy.get('cols'):
         ex = para(document, 'Example:  %s' % anatomy.get('sample'), size=11, bold=True,
                   color=NAVY, before=2, after=3, font=CAL)
@@ -997,6 +1024,9 @@ def _render_materials(document, p, number, note):
     total, each in its own unit), then a full totals table and the cost-model note. Never mixes
     units. Mirrors the HTML/PDF twin (``html._materials``); None-safe chart fallback."""
     p = p or {}
+    if not p.get('available') and p.get('no_unit_note'):
+        _muted(document, p['no_unit_note'])
+        return
     if not p.get('available'):
         _muted(document, 'This schedule carries no unit-bearing material resources in its '
                          'baseline.')
@@ -1030,7 +1060,9 @@ def _render_materials(document, p, number, note):
     data_table(document, p.get('table_headers') or ['Material resource', 'Unit', 'Total Quantity'],
                p.get('table_rows') or [], aligns=['l', 'l', 'r'])
     exc = p.get('excluded')
-    if exc:
+    if p.get('no_unit_note'):
+        _muted(document, p['no_unit_note'])
+    elif exc:
         _muted(document, '%s unit-less “material” assignments (total %s) are the cost model — '
                          'the contract value — and are reported in the cost sections, not charted '
                          'as physical quantities.' % (exc.get('n'), exc.get('total_label')))
@@ -1365,6 +1397,11 @@ _TB_XML = (
 _EMU_IN, _EMU_PT = 914400, 12700
 
 
+def _xml_attr(v):
+    from xml.sax.saxutils import escape
+    return escape(str(v if v is not None else ''), {'"': '&quot;'})
+
+
 def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
     """A 1 pt paragraph that keeps with the next block and carries ``tbl`` in a borderless
     text box on the same line, ``x_in`` from the left margin (in front of the text — it sits
@@ -1373,7 +1410,8 @@ def _beside_box(tbl, x_in, w_in, h_pt, name='Code table'):
     from docx.oxml import parse_xml
     lins = int(0.08 * _EMU_IN)                        # room for the table's own left border
     p = parse_xml(_TB_XML.format(x=int((x_in - 0.08) * _EMU_IN), cx=int((w_in + 0.1) * _EMU_IN),
-                                 cy=int(h_pt * _EMU_PT), id=9000, name=name, lins=lins))
+                                 cy=int(h_pt * _EMU_PT), id=9000, lins=lins,
+                                 name=_xml_attr(name)))   # a code name with & < " (any project) must not break Word
     box = p.find('.//' + qn('w:txbxContent'))
     tbl.getparent().remove(tbl)
     box.append(tbl)
@@ -1525,6 +1563,35 @@ def _render_critpath(document, p, number, note):
             run(cv.paragraphs[0], v, font=CAL, size=13, bold=True, color=NAVY)
             run(cl.paragraphs[0], l, font=CAL, size=8, color=GREY)
         _keep_table_together(kt, header=False)
+
+    # the critical path itself: the driving chain to completion, by work front (twin of html)
+    ch = p.get('chain') or {}
+    fronts = ch.get('fronts') or []
+    if fronts:
+        ms = ch.get('milestone') or {}
+        hp = para(document, 'The critical path — the driving chain to %s, by work front' % (ms.get('name') or 'completion'),
+                  font=CAL, size=11, bold=True, color=NAVY, before=10, after=5)
+        hp.paragraph_format.keep_with_next = True
+        cells = [('%d' % (i + 1), f.get('name') or '', f.get('where') or '', 'finish ' + (f.get('finish') or ''), False)
+                 for i, f in enumerate(fronts)] + [('◆', ms.get('name') or 'Completion', '', ms.get('finish') or '', True)]
+        nrow = (len(cells) + 3) // 4
+        ct = document.add_table(rows=nrow, cols=4)
+        ct.style = 'Table Grid'
+        ct.autofit = False
+        for k, (n, nm, wh, fin, is_ms) in enumerate(cells):
+            c = ct.cell(k // 4, k % 4)
+            _no_space(c); _set_w(c, 1.72); _shade(c, 'EEF4FB' if is_ms else 'FFFFFF')
+            pp = c.paragraphs[0]
+            run(pp, n + '  ', font=CAL, size=8, bold=True, color=(NAVY if is_ms else RGBColor(0xC0, 0x39, 0x2B)))
+            run(pp, nm, font=CAL, size=9, bold=True, color=BODYNAVY)
+            if wh:
+                run(c.add_paragraph(), wh, font=CAL, size=7.5, color=GREY)
+            run(c.add_paragraph(), fin, font=CAL, size=7.5, bold=True, color=NAVY)
+        for k in range(len(cells), nrow * 4):
+            _set_w(ct.cell(k // 4, k % 4), 1.72)
+        _keep_table_together(ct, header=False)
+        _muted(document, 'Read left to right, row by row: each box is a work front (the WBS the driving activities '
+                         'sit in) in path order, with its finish date — the chain that sets the completion date.')
 
     sp = para(document, p.get('subhead')
               or 'Critical-path sweep — when each zone drives the schedule',

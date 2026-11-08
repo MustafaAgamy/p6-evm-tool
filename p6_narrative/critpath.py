@@ -155,6 +155,40 @@ def _month_bounds(y, m):
 
 
 # ── public entry point ──────────────────────────────────────────────────────────
+def driving_chain(data):
+    """The critical path itself (Ibrahim, 20-Oct - same view as the approved Critical Path
+    Analyzer driving path): the driving chain to the governing completion milestone, as the work
+    fronts (the WBS the driving activities sit in) in path order, each with its finish. Read from
+    the schedule's own logic and P6's float; nothing is re-scheduled. None when no path is found."""
+    try:
+        from p6_critpath.paths import path_boxes, _governing_finish_ms
+        gov = _governing_finish_ms(data)
+        if not gov:
+            return None
+        pb = path_boxes(data, gov.get('id'))
+    except Exception:
+        return None
+    boxes = (pb or {}).get('boxes') or []
+    if not boxes:
+        return None
+    ms = (pb or {}).get('milestone') or {}
+    crumb = lambda c: ' · '.join([x.strip() for x in reversed((c or '').replace('@', '|').split('|')) if x.strip()][-3:])
+
+    def fdate(v):
+        from datetime import datetime as _dt
+        if isinstance(v, str):
+            try:
+                v = _dt.fromisoformat(v[:10])
+            except ValueError:
+                return v
+        d = _as_date(v)
+        return '%02d-%s.%d' % (d.day, _MONTHS[d.month - 1], d.year) if d else ''
+    return {'milestone': {'name': ms.get('name') or gov.get('name') or 'Completion',
+                          'finish': fdate(gov.get('planned_finish') or gov.get('remaining_early_finish'))},
+            'fronts': [{'name': b.get('name') or '', 'where': crumb(b.get('crumb')),
+                        'finish': fdate(b.get('exp_finish') or b.get('bl_finish'))} for b in boxes]}
+
+
 def critical_path(data, path=None):
     """Build the Appendix — Critical Path payload (data only). ``path`` is accepted for
     signature parity with the other section builders and is unused (the critical path comes
@@ -317,6 +351,7 @@ def critical_path(data, path=None):
 
     return {
         'available': True,
+        'chain': driving_chain(data),
         'crit_basis': crit_basis,
         'min_float': min_float,
         'wbs_depth': depth,

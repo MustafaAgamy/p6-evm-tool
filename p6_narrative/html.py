@@ -40,6 +40,7 @@ contract_value, data_date, revision, logos{owner,consultant,contractor}.
 import html as _h
 import math
 from utils import date_text as _date_text
+from p6_narrative.scope import share_label
 
 _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
@@ -352,6 +353,18 @@ def _overview(p, number, title, meta, cur):
 def _image(p, number, title, meta, cur):
     img = p.get('image')
     cap = p.get('caption') or 'Project general layout'
+    imgs = p.get('images') or []
+    if len(imgs) > 1:
+        # several drawings: one per page, Figure 2.1, 2.2 ... in the planner's order
+        out = []
+        for k, im in enumerate(imgs):
+            c = im.get('caption') or 'Project layout'
+            out.append('<div style="%s"><img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
+                       'border:1px solid #b9c6d3;border-radius:6px"><div style="text-align:center;font-size:10.5px;'
+                       'color:#5a5f66;font-style:italic;margin-top:5px">Figure %s.%d &mdash; %s</div></div>'
+                       % ('break-before:page;page-break-before:always;margin-top:4mm' if k else '',
+                          _esc(im.get('image')), _esc(c), _esc(number or '2'), k + 1, _esc(c)))
+        return ''.join(out)
     if img:
         # a real layout drawing → figure + caption
         fig = ('<img src="%s" alt="%s" style="max-width:100%%;display:block;margin:0 auto;'
@@ -436,9 +449,8 @@ def _casc_html(nodes, cur, depth):
                     % (indent, _esc(n.get('name'))))
             continue
         mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
-        money = (' &mdash; %s' % _fmt_full(n.get('cost'), cur)) if depth == 0 else ''
-        pct = n.get('pct')
-        pct_txt = (' (%s%%)' % _fmt_pct(pct)) if pct is not None else ''
+        money = (' &mdash; %s' % _fmt_full(n.get('cost'), cur)) if (depth == 0 and n.get('basis') != 'count') else ''
+        pct_txt = (' (%s)' % _esc(share_label(n))) if n.get('pct') is not None else ''
         color = '#1F4E79' if depth == 0 else '#14324f'
         fs = 12.5 if depth == 0 else 11
         out += ('<p style="margin:%s 0 3px %dpx;font-family:Calibri,sans-serif;font-weight:700;'
@@ -447,6 +459,19 @@ def _casc_html(nodes, cur, depth):
                    _esc(n.get('name')), money, qty, pct_txt))
         out += _casc_html(kids, cur, depth + 1)
     return out
+
+
+def _combo_tail(codes):
+    """'each Engineering by Building' / 'each Type of Work by Building, then Trade'."""
+    rest = [_esc(c) for c in codes[1:]]
+    return 'each %s by %s' % (_esc(codes[0]), ', then '.join(rest))
+
+
+def _scope_descriptions(p):
+    """The planner's scope descriptions in report order: the first (p itself), then p['more']."""
+    first = {'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
+             'cascade': p.get('cascade') or []}
+    return [first] + [m for m in (p.get('more') or []) if m]
 
 
 def _scope(p, number, title, meta, cur):
@@ -458,13 +483,13 @@ def _scope(p, number, title, meta, cur):
                 'text-transform:none;letter-spacing:0">&mdash; %s</span></div>'
                 % (_esc(number), k, _esc(name), tail))
 
-    codes = p.get('codes') or []
-    codes_txt = (' &rarr; '.join(_esc(c) for c in codes)) if codes else 'the picked activity codes'
-    out = ('<p>The scope is analysed by cross-filtering the picked activity codes, '
-           'cost-weighted: %s.</p>' % codes_txt)
+    descs = _scope_descriptions(p)
+    out = ('<p>The scope is described by the activity codes the planner picked &mdash; the overview '
+           'by cost first, then one sub-section per description. Codes with cost loaded are weighted '
+           'by the baseline cost; a code with no cost loaded is described by its activities.</p>')
 
     # {number}.1 — scope overview: 100% composition bar of discipline shares + narrative
-    out += (_subhead(1, 'Scope overview', 'by discipline')
+    out += (_subhead(1, 'Scope overview', 'by discipline, share of the baseline cost')
             + _compbar(p.get('disciplines') or []))
 
     # editable auto-narrative callout (navy left-rule box)
@@ -475,15 +500,22 @@ def _scope(p, number, title, meta, cur):
                 'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
                 'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
 
-    # {number}.2 — the N-level cross-filtered cascade the planner picked (rendered recursively:
-    # ➢/▸/– heading per non-leaf level, "• …" bullet per deepest leaf, indented by depth)
-    out += _subhead(2, 'Detailed scope by activity codes',
-                    'cross-filtered through the picked codes, cost-weighted')
-    cascade = p.get('cascade') or []
-    if not cascade:
-        out += '<p class="note">No activity-code breakdown available.</p>'
-    else:
-        out += _casc_html(cascade, cur, 0)
+    # {number}.2, .3 … — one sub-section per description: what each of its codes consists of,
+    # then (2+ codes) the N-level breakdown, each code nested in the one before it
+    for k, m in enumerate(descs, 2):
+        mc = m.get('codes') or []
+        out += _subhead(k, ' → '.join(str(c) for c in mc) or 'Detailed scope by activity codes',
+                        _combo_tail(mc) if len(mc) >= 2 else 'what it consists of')
+        for cl in (m.get('code_lists') or []):
+            out += ('<p style="margin:3px 0"><b>%s</b> consists of: %s.</p>'
+                    % (_esc(cl['code']), ' &middot; '.join('%s (%s)' % (_esc(v['name']), _esc(share_label(v))) for v in cl['values'])))
+        if len(mc) >= 2:
+            if m.get('cascade'):
+                out += _casc_html(m['cascade'], cur or '', 0)
+            else:
+                out += '<p class="note">No activity-code breakdown available.</p>'
+        elif not m.get('code_lists'):
+            out += '<p class="note">No activity-code breakdown available.</p>'
     return out
 
 
@@ -909,7 +941,7 @@ def _actids(p, number, title, meta, cur):
 
     # 12.1 — how to read an Activity ID (the colour-coded anatomy + role legend)
     out += '<div class="sub">%s.1 &middot; How to read an Activity ID</div>' % _esc(number)
-    out += '<p>%s</p>' % _esc(ANATOMY_INTRO)
+    out += '<p>%s</p>' % _esc((p.get('anatomy') or {}).get('intro') or ANATOMY_INTRO)
     if anatomy and anatomy.get('cols'):
         out += ('<div class="actidblk"><p class="actidex">Example:&nbsp; %s</p>%s'
                 % (_esc(anatomy.get('sample')), _table(anatomy.get('cols'))))
@@ -1011,8 +1043,8 @@ def _materials(p, number, title, meta, cur):
     Twin of ``docx_writer._render_materials``."""
     p = p or {}
     if not p.get('available'):
-        return ('<p class="note">This schedule carries no unit-bearing material resources in '
-                'its baseline.</p>')
+        return ('<p class="note">%s</p>' % _esc(p.get('no_unit_note') or
+                'This schedule carries no unit-bearing material resources in its baseline.'))
     out = ['<p>%s</p>' % _esc(p.get('intro') or '')]
     cap = ''
     if (p.get('total_n') or 0) > (p.get('charted_n') or 0):
@@ -1037,7 +1069,9 @@ def _materials(p, number, title, meta, cur):
     out.append('<div class="sub">%s.2 &middot; Materials Major Quantities</div>' % _esc(number))
     out.append('<table class="dt">%s%s</table>' % (thead, body))
     exc = p.get('excluded')
-    if exc:
+    if p.get('no_unit_note'):
+        out.append('<p class="note">%s</p>' % _esc(p['no_unit_note']))
+    elif exc:
         out.append('<p class="note">%s unit-less &ldquo;material&rdquo; assignments '
                    '(total %s) are the cost model &mdash; the contract value &mdash; and are '
                    'reported in the cost sections, not charted as physical quantities.</p>'
@@ -1248,6 +1282,24 @@ def _critpath(p, number, title, meta, cur):
         out.append('<div class="cpk-row">%s</div>' % ''.join(
             '<div class="cpk"><div class="cpk-v">%s</div><div class="cpk-l">%s</div></div>'
             % (_esc(v), _esc(l)) for v, l in kpis))
+
+    ch = p.get('chain') or {}
+    fronts = ch.get('fronts') or []
+    if fronts:
+        ms = ch.get('milestone') or {}
+        cells = ['<td class="cpch"><div class="cpch-n">%d</div><b>%s</b><div class="cpch-w">%s</div>'
+                 '<div class="cpch-f">finish %s</div></td>' % (i + 1, _esc(f.get('name')), _esc(f.get('where')), _esc(f.get('finish')))
+                 for i, f in enumerate(fronts)]
+        cells.append('<td class="cpch cpch-ms"><div class="cpch-n">◆</div><b>%s</b><div class="cpch-f">%s</div></td>'
+                     % (_esc(ms.get('name')), _esc(ms.get('finish'))))
+        rows_ = ''.join('<tr>%s</tr>' % ''.join(cells[i:i + 4]) + ('<td></td>' * (4 - len(cells[i:i + 4])))
+                        for i in range(0, len(cells), 4))
+        out.append('<div class="sub">The critical path — the driving chain to %s, by work front</div>'
+                   % _esc(ms.get('name') or 'completion'))
+        out.append('<table class="cpchain">%s</table>' % rows_)
+        out.append('<p class="note">Read left to right, row by row: each box is a work front (the WBS the '
+                   'driving activities sit in) in path order, with its finish date — the chain that '
+                   'sets the completion date.</p>')
 
     out.append('<div class="sub">%s</div>' % _esc(p.get('subhead')
                or 'Critical-path sweep — when each zone drives the schedule'))
@@ -1627,6 +1679,12 @@ table { border-collapse: collapse; }
         font-family:Calibri,sans-serif; }
 .cplg i { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px;
           margin-right:4px; }
+.cpchain { width:100%; border-collapse:separate; border-spacing:6px; table-layout:fixed; margin:4px 0 6px; }
+.cpchain td { vertical-align:top; }
+.cpch { border:1px solid #e5b4ad; border-top:4px solid #C0392B; border-radius:6px; padding:6px 8px; font-size:9pt; background:#fff; }
+.cpch-n { display:inline-block; background:#C0392B; color:#fff; border-radius:9px; padding:0 6px; font-size:8pt; font-weight:700; margin-bottom:2px; }
+.cpch-w { color:#5a626b; font-size:8pt; } .cpch-f { color:#1F4E79; font-size:8pt; font-weight:700; margin-top:2px; }
+.cpch-ms { border:2px solid #1F4E79; background:#eef4fb; } .cpch-ms .cpch-n { background:#1F4E79; }
 .cpgrid { width:100%; border-collapse:collapse; table-layout:fixed;
           font-family:Calibri,sans-serif; break-inside:avoid; page-break-inside:avoid; }
 .cpgrid th, .cpgrid td { border:1px solid #e4e8ee; }

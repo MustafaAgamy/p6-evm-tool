@@ -91,3 +91,174 @@ def test_no_dates_and_no_float_still_says_so_honestly(tmp_path):
     p.write_text(text, encoding='cp1252')
     cp = critpath.critical_path(parse_file(str(p)))
     assert cp['available'] is False and 'no total-float values' in cp['note']
+
+
+def test_activity_ids_work_for_any_separator():
+    """Comment 103: §12 Activity IDs was empty for dash-separated IDs (Saint Gobain, Alstom, MAFI).
+    The separator and the serial position are read from the schedule itself."""
+    from p6_narrative import actids
+    dash = [{'id': 'EX-%d-GC-CON-BAT' % (1000 + 10 * i), 'name': 'Excavation works', 'activity_codes': {}} for i in range(6)]
+    pl = actids.activity_id_analysis(dash, [])
+    assert pl['blocks'] and pl['anatomy']
+    roles = [c['role'] for c in pl['anatomy']['cols']]
+    assert roles[0] == 'stage' and roles[1] == 'serial' and 'dash ("-")' in pl['intro']
+    dot = [{'id': 'CONS.PL.S1.%d' % (1000 + 10 * i), 'name': 'Pile works', 'activity_codes': {}} for i in range(6)]
+    pl = actids.activity_id_analysis(dot, [])
+    assert pl['anatomy']['cols'][-1]['role'] == 'serial' and 'dot (".")' in pl['intro']
+
+
+def test_activity_ids_any_coding_style():
+    """Comment 103: must work for ANY project - every common P6 ID style yields a filled section
+    with the serial read where it really sits."""
+    from p6_narrative import actids
+    mk = lambda ids: [{'id': i, 'name': 'Concrete works', 'activity_codes': {}} for i in ids]
+    cases = {
+        'p6 default': (['A%d' % (1000 + 10 * k) for k in range(20)], 1),
+        'numbers only': ([str(1000 + 10 * k) for k in range(20)], 0),
+        'underscore': (['CIV_%s_%d' % (z, 1000 + k) for z in ('FDN', 'COL') for k in range(6)], -1),
+        'slash': (['B%d/CIV/%d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+        'mixed': (['B%d-CIV.%d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+        'serial first': (['%d-CIV-B%d' % (1000 + k, b) for b in (1, 2) for k in range(6)], 0),
+        'spaces': (['B%d CIV %d' % (b, 1000 + k) for b in (1, 2) for k in range(6)], -1),
+    }
+    for name, (ids, serial_at) in cases.items():
+        pl = actids.activity_id_analysis(mk(ids), [])
+        assert pl['blocks'] and pl['anatomy'], name
+        roles = [c['role'] for c in pl['anatomy']['cols']]
+        assert roles[serial_at] == 'serial', (name, roles)
+    pl = actids.activity_id_analysis(mk(['Start', 'Mobilisation', 'Handover']), [])
+    assert pl['blocks'] and 'serial' not in [c['role'] for c in pl['anatomy']['cols']]
+
+
+def test_equipment_same_content_any_loading():
+    """Comment 103: §13.2 Equipment is the same content for any project - machines on site per
+    month and 'Total plant loaded' - whether P6 loads the equipment as a count or in hours."""
+    from p6_narrative import resload as R
+    count = R._equipment_group({'window': 'w', 'span': [], 'values': [], 'peak_val': 0, 'peak_label': '',
+                                'total': 3, 'rows': [('Excavator', 3, 2)]}, 'count')
+    hours = R._equipment_group({'window': 'w', 'span': [], 'values': [], 'peak_val': 0, 'peak_label': '',
+                                'total': 2, 'rows': [('Water Truck', 2, 2)]}, 'hours')
+    for g in (count, hours):
+        assert g['row_headers'] == ['Resource', 'Total plant loaded', 'Peak no. on site']
+        assert g['total_unit'] == 'plant units'
+    assert 'loaded in hours' in hours['basis_note'] and 'number of machines' in count['basis_note']
+
+
+def test_no_unit_material_note_names_the_resources():
+    from types import SimpleNamespace as NS
+    from p6_narrative import resload as R
+    data = NS(assignments_by_activity={1: [{'resource_id': 'R1', 'budget_units': 100}, {'resource_id': 'R1', 'budget_units': 50}]},
+              resources={'R1': {'name': 'EX-resource'}})
+    rows = R._no_unit_materials(data, {'R1': {'type': 'RT_Mat', 'unit': None}})
+    assert rows == [('EX-resource', 2, 150.0)]
+
+
+def test_word_code_box_survives_special_characters():
+    """Alstom's Word export failed: a code name with '&' went unescaped into the text-box XML."""
+    from p6_narrative.docx_writer import _xml_attr
+    assert _xml_attr('Doors & Windows "A" <B>') == 'Doors &amp; Windows &quot;A&quot; &lt;B&gt;'
+
+
+def test_activity_id_parts_read_from_the_activity_codes():
+    """Comment 103: each part of the ID is explained by the activity code it stands for -
+    the code whose values differ between the sibling parts (ARC/CON/SS = Trade), checked
+    against the activities; a part that is the same on every activity is called a fixed code."""
+    from p6_narrative import actids
+    acts, k = [], 0
+    for tr, trv, nm in (('CON', 'Civil Works', 'RC Footing'), ('SS', 'Steel Structure Works', 'Erect Steel'), ('ARC', 'Arc. Works', 'Plastering')):
+        for b, bv in (('BAT', 'Batch Area'), ('MIX', 'Mixer Building')):
+            for i in range(3):
+                k += 1
+                acts.append({'id': 'EX-%d-GC-%s-%s' % (1000 + 10 * k, tr, b), 'name': '%s %s' % (nm, bv),
+                             'activity_codes': {'Type of Work': 'Construction', 'Trade': trv, 'Building': bv},
+                             'wbs_path': 'Construction > %s > %s' % (bv, trv)})
+    pl = actids.activity_id_analysis(acts, ['Type of Work', 'Trade', 'Building'])
+    cols = {c['code']: c['meaning'] for c in pl['blocks'][0]['cols']}
+    trade = next(v for c, v in cols.items() if 'CON' in c)
+    assert 'CON = Civil Works' in trade and 'SS = Steel Structure Works' in trade and 'ARC = Arc. Works' in trade
+    area = next(v for c, v in cols.items() if 'BAT' in c)
+    assert 'BAT = Batch Area' in area and 'MIX = Mixer Building' in area
+    assert 'fixed code' in cols['GC']
+    assert pl['blocks'][0]['title'] == 'Construction'
+
+
+def test_scope_says_what_each_code_consists_of():
+    """Comment 103: §7 says what each picked code consists of (cost-loaded values only), then
+    combines them - and the AI Assistant example shows the same."""
+    from p6_narrative import scope
+    acts = []
+    for i, (tw, b, c) in enumerate([('Construction', 'Batch Area', 100), ('Construction', 'Mixer Building', 60),
+                                    ('Procurement', 'Batch Area', 40), ('Design', 'Batch Area', 0)]):
+        acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                     'activity_codes': {'Type of Work': tw, 'Building': b}, 'wbs_id': None})
+    bac = {0: 100, 1: 60, 2: 40, 3: 0}
+    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'], {'scope_codes': ['Type of Work', 'Building']}, '')
+    lists = {cl['code']: [v['name'] for v in cl['values']] for cl in sc['code_lists']}
+    assert lists['Type of Work'] == ['Construction', 'Procurement']          # Design has no cost
+    assert lists['Building'] == ['Batch Area', 'Mixer Building']
+    assert 'Design' not in [d['name'] for d in sc['disciplines']]
+
+
+def test_scope_descriptions_take_any_number_of_codes():
+    """Scope of Work takes several descriptions, each by as MANY activity codes as the planner
+    picks (not 1-2 like the Sequence of Work): e.g. Engineering + Building, then Type of Work."""
+    from p6_narrative.report import scope_analyses_of
+    types = ['Type of Work', 'Building', 'Trade', 'Engineering']
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Engineering', 'Building']}, {'codes': ['Type of Work']}]}, types) == \
+        [['Engineering', 'Building'], ['Type of Work']]
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Type of Work', 'Building', 'Trade', 'Engineering']}]}, types) == \
+        [['Type of Work', 'Building', 'Trade', 'Engineering']]                    # no code limit
+    assert scope_analyses_of({'scope_codes': ['Building', 'Trade']}, types) == [['Building', 'Trade']]   # older setups
+    assert scope_analyses_of({'scope_analyses': [{'codes': ['Nope']}]}, types) == []
+
+
+def _eng_acts():
+    acts, bac = [], {}
+    rows = [('Construction', None, 'Batch Area', 100), ('Construction', None, 'Mixer Building', 60),
+            ('Engineering', 'Structural Submittal', 'Batch Area', 0), ('Engineering', 'Structural Submittal', 'Batch Area', 0),
+            ('Engineering', 'Structural Submittal', 'Mixer Building', 0), ('Engineering', 'Steel Submittal', 'Mixer Building', 0)]
+    for i, (tw, eng, b, c) in enumerate(rows):
+        codes = {'Type of Work': tw, 'Building': b}
+        if eng:
+            codes['Engineering'] = eng
+        acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                     'activity_codes': codes, 'wbs_id': None})
+        bac[i] = c
+    return acts, bac
+
+
+def test_scope_code_without_cost_is_described_by_activities():
+    """Engineering submittals carry no cost: "Engineering + Building" must still describe the
+    engineering scope building by building (by activity count), never come out empty."""
+    from p6_narrative import scope
+    acts, bac = _eng_acts()
+    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building', 'Engineering'],
+                              {'scope_codes': ['Engineering', 'Building']}, '')
+    lists = {cl['code']: cl for cl in sc['code_lists']}
+    eng = lists['Engineering']
+    assert eng['basis'] == 'count'
+    assert [(v['name'], v['acts']) for v in eng['values']] == [('Structural Submittal', 3), ('Steel Submittal', 1)]
+    top = {n['name']: n for n in sc['cascade']}
+    assert top['Structural Submittal']['basis'] == 'count'
+    assert {k['name']: k['acts'] for k in top['Structural Submittal']['children']} == {'Batch Area': 2, 'Mixer Building': 1}
+    assert scope.share_label(top['Structural Submittal']) == '3 activities'
+    # a cost-loaded code keeps its cost weighting and still leaves the zero-cost value out
+    sc2 = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building', 'Engineering'],
+                               {'scope_codes': ['Type of Work', 'Building']}, '')
+    assert [n['name'] for n in sc2['cascade']] == ['Construction']
+    assert scope.share_label(sc2['cascade'][0]) == '100%'
+
+
+def test_scope_overview_chart_uses_a_cost_loaded_description():
+    """When the first description has no cost (Engineering + Building), the 7.1 chart and the
+    Contract Value split come from the next description that carries cost (Type of Work)."""
+    from types import SimpleNamespace
+    from p6_narrative.report import _scope
+    acts, bac = _eng_acts()
+    data = SimpleNamespace(activities={a['object_id']: a for a in acts}, wbs={}, bac_by_activity=bac,
+                           activity_code_types=['Type of Work', 'Building', 'Engineering'])
+    sec = _scope(data, {'scope_analyses': [{'codes': ['Engineering', 'Building']}, {'codes': ['Type of Work']}]})
+    p = sec.payload
+    assert p['codes'] == ['Engineering', 'Building']
+    assert [d['name'] for d in p['disciplines']] == ['Construction']
+    assert [m['codes'] for m in p['more']] == [['Type of Work']]

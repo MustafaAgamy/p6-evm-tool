@@ -315,12 +315,17 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
             g1.setdefault(code(a, codes[0]) or 'Unclassified', []).append(a)
         for d in sorted(g1, key=lambda x: (-cost_of(g1[x]), _trade_rank(x), _first_index(g1, x))):
             c = round(cost_of(g1[d]), 2)
+            if c <= 0 and total_cost > 0:
+                continue        # no cost loaded (e.g. Design / Engineering): not in the scope chart (comment 103)
             disciplines.append({'name': d, 'cost': c,
                                 'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0})
 
     # ── the N-level cross-filtered cascade tree (each deeper picked code nested; siblings
     #    with an identical sub-structure grouped; pct is share of the PARENT level) ──
-    def build(acts, level, base):
+    def build(acts, level, base, by_count=False):
+        """by_count: this branch carries no cost (e.g. Engineering submittals), so it is
+        described by its activities instead of dropped - every picked code still describes
+        its scope (Ibrahim: "describe the Engineering scope by Building")."""
         dim = codes[level]
         grp = OrderedDict()
         for a in acts:
@@ -328,35 +333,78 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
             if not v:
                 continue
             grp.setdefault(v, []).append(a)
+        n_coded = sum(len(g) for g in grp.values())
         raw = []
         for v, g in grp.items():
             c = round(cost_of(g), 2)
-            if c <= 0:
+            if c <= 0 and not by_count:
                 continue
-            node = {'name': v, 'cost': c}
+            node = {'name': v, 'cost': c, 'acts': len(g)}
+            if by_count:
+                node['basis'] = 'count'
             if level + 1 < len(codes):
-                kids = build(g, level + 1, c)
+                kids = build(g, level + 1, c, by_count)
                 if kids:
                     node['children'] = kids
             raw.append(node)
-        raw.sort(key=lambda n: -n['cost'])
+        raw.sort(key=(lambda n: -n['acts']) if by_count else (lambda n: -n['cost']))
         grouped = _group_identical(raw)
         for n in grouped:
-            n['pct'] = round(100 * n['cost'] / base, 1) if base > 0 else 0.0
+            if by_count:
+                n['pct'] = round(100 * n['acts'] / n_coded, 1) if n_coded else 0.0
+            else:
+                n['pct'] = round(100 * n['cost'] / base, 1) if base > 0 else 0.0
         return grouped
 
-    cascade = build(work, 0, total_cost) if codes else []
+    # a first code whose activities carry no cost at all is described by activity count
+    first_cost = cost_of([a for a in work if code(a, codes[0])]) if codes else 0.0
+    cascade = build(work, 0, total_cost, by_count=first_cost <= 0) if codes else []
+
+    # what EACH picked code consists of (Ibrahim, comment 103): Type of Work = Civil, MEP, ...;
+    # Building = Batch, Conveyors, ... - cost-loaded values only, largest first, % of the total
+    code_lists = []
+    # a description led by a code with no cost (Engineering -> Building) lists the later codes
+    # over that code's activities only - the buildings that HAVE engineering, by activity count
+    led = [a for a in work if code(a, codes[0])] if (codes and first_cost <= 0) else work
+    for dim in codes:
+        g = OrderedDict()
+        for a in (work if dim == codes[0] else led):
+            v = code(a, dim)
+            if v:
+                g.setdefault(v, []).append(a)
+        vals = [(v, round(cost_of(acts), 2), len(acts)) for v, acts in g.items()]
+        dim_cost = sum(c for _, c, _ in vals)
+        if dim_cost > 0:            # cost-loaded code: cost-loaded values only, % of the total
+            vals = [x for x in sorted(vals, key=lambda x: -x[1]) if x[1] > 0]
+            code_lists.append({'code': dim, 'values': [
+                {'name': v, 'pct': round(100 * c / total_cost, 1) if total_cost > 0 else 0.0, 'acts': n}
+                for v, c, n in vals]})
+        elif vals:                  # no cost on this code at all: described by its activities
+            vals.sort(key=lambda x: -x[2])
+            n_all = sum(n for _, _, n in vals)
+            code_lists.append({'code': dim, 'basis': 'count', 'values': [
+                {'name': v, 'pct': round(100 * n / n_all, 1) if n_all else 0.0, 'acts': n, 'basis': 'count'}
+                for v, c, n in vals]})
 
     payload = {
         'total': round(total_cost, 2),
         'codes': list(codes),
         'disciplines': disciplines,
         'cascade': cascade,
+        'code_lists': code_lists,
     }
     if currency:
         payload['unit'] = currency
     payload['narrative'] = _scope_narrative(payload, currency)
     return payload
+
+
+def share_label(v):
+    """'82.2%' for a cost-weighted value, '92 activities' for one described by count."""
+    if (v or {}).get('basis') == 'count':
+        n = v.get('acts') or 0
+        return '%d %s' % (n, 'activity' if n == 1 else 'activities')
+    return '%s%%' % _fmt_pct((v or {}).get('pct'))
 
 
 def _node_sig(node):
@@ -395,10 +443,11 @@ def _group_identical(nodes):
         # rank among siblings, so a large group of identical items (e.g. 10 equal silos) never
         # ranks or reports as if it were a single item. Per-item cost is kept only for display.
         merged['cost'] = round(sum(costs), 2)
+        merged['acts'] = sum(m.get('acts') or 0 for m in members)
         if each:
             merged['each_cost'] = round(costs[0], 2)
         out.append(merged)
-    out.sort(key=lambda n: -n['cost'])
+    out.sort(key=lambda n: (-n['cost'], -(n.get('acts') or 0)))
     return out
 
 

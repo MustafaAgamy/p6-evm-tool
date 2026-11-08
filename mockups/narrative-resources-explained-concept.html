@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Narrative Resources Explained</title>
+<style>
+:root{--bg:#f4f6fa;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--navy:#1F4E79;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Calibri,Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:900px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;font-family:Segoe UI}
+.page{background:#fff;border:1px solid #c9d2de;padding:18px 22px;margin:14px 0;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+h1{color:var(--navy);font-size:19px;margin:0 0 8px;border-bottom:2px solid var(--navy);padding-bottom:3px}
+h2{color:var(--navy);font-size:15px;margin:14px 0 6px}
+.box{border:1px solid #c9d6e4;background:#f5f8fc;border-radius:6px;padding:9px 12px;font-size:13px;margin:8px 0}
+.box b.h{display:block;color:var(--navy);margin-bottom:4px}
+.f{font-family:Consolas,monospace;background:#fff;border:1px solid #e3e8ef;border-radius:4px;padding:5px 8px;margin:4px 0;font-size:12.5px}
+.warn{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;font-size:13px;margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:6px}th,td{border:1px solid #d9dfe8;padding:4px 7px;text-align:left}th{background:#eef3f8;color:var(--navy)}
+td.n{text-align:right}.proj{font-family:Segoe UI;font-size:12px;color:#fff;background:var(--navy);display:inline-block;border-radius:10px;padding:1px 10px;margin-bottom:6px}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Baseline Narrative Report · §13 Resource Loading + §14 Material Resources · real numbers (Saint Gobain + Grain Bulk) · same wording for ANY project</div>
+
+<div class="page"><span class="proj">Saint Gobain AS2 PKG3 — baseline</span>
+<h1>13) Resource Loading</h1>
+<h2>13.1 Manpower</h2>
+<p>(chart: man-hours per month, January 2025 – August 2025, peak May 2025 — unchanged)</p>
+<div class="box"><b class="h">How these numbers are calculated</b>
+1. Each Labour resource assignment carries its <b>budgeted man-hours</b> in P6.<br>
+2. Those man-hours are spread evenly over the activity's <b>working days</b> on its own calendar (P6 Resource Usage), and added up per month → <b>man-hours per month</b> (the bars).<br>
+3. The <b>number of workers on site</b> in a month = man-hours in the month ÷ (working hours per day × working days in the month) on the labour calendar.
+<div class="f">Peak, May 2025: 33,727 man-hours ÷ (11 h/day × 25 working days on "6 Days Per Week (AS3)") = <b>≈ 123 workers</b></div>
+Total for the project: <b>124,142 man-hours</b> (the per-resource totals are listed below — Steel Fixer 43,432 · Carpenter 35,841 · …).</div>
+<p>A second line under the chart gives the ≈ workers for every month, so each bar shows both: <i>May-25 · 33,727 man-hours · ≈ 123 workers</i>.</p>
+
+<h2>13.2 Equipment</h2>
+<p>(chart: number of machines on site per month — unchanged)</p>
+<div class="box"><b class="h">How these numbers are calculated</b>
+In this schedule the equipment is loaded in <b>hours</b> (equipment-hours), so the hours are turned into machines:<br>
+1. Machines on an activity = its budgeted equipment-hours ÷ the activity's working hours.<br>
+2. Each month counts those machines over the working days they are loaded ÷ the working days of the month.
+<div class="f">Example — Water Truck: 352 equipment-hours on an activity of 176 working hours (16 days × 11 h) = <b>2 trucks</b> for those 16 days</div>
+Totals per resource are in equipment-hours (Dumper Truck 4,257 · Loader 4,257 · …) with the peak number on site.</div>
+
+<h1 style="margin-top:20px">14) Material Resources</h1>
+<div class="warn"><b>No material quantities to chart in this schedule.</b> The material resources in this P6 file have <b>no unit of measure</b> assigned, so their budgeted units cannot be read as quantities (m³, ton, m², …). The only one used — <b>“EX-resource”</b> — carries the cost loading: <b>243,805,397</b> across <b>442</b> assignments, which is the contract value shown in section 6, not a material quantity.<br><br>
+<b>To show material quantities here:</b> in P6, give each material resource a unit of measure (Admin ▸ Admin Categories ▸ Units of Measure, then the resource's <i>Unit of Measure</i>) and load the quantities on the activities; re-export and run the report again.</div>
+</div>
+
+<div class="page"><span class="proj">Grain Bulk Terminal — baseline (same wording, its own numbers)</span>
+<h1>13) Resource Loading</h1>
+<div class="box"><b class="h">How these numbers are calculated — 13.1 Manpower</b>
+… same 3 steps …
+<div class="f">Peak, January 2027: 11,700 man-hours ÷ (8 h/day × 24 working days on "Roots Silos Phase I Scope") = <b>≈ 61 workers</b></div>
+Total: <b>78,566 man-hours</b>.</div>
+<div class="box"><b class="h">How these numbers are calculated — 13.2 Equipment</b>
+In this schedule the equipment is loaded as a <b>number of machines</b> (not hours), so each assignment is taken as that many machines over the activity's working days.
+<div class="f">Example — Pilling Machine: 1 machine on an activity of 1,241 working hours → 1 machine on site for its working days</div></div>
+<h1 style="margin-top:20px">14) Material Resources</h1>
+<p>(the 8 charts per material in its own unit — Piles 36,401 m³ · EV 6,100 m³ … — unchanged)</p>
+<div class="warn"><b>Material resources without a unit of measure are not charted:</b> 152 material resources in this file carry no unit of measure in P6 — they hold the cost loading (916,262,036 across 824 assignments), e.g. RFT For Piles, Concrete Pouring For Piles, Drilling For Piles … They appear in section 6 (Contract Value), not here. Give them a unit of measure in P6 to chart their quantities.</div>
+</div>
+</div></body></html>
