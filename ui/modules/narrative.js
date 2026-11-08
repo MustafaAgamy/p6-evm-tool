@@ -904,7 +904,7 @@ const CHAT_Q = {
   layout:        'Add your project layout drawings for section 2 — one or several. Give each a title; it becomes the figure caption (Figure 2.1, 2.2 …), one drawing per page.',
   milestones:    'I found your milestones and ticked the main ones. Confirm what appears in section 4 (Contract Milestones).',
   key_dates:     'And the key dates for section 5 — the client inputs and deliveries the works depend on. Keep, untick or add.',
-  scope:         'Now the Scope of Work (section 7). Describe the scope with your activity codes: add as many descriptions as you need, and give each one as many codes as you like, in order. For example Engineering + Building describes the engineering scope building by building, and Type of Work describes the scope of work by its types. Each description gets its own sub-section. Codes with cost loaded are weighted by the baseline cost; a code with no cost loaded (e.g. design submittals) is described by its activities. Below is exactly what section 7 says for each choice, from your own file. Tip: pick codes that every construction activity carries — a code is described over the activities that carry it, so a code that only a few activities carry describes only those.',
+  scope:         'Now the Scope of Work (section 7). Describe the scope with your activity codes, in order — one code, two, or more. For example Building Name then Type of Work: each building and what it consists of (Civil, Arch., MEP …); a third code adds ✓ items under each type of work (e.g. Piles, Columns, SOG). Add as many descriptions as you need — each gets its own sub-section. Shares are of the activities that carry the codes: by their loaded cost, or by number of activities where no cost is loaded. Below is exactly what section 7 says for each choice, from your own file.',
   sequence:      'Next the Sequence of Work (section 11). Each analysis puts the work in the order your baseline logic runs it (read from the relationships, not assumed), drawn as a chevron flow: ONE code = the order of the whole project (e.g. which trade comes first); TWO codes = the order inside each area (e.g. per building, which work comes first) — areas with the same order are grouped. Below is exactly what section 11 shows for each choice, from your own file. Pick one or more analyses.',
   generate:      'That’s everything I need. Here is your setup — click Back to change any answer. Shall I build the report?',
 };
@@ -1176,7 +1176,7 @@ function chatControl(step) {
       `<button type="button" class="bn-add2" data-saadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add description above</button>` +
       `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No descriptions — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
       `<button type="button" class="bn-add2" data-saadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add description below</button>` +
-      `<div class="bn-hint2">Each description gets its own sub-section (7.2, 7.3 …). The overview chart (7.1) uses the first description whose codes carry cost.</div>`;
+      `<div class="bn-hint2">Each description gets its own sub-section (7.2, 7.3 …). The bar (7.1) splits the first description by its 2nd code (or its only code).</div>`;
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1311,22 +1311,23 @@ async function loadExamples(kind) {
 }
 const _codesTxt = codes => codes.map(c => `“${_esc(c)}”`).join(' → ');
 function scopeExample(ex, i) {
+  // exactly what section 7 prints: the opening paragraph, the bar, then item by item (first few)
   const n = ex.codes.length;
   const head = `If you pick ${n === 1 ? 'the activity code' : 'these ' + n + ' codes'} ${_codesTxt(ex.codes)}, section 7 reads:`;
-  const bars = (ex.top || []).map(t => `<div class="bn-hb"><span>${_esc(t.name)}</span><i style="width:${Math.max(2, Math.round((t.pct || 0) * 2.2))}px"></i><b>${_esc(t.value)} · ${t.pct}%</b></div>`).join('');
-  let drill = '';
-  if (ex.drill && ex.drill.rows && ex.drill.rows.length) {
-    drill = `<div class="bn-rh2">7.2 ${_esc(ex.drill.parent)} by ${_esc(ex.codes[1])}${n >= 3 ? ' → ' + _esc(ex.codes[2]) : ''}</div><table class="bn-pt">`
-      + ex.drill.rows.map(r => `<tr><td><b>${_esc(r.name)}</b>${r.count ? ` (${r.count})` : ''}</td><td>${_esc(r.value)} · ${r.pct}%</td>`
-        + (r.parts ? `<td>${r.parts.map(p => `${_esc(p.name)} ${p.pct}%`).join(' · ')}</td>` : '') + '</tr>').join('') + '</table>';
-  }
-  // what each picked code consists of + how they combine - exactly as section 7 now opens
-  const lists = (ex.lists || []).map(l => `<div class="bn-cons"><b>${_esc(l.code)}</b> consists of: ${l.values.map(_esc).join(' · ')}${l.more ? ` · +${l.more} more` : ''}${l.by_count ? ' <i>(no cost loaded — described by its activities)</i>' : ''}</div>`).join('');
-  const combo = (ex.combo || []).length ? `<div class="bn-rh2">${ex.codes.map(_esc).join(' → ')} — each ${_esc(ex.codes[0])} with what it consists of</div>`
-    + ex.combo.map(c => `<div class="bn-combo"><b>➢ ${_esc(c.name)}</b> (${_esc(c.share || c.pct + '%')})<div>${c.parts.map(x => '• ' + _esc(x)).join('&nbsp;&nbsp; ')}${c.more ? `&nbsp;&nbsp; +${c.more} more` : ''}</div></div>`).join('') : '';
-  const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the cost carries no value of “${_esc(ex.codes[0])}” — those activities are left out of this description.</div>` : '';
+  const bars = (ex.split || []).map(t => `<div class="bn-hb"><span>${_esc(t.name)}</span><i style="width:${Math.max(2, Math.round((t.pct || 0) * 2.2))}px"></i><b>${t.pct}%</b></div>`).join('');
+  const alike = it => it.alike ? ` (${it.alike} alike)` : '';
+  const lines = (ex.items || []).map(it => n === 1
+    ? `<div class="bn-cons">➢ <b>${_esc(it.name)}</b>${alike(it)} — ${_esc(it.share)}</div>`
+    : `<div class="bn-combo"><b>➢ <u>${_esc(it.name)}</u>${alike(it)}</b> (${_esc(it.share)}) consists of:`
+      + (it.kids || []).map((k, j) => `<div style="margin-left:14px">${j + 1}. <b>${_esc(k.name)}</b> — ${_esc(k.share)}`
+        + (k.kids || []).map(g => `<div style="margin-left:16px">✓ ${_esc(g.name)} — ${_esc(g.share)}</div>`).join('') + '</div>').join('')
+      + '</div>').join('');
+  const more = ex.more_items ? `<div class="bn-hint2">… and ${ex.more_items} more.</div>` : '';
+  const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the loaded cost carries no value of these codes — those activities are left out of this description.</div>` : '';
   return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">7) Scope of Work</div>`
-    + lists + (bars ? `<div class="bn-rh2">Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}` : '') + `${combo || drill}</div>${warn}</div>`;
+    + (ex.paragraph ? `<div class="bn-cons">${_esc(ex.paragraph)}</div>` : '')
+    + (bars ? `<div class="bn-rh2">Scope by ${_esc(ex.split_code || ex.codes[0])}${ex.by_count ? ' (by number of activities)' : ''}</div>${bars}` : '')
+    + (lines ? `<div class="bn-rh2">${ex.codes.map(_esc).join(' → ')}</div>${lines}${more}` : '') + `</div>${warn}</div>`;
 }
 function seqExample(ex, i) {
   const chev = steps => `<div class="bn-chev">${steps.map(x => `<span>${_esc(x)}</span>`).join('')}</div>`;

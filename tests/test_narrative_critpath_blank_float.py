@@ -249,9 +249,9 @@ def test_scope_code_without_cost_is_described_by_activities():
     assert scope.share_label(sc2['cascade'][0]) == '100%'
 
 
-def test_scope_overview_chart_uses_a_cost_loaded_description():
-    """When the first description has no cost (Engineering + Building), the 7.1 chart and the
-    Contract Value split come from the next description that carries cost (Type of Work)."""
+def test_scope_bar_and_paragraph_follow_the_first_description():
+    """7.1 is the first description split by its 2nd code; a description whose activities carry no
+    cost (Engineering + Building) is split by number of activities and says so."""
     from types import SimpleNamespace
     from p6_narrative.report import _scope
     acts, bac = _eng_acts()
@@ -259,14 +259,15 @@ def test_scope_overview_chart_uses_a_cost_loaded_description():
                            activity_code_types=['Type of Work', 'Building', 'Engineering'])
     sec = _scope(data, {'scope_analyses': [{'codes': ['Engineering', 'Building']}, {'codes': ['Type of Work']}]})
     p = sec.payload
-    assert p['codes'] == ['Engineering', 'Building']
-    assert [d['name'] for d in p['disciplines']] == ['Construction']
+    assert p['codes'] == ['Engineering', 'Building'] and p['split_code'] == 'Building' and p['basis'] == 'count'
+    assert [(r['name'], r['acts']) for r in p['split']] == [('Batch Area', 2), ('Mixer Building', 2)]
+    assert 'by number of activities' in p['narrative'] and '4 activities' in p['narrative']
     assert [m['codes'] for m in p['more']] == [['Type of Work']]
-
+    assert p['more'][0]['split'][0]['name'] == 'Construction'
 
 def test_scope_shares_are_of_the_activities_carrying_the_code():
-    """Ibrahim (2026-11-08): no "Unclassified" in the scope - a picked code that is not assigned to
-    every activity is analysed over the activities that carry it (their cost, else their count)."""
+    """Ibrahim (2026-11-08): no "Unclassified" in the scope - a description is analysed over the
+    activities that carry its codes (its 1st code, and its 2nd when picked)."""
     from p6_narrative import scope
     acts, bac = [], {}
     for i, (tw, b, c) in enumerate([('Construction', 'Batch Area', 60), ('Construction', None, 20),
@@ -275,12 +276,30 @@ def test_scope_shares_are_of_the_activities_carrying_the_code():
         acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
                      'activity_codes': codes, 'wbs_id': None})
         bac[i] = c
-    sc = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'],
-                              {'scope_codes': ['Type of Work', 'Building']}, '')
-    assert [(d['name'], d['pct']) for d in sc['disciplines']] == [('Construction', 80.0), ('Procurement', 20.0)]
-    assert 'Unclassified' not in [d['name'] for d in sc['disciplines']]
-    assert sc['total'] == 100 and sc['uncoded_pct'] == 50.0
-    tw = next(cl for cl in sc['code_lists'] if cl['code'] == 'Type of Work')
-    assert [(v['name'], v['pct']) for v in tw['values']] == [('Construction', 80.0), ('Procurement', 20.0)]
-    con = next(n for n in sc['cascade'] if n['name'] == 'Construction')
-    assert [(k['name'], k['pct']) for k in con['children']] == [('Batch Area', 100.0)]   # of Construction's Building-coded cost
+    one = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'], {'scope_codes': ['Type of Work']}, '')
+    assert [(r['name'], r['pct']) for r in one['split']] == [('Construction', 80.0), ('Procurement', 20.0)]
+    assert one['acts_total'] == 3 and one['total'] == 100
+    two = scope.scope_sections(acts, {}, bac, ['Type of Work', 'Building'],
+                               {'scope_codes': ['Type of Work', 'Building']}, '')
+    assert 'Unclassified' not in [r['name'] for r in two['split']]
+    assert two['acts_total'] == 2 and two['total'] == 80                  # both codes carried
+    assert [(n['name'], n['pct']) for n in two['cascade']] == [('Construction', 75.0), ('Procurement', 25.0)]
+    assert [(r['name'], r['pct']) for r in two['split']] == [('Batch Area', 75.0), ('Mixer Building', 25.0)]
+    assert two['paragraph'].startswith('The works comprise 2 Type of Work items, described by 2 activities.')
+
+
+def test_scope_groups_only_items_with_the_same_make_up():
+    """Buildings are grouped only when their mix is the same (the ten silos), never just because
+    they share the same types of work (Giza Zoo: nearly every building has Civil, Arch. and MEP)."""
+    from p6_narrative import scope
+    acts, bac, i = [], {}, 0
+    for b, mix in (('Silo 1', (90, 10)), ('Silo 2', (90, 10)), ('Lion', (60, 40)), ('Tiger', (30, 70))):
+        for tw, c in zip(('Civil', 'Arch'), mix):
+            acts.append({'id': 'A%d' % i, 'object_id': i, 'task_type': 'TaskDependent', 'name': 'x',
+                         'activity_codes': {'Building': b, 'Type of Work': tw}, 'wbs_id': None})
+            bac[i] = c; i += 1
+    sc = scope.scope_sections(acts, {}, bac, ['Building', 'Type of Work'], {'scope_codes': ['Building', 'Type of Work']}, '')
+    names = [n['name'] for n in sc['cascade']]
+    assert 'Silos 1–2' in names and 'Lion' in names and 'Tiger' in names
+    silo = next(n for n in sc['cascade'] if n['name'] == 'Silos 1–2')
+    assert silo['count'] == 2 and silo['acts'] == 4

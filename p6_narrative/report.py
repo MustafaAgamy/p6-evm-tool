@@ -317,16 +317,7 @@ def _scope(data, setup):
                              bac_by_activity=data.bac_by_activity,
                              code_types=data.activity_code_types, setup=setup,
                              currency=setup.get('currency') or '')
-    overview = _cost_analysis(data, analyses)
-    if analyses and overview != analyses[0]:
-        # 7.1 chart + paragraph come from a cost-loaded analysis (else the auto-detected codes)
-        ov = scope_sections(list(data.activities.values()), data.wbs,
-                            bac_by_activity=data.bac_by_activity,
-                            code_types=data.activity_code_types,
-                            setup=dict(setup, scope_codes=overview or []),
-                            currency=setup.get('currency') or '')
-        payload['disciplines'] = ov.get('disciplines') or []
-        payload['narrative'] = ov.get('narrative') or payload.get('narrative')
+    payload['narrative'] = payload.get('paragraph') or payload.get('narrative')     # the plain opening paragraph
     more = []
     for cs in analyses[1:]:                                # every further analysis: its own sub-section
         try:
@@ -336,7 +327,9 @@ def _scope(data, setup):
                                    setup=dict(setup, scope_codes=cs),
                                    currency=setup.get('currency') or '')
             more.append({'codes': extra.get('codes') or cs, 'code_lists': extra.get('code_lists') or [],
-                         'cascade': extra.get('cascade') or [], 'disciplines': extra.get('disciplines') or []})
+                         'cascade': extra.get('cascade') or [], 'disciplines': extra.get('disciplines') or [],
+                         'split': extra.get('split') or [], 'split_code': extra.get('split_code'),
+                         'paragraph': extra.get('paragraph') or '', 'basis': extra.get('basis')})
         except Exception:
             continue
     payload['more'] = more

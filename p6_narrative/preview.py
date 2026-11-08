@@ -11,37 +11,29 @@ def _m(v):
 
 
 def scope_preview(data, codes, currency=''):
-    """Compact §7 preview for an ordered list of activity codes (any number)."""
+    """Compact §7 preview for an ordered list of activity codes (any number) - the same opening
+    paragraph, bar and item-by-item description section 7 prints, cut to the first items."""
     from p6_narrative import scope as S
     codes = [c for c in (codes or []) if c]
     if not codes:
         return None
     sc = S.scope_sections(list(data.activities.values()), data.wbs, getattr(data, 'bac_by_activity', None),
                           data.activity_code_types, {'scope_codes': codes}, currency)
-    led_by_count = any(cl.get('basis') == 'count' for cl in (sc.get('code_lists') or []) if cl.get('code') == codes[0])
-    top = [] if led_by_count else [{'name': d.get('name'), 'value': _m(d.get('cost')), 'pct': d.get('pct')}
-                                   for d in (sc.get('disciplines') or [])[:6]]      # no cost bar for a no-cost code
-    drill = []
-    casc = (sc.get('cascade') or [])
-    if len(codes) >= 2 and casc:
-        first = casc[0]
-        for ch in (first.get('children') or [])[:4]:
-            row = {'name': ch.get('name'), 'value': _m(ch.get('cost')), 'pct': ch.get('pct'), 'count': ch.get('count')}
-            if len(codes) >= 3:
-                row['parts'] = [{'name': g.get('name'), 'pct': g.get('pct')} for g in (ch.get('children') or [])[:5]]
-            drill.append(row)
-        drill = {'parent': first.get('name'), 'rows': drill}
-    lists = [{'code': cl['code'], 'values': [v['name'] for v in cl['values'][:8]], 'more': max(0, len(cl['values']) - 8),
-              'by_count': cl.get('basis') == 'count'}
-             for cl in (sc.get('code_lists') or [])]
-    combo = []                                     # each level-1 value with what it consists of
-    if len(codes) >= 2:
-        for c in casc[:3]:
-            kids = c.get('children') or []
-            combo.append({'name': c.get('name'), 'pct': c.get('pct'), 'share': S.share_label(c),
-                          'parts': [k.get('name') for k in kids[:6]], 'more': max(0, len(kids) - 6)})
-    return {'codes': codes, 'total': _m(sc.get('total')), 'top': top, 'drill': drill or None,
-            'lists': lists, 'combo': combo,
+
+    def share(n):
+        return '%s%%' % S._fmt_pct(n.get('pct') or 0) + ((' (%d activities)' % n['acts']) if n.get('acts') else '')
+
+    def trim(nodes, depth, k):
+        return [{'name': n.get('name'), 'alike': n.get('count') if (n.get('count') or 0) > 1 else None,
+                 'share': ('%s%% of the scope' % S._fmt_pct(n.get('pct') or 0) + ((' · %d activities' % n['acts']) if n.get('acts') else ''))
+                 if depth == 0 else share(n),
+                 'kids': trim(n.get('children') or [], depth + 1, 5) if depth < 2 else []} for n in (nodes or [])[:k]]
+
+    casc = sc.get('cascade') or []
+    return {'codes': codes, 'paragraph': sc.get('paragraph') or '', 'split_code': sc.get('split_code'),
+            'split': [{'name': r['name'], 'pct': r['pct']} for r in (sc.get('split') or [])[:6]],
+            'items': trim(casc, 0, 3 if len(codes) >= 2 else 6), 'more_items': max(0, len(casc) - (3 if len(codes) >= 2 else 6)),
+            'by_count': sc.get('basis') == 'count',
             'unclassified': sc.get('uncoded_pct') or None}
 
 

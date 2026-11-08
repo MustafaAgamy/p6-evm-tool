@@ -40,7 +40,6 @@ contract_value, data_date, revision, logos{owner,consultant,contractor}.
 import html as _h
 import math
 from utils import date_text as _date_text
-from p6_narrative.scope import share_label
 
 _ARROW = '➢'         # ➢ building bullet
 _CHECK = '✓'         # ✓ element bullet
@@ -431,52 +430,72 @@ def _value_bars(p, number, title, meta, cur):
 
 
 # ── §6 Scope of Work (6.1 discipline shares + narrative, 6.2 by area/structure) ─
-_CASC_MARK = ['➢', '▸', '–', '·']   # ➢ ▸ – ·  (by depth)
-
-
-def _casc_html(nodes, cur, depth):
-    """Render a scope cascade tree recursively: each non-leaf node is a heading line
-    (marker by depth, name — cost at level 0, '· N grouped' when merged, pct%); each leaf
-    (no children) is a '• name' bullet. Indented by depth."""
-    out = ''
-    for n in (nodes or []):
-        kids = n.get('children') or []
-        indent = depth * 16
-        cnt = n.get('count')
-        qty = (' &middot; %d grouped' % cnt) if (cnt and cnt > 1) else ''
-        if not kids:
-            out += ('<p class="wt-item" style="margin-left:%dpx"><span class="wt-b">&bull;</span> %s</p>'
-                    % (indent, _esc(n.get('name'))))
-            continue
-        mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
-        money = (' &mdash; %s' % _fmt_full(n.get('cost'), cur)) if (depth == 0 and n.get('basis') != 'count') else ''
-        pct_txt = (' (%s)' % _esc(share_label(n))) if n.get('pct') is not None else ''
-        color = '#1F4E79' if depth == 0 else '#14324f'
-        fs = 12.5 if depth == 0 else 11
-        out += ('<p style="margin:%s 0 3px %dpx;font-family:Calibri,sans-serif;font-weight:700;'
-                'color:%s;font-size:%gpx">%s&nbsp;%s%s%s%s</p>'
-                % ('7px' if depth == 0 else '3px', indent, color, fs, mk,
-                   _esc(n.get('name')), money, qty, pct_txt))
-        out += _casc_html(kids, cur, depth + 1)
-    return out
-
-
 def _combo_tail(codes):
-    """'each Engineering by Building' / 'each Type of Work by Building, then Trade'."""
+    """'each Building Name and what it consists of by Type of WorK, then …'."""
     rest = [_esc(c) for c in codes[1:]]
-    return 'each %s by %s' % (_esc(codes[0]), ', then '.join(rest))
+    return 'each %s and what it consists of by %s' % (_esc(codes[0]), ', then '.join(rest))
 
 
 def _scope_descriptions(p):
     """The planner's scope descriptions in report order: the first (p itself), then p['more']."""
-    first = {'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
-             'cascade': p.get('cascade') or []}
+    first = {'codes': p.get('codes') or [], 'cascade': p.get('cascade') or [],
+             'paragraph': p.get('paragraph') or '', 'basis': p.get('basis')}
     return [first] + [m for m in (p.get('more') or []) if m]
 
 
-def _scope(p, number, title, meta, cur):
-    cur = _currency_prefix(meta, p) or cur
+def _share(n):
+    """'56.6% (135 activities)' — the node's share of its level, then its activity count."""
+    acts = n.get('acts')
+    return '%s%%%s' % (_fmt_pct(n.get('pct') or 0),
+                       (' (%d %s)' % (acts, 'activity' if acts == 1 else 'activities')) if acts else '')
 
+
+def _head(n):
+    """'8.7% of the scope · 204 activities' — a top item's heading tail."""
+    acts = n.get('acts')
+    return '%s%% of the scope%s' % (_fmt_pct(n.get('pct') or 0), (' · %d activities' % acts) if acts else '')
+
+
+def _alike(n):
+    cnt = n.get('count')
+    return (' (%d alike)' % cnt) if (cnt and cnt > 1) else ''
+
+
+def _roots_html(nodes, ncodes):
+    """The scope written out like a narrative (Ibrahim's Roots template): one code = one line per
+    value; two or more = '➢ item (share · activities) consists of:' then 1. 2. 3. for the next
+    code and ✓ items for the code after it (– for any deeper code)."""
+    out = ''
+    if ncodes <= 1:
+        for n in nodes or []:
+            out += ('<p class="sc-l1">&#10146;&nbsp;<b>%s</b>%s &mdash; %s</p>'
+                    % (_esc(n.get('name')), _esc(_alike(n)), _esc(_share(n))))
+        return out
+
+    def deeper(kids, depth):
+        h = ''
+        for i, k in enumerate(kids or [], 1):
+            mark = ('%d.' % i) if depth == 1 else ('&#10003;' if depth == 2 else '&ndash;')
+            h += ('<p class="sc-l%d" style="margin-left:%dpx"><span class="sc-m">%s</span> %s%s &mdash; %s</p>'
+                  % (min(depth + 1, 4), 22 + 24 * (depth - 1), mark, ('<b>%s</b>' if depth == 1 else '%s') % _esc(k.get('name')),
+                     _esc(_alike(k)), _esc(_share(k))))
+            h += deeper(k.get('children'), depth + 1)
+        return h
+
+    for n in nodes or []:
+        out += ('<p class="sc-l1">&#10146;&nbsp;<u><b>%s</b></u>%s <span class="sc-s">(%s)</span> %s:</p>'
+                % (_esc(n.get('name')), _esc(_alike(n)), _esc(_head(n)),
+                   'each consists of' if (n.get('count') or 0) > 1 else 'consists of'))
+        out += deeper(n.get('children'), 1)
+    return out
+
+
+_SCOPE_CSS = ('<style>.sc-l1{margin:9px 0 2px;font-size:13px;color:#1F4E79}.sc-l1 b{color:#1F4E79}'
+              '.sc-s{color:#5a6472;font-weight:400}.sc-l2{margin:2px 0 1px 22px}.sc-l3{margin:1px 0 1px 46px}'
+              '.sc-l4{margin:1px 0 1px 66px;color:#4a5562}.sc-m{display:inline-block;min-width:16px;color:#1F4E79}</style>')
+
+
+def _scope(p, number, title, meta, cur):
     def _subhead(k, name, tail):
         return ('<div class="sub">%s.%d &middot; %s '
                 '<span style="font-weight:400;font-size:9.5px;color:#8a93a0;'
@@ -484,38 +503,25 @@ def _scope(p, number, title, meta, cur):
                 % (_esc(number), k, _esc(name), tail))
 
     descs = _scope_descriptions(p)
-    out = ('<p>The scope is described by the activity codes the planner picked &mdash; the overview '
-           'by cost first, then one sub-section per description. Codes with cost loaded are weighted '
-           'by the baseline cost; a code with no cost loaded is described by its activities.</p>')
-
-    # {number}.1 — scope overview: 100% composition bar of discipline shares + narrative
-    out += (_subhead(1, 'Scope overview', 'by discipline, share of the baseline cost')
-            + _compbar(p.get('disciplines') or []))
-
-    # editable auto-narrative callout (navy left-rule box)
-    narrative = p.get('narrative')
+    out = _SCOPE_CSS
+    # the opening paragraph, written from the codes (editable)
+    narrative = p.get('narrative') or p.get('paragraph')
     if narrative:
         out += ('<p data-section="%s" data-field="narrative" data-editable="1" '
-                'style="border-left:3px solid #1F4E79;background:#f2f6fb;'
-                'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
-                'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
-
-    # {number}.2, .3 … — one sub-section per description: what each of its codes consists of,
-    # then (2+ codes) the N-level breakdown, each code nested in the one before it
+                'style="text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
+    # {number}.1 — one bar: the first description split by its 2nd code (or its only code)
+    split = p.get('split') or []
+    out += _subhead(1, 'Scope by %s' % (p.get('split_code') or 'activity code'),
+                    'share of the activities that carry the code' + (' (by number of activities)' if p.get('basis') == 'count' else ''))
+    out += _compbar(split) if split else '<p class="note">No activity-code breakdown available.</p>'
+    # {number}.2, .3 … — each description written out, item by item
     for k, m in enumerate(descs, 2):
         mc = m.get('codes') or []
-        out += _subhead(k, ' → '.join(str(c) for c in mc) or 'Detailed scope by activity codes',
-                        _combo_tail(mc) if len(mc) >= 2 else 'what it consists of')
-        for cl in (m.get('code_lists') or []):
-            out += ('<p style="margin:3px 0"><b>%s</b> consists of: %s.</p>'
-                    % (_esc(cl['code']), ' &middot; '.join('%s (%s)' % (_esc(v['name']), _esc(share_label(v))) for v in cl['values'])))
-        if len(mc) >= 2:
-            if m.get('cascade'):
-                out += _casc_html(m['cascade'], cur or '', 0)
-            else:
-                out += '<p class="note">No activity-code breakdown available.</p>'
-        elif not m.get('code_lists'):
-            out += '<p class="note">No activity-code breakdown available.</p>'
+        out += _subhead(k, ' → '.join(str(c) for c in mc) or 'Scope by activity codes',
+                        _combo_tail(mc) if len(mc) >= 2 else 'largest first')
+        if k > 2 and m.get('paragraph'):
+            out += '<p style="text-align:justify">%s</p>' % _esc(m['paragraph'])
+        out += _roots_html(m.get('cascade') or [], len(mc)) or '<p class="note">No activity-code breakdown available.</p>'
     return out
 
 

@@ -309,7 +309,7 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
     # The scope is described over the activities that CARRY the picked code only (Ibrahim,
     # 2026-11-08): a code not assigned to every activity is analysed on its own activities -
     # no "Unclassified" share; by their cost, or by activity count when they carry no cost.
-    coded = [a for a in work if code(a, codes[0])] if codes else []
+    coded = [a for a in work if code(a, codes[0]) and (len(codes) < 2 or code(a, codes[1]))] if codes else []
     first_cost = cost_of(coded)
 
     # ── level-1 split for the §7.1 chart: the picked code's own activities, % of their cost ──
@@ -352,14 +352,19 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
                     node['children'] = kids
             raw.append(node)
         raw.sort(key=(lambda n: -n['acts']) if by_count else (lambda n: -n['cost']))
+        # each level is shared over the activities that carry ITS code (no "Unclassified" rest);
+        # shares are set before grouping too, so only items with the same share AND the same
+        # make-up are grouped (the ten identical silos - never Civil / Arch. / MEP of one building)
+        def share(nodes):
+            coded_cost = sum(n['cost'] for n in nodes)
+            for n in nodes:
+                if by_count:
+                    n['pct'] = round(100 * n['acts'] / n_coded, 1) if n_coded else 0.0
+                else:
+                    n['pct'] = round(100 * n['cost'] / coded_cost, 1) if coded_cost > 0 else 0.0
+        share(raw)
         grouped = _group_identical(raw)
-        # each level is shared over the activities that carry ITS code (no "Unclassified" rest)
-        coded_cost = sum(n['cost'] for n in grouped)
-        for n in grouped:
-            if by_count:
-                n['pct'] = round(100 * n['acts'] / n_coded, 1) if n_coded else 0.0
-            else:
-                n['pct'] = round(100 * n['cost'] / coded_cost, 1) if coded_cost > 0 else 0.0
+        share(grouped)
         return grouped
 
     # a first code whose activities carry no cost at all is described by activity count
@@ -392,7 +397,36 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
                 {'name': v, 'pct': round(100 * n / n_all, 1) if n_all else 0.0, 'acts': n, 'basis': 'count'}
                 for v, c, n in vals]})
 
+    split = []
+    if codes:
+        bar = codes[1] if len(codes) >= 2 else codes[0]
+        g = OrderedDict()
+        for a in coded:
+            g.setdefault(code(a, bar), []).append(a)
+        by_count = first_cost <= 0
+        n_all = sum(len(x) for x in g.values())
+        vals = [(v, round(cost_of(x), 2), len(x)) for v, x in g.items()]
+        vals = sorted(vals, key=(lambda x: -x[2]) if by_count else (lambda x: -x[1]))
+        if not by_count:
+            vals = [x for x in vals if x[1] > 0]
+        for v, c, n in vals:
+            row = {'name': v, 'cost': c, 'acts': n,
+                   'pct': round(100 * (n / n_all if by_count else c / first_cost), 1) if (n_all and (by_count or first_cost)) else 0.0}
+            if by_count:
+                row['basis'] = 'count'
+            split.append(row)
+        if len(split) > 8:                       # a long single-code list: the 7 largest + the rest
+            rest = split[7:]
+            split = split[:7] + [{'name': '%d others' % len(rest), 'cost': round(sum(r['cost'] for r in rest), 2),
+                                  'acts': sum(r['acts'] for r in rest), 'pct': round(sum(r['pct'] for r in rest), 1),
+                                  **({'basis': 'count'} if by_count else {})}]
+
     payload = {
+        'split': split,
+        'split_code': (codes[1] if len(codes) >= 2 else codes[0]) if codes else None,
+        'acts_total': len(coded),
+        'items': len({code(a, codes[0]) for a in coded}) if codes else 0,
+        'basis': 'count' if (codes and first_cost <= 0) else 'cost',
         # the value the scope paragraph states = the cost of the activities carrying the code
         'total': round(first_cost if first_cost > 0 else total_cost, 2),
         # share of the cost left out because it carries no value of the first code (assistant tip)
@@ -406,7 +440,42 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
     if currency:
         payload['unit'] = currency
     payload['narrative'] = _scope_narrative(payload, currency)
+    payload['paragraph'] = scope_paragraph(payload)
     return payload
+
+
+def _pct_txt(v):
+    return '%s%%' % _fmt_pct(v)
+
+
+def _and(xs):
+    xs = [str(x) for x in xs if x]
+    return xs[0] if len(xs) == 1 else (', '.join(xs[:-1]) + ' and ' + xs[-1]) if xs else ''
+
+
+def scope_paragraph(p):
+    """The plain opening paragraph of one scope description (Ibrahim, 2026-11-08: "describe the
+    scope of work easily using the activity codes"): how many items of the 1st code, how many
+    activities, the split by the 2nd code (or by the only code), and the largest items."""
+    codes = p.get('codes') or []
+    if not codes:
+        return ''
+    if not p.get('acts_total'):
+        return ('No activity carries %s, so this description is empty — pick codes that are assigned '
+                'to the same activities.' % (_and(codes[:2]).replace(' and ', ' together with ') if len(codes) >= 2 else codes[0]))
+    n, acts = p.get('items') or 0, p.get('acts_total') or 0
+    split = [s for s in (p.get('split') or []) if s.get('pct')]
+    out = 'The works comprise %d %s item%s, described by {:,} activities.'.format(acts) % (n, codes[0], '' if n == 1 else 's')
+    if split:
+        out += ' %s the scope is %s.' % ('By %s' % (p.get('split_code') or codes[0]),
+                                         _and('%s %s' % (_pct_txt(s['pct']), s['name']) for s in split[:5]))
+    if len(codes) >= 2:
+        top = (p.get('cascade') or [])[:3]
+        if top:
+            out += ' The largest are %s.' % _and('%s (%s)' % (t['name'], _pct_txt(t.get('pct'))) for t in top)
+    if p.get('basis') == 'count':
+        out += ' No cost is loaded on these activities, so the shares are by number of activities.'
+    return out
 
 
 def share_label(v):
@@ -420,7 +489,7 @@ def share_label(v):
 def _node_sig(node):
     """Structural signature of a cascade node by its descendant NAMES (ignoring cost), so two
     siblings with the same sub-tree (e.g. Silo 1 and Silo 2) can be grouped."""
-    return (node.get('name'),
+    return (node.get('name'), round(float(node.get('pct') or 0), 1),
             tuple(_node_sig(k) for k in (node.get('children') or [])))
 
 
@@ -434,8 +503,8 @@ def _group_identical(nodes):
         if not kids:
             singles.append(n)          # a leaf is a distinct scope item — never grouped
             continue
-        # group key = the sub-tree shape (children names) — NOT the node's own name
-        key = tuple(_node_sig(k) for k in kids)
+        # group key = the node's own share + its sub-tree (children names and shares) - NOT its name
+        key = (round(float(n.get('pct') or 0), 1), tuple(_node_sig(k) for k in kids))
         buckets.setdefault(key, []).append(n)
     out = list(singles)
     for members in buckets.values():
@@ -483,8 +552,8 @@ def _area_label(names):
             pre = ms[0].group(1).strip()
             pre = pre + ('' if pre.endswith('s') else 's')     # Silo → Silos
             return '%s %d–%d' % (pre, nums[0], nums[-1])
-    if len(names) <= 3:
-        return ', '.join(names)
+    if len(names) <= 4:
+        return _and(names).replace(' and ', ' & ')
     return '%s, %s … (+%d more)' % (names[0], names[1], len(names) - 2)
 
 

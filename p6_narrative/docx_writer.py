@@ -39,7 +39,6 @@ from docx.shared import Inches, Pt, RGBColor
 
 from p6_narrative import docx_calendar, docx_native, docx_template
 from p6_narrative.util import restable_title
-from p6_narrative.scope import share_label
 
 # ── palette / fonts (mirror the approved builder) ─────────────────────────────
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
@@ -69,10 +68,9 @@ _LEADS = {
                  'in chronological order.',
     'Contract Value': 'The contract value and its distribution by type of work '
                       '(discipline activity code), from cost loading.',
-    'Scope of Work': 'The scope is described by the activity codes the planner picked — the '
-                     'overview by cost first, then one sub-section per description. Codes with '
-                     'cost loaded are weighted by the baseline cost; a code with no cost loaded '
-                     'is described by its activities.',
+    'Scope of Work': 'The scope is described by the activity codes the planner picked, over the '
+                     'activities that carry them — by their loaded cost, or by number of activities '
+                     'where no cost is loaded.',
     'Work Breakdown Structure': 'The project WBS is presented as an organisation chart, '
                                 'then each major branch is expanded — to Level 4 where a '
                                 'branch’s Level-4 nodes are 4 or fewer, otherwise to Level 3.',
@@ -675,12 +673,9 @@ def _scope_composition(document, items, unit):
     _swatch_legend(document, items, docx_native.ramp_colors(names))
 
 
-_CASC_MARK = ['➢', '▸', '–', '·']   # by depth, mirrors html _CASC_MARK
-
-
 def _pct(v):
-    """Percentage text with no trailing '.0' on whole numbers — mirrors html _fmt_pct so the
-    Word cascade shows '67%' / '100%' exactly like the PDF/screen twin (not '67.0%')."""
+    """Percentage text with no trailing '.0' on whole numbers — mirrors html _fmt_pct so Word
+    shows '67%' / '100%' exactly like the PDF/screen twin (not '67.0%')."""
     try:
         f = float(v)
     except (TypeError, ValueError):
@@ -688,75 +683,76 @@ def _pct(v):
     return '%d' % f if f == int(f) else '%.1f' % f
 
 
-def _render_cascade(document, nodes, cur_fn, depth):
-    """Native Word render of the scope cascade tree (mirrors html _casc_html):
-    each non-leaf node is a marker heading (➢/▸/– by depth, name — pct%, cost at
-    level 0, '· N grouped' when several siblings were merged); each leaf (no children)
-    is a '•' bullet. Indented by depth so the planner reads it as a nested breakdown."""
-    for n in (nodes or []):
-        kids = [k for k in (n.get('children') or []) if k]
-        cnt = n.get('count')
-        qty = (' · %s grouped' % _count(cnt)) if (cnt and int(cnt) > 1) else ''
-        if not kids:
-            # deepest leaf — a bold-green bullet, one indent step past its parent heading
-            wp = para(document, before=0, after=1)
-            wp.paragraph_format.left_indent = Inches(0.28 * depth + 0.26)
-            run(wp, '•  ', bold=True, color=GREEN)
-            run(wp, n.get('name') or '—')
-            continue
-        mk = _CASC_MARK[min(depth, len(_CASC_MARK) - 1)]
-        pct_txt = (' (%s)' % share_label(n)) if n.get('pct') is not None else ''
-        money = (' — %s' % cur_fn(n.get('cost'))) if (depth == 0 and n.get('basis') != 'count') else ''
-        hp = para(document, before=(9 if depth == 0 else 3), after=2)
-        if depth > 0:
-            hp.paragraph_format.left_indent = Inches(0.28 * depth)
-        run(hp, '%s %s%s%s%s' % (mk, n.get('name') or '—', money, qty, pct_txt),
-            bold=True, size=(12 if depth == 0 else 11),
-            color=(NAVY if depth == 0 else DKNAVY))
-        _render_cascade(document, kids, cur_fn, depth + 1)
+def _sc_head(n):
+    """'8.7% of the scope · 204 activities' — a top item's heading tail."""
+    acts = n.get('acts')
+    return '%s%% of the scope%s' % (_pct(n.get('pct') or 0), (' · %d activities' % acts) if acts else '')
+
+
+def _sc_share(n):
+    acts = n.get('acts')
+    return '%s%%%s' % (_pct(n.get('pct') or 0),
+                       (' (%d %s)' % (acts, 'activity' if acts == 1 else 'activities')) if acts else '')
+
+
+def _sc_alike(n):
+    cnt = n.get('count')
+    return (' (%d alike)' % cnt) if (cnt and cnt > 1) else ''
+
+
+def _render_roots(document, nodes, ncodes):
+    """Native Word twin of html._roots_html — the scope written out item by item."""
+    if ncodes <= 1:
+        for n in nodes or []:
+            pp = para(document, before=2, after=1)
+            run(pp, '➢  ', bold=True, color=NAVY)
+            run(pp, n.get('name') or '—', bold=True, color=NAVY)
+            run(pp, '%s — %s' % (_sc_alike(n), _sc_share(n)))
+        return
+
+    def deeper(kids, depth):
+        for i, k in enumerate(kids or [], 1):
+            pp = para(document, before=0, after=1)
+            pp.paragraph_format.left_indent = Inches(0.3 + 0.3 * (depth - 1))
+            mark = ('%d.  ' % i) if depth == 1 else ('✓  ' if depth == 2 else '–  ')
+            run(pp, mark, bold=(depth == 1), color=NAVY)
+            run(pp, k.get('name') or '—', bold=(depth == 1))
+            run(pp, '%s — %s' % (_sc_alike(k), _sc_share(k)))
+            deeper(k.get('children'), depth + 1)
+
+    for n in nodes or []:
+        pp = para(document, before=8, after=2)
+        run(pp, '➢  ', bold=True, color=NAVY)
+        run(pp, n.get('name') or '—', bold=True, color=NAVY, underline=True)
+        run(pp, _sc_alike(n), bold=True, color=NAVY)
+        run(pp, ' (%s) %s:' % (_sc_head(n), 'each consists of' if (n.get('count') or 0) > 1 else 'consists of'), color=DKNAVY)
+        deeper(n.get('children'), 1)
 
 
 def _render_scope(document, p, number, note):
-    unit = p.get('unit')
-
-    def _cur(v):
-        """Money with the currency prefix — 'EGP 794,684,896' (matches the narrative)."""
-        m = _money(v)
-        return ('%s %s' % (unit, m)) if (unit and m) else m
-
-    # {number}.1 — scope overview by discipline (a single 100%-stacked COMPOSITION BAR:
-    # one ramp-coloured segment per discipline, sized to its % share of value)
-    disciplines = p.get('disciplines') or []
-    _subhead(document, '%s.1' % number, 'Scope overview — by discipline')
-    if disciplines:
-        _scope_composition(document, disciplines, unit)
-    else:
-        _muted(document, 'No cost-loaded activity codes are available to analyse the scope.')
-
-    # editable, justified narrative prose (the auto-summary callout)
-    narrative = p.get('narrative')
+    # the opening paragraph, written from the codes (the section intro above already says how)
+    narrative = p.get('narrative') or p.get('paragraph')
     if narrative:
-        para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
-
-    # {number}.2, .3 … — one sub-section per description, like the HTML twin
-    descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
-              'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
+        para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=4, after=8)
+    # {number}.1 — one bar: the first description split by its 2nd code (or its only code)
+    split = p.get('split') or []
+    _subhead(document, '%s.1' % number, 'Scope by %s' % (p.get('split_code') or 'activity code'))
+    if split:
+        _scope_composition(document, split, p.get('unit'))
+    else:
+        _muted(document, 'No activity-code breakdown is available for this scope.')
+    # {number}.2, .3 … — each description written out, item by item
+    descs = [{'codes': p.get('codes') or [], 'cascade': p.get('cascade') or []}] + \
+        [m for m in (p.get('more') or []) if m]
     for k, m in enumerate(descs, 2):
         mc = m.get('codes') or []
-        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Detailed scope by activity codes')
-        if len(mc) >= 2:
-            _muted(document, 'Each %s by %s.' % (mc[0], ', then '.join(mc[1:])))
-        for cl in (m.get('code_lists') or []):
-            pp = para(document, '', align=WD_ALIGN_PARAGRAPH.LEFT, after=3)
-            run(pp, cl['code'], bold=True)
-            run(pp, ' consists of: ' + ' · '.join('%s (%s)' % (v['name'], share_label(v)) for v in cl['values']) + '.')
+        _subhead(document, '%s.%d' % (number, k), ' → '.join(mc) or 'Scope by activity codes')
+        if k > 2 and m.get('paragraph'):
+            para(document, m['paragraph'], align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=2, after=6)
         cascade = [n for n in (m.get('cascade') or []) if n]
-        if len(mc) >= 2:
-            if cascade:
-                _render_cascade(document, cascade, _cur, 0)
-            else:
-                _muted(document, 'No activity-code breakdown is available for this scope.')
-        elif not m.get('code_lists'):
+        if cascade:
+            _render_roots(document, cascade, len(mc))
+        else:
             _muted(document, 'No activity-code breakdown is available for this scope.')
 
 
