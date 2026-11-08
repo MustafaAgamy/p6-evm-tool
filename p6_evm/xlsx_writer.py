@@ -634,7 +634,9 @@ def _timeline_sheet_xml(months, cal_name, subtitle, header_lines=None):
     r += 1
     for m in months:
         for c, v in enumerate([m['label'], m['working_days'], m.get('nonworking_days', 0),
-                               m['holidays'], m['exceptions'], m['working_hours']]):
+                               # holiday DAYS, a long run included — as section 3.1
+                               m.get('off_days', m.get('holidays', 0)),
+                               m['exceptions'], m['working_hours']]):
             cells[(r, c)] = (v, 0)
         r += 1
     return _cells_sheet(cells, col_widths={0: 15, 1: 15, 2: 15, 3: 15, 4: 15, 5: 15, 6: 15},

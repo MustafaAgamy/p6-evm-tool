@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Calendar Audit: an opened month counts its holiday days
+- Clicking a month bar now heads its calendar with the month's holiday **days**, a long run included — the same figure as 3.1 *Non-working days per month* and the histogram (course file, *Silos Phase I Scope*, March 2027: **19 working · 8 holidays · 152 hrs**, before "2 holidays"). P6 has no shutdown type: every non-working date that is not the weekly rest day is a holiday, counted per day. The Excel *Monthly Statistics* › Holidays column now gives the same number. Projects already imported show the right count without re-importing.
+
 ### Changed — Baseline Narrative Report: AI Assistant, layouts, critical path
 - **AI Assistant** — the report setup is now a chat with "your AI Planning Engineer", in the same Claude-style look as AI Chat (thinking, then the answer word by word). It opens with *"I am your AI Planning Engineer and I will build for you the narrative report for the baseline — but let me ask you some questions"* and what it read from the file, then asks 10 questions (location, contract type, revision, parties & logos, layout drawings, milestones, key dates, scope of work, sequence of work, build). Answers can be typed ("Lump sum, Rev.01" fills both and skips the revision question; "skip", "go back", "change scope"…) or picked.
 - For **Scope of Work** and **Sequence of Work** the assistant shows live examples from the planner's own file — "if you pick this code, section 7 reads like this; if you pick these 2 codes … these 3 codes …" and "one code = the order of the whole project, two codes = the order inside each area" — built by the same engines as the report, with warnings for codes that leave work unclassified or uncovered.
