@@ -1,0 +1,101 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Narrative Assistant</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--bad:#c0392b;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1100px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+h2{font-size:17px;margin:18px 0 6px}.note{color:var(--muted);font-size:12.5px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin:12px 0}
+/* chat */
+.app{display:grid;grid-template-columns:1fr 290px;gap:14px}@media(max-width:880px){.app{grid-template-columns:1fr}}
+.chat{background:#fff;border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;height:640px}
+.chead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800}
+.thread{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.m{max-width:82%;line-height:1.55;font-size:13.5px}
+.bot{align-self:flex-start;display:flex;gap:8px}.bot .b{background:#f3f6fa;border:1px solid #e3e8ef;border-radius:4px 14px 14px 14px;padding:9px 12px}
+.me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:14px 4px 14px 14px;padding:8px 12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.chips span{border:1px solid var(--accent);color:var(--accent);border-radius:16px;padding:3px 10px;font-size:12px;background:#fff;cursor:pointer}
+.widget{margin-top:8px;border:1px solid var(--border);border-radius:9px;background:#fff;padding:8px 10px;font-size:12.5px}
+.widget .row{display:flex;align-items:center;gap:8px;padding:3px 0}.widget .row input{margin:0}
+.thumbs{display:flex;gap:6px;margin-top:6px}.thumbs div{width:74px;height:50px;border-radius:5px;background:linear-gradient(135deg,#dfe8f2,#f5f8fb);font-size:9.5px;color:#6b7686;display:flex;align-items:flex-end;padding:3px;box-sizing:border-box}
+.typing{display:inline-flex;gap:3px}.typing i{width:6px;height:6px;border-radius:50%;background:#9aa6b5;animation:t 1s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes t{0%,100%{opacity:.3}50%{opacity:1}}
+.input{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}.input div{flex:1;border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:#9aa6b5;font-size:13px}.input b{background:var(--accent);color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center}
+.side{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;font-size:12.5px}
+.side h4{margin:0 0 8px;font-size:13px}.side .s{display:flex;gap:7px;padding:3px 0}.ok{color:var(--good);font-weight:800}.pend{color:#b8c0cc}.cur{color:var(--warn);font-weight:800}
+/* critpath */
+.kpis{display:flex;gap:10px;flex-wrap:wrap}.kpi{flex:1;min-width:140px;border:1px solid var(--border);border-radius:9px;padding:8px 11px}.kpi .v{font-size:20px;font-weight:800;color:var(--accent)}.kpi .t{font-size:11.5px;color:var(--muted)}
+.chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin-top:12px}
+.bx{border:1px solid #e5b4ad;border-top:4px solid var(--bad);border-radius:8px;padding:7px 9px;width:150px;font-size:11.5px;background:#fff}
+.bx b{display:block;font-size:12px}.bx small{color:var(--muted)}
+.arr{align-self:center;color:var(--bad);font-weight:800}
+.ms{border:2px solid var(--accent);border-radius:8px;padding:7px 9px;width:150px;font-size:11.5px;background:#eef4fb}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;border-radius:4px;font-size:13px;margin:10px 0}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — Baseline Narrative Report · Saint Gobain (SNT_GBN_Baseline_AS2-Fin-3) · real numbers</div>
+
+<h2>Part 1 — Critical Path section: show the critical path itself</h2>
+<div class="card">
+<div class="ann">Critical activities = <b>P6's Critical filter</b> — <b>223</b> on Saint Gobain, same as your P6. (The 0.5-day idea is dropped.) Today the section draws only the month × zone "sweep"; the actual chain of work that drives completion is missing. Proposed: add it on top.</div>
+<div class="kpis">
+ <div class="kpi"><div class="v">223</div><div class="t">critical activities (P6 Critical filter)</div></div>
+ <div class="kpi"><div class="v">19-Dec.2024</div><div class="t">critical path start</div></div>
+ <div class="kpi"><div class="v">30-Aug.2025</div><div class="t">critical path finish — Project Completion</div></div>
+ <div class="kpi"><div class="v">9 months</div><div class="t">critical span · 19 driving zones</div></div>
+</div>
+<h4 style="margin:14px 0 0">The critical path — the driving chain to Project Completion, by work front</h4>
+<div class="chain">
+ <div class="bx"><b>Batch House Earth Works</b><small>Batch House · Structural</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Concrete Works</b><small>Mixer Building · Foundation L-9.96</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Retaining RC Walls</b><small>Mixer Building · Basement L-3.80</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Earth Works</b><small>Batch Building · Foundation L-9.96</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Basement Floor @L-3.80</b><small>Batch Building · Structural</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Ground Floor @L+0.70</b><small>Batch Building · Structural</small></div><span class="arr">▶</span>
+ <div class="bx"><b>First Floor @L+4.80</b><small>Batch Building · Structural</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Second Floor @L+11.30</b><small>Batch Building · Structural</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Second Floor @L+4.80</b><small>Batch Building · Arc. Works</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Ground Floor @L-3.80</b><small>Batch Building · Arc. Works</small></div><span class="arr">▶</span>
+ <div class="bx"><b>Project Closure</b><small>closing activities</small></div><span class="arr">▶</span>
+ <div class="ms"><b>◆ Project Completion</b><small>30-Aug.2025</small></div>
+</div>
+<div class="note" style="margin-top:8px">Each box = a work front (the WBS the driving activities sit in), in path order; the build adds each front's start / finish and number of critical activities. Below it the report keeps the month × zone sweep and a short paragraph ("The critical path runs from … through Mixer Building and Batch Building to Project Completion"). Word, PDF and screen the same.</div>
+</div>
+
+<h2>Part 2 — Report setup as an AI assistant (same feel as AI Chat)</h2>
+<div class="note">Offline, like AI Chat. It has already read the file, asks one thing at a time, accepts typed answers or one-click suggestions, shows small cards inside the chat for files and checklists, and the outline on the right ticks off as you go. You can type "change the revision to Rev.02" or "go back" at any time.</div>
+<div class="app" style="margin-top:10px">
+ <div class="chat">
+  <div class="chead"><div class="av">✦</div><div><b>Narrative assistant</b><div class="note">Baseline Narrative Report · Saint Gobain AS2 PKG3</div></div></div>
+  <div class="thread">
+   <div class="m bot"><div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">I've read <b>SNT_GBN_Baseline_AS2-Fin-3</b> — 896 activities, 19-Dec.2024 → 30-Aug.2025, contract value from the cost loading <b>EGP 243.8 M</b>, <b>223 critical activities</b>. Let's build the narrative. Where is the project?
+    <div class="chips"><span>Egypt</span><span>Sadat City, Egypt</span><span>Type it…</span></div></div></div>
+   <div class="m me">10th of Ramadan City, Egypt</div>
+   <div class="m bot"><div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">Got it — <b>10th of Ramadan City, Egypt</b>. What type of contract is it?
+    <div class="chips"><span>Lump sum</span><span>Re-measured</span><span>Design &amp; Build</span><span>Cost plus</span></div></div></div>
+   <div class="m me">Lump sum, revision Rev.01</div>
+   <div class="m bot"><div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">Noted both: <b>Lump sum</b> and <b>Rev.01</b> — I'll skip the revision question. Now the project layout drawings for section 2 — add one or several, give each a title.
+    <div class="widget"><b>＋ Add layout drawings</b>
+     <div class="thumbs"><div>General layout</div><div>Batch house</div><div>Mixer bldg</div></div></div></div></div>
+   <div class="m bot"><div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">I found <b>12 milestones</b> and ticked the 5 main ones for section 4. Untick or add any:
+    <div class="widget"><div class="row"><input type="checkbox" checked> Contract Start — 19-Dec.2024</div><div class="row"><input type="checkbox" checked> Mixer Building Structure Complete</div><div class="row"><input type="checkbox" checked> Batch Building Structure Complete</div><div class="row"><input type="checkbox" checked> Project Completion — 30-Aug.2025</div><div class="row note">+ 8 more…</div></div></div></div>
+   <div class="m bot"><div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b"><span class="typing"><i></i><i></i><i></i></span></div></div>
+  </div>
+  <div class="input"><div>Type your answer, or "go back" / "change …"</div><b>➤</b></div>
+ </div>
+ <div class="side"><h4>Report outline</h4>
+  <div class="s"><span class="ok">✓</span>Location — 10th of Ramadan City</div>
+  <div class="s"><span class="ok">✓</span>Contract — Lump sum · Rev.01</div>
+  <div class="s"><span class="ok">✓</span>Contract value — EGP 243.8 M (auto)</div>
+  <div class="s"><span class="ok">✓</span>2 Project layout — 3 drawings</div>
+  <div class="s"><span class="cur">●</span>4–5 Milestones &amp; key dates</div>
+  <div class="s"><span class="pend">○</span>Parties &amp; logos (page header)</div>
+  <div class="s"><span class="pend">○</span>7 Scope of work — activity codes</div>
+  <div class="s"><span class="pend">○</span>11 Sequence of work</div>
+  <div class="s"><span class="pend">○</span>Build the report</div>
+  <div class="note" style="margin-top:10px">Click any ✓ line to change it. At the end: "Build the report" → progress in the chat → the report opens, with Word / PDF / Excel.</div>
+ </div>
+</div>
+<div class="note" style="margin-top:8px">The assistant understands typed answers for the questions it asks (location, contract type, revision, yes / no, "skip", "go back", "change …"); anything else gets a short help reply. Same answers feed the same report builder as today.</div>
+</div></body></html>

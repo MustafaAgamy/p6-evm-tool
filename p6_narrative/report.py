@@ -154,8 +154,14 @@ def _overview(ctx, r):
 def _layout(setup):
     # Always present so the report is a consistent 10 sections (Ibrahim): show the uploaded
     # drawing when provided, else a clear placeholder prompting one to be attached in setup.
-    img = setup.get('layout')
-    payload = {'image': img, 'caption': 'Project general layout'} if img else {
+    # Several layout drawings (Ibrahim, 20-Oct): setup['layouts'] = [{image, caption}] in the
+    # planner's order; the legacy single setup['layout'] still reads as one drawing.
+    lays = [l for l in (setup.get('layouts') or []) if isinstance(l, dict) and l.get('image')]
+    if not lays and setup.get('layout'):
+        lays = [{'image': setup.get('layout'), 'caption': 'Project general layout'}]
+    lays = [{'image': l['image'], 'caption': (l.get('caption') or '').strip() or 'Project layout'} for l in lays]
+    img = lays[0]['image'] if lays else None
+    payload = {'image': img, 'caption': lays[0]['caption'], 'images': lays} if img else {
         'image': None,
         'placeholder': 'No project layout drawing was attached. Add one in the report '
                        'setup (Project Layout) to show the general arrangement here.'}
@@ -232,8 +238,8 @@ def _contract_value(data, setup):
     # Distribute the contract value by the same discipline (Type-of-Works) code that §6 uses,
     # so §5's "distribution by type of work" and §6.1's discipline split stay consistent.
     from p6_narrative.scope import default_scope_codes
-    scope_codes = [c for c in (setup.get('scope_codes') or [])
-                   if c and c in (data.activity_code_types or [])]
+    _an = scope_analyses_of(setup, data.activity_code_types)
+    scope_codes = _cost_analysis(data, _an) or []
     # Resolve the discipline dimension through the SAME path §7.1 uses (scope.default_scope_codes),
     # so the Contract Value split and the §7.1 discipline chart can never split by different codes:
     # the planner's 1st picked code, else the auto-detected level-1 code.
@@ -270,11 +276,70 @@ def _contract_value(data, setup):
 
 
 # ── §7 Scope of Work ──────────────────────────────────────────────────────────
+def scope_analyses_of(setup, code_types):
+    """The planner's scope descriptions - each one describes the scope by as MANY activity codes
+    as the planner picks, in order (Ibrahim: e.g. Engineering + Building for the engineering scope
+    by building, then Type of Work for the scope of work). Not limited to 1-2 codes like the
+    Sequence of Work. setup['scope_analyses'] = [{'codes': [a, b, ...]}]; an older setup with
+    only setup['scope_codes'] is one analysis."""
+    setup = setup or {}
+    out = []
+    for a in (setup.get('scope_analyses') or []):
+        cs = [c for c in (a.get('codes') if isinstance(a, dict) else a) or [] if c and c in (code_types or [])]
+        if cs:
+            out.append(list(dict.fromkeys(cs)))
+    if not out and setup.get('scope_codes'):
+        cs = [c for c in setup['scope_codes'] if c and c in (code_types or [])]
+        if cs:
+            out.append(cs)
+    return out
+
+
+def _cost_analysis(data, analyses):
+    """The first picked analysis whose first code carries cost - it gives the 7.1 overview chart
+    and the 6 Contract Value split (a cost chart of a code with no cost, e.g. Engineering
+    submittals, would be empty). None when no picked analysis carries cost."""
+    bac = data.bac_by_activity or {}
+    for cs in analyses or []:
+        dim = cs[0]
+        if any((bac.get(a.get('object_id')) or 0) > 0 and (a.get('activity_codes') or {}).get(dim)
+               for a in data.activities.values()):
+            return cs
+    return None
+
+
 def _scope(data, setup):
+    setup = dict(setup or {})
+    analyses = scope_analyses_of(setup, data.activity_code_types)
+    if analyses:
+        setup['scope_codes'] = analyses[0]                 # the first analysis is described in 7.2
     payload = scope_sections(list(data.activities.values()), data.wbs,
                              bac_by_activity=data.bac_by_activity,
-                             code_types=data.activity_code_types, setup=setup or {},
-                             currency=(setup or {}).get('currency') or '')
+                             code_types=data.activity_code_types, setup=setup,
+                             currency=setup.get('currency') or '')
+    overview = _cost_analysis(data, analyses)
+    if analyses and overview != analyses[0]:
+        # 7.1 chart + paragraph come from a cost-loaded analysis (else the auto-detected codes)
+        ov = scope_sections(list(data.activities.values()), data.wbs,
+                            bac_by_activity=data.bac_by_activity,
+                            code_types=data.activity_code_types,
+                            setup=dict(setup, scope_codes=overview or []),
+                            currency=setup.get('currency') or '')
+        payload['disciplines'] = ov.get('disciplines') or []
+        payload['narrative'] = ov.get('narrative') or payload.get('narrative')
+    more = []
+    for cs in analyses[1:]:                                # every further analysis: its own sub-section
+        try:
+            extra = scope_sections(list(data.activities.values()), data.wbs,
+                                   bac_by_activity=data.bac_by_activity,
+                                   code_types=data.activity_code_types,
+                                   setup=dict(setup, scope_codes=cs),
+                                   currency=setup.get('currency') or '')
+            more.append({'codes': extra.get('codes') or cs, 'code_lists': extra.get('code_lists') or [],
+                         'cascade': extra.get('cascade') or [], 'disciplines': extra.get('disciplines') or []})
+        except Exception:
+            continue
+    payload['more'] = more
     return Section('7', 'Scope of Work', 'scope', 'auto', payload=payload, editable=True,
                    note='Share of contract value by discipline, then the detailed cost-weighted '
                         'breakdown by work type — driven by the activity codes.')
@@ -430,8 +495,11 @@ def _activity_ids(data):
     type found in the schedule — fully generic (nothing project-specific is hardcoded). Mirrors
     the other section builders: emits DATA only; both renderers draw straight from the payload."""
     from p6_narrative import actids
-    payload = actids.activity_id_analysis(list(data.activities.values()),
-                                          data.activity_code_types)
+    try:
+        payload = actids.activity_id_analysis(list(data.activities.values()),
+                                              data.activity_code_types)
+    except Exception:                                   # any project's coding: never break the report
+        payload = {'intro': actids.INTRO.replace('a structured, dot-separated', 'an'), 'anatomy': None, 'blocks': []}
     return Section('12', 'Activity IDs', 'activity_ids', 'auto', payload=payload, editable=True,
                    note='The ID types, segments and code lists are read directly from the '
                         'schedule; the plain-language meanings are auto-suggested and editable.')
@@ -558,6 +626,7 @@ def narrative_choices(data, setup=None):
         'activity_count': len(data.activities),
         'milestone_choices': list(ms_names),
         'key_date_choices': list(ms_names),
+        'milestone_dates': {name: ds for _, name, ds in all_ms},     # shown beside each in the AI Assistant
         'code_choices': list(data.activity_code_types or []),
         'scope_codes_auto': default_scope_codes(data.activity_code_types, setup),
         'contract_value': cval,
@@ -653,6 +722,7 @@ def build_report(data, path=None, meta=None, setup=None, **_ignored):
     # Before-run pick lists surfaced on the meta for the UI checklists / dropdowns.
     meta['milestone_choices'] = list(ms_names)
     meta['key_date_choices'] = list(ms_names)
+    meta['milestone_dates'] = {name: ds for _, name, ds in all_ms}
     meta['code_choices'] = list(data.activity_code_types or [])
     # the sensible auto-detected ordered scope cascade → the UI pre-populates the picker with it
     from p6_narrative.scope import default_scope_codes

@@ -52,6 +52,10 @@ def _overview(p, sec):
 
 
 def _image(p, sec):
+    imgs = p.get('images') or []
+    if imgs:
+        return [_block('Project layout drawings (in the report)', ['Figure', 'Title'],
+                       [['2.%d' % (k + 1), _s(im.get('caption'))] for k, im in enumerate(imgs)])]
     return [_text_block('Project layout', [p.get('placeholder') or
                                            ('A project layout drawing is attached in the report.' if p.get('image') else _EMPTY)])]
 
@@ -73,24 +77,37 @@ def _value_bars(p, sec):
     return [_block('Contract value by type of work', ['Type of work', 'Amount' + (f' ({unit})' if unit else ''), 'Share (%)'], rows)]
 
 
+def _basis(v):
+    return 'activity count' if (v or {}).get('basis') == 'count' else 'cost'
+
+
 def _scope(p, sec):
     out = []
     if p.get('narrative'):
         out.append(_text_block('Scope of work', [p['narrative']]))
     out.append(_block('Share of contract value by discipline', ['Discipline', 'Cost', 'Share (%)'],
                       [[_s(d.get('name')), _num(d.get('cost')), _num(d.get('pct'))] for d in (p.get('disciplines') or [])]))
-    flat = []
+    descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
+              'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
+    for m in descs:
+        mc = ' › '.join(_s(c) for c in (m.get('codes') or []))
+        for cl in (m.get('code_lists') or []):
+            out.append(_block('%s — %s consists of' % (mc, _s(cl['code'])), [_s(cl['code']), 'Share (%)', 'Activities', 'Weighted by'],
+                              [[_s(v['name']), _num(v['pct']), v.get('acts', ''), _basis(v)] for v in cl['values']]))
+        rows = []
 
-    def walk(nodes, depth, trail):
-        for n in nodes or []:
-            name = _s(n.get('name'))
-            flat.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct')),
-                         n.get('count') if n.get('count') is not None else '', _num(n.get('each')) if n.get('each') is not None else ''])
-            walk(n.get('children'), depth + 1, trail + [name])
-    walk(p.get('cascade'), 0, [])
-    codes = ' › '.join(_s(c) for c in (p.get('codes') or []))
-    out.append(_block('Detailed cost-weighted breakdown', ['Level', 'Path', 'Name', 'Cost', 'Share (%)', 'Count', 'Each'],
-                      flat, note=('By activity code: ' + codes) if codes else None))
+        def walk(nodes, depth, trail):
+            for n in nodes or []:
+                name = _s(n.get('name'))
+                rows.append([depth + 1, ' > '.join(trail + [name]), name, _num(n.get('cost')), _num(n.get('pct')),
+                             n.get('acts', ''), _basis(n),
+                             n.get('count') if n.get('count') is not None else '',
+                             _num(n.get('each')) if n.get('each') is not None else ''])
+                walk(n.get('children'), depth + 1, trail + [name])
+        walk(m.get('cascade'), 0, [])
+        if rows and len(m.get('codes') or []) >= 2:
+            out.append(_block('%s — detailed scope' % mc,
+                              ['Level', 'Path', 'Name', 'Cost', 'Share (%)', 'Activities', 'Weighted by', 'Grouped', 'Each'], rows))
     return out
 
 
@@ -211,8 +228,11 @@ def _resload(p, sec):
 
 
 def _materials(p, sec):
+    nou = ([_block('Material resources with no unit of measure', ['Material resource', 'Assignments', 'Budgeted units'],
+                   [[_s(r[0]), _s(r[1]), _s(r[2])] for r in p.get('no_unit_rows')], note=p.get('no_unit_note'))]
+           if p.get('no_unit_rows') else [])
     if not p.get('available'):
-        return [_text_block('Material resources', [p.get('intro') or p.get('note') or _EMPTY])]
+        return [_text_block('Material resources', [p.get('no_unit_note') or p.get('intro') or p.get('note') or _EMPTY])] + nou
     out = [_text_block('Material resources', [p.get('intro')]),
            _block('Material resources — totals', p.get('table_headers') or ['Material resource', 'Unit', 'Total'],
                   [[(_num(c) if i else _s(c)) for i, c in enumerate(r)] for r in (p.get('table_rows') or [])])]
@@ -220,7 +240,7 @@ def _materials(p, sec):
         out.append(_block(f"{_s(c.get('name'))} — monthly quantity", ['Month', 'Quantity' + (f" ({c.get('unit')})" if c.get('unit') else '')],
                           [[_s(m), _num(v)] for m, v in zip(c.get('span') or [], c.get('values') or [])],
                           note=f"Total {_s(c.get('total'))} · peak {_s(c.get('peak_val'))} in {_s(c.get('peak_label'))}"))
-    return out
+    return out + nou
 
 
 def _prodrate(p, sec):
@@ -264,8 +284,16 @@ def _critpath(p, sec):
             else:
                 row.append(_s(c))
         rows.append(row + [''] * (len(heads) - len(row)))
+    ch = p.get('chain') or {}
+    chain = []
+    if ch.get('fronts'):
+        ms = ch.get('milestone') or {}
+        chain = [_block('The critical path — driving chain to %s, by work front' % _s(ms.get('name')),
+                        ['Step', 'Work front', 'Where (WBS above)', 'Finish'],
+                        [[k + 1, _s(f.get('name')), _s(f.get('where')), _s(f.get('finish'))] for k, f in enumerate(ch['fronts'])]
+                        + [['◆', _s(ms.get('name')), '', _s(ms.get('finish'))]])]
     return [_text_block('Critical path', [p.get('narrative')]),
-            _block('Key figures', ['Item', 'Value'], [[_s(k[1]), _s(k[0])] for k in (p.get('kpis') or [])]),
+            _block('Key figures', ['Item', 'Value'], [[_s(k[1]), _s(k[0])] for k in (p.get('kpis') or [])])] + chain + [
             _block(p.get('subhead') or 'Critical-path sweep — which zone drives the schedule, month by month', heads, rows,
                    note=p.get('note')),
             # the chart's colour key, as the list of trades it shows (a colour means nothing in a cell)

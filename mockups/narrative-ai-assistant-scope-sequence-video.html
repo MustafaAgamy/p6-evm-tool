@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Assistant Scope Sequence</title>
+<style>
+:root{--bg:#eef2f7;--text:#1b2433;--muted:#6b7686;--border:#d9dfe8;--accent:#1f4e79;--good:#1e8a4c;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Segoe UI,Arial,sans-serif;padding:16px}
+.top{max-width:860px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tag{background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+button{border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:16px;padding:4px 12px;font-weight:700;cursor:pointer}
+.chat{max-width:860px;margin:auto;background:#fff;border:1px solid var(--border);border-radius:14px;height:78vh;min-height:520px;display:flex;flex-direction:column;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.av{width:30px;height:30px;border-radius:50%;background:#e8f1fb;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 auto}
+.thread{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+.bot{display:flex;gap:8px;max-width:92%;animation:in .35s ease}
+.bot .b{background:#f3f6fa;border:1px solid #e3e8ef;border-radius:4px 14px 14px 14px;padding:10px 13px;font-size:13.5px}
+.me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:14px 4px 14px 14px;padding:8px 13px;max-width:75%;animation:in .35s ease;font-size:13.5px}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.typing{display:inline-flex;gap:3px}.typing i{width:6px;height:6px;border-radius:50%;background:#9aa6b5;animation:t 1s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes t{0%,100%{opacity:.3}50%{opacity:1}}
+.card{margin-top:8px;border:1px solid var(--border);border-radius:9px;background:#fff;padding:8px 11px;font-size:12.5px}
+.card h5{margin:0 0 5px;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.03em}
+.lvl{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dashed #edf0f4}.lvl:last-child{border:0}
+.lvl .k{background:var(--accent);color:#fff;border-radius:6px;padding:1px 8px;font-weight:700;font-size:12px;white-space:nowrap}
+.lvl .d{color:var(--muted);font-size:12px}
+.ex{background:#fbfcfe;border-left:3px solid var(--good);padding:6px 9px;margin-top:6px;font-size:12.5px;font-style:italic}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips span{border:1px solid var(--accent);color:var(--accent);border-radius:16px;padding:3px 10px;font-size:12px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:12px;margin-top:4px}td,th{padding:3px 6px;border-bottom:1px solid #edf0f4;text-align:left}th{color:var(--muted);font-size:11px}
+.bar{height:8px;border-radius:4px;background:var(--accent);display:inline-block;vertical-align:middle}
+.foot{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}.foot div{flex:1;border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:#9aa6b5}.foot b{background:var(--accent);color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center}
+.chap{align-self:center;font-size:11.5px;color:var(--muted);background:#f1f4f8;border-radius:10px;padding:2px 10px}
+</style></head><body>
+<div class="top"><span class="tag">MOCKUP VIDEO — AI Assistant · Q8 Scope of Work & Q9 Sequence of Work · Saint Gobain AS2 PKG3 (real activity codes)</span>
+<button id="replay">↺ Replay</button><button id="skip">⏭ Show all</button></div>
+<div class="chat">
+ <div class="head"><div class="av">✦</div><div><b>AI Assistant</b><div style="font-size:11.5px;color:var(--muted)">I am your AI Planning Engineer · Baseline Narrative Report</div></div></div>
+ <div class="thread" id="th"></div>
+ <div class="foot"><div>Type your answer…</div><b>➤</b></div>
+</div>
+<script>
+const B = 'bot', M = 'me', C = 'chap';
+const steps = [
+ [C, 'Question 8 of 10 — Scope of Work (section 7)'],
+ [B, `Now the <b>Scope of Work</b> (section 7). I describe the scope with your <b>activity codes</b>: the first code splits the work into its main parts, the next code splits each part again, and I write one paragraph and one table per level.
+ <div class="card"><h5>Activity codes I found in your file</h5>
+  <div class="lvl"><span class="k">Type of Work</span><span class="d">867 activities — Construction 420 · Engineering 333 · Procurement 56 · Design 46</span></div>
+  <div class="lvl"><span class="k">Building</span><span class="d">818 — Mixer Building 181 · Batch Area 146 · Cullet Storage Area 87 · Raw Sand Storage 53 · …</span></div>
+  <div class="lvl"><span class="k">Trade</span><span class="d">809 — Civil Works 459 · Steel Structure Works 223 · Arc. Works 127</span></div>
+  <div class="lvl"><span class="k">Activity PKG3</span><span class="d">329 — PEB SUB 77 · Doors 20 · RFT C Columns 19 · …</span></div></div>`],
+ [B, `<b>Example</b> — with the order <b>Type of Work → Building → Trade</b> the section reads:
+ <div class="ex">"The scope comprises 867 activities: 420 Construction, 333 Engineering, 56 Procurement and 46 Design. The construction works cover the buildings / areas Mixer Building (181 activities), Batch Area (146), Cullet Storage Area (87) … In the Mixer Building the works are Civil Works (88), Arc. Works (46) and Steel Structure Works (42)."</div>
+ <b>Which codes should describe the scope, and in what order?</b> Give me 1 to 3 codes, first = the main split.
+ <div class="chips"><span>✓ Type of Work → Building → Trade (detected)</span><span>Building → Trade</span><span>Type of Work → Trade</span><span>choose my own order…</span></div>`],
+ [M, 'Type of Work, then Building, then Trade'],
+ [B, `Done — section 7 will use <b>Type of Work → Building → Trade</b>: 1 paragraph + 1 table per level, the buildings ordered by number of activities. Should I leave out the <b>Key Dates &amp; Control Milestones</b> value (12 activities) from the scope description?
+ <div class="chips"><span>Yes, leave it out</span><span>No, keep it</span></div>`],
+ [M, 'Yes, leave it out'],
+ [C, 'Question 9 of 10 — Sequence of Work (section 11)'],
+ [B, `Next the <b>Sequence of Work</b> (section 11). Each analysis puts the parts of the work <b>in the order they start</b> in the baseline, with their start and finish. An analysis uses <b>one code</b> (e.g. <i>Building</i>: which building starts first) or <b>two codes</b> (e.g. <i>Building + Trade</i>: inside each building, which trade starts first).`],
+ [B, `<b>Example 1 — one code: Building</b> (construction activities)
+ <table><tr><th>#</th><th>Building</th><th>Start</th><th>Finish</th><th>Activities</th></tr>
+ <tr><td>1</td><td>Batch Area</td><td>19-Dec-24</td><td>19-Aug-25</td><td>69</td></tr>
+ <tr><td>2</td><td>Raw Sand Storage</td><td>19-Dec-24</td><td>03-Aug-25</td><td>27</td></tr>
+ <tr><td>3</td><td>Cullet Yard Tunnel</td><td>12-Jan-25</td><td>02-Jul-25</td><td>22</td></tr>
+ <tr><td>4</td><td>Mixer Building</td><td>19-Jan-25</td><td>11-Aug-25</td><td>84</td></tr></table>
+ <b>Example 2 — two codes: Building + Trade</b> (Mixer Building)
+ <table><tr><th>#</th><th>Trade</th><th>Start</th><th>Finish</th></tr>
+ <tr><td>1</td><td>Civil Works</td><td>25-Dec-24</td><td>01-Jun-25</td></tr>
+ <tr><td>2</td><td>Arc. Works</td><td>24-Feb-25</td><td>11-Aug-25</td></tr>
+ <tr><td>3</td><td>Steel Structure Works</td><td>09-Mar-25</td><td>29-Jul-25</td></tr></table>
+ <div class="ex">"Works start with the Batch Area and Raw Sand Storage on 19-Dec-24, followed by the Cullet Yard Tunnel and the Mixer Building … In the Mixer Building, Civil Works lead from 25-Dec-24, then Arc. Works and Steel Structure Works."</div>`],
+ [B, `<b>Which sequence analyses should I include?</b> Pick one or more; for two codes say "Building + Trade".
+ <div class="chips"><span>✓ Building</span><span>✓ Building + Trade</span><span>Trade</span><span>Type of Work</span><span>add another…</span></div>`],
+ [M, 'Building, and Building + Trade'],
+ [B, `Section 11 will have <b>2 analyses</b>: <b>Building</b> (every building / area in start order) and <b>Building + Trade</b> (the trade order inside each building). Each comes with its table, a bar chart of the spans, and a short paragraph.
+ <div class="card"><h5>Summary so far</h5>§7 Scope: Type of Work → Building → Trade (Key Dates left out)<br>§11 Sequence: Building · Building + Trade</div>
+ Next, I'll show you the summary and build the report.`],
+];
+const th = document.getElementById('th'); let i = 0, timer = null;
+function add(kind, html) {
+  const el = document.createElement('div');
+  if (kind === B) { el.className = 'bot'; el.innerHTML = `<div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b">${html}</div>`; }
+  else if (kind === M) { el.className = 'me'; el.textContent = html; }
+  else { el.className = 'chap'; el.textContent = html; }
+  th.appendChild(el); th.scrollTop = th.scrollHeight;
+}
+function next() {
+  if (i >= steps.length) return;
+  const [k, h] = steps[i++];
+  if (k === B) {
+    const t = document.createElement('div'); t.className = 'bot';
+    t.innerHTML = '<div class="av" style="width:24px;height:24px;font-size:12px">✦</div><div class="b"><span class="typing"><i></i><i></i><i></i></span></div>';
+    th.appendChild(t); th.scrollTop = th.scrollHeight;
+    timer = setTimeout(() => { t.remove(); add(k, h); timer = setTimeout(next, 2600 + Math.min(4000, h.length * 6)); }, 1100);
+  } else { add(k, h); timer = setTimeout(next, k === M ? 1500 : 900); }
+}
+function play() { clearTimeout(timer); th.innerHTML = ''; i = 0; timer = setTimeout(next, 500); }
+document.getElementById('replay').onclick = play;
+document.getElementById('skip').onclick = () => { clearTimeout(timer); th.innerHTML = ''; steps.forEach(([k, h]) => add(k, h)); i = steps.length; };
+play();
+</script></body></html>

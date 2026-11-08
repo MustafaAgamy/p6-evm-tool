@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resources Same Content</title>
+<style>
+:root{--bg:#f4f6fa;--text:#1b2433;--muted:#6b7686;--navy:#1F4E79;--warn:#d68a1c}
+body{margin:0;background:var(--bg);color:var(--text);font:13.5px/1.5 Calibri,Segoe UI,Arial,sans-serif;padding:20px 16px}
+.wrap{max-width:1150px;margin:auto}.tag{display:inline-block;background:#fff3cd;border:1px solid #e8c766;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;font-family:Segoe UI}
+.ann{border-left:4px solid var(--warn);background:#fff8ea;padding:8px 12px;font-size:13px;margin:10px 0;font-family:Segoe UI}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.page{background:#fff;border:1px solid #c9d2de;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+.proj{font-family:Segoe UI;font-size:12px;color:#fff;background:var(--navy);display:inline-block;border-radius:10px;padding:1px 10px;margin-bottom:6px}
+h1{color:var(--navy);font-size:16px;margin:10px 0 6px;border-bottom:2px solid var(--navy);padding-bottom:2px}
+h2{color:var(--navy);font-size:13.5px;margin:10px 0 4px}
+.how{font-size:12px;color:#3b4656;background:#f5f8fc;border:1px solid #d6e0ea;border-radius:5px;padding:5px 8px;margin:4px 0}
+.chart{height:58px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid #9aa6b5;margin:4px 0}.chart i{flex:1;background:var(--navy);display:block}
+.chart.eq i{background:#2E9E5B}.chart.mat i{background:#E8A33D}
+table{border-collapse:collapse;width:100%;font-size:12px;margin-top:4px}th,td{border:1px solid #d9dfe8;padding:3px 6px;text-align:left}th{background:#eef3f8;color:var(--navy)}td.n{text-align:right}
+.none{color:var(--muted);font-style:italic;font-size:12.5px;border:1px dashed #c9d2de;padding:6px 8px;border-radius:5px}
+.note{border-left:3px solid var(--warn);background:#fff8ea;padding:5px 8px;font-size:12px;margin-top:5px}
+</style></head><body><div class="wrap">
+<div class="tag">MOCKUP — §13 Resource Loading + §14 Material Resources · SAME content for every project · numbers exactly as P6 holds them (no conversion) · real figures</div>
+<div class="ann">Every project gets the <b>same parts, in the same order</b>: 13.1 Manpower (man-hours) · 13.2 Equipment (equipment units, as budgeted in P6) · 14.1 Materials with a unit of measure (one chart each) · 14.2 Materials with no unit of measure (table + note). A part with nothing in the file still appears with one plain line, so no section is ever missing or blank.</div>
+<div class="cols">
+
+<div class="page"><span class="proj">Saint Gobain AS2 PKG3 — baseline</span>
+<h1>13) Resource Loading</h1>
+<h2>13.1 Manpower — budgeted man-hours per month</h2>
+<div class="chart"><i style="height:12%"></i><i style="height:67%"></i><i style="height:61%"></i><i style="height:62%"></i><i style="height:100%"></i><i style="height:25%"></i><i style="height:28%"></i><i style="height:13%"></i></div>
+<div class="how">Jan-25 → Aug-25 · peak May 2025: 33,727 man-hours · total 124,142 man-hours. Each Labour assignment's budgeted man-hours spread over the activity's working days (P6 Resource Usage).</div>
+<table><tr><th>Labour resource</th><th>Total man-hours</th></tr><tr><td>Steel Fixer</td><td class="n">43,432</td></tr><tr><td>Carpenter</td><td class="n">35,841</td></tr><tr><td colspan="2" style="color:#6b7686">… 11 labour resources</td></tr></table>
+<h2>13.2 Equipment — budgeted equipment units per month</h2>
+<div class="chart eq"><i style="height:4%"></i><i style="height:6%"></i><i style="height:4%"></i><i style="height:2%"></i><i style="height:20%"></i><i style="height:100%"></i><i style="height:40%"></i></div>
+<div class="how">Dec-24 → Jun-25 · peak May 2025: 7,846 · total 16,071 (unit as budgeted in P6). Each Nonlabour assignment's budgeted units spread over the activity's working days (P6 Resource Usage).</div>
+<table><tr><th>Equipment resource</th><th>Total budgeted units</th></tr><tr><td>Dumper Truck</td><td class="n">4,257</td></tr><tr><td>Loader</td><td class="n">4,257</td></tr><tr><td>Water Truck</td><td class="n">3,300</td></tr><tr><td>Compactor</td><td class="n">3,300</td></tr></table>
+<h1>14) Material Resources</h1>
+<h2>14.1 Materials with a unit of measure — quantity per month</h2>
+<div class="none">None in this schedule — no material resource has a unit of measure in P6.</div>
+<h2>14.2 Materials with no unit of measure</h2>
+<table><tr><th>Material resource</th><th>Budgeted units</th><th>Assignments</th></tr><tr><td>EX-resource</td><td class="n">243,805,397</td><td class="n">442</td></tr></table>
+<div class="note">These material resources have <b>no unit of measure</b> in P6, so their budgeted units cannot be read as quantities (m³, ton, m² …) and are not charted. Their budgeted units equal the cost loading used in section 6. To chart quantities, give each material resource a unit of measure in P6 and re-export.</div>
+</div>
+
+<div class="page"><span class="proj">Grain Bulk Terminal — baseline</span>
+<h1>13) Resource Loading</h1>
+<h2>13.1 Manpower — budgeted man-hours per month</h2>
+<div class="chart"><i style="height:4%"></i><i style="height:7%"></i><i style="height:7%"></i><i style="height:1%"></i><i style="height:2%"></i><i style="height:2%"></i><i style="height:10%"></i><i style="height:30%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:100%"></i><i style="height:60%"></i></div>
+<div class="how">May-25 → Feb-27 · peak January 2027: 11,700 man-hours · total 78,566 man-hours. Each Labour assignment's budgeted man-hours spread over the activity's working days (P6 Resource Usage).</div>
+<table><tr><th>Labour resource</th><th>Total man-hours</th></tr><tr><td>Piles Works Subcontractor MNP</td><td class="n">20,568</td></tr><tr><td>Mechanical Installation Subcontractor</td><td class="n">16,256</td></tr><tr><td colspan="2" style="color:#6b7686">… 12 labour resources</td></tr></table>
+<h2>13.2 Equipment — budgeted equipment units per month</h2>
+<div class="chart eq"><i style="height:14%"></i><i style="height:14%"></i><i style="height:10%"></i><i style="height:8%"></i><i style="height:14%"></i><i style="height:9%"></i><i style="height:20%"></i><i style="height:28%"></i><i style="height:22%"></i><i style="height:100%"></i></div>
+<div class="how">May-25 → Nov-26 · peak June 2026: 7.3 · total 43 (unit as budgeted in P6). Each Nonlabour assignment's budgeted units spread over the activity's working days (P6 Resource Usage).</div>
+<table><tr><th>Equipment resource</th><th>Total budgeted units</th></tr><tr><td>Excavator</td><td class="n">17</td></tr><tr><td>Pilling Machine</td><td class="n">16</td></tr><tr><td>Loader</td><td class="n">10</td></tr></table>
+<h1>14) Material Resources</h1>
+<h2>14.1 Materials with a unit of measure — quantity per month</h2>
+<div class="chart mat"><i style="height:8%"></i><i style="height:16%"></i><i style="height:15%"></i><i style="height:17%"></i><i style="height:32%"></i><i style="height:60%"></i><i style="height:22%"></i><i style="height:34%"></i><i style="height:88%"></i><i style="height:100%"></i><i style="height:54%"></i></div>
+<div class="how">Piles - QTY- m3 — total 36,401 m³ (one chart per material, in its own unit; 10 materials: EV 6,100 m³ · Piles 3,142 Ton · …)</div>
+<h2>14.2 Materials with no unit of measure</h2>
+<table><tr><th>Material resource</th><th>Budgeted units</th><th>Assignments</th></tr><tr><td>RFT For Piles</td><td class="n">247,888,814</td><td class="n">11</td></tr><tr><td>Concrete Pouring For Piles</td><td class="n">133,273,555</td><td class="n">17</td></tr><tr><td>Drilling For Piles</td><td class="n">105,552,656</td><td class="n">16</td></tr><tr><td colspan="3" style="color:#6b7686">… 152 material resources</td></tr></table>
+<div class="note">Same note as every project: no unit of measure in P6 → not charted as quantities; their budgeted units equal the cost loading (section 6).</div>
+</div>
+</div>
+</div></body></html>
