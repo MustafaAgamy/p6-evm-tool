@@ -566,8 +566,8 @@ def report_excel_sections(report):
         elapsed_txt = '—'
     prog_rows = [
         ['Baseline time elapsed', elapsed_txt,
-         'Calendar days from the baseline start (the earlier of the earliest baseline start and the '
-         "baseline's data date) to the data date, over the whole baseline to its finish"],
+         "Calendar days from the baseline's data date (the earliest baseline start when the file "
+         'carries none) to the data date, over the whole baseline to its finish'],
         ['Planned progress by data date', _pcts(ts.get('planned_pct'), 2),
          'Planned Value / budget (cost-based, over cost-loaded activities)'],
         ['Earned / actual progress', _pcts(ts.get('actual_pct'), 2),

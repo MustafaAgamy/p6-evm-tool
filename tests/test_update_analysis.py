@@ -168,7 +168,7 @@ def test_report_elapsed_counts_from_earliest_baseline_start_not_driving_path():
 
 def test_elapsed_clock_starts_at_baseline_data_date_when_earlier():
     # Baseline project's own data date 01 Dec 2024 sits before its first activity (01 Jan 2025):
-    # the clock starts at the EARLIER of the two → 01 Dec 2024.
+    # the clock starts at the baseline data date → 01 Dec 2024.
     # (02 Jul 2025 − 01 Dec 2024) = 213 d over (31 Dec 2025 − 01 Dec 2024) = 395 d → 53.9%.
     xml = _xml('2025-07-02', [
         (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
@@ -181,14 +181,32 @@ def test_elapsed_clock_starts_at_baseline_data_date_when_earlier():
     assert ts['elapsed_pct'] == 53.9, ts
 
 
-def test_elapsed_clock_keeps_earliest_start_when_baseline_data_date_is_later():
-    # A re-baseline taken mid-job: its data date (01 Mar 2025) is AFTER the earliest baseline
-    # start (01 Jan 2025) → the earlier one, 01 Jan, starts the clock (182/364 = 50.0%).
+def test_elapsed_clock_starts_at_baseline_data_date_even_when_activities_start_earlier():
+    # Ibrahim's rule rev 2 (2026-11-21): a re-baseline taken mid-job (GBT Rev.03: data date
+    # 11-Dec-2025, activity baseline starts back to Oct-2024). Its data date (01 Mar 2025) is
+    # AFTER the earliest baseline start (01 Jan 2025) — the clock still starts at the baseline
+    # data date: (02 Jul − 01 Mar) = 123 d over (31 Dec − 01 Mar) = 305 d → 40.3%
+    # (the earliest-start clock would read 182/364 = 50.0%).
     xml = _xml('2025-07-02', [
         (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
         (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
     ], baseline_data_date='2025-03-01')
     data, metrics = _parse_and_compute(xml)
+    ts = time_status(data, metrics)
+    assert ts['baseline_start'] == '2025-03-01', ts
+    assert ts['total_days'] == 305 and ts['elapsed_days'] == 123, ts
+    assert ts['elapsed_pct'] == 40.3, ts
+
+
+def test_elapsed_clock_falls_back_to_earliest_start_without_baseline_data_date():
+    # No baseline data date in the file (a baseline programme measured against itself / an XER
+    # with no baseline inside) → the earliest baseline start, 01 Jan: 182/364 = 50.0%.
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
+        (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    assert data.baseline_data_date is None
     ts = time_status(data, metrics)
     assert ts['baseline_start'] == '2025-01-01', ts
     assert ts['elapsed_pct'] == 50.0, ts
