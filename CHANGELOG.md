@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Faster import of large schedules
+- **Importing a schedule is 30–64% faster, with the same numbers.** Working time between two dates (float, Schedule % Complete, WBS delay) was counted one calendar day at a time on every activity and WBS node; each calendar now keeps a running total of its working days and minutes, so the time between two dates is one subtraction. Giza Zoo (13,820 activities): XER 10.8 s → 3.9 s, XML 28.2 s → 13.9 s; Alstom, GBT and MAFI 30–40% faster. Screens that read the schedule again (PV-EV gap, Narrative, Update Analysis…) get the same speed-up. Every result was checked against the old counting on six real schedules and 160,000 random date spans: day counts identical; minutes identical except float rounding below a millionth of a minute when a date carries seconds.
+
 ### Fixed — Earned Value: the budget now includes P6 Project Expenses
 - **Budget at Completion (BAC) = P6's Budgeted Total Cost** — labour + non-labour + material **+ expenses**. Before, only the resource assignments were read, so a schedule costed partly as expenses was short in BAC, Planned Value and Earned Value. Giza Zoo (Update 14-Nov-2026): its baseline carries 8,287,033.49 of expenses on 63 activities — BAC is now **1,328,099,999.99** (was 1,319,812,966.50), PV 160.10 M (was 155.71 M), EV 100.28 M (was 99.21 M), as P6 shows.
 - The same applies to the baseline's expenses (the budget PV and EV are measured on), to the update's own expenses, and to Actual Cost (the expenses' actual cost) — in XML and XER alike (`<ActivityExpense>` / `PROJCOST`), so both formats give the same figures. Schedules with no expenses are unchanged.
