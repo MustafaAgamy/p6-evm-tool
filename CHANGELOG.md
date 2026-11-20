@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Earned Value: the budget now includes P6 Project Expenses
+- **Budget at Completion (BAC) = P6's Budgeted Total Cost** — labour + non-labour + material **+ expenses**. Before, only the resource assignments were read, so a schedule costed partly as expenses was short in BAC, Planned Value and Earned Value. Giza Zoo (Update 14-Nov-2026): its baseline carries 8,287,033.49 of expenses on 63 activities — BAC is now **1,328,099,999.99** (was 1,319,812,966.50), PV 160.10 M (was 155.71 M), EV 100.28 M (was 99.21 M), as P6 shows.
+- The same applies to the baseline's expenses (the budget PV and EV are measured on), to the update's own expenses, and to Actual Cost (the expenses' actual cost) — in XML and XER alike (`<ActivityExpense>` / `PROJCOST`), so both formats give the same figures. Schedules with no expenses are unchanged.
+
 ### Changed — Baseline Narrative Report: AI Assistant, layouts, critical path
 - **AI Assistant** — the report setup is now a chat with "your AI Planning Engineer", in the same Claude-style look as AI Chat (thinking, then the answer word by word). It opens with *"I am your AI Planning Engineer and I will build for you the narrative report for the baseline — but let me ask you some questions"* and what it read from the file, then asks 10 questions (location, contract type, revision, parties & logos, layout drawings, milestones, key dates, scope of work, sequence of work, build). Answers can be typed ("Lump sum, Rev.01" fills both and skips the revision question; "skip", "go back", "change scope"…) or picked.
 - For **Scope of Work** and **Sequence of Work** the assistant shows live examples from the planner's own file — "if you pick this code, section 7 reads like this; if you pick these 2 codes … these 3 codes …" and "one code = the order of the whole project, two codes = the order inside each area" — built by the same engines as the report, with warnings for codes that leave work unclassified or uncovered.
