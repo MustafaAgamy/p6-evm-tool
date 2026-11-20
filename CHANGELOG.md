@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Update Analysis: Time Elapsed counts from the start of the baseline itself
+- **Time Elapsed** now runs from the **earlier of the earliest baseline start and the baseline's own data date** to the latest baseline finish (calendar days). Before, it started at the driving path's start milestone, so procurement and mobilisation in the baseline were left out and the clock read far too little. Giza Zoo (Update 14-Nov-2026, B.L Rev.05): 20-May-2026 → 31-Jul-2027, 178 of 437 days = **40.7%** (was 10.4%); behind the clock 33.2 points (was 2.9).
+- Works the same for a baseline inside an XML or XER and for an attached baseline. Screen, PDF, Excel, the report's opening line and the AI Chat Professional Dashboard all read the same figure.
+
 ### Fixed — Earned Value: the budget now includes P6 Project Expenses
 - **Budget at Completion (BAC) = P6's Budgeted Total Cost** — labour + non-labour + material **+ expenses**. Before, only the resource assignments were read, so a schedule costed partly as expenses was short in BAC, Planned Value and Earned Value. Giza Zoo (Update 14-Nov-2026): its baseline carries 8,287,033.49 of expenses on 63 activities — BAC is now **1,328,099,999.99** (was 1,319,812,966.50), PV 160.10 M (was 155.71 M), EV 100.28 M (was 99.21 M), as P6 shows.
 - The same applies to the baseline's expenses (the budget PV and EV are measured on), to the update's own expenses, and to Actual Cost (the expenses' actual cost) — in XML and XER alike (`<ActivityExpense>` / `PROJCOST`), so both formats give the same figures. Schedules with no expenses are unchanged.
