@@ -101,28 +101,35 @@ def _days_between(cal, d1, d2):
 
 # ── Section 1 · Time Status ──────────────────────────────────────────────────
 
-def time_status(data, metrics, span_start=None, span_finish=None):
+def _day(d):
+    """Midnight of the date — the clock counts whole calendar days."""
+    return d.replace(hour=0, minute=0, second=0, microsecond=0) if d else None
+
+
+def time_status(data, metrics):
     """How much of the baseline's calendar has been used up, and the cost-earned vs
     cost-planned progress against it.
 
-    - elapsed: calendar days (working AND non-working) from the baseline start to the
-      data date, over the whole baseline duration to the baseline FINISH. When the data
-      date passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
-      The span defaults to the driving path — from the start milestone that releases it to
-      the governing completion milestone (so procurement/mobilisation before the works don't
-      count) — falling back to the earliest/latest baseline dates when no path is supplied.
+    - elapsed (Ibrahim's rule, 2026-11-20): calendar days (working AND non-working) from the
+      clock start to the data date, over the whole baseline duration to the baseline FINISH.
+      Clock start = the EARLIER of the earliest baseline start of any activity and the
+      baseline project's own data date (so procurement/mobilisation in the baseline counts);
+      baseline finish = the latest baseline finish of any activity. When the data date
+      passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
     - actual %: Earned Value ÷ Budget across all cost-loaded activities (Ibrahim's rule).
     - planned %: PV ÷ Budget the same way (time-based planned %).
     """
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     bl = getattr(data, 'baseline_by_id', None) or {}
-    if span_start and span_finish:
-        bl_start, bl_finish = span_start, span_finish
-    else:
-        starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
-        finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
-        bl_start = min(starts) if starts else None
-        bl_finish = max(finishes) if finishes else None
+    starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
+    finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
+    # the baseline's own data date counts only for a real baseline (embedded / attached) — when
+    # the file's own Planned dates stand in ('self') there is no baseline project to date it
+    if getattr(data, 'baseline_source', None) != 'self' and getattr(data, 'baseline_data_date', None):
+        starts.append(data.baseline_data_date)
+    bl_start = _day(min(starts)) if starts else None
+    bl_finish = _day(max(finishes)) if finishes else None
+    data_date = _day(data_date)
 
     elapsed_pct = exceeded_days = total_days = elapsed_days = None
     if bl_start and bl_finish and data_date and bl_finish > bl_start:
@@ -759,15 +766,9 @@ def build_report_from_data(data, metrics, summary_level=0):
     bl_info = getattr(data, 'baseline_info', None) or {}
     proj = getattr(data, 'project', None) or {}
     cp = critical_path(data, summary_level=summary_level)
-    # Time Status runs over the DRIVING PATH's span — from the start milestone that releases it
-    # to the governing completion milestone — so procurement/mobilisation before the works don't
-    # inflate "time elapsed". Falls back to the earliest/latest baseline dates when there's no path.
-    span_start = span_finish = None
-    if cp.get('charts'):
-        sm = cp['charts'][0].get('start_milestone') or {}
-        span_start = _from_iso(sm.get('date'))
-    span_finish = _from_iso((cp.get('milestone') or {}).get('baseline_finish'))
-    ts = time_status(data, metrics, span_start, span_finish)
+    # Time Status runs over the WHOLE baseline (Ibrahim's rule, 2026-11-20) — not the driving
+    # path's span — so the AI Chat dashboard and this report read the same Time Elapsed.
+    ts = time_status(data, metrics)
     return {
         'project_name': proj.get('name') or proj.get('id') or 'Project',
         'data_date': _iso(proj.get('data_date')),

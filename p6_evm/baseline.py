@@ -52,6 +52,8 @@ def apply_baseline(data, baseline_data):
     data.baseline_by_id = bl_dates
     data.baseline_dates_by_id = bl_view
     data.baseline_bac_by_code = bl_bac_by_id
+    # the attached baseline project's own data date (Update Analysis Time Elapsed clock start)
+    data.baseline_data_date = (getattr(baseline_data, 'project', None) or {}).get('data_date')
     new_bac = {}
     matched = 0
     for oid, a in (data.activities or {}).items():
@@ -173,7 +175,7 @@ def resolve_baseline(data, attached_path=None, parse=None):
             if parse is None:
                 from p6_evm.parser import parse_file as parse
             keep = (data.baseline_by_id, data.baseline_bac_by_activity,
-                    getattr(data, 'baseline_bac_by_code', {}))
+                    getattr(data, 'baseline_bac_by_code', {}), getattr(data, 'baseline_data_date', None))
             bl_data = parse(attached_path)
             rep = apply_baseline(data, bl_data)
             if rep['matched']:
@@ -189,7 +191,8 @@ def resolve_baseline(data, attached_path=None, parse=None):
                             attached_project=(bproj.get('name') or bproj.get('id') or None),
                             mismatch=bool(other))
             else:                                     # wrong file — keep the file's own baseline
-                data.baseline_by_id, data.baseline_bac_by_activity, data.baseline_bac_by_code = keep
+                (data.baseline_by_id, data.baseline_bac_by_activity, data.baseline_bac_by_code,
+                 data.baseline_data_date) = keep
                 info.update(matched=0, name=display_name(attached_path))
     data.baseline_info = info
     return info
@@ -239,6 +242,7 @@ def inherit_baseline(prev, curr):
             if aid:
                 by_code[aid] = cost
     prev.baseline_by_id = {k: dict(v) for k, v in bl_dates.items()}
+    prev.baseline_data_date = getattr(curr, 'baseline_data_date', None)
     prev.baseline_bac_by_code = dict(by_code)
     prev.baseline_bac_by_activity = {oid: by_code[a['id']] for oid, a in (prev.activities or {}).items()
                                      if a.get('id') in by_code}

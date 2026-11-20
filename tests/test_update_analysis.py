@@ -36,7 +36,8 @@ def _parse_and_compute(xml):
         os.unlink(path)
 
 
-def _xml(data_date, acts, rels=None, wbs=None, milestones=None, start_milestones=None):
+def _xml(data_date, acts, rels=None, wbs=None, milestones=None, start_milestones=None,
+         baseline_data_date=None):
     """acts: (oid, code, name, pct0to1, start, finish, dur_hr, wbs_oid, codes_dict).
     baseline planned dates == the given start/finish. rels: (pred_oid, succ_oid).
     wbs: list of (oid, name, parent). milestones: (oid, code, name, finish, wbs_oid).
@@ -109,7 +110,9 @@ def _xml(data_date, acts, rels=None, wbs=None, milestones=None, start_milestones
             f'{codes_defs}'
             f'  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name><DataDate>{data_date}T00:00:00</DataDate>\n'
             f'{wbs_xml}{body}{rel_xml}{ras}  </Project>\n'
-            f'  <BaselineProject>\n{baseline}  </BaselineProject>\n</APIBusinessObjects>\n')
+            '  <BaselineProject>\n'
+            + (f'<DataDate>{baseline_data_date}T00:00:00</DataDate>\n' if baseline_data_date else '')
+            + f'{baseline}  </BaselineProject>\n</APIBusinessObjects>\n')
 
 
 # ── Section 1 ────────────────────────────────────────────────────────────────
@@ -142,29 +145,67 @@ def test_time_status_exceeds_baseline():
     assert ts['exceeded_days'] == 60
 
 
-def test_time_status_explicit_span():
-    # Baseline spans 01 Jan → 31 Dec 2025, data date 02 Jul. The no-span call clocks the whole
-    # baseline (≈50% elapsed). Passing an explicit narrower span (01 Apr → 31 Dec) must re-measure
-    # "time elapsed" over THAT window only — (02 Jul − 01 Apr)=92 d over (31 Dec − 01 Apr)=274 d ≈ 33.6%.
-    from datetime import datetime
+def test_report_elapsed_counts_from_earliest_baseline_start_not_driving_path():
+    # Ibrahim's rule (2026-11-20): the clock starts at the start of the BASELINE itself, so
+    # procurement before the works counts. Procurement 01 Jan → 31 Mar, then a Start Milestone
+    # (01 Apr) releases the works to a Finish Milestone (31 Dec). Data date 02 Jul.
+    # Whole baseline: (02 Jul − 01 Jan) = 182 d over (31 Dec − 01 Jan) = 364 d → 50.0%
+    # (the driving-path span would have read 92/274 = 33.6%).
+    xml = _xml('2025-07-02', [
+        (10, 'PR1', 'Procurement', 1.0, '2025-01-01', '2025-03-31', 80, 100, {}),
+        (11, 'W1', 'Works 1', 0.5, '2025-04-01', '2025-09-30', 80, 100, {}),
+        (12, 'W2', 'Works 2', 0.0, '2025-10-01', '2025-12-31', 80, 100, {}),
+    ], rels=[(20, 11), (11, 12), (12, 30)],
+        milestones=[(30, 'FIN', 'Project Finish', '2025-12-31', 100)],
+        start_milestones=[(20, 'STW', 'Start Works', '2025-04-01', 100)])
+    data, metrics = _parse_and_compute(xml)
+    ts = build_report_from_data(data, metrics)['time_status']
+    assert ts['baseline_start'] == '2025-01-01', ts
+    assert ts['baseline_finish'] == '2025-12-31', ts
+    assert ts['total_days'] == 364 and ts['elapsed_days'] == 182, ts
+    assert ts['elapsed_pct'] == 50.0, ts
+
+
+def test_elapsed_clock_starts_at_baseline_data_date_when_earlier():
+    # Baseline project's own data date 01 Dec 2024 sits before its first activity (01 Jan 2025):
+    # the clock starts at the EARLIER of the two → 01 Dec 2024.
+    # (02 Jul 2025 − 01 Dec 2024) = 213 d over (31 Dec 2025 − 01 Dec 2024) = 395 d → 53.9%.
     xml = _xml('2025-07-02', [
         (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
         (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
-    ])
+    ], baseline_data_date='2024-12-01')
     data, metrics = _parse_and_compute(xml)
-    full = time_status(data, metrics)
-    assert 48 <= full['elapsed_pct'] <= 52, full['elapsed_pct']   # whole-baseline clock ≈ 50%
+    ts = time_status(data, metrics)
+    assert ts['baseline_start'] == '2024-12-01', ts
+    assert ts['total_days'] == 395 and ts['elapsed_days'] == 213, ts
+    assert ts['elapsed_pct'] == 53.9, ts
 
-    span = time_status(data, metrics,
-                       span_start=datetime(2025, 4, 1), span_finish=datetime(2025, 12, 31))
-    # hand-computed 92/274 → 33.6%; must differ from the whole-baseline reading
-    assert abs(span['elapsed_pct'] - 33.6) < 0.2, span['elapsed_pct']
-    assert span['elapsed_pct'] != full['elapsed_pct']
-    # the span dates are echoed back, proving the given window (not the baseline extremes) was used
-    assert span['baseline_start'] == '2025-04-01'
-    assert span['baseline_finish'] == '2025-12-31'
-    # earned side is cost/EV-based and unaffected by the clock window
-    assert span['actual_pct'] == full['actual_pct'] == 50.0
+
+def test_elapsed_clock_keeps_earliest_start_when_baseline_data_date_is_later():
+    # A re-baseline taken mid-job: its data date (01 Mar 2025) is AFTER the earliest baseline
+    # start (01 Jan 2025) → the earlier one, 01 Jan, starts the clock (182/364 = 50.0%).
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
+        (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
+    ], baseline_data_date='2025-03-01')
+    data, metrics = _parse_and_compute(xml)
+    ts = time_status(data, metrics)
+    assert ts['baseline_start'] == '2025-01-01', ts
+    assert ts['elapsed_pct'] == 50.0, ts
+
+
+def test_attached_baseline_carries_its_data_date():
+    # An attached baseline file brings its own data date — the clock uses it like the embedded one.
+    from datetime import datetime
+    from p6_evm.parser import ScheduleData
+    from p6_evm.baseline import apply_baseline
+    upd, bl = ScheduleData(), ScheduleData()
+    upd.activities = {'1': {'object_id': '1', 'id': 'A1'}}
+    bl.activities = {'9': {'object_id': '9', 'id': 'A1', 'planned_start': datetime(2025, 1, 1),
+                           'planned_finish': datetime(2025, 12, 31)}}
+    bl.project = {'data_date': datetime(2024, 11, 15)}
+    apply_baseline(upd, bl)
+    assert upd.baseline_data_date == datetime(2024, 11, 15)
 
 
 # ── Section 2 ────────────────────────────────────────────────────────────────
@@ -299,11 +340,11 @@ def test_build_report_no_baseline_assigned_in_p6_reads_own_dates():
         assert report['has_baseline'] is True
 
 
-def test_build_report_time_status_uses_driving_path_span():
+def test_build_report_time_status_counts_mobilisation_before_the_driving_path():
     # Driving path: Start Milestone (01 Mar) → Pile a (Mar–Jun) → Completion milestone (BL 01 Jun).
-    # An off-path Mobilisation activity carries an EARLIER baseline start (01 Jan) so the whole-
-    # baseline clock would read from Jan. build_report must instead clock the DRIVING-PATH span —
-    # from the start milestone (01 Mar) to the milestone baseline finish (01 Jun) — not Jan→Jun.
+    # An off-path Mobilisation activity carries an EARLIER baseline start (01 Jan). Ibrahim's rule
+    # (2026-11-20): the clock runs over the WHOLE baseline — from 01 Jan, mobilisation included —
+    # not from the driving path's start milestone (the old 21-Aug rule, which read 33.7%).
     wbs = [(100, 'Proj', ''), (200, 'Silo 1', 100), (300, 'Pile Works', 200)]
     acts = [
         # off-path early works — earlier baseline start, must NOT anchor the clock
@@ -322,14 +363,12 @@ def test_build_report_time_status_uses_driving_path_span():
     assert chart['start_milestone'] and chart['start_milestone']['date'] == '2025-03-01'
 
     ts = report['time_status']
-    assert isinstance(ts.get('elapsed_pct'), (int, float))
-    # span echoed back = start-milestone date → milestone baseline finish (NOT the Jan mobilisation)
-    assert ts['baseline_start'] == '2025-03-01'
+    # clock = earliest baseline start (the Jan mobilisation) → latest baseline finish
+    assert ts['baseline_start'] == '2025-01-01'
     assert ts['baseline_finish'] == '2025-06-01'
-    # (01 Apr − 01 Mar)=31 d over (01 Jun − 01 Mar)=92 d → 33.7% — the driving-path clock,
-    # far from the whole-baseline reading of ~59% that Jan→Jun would give
-    assert abs(ts['elapsed_pct'] - 33.7) < 0.4, ts['elapsed_pct']
-    assert ts['elapsed_pct'] < 45
+    # (01 Apr − 01 Jan)=90 d over (01 Jun − 01 Jan)=151 d → 59.6%
+    assert ts['elapsed_days'] == 90 and ts['total_days'] == 151, ts
+    assert ts['elapsed_pct'] == 59.6, ts['elapsed_pct']
 
 
 # ── Exporters ────────────────────────────────────────────────────────────────

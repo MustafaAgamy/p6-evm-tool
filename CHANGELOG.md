@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed — Update Analysis: Time Elapsed counts from the start of the baseline itself
+- **Time Elapsed** now runs from the **earlier of the earliest baseline start and the baseline's own data date** to the latest baseline finish (calendar days). Before, it started at the driving path's start milestone, so procurement and mobilisation in the baseline were left out and the clock read far too little. Giza Zoo (Update 14-Nov-2026, B.L Rev.05): 20-May-2026 → 31-Jul-2027, 178 of 437 days = **40.7%** (was 10.4%); behind the clock 33.2 points (was 2.9).
+- Works the same for a baseline inside an XML or XER and for an attached baseline. Screen, PDF, Excel, the report's opening line and the AI Chat Professional Dashboard all read the same figure.
+
 ### Fixed — Faster import of large schedules
 - **Importing a schedule is 30–64% faster, with the same numbers.** Working time between two dates (float, Schedule % Complete, WBS delay) was counted one calendar day at a time on every activity and WBS node; each calendar now keeps a running total of its working days and minutes, so the time between two dates is one subtraction. Giza Zoo (13,820 activities): XER 10.8 s → 3.9 s, XML 28.2 s → 13.9 s; Alstom, GBT and MAFI 30–40% faster. Screens that read the schedule again (PV-EV gap, Narrative, Update Analysis…) get the same speed-up. Every result was checked against the old counting on six real schedules and 160,000 random date spans: day counts identical; minutes identical except float rounding below a millionth of a minute when a date carries seconds.
 
