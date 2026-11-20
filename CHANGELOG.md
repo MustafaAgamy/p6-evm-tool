@@ -7,8 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-### Fixed — Update Analysis: Time Elapsed counts from the start of the baseline itself
-- **Time Elapsed** now runs from the **earlier of the earliest baseline start and the baseline's own data date** to the latest baseline finish (calendar days). Before, it started at the driving path's start milestone, so procurement and mobilisation in the baseline were left out and the clock read far too little. Giza Zoo (Update 14-Nov-2026, B.L Rev.05): 20-May-2026 → 31-Jul-2027, 178 of 437 days = **40.7%** (was 10.4%); behind the clock 33.2 points (was 2.9).
+### Fixed — Update Analysis: Time Elapsed counts from the baseline's data date
+- **Time Elapsed** now runs from the **baseline's own data date** (the data date of the baseline project inside the P6 file, or of the attached baseline) to the latest baseline finish, in calendar days. Only when the file carries no baseline data date does it start at the earliest baseline start. Before, it started at the driving path's start milestone, so procurement and mobilisation in the baseline were left out and the clock read far too little.
+- Giza Zoo (Update 14-Nov-2026, B.L Rev.05): 20-May-2026 → 31-Jul-2027, 178 of 437 days = **40.7%** (was 10.4%). GBT (Update Till 09 Aug.2026, a re-baseline dated 11-Dec-2025 whose activities carry baseline starts back to Oct-2024): 241 of 425 days = **56.7%** — counted from the re-baseline, not from the older activity dates.
 - Works the same for a baseline inside an XML or XER and for an attached baseline. Screen, PDF, Excel, the report's opening line and the AI Chat Professional Dashboard all read the same figure.
 
 ### Fixed — Faster import of large schedules

@@ -110,12 +110,13 @@ def time_status(data, metrics):
     """How much of the baseline's calendar has been used up, and the cost-earned vs
     cost-planned progress against it.
 
-    - elapsed (Ibrahim's rule, 2026-11-20): calendar days (working AND non-working) from the
-      clock start to the data date, over the whole baseline duration to the baseline FINISH.
-      Clock start = the EARLIER of the earliest baseline start of any activity and the
-      baseline project's own data date (so procurement/mobilisation in the baseline counts);
-      baseline finish = the latest baseline finish of any activity. When the data date
-      passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
+    - elapsed (Ibrahim's rule rev 2, 2026-11-21): calendar days (working AND non-working) from
+      the clock start to the data date, over the whole baseline duration to the baseline FINISH.
+      Clock start = the baseline project's own DATA DATE (the date the baseline was taken —
+      so a re-baseline such as GBT Rev.03 is not measured from activity dates that predate it);
+      only when the file carries no baseline data date, the earliest baseline start of any
+      activity. Baseline finish = the latest baseline finish of any activity. When the data
+      date passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
     - actual %: Earned Value ÷ Budget across all cost-loaded activities (Ibrahim's rule).
     - planned %: PV ÷ Budget the same way (time-based planned %).
     """
@@ -123,11 +124,11 @@ def time_status(data, metrics):
     bl = getattr(data, 'baseline_by_id', None) or {}
     starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
     finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
-    # the baseline's own data date counts only for a real baseline (embedded / attached) — when
+    # the baseline's own data date applies only to a real baseline (embedded / attached) — when
     # the file's own Planned dates stand in ('self') there is no baseline project to date it
-    if getattr(data, 'baseline_source', None) != 'self' and getattr(data, 'baseline_data_date', None):
-        starts.append(data.baseline_data_date)
-    bl_start = _day(min(starts)) if starts else None
+    bl_dd = (getattr(data, 'baseline_data_date', None)
+             if getattr(data, 'baseline_source', None) != 'self' else None)
+    bl_start = _day(bl_dd) if bl_dd else (_day(min(starts)) if starts else None)
     bl_finish = _day(max(finishes)) if finishes else None
     data_date = _day(data_date)
 
