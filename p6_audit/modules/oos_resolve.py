@@ -336,10 +336,24 @@ def _repoint(ops):
     existing relationship keeps its identity in P6 and only changes its predecessor (or
     successor), type and lag. P6 applies an edit of an existing relationship on import every time;
     a relationship that is new to the file was not created there (15-Oct: the replacement
-    predecessor showed on screen but never reached P6). Adds with no removed partner stay adds."""
+    predecessor showed on screen but never reached P6).
+
+    An add that shares no activity with a removed tie is carried by ANY removed tie still unused -
+    the repoint moves both its predecessor and successor (20-Nov, Giza Zoo: twenty closing ties to
+    Project Finish were written as new relationships, P6 skipped them on import and listed the
+    activities as having no successor). Only an add left over once every removed tie is reused
+    stays an add."""
     removes = [o for o in ops if o['kind'] == 'remove_rel']
     used = set()
-    out = []
+    out, unpaired = [], []
+
+    def repoint(i, o):
+        used.add(i)
+        r = removes[i]
+        out.append({'kind': 'repoint_rel', 'pred_code': r['pred_code'], 'succ_code': r['succ_code'],
+                    'new_pred_code': o['pred_code'], 'new_succ_code': o['succ_code'],
+                    'type': o.get('type', 'FS'), 'lag_hours': o.get('lag_hours', 0.0)})
+
     for o in ops:
         if o['kind'] != 'add_rel':
             continue
@@ -348,13 +362,15 @@ def _repoint(ops):
         if partner is None:
             partner = next((i for i, r in enumerate(removes) if i not in used and r['pred_code'] == o['pred_code']), None)
         if partner is None:
+            unpaired.append(o)
+        else:
+            repoint(partner, o)
+    for o in unpaired:   # then any removed tie still free carries the new one
+        partner = next((i for i in range(len(removes)) if i not in used), None)
+        if partner is None:
             out.append(o)
-            continue
-        used.add(partner)
-        r = removes[partner]
-        out.append({'kind': 'repoint_rel', 'pred_code': r['pred_code'], 'succ_code': r['succ_code'],
-                    'new_pred_code': o['pred_code'], 'new_succ_code': o['succ_code'],
-                    'type': o.get('type', 'FS'), 'lag_hours': o.get('lag_hours', 0.0)})
+        else:
+            repoint(partner, o)
     kept = [o for o in ops if o['kind'] not in ('add_rel', 'remove_rel')]
     kept += [r for i, r in enumerate(removes) if i not in used]
     return kept + out

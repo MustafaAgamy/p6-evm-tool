@@ -349,3 +349,20 @@ def test_a_replaced_predecessor_is_written_by_editing_the_existing_relationship(
     R.write_corrected_xer(str(xer), ops, str(outx))
     rows = [l.split('\t') for l in outx.read_text(encoding='utf-8').splitlines() if l.startswith('%R\t500')]
     assert len(rows) == 1 and rows[0][1:4] == ['500', '12', '13'] and rows[0][6:8] == ['PR_FS', '0']
+
+
+def test_a_new_tie_with_no_shared_activity_still_reuses_a_free_removed_tie():
+    # 20-Nov, Giza Zoo: closing ties to Project Finish were written as NEW relationships and P6
+    # skipped them on import (open ends). Any removed tie left unused carries the new one instead.
+    ops = R._repoint([{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                      {'kind': 'remove_rel', 'pred_code': 'C', 'succ_code': 'D'},
+                      {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0},
+                      {'kind': 'add_rel', 'pred_code': 'X', 'succ_code': 'END', 'type': 'FS', 'lag_hours': 0}])
+    assert sorted(o['kind'] for o in ops) == ['repoint_rel', 'repoint_rel']
+    moved = {(o['pred_code'], o['succ_code']): (o['new_pred_code'], o['new_succ_code']) for o in ops}
+    assert moved == {('A', 'B'): ('NTP', 'B'), ('C', 'D'): ('X', 'END')}
+    # with no removed tie left, the extra one stays an add
+    ops = R._repoint([{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                      {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0},
+                      {'kind': 'add_rel', 'pred_code': 'X', 'succ_code': 'END', 'type': 'FS', 'lag_hours': 0}])
+    assert sorted(o['kind'] for o in ops) == ['add_rel', 'repoint_rel']
