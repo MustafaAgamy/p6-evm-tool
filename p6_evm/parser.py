@@ -133,6 +133,11 @@ class ScheduleData:
         #   'self'     — it does not, so the file's own Planned dates stand in (approximate)
         #   'attached' — a separate baseline file was applied (p6_evm.baseline.resolve_baseline)
         self.baseline_source = None
+        # The baseline project's OWN data date (XML <BaselineProject><DataDate>, XER baseline
+        # PROJECT.last_recalc_date, or the attached baseline file's data date) — None when the
+        # file carries no baseline project. Update Analysis starts its Time Elapsed clock at the
+        # earlier of this and the earliest baseline start (additive; nothing else reads it).
+        self.baseline_data_date = None
         self.bac_by_activity = {}  # ActivityObjectId -> planned cost (current update)
         self.baseline_bac_by_activity = {}  # ActivityObjectId -> BASELINE budget (BAC) — P6's cost basis for PV/EV/%-rollup
         # The same baseline budget keyed by Activity Id (code) — every baseline activity, not only
@@ -421,6 +426,8 @@ def _parse_xml(path) -> ScheduleData:
             type=cal_type, is_default=is_default,
         )
 
+    if baseline_el is not None:
+        data.baseline_data_date = parse_datetime(text(baseline_el, 'DataDate'))
     data.project = {
         'object_id': text(project_el, 'ObjectId'),
         'id': text(project_el, 'Id'),
