@@ -366,3 +366,31 @@ def test_a_new_tie_with_no_shared_activity_still_reuses_a_free_removed_tie():
                       {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0},
                       {'kind': 'add_rel', 'pred_code': 'X', 'succ_code': 'END', 'type': 'FS', 'lag_hours': 0}])
     assert sorted(o['kind'] for o in ops) == ['add_rel', 'repoint_rel']
+
+
+def test_an_activity_left_without_successor_keeps_its_own_tie_reconnected_to_completion():
+    # 20-Nov (Ibrahim): instead of removing the out-of-sequence tie and leaving the predecessor
+    # loose, the SAME relationship is reconnected to the project completion - on screen and in the file.
+    acts = {
+        'ntp': _act('ntp', task_type='StartMilestone', name='Project Commencement', actual_start=dt('2025-11-01'),
+                    status='Completed'),
+        'end': _act('end', task_type='FinishMilestone', name='Project Completion', planned_finish=dt('2026-12-01')),
+        'app': _act('app'),                                          # approval, not started; only successor is x
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z'),
+    }
+    d = _data(acts, [('ntp', 'app', 'FS'), ('ntp', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'),
+                     ('x', 'z', 'FS'), ('z', 'end', 'FS')])
+    f = next(f for f in _oos(d)['findings'] if f['activity_id'] == 'x')
+    accepted = [{'finding_id': f['finding_id'], 'pred_id': 'app', 'succ_id': 'x', 'action': 'remove',
+                 'new_type': None, 'new_lag_days': None, 'new_pred_id': ''}]
+    out = R.revalidate(d, CONFIG, accepted)
+    assert out['findings'] == []
+    # the row of x shows the approval's tie reconnected, not "Removed" + a separate new tie
+    row = [c for c in out['changes']['x'] if c['side'] == 'pred']
+    assert [(c['other'], c['after'], c['auto']) for c in row] == [('app', 'Reconnected: app → end FS', 'close')]
+    # the file edits that same relationship in place - nothing new for P6 to skip
+    fops = R.to_file_ops(R.complete_ops(d, CONFIG, accepted), d)
+    assert fops == [{'kind': 'repoint_rel', 'pred_code': 'app', 'succ_code': 'x', 'new_pred_code': 'app',
+                     'new_succ_code': 'end', 'type': 'FS', 'lag_hours': 0.0}]

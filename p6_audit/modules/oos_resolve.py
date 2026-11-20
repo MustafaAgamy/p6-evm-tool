@@ -198,6 +198,31 @@ def _rel_text(t, lag):
     return f"{t}({lag})" if lag else t
 
 
+def _reconnections(data, full):
+    """Each closing tie paired with the removed tie it takes the place of (20-Nov, Ibrahim: rather
+    than removing an out-of-sequence tie and leaving the activity loose, the same relationship is
+    reconnected to the project completion / commencement). An activity left without a successor
+    keeps ITS removed successor tie, re-pointed to the completion milestone; one left without a
+    predecessor keeps its removed predecessor tie, re-pointed from the commencement. Returns
+    {'ties': {(pred, succ) removed: (new pred, new succ)}, 'closings': {(pred, succ) closing}}."""
+    removed = [(o['pred_id'], o['succ_id']) for o in (_norm_op(x) for x in full)
+               if o['action'] in ('remove', 'replace') and o['pred_id'] and o['succ_id']]
+    ties, closings = {}, set()
+    for raw in full:
+        if raw.get('auto') != 'close':
+            continue
+        o = _norm_op(raw)
+        pc, sc = o['pred_id'], o['succ_id']
+        # the kept activity: a successor-less one is the closing's predecessor, else its successor
+        keep_pred = any(p == pc for p, _ in removed if (p, _) not in ties)
+        pick = next((t for t in removed if t not in ties and (t[0] == pc if keep_pred else t[1] == sc)), None)
+        if pick is None:
+            continue
+        ties[pick] = (pc, sc)
+        closings.add((pc, sc))
+    return {'ties': ties, 'closings': closings}
+
+
 def changed_ties(data, full):
     """{activity code: [every relationship tie of that activity the corrections changed]} - both
     ends of each tie (comment 88 follow-up: highlight the relationship changed after the fix, on the
@@ -208,28 +233,35 @@ def changed_ties(data, full):
     base = {}
     for r in data.relationships:
         base.setdefault((code.get(r['pred_id']), code.get(r['succ_id'])), (r.get('type', 'FS'), r.get('lag_days', 0.0)))
+    reconnect = _reconnections(data, full)
     out = {}
     for raw in full:
         o = _norm_op(raw)
         act, pc, sc = o['action'], o['pred_id'], o['succ_id']
         if act not in ('change', 'remove', 'replace', 'add') or not sc:
             continue
+        if raw.get('auto') == 'close' and (pc, sc) in reconnect['closings']:
+            continue   # shown as the removed tie it reconnects (below), not as a separate new tie
         cur = base.get((pc, sc))
         before = _rel_text(*cur) if cur else ''
+        removed = 'Removed'
+        if act in ('remove', 'replace') and (pc, sc) in reconnect['ties']:
+            np_, ns_ = reconnect['ties'][(pc, sc)]
+            removed = f'Reconnected: {np_} → {ns_} FS'
         if act == 'change':
             after = _rel_text(o['new_type'] or (cur or ('FS', 0))[0],
                               o['new_lag_days'] if o['new_lag_days'] is not None else (cur or ('FS', 0))[1])
             ties = [(pc, sc, before, after)]
         elif act == 'remove':
-            ties = [(pc, sc, before, 'Removed')]
+            ties = [(pc, sc, before, removed)]
         elif act == 'add':
             ties = [(pc, sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0))]
         else:   # replace = the offending tie removed + a new predecessor
-            ties = [(pc, sc, before, 'Removed')]
+            ties = [(pc, sc, before, removed)]
             if o['new_pred_id']:
                 ties.append((o['new_pred_id'], sc, '', 'Added ' + _rel_text(o['new_type'] or 'FS', o['new_lag_days'] or 0)))
         for p, s, b, a in ties:
-            auto = raw.get('auto') or ''
+            auto = 'close' if a.startswith('Reconnected') else (raw.get('auto') or '')
             out.setdefault(s, []).append({'side': 'pred', 'other': p, 'other_name': name.get(p, ''),
                                           'before': b, 'after': a, 'auto': auto})
             out.setdefault(p, []).append({'side': 'succ', 'other': s, 'other_name': name.get(s, ''),
@@ -305,10 +337,25 @@ def to_file_ops(accepted, data):
     ``p6_compare.revert``: set_rel / remove_rel / add_rel, with the lag already converted
     to hours (P6 stores lag in hours in both XML and XER)."""
     ops = []
+    rc = _reconnections(data, accepted)
     for raw in accepted:
         o = _norm_op(raw)
         act, pc, sc = o['action'], o['pred_id'], o['succ_id']
         if act in ('data', 'manual') or not sc:
+            continue
+        if raw.get('auto') == 'close' and (pc, sc) in rc['closings']:
+            continue   # written as the removed tie it reconnects (below)
+        if act in ('remove', 'replace') and (pc, sc) in rc['ties']:
+            # the out-of-sequence tie is not dropped: the SAME relationship is reconnected to the
+            # project completion (commencement) - an in-place edit P6 applies on import
+            npc, nsc = rc['ties'][(pc, sc)]
+            ops.append({'kind': 'repoint_rel', 'pred_code': pc, 'succ_code': sc,
+                        'new_pred_code': npc, 'new_succ_code': nsc, 'type': 'FS', 'lag_hours': 0.0})
+            if act == 'replace' and o['new_pred_id']:
+                lag_days = o['new_lag_days'] if o['new_lag_days'] is not None else 0.0
+                ops.append({'kind': 'add_rel', 'pred_code': o['new_pred_id'], 'succ_code': sc,
+                            'type': o['new_type'] or _current_type(data, pc, sc),
+                            'lag_hours': float(lag_days) * _lag_day_hours(data, o['new_pred_id'], sc)})
             continue
         lag_days = o['new_lag_days'] if o['new_lag_days'] is not None else 0.0
         new_pc = o['new_pred_id'] if act == 'replace' and o['new_pred_id'] else pc

@@ -911,7 +911,7 @@ function _oosTakeValidated(out) {
 function _oosAutoText() {
   const a = _oos.auto || {};
   return (a.ties ? ` ${a.ties} further out-of-sequence tie${a.ties === 1 ? '' : 's'} of the same activities corrected with them.` : '')
-       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} added to the project commencement / completion milestone so no activity is left without a predecessor or successor.` : '');
+       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} reconnected to the project commencement / completion milestone (the out-of-sequence tie is moved there, not just removed), so no activity is left without a predecessor or successor.` : '');
 }
 
 async function _oosApply(fid) {
