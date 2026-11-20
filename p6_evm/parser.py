@@ -493,6 +493,14 @@ def _parse_xml(path) -> ScheduleData:
             if not bl_aid:
                 continue
             baseline_bac_by_id[bl_aid] = baseline_bac_by_id.get(bl_aid, 0.0) + parse_float(text(ra_el, 'PlannedCost'))
+        # ...plus the baseline's Project Expenses: P6's Budgeted Total Cost = labour + non-labour
+        # + material + EXPENSES, so a baseline costed partly as expenses (Giza Zoo: 63 activities,
+        # 8.29 M) was short of P6's BAC by exactly that amount.
+        for ex_el in baseline_el.findall(tag('ActivityExpense')):
+            bl_aid = bl_oid_to_id.get(text(ex_el, 'ActivityObjectId'))
+            if not bl_aid:
+                continue
+            baseline_bac_by_id[bl_aid] = baseline_bac_by_id.get(bl_aid, 0.0) + parse_float(text(ex_el, 'PlannedCost'))
 
     for act_el in project_el.findall(tag('Activity')):
         object_id = text(act_el, 'ObjectId')
@@ -635,6 +643,18 @@ def _parse_xml(path) -> ScheduleData:
             # such an assignment by its effective cost per unit, never its stated price
             'rate_derived': parse_float(text(ra_el, 'PricePerUnit'), None) is None,
         })
+
+    # Project Expenses (<ActivityExpense>) are part of P6's Budgeted / Actual Total Cost, beside
+    # the resource assignments: add their budget and actual cost to the activity's totals. They
+    # are not resources, so assignments_by_activity (resource detail) is left as it is.
+    for ex_el in project_el.findall(tag('ActivityExpense')):
+        activity_id = text(ex_el, 'ActivityObjectId')
+        if not activity_id or activity_id not in data.activities:
+            continue
+        data.bac_by_activity[activity_id] = (data.bac_by_activity.get(activity_id, 0.0)
+                                             + parse_float(text(ex_el, 'PlannedCost')))
+        data.ac_by_activity[activity_id] = (data.ac_by_activity.get(activity_id, 0.0)
+                                            + parse_float(text(ex_el, 'ActualCost')))
 
     # Link baseline BAC (keyed by activity Id) to each current activity's ObjectId, so metrics
     # can weight PV/EV/%-rollup by the baseline budget like P6 does. Only set when the baseline

@@ -369,6 +369,16 @@ def _parse_xer(path):
             'rate_derived': False,                  # TASKRSRC.cost_per_qty is P6's own price
         })
 
+    # Project Expenses (PROJCOST) — part of P6's Budgeted / Actual Total Cost beside the resource
+    # assignments; the XER twin of parser.py's <ActivityExpense> (target_cost = PlannedCost,
+    # act_cost = ActualCost). Not resources, so assignments_by_activity is left as it is.
+    for ex in tables.get('PROJCOST', []):
+        tid = ex.get('task_id')
+        if not tid or tid not in data.activities:
+            continue
+        data.bac_by_activity[tid] = data.bac_by_activity.get(tid, 0.0) + (_num(ex.get('target_cost'), 0.0) or 0.0)
+        data.ac_by_activity[tid] = data.ac_by_activity.get(tid, 0.0) + (_num(ex.get('act_cost'), 0.0) or 0.0)
+
     if bl_proj_id:
         _read_embedded_baseline(tables, bl_proj_id, data)
     if data.baseline_by_id:
@@ -454,6 +464,10 @@ def _read_embedded_baseline(tables, bl_proj_id, data):
         code = bl_code.get(ra.get('task_id'))
         if code:
             bac_by_code[code] = bac_by_code.get(code, 0.0) + (_num(ra.get('target_cost'), 0.0) or 0.0)
+    for ex in tables.get('PROJCOST', []):     # + the baseline's Project Expenses (P6's BAC includes them)
+        code = bl_code.get(ex.get('task_id'))
+        if code:
+            bac_by_code[code] = bac_by_code.get(code, 0.0) + (_num(ex.get('target_cost'), 0.0) or 0.0)
     data.baseline_bac_by_code = dict(bac_by_code)
     for oid, a in data.activities.items():
         if a.get('id') in bac_by_code:
