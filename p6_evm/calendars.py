@@ -3,6 +3,14 @@ from datetime import date, datetime, timedelta
 
 DOW_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+_DAY = timedelta(days=1)
+# The day index (Calendar._index) covers the queried span plus this many days either side, and
+# grows by at least as much again, so a run of queries over a project builds it once or twice.
+_INDEX_MARGIN = 366
+# A span longer than this (a stray far-off date) is counted day by day instead of indexed, so a
+# bad date can never make the index allocate millions of days.
+_INDEX_MAX_DAYS = 50 * 366
+
 
 def hhmmss_to_min(s):
     """'HH:MM:SS' (or 'HH:MM') -> minutes past midnight, or None."""
@@ -35,6 +43,90 @@ class Calendar:
     # Calendar Audit metadata (additive — never affects EVM math):
     type: str = ''            # 'Global' | 'Project' | 'Resource' (raw P6 Type), '' when absent
     is_default: bool = False  # P6 IsDefault flag
+    # Cached day index (see _index) - not part of the calendar's identity, so it is left out of
+    # the constructor, repr and ==.
+    _idx: tuple = field(default=None, init=False, repr=False, compare=False)
+
+    # ── Day index ─────────────────────────────────────────────────────────────────────────────
+    # working_minutes / signed_working_days / float_working_days used to walk the calendar one
+    # day at a time on EVERY call - called per activity / per WBS node over spans of years, that
+    # was ~1.6M day steps on a 13.8k-activity schedule (6+ s of an import). The index holds, for
+    # a range of days, the running total of each day's full working minutes and of working days,
+    # so the days strictly between two dates cost one subtraction. The two boundary days are
+    # still measured exactly as before (_day_overlap), so the result is the same number.
+
+    def _fingerprint(self):
+        """Changes when a working-time set or dict is replaced or grows/shrinks - a guard: the
+        parsers build a calendar once and nothing edits it afterwards."""
+        return (id(self.work_intervals), len(self.work_intervals),
+                id(self.exception_intervals), len(self.exception_intervals),
+                id(self.holidays), len(self.holidays),
+                id(self.nonworking_days), len(self.nonworking_days),
+                id(self.added_work_days), len(self.added_work_days))
+
+    def _index(self, first, last):
+        """(lo, cum_min, cum_wd, exact) covering day ordinals first..last inclusive.
+        cum_min[i] / cum_wd[i] = full-day working minutes / working days (is_working_day) of the
+        days lo .. lo+i-1. exact is False when a work interval runs outside 00:00-24:00, where a
+        full day is not simply the sum of its intervals - callers then count day by day."""
+        fp = self._fingerprint()
+        ix = self._idx
+        if ix is not None and ix[0] == fp:
+            _, lo, hi, cum_min, cum_wd, exact = ix
+            if lo <= first and last < hi:
+                return lo, cum_min, cum_wd, exact
+            grow = max(_INDEX_MARGIN, hi - lo)
+            lo, hi = min(first, lo) - grow, max(last + 1, hi) + grow
+        else:
+            lo, hi = first - _INDEX_MARGIN, last + 1 + _INDEX_MARGIN
+        lo, hi = max(lo, 1), min(hi, date.max.toordinal() + 1)
+        cum_min, cum_wd = [0], [0]
+        m = w = 0
+        d = date.fromordinal(lo)
+        for _ in range(hi - lo):
+            m += sum(em - sm for sm, em in self._intervals_for(d) if em > sm)
+            w += self.is_working_day(d)
+            cum_min.append(m)
+            cum_wd.append(w)
+            if d.toordinal() < hi - 1:
+                d += _DAY
+        exact = all(0 <= sm and em <= 1440
+                    for ivs in (*self.work_intervals.values(), *self.exception_intervals.values())
+                    for sm, em in ivs)
+        self._idx = (fp, lo, hi, cum_min, cum_wd, exact)
+        return lo, cum_min, cum_wd, exact
+
+    def working_days_between(self, first: date, last: date) -> int:
+        """Working days (is_working_day) from first to last, both included; 0 when last < first."""
+        a, b = first.toordinal(), last.toordinal()
+        if b < a:
+            return 0
+        if b - a > _INDEX_MAX_DAYS:
+            return sum(self.is_working_day(date.fromordinal(o)) for o in range(a, b + 1))
+        lo, _, cum_wd, _ = self._index(a, b)
+        return cum_wd[b + 1 - lo] - cum_wd[a - lo]
+
+    def _day_overlap(self, d: date, start: datetime, end: datetime) -> float:
+        """Working minutes of day d that fall inside [start, end]."""
+        total = 0.0
+        base = datetime(d.year, d.month, d.day)
+        for sm, em in self._intervals_for(d):
+            lo = max(base + timedelta(minutes=sm), start)
+            hi = min(base + timedelta(minutes=em), end)
+            if hi > lo:
+                total += (hi - lo).total_seconds() / 60.0
+        return total
+
+    def _minutes_by_day(self, start: datetime, end: datetime) -> float:
+        """working_minutes counted one day at a time (the pre-index method; kept for spans the
+        index does not cover)."""
+        total = 0.0
+        d = start.date()
+        last = end.date()
+        while d <= last:
+            total += self._day_overlap(d, start, end)
+            d += _DAY
+        return total
 
     def is_working_day(self, d: date) -> bool:
         if d in self.added_work_days:
@@ -82,17 +174,19 @@ class Calendar:
         (part-way activities count in work HOURS, not whole days)."""
         if start is None or end is None or end <= start:
             return 0.0
-        total = 0.0
-        d = start.date()
-        last = end.date()
-        while d <= last:
-            base = datetime(d.year, d.month, d.day)
-            for sm, em in self._intervals_for(d):
-                lo = max(base + timedelta(minutes=sm), start)
-                hi = min(base + timedelta(minutes=em), end)
-                if hi > lo:
-                    total += (hi - lo).total_seconds() / 60.0
-            d += timedelta(days=1)
+        d0, d1 = start.date(), end.date()
+        if d0 == d1:
+            return self._day_overlap(d0, start, end)
+        a, b = d0.toordinal(), d1.toordinal()
+        if b - a > _INDEX_MAX_DAYS:
+            return self._minutes_by_day(start, end)
+        lo, cum_min, _, exact = self._index(a, b)
+        if not exact:
+            return self._minutes_by_day(start, end)
+        # first day from `start`, the whole days strictly between, the last day up to `end`
+        total = self._day_overlap(d0, start, end)
+        total += cum_min[b - lo] - cum_min[a + 1 - lo]
+        total += self._day_overlap(d1, start, end)
         return total
 
 
@@ -110,13 +204,21 @@ def signed_working_days(calendar: Calendar, start: datetime, end: datetime):
     if b < a:
         a, b = b, a
         sign = -1
-    n = 0
-    d = a
-    while d < b:
-        d += timedelta(days=1)
-        if calendar.is_working_day(d.date()):
-            n += 1
-    return sign * n
+    if not isinstance(calendar, Calendar):     # a stand-in with only is_working_day
+        n = 0
+        d = a
+        while d < b:
+            d += _DAY
+            if calendar.is_working_day(d.date()):
+                n += 1
+        return sign * n
+    # The days a+1, a+2, ... a+k counted - k = the whole days from a to b, rounded up.
+    if b == a:
+        return 0
+    delta = b - a
+    k = delta.days + (1 if (delta.seconds or delta.microseconds) else 0)
+    first = a.date() + _DAY
+    return sign * calendar.working_days_between(first, first + timedelta(days=k - 1))
 
 
 def signed_working_minutes(calendar: Calendar, start: datetime, end: datetime):
@@ -254,12 +356,19 @@ def float_working_days(calendar: Calendar, early: datetime, late: datetime):
     # its working time is outside: the lower date if it starts in the afternoon (work already
     # done), the upper date if it ends in the morning (work not yet begun). Midday split ~12:00.
     ad, bd = a.date(), b.date()
-    n = 0
-    d = ad
-    while d <= bd:
-        if calendar.is_working_day(d):
-            skip = (d == ad and a.hour >= 12) or (d == bd and b.hour < 12)
-            if not skip:
-                n += 1
-        d += timedelta(days=1)
+    if ad == bd or not isinstance(calendar, Calendar):
+        n = 0
+        d = ad
+        while d <= bd:
+            if calendar.is_working_day(d):
+                skip = (d == ad and a.hour >= 12) or (d == bd and b.hour < 12)
+                if not skip:
+                    n += 1
+            d += _DAY
+        return sign * n
+    n = calendar.working_days_between(ad, bd)
+    if a.hour >= 12 and calendar.is_working_day(ad):
+        n -= 1
+    if b.hour < 12 and calendar.is_working_day(bd):
+        n -= 1
     return sign * n
