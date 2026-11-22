@@ -444,9 +444,16 @@ function _timeStatusHtml(report) {
     verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind clock · ${Math.abs(v)}</span><span><b>${ep.toFixed(1)}%</b> of the baseline calendar is used up, but only <b>${_pct2(ap)}</b> of the work is done — ${Math.abs(v)} points ${v > 0 ? 'less' : 'more'} work than time spent.</span></div>`;
   }
   const cv = ts.cost_variance;
+  const sentence = ts.baseline_kind === 'revised'
+    ? `This file is a <b>revised baseline</b> — the baseline re-set at its data date, with <b>${_pct2(ap)}</b> of the work already earned (planned <b>${_pct2(pp)}</b>). <b>${escapeHtml(elapsed)}</b> of its time has elapsed: the clock starts at its data date.`
+    : ts.baseline_kind === 'original'
+    ? `This file is the <b>original baseline</b>, set at its data date before any progress: <b>${escapeHtml(elapsed)}</b> of its time has elapsed.`
+    : ts.baseline_file
+    ? `This file has no baseline in P6 and is read as the baseline itself: <b>${escapeHtml(elapsed)}</b> of its time has elapsed (the clock starts at its data date); <b>${_pct2(ap)}</b> is earned against <b>${_pct2(pp)}</b> planned.`
+    : `<b>${escapeHtml(elapsed)}</b> of the baseline time has elapsed, but only <b>${_pct2(ap)}</b> of the work is earned (planned to be at <b>${_pct2(pp)}</b> by now).`;
   return `<div class="ua-ts"><div>${_donut(ep, pp, ap)}</div>
     <div style="flex:1;min-width:300px">
-      <div class="ua-ts-sentence"><b>${escapeHtml(elapsed)}</b> of the baseline time has elapsed, but only <b>${_pct2(ap)}</b> of the work is earned (planned to be at <b>${_pct2(pp)}</b> by now).</div>
+      <div class="ua-ts-sentence">${sentence}</div>
       <div class="ua-verd">${verd}</div>
     </div></div>
     <div class="ua-cost">

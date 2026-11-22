@@ -85,6 +85,17 @@ def _timestatus_html(report):
             elapsed_txt = f'100% — baseline exceeded by {ts["exceeded_days"]} days'
     sentence = (f'<b>{elapsed_txt}</b> of the baseline time has elapsed, but only '
                 f'<b>{_pct2(ap)}</b> of the work is earned (planned to be at <b>{_pct2(pp)}</b> by now).')
+    if ts.get('baseline_kind') == 'revised':
+        sentence = (f'This file is a <b>revised baseline</b> — the baseline re-set at its data date, with '
+                    f'<b>{_pct2(ap)}</b> of the work already earned (planned <b>{_pct2(pp)}</b>). '
+                    f'<b>{elapsed_txt}</b> of its time has elapsed: the clock starts at its data date.')
+    elif ts.get('baseline_kind') == 'original':
+        sentence = (f'This file is the <b>original baseline</b>, set at its data date before any progress: '
+                    f'<b>{elapsed_txt}</b> of its time has elapsed.')
+    elif ts.get('baseline_file'):
+        sentence = (f'This file has no baseline in P6 and is read as the baseline itself: '
+                    f'<b>{elapsed_txt}</b> of its time has elapsed (the clock starts at its data date); '
+                    f'<b>{_pct2(ap)}</b> is earned against <b>{_pct2(pp)}</b> planned.')
     verdicts = ''
     if ts.get('behind_plan') is not None and pp is not None and ap is not None:
         v = ts['behind_plan']
@@ -567,7 +578,8 @@ def report_excel_sections(report):
     prog_rows = [
         ['Baseline time elapsed', elapsed_txt,
          "Calendar days from the baseline's data date (the earliest baseline start when the file "
-         'carries none) to the data date, over the whole baseline to its finish'],
+         'carries none; a baseline file on its own starts at its own data date) to the data date, '
+         'over the whole baseline to its finish'],
         ['Planned progress by data date', _pcts(ts.get('planned_pct'), 2),
          'Planned Value / budget (cost-based, over cost-loaded activities)'],
         ['Earned / actual progress', _pcts(ts.get('actual_pct'), 2),

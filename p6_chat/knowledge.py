@@ -37,6 +37,12 @@ summary, finish-slip driver bridge, critical path & float, change register \
 resources (S-curve, manpower) and scope & structure (WBS).
 Update Analysis — one update read against its own baseline: time status, planned vs \
 actual by activity code, driving-path work-fronts, scope weight & recommendation.
+Baseline kinds (planning terms) — an ORIGINAL baseline is set before any progress (0% \
+earned at its data date). A REVISED baseline is the baseline re-set part-way through \
+the job: it has progress AND Planned Value = Earned Value at its data date (e.g. \
+MAFI-UP 27-20 BL, 24.42% planned = 24.35% earned). For a baseline file on its own, \
+Time Elapsed starts at its data date, so it reads 0%; for an update, Time Elapsed \
+counts from its baseline's data date to the latest baseline finish.
 Update vs Update — period progress between two updates and a critical-path timeline.
 Critical Path Analyzer — the critical path across 2-3 schedules, CPLI, driving-path \
 boxes, float migration and every-milestone slip.
