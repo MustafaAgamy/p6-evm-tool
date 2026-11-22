@@ -171,6 +171,7 @@ def _fallback_ends(graph, had_pred, had_succ):
     activity that already has no predecessor and that P6 can never flag as out of sequence (a
     milestone or a completed activity); the finish is the latest-finishing NOT-STARTED activity that
     already has no successor. Being open ends of the original network, neither can close a loop."""
+    from p6_audit.modules.out_of_sequence import _safe_predecessor
     acts = graph.activities
 
     def when(a, *keys):
@@ -178,7 +179,7 @@ def _fallback_ends(graph, had_pred, had_succ):
 
     starts = [(when(a, 'actual_start', 'planned_start'), oid, a) for oid, a in acts.items()
               if oid not in had_pred and not graph.is_span_activity(oid)
-              and ((not graph.is_real_activity(oid)) or a.get('actual_finish') is not None)]
+              and _safe_predecessor(graph, oid, a)]
     # the finish must not have progressed: a tie into progressed work from unfinished work would
     # itself be out of sequence
     finishes = [(when(a, 'remaining_early_finish', 'planned_finish'), oid, a)

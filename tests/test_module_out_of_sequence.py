@@ -111,8 +111,19 @@ def test_no_actuals_not_flagged():
     assert run_out_of_sequence(g, CONFIG)['findings'] == []
 
 
-def test_milestone_successor_excluded():
+def test_milestone_successor_is_listed_like_p6():
+    # 22-Nov (Ibrahim, P6 log): a milestone reached while its predecessor is unfinished is out of
+    # sequence in P6 too - Giza Zoo REST-ZO3-CH-02 Completion of Cow House Works (used to be skipped).
     g = _g({'m': _act('m', task_type='StartMilestone', actual_start=dt('2026-01-05')),
+            'p': _act('p', actual_start=dt('2026-01-10'))},
+           [{'pred_id': 'p', 'succ_id': 'm', 'type': 'FS', 'lag_days': 0}])
+    assert [f['activity_id'] for f in run_out_of_sequence(g, CONFIG)['findings']] == ['m']
+    # a milestone not yet reached has no progress and is never out of sequence
+    g = _g({'m': _act('m', task_type='FinishMilestone'), 'p': _act('p', actual_start=dt('2026-01-10'))},
+           [{'pred_id': 'p', 'succ_id': 'm', 'type': 'FS', 'lag_days': 0}])
+    assert run_out_of_sequence(g, CONFIG)['findings'] == []
+    # Level of Effort / WBS Summary only span other work - still not checked
+    g = _g({'m': _act('m', task_type='LOE', actual_start=dt('2026-01-05')),
             'p': _act('p', actual_start=dt('2026-01-10'))},
            [{'pred_id': 'p', 'succ_id': 'm', 'type': 'FS', 'lag_days': 0}])
     assert run_out_of_sequence(g, CONFIG)['findings'] == []
@@ -554,3 +565,43 @@ def test_oos_module_declares_report_sections_for_the_picker():
     secs = run_out_of_sequence(g, CONFIG)['presentation']['sections']
     assert [s['key'] for s in secs] == ['executive', 'wbs', 'findings', 'cpi', 'conclusion']
     assert all('label' in s and 'empty' in s for s in secs)
+
+
+def test_every_type_status_and_relationship_matches_the_p6_rule():
+    # 22-Nov (Ibrahim: no tolerance in the results): every predecessor type x status, every successor
+    # type x status, every relationship type - Controlyx lists EXACTLY the successors P6's rule lists.
+    # P6 rule: the successor progressed while the relationship is not satisfied at the data date
+    # (a milestone is one event: reached = started = finished); LOE / WBS Summary never count.
+    import itertools
+    types = ['Task', 'ResourceDependent', 'StartMilestone', 'FinishMilestone', 'LOE']
+    states = {'ns': {}, 'ip': {'actual_start': dt('2026-01-10')},
+              'cp': {'actual_start': dt('2026-01-10'), 'actual_finish': dt('2026-01-20')}}
+
+    def make(oid, t, st):
+        kw = dict(states[st])
+        if 'Milestone' in t and kw:             # a milestone has no 'in progress': reached or not
+            kw = {'actual_start': dt('2026-01-15'), 'actual_finish': dt('2026-01-15')}
+        return _act(oid, task_type=t, **kw)
+
+    def started(a):
+        return bool(a.get('actual_start') or a.get('actual_finish'))
+
+    def finished(a):
+        return started(a) if 'Milestone' in a['task_type'] else bool(a.get('actual_finish'))
+
+    def p6_oos(rel, s, p):
+        if 'LOE' in (s['task_type'], p['task_type']):
+            return False
+        sas, saf = s.get('actual_start'), s.get('actual_finish')
+        return {'FS': bool(sas) and not finished(p), 'SS': bool(sas) and not started(p),
+                'FF': bool(saf) and not finished(p), 'SF': bool(saf) and not started(p)}[rel]
+
+    acts, rels, expected = {}, [], set()
+    for k, (pt, ps, stt, sst, rel) in enumerate(itertools.product(types, states, types, states, ['FS', 'SS', 'FF', 'SF'])):
+        p, s = make(f'p{k}', pt, ps), make(f's{k}', stt, sst)
+        acts[p['object_id']], acts[s['object_id']] = p, s
+        rels.append({'pred_id': p['object_id'], 'succ_id': s['object_id'], 'type': rel, 'lag_days': 0})
+        if p6_oos(rel, s, p):
+            expected.add(s['object_id'])
+    found = {f['activity_id'] for f in run_out_of_sequence(_g(acts, rels), CONFIG)['findings']}
+    assert expected and found == expected, (sorted(expected - found)[:10], sorted(found - expected)[:10])
