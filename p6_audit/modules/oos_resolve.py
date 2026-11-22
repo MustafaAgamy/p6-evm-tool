@@ -165,6 +165,31 @@ def complete_ops(data, config, accepted):
     return acc + _closing_ops(data, acc)
 
 
+def _fallback_ends(graph, had_pred, had_succ):
+    """A project with no commencement / completion MILESTONE still keeps every activity connected
+    (22-Nov, Ibrahim: solve every out-of-sequence with no open end). The start is the earliest
+    activity that already has no predecessor and that P6 can never flag as out of sequence (a
+    milestone or a completed activity); the finish is the latest-finishing NOT-STARTED activity that
+    already has no successor. Being open ends of the original network, neither can close a loop."""
+    acts = graph.activities
+
+    def when(a, *keys):
+        return next((a.get(k) for k in keys if a.get(k)), None)
+
+    starts = [(when(a, 'actual_start', 'planned_start'), oid, a) for oid, a in acts.items()
+              if oid not in had_pred and not graph.is_span_activity(oid)
+              and ((not graph.is_real_activity(oid)) or a.get('actual_finish') is not None)]
+    # the finish must not have progressed: a tie into progressed work from unfinished work would
+    # itself be out of sequence
+    finishes = [(when(a, 'remaining_early_finish', 'planned_finish'), oid, a)
+                for oid, a in acts.items() if oid not in had_succ and not graph.is_span_activity(oid)
+                and not a.get('actual_start') and not a.get('actual_finish')]
+    s = min((t for t in starts if t[0]), key=lambda t: t[0], default=None)
+    f = max((t for t in finishes if t[0]), key=lambda t: t[0], default=None)
+    pick = lambda t: (t[2].get('id', ''), t[2].get('name', ''), t[1]) if t else (None, None, None)
+    return pick(s), pick(f)
+
+
 def _closing_ops(data, acc):
     """'add' ops that tie an activity the corrections left without any predecessor (successor)
     to the project commencement (completion) milestone."""
@@ -178,6 +203,10 @@ def _closing_ops(data, acc):
     now_pred, now_succ = ends(apply_ops_to_relationships(data, acc))
     graph = ScheduleGraph(_shim(data, data.relationships))
     start, finish = _find_commencement(graph), _find_completion(graph)
+    if not (start and start[0]) or not (finish and finish[0]):
+        f_start, f_finish = _fallback_ends(graph, had_pred, had_succ)
+        start = start if start and start[0] else f_start
+        finish = finish if finish and finish[0] else f_finish
     out = []
     for oid in sorted(had_pred - now_pred, key=str):
         code = acts[oid].get('id') or ''

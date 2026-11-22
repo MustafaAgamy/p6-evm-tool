@@ -394,3 +394,27 @@ def test_an_activity_left_without_successor_keeps_its_own_tie_reconnected_to_com
     fops = R.to_file_ops(R.complete_ops(d, CONFIG, accepted), d)
     assert fops == [{'kind': 'repoint_rel', 'pred_code': 'app', 'succ_code': 'x', 'new_pred_code': 'app',
                      'new_succ_code': 'end', 'type': 'FS', 'lag_hours': 0.0}]
+
+
+def test_a_project_with_no_start_or_finish_milestone_still_leaves_no_open_end():
+    # 22-Nov (Ibrahim): every out-of-sequence solved with no open end - also on a schedule that has
+    # no commencement / completion milestone: the original network's own first / last activity is used.
+    acts = {
+        's': _act('s', actual_start=dt('2025-11-01'), actual_finish=dt('2025-11-05'), status='Completed',
+                  planned_start=dt('2025-11-01')),
+        'app': _act('app', planned_finish=dt('2026-03-10')),         # approval, not started
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z', planned_finish=dt('2026-06-30')),
+    }
+    d = _data(acts, [('s', 'app', 'FS'), ('s', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'), ('x', 'z', 'FS')])
+    accepted = [o for o in _ops(_oos(d)['findings']) if o['pred_id'] == 'app']
+    assert accepted and accepted[0]['action'] == 'remove'
+    out = R.revalidate(d, CONFIG, accepted)
+    assert out['findings'] == []
+    full = R.complete_ops(d, CONFIG, accepted)
+    rels = R.apply_ops_to_relationships(d, full)
+    no_succ = set(acts) - {r['pred_id'] for r in rels}
+    no_pred = set(acts) - {r['succ_id'] for r in rels}
+    assert no_succ == {'z'} and no_pred == {'s'}          # the same open ends as the original network
+    assert ('app', 'z') in {(r['pred_id'], r['succ_id']) for r in rels}
