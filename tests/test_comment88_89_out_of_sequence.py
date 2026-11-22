@@ -214,8 +214,12 @@ def test_an_added_relationship_is_written_where_p6_reads_it(tmp_path):
     rel = proj.find(f'{{{ns}}}Relationship')
     assert rel.find(f'{{{ns}}}PredecessorActivityObjectId').text == '13'
     assert rel.find(f'{{{ns}}}SuccessorActivityObjectId').text == '12'
-    # no ObjectId of its own: P6 numbers a new tie on import (a reused number can belong to another tie)
-    assert rel.find(f'{{{ns}}}ObjectId') is None
+    # a FRESH high number, never the file's highest + 1 (it can belong to another tie in the P6
+    # database) and never none (P6 skipped those - 20-Nov); P6 created such a tie on import (22-Nov)
+    num = int(rel.find(f'{{{ns}}}ObjectId').text)
+    assert 2_000_000_000 < num < 2_147_483_647
+    # kept in the schema's place (right after Lag), like every relationship P6 exports
+    assert [c.tag.split('}')[1] for c in rel][:2] == ['Lag', 'ObjectId']
 
 
 def test_every_changed_tie_is_listed_for_both_activities():

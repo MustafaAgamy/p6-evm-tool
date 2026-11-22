@@ -583,14 +583,22 @@ def write_corrected_xer(source_path, ops, out_path, note=None):
     i_type = _idx('pred_type')
     i_lag = _idx('lag_hr_cnt')
 
+    # a new TASKPRED row takes a fresh number P6 has never used, not the file's highest + 1 (which
+    # can belong to another relationship in the P6 database) - the same rule as the XML writer
+    from p6_compare.revert import new_object_ids
+    taken = set()
+    for ln in lines:
+        parts = ln.split('\t')
+        if parts[0] == '%R' and i_pred_id >= 0 and len(parts) > i_pred_id + 1:
+            taken.add(parts[i_pred_id + 1])
+    fresh_ids = new_object_ids(taken)
+
     def _new_row(pred_task, succ_task, rel_type, lag_hours):
-        nonlocal max_pred_id
         vals = list(tp_template) if tp_template else [''] * len(tp_fields)
         if len(vals) < len(tp_fields):
             vals += [''] * (len(tp_fields) - len(vals))
-        max_pred_id += 1
         if i_pred_id >= 0:
-            vals[i_pred_id] = str(max_pred_id)
+            vals[i_pred_id] = str(next(fresh_ids))
         if i_task >= 0:
             vals[i_task] = succ_task
         if i_pred_task >= 0:
