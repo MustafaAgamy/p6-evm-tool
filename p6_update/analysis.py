@@ -205,8 +205,11 @@ def time_status(data, metrics):
     # the baseline was set, read as "ahead of the clock"
     if actual_pct is not None and elapsed_pct is not None and not baseline_file:
         behind_clock = round(elapsed_pct - actual_pct, 2)   # +ve = behind the clock
+    baseline_kind = _baseline_kind(planned_pct, actual_pct) if baseline_file else None
     behind_plan = None
-    if actual_pct is not None and planned_pct is not None:
+    # not for a revised baseline: Planned = Earned there by definition, so the gap is only
+    # rounding (MAFI-UP 27-20 BL 24.42 / 24.35 read "0.07 behind plan") — Ibrahim, 2026-11-22
+    if actual_pct is not None and planned_pct is not None and baseline_kind != 'revised':
         behind_plan = round(planned_pct - actual_pct, 2)    # +ve = behind plan
 
     return {
@@ -225,7 +228,7 @@ def time_status(data, metrics):
         # Planned Value = Earned Value at its data date (MAFI-UP 27-20 BL: 24.42% / 24.35%);
         # an ORIGINAL baseline has no progress; a file with progress whose Planned ≠ Earned is
         # neither, so it is not named
-        'baseline_kind': _baseline_kind(planned_pct, actual_pct) if baseline_file else None,
+        'baseline_kind': baseline_kind,
         'behind_plan': behind_plan,
         'cost_loaded': cost_loaded,
         'pv': pv,
