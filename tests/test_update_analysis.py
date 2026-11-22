@@ -779,3 +779,27 @@ def test_baseline_kind_needs_progress_and_planned_equal_to_earned():
     assert _baseline_kind(5.41, 5.41) == 'revised'       # Grain Bulk Terminal REV.03
     assert _baseline_kind(0.0, 0.0) == 'original'
     assert _baseline_kind(40.0, 20.0) is None             # progress but Planned ≠ Earned: not named
+
+
+def test_revised_baseline_shows_no_behind_plan():
+    # Ibrahim, 2026-11-22: a revised baseline has Planned = Earned by definition — the rounding
+    # gap (MAFI BL 24.42 / 24.35) must not show as a red "Behind plan" on screen / PDF / Excel.
+    from p6_update.exporters import _timestatus_html
+    xml = _self_xml('2025-07-02', [
+        (10, 'A1', 1.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    rep = build_report_from_data(data, metrics)
+    assert rep['time_status']['baseline_kind'] == 'revised'
+    assert rep['time_status']['behind_plan'] is None
+    assert 'Behind plan' not in _timestatus_html(rep)
+
+
+def test_an_update_still_shows_behind_plan():
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
+        (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    assert time_status(data, metrics)['behind_plan'] is not None
