@@ -655,3 +655,127 @@ def test_round5_title_and_code_filter_drop_totals():
     assert [row[0] for row in sheet['blocks'][0]['rows']] == ['A']
     r['counts'].pop('code_filter')
     assert 'Whole schedule' in render_html(r)
+
+
+def _self_xml(data_date, acts, baseline_pointer=None):
+    """A schedule exported with NO baseline project inside it (P6 'self'): acts are
+    (oid, code, pct0to1, planned_start, planned_finish, dur_hr). `baseline_pointer` set = P6
+    names a baseline for it (an update exported without its baseline); None = a baseline
+    programme with no baseline assigned (e.g. MAFI-UP 27-20 BL)."""
+    body = ras = ''
+    for oid, code, pct, start, finish, dur in acts:
+        body += (f'<Activity><ObjectId>{oid}</ObjectId><Id>{code}</Id><Name>{code}</Name>'
+                 f'<Type>Task Dependent</Type><WBSObjectId>100</WBSObjectId><CalendarObjectId></CalendarObjectId>'
+                 f'<PercentComplete>{pct}</PercentComplete>'
+                 f'<PlannedDuration>{dur}</PlannedDuration><RemainingDuration>{dur}</RemainingDuration>'
+                 f'<PlannedStartDate>{start}T00:00:00</PlannedStartDate>'
+                 f'<PlannedFinishDate>{finish}T00:00:00</PlannedFinishDate>'
+                 f'<RemainingEarlyStartDate>{start}T00:00:00</RemainingEarlyStartDate>'
+                 f'<RemainingEarlyFinishDate>{finish}T00:00:00</RemainingEarlyFinishDate></Activity>\n')
+        ras += (f'<ResourceAssignment><ActivityObjectId>{oid}</ActivityObjectId>'
+                f'<PlannedCost>{dur * 100}</PlannedCost></ResourceAssignment>\n')
+    ptr = (f'<CurrentBaselineProjectObjectId>{baseline_pointer}</CurrentBaselineProjectObjectId>'
+           if baseline_pointer else '')
+    return ('<?xml version="1.0"?>\n<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V19.12/API/BusinessObjects">\n'
+            f'  <Project><ObjectId>1</ObjectId><Id>P1</Id><Name>Proj</Name>{ptr}<DataDate>{data_date}T00:00:00</DataDate>\n'
+            '<WBS><ObjectId>100</ObjectId><Name>Proj</Name><ParentObjectId></ParentObjectId></WBS>\n'
+            f'{body}{ras}  </Project>\n</APIBusinessObjects>\n')
+
+
+def test_baseline_file_on_its_own_starts_the_clock_at_its_own_data_date():
+    # Ibrahim, 2026-11-21: a baseline file (no baseline assigned in P6, nothing inside) is
+    # the baseline itself — taken at its own data date, Planned = Earned — so no time has
+    # elapsed against it: 0%, not the share of its span since the earliest planned start.
+    xml = _self_xml('2025-07-02', [
+        (10, 'A1', 1.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    assert data.baseline_source == 'self'
+    ts = time_status(data, metrics)
+    assert ts['baseline_start'] == '2025-07-02', ts
+    assert ts['elapsed_pct'] == 0.0, ts
+    assert ts['elapsed_days'] == 0 and ts['total_days'] == 182, ts
+    assert ts['baseline_finish'] == '2025-12-31', ts
+    # Elapsed − Actual on a fresh baseline only says "progress before it was set" — not shown
+    assert ts['behind_clock'] is None, ts
+    assert ts['actual_pct'] == 50.0, ts
+
+
+def test_baseline_file_report_says_nothing_about_the_clock():
+    xml = _self_xml('2025-07-02', [
+        (10, 'A1', 1.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    rep = build_report_from_data(data, metrics)
+    assert rep['has_baseline'] is True
+    assert rep['time_status']['elapsed_pct'] == 0.0
+    assert 'of the clock' not in (rep['conclusion'] or ''), rep['conclusion']
+    assert rep['conclusion'].startswith('This is a revised baseline'), rep['conclusion']
+    assert 'behind the' not in rep['conclusion'], rep['conclusion']
+
+
+def test_update_exported_without_its_baseline_keeps_the_earliest_start_fallback():
+    # An UPDATE whose baseline P6 names but the export left out is not a baseline file: its own
+    # data date is the update's, so the clock still falls back to the earliest planned start.
+    xml = _self_xml('2025-07-02', [
+        (10, 'A1', 1.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ], baseline_pointer=77)
+    data, metrics = _parse_and_compute(xml)
+    assert data.baseline_source == 'self'
+    ts = time_status(data, metrics)
+    assert ts['baseline_start'] == '2025-01-01', ts
+    assert ts['elapsed_pct'] == 50.0, ts
+    assert ts['behind_clock'] is not None
+
+
+def test_baseline_file_pdf_sentence_says_it_is_the_baseline():
+    from p6_update.exporters import _timestatus_html
+    xml = _self_xml('2025-07-02', [
+        (10, 'A1', 1.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    rep = build_report_from_data(data, metrics)
+    assert rep['time_status']['baseline_file'] is True
+    html = _timestatus_html(rep)
+    assert rep['time_status']['baseline_kind'] == 'revised'   # 50% earned at its data date
+    assert 'revised baseline' in html
+    assert 'but only' not in html and 'Behind clock' not in html
+
+
+def test_baseline_file_with_no_progress_is_the_original_baseline():
+    from p6_update.exporters import _timestatus_html
+    xml = _self_xml('2025-01-01', [
+        (10, 'A1', 0.0, '2025-01-01', '2025-06-30', 80),
+        (11, 'A2', 0.0, '2025-07-01', '2025-12-31', 80),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    rep = build_report_from_data(data, metrics)
+    ts = rep['time_status']
+    assert ts['baseline_kind'] == 'original' and ts['elapsed_pct'] == 0.0, ts
+    assert 'original baseline' in _timestatus_html(rep)
+
+
+def test_an_update_has_no_baseline_kind():
+    xml = _xml('2025-07-02', [
+        (10, 'A1', 'Act 1', 1.0, '2025-01-01', '2025-06-30', 80, 100, {}),
+        (11, 'A2', 'Act 2', 0.0, '2025-07-01', '2025-12-31', 80, 100, {}),
+    ])
+    data, metrics = _parse_and_compute(xml)
+    assert time_status(data, metrics)['baseline_kind'] is None
+
+
+def test_ai_chat_knows_original_and_revised_baselines():
+    from p6_chat.knowledge import FEATURE_KNOWLEDGE
+    assert 'REVISED baseline' in FEATURE_KNOWLEDGE and 'ORIGINAL baseline' in FEATURE_KNOWLEDGE
+
+
+def test_baseline_kind_needs_progress_and_planned_equal_to_earned():
+    from p6_update.analysis import _baseline_kind
+    assert _baseline_kind(24.42, 24.35) == 'revised'     # MAFI-UP 27-20 BL
+    assert _baseline_kind(5.41, 5.41) == 'revised'       # Grain Bulk Terminal REV.03
+    assert _baseline_kind(0.0, 0.0) == 'original'
+    assert _baseline_kind(40.0, 20.0) is None             # progress but Planned ≠ Earned: not named
