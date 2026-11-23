@@ -87,6 +87,32 @@ def _scope(p, sec):
         out.append(_text_block('Scope of work', [p['narrative']]))
     out.append(_block('Share of contract value by discipline', ['Discipline', 'Cost', 'Share (%)'],
                       [[_s(d.get('name')), _num(d.get('cost')), _num(d.get('pct'))] for d in (p.get('disciplines') or [])]))
+    if p.get('details'):
+        # "Detailed … Scope of Work includes:" (Nov 2026) — one row per element, so the sheet
+        # reads like the report: type of work › building / family › category › element.
+        for d in p['details']:
+            mc = ' › '.join(_s(c) for c in (d.get('codes') or []))
+            by = 'activity count' if d.get('basis') == 'count' else 'cost'
+            rows = []
+            for t in d.get('types') or []:
+                if not t.get('groups'):
+                    rows.append([_s(t['name']), '', '', '', '', _num(t.get('amount')), _num(t.get('pct')), t.get('acts', ''), by])
+                for g in t.get('groups') or []:
+                    grp = _s(g.get('label')) + ((' (%d)' % g['count']) if g.get('kind') == 'family' else '')
+                    members = _s(g.get('members') or '')
+                    cats = g.get('categories') or [{'label': members or '', 'elements': g.get('elements') or []}]
+                    first = True
+                    for c in cats:
+                        for i, e in enumerate(c.get('elements') or ['']):
+                            rows.append([_s(t['name']), grp, _s(c.get('label') or ''), i + 1 if e else '', _s(e),
+                                         _num(g.get('amount')) if first else '', _num(g.get('pct')) if first else '',
+                                         g.get('acts', '') if first else '', by])
+                            first = False
+            if rows:
+                out.append(_block('%s — detailed scope of work' % mc,
+                                  ['Type of work', 'Building / group', 'Members / category', 'Step', 'Consists of',
+                                   'Amount', 'Share of type (%)', 'Activities', 'Weighted by'], rows))
+        return out
     descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
               'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
     for m in descs:

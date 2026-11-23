@@ -427,7 +427,28 @@ def _value_bars(p, number, title, meta, cur):
     dnut = _doughnut(p.get('rows') or [], cap, _num(total),
                      lambda r: _fmt_full(r.get('amount'), cur))
     return ('<p>The contract value and its distribution by type of work (the discipline '
-            'activity code), from cost loading.</p>%s%s' % (banner, dnut))
+            'activity code), from cost loading.</p>%s%s%s' % (banner, dnut, _value_basis_note(p)))
+
+
+def value_basis_text(p):
+    """The plain line under §6 saying how the value was split (Nov 2026): the activity codes in
+    order and the share named by its WBS — so a code Controlyx suggested is never passed off as
+    the planner's own pick. '' for an older report without the code list."""
+    codes = [str(c) for c in (p.get('codes') or []) if c]
+    if not codes:
+        return ''
+    txt = 'Split by the activity code%s %s%s.' % (
+        's' if len(codes) > 1 else '', ', then '.join('“%s”' % c for c in codes),
+        ' (suggested by Controlyx so every costed activity is covered)' if p.get('codes_auto') and len(codes) > 1 else '')
+    wbs = p.get('wbs_pct') or 0
+    if wbs:
+        txt += ' %s%% of the value carries none of these codes and is named by its WBS in P6.' % _fmt_pct(wbs)
+    return txt + ' The lines add up to 100% of the contract value.'
+
+
+def _value_basis_note(p):
+    t = value_basis_text(p)
+    return ('<div class="sc-cap" style="margin-top:8px">%s</div>' % _esc(t)) if t else ''
 
 
 # ── §6 Scope of Work (6.1 discipline shares + narrative, 6.2 by area/structure) ─
@@ -474,6 +495,100 @@ def _scope_descriptions(p):
     return [first] + [m for m in (p.get('more') or []) if m]
 
 
+def _sc_share(d, amount, acts):
+    """'EGP 860,544,241' for a cost-weighted description, '92 activities' for one by count."""
+    if d.get('basis') == 'count':
+        return '%d %s' % (acts or 0, 'activity' if acts == 1 else 'activities')
+    return None
+
+
+def _sc_elements(els, tick=False):
+    items = ''.join('<li>%s.</li>' % _esc(e) for e in els)
+    return ('<ul class="sc-tick">%s</ul>' if tick else '<ol class="sc-ol">%s</ol>') % items
+
+
+def _sc_group(g):
+    """One ➢ line of the 'consists of' description (single building or a family)."""
+    lab = '<b><u>%s</u></b>' % _esc(g.get('label'))
+    if g.get('kind') != 'family':
+        els = g.get('elements') or []
+        if not els:
+            return '<div class="sc-l1">&#10146; %s.</div>' % lab
+        return ('<div class="sc-blk"><div class="sc-l1">&#10146; %s consists of:</div>%s</div>'
+                % (lab, _sc_elements(els)))
+    fam = _esc(g.get('label'))
+    head = '%s for %d %s' % (lab, g.get('count') or 0, fam)
+    if g.get('categories'):
+        cats = g['categories']
+        out = ('<div class="sc-l1">&#10146; %s consist of:</div>'
+               '<div class="sc-l2">The %s are divided into %d categories:</div><ol class="sc-cats">'
+               % (head, fam, len(cats)))
+        for c in cats:
+            plural = (c.get('count') or 1) > 1
+            out += ('<li>%s consist%s of:%s</li>'
+                    % (_esc(c.get('label')), '' if plural else 's',
+                       _sc_elements(c.get('elements') or [], tick=True)
+                       if c.get('elements') else ' <i>no further breakdown in P6</i>.'))
+        return out + '</ol>'
+    els = g.get('elements') or []
+    members = g.get('members') or ''
+    head += (' (%s)' % _esc(members)) if members and members != g.get('label') else ''
+    if not els:
+        return '<div class="sc-l1">&#10146; %s.</div>' % head
+    return ('<div class="sc-blk"><div class="sc-l1">&#10146; %s consist of:</div>%s</div>'
+            % (head, _sc_elements(els)))
+
+
+def scope_levels_text(d):
+    """'Codes used — type of work: A, then B · building: C · elements: D' — shown only when
+    Controlyx added a code at some level (Nov 2026), so a suggestion is never silent."""
+    codes = d.get('codes') or []
+    levels = d.get('levels') or []
+    names = ('type of work', 'building', 'elements')
+    picked = [codes[0:1], codes[1:2], codes[2:]]
+    if not any(len(lv or []) > len(pk) for lv, pk in zip(levels, picked)):
+        return ''
+    parts = ['%s: %s' % (n, ', then '.join(lv)) for n, lv in zip(names, levels) if lv]
+    return ('Codes used — %s (Controlyx added codes after yours where yours were missing; '
+            'what carries none of them is named by its WBS in P6).' % ' · '.join(parts))
+
+
+def _scope_detail(d, number, k, cur, subhead):
+    """One scope description written as 'Detailed … Scope of Work includes:' (Ibrahim, Nov 2026):
+    a heading + a bar chart of every building per type of work, then the ➢ / 1. / ✓ lines."""
+    codes = d.get('codes') or []
+    by_count = d.get('basis') == 'count'
+    tail = (_combo_tail(codes) if len(codes) >= 2 else 'what it consists of') + \
+        (' &mdash; described by its activities (no cost loaded)' if by_count else '')
+    out = subhead(k, ' → '.join(str(c) for c in codes) or 'Detailed scope by activity codes', tail)
+    used = scope_levels_text(d)
+    if used:
+        out += '<div class="sc-cap">%s</div>' % _esc(used)
+    types = d.get('types') or []
+    if len(codes) < 2:                       # one code: the values themselves, as a chart
+        rows = [{'name': t['name'], 'pct': t['pct'], 'amount': t['amount'], 'acts': t['acts']} for t in types]
+        out += '<div class="scbars">%s</div>' % _bars(
+            rows, 'name', lambda r: _sc_share(d, r['amount'], r['acts']) or _fmt_full(r['amount'], cur))
+        return out
+    for j, t in enumerate(types, 1):
+        out += ('<div class="sc-h">%s.%d.%d) Detailed %s Scope of Work includes:</div>'
+                % (_esc(number), k, j, _esc(t['name'])))
+        groups = t.get('groups') or []
+        if groups:
+            share = _sc_share(d, t['amount'], t['acts']) or _fmt_full(t['amount'], cur)
+            out += ('<div class="sc-cap">%s by %s &mdash; %s, %s%% of the %s</div>'
+                    % (_esc(t['name']), _esc(codes[1]), _esc(share), _fmt_pct(t['pct']),
+                       'described activities' if by_count else 'contract value'))
+            rows = [{'name': g['label'] + ((' (%d)' % g['count']) if g.get('kind') == 'family' else ''),
+                     'pct': g['pct'], 'amount': g['amount'], 'acts': g['acts']} for g in groups]
+            out += '<div class="scbars">%s</div>' % _bars(
+                rows, 'name', lambda r: _sc_share(d, r['amount'], r['acts']) or _fmt_full(r['amount'], cur))
+            out += ''.join(_sc_group(g) for g in groups)
+        else:
+            out += '<p class="note">No further breakdown by %s in P6.</p>' % _esc(codes[1])
+    return out
+
+
 def _scope(p, number, title, meta, cur):
     cur = _currency_prefix(meta, p) or cur
 
@@ -500,8 +615,13 @@ def _scope(p, number, title, meta, cur):
                 'padding:9px 13px;margin:12px 0;border-radius:0 5px 5px 0;'
                 'text-align:justify">%s</p>' % (_esc(number), _esc(narrative)))
 
-    # {number}.2, .3 … — one sub-section per description: what each of its codes consists of,
-    # then (2+ codes) the N-level breakdown, each code nested in the one before it
+    # {number}.2, .3 … — one sub-section per description, written as "Detailed … Scope of Work
+    # includes: ➢ … consists of:" (Ibrahim, Nov 2026). Older saved reports without 'details'
+    # keep the previous cascade rendering below.
+    if p.get('details'):
+        for k, d in enumerate(p['details'], 2):
+            out += _scope_detail(d, number, k, cur or '', _subhead)
+        return out
     for k, m in enumerate(descs, 2):
         mc = m.get('codes') or []
         out += _subhead(k, ' → '.join(str(c) for c in mc) or 'Detailed scope by activity codes',
@@ -1646,6 +1766,22 @@ table { border-collapse: collapse; }
 .disc-name { font-size:12.5px; font-weight:700; color:#14324f; margin:6px 0 2px; padding-left:22px; }
 .wt-item { font-size:12px; color:#33414d; margin:0 0 1px; padding-left:36px; line-height:1.45; }
 .wt-item .wt-b { color:#1F4E79; font-weight:700; }
+/* §7 Scope of Work — "Detailed … Scope of Work includes: ➢ … consists of: 1. … ✓ …" */
+.sc-h { font-family:Calibri,sans-serif; font-weight:700; color:#1F4E79; font-size:13.5px; text-decoration:underline; text-underline-offset:3px; margin:16px 0 4px; break-after:avoid; page-break-after:avoid; }
+.sc-cap { font-family:Calibri,sans-serif; font-size:10.5px; color:#5b6472; margin:0 0 6px; break-after:avoid; page-break-after:avoid; }
+.scbars .bar { margin-bottom:4px; gap:8px; break-inside:avoid; page-break-inside:avoid; }
+.scbars .bar .lab { width:220px; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scbars .bar .track { height:17px; }
+.sc-l1 { margin:10px 0 3px 8px; font-size:12.5px; color:#1d2733; break-after:avoid; page-break-after:avoid; }
+.sc-l1 b { color:#14324f; }
+.sc-l2 { margin:2px 0 3px 30px; font-size:12px; color:#33414d; }
+.sc-blk { break-inside:avoid; page-break-inside:avoid; }
+ol.sc-ol { margin:2px 0 6px 30px; padding-left:22px; font-size:12px; color:#33414d; }
+ol.sc-ol li { margin:1px 0; }
+ol.sc-cats { margin:2px 0 6px 30px; padding-left:22px; font-size:12px; color:#33414d; }
+ol.sc-cats > li { margin:5px 0; break-inside:avoid; page-break-inside:avoid; }
+ul.sc-tick { list-style:none; padding-left:16px; margin:2px 0; }
+ul.sc-tick li::before { content:"\\2713"; margin-right:9px; color:#1F4E79; font-weight:700; }
 .callegend { display:flex; gap:14px; flex-wrap:wrap; margin:4px 0 10px; font-size:9.5px; color:#5b6472; font-family:Calibri,sans-serif; }
 .callegend span { display:inline-flex; align-items:center; gap:4px; }
 .callegend i { width:10px; height:10px; border-radius:2px; display:inline-block; }

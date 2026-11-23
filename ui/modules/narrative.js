@@ -1172,11 +1172,13 @@ function chatControl(step) {
       `<i class="bn-ch" data-samv="down" data-i="${i}" title="move down"${i === list.length - 1 ? ' style="opacity:.3"' : ''}>▼</i>` +
       `<i class="bn-x" data-sarm="${i}" title="remove this description">✕</i></div>`).join('');
     return `<div class="bn-pv" id="bn-pv"><div class="bn-hint2">Working out the examples from your file…</div></div>` +
+      `<div id="bn-val" style="width:100%"></div>` +
       `<div class="bn-cktitle" style="margin-top:8px">Your scope descriptions — each by as many activity codes as you like, in order</div>` +
       `<button type="button" class="bn-add2" data-saadd="above"><i class="ti ti-arrow-bar-to-up" aria-hidden="true"></i> add description above</button>` +
       `<div class="bn-cflow" style="gap:6px;width:100%">${rows || '<span class="bn-hint2">No descriptions — section 7 auto-detects a sensible breakdown.</span>'}</div>` +
       `<button type="button" class="bn-add2" data-saadd="below"><i class="ti ti-arrow-bar-to-down" aria-hidden="true"></i> add description below</button>` +
-      `<div class="bn-hint2">Each description gets its own sub-section (7.2, 7.3 …). The overview chart (7.1) uses the first description whose codes carry cost.</div>`;
+      `<div class="bn-hint2">Each description gets its own sub-section (7.2, 7.3 …), written as “Detailed … Scope of Work includes: ➢ … consists of: 1. …”. ` +
+      `Code 1 = the type of work, code 2 = the building, code 3 onwards = the elements (tried in order). Where a code is missing, Controlyx adds a suitable code or names the activity by its WBS in P6 — nothing is left “Unclassified”. The overview chart (7.1) is the Contract Value split above.</div>`;
   }
   if (step === 'sequence') {
     const list = curSeq(), codes = chatCodes();
@@ -1209,6 +1211,7 @@ function chatControl(step) {
       row('Parties', ['owner', 'consultant', 'contractor'].filter(k => s[k]).length + ' name(s) · ' + logos + ' logo(s)') +
       row('Layout drawings', layoutsOf(s).length ? layoutsOf(s).map(l => l.caption || 'drawing').join(' · ') : 'none') +
       row('Milestones · key dates', ms + ' · ' + kd) +
+      row('Contract Value split by', curValCodes().length ? curValCodes().join(' → ') : (_valPv && (_valPv.codes || []).length ? _valPv.codes.join(' → ') + ' (suggested)' : 'suggested by Controlyx')) +
       row('Scope', curScopeAn().length ? curScopeAn().map(a => a.codes.join(' → ')).join(' · ') : 'auto-detected') +
       row('Sequence', (sq.length || 'auto') + (sq.length ? ' analysis(es)' : '')) +
       `</div><button type="button" class="bn-gen" id="bn-gen"><i class="ti ti-wand" style="vertical-align:-2px" aria-hidden="true"></i>&nbsp; Build the report</button>`;
@@ -1289,6 +1292,65 @@ function streamLatest(thread) {
   }, 450);
 }
 
+// ── "Contract Value split by" (Ibrahim, Nov 2026): an ordered activity-code list so the value is
+//    fully defined — no "Unclassified". Controlyx suggests the codes; the planner can change them.
+let _valPv = null;
+function curValCodes() {
+  const s = getSetup(), codes = chatCodes();
+  return Array.isArray(s.value_codes) ? s.value_codes.filter(c => codes.includes(c)) : [];
+}
+function setValCodes(list) {
+  const s = getSetup();
+  if (list === null) delete s.value_codes;
+  else s.value_codes = [...new Set(list.filter(Boolean))];
+  saveSetup();
+  loadExamples('scope');
+}
+function paintVal() {
+  const box = document.getElementById('bn-val');
+  if (!box) return;
+  const codes = chatCodes(), own = curValCodes();
+  const list = own.length ? own : ((_valPv && _valPv.codes) || []);
+  const auto = !own.length;
+  const fresh = !!_valPv && (_valPv.codes || []).join('|') === list.join('|');
+  const cov = {};
+  if (fresh) (_valPv.coverage || []).forEach(c => { cov[c.code] = c.pct; });
+  const opt = sel => [`<option value="">— remove this code —</option>`].concat(codes.filter(c => c === sel || !list.includes(c))
+    .map(c => `<option value="${_esc(c)}"${c === sel ? ' selected' : ''}>${_esc(c)}</option>`)).join('');
+  const chain = list.map((c, j) => (j ? '<span class="bn-carrow">›</span>' : '') +
+    `<select class="bn-sq bn-va" style="flex:0 1 auto" data-vai="${j}" title="code ${j + 1}: names the activities the codes before it leave empty">${opt(c)}</select>` +
+    (cov[c] != null ? `<span class="bn-hint2" style="margin:0 4px">${cov[c]}%</span>` : '') +
+    (j ? `<i class="bn-ch" data-vamv="${j}" title="move earlier">◀</i>` : '')).join('');
+  const wbs = fresh ? (_valPv.wbs_pct || 0) : 0;
+  const lines = fresh ? (_valPv.lines || []).map(l => `${_esc(l.name)} ${l.pct}%`).join(' · ') + (_valPv.more ? ` · +${_valPv.more} more` : '') : '';
+  box.innerHTML = `<div class="bn-cktitle" style="margin-top:8px">Contract Value split by — activity codes, in order` +
+    `${list.length ? (auto ? ' <span class="bn-hint2">(suggested by Controlyx)</span>' : ' <span class="bn-hint2">(your choice)</span>') : ''}</div>` +
+    `<div class="bn-srow" style="flex-wrap:wrap;max-width:none">${chain || '<span class="bn-hint2">Working out the codes from your file…</span>'}` +
+    (codes.some(c => !list.includes(c)) && list.length ? `<button type="button" class="bn-add2" data-vaadd="1" title="add one more code">+ code</button>` : '') +
+    (!auto ? `<a class="bn-hint2" data-vareset="1" style="cursor:pointer;text-decoration:underline;margin-left:8px">use Controlyx's suggestion</a>` : '') + `</div>` +
+    (fresh ? `<div class="bn-hint2">Each activity takes the value of the FIRST code it carries; ` +
+      (wbs ? `${wbs}% carries none of these codes and is named by its WBS in P6. ` : 'every costed activity is covered by these codes. ') +
+      `The lines always add up to 100% of the contract value.</div>` +
+      (lines ? `<div class="bn-cons">Contract Value lines: ${lines}</div>` : '') : '');
+  box.querySelectorAll('.bn-va').forEach(sel => sel.addEventListener('change', () => {
+    const cur = list.slice(), j = +sel.dataset.vai;
+    if (!sel.value) cur.splice(j, 1); else cur[j] = sel.value;
+    setValCodes(cur.length ? cur : null);
+  }));
+  box.querySelectorAll('[data-vamv]').forEach(b => b.addEventListener('click', () => {
+    const cur = list.slice(), j = +b.dataset.vamv;
+    [cur[j - 1], cur[j]] = [cur[j], cur[j - 1]];
+    setValCodes(cur);
+  }));
+  const add = box.querySelector('[data-vaadd]');
+  if (add) add.addEventListener('click', () => {
+    const next = codes.find(c => !list.includes(c));
+    if (next) setValCodes(list.concat([next]));
+  });
+  const rs = box.querySelector('[data-vareset]');
+  if (rs) rs.addEventListener('click', () => setValCodes(null));
+}
+
 // ── live "if you pick … this is the result" examples (from the planner's own file) ──
 let _pvSeq = 0;
 async function loadExamples(kind) {
@@ -1298,13 +1360,16 @@ async function loadExamples(kind) {
   const codes = chatCodes();
   const auto = (_chatMeta.scope_codes_auto || []).filter(c => codes.includes(c));
   const picks = kind === 'scope' ? curScopeAn().map(a => a.codes) : curSeq().map(a => a.codes);
+  if (kind === 'scope') paintVal();
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/narrative/preview`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', kind, auto_codes: auto, picks }),
+      body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', kind, auto_codes: auto, picks,
+        value_codes: kind === 'scope' ? curValCodes() : [] }),
     });
     const data = await resp.json();
     if (my !== _pvSeq || !document.getElementById('bn-pv')) return;
+    if (kind === 'scope') { _valPv = data.value || null; paintVal(); }
     if (!data.ok || !(data.examples || []).length) { box.innerHTML = '<div class="bn-hint2">No example could be worked out from this file\'s activity codes.</div>'; return; }
     box.innerHTML = data.examples.map((ex, i) => (kind === 'scope' ? scopeExample(ex, i) : seqExample(ex, i))).join('');
   } catch { box.innerHTML = '<div class="bn-hint2">Could not reach the local server for the examples.</div>'; }
@@ -1324,7 +1389,7 @@ function scopeExample(ex, i) {
   const lists = (ex.lists || []).map(l => `<div class="bn-cons"><b>${_esc(l.code)}</b> consists of: ${l.values.map(_esc).join(' · ')}${l.more ? ` · +${l.more} more` : ''}${l.by_count ? ' <i>(no cost loaded — described by its activities)</i>' : ''}</div>`).join('');
   const combo = (ex.combo || []).length ? `<div class="bn-rh2">${ex.codes.map(_esc).join(' → ')} — each ${_esc(ex.codes[0])} with what it consists of</div>`
     + ex.combo.map(c => `<div class="bn-combo"><b>➢ ${_esc(c.name)}</b> (${_esc(c.share || c.pct + '%')})<div>${c.parts.map(x => '• ' + _esc(x)).join('&nbsp;&nbsp; ')}${c.more ? `&nbsp;&nbsp; +${c.more} more` : ''}</div></div>`).join('') : '';
-  const warn = ex.unclassified && ex.unclassified > 10 ? `<div class="bn-warn">${ex.unclassified}% of the cost carries no value of “${_esc(ex.codes[0])}” — it would show as Unclassified.</div>` : '';
+  const warn = '';   // no "Unclassified" any more — uncoded cost is filled (Contract Value split by) or named by its WBS
   return `<div class="bn-ex"><div class="bn-exh">${i + 1}. ${head}</div><div class="bn-rep"><div class="bn-rh">7) Scope of Work</div>`
     + lists + (bars ? `<div class="bn-rh2">Scope by ${_esc(ex.codes[0])} — share of the baseline cost (${_esc(ex.total)})</div>${bars}` : '') + `${combo || drill}</div>${warn}</div>`;
 }
