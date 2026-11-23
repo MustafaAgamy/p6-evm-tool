@@ -793,6 +793,86 @@ def no_baseline_notice(data):
             + (which + ' ' if which else '') + NO_BASELINE_ADVICE)
 
 
+def summary_band(ts, cp, spi=None):
+    """Section 1's summary band (approved 2026-11-23): the verdict line and the six key
+    numbers, as ready-to-print text so the screen, the PDF / Word and Excel say exactly the
+    same thing. No new number: Time Status, the driving path's completion milestone, and the
+    SPI the Earned Value tab shows (Ibrahim's rule: overall actual % ÷ overall planned %)."""
+    ts = ts or {}
+    ep, pp, ap = ts.get('elapsed_pct'), ts.get('planned_pct'), ts.get('actual_pct')
+    bp = ts.get('behind_plan')
+    chart = ((cp or {}).get('charts') or [{}])[0]
+    ms = chart.get('milestone') or {}
+    boxes = chart.get('boxes') or []
+    slip = ms.get('slip_days') if ms.get('expected_finish') else None
+    f2 = lambda v: f'{v:.2f}%' if isinstance(v, (int, float)) else '—'
+
+    if ts.get('exceeded_days'):
+        elapsed_v, elapsed_s = '100%', f"baseline finish exceeded by {ts['exceeded_days']:,} days"
+    else:
+        elapsed_v = f'{ep:.1f}%' if isinstance(ep, (int, float)) else '—'
+        elapsed_s = (f"{ts['elapsed_days']:,} of {ts['total_days']:,} days"
+                     if ts.get('total_days') else '')
+    if isinstance(bp, (int, float)):
+        earned_s = f"{'−' if bp > 0 else '+'}{abs(bp):.2f} vs plan"
+        earned_t = 'bad' if bp > 0 else 'good'
+    else:
+        earned_s, earned_t = '', 'neutral'
+    kpis = [
+        {'key': 'elapsed', 'label': 'Time elapsed', 'value': elapsed_v, 'sub': elapsed_s, 'tone': 'neutral'},
+        {'key': 'planned', 'label': 'Planned %', 'value': f2(pp), 'sub': 'by the data date', 'tone': 'neutral'},
+        {'key': 'earned', 'label': 'Earned %', 'value': f2(ap), 'sub': earned_s, 'tone': earned_t},
+        {'key': 'spi', 'label': 'SPI', 'value': f'{spi:.2f}' if isinstance(spi, (int, float)) else '—',
+         'sub': 'as on the Earned Value tab',
+         'tone': 'neutral' if not isinstance(spi, (int, float)) else ('bad' if spi < 1 else 'good')},
+        {'key': 'finish', 'label': 'Forecast finish', 'value': _fmt_date(ms.get('expected_finish')) if slip is not None else '—',
+         'sub': f"baseline {_fmt_date(ms.get('baseline_finish'))}" if ms.get('baseline_finish') else '',
+         'tone': 'neutral' if slip is None else ('bad' if slip > 0 else 'good')},
+        {'key': 'delay', 'label': 'Delay', 'value': '—' if slip is None else f"{'+' if slip > 0 else ''}{slip} d",
+         'sub': 'working days vs baseline',
+         'tone': 'neutral' if slip is None else ('bad' if slip > 0 else 'good')},
+    ]
+
+    if ms.get('name') and slip is not None:
+        if slip > 0:
+            headline = (f"Forecast finish {_fmt_date(ms['expected_finish'])} — {slip} working day{'s' if slip != 1 else ''} "
+                        f"later than the baseline {_fmt_date(ms.get('baseline_finish'))}.")
+        elif slip < 0:
+            headline = (f"Forecast finish {_fmt_date(ms['expected_finish'])} — {abs(slip)} working day{'s' if slip != -1 else ''} "
+                        f"earlier than the baseline {_fmt_date(ms.get('baseline_finish'))}.")
+        else:
+            headline = f"Forecast finish {_fmt_date(ms['expected_finish'])} — on the baseline {_fmt_date(ms.get('baseline_finish'))}."
+    else:
+        headline = 'No governing completion milestone was found on the driving path.'
+    driver = boxes[-1].get('name') if boxes else None
+    if ts.get('baseline_kind') == 'revised':
+        status = 'baseline'
+        detail = (f"This file is a revised baseline — the baseline re-set at its data date, with {f2(ap)} of the work "
+                  f"already earned (planned {f2(pp)}). {elapsed_v} of its time has elapsed: the clock starts at its data date.")
+    elif ts.get('baseline_kind') == 'original':
+        status = 'baseline'
+        detail = (f"This file is the original baseline, set at its data date before any progress: "
+                  f"{elapsed_v} of its time has elapsed.")
+    elif ts.get('baseline_file'):
+        status = 'baseline'
+        detail = (f"This file has no baseline in P6 and is read as the baseline itself: {elapsed_v} of its time has "
+                  f"elapsed (the clock starts at its data date); {f2(ap)} is earned against {f2(pp)} planned.")
+    else:
+        status = 'behind' if ((slip or 0) > 0 or (isinstance(bp, (int, float)) and bp > 0)) else 'on_track'
+        parts = []
+        if ap is not None and pp is not None:
+            gap = (f" ({abs(bp):.2f} points {'behind' if bp > 0 else 'ahead of'} plan)"
+                   if isinstance(bp, (int, float)) else '')
+            parts.append(f"{f2(ap)} of the work is earned against {f2(pp)} planned for the data date{gap}")
+        if isinstance(ep, (int, float)):
+            parts.append(f"with {elapsed_v} of the baseline time used")
+        detail = (', '.join(parts) + '.') if parts else ''
+        if driver:
+            detail += f" The finish is driven by {driver}."
+    label = {'behind': 'BEHIND SCHEDULE', 'on_track': 'ON TRACK', 'baseline': 'BASELINE'}[status]
+    return {'status': status, 'label': label, 'headline': headline, 'detail': detail.strip(), 'kpis': kpis}
+
+
 def build_report_from_data(data, metrics, summary_level=0):
     """Assemble the whole Update-Analysis report from a parsed update + its metrics.compute
     result. `has_baseline` false means there is no REAL baseline (update_has_baseline) — so the
@@ -828,7 +908,19 @@ def build_report_from_data(data, metrics, summary_level=0):
         'scope': scope_all(data),
         'scope_default': _default_scope_code(list(getattr(data, 'activity_code_types', None) or [])),
         'conclusion': _report_conclusion(ts, cp),
+        # Section 1 summary band + Section 6 Progress S-curve (approved 2026-11-23)
+        'summary': summary_band(ts, cp, (metrics or {}).get('spi')),
+        'scurve': _scurve_or_empty(data, metrics),
     }
+
+
+def _scurve_or_empty(data, metrics):
+    """The S-curve never breaks the report: on any failure the section says so."""
+    try:
+        from p6_update.scurve import progress_scurve
+        return progress_scurve(data, metrics)
+    except Exception as exc:                      # pragma: no cover - defensive
+        return {'points': [], 'basis': None, 'last_remaining_finish': None, 'earlier': [], 'error': str(exc)}
 
 
 def _report_conclusion(ts, cp):

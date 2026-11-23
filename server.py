@@ -129,6 +129,34 @@ def _schedule_for(path, body=None, snapshot_key='snapshot_id', cached_key='cache
     return load_schedule(path, attached)
 
 
+def _scurve_link(data, metrics):
+    """{'baseline_key', 'ua_earned_pct'} for evm_extras — never breaks an import."""
+    try:
+        from p6_update.scurve import baseline_key, earned_pct
+        return {'baseline_key': baseline_key(data), 'ua_earned_pct': earned_pct(metrics)}
+    except Exception as exc:
+        print(f'[scurve] link skipped: {exc}', file=sys.stderr)
+        return {}
+
+
+def _scurve_with_earlier(scurve, data_date, snapshot_id, key, after, picks=None):
+    """Section 6: tick the earlier imported updates (same baseline, plus the planner's own
+    picks saved for this snapshot) and put them on the Earned line."""
+    from p6_update.scurve import earlier_on, merge_earlier
+    scurve = dict(scurve or {})
+    scurve['baseline_key'] = key
+    scurve['baseline_data_date'] = after
+    if not scurve.get('points') or not data_date:
+        return scurve
+    if picks is None and snapshot_id:
+        try:
+            picks = db.get_snapshot_ui_state(int(snapshot_id), 'ua_scurve_earlier')
+        except Exception:
+            picks = None
+    cands = db.earlier_update_candidates(data_date, exclude_snapshot_id=snapshot_id, after=after)
+    return merge_earlier(scurve, earlier_on(cands, key, picks))
+
+
 def _prodintel_excel_sections(r):
     """Build (name, headers, rows) sheets from a Productivity Intelligence result."""
     ctx = r.get('context') or {}
@@ -532,6 +560,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_update_counts(body)
         elif self.path == '/api/update/scope':
             self._handle_update_scope(body)
+        elif self.path == '/api/update/scurve_earlier':
+            self._handle_update_scurve_earlier(body)
         elif self.path == '/api/update/excel':
             self._handle_update_excel(body)
         elif self.path == '/api/evm/excel':
@@ -1328,6 +1358,9 @@ class Handler(BaseHTTPRequestHandler):
                 'baseline_path': attached_bl,      # the attached baseline stays with the snapshot
                 'baseline_fields': baseline_fields(bl_info),   # what the stored numbers used
                 'has_embedded_baseline': safe_result.get('has_embedded_baseline'),
+                # Update Analysis S-curve: a later update of the same job (same baseline) puts
+                # this import's Earned % on its curve without re-reading this file
+                **_scurve_link(data, result),
             })
             try:                                   # the Gantt / WBS views stay with the snapshot
                 views = {k: safe_result.get(k) or [] for k in
@@ -1442,6 +1475,14 @@ class Handler(BaseHTTPRequestHandler):
             summary_level = int(body.get('summary_level', 0) or 0)
             report = build_report_from_data(data, metrics, summary_level=summary_level)
             report['file'] = os.path.basename(curr_path)
+            try:                                   # Section 6: earlier updates on the S-curve
+                from p6_update.scurve import baseline_key
+                bdd = getattr(data, 'baseline_data_date', None)
+                report['scurve'] = _scurve_with_earlier(
+                    report.get('scurve'), report.get('data_date'), body.get('snapshot_id'),
+                    baseline_key(data), bdd.strftime('%Y-%m-%d') if hasattr(bdd, 'strftime') else None)
+            except Exception as sc_exc:
+                print(f'[scurve] earlier updates skipped: {sc_exc}', file=sys.stderr)
             if not report.get('has_baseline'):
                 # Neither inside the file nor attached (an XER never carries it; an XML exported
                 # without its baseline project neither) — never measure it against its own plan.
@@ -1454,6 +1495,37 @@ class Handler(BaseHTTPRequestHandler):
                                           'baseline project included.'})
                 return
             self._json(200, {'ok': True, 'report': report})
+        except Exception as exc:
+            self._json(200, {'ok': False, 'error': str(exc)})
+
+    def _handle_update_scurve_earlier(self, body):
+        """Section 6 — tick / untick one earlier imported update on the S-curve. The choice is
+        kept for this snapshot (snapshot_ui_state 'ua_scurve_earlier': {add, remove}); the
+        curve is re-merged from its rebuilt points, so no schedule is re-read."""
+        try:
+            scurve = body.get('scurve') or {}
+            sid = body.get('snapshot_id')
+            pick, on = int(body.get('pick')), bool(body.get('on'))
+            dd = next((p['date'] for p in (scurve.get('base_points') or scurve.get('points') or [])
+                       if p.get('kind') == 'data_date'), None)
+            picks = (db.get_snapshot_ui_state(int(sid), 'ua_scurve_earlier') if sid else None)                 or body.get('picks') or {'add': [], 'remove': []}
+            add = {int(x) for x in picks.get('add') or []}
+            rem = {int(x) for x in picks.get('remove') or []}
+            auto = any(int(e.get('snapshot_id')) == pick and e.get('auto') for e in scurve.get('earlier') or [])
+            if on:
+                rem.discard(pick)
+                if not auto:
+                    add.add(pick)
+            else:
+                add.discard(pick)
+                if auto:
+                    rem.add(pick)
+            picks = {'add': sorted(add), 'remove': sorted(rem)}
+            if sid:
+                db.save_snapshot_ui_state(int(sid), 'ua_scurve_earlier', picks)
+            out = _scurve_with_earlier(scurve, dd, sid, scurve.get('baseline_key'),
+                                       scurve.get('baseline_data_date'), picks=picks)
+            self._json(200, {'ok': True, 'scurve': out, 'picks': picks})
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
