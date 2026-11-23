@@ -60,7 +60,10 @@ _BASELINE_ACTS = '''
     <Activity><ObjectId>1021</ObjectId><Id>S2</Id><Name>Soil b</Name><Type>Task Dependent</Type><WBSObjectId>301</WBSObjectId><PlannedStartDate>2025-03-02T00:00:00</PlannedStartDate><PlannedFinishDate>2025-04-01T00:00:00</PlannedFinishDate></Activity>
     <Activity><ObjectId>1999</ObjectId><Id>MS</Id><Name>Project completion</Name><Type>Finish Milestone</Type><WBSObjectId>200</WBSObjectId><PlannedFinishDate>2025-04-01T00:00:00</PlannedFinishDate></Activity>'''
 
-WITH_BL = _UPDATE_XML.replace('<!--BASELINE-->', f'<BaselineProject>{_BASELINE_ACTS}\n  </BaselineProject>')
+# A real P6 export carries the baseline project's own <DataDate> inside <BaselineProject> (as the
+# Giza Zoo / GBT / Alstom / SNT exports do) — the same date the stand-alone baseline file carries.
+WITH_BL = _UPDATE_XML.replace('<!--BASELINE-->', '<BaselineProject><DataDate>2025-03-01T00:00:00</DataDate>'
+                              f'{_BASELINE_ACTS}\n  </BaselineProject>')
 NO_BL = _UPDATE_XML.replace('<!--BASELINE-->', '')
 # The same baseline exported on its own (a separate baseline XML the planner attaches).
 BASELINE_ALONE = f'''<?xml version="1.0"?>

@@ -101,28 +101,62 @@ def _days_between(cal, d1, d2):
 
 # ── Section 1 · Time Status ──────────────────────────────────────────────────
 
-def time_status(data, metrics, span_start=None, span_finish=None):
+# Planned and Earned count as "equal" for a revised baseline within this many points
+# (rounding between the cost-weighted roll-ups — MAFI-UP 27-20 BL reads 24.42% / 24.35%)
+REVISED_BASELINE_TOLERANCE_PTS = 1.0
+
+
+def _baseline_kind(planned_pct, actual_pct):
+    """'original' (no progress), 'revised' (progress AND Planned = Earned) or None."""
+    if not actual_pct:
+        return 'original'
+    if planned_pct is not None and abs(planned_pct - actual_pct) <= REVISED_BASELINE_TOLERANCE_PTS:
+        return 'revised'
+    return None
+
+
+def _day(d):
+    """Midnight of the date — the clock counts whole calendar days."""
+    return d.replace(hour=0, minute=0, second=0, microsecond=0) if d else None
+
+
+def time_status(data, metrics):
     """How much of the baseline's calendar has been used up, and the cost-earned vs
     cost-planned progress against it.
 
-    - elapsed: calendar days (working AND non-working) from the baseline start to the
-      data date, over the whole baseline duration to the baseline FINISH. When the data
+    - elapsed (Ibrahim's rule rev 2, 2026-11-21): calendar days (working AND non-working) from
+      the clock start to the data date, over the whole baseline duration to the baseline FINISH.
+      Clock start = the baseline project's own DATA DATE (the date the baseline was taken —
+      so a re-baseline such as GBT Rev.03 is not measured from activity dates that predate it);
+      only when the file carries no baseline data date, the earliest baseline start of any
+      activity. A BASELINE FILE on its own (no baseline assigned in P6, measured against its
+      own Planned dates) starts at its own data date → 0% elapsed, and no behind-the-clock.
+      Baseline finish = the latest baseline finish of any activity. When the data
       date passes the baseline finish it reads 100% + `exceeded_days` rather than >100%.
-      The span defaults to the driving path — from the start milestone that releases it to
-      the governing completion milestone (so procurement/mobilisation before the works don't
-      count) — falling back to the earliest/latest baseline dates when no path is supplied.
     - actual %: Earned Value ÷ Budget across all cost-loaded activities (Ibrahim's rule).
     - planned %: PV ÷ Budget the same way (time-based planned %).
     """
     data_date = (getattr(data, 'project', None) or {}).get('data_date')
     bl = getattr(data, 'baseline_by_id', None) or {}
-    if span_start and span_finish:
-        bl_start, bl_finish = span_start, span_finish
+    starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
+    finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
+    # the baseline's own data date applies only to a real baseline (embedded / attached). When the
+    # file's own Planned dates stand in ('self'):
+    #   - a BASELINE FILE (no baseline assigned in P6, e.g. MAFI-UP 27-20 BL) IS the baseline,
+    #     taken at its own data date (Planned = Earned) → the clock starts there: 0% elapsed
+    #     (Ibrahim, 2026-11-21);
+    #   - an UPDATE exported without the baseline P6 names for it → no baseline data date known.
+    src = getattr(data, 'baseline_source', None)
+    baseline_file = src == 'self' and not baseline_expected(data)
+    if baseline_file:
+        bl_dd = (getattr(data, 'project', None) or {}).get('data_date')
+    elif src != 'self':
+        bl_dd = getattr(data, 'baseline_data_date', None)
     else:
-        starts = [b['planned_start'] for b in bl.values() if b.get('planned_start')]
-        finishes = [b['planned_finish'] for b in bl.values() if b.get('planned_finish')]
-        bl_start = min(starts) if starts else None
-        bl_finish = max(finishes) if finishes else None
+        bl_dd = None
+    bl_start = _day(bl_dd) if bl_dd else (_day(min(starts)) if starts else None)
+    bl_finish = _day(max(finishes)) if finishes else None
+    data_date = _day(data_date)
 
     elapsed_pct = exceeded_days = total_days = elapsed_days = None
     if bl_start and bl_finish and data_date and bl_finish > bl_start:
@@ -167,10 +201,15 @@ def time_status(data, metrics, span_start=None, span_finish=None):
     cost_variance = (ev - pv) if (pv is not None and ev is not None) else None
 
     behind_clock = None
-    if actual_pct is not None and elapsed_pct is not None:
+    # not for a baseline file: Elapsed (0) − Actual would only show the progress made before
+    # the baseline was set, read as "ahead of the clock"
+    if actual_pct is not None and elapsed_pct is not None and not baseline_file:
         behind_clock = round(elapsed_pct - actual_pct, 2)   # +ve = behind the clock
+    baseline_kind = _baseline_kind(planned_pct, actual_pct) if baseline_file else None
     behind_plan = None
-    if actual_pct is not None and planned_pct is not None:
+    # not for a revised baseline: Planned = Earned there by definition, so the gap is only
+    # rounding (MAFI-UP 27-20 BL 24.42 / 24.35 read "0.07 behind plan") — Ibrahim, 2026-11-22
+    if actual_pct is not None and planned_pct is not None and baseline_kind != 'revised':
         behind_plan = round(planned_pct - actual_pct, 2)    # +ve = behind plan
 
     return {
@@ -184,6 +223,12 @@ def time_status(data, metrics, span_start=None, span_finish=None):
         'planned_pct': planned_pct,
         'actual_pct': actual_pct,
         'behind_clock': behind_clock,
+        'baseline_file': baseline_file,   # the file IS the baseline (measured against itself)
+        # which baseline it is (Ibrahim, 2026-11-21): a REVISED baseline has progress AND
+        # Planned Value = Earned Value at its data date (MAFI-UP 27-20 BL: 24.42% / 24.35%);
+        # an ORIGINAL baseline has no progress; a file with progress whose Planned ≠ Earned is
+        # neither, so it is not named
+        'baseline_kind': baseline_kind,
         'behind_plan': behind_plan,
         'cost_loaded': cost_loaded,
         'pv': pv,
@@ -759,15 +804,9 @@ def build_report_from_data(data, metrics, summary_level=0):
     bl_info = getattr(data, 'baseline_info', None) or {}
     proj = getattr(data, 'project', None) or {}
     cp = critical_path(data, summary_level=summary_level)
-    # Time Status runs over the DRIVING PATH's span — from the start milestone that releases it
-    # to the governing completion milestone — so procurement/mobilisation before the works don't
-    # inflate "time elapsed". Falls back to the earliest/latest baseline dates when there's no path.
-    span_start = span_finish = None
-    if cp.get('charts'):
-        sm = cp['charts'][0].get('start_milestone') or {}
-        span_start = _from_iso(sm.get('date'))
-    span_finish = _from_iso((cp.get('milestone') or {}).get('baseline_finish'))
-    ts = time_status(data, metrics, span_start, span_finish)
+    # Time Status runs over the WHOLE baseline (Ibrahim's rule, 2026-11-20) — not the driving
+    # path's span — so the AI Chat dashboard and this report read the same Time Elapsed.
+    ts = time_status(data, metrics)
     return {
         'project_name': proj.get('name') or proj.get('id') or 'Project',
         'data_date': _iso(proj.get('data_date')),
@@ -806,8 +845,16 @@ def _report_conclusion(ts, cp):
         exceeded = ''
         if ts.get('exceeded_days'):
             exceeded = f" (the baseline finish is already exceeded by {ts['exceeded_days']} days)"
-        parts.append(f"{ep:.0f}% of the baseline time has elapsed and {ap:.0f}% is earned{clock}{exceeded}.")
-    if pp is not None and ap is not None and ts.get('behind_plan') is not None and ts['behind_plan'] > 0:
+        if ts.get('baseline_kind') == 'revised':
+            parts.append(f"This is a revised baseline: {ap:.0f}% of the work was already earned at its "
+                         f"data date, where its clock starts ({ep:.0f}% of its time elapsed).")
+        elif ts.get('baseline_kind') == 'original':
+            parts.append(f"This is the original baseline, set before any progress ({ep:.0f}% of its time elapsed).")
+        else:
+            parts.append(f"{ep:.0f}% of the baseline time has elapsed and {ap:.0f}% is earned{clock}{exceeded}.")
+    # a revised baseline has Planned = Earned by definition — a rounding gap is not "behind"
+    if (pp is not None and ap is not None and ts.get('behind_plan') is not None and ts['behind_plan'] > 0
+            and ts.get('baseline_kind') != 'revised'):
         parts.append(f"That is {ts['behind_plan']} points behind the {pp:.0f}% planned.")
     # the driving-path sentence is shown in the Driving Path section, not here (Ibrahim, 15-Oct)
     return ' '.join(parts)

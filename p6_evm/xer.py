@@ -381,6 +381,8 @@ def _parse_xer(path):
 
     if bl_proj_id:
         _read_embedded_baseline(tables, bl_proj_id, data)
+        # the baseline project's own data date — the XML's <BaselineProject><DataDate>
+        data.baseline_data_date = _dt(bl_proj.get('last_recalc_date'))
     if data.baseline_by_id:
         data.baseline_source = 'embedded'
     else:
