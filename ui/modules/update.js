@@ -1,10 +1,12 @@
 // Update Analysis — the current schedule read against its baseline: the one inside the file, else
 // the baseline attached for this update (here or on Earned Value; XER or XML — baseline.js).
 //
-// Four sections: (1) Time Status donut + PV/EV/Variance; (2) Planned vs Actual by activity
+// Six sections: (1) Time Status — verdict, six key numbers, donut + ruler, PV/EV/Variance
+// (approved 2026-11-23); (2) Planned vs Actual by activity
 // code — one chart per selected code; (3) Driving Path Analyzer — the governing milestone's
 // driving path as work-front boxes (WBS rollup, or the activity itself when no cost); (4)
-// Planned vs Actual by activity count (Completed / In Progress / Not Started), code-filtered.
+// Planned vs Actual by activity count (Completed / In Progress / Not Started), code-filtered;
+// (5) Scope Weight; (6) Progress S-curve — Planned / Earned / Forecast, earlier updates on it.
 // All numbers come from the server (metrics.compute), so they match the EVM tab.
 import { state }      from './state.js';
 import { showError }  from './render.js';
@@ -167,6 +169,39 @@ function _injectStyle() {
     .ua-rec h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--accent); }
     .ua-rec p { margin: 6px 0; font-size: 13.5px; color: var(--text); }
     .ua-rec .ua-star { color: var(--accent); font-weight: 800; margin-right: 6px; }
+    /* Section 1 summary band (approved 2026-11-23) */
+    .ua-verdict { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--border); border-left: 6px solid var(--danger); border-radius: 0 12px 12px 0; padding: 12px 16px; margin-bottom: 12px; background: var(--card-bg); }
+    .ua-verdict.on_track { border-left-color: var(--success); } .ua-verdict.baseline { border-left-color: var(--accent); }
+    .ua-pill { flex: none; background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); font-weight: 800; border-radius: 20px; padding: 3px 12px; font-size: 12px; margin-top: 2px; letter-spacing: .02em; }
+    .ua-verdict.on_track .ua-pill { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+    .ua-verdict.baseline .ua-pill { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+    .ua-vh { font-size: 15.5px; font-weight: 700; color: var(--text); } .ua-vd { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .ua-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 12px; }
+    .ua-kpi { border: 1px solid var(--border); border-top: 4px solid var(--muted); border-radius: 12px; padding: 10px 12px; background: var(--card-bg); }
+    .ua-kpi.bad { border-top-color: var(--danger); } .ua-kpi.good { border-top-color: var(--success); }
+    .ua-kpi .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+    .ua-kpi .v { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); margin-top: 2px; }
+    .ua-kpi.bad .v { color: var(--danger); } .ua-kpi.good .v { color: var(--success); }
+    .ua-kpi.date .v { font-size: 17px; padding-top: 4px; }
+    .ua-kpi .s { font-size: 11.5px; color: var(--muted); }
+    .ua-prog h4 { margin: 0 0 6px; font-size: 13px; color: var(--text); }
+    .ua-progrow { display: flex; gap: 22px; align-items: center; }
+    .ua-progrow .ua-rul { flex: 1; min-width: 240px; }
+    .ua-donleg { font-size: 11px; color: var(--muted); text-align: center; margin-top: 2px; }
+    .ua-ruler { position: relative; height: 30px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; margin: 46px 0 40px; }
+    .ua-ruler .f { position: absolute; left: 0; top: 0; bottom: 0; background: var(--chart-1); border-radius: 7px 0 0 7px; }
+    .ua-mk { position: absolute; top: -8px; bottom: -8px; width: 3px; border-radius: 2px; transform: translateX(-1px); }
+    .ua-mk span { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11.5px; font-weight: 700; }
+    .ua-mk.up span { top: -20px; } .ua-mk.up2 span { top: -36px; } .ua-mk.dn span { bottom: -21px; }
+    .ua-gapnote { font-size: 12.5px; color: var(--text); margin-top: 4px; }
+    @media (max-width: 1100px) { .ua-kpis { grid-template-columns: repeat(3, 1fr); } }
+    /* Section 6 S-curve */
+    .ua-earl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12.5px; margin-bottom: 8px; color: var(--text); }
+    .ua-chip { border: 1px solid var(--chart-1); color: var(--chart-1); border-radius: 16px; padding: 2px 4px 2px 10px; font-weight: 700; background: var(--card-bg); }
+    .ua-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 0 4px; }
+    .ua-sc svg text { font-family: inherit; }
+    .ua-sct td.dd { font-weight: 800; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    .ua-sct summary, .ua-scnote summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12.5px; margin-top: 10px; }
   `;
   document.head.appendChild(s);
 }
@@ -198,7 +233,7 @@ async function _runAnalyze() {
   try {
     const resp = await fetch(`http://localhost:${state.serverPort}/api/update/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', summary_level: _summaryLevel }),
+      body: JSON.stringify({ xml_path: state.currentXmlPath || '', cached_path: state.currentCachedPath || '', summary_level: _summaryLevel, snapshot_id: state.currentSnapshotId || null }),
     });
     _showAnalysis(body, await resp.json());
   } catch {
@@ -258,10 +293,8 @@ function _render(report) {
       <button class="btn-secondary" id="ua-export-xlsx">Export Excel</button>
     </div>
     ${report.baseline_label ? `<div class="ua-note" id="ua-baseline" style="margin:0 0 6px">Baseline: ${escapeHtml(report.baseline_label)}</div>` : ''}
-    <div class="ua-reco">${escapeHtml(report.conclusion || '')}</div>
-
     <div class="ua-sec">1 · Time Status</div>
-    <div class="ua-card">${_timeStatusHtml(report)}</div>
+    <div class="ua-card">${_summaryHtml(report)}${_timeStatusHtml(report)}</div>
 
     <div class="ua-sec">2 · Planned vs Actual — by activity code</div>
     <div class="ua-card">${_byCodeControls(report)}<div id="ua-bc-charts">${_byCodeCharts(report)}</div></div>
@@ -273,7 +306,10 @@ function _render(report) {
     <div class="ua-card">${_countControls(report)}<div id="ua-cn-body">${_countsHtml(report.counts)}</div></div>
 
     <div class="ua-sec">5 · Scope Weight &amp; Recommendation</div>
-    <div class="ua-card">${_scopeControls(report)}<div id="ua-scope-body">${_scopeHtml(report)}</div></div>`;
+    <div class="ua-card">${_scopeControls(report)}<div id="ua-scope-body">${_scopeHtml(report)}</div></div>
+
+    <div class="ua-sec">6 · Progress S-curve</div>
+    <div class="ua-card" id="ua-sc-body">${_scurveHtml(report)}</div>`;
 
   _wireTitle(report);
   document.getElementById('ua-export-pdf').addEventListener('click', _exportPdf);
@@ -282,6 +318,7 @@ function _render(report) {
   _wireSummaryLevel();
   _wireCounts(report);
   _wireScope(report);
+  _wireScurve(report);
 }
 
 // The report name - editable on screen, carried into the PDF / Word / Excel (report.title).
@@ -429,38 +466,135 @@ function _donut(elapsed, planned, actual) {
   </svg>`;
 }
 
+// Section 1 (approved 2026-11-23): verdict line, six key numbers, Progress at the data date
+// (the donut + the ruler) — the text comes ready-made from the server (report.summary), so
+// the screen, the PDF / Word and Excel say the same thing. PV / EV / Variance cards below.
+function _summaryHtml(report) {
+  const sm = report.summary || {};
+  const ts = report.time_status || {};
+  const kpi = k => `<div class="ua-kpi ${k.tone || ''}${k.key === 'finish' ? ' date' : ''}"><div class="l">${escapeHtml(k.label)}</div>
+    <div class="v">${escapeHtml(k.value)}</div><div class="s">${escapeHtml(k.sub || '')}</div></div>`;
+  return `<div class="ua-verdict ${escapeHtml(sm.status || '')}"><span class="ua-pill">${escapeHtml(sm.label || '')}</span>
+      <div><div class="ua-vh">${escapeHtml(sm.headline || '')}</div><div class="ua-vd">${escapeHtml(sm.detail || '')}</div></div></div>
+    <div class="ua-kpis">${(sm.kpis || []).map(kpi).join('')}</div>
+    <div class="ua-prog"><h4>Progress at the data date</h4>${_progressHtml(ts)}</div>`;
+}
+
+function _progressHtml(ts) {
+  const ep = ts.elapsed_pct, pp = ts.planned_pct, ap = ts.actual_pct;
+  const clamp = v => Math.max(0, Math.min(100, +v || 0));
+  const e = clamp(ap), t = clamp(ep), p = clamp(pp);
+  const close = Math.abs(t - p) < 14;
+  const tMk = ep != null ? `<div class="ua-mk up" style="left:${t}%;background:var(--muted)"><span style="color:var(--muted)">Time ${ep.toFixed(1)}%</span></div>` : '';
+  const pMk = pp != null ? `<div class="ua-mk ${close && ep != null ? 'up2' : 'up'}" style="left:${p}%;background:${C.plan}"><span style="color:${C.plan}">Planned ${_pct2(pp)}</span></div>` : '';
+  const gap = [];
+  if (ts.behind_plan != null) gap.push(`Behind plan <b class="${ts.behind_plan > 0 ? 'ua-bad' : 'ua-good'}">${Math.abs(ts.behind_plan).toFixed(2)} points</b> (earned vs planned)`);
+  if (ts.behind_clock != null) gap.push(`behind the clock <b class="${ts.behind_clock > 0 ? 'ua-bad' : 'ua-good'}">${Math.abs(ts.behind_clock).toFixed(2)} points</b> (earned vs time used)`);
+  const cv = ts.cost_variance;
+  const varTxt = typeof cv === 'number' ? ` Variance EV − PV <b class="${cv < 0 ? 'ua-bad' : 'ua-good'}">${cv < 0 ? '−' : '+'}${_m(Math.abs(cv))}</b>.` : '';
+  return `<div class="ua-progrow"><div>${_donut(ep, pp, ap)}<div class="ua-donleg"><span style="color:${C.blue}">●</span> outer: time ${ep != null ? ep.toFixed(1) + '%' : '—'} · <span style="color:${C.good}">●</span> inner: earned</div></div>
+      <div class="ua-rul"><div class="ua-ruler"><div class="f" style="width:${e}%"></div>
+        <div class="ua-mk dn" style="left:${e}%;background:${C.actual}"><span style="color:${C.actual}">Earned ${_pct2(ap)}</span></div>${tMk}${pMk}</div></div></div>
+    <div class="ua-gapnote">${gap.join(' · ')}${gap.length ? '.' : ''}${varTxt}</div>`;
+}
+
 function _timeStatusHtml(report) {
   const ts = report.time_status || {};
-  const ep = ts.elapsed_pct, pp = ts.planned_pct, ap = ts.actual_pct;
-  let elapsed = ep != null ? `${ep.toFixed(1)}%` : '—';
-  if (ts.exceeded_days) elapsed = `100% — baseline exceeded by ${ts.exceeded_days} days`;
-  let verd = '';
-  if (ts.behind_plan != null && pp != null && ap != null) {
-    const v = ts.behind_plan, cls = v > 0 ? 'ua-bad' : 'ua-good';
-    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind plan · ${Math.abs(v)}</span><span>You planned to have earned <b>${_pct2(pp)}</b> by the data date; you’ve earned <b>${_pct2(ap)}</b> — ${Math.abs(v)} points ${v > 0 ? 'short of' : 'ahead of'} the plan.</span></div>`;
-  }
-  if (ts.behind_clock != null && ep != null && ap != null) {
-    const v = ts.behind_clock, cls = v > 0 ? 'ua-bad' : 'ua-good';
-    verd += `<div class="ua-vrow"><span class="ua-vtag ${cls}">Behind clock · ${Math.abs(v)}</span><span><b>${ep.toFixed(1)}%</b> of the baseline calendar is used up, but only <b>${_pct2(ap)}</b> of the work is done — ${Math.abs(v)} points ${v > 0 ? 'less' : 'more'} work than time spent.</span></div>`;
-  }
   const cv = ts.cost_variance;
-  const sentence = ts.baseline_kind === 'revised'
-    ? `This file is a <b>revised baseline</b> — the baseline re-set at its data date, with <b>${_pct2(ap)}</b> of the work already earned (planned <b>${_pct2(pp)}</b>). <b>${escapeHtml(elapsed)}</b> of its time has elapsed: the clock starts at its data date.`
-    : ts.baseline_kind === 'original'
-    ? `This file is the <b>original baseline</b>, set at its data date before any progress: <b>${escapeHtml(elapsed)}</b> of its time has elapsed.`
-    : ts.baseline_file
-    ? `This file has no baseline in P6 and is read as the baseline itself: <b>${escapeHtml(elapsed)}</b> of its time has elapsed (the clock starts at its data date); <b>${_pct2(ap)}</b> is earned against <b>${_pct2(pp)}</b> planned.`
-    : `<b>${escapeHtml(elapsed)}</b> of the baseline time has elapsed, but only <b>${_pct2(ap)}</b> of the work is earned (planned to be at <b>${_pct2(pp)}</b> by now).`;
-  return `<div class="ua-ts"><div>${_donut(ep, pp, ap)}</div>
-    <div style="flex:1;min-width:300px">
-      <div class="ua-ts-sentence">${sentence}</div>
-      <div class="ua-verd">${verd}</div>
-    </div></div>
-    <div class="ua-cost">
+  return `<div class="ua-cost">
       <div class="ua-costcard"><div class="ua-cl">Planned Value (PV)</div><div class="ua-cv">${_num(ts.pv)}</div></div>
       <div class="ua-costcard"><div class="ua-cl">Earned Value (EV)</div><div class="ua-cv">${_num(ts.ev)}</div></div>
       <div class="ua-costcard"><div class="ua-cl">Variance = EV − PV</div><div class="ua-cv ${cv < 0 ? 'ua-bad' : ''}">${_num(cv)}</div></div>
     </div>`;
+}
+
+// Section 6 — Progress S-curve (approved 2026-11-23). Planned = the Time Status rule at every
+// month end; Earned = rebuilt from actual dates, or an earlier imported update of the same
+// job at its own data date; Forecast = remaining work over P6's remaining dates.
+function _scurveHtml(report) {
+  const sc = report.scurve || {};
+  const pts = sc.points || [];
+  if (!pts.length) return `<div class="ua-note">${sc.error ? 'The S-curve could not be drawn for this file.' : 'Not enough dated activities to draw the S-curve.'}</div>`;
+  const earlier = sc.earlier || [];
+  const on = earlier.filter(e => e.on), off = earlier.filter(e => !e.on && e.earned != null);
+  const chips = on.map(e => `<span class="ua-chip">● ${escapeHtml(_fdate(e.data_date))} · ${_pct2(e.earned)}${e.auto ? '' : ' (added)'}<button data-scpick="${e.snapshot_id}" data-scon="0" title="Take it off the curve">×</button></span>`).join('');
+  const add = off.length ? `<select class="ua-sel" id="ua-sc-add"><option value="">+ Add an earlier imported update…</option>${off.map(e =>
+      `<option value="${e.snapshot_id}">${escapeHtml(_fdate(e.data_date))} · ${escapeHtml(e.label || e.file || '')} · ${_pct2(e.earned)} earned</option>`).join('')}</select>` : '';
+  const dd = pts.find(p => p.kind === 'data_date') || {};
+  const lastRem = sc.last_remaining_finish;
+  const ms = (((report.critical_path || {}).charts || [])[0] || {}).milestone || {};
+  const rows = pts.map(p => {
+    const g = p.earned != null && p.planned != null ? p.earned - p.planned : null;
+    const src = p.earned_source === 'update' ? 'earlier update' : (p.earned_source || '');
+    const k = p.kind === 'data_date' ? 'dd' : '';
+    return `<tr><td class="${k}">${escapeHtml(_fdate(p.date))}${p.kind === 'data_date' ? ' · data date' : p.kind === 'update' ? ' · update' : ''}</td>
+      <td class="ua-n ${k}">${p.planned != null ? _pct2(p.planned) : ''}</td><td class="ua-n ${k}">${p.earned != null ? _pct2(p.earned) : ''}</td>
+      <td class="ua-n ${k}">${p.forecast != null ? _pct2(p.forecast) : ''}</td>
+      <td class="ua-n ${k} ${g == null ? '' : g < 0 ? 'ua-bad' : 'ua-good'}">${g == null ? '' : (g > 0 ? '+' : '') + g.toFixed(2)}</td>
+      <td class="${k}" style="color:var(--muted)">${escapeHtml(src)}</td></tr>`;
+  }).join('');
+  const basis = sc.basis === 'duration' ? 'its planned duration (this file carries no cost)' : 'its budget';
+  const msNote = ms.expected_finish && lastRem && String(ms.expected_finish).slice(0, 10) !== lastRem
+    ? ` (${escapeHtml(ms.name || 'the completion milestone')} is ${escapeHtml(_fdate(ms.expected_finish))})` : '';
+  return `<div class="ua-earl"><b>Earlier updates on this curve:</b>${chips || '<span style="color:var(--muted)">none found with the same baseline</span>'}${add}</div>
+    <div class="ua-sc">${_scurveSvg(pts, dd, ms)}</div>
+    <div class="ua-leg"><span class="ua-sw" style="background:${C.plan}"></span>Planned (baseline)<span class="ua-sw" style="background:${C.actual}"></span>Earned, rebuilt from actual dates<span class="ua-sw" style="background:${C.actual};border-radius:50%"></span>Earned, from an earlier update<span class="ua-sw" style="background:none;border-top:2px dashed ${C.bad};height:0;width:16px"></span>Forecast (P6 remaining dates)</div>
+    <div class="ua-note" style="font-style:normal;margin-top:8px"><b>How each line is drawn.</b> <b>Planned</b> = the same Planned % rule as Time Status (each activity's baseline dates, in its own calendar's working time, weighted by ${basis}), at every month end; on the data date it is exactly ${_pct2(dd.planned)}.
+      <b>Earned</b> = each activity's % complete spread over its actual start → actual finish (or the data date); where an earlier update of this job was imported, its own Earned % stands at its data date; on the data date it is exactly ${_pct2(dd.earned)}.
+      <b>Forecast</b> = each activity's remaining work spread over its remaining start → finish in this P6 file${lastRem ? `; it reaches 100% on ${escapeHtml(_fdate(lastRem))}` : ''}${msNote}.</div>
+    <details class="ua-sct" open><summary>Monthly values</summary>
+      <table class="ua-cnt"><thead><tr><th>Date</th><th class="ua-n">Planned %</th><th class="ua-n">Earned %</th><th class="ua-n">Forecast %</th><th class="ua-n">Gap (earned − planned)</th><th>Earned from</th></tr></thead><tbody>${rows}</tbody></table></details>`;
+}
+
+function _scurveSvg(pts, dd, ms) {
+  const W = 1060, H = 360, L = 48, R = 150, T = 22, B = 44;
+  const t = s => Date.parse(String(s).slice(0, 10));
+  const tms = pts.map(p => t(p.date));
+  const ext = [ms.baseline_finish, ms.expected_finish].filter(Boolean).map(t);
+  const tA = Math.min(...tms) - 15 * 864e5, tB = Math.max(...tms, ...ext) + 5 * 864e5;
+  const X = v => L + (v - tA) / (tB - tA) * (W - L - R), Y = v => T + (100 - v) * (H - T - B) / 100;
+  let s = '';
+  for (let v = 0; v <= 100; v += 25) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--border)"/><text x="${L - 8}" y="${Y(v) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${v}%</text>`;
+  const months = pts.filter(p => p.kind === 'month'), every = Math.max(1, Math.ceil(months.length / 12));
+  months.forEach((p, i) => { if (i % every === 0) s += `<text x="${X(t(p.date)).toFixed(1)}" y="${H - 16}" font-size="11" text-anchor="middle" fill="var(--muted)">${escapeHtml(_fdate(p.date).slice(3))}</text>`; });
+  const line = key => pts.filter(p => p[key] != null).map((p, i) => `${i ? 'L' : 'M'}${X(t(p.date)).toFixed(1)},${Y(p[key]).toFixed(1)}`).join(' ');
+  s += `<path d="${line('planned')}" fill="none" stroke="${C.plan}" stroke-width="3"/>`;
+  s += `<path d="${line('forecast')}" fill="none" stroke="${C.bad}" stroke-width="2.5" stroke-dasharray="7 5"/>`;
+  s += `<path d="${line('earned')}" fill="none" stroke="${C.actual}" stroke-width="3.5"/>`;
+  pts.filter(p => p.earned != null && p.kind === 'month').forEach(p => { s += `<circle cx="${X(t(p.date)).toFixed(1)}" cy="${Y(p.earned).toFixed(1)}" r="3" fill="var(--card-bg)" stroke="${C.actual}" stroke-width="1.5"/>`; });
+  pts.filter(p => p.kind === 'update').forEach(p => { s += `<circle cx="${X(t(p.date)).toFixed(1)}" cy="${Y(p.earned).toFixed(1)}" r="5.5" fill="${C.actual}"><title>Earlier update ${escapeHtml(_fdate(p.date))}: ${_pct2(p.earned)} earned</title></circle>`; });
+  if (dd.date) {
+    const xd = X(t(dd.date));
+    s += `<line x1="${xd}" x2="${xd}" y1="${T}" y2="${H - B}" stroke="var(--accent)" stroke-dasharray="4 4"/><text x="${xd + 6}" y="${T + 10}" font-size="11.5" fill="var(--accent)" font-weight="700">data date ${escapeHtml(_fdate(dd.date))}</text>`;
+    if (dd.planned != null) s += `<circle cx="${xd}" cy="${Y(dd.planned)}" r="5.5" fill="${C.plan}"/><text x="${xd - 9}" y="${Y(dd.planned) - 8}" font-size="12" text-anchor="end" font-weight="700" fill="${C.plan}">Planned ${_pct2(dd.planned)}</text>`;
+    s += `<circle cx="${xd}" cy="${Y(dd.earned)}" r="5.5" fill="${C.actual}"/><text x="${xd + 9}" y="${Y(dd.earned) + 18}" font-size="12" font-weight="700" fill="${C.actual}">Earned ${_pct2(dd.earned)}</text>`;
+  }
+  if (ms.baseline_finish) { const xb = X(t(ms.baseline_finish)); s += `<line x1="${xb}" x2="${xb}" y1="${Y(100)}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 4"/><text x="${xb - 4}" y="${Y(100) - 6}" font-size="11" text-anchor="end" fill="var(--muted)">baseline finish ${escapeHtml(_fdate(ms.baseline_finish))}</text>`; }
+  if (ms.expected_finish) {
+    const xe = X(t(ms.expected_finish)), sl = ms.slip_days;
+    s += `<line x1="${xe}" x2="${xe}" y1="${Y(100)}" y2="${H - B}" stroke="${C.bad}" stroke-dasharray="3 4"/><text font-size="11" fill="${C.bad}" font-weight="700"><tspan x="${xe + 5}" y="${Y(45)}">expected finish</tspan><tspan x="${xe + 5}" dy="14">${escapeHtml(_fdate(ms.expected_finish))}</tspan>${sl != null ? `<tspan x="${xe + 5}" dy="14">(${sl > 0 ? '+' : ''}${sl} d)</tspan>` : ''}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Progress S-curve">${s}</svg>`;
+}
+
+function _wireScurve(report) {
+  const box = document.getElementById('ua-sc-body');
+  if (!box) return;
+  const pick = async (id, on) => {
+    try {
+      const resp = await fetch(`http://localhost:${state.serverPort}/api/update/scurve_earlier`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshot_id: state.currentSnapshotId || null, scurve: report.scurve, pick: id, on }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { showError(`Could not change the S-curve: ${data.error || 'unknown error'}`); return; }
+      report.scurve = data.scurve; if (_shownReport) _shownReport.scurve = data.scurve;
+      box.innerHTML = _scurveHtml(report);
+      _wireScurve(report);
+    } catch { showError('Could not reach the local server to change the S-curve.'); }
+  };
+  box.querySelectorAll('[data-scpick]').forEach(b => b.addEventListener('click', () => pick(+b.dataset.scpick, b.dataset.scon === '1')));
+  box.querySelector('#ua-sc-add')?.addEventListener('change', e => { if (e.target.value) pick(+e.target.value, true); });
 }
 
 // Section 2 — one chart per selected code
@@ -646,8 +780,9 @@ function _wireCounts(report) {
 // ── Exports ──────────────────────────────────────────────────────────────────
 
 const UA_SECTIONS = [
-  ['conclusion', 'Executive read'], ['time', 'Time Status'], ['bycode', 'Planned vs Actual by code'],
+  ['time', 'Time Status'], ['bycode', 'Planned vs Actual by code'],
   ['driving', 'Driving Path Analyzer'], ['counts', 'Planned vs Actual by count'], ['scope', 'Scope Weight & Recommendation'],
+  ['scurve', 'Progress S-curve'],
 ];
 
 function _codeFilter() { return _pickedTypes.length ? { types: _pickedTypes.slice() } : null; }

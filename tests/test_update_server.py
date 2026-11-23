@@ -132,3 +132,56 @@ def test_update_analyze_no_baseline_advice_matches_help(test_server, tmp_path):
     assert 'Attach the baseline (XER or XML)' in err and 'every feature' in err
     assert 'XML' in err and 'baseline' in err
     assert 'import the update as an XER' not in err
+
+
+# ── Section 6 · Progress S-curve with earlier imported updates (2026-11-23) ──────────
+
+def _update_xml(tmp_path, name, data_date, pct_a, pct_b):
+    """The same job (same baseline 'BL R1' taken 01-Mar-2025) at another data date."""
+    xml = (tmp_path / 'update.xml').read_text(encoding='utf-8') if (tmp_path / 'update.xml').exists() else None
+    if xml is None:
+        _sample(tmp_path)
+        xml = (tmp_path / 'update.xml').read_text(encoding='utf-8')
+    xml = (xml.replace('<DataDate>2025-04-01T00:00:00</DataDate>', f'<DataDate>{data_date}T00:00:00</DataDate>')
+              .replace('<Id>S1</Id><Name>Soil a</Name>',
+                       '<Id>S1</Id><Name>Soil a</Name><ActualStartDate>2025-03-02T00:00:00</ActualStartDate>')
+              .replace('<PercentComplete>0.5</PercentComplete>', f'<PercentComplete>{pct_a}</PercentComplete>')
+              .replace('<PercentComplete>0.3</PercentComplete>', f'<PercentComplete>{pct_b}</PercentComplete>')
+              .replace('<BaselineProject>', '<BaselineProject><Name>BL R1</Name><DataDate>2025-03-01T00:00:00</DataDate>'))
+    p = tmp_path / name
+    p.write_text(xml, encoding='utf-8')
+    return str(p)
+
+
+def test_update_report_has_summary_and_scurve(test_server, tmp_path):
+    path = _sample(tmp_path)
+    _, data = _post_json(test_server, '/api/update/analyze', {'xml_path': path})
+    r = data['report']
+    assert [k['key'] for k in r['summary']['kpis']] == ['elapsed', 'planned', 'earned', 'spi', 'finish', 'delay']
+    dd = [p for p in r['scurve']['points'] if p['kind'] == 'data_date'][0]
+    assert dd['planned'] == r['time_status']['planned_pct'] and dd['earned'] == r['time_status']['actual_pct']
+
+
+def test_scurve_puts_the_earlier_update_of_the_same_baseline_on_the_curve(test_server, tmp_path):
+    early = _update_xml(tmp_path, 'up_march.xml', '2025-03-20', 0.2, 0.1)
+    late = _update_xml(tmp_path, 'up_april.xml', '2025-04-01', 0.5, 0.3)
+    _, a = _post_json(test_server, '/api/parse', {'path': early})
+    _, b = _post_json(test_server, '/api/parse', {'path': late})
+    assert a['ok'] and b['ok'], (a, b)
+    sid = b['snapshot_id']
+    _, d = _post_json(test_server, '/api/update/analyze', {'xml_path': late, 'snapshot_id': sid})
+    sc = d['report']['scurve']
+    ear = [e for e in sc['earlier'] if e['data_date'] == '2025-03-20']
+    assert ear and ear[0]['auto'] and ear[0]['on'], sc['earlier']
+    assert ear[0]['earned'] == 15.0                       # (0.2 + 0.1) / 2, equal budgets
+    upd = [p for p in sc['points'] if p['kind'] == 'update']
+    assert [(p['date'], p['earned']) for p in upd] == [('2025-03-20', 15.0)]
+
+    # the planner unticks it: the point goes, the choice is kept for this update
+    _, t = _post_json(test_server, '/api/update/scurve_earlier',
+                      {'snapshot_id': sid, 'scurve': sc, 'pick': ear[0]['snapshot_id'], 'on': False})
+    assert t['ok'], t
+    assert not [p for p in t['scurve']['points'] if p['kind'] == 'update']
+    assert t['picks']['remove'] == [ear[0]['snapshot_id']]
+    _, d2 = _post_json(test_server, '/api/update/analyze', {'xml_path': late, 'snapshot_id': sid})
+    assert not [p for p in d2['report']['scurve']['points'] if p['kind'] == 'update']

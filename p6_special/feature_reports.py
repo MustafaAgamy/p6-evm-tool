@@ -17,7 +17,8 @@ from p6_special import reuse
 # section catalogs (key, title) — the exact sections each feature's report offers
 UPDATE_SECS = [('time', 'Time Status'), ('bycode', 'Planned vs Actual — by activity code'),
                ('driving', 'Driving Path Analyzer'), ('counts', 'Planned vs Actual — by activity count'),
-               ('scope', 'Scope Weight & Recommendation'), ('conclusion', 'Executive read')]
+               ('scope', 'Scope Weight & Recommendation'), ('scurve', 'Progress S-curve')]
+# (2026-11-23: the old 'Executive read' opening line became the verdict inside Time Status)
 # Only keys the Calendar Audit report (feature='calendar') actually emits — the
 # feature folds monthly stats into 'timeline' and usage/conflicts into 'comparison',
 # and has no standalone 'stats'/'usage'/'conflicts'/'conclusion' section, so advertising
@@ -132,7 +133,10 @@ def _update_full(ctx):
             return None
         from p6_update.analysis import build_report_from_data
         from p6_update.exporters import render_html
-        return render_html(build_report_from_data(data, ctx.computed()), theme=ctx.mode)
+        from p6_update.scurve import report_with_earlier     # S-curve: same earlier updates as the screen
+        rep = report_with_earlier(build_report_from_data(data, ctx.computed()), data,
+                                  getattr(ctx, 'snapshot_id', None))
+        return render_html(rep, theme=ctx.mode)
     return _rendered(ctx, 'update', b)
 
 

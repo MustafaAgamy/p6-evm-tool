@@ -949,6 +949,45 @@ def get_project_id_for_snapshot(snapshot_id):
     return row['project_id'] if row else None
 
 
+def earlier_update_candidates(data_date, exclude_snapshot_id=None, after=None, limit=40):
+    """Imported schedules whose data date is BEFORE ``data_date`` (and after ``after``, the
+    baseline's own data date, when given) — the earlier updates an Update Analysis S-curve
+    can stand on (Ibrahim, 2026-11-23). One row per file and data date (its latest import):
+    ``{snapshot_id, label, file, data_date, earned, baseline_key}``. ``earned`` is the Time
+    Status Earned % stored at import, else Earned Value ÷ budget for older imports of a
+    cost-loaded file, else None (cannot be placed on the curve). Read-only: no XML touched."""
+    dd = str(data_date)[:10]
+    lo = str(after)[:10] if after else ''
+    with get_conn() as conn:
+        rows = conn.execute(
+            '''SELECT s.id, s.data_date, s.original_path, s.file_hash, p.name AS project,
+                      m.ev, e.extras_json,
+                      (SELECT SUM(c.bac) FROM category_metrics c WHERE c.snapshot_id = s.id) AS bac
+               FROM snapshots s JOIN projects p ON p.id = s.project_id
+               LEFT JOIN metrics m ON m.snapshot_id = s.id
+               LEFT JOIN evm_extras e ON e.snapshot_id = s.id
+               WHERE s.id IN (SELECT MAX(id) FROM snapshots WHERE data_date IS NOT NULL
+                              GROUP BY substr(data_date, 1, 10), COALESCE(file_hash, original_path))
+                 AND substr(s.data_date, 1, 10) < ? AND substr(s.data_date, 1, 10) > ?
+                 AND s.id != ?
+               ORDER BY s.data_date DESC, s.id DESC LIMIT ?''',
+            (dd, lo, exclude_snapshot_id or -1, limit)).fetchall()
+    out = []
+    for r in rows:
+        try:
+            ex = _json.loads(r['extras_json']) if r['extras_json'] else {}
+        except ValueError:
+            ex = {}
+        earned = ex.get('ua_earned_pct')
+        if earned is None and r['ev'] is not None and (r['bac'] or 0) > 0:
+            earned = round(100.0 * r['ev'] / r['bac'], 2)
+        out.append({'snapshot_id': r['id'], 'label': r['project'] or '',
+                    'file': os.path.basename(r['original_path'] or ''),
+                    'data_date': str(r['data_date'])[:10], 'earned': earned,
+                    'baseline_key': ex.get('baseline_key')})
+    return out
+
+
 def get_snapshot_ui_state(snapshot_id, key):
     """A screen's saved state for one imported schedule (e.g. the Narrative project
     setup), or None when nothing was saved."""

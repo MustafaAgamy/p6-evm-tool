@@ -456,10 +456,14 @@ def test_report_excel_sections_mirrors_report():
         for blk in sh['blocks']:
             assert blk['title'] and blk['headers'] and 'rows' in blk
 
-    # Section 1 · Time Status — Executive Read block + the progress table with unit headers
+    # Section 1 · Time Status — the verdict + six key numbers (2026-11-23, in place of the old
+    # Executive Read) + the progress table with unit headers
     ts_sheet = next(sh for sh in sheets if sh['name'] == 'Time Status')
     ts_titles = [b['title'] for b in ts_sheet['blocks']]
-    assert any('Executive Read' in t for t in ts_titles)
+    assert any(report['summary']['label'] in t for t in ts_titles)
+    keyn = next(b for b in ts_sheet['blocks'] if 'Key numbers' in b['title'])
+    assert [r[0] for r in keyn['rows']] == ['Time elapsed', 'Planned %', 'Earned %', 'SPI',
+                                            'Forecast finish', 'Delay']
     prog = next(b for b in ts_sheet['blocks'] if 'Progress vs Baseline' in b['title'])
     measures = [r[0] for r in prog['rows']]
     assert 'Earned / actual progress' in measures and 'Baseline finish' in measures

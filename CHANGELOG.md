@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added — Update Analysis: status at a glance + Progress S-curve
+- **Time Status now opens with the answer.** A verdict line (BEHIND SCHEDULE / ON TRACK / BASELINE: forecast finish against the baseline finish, earned against planned, what drives the finish), six key numbers (Time elapsed, Planned %, Earned %, SPI as on the Earned Value tab, Forecast finish, Delay), and **Progress at the data date**: the donut beside a new ruler that puts Earned, Planned and Time elapsed on one 0–100% bar. Same numbers as before, said once and the same way everywhere.
+- **New section 6 · Progress S-curve** at the end: Planned (the Time Status rule at every month end), Earned (rebuilt from each activity's actual dates; an earlier imported update of the same job stands at its own data date) and Forecast (remaining work over P6's remaining dates), with a monthly values table. At the data date the curve equals Time Status exactly (Giza Zoo 12.05% / 7.55%). Earlier updates are linked by their baseline; untick one or add any other import by hand.
+- Screen, PDF, Word, Excel (new **Progress S-curve** sheet) and Reporting Studio carry both; the S-curve starts its own page so its heading stays with the chart.
+
 ### Fixed — Out-of-Sequence: the corrected schedule leaves no open end in P6, milestones counted, removed ties in red
 - **No open ends after importing the corrected file into P6.** When a correction took an out-of-sequence tie off an activity, the tool tied the loose activity to the project completion with a *brand-new* relationship — and P6 skips a new relationship that carries no number, so those activities came back as open ends (Giza Zoo: 13 in P6's log). Now the out-of-sequence tie itself is **reconnected** to Project Completion (or from the Commencement when the completed work would lose its last predecessor): the same relationship, an edit P6 applies on import. Shown as "Reconnected: E1-SD-008-AP → GZ-E0-PRJ-FINISH10 FS".
 - **A new tie P6 must create gets a fresh, unused number** (high in P6's range) in the XML and XER, so P6 creates it — proven by an import test in P6. Before, it had no number (skipped) or the file's highest + 1 (which can belong to another relationship in the database).
