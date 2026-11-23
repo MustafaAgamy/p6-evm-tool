@@ -97,3 +97,19 @@ def examples(data, kind, auto_codes, picks=None):
         if pv:
             out.append(pv)
     return out
+
+
+def value_preview(data, picks, value_codes):
+    """The Setup's "Contract Value split by" block (Ibrahim, Nov 2026): the ordered code list —
+    the planner's own when given, else the scope code + Controlyx's suggestions — with the share
+    of the contract value each code names and the share named by its WBS (no code at all).
+    The SAME resolution the report uses (report.value_classification)."""
+    from p6_narrative.report import value_classification
+    setup = {'scope_analyses': [{'codes': list(p)} for p in (picks or []) if p],
+             'value_codes': list(value_codes or [])}
+    vc = value_classification(data, setup)
+    split = vc['split'] or {}
+    return {'codes': list(vc['codes'] or []), 'auto': bool(vc['auto']),
+            'coverage': split.get('coverage') or [], 'wbs_pct': split.get('wbs_pct') or 0.0,
+            'lines': [{'name': r['name'], 'pct': r['pct']} for r in (split.get('rows') or [])[:12]],
+            'more': max(0, len(split.get('rows') or []) - 12)}

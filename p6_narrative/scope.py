@@ -307,12 +307,15 @@ def scope_sections(activities, wbs, bac_by_activity=None, code_types=None, setup
     work = [a for a in activities if a.get('task_type') not in _NON_WORK]
     total_cost = cost_of(work)
 
-    # ── level-1 split for the §7.1 chart (uncoded → "Unclassified", to match §6 doughnut) ──
+    # ── level-1 split for the §7.1 chart — uncoded cost is named by its WBS in P6 (Ibrahim,
+    #    Nov 2026: no "Unclassified"; the report replaces this with the §6 classification) ──
     disciplines = []
     if codes:
+        from p6_narrative.classify import WbsNames
+        _wn = WbsNames(wbs)
         g1 = OrderedDict()
         for a in work:
-            g1.setdefault(code(a, codes[0]) or 'Unclassified', []).append(a)
+            g1.setdefault(code(a, codes[0]) or _wn.own(a), []).append(a)
         for d in sorted(g1, key=lambda x: (-cost_of(g1[x]), _trade_rank(x), _first_index(g1, x))):
             c = round(cost_of(g1[d]), 2)
             if c <= 0 and total_cost > 0:

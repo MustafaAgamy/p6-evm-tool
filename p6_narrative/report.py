@@ -232,42 +232,52 @@ def _ms_section(number, title, all_ms, selected, note):
 
 
 # ── §6 Contract Value ─────────────────────────────────────────────────────────
-def _contract_value(data, setup):
-    acts = list(data.activities.values())
-    bac = data.bac_by_activity or {}
-    # Distribute the contract value by the same discipline (Type-of-Works) code that §6 uses,
-    # so §5's "distribution by type of work" and §6.1's discipline split stay consistent.
+def value_classification(data, setup):
+    """The Contract Value classification shared by §6 Contract Value and §7.1 Scope overview
+    (Ibrahim, Nov 2026 — no "Unclassified"): an ORDERED activity-code list — the planner's own
+    (setup['value_codes']), else the discipline code + Controlyx's suggestions — each costed
+    activity named by the first listed code it carries, else by its WBS folder in P6, so the
+    lines always add up to the full contract value.
+
+    Returns {'codes', 'auto', 'disc_dim', 'split'} — ``split`` is None when no activity code
+    names any cost (the caller then falls back to the WBS-branch split)."""
     from p6_narrative.scope import default_scope_codes
+    from p6_narrative.classify import value_codes as _value_codes, value_split
+    # The discipline dimension resolves through the SAME path §7.1 used before (the planner's
+    # first cost-loaded scope code, else the auto-detected level-1 code).
     _an = scope_analyses_of(setup, data.activity_code_types)
     scope_codes = _cost_analysis(data, _an) or []
-    # Resolve the discipline dimension through the SAME path §7.1 uses (scope.default_scope_codes),
-    # so the Contract Value split and the §7.1 discipline chart can never split by different codes:
-    # the planner's 1st picked code, else the auto-detected level-1 code.
     if scope_codes:
         disc_dim = scope_codes[0]
     else:
-        auto = default_scope_codes(data.activity_code_types, setup)
-        disc_dim = auto[0] if auto else None
-    full_total = round(sum(v or 0.0 for v in bac.values()), 2)
-    result = value_by_code(acts, bac, disc_dim)
-    if result:
-        # Keep the TOTAL at the full contract value and take every share against it, so the
-        # banner stays exact and the bars sum to 100% — with any cost that carries no discipline
-        # code shown honestly as an "Unclassified" remainder.
-        rows = [{'name': r['name'], 'amount': r['amount'],
-                 'pct': round(100 * r['amount'] / full_total, 1) if full_total else 0.0}
-                for r in result['rows']]
-        remainder = round(full_total - sum(r['amount'] for r in rows), 2)
-        if full_total > 0 and remainder > 0.001 * full_total:
-            rows.append({'name': 'Unclassified', 'amount': remainder,
-                         'pct': round(100 * remainder / full_total, 1)})
-        total = full_total
+        auto_codes = default_scope_codes(data.activity_code_types, setup)
+        disc_dim = auto_codes[0] if auto_codes else None
+    codes, auto = _value_codes(data, setup, disc_dim)
+    split = value_split(data, codes) if codes else None
+    if not (split and split['rows'] and any(r['source'] != 'WBS' for r in split['rows'])):
+        split = None
+    return {'codes': codes, 'auto': auto, 'disc_dim': disc_dim, 'split': split}
+
+
+def _contract_value(data, setup):
+    acts = list(data.activities.values())
+    bac = data.bac_by_activity or {}
+    vc = value_classification(data, setup)
+    split = vc['split']
+    if split:
+        rows = [{'name': r['name'], 'amount': r['amount'], 'pct': r['pct']} for r in split['rows']]
+        total = split['total']
     else:                                              # fallback: split by WBS branch
         by_wbs = cost_by_wbs(acts, bac, data.wbs)
         total = by_wbs['total']
         rows = [{'name': r['name'], 'amount': r['cost'], 'pct': r['pct']}
                 for r in by_wbs['rows']]
     payload = {'total': total, 'rows': rows}
+    if split:
+        payload['codes'] = list(vc['codes'])            # the code list used, in order
+        payload['codes_auto'] = bool(vc['auto'])        # True = Controlyx's suggestion
+        payload['coverage'] = split['coverage']         # % of value each listed code named
+        payload['wbs_pct'] = split['wbs_pct']           # % named by its WBS (no code at all)
     if setup.get('value_unit'):
         payload['unit'] = setup['value_unit']
     return Section('6', 'Contract Value', 'value_bars', 'auto', payload=payload,
@@ -340,6 +350,26 @@ def _scope(data, setup):
         except Exception:
             continue
     payload['more'] = more
+
+    # Ibrahim (Nov 2026): 7.1 uses the SAME classification as §6 Contract Value (no
+    # "Unclassified" — uncoded cost named by its WBS), and every description is written as
+    # "Detailed … Scope of Work includes: ➢ … consists of: 1. … ✓ …".
+    try:
+        from p6_narrative.scope import _scope_narrative
+        from p6_narrative.scope_detail import describe
+        vc = value_classification(data, setup)
+        if vc['split']:
+            payload['disciplines'] = [{'name': r['name'], 'cost': r['amount'], 'pct': r['pct']}
+                                      for r in vc['split']['rows']]
+            payload['narrative'] = _scope_narrative(payload, setup.get('currency') or '')
+        details = []
+        for cs in (analyses or [payload.get('codes') or []]):
+            d = describe(data, cs, vc['codes'])
+            if d and d['types']:
+                details.append(d)
+        payload['details'] = details
+    except Exception:
+        payload['details'] = []
     return Section('7', 'Scope of Work', 'scope', 'auto', payload=payload, editable=True,
                    note='Share of contract value by discipline, then the detailed cost-weighted '
                         'breakdown by work type — driven by the activity codes.')

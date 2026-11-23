@@ -613,6 +613,10 @@ def _render_value_bars(document, p, number, note):
     sp = para(document, '', after=2)
     sp.paragraph_format.keep_with_next = True
     _value_legend(document, rows, docx_native.ramp_colors(cats), unit)
+    from p6_narrative.html import value_basis_text
+    basis = value_basis_text(p)
+    if basis:
+        _muted(document, basis)
 
 
 # ── §6 Scope of Work ──────────────────────────────────────────────────────────
@@ -716,6 +720,144 @@ def _render_cascade(document, nodes, cur_fn, depth):
         _render_cascade(document, kids, cur_fn, depth + 1)
 
 
+def _hbar_rows(document, rows, label_fn):
+    """Word twin of html ``_bars`` for a LONG list (every building of a type of work): one
+    borderless row per item — name · a navy bar sized to its share (max = full width) · share %.
+    A table, not a fixed-size chart, so 5 or 90 rows all stay readable and print like the PDF."""
+    rows = [r for r in (rows or []) if r]
+    if not rows:
+        return None
+    widths = [2.25, 3.65, 0.65]
+    maxp = max((float(r.get('pct') or 0) for r in rows), default=0) or 1.0
+    t = document.add_table(rows=0, cols=3)
+    t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for r in rows:
+        rr = t.add_row()
+        _row_h(rr, 15)
+        nm, bc, sh = rr.cells
+        for cc in rr.cells:
+            _no_space(cc)
+            cc.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+        _set_w(nm, widths[0]); _set_w(bc, widths[1]); _set_w(sh, widths[2])
+        pn = nm.paragraphs[0]; pn.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run(pn, str(r.get('name') or '—')[:48], size=9.5, bold=True, color=DKNAVY)
+        frac = max(float(r.get('pct') or 0) / maxp, 0.0)
+        fill_w = max(widths[1] * frac, 0.04)
+        inner = bc.add_table(rows=1, cols=2)
+        inner.autofit = False
+        a, b = inner.rows[0].cells
+        _row_h(inner.rows[0], 11)
+        _set_w(a, fill_w); _set_w(b, max(widths[1] - fill_w, 0.04))
+        _shade(a, NAVY_HEX); _no_space(a); _no_space(b)
+        lab = label_fn(r) or ''
+        tgt = a if frac >= 0.35 else b
+        pl = tgt.paragraphs[0]
+        run(pl, ' ' + lab, size=8, bold=True, color=(WHITE if tgt is a else DKNAVY))
+        # python-docx leaves an empty paragraph after a nested table — keep the row compact
+        if len(bc.paragraphs) > 1:
+            first = bc.paragraphs[0]
+            if not first.text:
+                first._p.getparent().remove(first._p)
+        ps = sh.paragraphs[0]; ps.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        run(ps, '%s%%' % _pct(r.get('pct')), size=9, color=NAVY)
+    _keep_table_together(t, header=False)
+    return t
+
+
+def _render_scope_detail(document, d, number, k, cur_fn):
+    """Native Word twin of html ``_scope_detail`` — "Detailed … Scope of Work includes:" with
+    every building's bar, then the ➢ / 1. / ✓ lines (Ibrahim, Nov 2026)."""
+    codes = d.get('codes') or []
+    by_count = d.get('basis') == 'count'
+    _subhead(document, '%s.%d' % (number, k), ' → '.join(codes) or 'Detailed scope by activity codes')
+    if len(codes) >= 2:
+        _muted(document, 'Each %s by %s.%s' % (codes[0], ', then '.join(codes[1:]),
+                                                ' Described by its activities (no cost loaded).' if by_count else ''))
+    from p6_narrative.html import scope_levels_text
+    used = scope_levels_text(d)
+    if used:
+        _muted(document, used)
+
+    def share(amount, acts):
+        if by_count:
+            return '%d %s' % (acts or 0, 'activity' if acts == 1 else 'activities')
+        return cur_fn(amount)
+
+    types = d.get('types') or []
+    if len(codes) < 2:
+        _hbar_rows(document, [{'name': t['name'], 'pct': t['pct'], 'amount': t['amount'], 'acts': t['acts']}
+                              for t in types], lambda r: share(r['amount'], r['acts']))
+        return
+    for j, t in enumerate(types, 1):
+        hp = para(document, '', before=10, after=3)
+        hp.paragraph_format.keep_with_next = True
+        run(hp, '%s.%d.%d) Detailed %s Scope of Work includes:' % (number, k, j, t['name']),
+            bold=True, size=12, color=NAVY, underline=True)
+        groups = t.get('groups') or []
+        if not groups:
+            _muted(document, 'No further breakdown by %s in P6.' % codes[1])
+            continue
+        cp = _muted(document, '%s by %s — %s, %s%% of the %s' % (
+            t['name'], codes[1], share(t['amount'], t['acts']), _pct(t['pct']),
+            'described activities' if by_count else 'contract value'))
+        cp.paragraph_format.keep_with_next = True
+        _hbar_rows(document, [{'name': g['label'] + ((' (%d)' % g['count']) if g.get('kind') == 'family' else ''),
+                               'pct': g['pct'], 'amount': g['amount'], 'acts': g['acts']} for g in groups],
+                   lambda r: share(r['amount'], r['acts']))
+        para(document, '', after=2)
+        for g in groups:
+            _render_scope_group(document, g)
+
+
+def _sc_line(document, parts, indent=0.12, before=6, keep=True):
+    """A ➢ line: parts = [(text, bold, underline)]."""
+    pp = para(document, '', before=before, after=2)
+    pp.paragraph_format.left_indent = Inches(indent)
+    pp.paragraph_format.keep_with_next = keep
+    for text, b, u in parts:
+        run(pp, text, bold=b, underline=u, color=(DKNAVY if b else None))
+    return pp
+
+
+def _sc_items(document, els, tick=False, indent=0.55):
+    last = len(els) - 1
+    for i, e in enumerate(els):
+        ip = para(document, '', before=0, after=1)
+        ip.paragraph_format.left_indent = Inches(indent)
+        ip.paragraph_format.keep_with_next = i < last and len(els) <= 12
+        run(ip, ('✓  ' if tick else '%d.  ' % (i + 1)), bold=tick, color=(NAVY if tick else None))
+        run(ip, '%s.' % e)
+
+
+def _render_scope_group(document, g):
+    label = g.get('label') or '—'
+    if g.get('kind') != 'family':
+        els = g.get('elements') or []
+        _sc_line(document, [('➢  ', False, False), (label, True, True),
+                            (' consists of:' if els else '.', False, False)], keep=bool(els))
+        _sc_items(document, els)
+        return
+    head = [('➢  ', False, False), (label, True, True), (' for %d %s' % (g.get('count') or 0, label), False, False)]
+    cats = g.get('categories') or []
+    if cats:
+        _sc_line(document, head + [(' consist of:', False, False)])
+        _sc_line(document, [('The %s are divided into %d categories:' % (label, len(cats)), False, False)],
+                 indent=0.4, before=1)
+        for i, c in enumerate(cats, 1):
+            many = (c.get('count') or 1) > 1
+            _sc_line(document, [('%d.  %s consist%s of:' % (i, c.get('label') or '—', '' if many else 's'), False, False)],
+                     indent=0.55, before=3, keep=bool(c.get('elements')))
+            _sc_items(document, c.get('elements') or [], tick=True, indent=0.85)
+        return
+    els = g.get('elements') or []
+    members = g.get('members') or ''
+    if members and members != label:
+        head.append((' (%s)' % members, False, False))
+    _sc_line(document, head + [(' consist of:' if els else '.', False, False)], keep=bool(els))
+    _sc_items(document, els)
+
+
 def _render_scope(document, p, number, note):
     unit = p.get('unit')
 
@@ -738,7 +880,12 @@ def _render_scope(document, p, number, note):
     if narrative:
         para(document, narrative, align=WD_ALIGN_PARAGRAPH.JUSTIFY, before=8, after=8)
 
-    # {number}.2, .3 … — one sub-section per description, like the HTML twin
+    # {number}.2, .3 … — "Detailed … Scope of Work includes:" per description (Nov 2026);
+    # an older saved report without 'details' keeps the previous cascade below.
+    if p.get('details'):
+        for k, d in enumerate(p['details'], 2):
+            _render_scope_detail(document, d, number, k, _cur)
+        return
     descs = [{'codes': p.get('codes') or [], 'code_lists': p.get('code_lists') or [],
               'cascade': p.get('cascade') or []}] + [m for m in (p.get('more') or []) if m]
     for k, m in enumerate(descs, 2):

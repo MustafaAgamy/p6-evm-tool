@@ -4712,8 +4712,17 @@ class Handler(BaseHTTPRequestHandler):
                 cache.clear()
                 cache[key] = data
             kind = 'sequence' if body.get('kind') == 'sequence' else 'scope'
-            self._json(200, {'ok': True, 'examples': preview.examples(
-                data, kind, body.get('auto_codes') or [], body.get('picks') or [])})
+            out = {'ok': True, 'examples': preview.examples(
+                data, kind, body.get('auto_codes') or [], body.get('picks') or [])}
+            if kind == 'scope':
+                # "Contract Value split by" — the code list (planner's or Controlyx's suggestion)
+                # and how much of the value each code names; the rest is named by its WBS.
+                try:
+                    out['value'] = preview.value_preview(
+                        data, body.get('picks') or [], body.get('value_codes') or [])
+                except Exception:
+                    out['value'] = None
+            self._json(200, out)
         except Exception as exc:
             self._json(200, {'ok': False, 'error': str(exc)})
 
