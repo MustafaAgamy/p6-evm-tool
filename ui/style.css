@@ -4590,6 +4590,11 @@ tr.per-tot td { font-weight: 700; background: var(--bg); } td .per-bad { color: 
 
 /* Out of Sequence - a tie changed by the applied corrections (audit.js _oosChangedCell) */
 .oos-relrow.oos-chg { background: color-mix(in srgb, var(--warning) 22%, transparent); border-left: 3px solid var(--warning); border-radius: 4px; padding: 2px 5px; margin-bottom: 2px; }
+/* an ORIGINAL relationship taken out (removed / reconnected elsewhere) - red, for the planner's review */
+.oos-relrow.aff.rem, .oos-relrow.oos-chg.rem { background: color-mix(in srgb, var(--danger) 16%, transparent); border-left: 3px solid var(--danger); border-radius: 4px; padding: 2px 5px; }
+.oos-relrow.rem .relid { color: var(--danger); }
+.oos-rembadge { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--danger); }
+.oos-fixto.rem { color: var(--danger); background: var(--danger-bg); }
 .oos-fixto { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-weight: 700; font-size: 11px; color: var(--text); background: color-mix(in srgb, var(--warning) 28%, transparent); }
 
 /* Earned Value gate: only an XML update exported with its baseline (comment 95, 20-Oct) */

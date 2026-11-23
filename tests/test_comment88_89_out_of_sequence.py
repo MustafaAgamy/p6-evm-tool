@@ -308,8 +308,12 @@ def test_each_driving_tie_shows_the_correction_it_gets_and_apply_does_exactly_th
     html = render_module_report(m, {'project_name': 'x'})
     assert all(f'<b>[DRIVING]</b> <b>{a}</b>' in html for a in fixes.values())
     headers, rows = excel_columns(m)
-    after = rows[0][headers.index('After Predecessor Tie')]
+    cell = rows[0][headers.index('After Predecessor Tie')]
+    after = ''.join(r['t'] for r in cell.runs)
     assert all(f'{p}  {a}  —  Act {p}' in after for p, a in fixes.items())        # with the activity name
+    # a line that takes an original tie out is red for the planner's review; a type change is not
+    for r in cell.runs:
+        assert (r['color'] == 'FFC02626') == ('Removed' in r['t'] or 'Reconnected' in r['t'])
     assert all(c['other_name'] == f"Act {c['other']}" for c in ch)
     js = _read('ui/modules/audit.js')
     assert 'oos-fixto' in js and '_oosFixesCell(f)' in js
@@ -422,3 +426,39 @@ def test_a_project_with_no_start_or_finish_milestone_still_leaves_no_open_end():
     no_pred = set(acts) - {r['succ_id'] for r in rels}
     assert no_succ == {'z'} and no_pred == {'s'}          # the same open ends as the original network
     assert ('app', 'z') in {(r['pred_id'], r['succ_id']) for r in rels}
+
+
+def test_a_removed_or_reconnected_original_tie_is_red_on_screen_in_excel_and_in_the_report():
+    # 23-Nov (Ibrahim): any relationship Controlyx takes out of the original schedule is highlighted
+    # in RED for the planner's review - screen, Excel and the PDF / Word report alike.
+    acts = {
+        'ntp': _act('ntp', task_type='StartMilestone', name='Project Commencement', actual_start=dt('2025-11-01'),
+                    status='Completed'),
+        'end': _act('end', task_type='FinishMilestone', name='Project Completion', planned_finish=dt('2026-12-01')),
+        'app': _act('app'),                                            # not started; only successor is x
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z'),
+    }
+    d = _data(acts, [('ntp', 'app', 'FS'), ('ntp', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'),
+                     ('x', 'z', 'FS'), ('z', 'end', 'FS')])
+    f = next(f for f in _oos(d)['findings'] if f['activity_id'] == 'x')
+    out = R.revalidate(d, CONFIG, _ops([f]))
+    f = dict(f, changes=out['changes']['x'])
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import excel_columns
+    m = {'module': 'out_of_sequence', 'name': 'Out of Sequence', 'kpis': {'data_date': ''}, 'findings': [f],
+         'score': 90, 'grade': 'Review', 'pct': 1.0, 'wbs_summary': []}
+    headers, rows = excel_columns(m)
+    cell = rows[0][headers.index('After Predecessor Tie')]
+    assert [(r['color'], 'Reconnected: app → end FS' in r['t'], '[REVIEW]' in r['t']) for r in cell.runs] \
+        == [('FFC02626', True, True)]
+    html = render_module_report(m, {'project_name': 'x'})
+    assert 'background:#FADDDD;color:#C02626' in html and '[REVIEW]' in html
+    # before Apply the recommendation "FS → Removed" is red too (Excel + screen class)
+    headers, rows = excel_columns(dict(m, findings=[_oos(d)['findings'][0]]))
+    pre = rows[0][headers.index('After Predecessor Tie')]
+    assert getattr(pre, 'runs', None) and pre.runs[0]['color'] == 'FFC02626'
+    js = _read('ui/modules/audit.js')
+    assert "function _oosIsRemoval(text) { return /Removed|Reconnected/.test" in js
+    assert "oos-relrow aff oos-chg${rm ? ' rem' : ''}" in js and "oos-rembadge" in _read('ui/style.css')

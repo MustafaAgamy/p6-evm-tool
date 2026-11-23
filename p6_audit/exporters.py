@@ -93,16 +93,30 @@ def excel_columns(module_result):
                     runs.append({'t': text, 'b': False, 'color': None})
             return RichText(runs)
 
+        # An ORIGINAL relationship taken out of the schedule (removed, or reconnected to another
+        # activity) is RED for the planner's review, on screen and in Excel (23-Nov, Ibrahim); a
+        # type / lag change stays bold amber.
+        _RED, _AMBER = 'FFC02626', 'FF92400E'
+
+        def _is_removal(text):
+            return 'Removed' in str(text or '') or 'Reconnected' in str(text or '')
+
         def _after_changes(f, side):
-            # After the corrections were applied: every changed tie of that side, bold amber in-cell
-            # (comment 88 follow-up - the changed relationship highlighted in Excel too)
+            # After the corrections were applied: every changed tie of that side, bold in-cell -
+            # red for a removed tie, amber for a changed one (comment 88 follow-up)
             ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
             if not ch:
                 return None
             return RichText([{'t': ('\n' if k else '') + f"{c.get('other', '')}  "
                                    + (f"{c.get('before')} → " if c.get('before') else '') + f"{c.get('after', '')}"
+                                   + ('  [REVIEW]' if _is_removal(c.get('after')) else '')
                                    + (f"  —  {c.get('other_name')}" if c.get('other_name') else ''),
-                              'b': True, 'color': 'FF92400E'} for k, c in enumerate(ch)])
+                              'b': True, 'color': _RED if _is_removal(c.get('after')) else _AMBER}
+                             for k, c in enumerate(ch)])
+
+        def _label(text):
+            # a before-Apply label: red when it takes the original relationship out
+            return RichText([{'t': text, 'b': True, 'color': _RED}]) if _is_removal(text) else text
 
         def _after_pred(f):
             # Mirror the on-screen After-Predecessor cell, incl. the "Remaining predecessors: N"
@@ -112,12 +126,15 @@ def excel_columns(module_result):
                 return ch
             fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
             if len(fx) > 1:     # several driving ties: each with its correction
-                return '\n'.join(f"{x.get('pred_id', '')}  {x.get('after')}  —  {x.get('pred_name', '')}" for x in fx)
+                return RichText([{'t': ('\n' if k else '') + f"{x.get('pred_id', '')}  {x.get('after')}  —  {x.get('pred_name', '')}",
+                                  'b': _is_removal(x.get('after')),
+                                  'color': _RED if _is_removal(x.get('after')) else None}
+                                 for k, x in enumerate(fx)])
             lbl = f.get('pred_after_label', '')
             if (f.get('pred_resolution') or {}).get('action') == 'remove' \
                     and f.get('remaining_preds') is not None:
                 lbl = f"{lbl}  (remaining predecessors: {f['remaining_preds']})"
-            return lbl
+            return _label(lbl)
 
         # The on-screen columns EXACTLY (minus the last two — Resolution and the plain Severity),
         # then a colour-coded Severity (with a legend). The driving predecessor is no longer a
@@ -134,7 +151,7 @@ def excel_columns(module_result):
             _rel_lines(f.get('all_successors'), f.get('succ_id'), f.get('succ_name'),
                        f.get('succ_baseline_label'), 'No successor'),
             cutoff,
-            _after_pred(f), (_after_changes(f, 'succ') or f.get('succ_after_label', '')),
+            _after_pred(f), (_after_changes(f, 'succ') or _label(f.get('succ_after_label', ''))),
             f.get('severity', 'Medium'),
         ] + ([f.get('status') or ''] if has_status else []) for i, f in enumerate(findings, 1)]
         return headers, rows
