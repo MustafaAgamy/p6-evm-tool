@@ -140,21 +140,8 @@ def _scurve_link(data, metrics):
 
 
 def _scurve_with_earlier(scurve, data_date, snapshot_id, key, after, picks=None):
-    """Section 6: tick the earlier imported updates (same baseline, plus the planner's own
-    picks saved for this snapshot) and put them on the Earned line."""
-    from p6_update.scurve import earlier_on, merge_earlier
-    scurve = dict(scurve or {})
-    scurve['baseline_key'] = key
-    scurve['baseline_data_date'] = after
-    if not scurve.get('points') or not data_date:
-        return scurve
-    if picks is None and snapshot_id:
-        try:
-            picks = db.get_snapshot_ui_state(int(snapshot_id), 'ua_scurve_earlier')
-        except Exception:
-            picks = None
-    cands = db.earlier_update_candidates(data_date, exclude_snapshot_id=snapshot_id, after=after)
-    return merge_earlier(scurve, earlier_on(cands, key, picks))
+    from p6_update.scurve import attach_earlier
+    return attach_earlier(scurve, data_date, snapshot_id, key, after, picks=picks)
 
 
 def _prodintel_excel_sections(r):
@@ -1475,14 +1462,8 @@ class Handler(BaseHTTPRequestHandler):
             summary_level = int(body.get('summary_level', 0) or 0)
             report = build_report_from_data(data, metrics, summary_level=summary_level)
             report['file'] = os.path.basename(curr_path)
-            try:                                   # Section 6: earlier updates on the S-curve
-                from p6_update.scurve import baseline_key
-                bdd = getattr(data, 'baseline_data_date', None)
-                report['scurve'] = _scurve_with_earlier(
-                    report.get('scurve'), report.get('data_date'), body.get('snapshot_id'),
-                    baseline_key(data), bdd.strftime('%Y-%m-%d') if hasattr(bdd, 'strftime') else None)
-            except Exception as sc_exc:
-                print(f'[scurve] earlier updates skipped: {sc_exc}', file=sys.stderr)
+            from p6_update.scurve import report_with_earlier   # Section 6: earlier updates
+            report_with_earlier(report, data, body.get('snapshot_id'))
             if not report.get('has_baseline'):
                 # Neither inside the file nor attached (an XER never carries it; an XML exported
                 # without its baseline project neither) — never measure it against its own plan.

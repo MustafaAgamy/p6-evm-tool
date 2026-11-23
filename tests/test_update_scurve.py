@@ -139,3 +139,23 @@ def test_no_data_date_gives_an_empty_curve():
     data.project['data_date'] = None
     sc = progress_scurve(data, metrics)
     assert sc['points'] == []
+
+
+def test_pdf_and_excel_carry_the_summary_band_and_the_scurve():
+    from p6_update.exporters import render_html, report_excel_sections
+    data, metrics = _sample()
+    rep = build_report_from_data(data, metrics)
+    html = render_html(rep)
+    assert 'data-sec="time"' in html and 'data-sec="scurve"' in html
+    assert rep['summary']['label'] in html and rep['summary']['headline'].split(' — ')[0] in html
+    assert 'Progress at the data date' in html and 'Monthly values' in html
+    assert 'data-sec="conclusion"' not in html          # the verdict replaces the old opening line
+    only = render_html(rep, sections=['scurve'])
+    assert 'data-sec="scurve"' in only and 'data-sec="time"' not in only
+    old = render_html(rep, sections=['conclusion'])      # an older saved Report Contents choice
+    assert 'data-sec="time"' in old
+    names = [s['name'] for s in report_excel_sections(rep)]
+    assert names[0] == 'Time Status' and 'Progress S-curve' in names
+    sc_sheet = next(s for s in report_excel_sections(rep) if s['name'] == 'Progress S-curve')
+    dd_rows = [r for r in sc_sheet['blocks'][0]['rows'] if r[1] == 'data date']
+    assert len(dd_rows) == 1

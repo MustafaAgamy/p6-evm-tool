@@ -47,7 +47,7 @@ def test_no_baseline_gives_no_ready_update_item_and_says_why(temp_db, tmp_path):
     assert d['availability'] == 'needs_input'
     assert 'Attach the baseline (XER or XML)' in d['note'] and 'own Planned dates' in d['note']
     # a saved report that still lists the items: the screen's notice, not own-dates numbers
-    for key in ('update:time', 'update:bycode', 'update:conclusion'):
+    for key in ('update:time', 'update:bycode', 'update:scurve'):
         pl = items[key].produce(ctx)
         assert pl['kind'] == 'note' and 'Attach the baseline (XER or XML)' in pl['message'], key
     groups = registry.catalog(ctx)
@@ -80,7 +80,7 @@ def test_attached_baseline_makes_the_items_ready_and_equal_to_the_xml_with_basel
     for key in ia:
         assert ia[key].availability(att) == ie[key].availability(emb), key
         assert 'note' not in ia[key].descriptor(att), key
-    for key in ('update:time', 'update:bycode', 'update:counts', 'update:conclusion'):
+    for key in ('update:time', 'update:bycode', 'update:counts', 'update:scurve'):
         pa, pe = ia[key].produce(att), ie[key].produce(emb)
         assert pa.get('kind') == 'html', (key, pa)
         assert _html(pa) == _html(pe), key

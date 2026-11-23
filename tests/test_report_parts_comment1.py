@@ -131,9 +131,11 @@ def test_update_analysis_names_its_parts():
                                             [(999, 'MS', 'Project completion', '2025-06-01', 200)]))
     report = build_report_from_data(data, metrics)
     html = render_html(report)
-    assert _secs(html) == ['conclusion', 'time', 'bycode', 'driving', 'counts', 'scope']
+    # 2026-11-23: the opening line became the verdict inside Time Status; S-curve added last
+    assert _secs(html) == ['time', 'bycode', 'driving', 'counts', 'scope', 'scurve']
     ids = [pid for pid, _lab in _parts(html)]
-    assert {'time.status', 'time.values', 'bycode.c1', 'scope.bars'} <= set(ids)
+    assert {'time.verdict', 'time.status', 'time.values', 'bycode.c1', 'scope.bars',
+            'scurve.chart', 'scurve.table'} <= set(ids)
     labels = dict(_parts(html))
     assert labels['time.values'] == 'Planned Value / Earned Value / Variance'
     assert labels['bycode.c1'].startswith('Planned vs Actual — ')

@@ -199,3 +199,35 @@ def earlier_on(candidates, key, picks):
         c['on'] = c.get('earned') is not None and ((c['auto'] and sid not in rem) or sid in add)
         out.append(c)
     return out
+
+
+def attach_earlier(scurve, data_date, snapshot_id, key, after, picks=None):
+    """Section 6: tick the earlier imported updates (same baseline, plus the planner's own
+    picks saved for this snapshot) and put them on the Earned line. Read from the history
+    DB only — no schedule is re-read. Used by the screen and by Reporting Studio alike."""
+    import db
+    scurve = dict(scurve or {})
+    scurve['baseline_key'] = key
+    scurve['baseline_data_date'] = after
+    if not scurve.get('points') or not data_date:
+        return scurve
+    if picks is None and snapshot_id:
+        try:
+            picks = db.get_snapshot_ui_state(int(snapshot_id), 'ua_scurve_earlier')
+        except Exception:
+            picks = None
+    cands = db.earlier_update_candidates(data_date, exclude_snapshot_id=snapshot_id, after=after)
+    return merge_earlier(scurve, earlier_on(cands, key, picks))
+
+
+def report_with_earlier(report, data, snapshot_id):
+    """``report['scurve']`` with the earlier updates on it (never raises)."""
+    try:
+        bdd = getattr(data, 'baseline_data_date', None)
+        report['scurve'] = attach_earlier(
+            report.get('scurve'), report.get('data_date'), snapshot_id, baseline_key(data),
+            bdd.strftime('%Y-%m-%d') if hasattr(bdd, 'strftime') else None)
+    except Exception as exc:                      # pragma: no cover - defensive
+        import sys
+        print(f'[scurve] earlier updates skipped: {exc}', file=sys.stderr)
+    return report

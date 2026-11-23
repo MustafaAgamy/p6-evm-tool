@@ -75,7 +75,7 @@ def _donut(elapsed, planned, actual):
     </svg>'''
 
 
-def _timestatus_html(report):
+def _timestatus_html(report, cost_only=False):
     ts = report.get('time_status', {}) or {}
     ep, pp, ap = ts.get('elapsed_pct'), ts.get('planned_pct'), ts.get('actual_pct')
     elapsed_txt = '—'
@@ -117,10 +117,184 @@ def _timestatus_html(report):
             f'<div class="costcard"><div class="cl">Variance = EV − PV</div>'
             f'<div class="cv {"neg" if (ts.get("cost_variance") or 0) < 0 else ""}">{_num(ts.get("cost_variance"))}</div></div>'
             f'</div>')
+    if cost_only:                          # Section 1 now leads with the summary band
+        return cost
     return (f'<div class="ts" data-part="time.status" data-part-label="Time status — elapsed vs earned (gauge and reading)">'
             f'<div>{_donut(ep, pp, ap)}</div>'
             f'<div class="ts-body"><div class="ts-sentence">{sentence}</div>'
             f'<div class="verdicts">{verdicts}</div></div></div>{cost}')
+
+
+# ── Section 1 · summary band (approved 2026-11-23) ──────────────────────────
+# The verdict line, the six key numbers and Progress at the data date (the donut + the
+# ruler) — the same ready-made text the screen prints (report['summary']).
+
+def _ruler_svg(ts):
+    """Earned, Planned and Time elapsed on one 0–100% bar (an SVG so Word keeps it)."""
+    ep, pp, ap = ts.get('elapsed_pct'), ts.get('planned_pct'), ts.get('actual_pct')
+    x0, x1, y = 20, 620, 52
+    xat = lambda v: x0 + (x1 - x0) * max(0.0, min(100.0, v or 0)) / 100.0
+    ink, muted, edge = report_theme.var('rpt-ink'), report_theme.var('rpt-muted'), report_theme.var('rpt-edge')
+    surf = report_theme.var('rpt-surface')
+    s = (f'<rect x="{x0}" y="{y}" width="{x1 - x0}" height="26" rx="6" fill="{surf}" stroke="{edge}"/>'
+         f'<rect x="{x0}" y="{y}" width="{xat(ap) - x0:.1f}" height="26" rx="6" fill="{_ACT}"/>')
+    for v in (0, 25, 50, 75, 100):
+        s += f'<text x="{xat(v):.1f}" y="{y + 56}" text-anchor="middle" font-size="9.5" fill="{muted}">{v}%</text>'
+    close = ep is not None and pp is not None and abs((ep or 0) - (pp or 0)) < 14
+
+    def mark(v, colour, label, where):
+        x = xat(v)
+        ty = {'dn': y + 42, 'up': y - 10, 'up2': y - 26}[where]
+        return (f'<line x1="{x:.1f}" y1="{y - 6}" x2="{x:.1f}" y2="{y + 32}" stroke="{colour}" stroke-width="3"/>'
+                f'<text x="{x:.1f}" y="{ty}" text-anchor="middle" font-size="11" font-weight="700" fill="{colour}">{_e(label)}</text>')
+    if ap is not None:
+        s += mark(ap, _ACT, f'Earned {_pct2(ap)}', 'dn')
+    if ep is not None:
+        s += mark(ep, muted, f'Time {ep:.1f}%', 'up')
+    if pp is not None:
+        s += mark(pp, _PLAN, f'Planned {_pct2(pp)}', 'up2' if close else 'up')
+    return f'<svg viewBox="0 0 640 120" width="100%" style="max-width:640px;color:{ink}">{s}</svg>'
+
+
+def _summary_html(report):
+    sm = report.get('summary') or {}
+    ts = report.get('time_status', {}) or {}
+    kpis = ''.join(
+        f'<td class="kpi {_e(k.get("tone"))}"><div class="kl">{_e(k.get("label"))}</div>'
+        f'<div class="kv{" kd" if k.get("key") == "finish" else ""}">{_e(k.get("value"))}</div>'
+        f'<div class="ks">{_e(k.get("sub"))}</div></td>' for k in sm.get('kpis') or [])
+    gap = []
+    if ts.get('behind_plan') is not None:
+        v = ts['behind_plan']
+        gap.append(f'Behind plan <b class="{"neg" if v > 0 else "pos"}">{abs(v):.2f} points</b> (earned vs planned)')
+    if ts.get('behind_clock') is not None:
+        v = ts['behind_clock']
+        gap.append(f'behind the clock <b class="{"neg" if v > 0 else "pos"}">{abs(v):.2f} points</b> (earned vs time used)')
+    cv = ts.get('cost_variance')
+    var_txt = ''
+    if isinstance(cv, (int, float)):
+        var_txt = (f' Variance EV − PV <b class="{"neg" if cv < 0 else "pos"}">'
+                   f'{"−" if cv < 0 else "+"}{_m(abs(cv))}</b>.')
+    ep = ts.get('elapsed_pct')
+    return (f'<div class="verdict {_e(sm.get("status"))}" data-part="time.verdict" data-part-label="Verdict and six key numbers">'
+            f'<div class="vline"><span class="pill">{_e(sm.get("label"))}</span>'
+            f'<div><div class="vh">{_e(sm.get("headline"))}</div><div class="vd">{_e(sm.get("detail"))}</div></div></div>'
+            f'<table class="kpis"><tr>{kpis}</tr></table></div>'
+            f'<div class="prog" data-part="time.status" data-part-label="Progress at the data date (donut and ruler)">'
+            f'<h3>Progress at the data date</h3>'
+            f'<table class="progt"><tr><td class="don">{_donut(ep, ts.get("planned_pct"), ts.get("actual_pct"))}'
+            f'<div class="donleg">outer: time {f"{ep:.1f}%" if ep is not None else "—"} · inner: earned</div></td>'
+            f'<td>{_ruler_svg(ts)}</td></tr></table>'
+            f'<div class="gapnote">{" · ".join(gap)}{"." if gap else ""}{var_txt}</div></div>')
+
+
+# ── Section 6 · Progress S-curve (approved 2026-11-23) ──────────────────────
+
+def _scurve_svg(sc, ms):
+    pts = sc.get('points') or []
+    if len(pts) < 2:
+        return ''
+    W, H, L, R, T, B = 1060, 360, 48, 150, 22, 44
+    d = lambda s: datetime.strptime(str(s)[:10], '%Y-%m-%d').timestamp()
+    ext = [d(x) for x in (ms.get('baseline_finish'), ms.get('expected_finish')) if x]
+    tms = [d(p['date']) for p in pts]
+    ta, tb = min(tms) - 15 * 86400, max(tms + ext) + 5 * 86400
+    X = lambda v: L + (v - ta) / (tb - ta) * (W - L - R)
+    Y = lambda v: T + (100 - v) * (H - T - B) / 100
+    grid, axis = report_theme.var('rpt-chart-grid'), report_theme.var('rpt-chart-axis')
+    bad, acc, muted = report_theme.var('rpt-bad'), _BLUE, report_theme.var('rpt-muted')
+    s = ''
+    for v in (0, 25, 50, 75, 100):
+        s += (f'<line x1="{L}" x2="{W - R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="{grid}"/>'
+              f'<text x="{L - 8}" y="{Y(v) + 4:.1f}" font-size="11" text-anchor="end" fill="{axis}">{v}%</text>')
+    months = [p for p in pts if p['kind'] == 'month']
+    every = max(1, -(-len(months) // 12))
+    for i, p in enumerate(months):
+        if i % every == 0:
+            s += (f'<text x="{X(d(p["date"])):.1f}" y="{H - 16}" font-size="11" text-anchor="middle" '
+                  f'fill="{axis}">{_e(_fdate(p["date"])[3:])}</text>')
+
+    def line(key, colour, width, dash=''):
+        seg = [p for p in pts if p.get(key) is not None]
+        if not seg:
+            return ''
+        path = ' '.join(f'{"L" if i else "M"}{X(d(p["date"])):.1f},{Y(p[key]):.1f}' for i, p in enumerate(seg))
+        dash = f' stroke-dasharray="{dash}"' if dash else ''
+        return f'<path d="{path}" fill="none" stroke="{colour}" stroke-width="{width}"{dash}/>'
+    s += line('planned', _PLAN, 3) + line('forecast', bad, 2.5, '7 5') + line('earned', _ACT, 3.5)
+    for p in pts:
+        if p.get('earned') is not None and p['kind'] == 'month':
+            s += (f'<circle cx="{X(d(p["date"])):.1f}" cy="{Y(p["earned"]):.1f}" r="3" '
+                  f'fill="{report_theme.var("rpt-paper", "#fff")}" stroke="{_ACT}" stroke-width="1.5"/>')
+        if p['kind'] == 'update':
+            s += f'<circle cx="{X(d(p["date"])):.1f}" cy="{Y(p["earned"]):.1f}" r="5.5" fill="{_ACT}"/>'
+    dd = next((p for p in pts if p['kind'] == 'data_date'), None)
+    if dd:
+        xd = X(d(dd['date']))
+        s += (f'<line x1="{xd:.1f}" x2="{xd:.1f}" y1="{T}" y2="{H - B}" stroke="{acc}" stroke-dasharray="4 4"/>'
+              f'<text x="{xd + 6:.1f}" y="{T + 10}" font-size="11.5" fill="{acc}" font-weight="700">data date {_e(_fdate(dd["date"]))}</text>')
+        if dd.get('planned') is not None:
+            s += (f'<circle cx="{xd:.1f}" cy="{Y(dd["planned"]):.1f}" r="5.5" fill="{_PLAN}"/>'
+                  f'<text x="{xd - 9:.1f}" y="{Y(dd["planned"]) - 8:.1f}" font-size="12" text-anchor="end" font-weight="700" fill="{_PLAN}">Planned {_pct2(dd["planned"])}</text>')
+        s += (f'<circle cx="{xd:.1f}" cy="{Y(dd["earned"]):.1f}" r="5.5" fill="{_ACT}"/>'
+              f'<text x="{xd + 9:.1f}" y="{Y(dd["earned"]) + 18:.1f}" font-size="12" font-weight="700" fill="{_ACT}">Earned {_pct2(dd["earned"])}</text>')
+    if ms.get('baseline_finish'):
+        xb = X(d(ms['baseline_finish']))
+        s += (f'<line x1="{xb:.1f}" x2="{xb:.1f}" y1="{Y(100):.1f}" y2="{H - B}" stroke="{muted}" stroke-dasharray="3 4"/>'
+              f'<text x="{xb - 4:.1f}" y="{Y(100) - 6:.1f}" font-size="11" text-anchor="end" fill="{muted}">baseline finish {_e(_fdate(ms["baseline_finish"]))}</text>')
+    if ms.get('expected_finish'):
+        xe, sl = X(d(ms['expected_finish'])), ms.get('slip_days')
+        tail = f'<tspan x="{xe + 5:.1f}" dy="14">({"+" if (sl or 0) > 0 else ""}{sl} d)</tspan>' if sl is not None else ''
+        s += (f'<line x1="{xe:.1f}" x2="{xe:.1f}" y1="{Y(100):.1f}" y2="{H - B}" stroke="{bad}" stroke-dasharray="3 4"/>'
+              f'<text font-size="11" fill="{bad}" font-weight="700"><tspan x="{xe + 5:.1f}" y="{Y(45):.1f}">expected finish</tspan>'
+              f'<tspan x="{xe + 5:.1f}" dy="14">{_e(_fdate(ms["expected_finish"]))}</tspan>{tail}</text>')
+    return f'<svg viewBox="0 0 {W} {H}" width="100%">{s}</svg>'
+
+
+def _scurve_html(report):
+    sc = report.get('scurve') or {}
+    pts = sc.get('points') or []
+    if not pts:
+        return '<p class="note">Not enough dated activities to draw the S-curve.</p>'
+    ms = ((report.get('critical_path') or {}).get('charts') or [{}])[0].get('milestone') or {}
+    dd = next((p for p in pts if p['kind'] == 'data_date'), {})
+    on = [e for e in sc.get('earlier') or [] if e.get('on')]
+    earlier = (' · '.join(f'{_fdate(e["data_date"])} ({_pct2(e.get("earned"))})' for e in on)
+               if on else 'none')
+    basis = ('its planned duration (this file carries no cost)' if sc.get('basis') == 'duration' else 'its budget')
+    last = sc.get('last_remaining_finish')
+    ms_note = (f' ({_e(ms.get("name") or "the completion milestone")} is {_fdate(ms["expected_finish"])})'
+               if ms.get('expected_finish') and last and str(ms['expected_finish'])[:10] != last else '')
+    leg = (f'<div class="bc-leg"><span><i style="background:{_PLAN}"></i>Planned (baseline)</span>'
+           f'<span><i style="background:{_ACT}"></i>Earned, rebuilt from actual dates</span>'
+           f'<span><i style="background:{_ACT};border-radius:50%"></i>Earned, from an earlier update</span>'
+           f'<span><i style="background:{report_theme.var("rpt-bad")};height:3px"></i>Forecast (P6 remaining dates)</span></div>')
+    note = (f'<div class="scnote"><b>Earlier updates on this curve:</b> {_e(earlier)}. '
+            f'<b>Planned</b> = the same Planned % rule as Time Status (each activity\'s baseline dates, in its own '
+            f'calendar\'s working time, weighted by {basis}), at every month end; on the data date it is exactly '
+            f'{_pct2(dd.get("planned"))}. <b>Earned</b> = each activity\'s % complete spread over its actual start → '
+            f'actual finish (or the data date); where an earlier update of this job was imported, its own Earned % '
+            f'stands at its data date; on the data date it is exactly {_pct2(dd.get("earned"))}. <b>Forecast</b> = each '
+            f'activity\'s remaining work spread over its remaining start → finish in this P6 file'
+            f'{f"; it reaches 100% on {_fdate(last)}" if last else ""}{ms_note}.</div>')
+    rows = ''
+    for p in pts:
+        g = (p['earned'] - p['planned']) if (p.get('earned') is not None and p.get('planned') is not None) else None
+        src = 'earlier update' if p.get('earned_source') == 'update' else (p.get('earned_source') or '')
+        tag = ' · data date' if p['kind'] == 'data_date' else (' · update' if p['kind'] == 'update' else '')
+        cls = ' class="ddrow"' if p['kind'] == 'data_date' else ''
+        rows += (f'<tr{cls}><td>{_fdate(p["date"])}{tag}</td>'
+                 f'<td class="num">{_pct2(p.get("planned")) if p.get("planned") is not None else ""}</td>'
+                 f'<td class="num">{_pct2(p.get("earned")) if p.get("earned") is not None else ""}</td>'
+                 f'<td class="num">{_pct2(p.get("forecast")) if p.get("forecast") is not None else ""}</td>'
+                 f'<td class="num {"neg" if (g or 0) < 0 else "pos"}">{"" if g is None else f"{g:+.2f}"}</td>'
+                 f'<td>{_e(src)}</td></tr>')
+    table = ('<table class="ctab"><thead><tr><th>Date</th><th class="num">Planned %</th><th class="num">Earned %</th>'
+             '<th class="num">Forecast %</th><th class="num">Gap (earned − planned)</th><th>Earned from</th></tr></thead>'
+             f'<tbody>{rows}</tbody></table>')
+    return (f'<div data-part="scurve.chart" data-part-label="S-curve chart">{_scurve_svg(sc, ms)}{leg}{note}</div>'
+            f'<div data-part="scurve.table" data-part-label="Monthly values">{table}</div>')
+
 
 
 # ── Section 2 · Planned vs Actual by activity code (one chart per code) ──────
@@ -325,8 +499,8 @@ def _counts_html(report):
 # ── Assembly ────────────────────────────────────────────────────────────────
 
 def render_html(report, sections=None, code_filter=None, scope_code=None, theme='light'):
-    """`sections` = list of keys to include (None = all): conclusion · time · bycode ·
-    driving · counts · scope. `code_filter` = {'types': [...]} picks Section 2's charts;
+    """`sections` = list of keys to include (None = all): time · bycode · driving · counts ·
+    scope · scurve (an older saved selection's 'conclusion' now lives inside time). `code_filter` = {'types': [...]} picks Section 2's charts;
     `scope_code` picks Section 5's activity-code dimension."""
     header = (f'<div class="rh"><div><h1>{_e(report.get("title") or "Update Analysis")}</h1>'
               f'<div class="meta">{_e(report.get("project_name"))} · single-update read against its baseline</div>'
@@ -335,20 +509,22 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
               f'<div class="win">Data date<br><b>{_fdate(report.get("data_date"))}</b>'
               f'<br>{_e(report.get("file") or "")}</div></div>')
     secs = [
-        ('conclusion', 'Executive read', f'<div class="reco">{_e(report.get("conclusion"))}</div>'),
-        ('time', '1 · Time Status', _timestatus_html(report)),
+        ('time', '1 · Time Status', _summary_html(report) + _timestatus_html(report, cost_only=True)),
         ('bycode', '2 · Planned vs Actual — by activity code', _bycode_html(report, code_filter)),
         ('driving', '3 · Driving Path Analyzer', _driving_html(report)),
         ('counts', '4 · Planned vs Actual — by activity count', _counts_html(report)),
         ('scope', '5 · Scope Weight & Recommendation', _scope_html(report, scope_code)),
+        ('scurve', '6 · Progress S-curve', _scurve_html(report)),
     ]
     keys = set(sections) if sections else None
+    if keys is not None and 'conclusion' in keys:   # the old opening line is now the verdict
+        keys.add('time')
     body = [header]
     for key, title, htmls in secs:
         if keys is not None and key not in keys:
             continue
         whole = ' data-parts="none"' if key == 'counts' else ''     # one chart: ticked as a whole
-        body.append(f'<section data-sec="{key}"{whole}><h2>{_e(title)}</h2>{htmls}</section>')
+        body.append(f'<section class="sec-{key}" data-sec="{key}"{whole}><h2>{_e(title)}</h2>{htmls}</section>')
     _ink = report_theme.var('rpt-ink')
     _muted = report_theme.var('rpt-muted')
     _edge = report_theme.var('rpt-edge')
@@ -381,6 +557,31 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
       .costcard {{ border: 1px solid {_edge}; border-radius: 8px; padding: 10px 13px; }}
       .costcard .cl {{ font-size: 10.5px; color: {_muted}; text-transform: uppercase; letter-spacing: .3px; }}
       .costcard .cv {{ font-size: 17px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }}
+      /* Summary band */
+      .verdict .vline {{ display: flex; gap: 12px; align-items: flex-start; border: 1px solid {_edge}; border-left: 5px solid {_bad}; border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 10px; }}
+      .verdict.on_track .vline {{ border-left-color: {_good}; }} .verdict.baseline .vline {{ border-left-color: {_BLUE}; }}
+      .pill {{ flex: none; font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 12px; border: 1px solid {_bad}; color: {_bad}; }}
+      .verdict.on_track .pill {{ border-color: {_good}; color: {_good}; }} .verdict.baseline .pill {{ border-color: {_BLUE}; color: {_BLUE}; }}
+      .vh {{ font-size: 14px; font-weight: 700; }} .vd {{ font-size: 11.5px; color: {_muted}; margin-top: 2px; }}
+      .kpis {{ width: 100%; border-collapse: separate; border-spacing: 8px 0; margin: 0 -8px 10px; table-layout: fixed; }}
+      .kpi {{ border: 1px solid {_edge}; border-top: 4px solid {_muted}; border-radius: 8px; padding: 7px 9px; vertical-align: top; }}
+      .kpi.bad {{ border-top-color: {_bad}; }} .kpi.good {{ border-top-color: {_good}; }}
+      .kl {{ font-size: 9.5px; color: {_muted}; text-transform: uppercase; font-weight: 700; letter-spacing: .3px; }}
+      .kv {{ font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }} .kv.kd {{ font-size: 14px; }}
+      .kpi.bad .kv {{ color: {_bad}; }} .kpi.good .kv {{ color: {_good}; }}
+      .ks {{ font-size: 10px; color: {_muted}; }}
+      .prog {{ border: 1px solid {_edge}; border-radius: 10px; padding: 10px 14px; }}
+      .progt {{ width: 100%; border-collapse: collapse; }} .progt td {{ vertical-align: middle; }} .progt td.don {{ width: 170px; text-align: center; }}
+      .donleg {{ font-size: 10px; color: {_muted}; }}
+      .gapnote {{ font-size: 12px; margin-top: 4px; }}
+      /* S-curve */
+      /* section 6 starts a page so its heading stays with the chart (house page rule) */
+      section.sec-scurve {{ break-before: page; page-break-before: always; page-break-inside: auto; }}
+      section.sec-scurve:first-of-type {{ break-before: auto; page-break-before: auto; }}
+      h2 {{ break-after: avoid; page-break-after: avoid; }}
+      [data-part="scurve.chart"] {{ break-inside: avoid; page-break-inside: avoid; }}
+      .scnote {{ font-size: 11px; color: {_muted}; line-height: 1.5; margin: 6px 0 8px; }} .scnote b {{ color: {_ink}; }}
+      .ctab tr.ddrow td {{ font-weight: 800; background: {_accent_soft}; }}
       /* By code */
       .chart2 {{ border: 1px solid {_edge}; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }}
       .bc-row {{ margin-bottom: 12px; }} .bc-name {{ font-size: 12px; font-weight: 600; margin-bottom: 3px; }}
@@ -563,11 +764,23 @@ def report_excel_sections(report):
          'pv', 'ev', 'cost_variance'))
 
     # ── Sheet 1 · Executive read + Section 1 Time Status ────────────────────
-    blocks = [{
-        'title': 'Executive Read',
-        'headers': ["Planner's summary"],
-        'rows': [[report.get('conclusion') or '—']],
-    }]
+    sm = report.get('summary') or {}
+    if sm.get('headline'):                 # the verdict + six key numbers (approved 2026-11-23)
+        blocks = [{
+            'title': f"1 - Time Status - {sm.get('label') or 'Summary'}",
+            'headers': ['Verdict'],
+            'rows': [[sm.get('headline')], [sm.get('detail') or '']],
+        }, {
+            'title': '1 - Time Status - Key numbers',
+            'headers': ['Measure', 'Value', 'Note'],
+            'rows': [[k.get('label'), k.get('value'), k.get('sub') or ''] for k in sm.get('kpis') or []],
+        }]
+    else:
+        blocks = [{
+            'title': 'Executive Read',
+            'headers': ["Planner's summary"],
+            'rows': [[report.get('conclusion') or '—']],
+        }]
 
     if ts.get('exceeded_days'):
         elapsed_txt = f'100% (baseline finish exceeded by {ts["exceeded_days"]} days)'
@@ -735,6 +948,36 @@ def report_excel_sections(report):
                         'EV - PV', 'Planned %', 'Actual %'],
             'rows': all_rows,
         }]})
+
+    # ── Section 6 Progress S-curve (approved 2026-11-23) ────────────────────
+    sc = report.get('scurve') or {}
+    pts = sc.get('points') or []
+    if pts:
+        src = lambda p: 'earlier update' if p.get('earned_source') == 'update' else (p.get('earned_source') or '')
+        gap = lambda p: (_pts(p['earned'] - p['planned']) if p.get('earned') is not None
+                         and p.get('planned') is not None else '')
+        sc_blocks = [{
+            'title': '6 - Progress S-curve - monthly values',
+            'note': ('Planned = the Time Status Planned % rule at every month end; Earned = rebuilt from each '
+                     "activity's actual dates, or an earlier imported update of the same job at its data date; "
+                     "Forecast = remaining work over P6's remaining dates. At the data date all equal Time Status."),
+            'headers': ['Date', 'Point', 'Planned %', 'Earned %', 'Forecast %', 'Gap (pts, earned minus planned)',
+                        'Earned from'],
+            'rows': [[_xdate(p['date']), {'data_date': 'data date', 'update': 'earlier update'}.get(p['kind'], 'month end'),
+                      _pcts(p.get('planned'), 2) if p.get('planned') is not None else '',
+                      _pcts(p.get('earned'), 2) if p.get('earned') is not None else '',
+                      _pcts(p.get('forecast'), 2) if p.get('forecast') is not None else '',
+                      gap(p), src(p)] for p in pts],
+        }]
+        on = [e for e in sc.get('earlier') or [] if e.get('on')]
+        if on:
+            sc_blocks.append({
+                'title': '6 - Progress S-curve - earlier updates on the curve',
+                'headers': ['Data date', 'Schedule', 'Earned %', 'Linked by'],
+                'rows': [[_xdate(e.get('data_date')), e.get('label') or e.get('file') or '',
+                          _pcts(e.get('earned'), 2), 'same baseline' if e.get('auto') else 'added by hand'] for e in on],
+            })
+        sheets.append({'name': 'Progress S-curve', 'blocks': sc_blocks})
 
     if not sheets:
         sheets = [{'name': 'Update Analysis', 'blocks': [{
