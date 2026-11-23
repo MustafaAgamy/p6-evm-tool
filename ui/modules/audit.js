@@ -623,12 +623,17 @@ function _oosSevCell(f) {
   return `<span class="oos-sevb ${cls}">${escapeHtml(s)}</span>${crit}`;
 }
 
+// A correction that takes an ORIGINAL relationship out of the schedule - removed, or reconnected to
+// another activity - is shown in RED everywhere for the planner to review (23-Nov, Ibrahim); a type /
+// lag change keeps the amber highlight.
+function _oosIsRemoval(text) { return /Removed|Reconnected/.test(String(text || '')); }
+
 // The 'After Modification' relationship cell: "No change", the "OLD → NEW" transition, or a flag.
 function _oosAfterCell(label) {
   if (!label || label === 'No change') return `<span class="oos-nochg">No change</span>`;
   if (label === 'Needs Planner Review' || label === 'Planner review') return `<span class="oos-relb rev">⚠ Needs Planner Review</span>`;
-  // A replace ("… → Removed; + <pred> FS(0)") is a positive fix (re-tied), not a bare removal.
-  const cls = /;\s*\+/.test(label) ? 'sg' : (/Removed/.test(label) ? 'rem' : 'sg');
+  // any removal of an original tie is red - a replace ("… → Removed; + <pred> FS(0)") included
+  const cls = _oosIsRemoval(label) ? 'rem' : 'sg';
   return `<span class="oos-relb ${cls}">${escapeHtml(label)}</span>`;
 }
 
@@ -745,8 +750,8 @@ function _oosLogRow(f, i, dd, resolved) {
 function _oosFixesCell(f) {
   const fx = (f.pred_fixes || []).filter(x => x.after && x.after !== 'No change');
   if (fx.length < 2) return '';
-  return fx.map(x => `<div class="oos-relrow aff"><span class="mono relid">${escapeHtml(x.pred_id || '')}</span> `
-    + `<span class="oos-relb">${escapeHtml(x.after)}</span><div class="nm">${escapeHtml(x.pred_name || '')}</div></div>`).join('');
+  return fx.map(x => `<div class="oos-relrow aff${_oosIsRemoval(x.after) ? ' rem' : ''}"><span class="mono relid">${escapeHtml(x.pred_id || '')}</span> `
+    + `<span class="oos-relb${_oosIsRemoval(x.after) ? ' rem' : ''}">${escapeHtml(x.after)}</span><div class="nm">${escapeHtml(x.pred_name || '')}</div></div>`).join('');
 }
 
 // After the corrections were applied: EVERY tie of the activity they changed on that side, each
@@ -754,10 +759,11 @@ function _oosFixesCell(f) {
 function _oosChangedCell(f, side) {
   const ch = ((_oos.changes || {})[f.activity_id] || []).filter(c => c.side === side);
   if (!ch.length || !_oos.applied || !Object.keys(_oos.applied).length) return '';
-  return ch.map(c => `<div class="oos-relrow aff oos-chg"><span class="mono relid">${escapeHtml(c.other || '')}</span> `
-    + `<span class="oos-relb">${escapeHtml(c.before ? c.before + ' → ' : '')}<b>${escapeHtml(c.after || '')}</b></span>`
+  return ch.map(c => { const rm = _oosIsRemoval(c.after); return `<div class="oos-relrow aff oos-chg${rm ? ' rem' : ''}"><span class="mono relid">${escapeHtml(c.other || '')}</span> `
+    + `<span class="oos-relb${rm ? ' rem' : ''}">${escapeHtml(c.before ? c.before + ' → ' : '')}<b>${escapeHtml(c.after || '')}</b></span>`
+    + `${rm ? ' <span class="oos-rembadge">Review</span>' : ''}`
     + `${c.auto === 'close' ? ' <span class="oos-affbadge">keeps it connected</span>' : ''}`
-    + `<div class="nm">${escapeHtml(c.other_name || '')}</div></div>`).join('');
+    + `<div class="nm">${escapeHtml(c.other_name || '')}</div></div>`; }).join('');
 }
 
 // A Baseline cell listing every predecessor/successor tie, the driving one flagged + listed first.
@@ -765,7 +771,7 @@ function _oosRelListCell(list, emptyLabel) {
   if (!list || !list.length) return `<span class="oos-nochg">${escapeHtml(emptyLabel)}</span>`;
   return list.map(p => {
     const badge = p.affected ? `<span class="oos-affbadge">Driving</span>` : '';
-    const fix = (p.affected && p.fix && p.fix !== 'No change') ? ` <span class="oos-fixto">${escapeHtml(p.fix)}</span>` : '';
+    const fix = (p.affected && p.fix && p.fix !== 'No change') ? ` <span class="oos-fixto${_oosIsRemoval(p.fix) ? ' rem' : ''}">${escapeHtml(p.fix)}</span>` : '';
     return `<div class="oos-relrow${p.affected ? ' aff' : ''}">`
       + `<span class="mono relid">${escapeHtml(p.id || '')}</span> <span class="oos-relb">${escapeHtml(p.label || '')}</span> ${badge}${fix}`
       + `<div class="nm">${escapeHtml(p.name || '')}</div></div>`;
@@ -911,7 +917,7 @@ function _oosTakeValidated(out) {
 function _oosAutoText() {
   const a = _oos.auto || {};
   return (a.ties ? ` ${a.ties} further out-of-sequence tie${a.ties === 1 ? '' : 's'} of the same activities corrected with them.` : '')
-       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} added to the project commencement / completion milestone so no activity is left without a predecessor or successor.` : '');
+       + (a.closed ? ` ${a.closed} tie${a.closed === 1 ? '' : 's'} reconnected to the project commencement / completion milestone (the out-of-sequence tie is moved there, not just removed), so no activity is left without a predecessor or successor.` : '');
 }
 
 async function _oosApply(fid) {

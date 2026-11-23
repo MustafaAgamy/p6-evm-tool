@@ -22,6 +22,24 @@ from p6_compare.model import pair_links, links_differ
 _REL_TYPE_XML = {'FS': 'Finish to Start', 'SS': 'Start to Start',
                  'FF': 'Finish to Finish', 'SF': 'Start to Finish'}
 
+# P6 numbers objects from low values upward, database-wide; its ObjectId is a 32-bit integer
+# (max 2,147,483,647). New relationships in a corrected file take numbers from a random block high
+# in that range, so they never belong to an existing relationship - not in this project, not in
+# another - and two corrected files made one after the other do not reuse each other's numbers.
+_NEW_ID_LOW, _NEW_ID_HIGH = 2_000_000_000, 2_147_000_000
+
+
+def new_object_ids(taken=()):
+    """Yield fresh relationship numbers for new ties: a random start in the high block, then
+    consecutive, skipping any number already in the file."""
+    import random
+    taken = {str(t) for t in taken}
+    n = random.randrange(_NEW_ID_LOW, _NEW_ID_HIGH - 1_000_000)
+    while True:
+        n += 1
+        if str(n) not in taken:
+            yield n
+
 
 def _lag_label(type_, lag_days):
     lag = lag_days or 0.0
@@ -222,18 +240,27 @@ def write_corrected_xml(update_xml_path, ops, out_path, note=None):
         if pc and sc:
             rels_by_codes.setdefault((pc, sc), []).append(r)
 
+    taken = {str(ctext(r, 'ObjectId')) for r in project.findall(tag('Relationship'))}
+    new_ids = new_object_ids(taken)
+
+    def next_new_id():
+        return next(new_ids)
+
     # A new <Relationship> goes right after the last existing one. P6 reads a project's elements in
     # the schema's order (... Activity, ResourceAssignment, Relationship, ScheduleOptions): one
     # appended after <ScheduleOptions> is skipped on import, so an added tie never reached P6
     # (comment 88 follow-up: a replaced predecessor was removed but its replacement missing).
     def add_rel_el(el):
-        # A NEW relationship carries no ObjectId: P6 gives it one on import. A copied or invented
-        # number (the file's highest + 1) can already belong to another relationship in the P6
-        # database, and P6 then updates that one instead of creating the tie (15-Oct: the added
-        # predecessor showed on screen but not in P6 after importing the corrected file).
+        # A NEW relationship carries a FRESH number P6 has never used (new_object_id). The file's
+        # highest + 1 can already belong to another relationship in the P6 database - P6 then
+        # updated that one instead (15-Oct); with no number at all P6 skipped the tie (20-Nov, Giza
+        # Zoo: 20 open ends). A unique high number was created on import (22-Nov P6 test, Ibrahim).
         oid = el.find(tag('ObjectId'))
-        if oid is not None:
-            el.remove(oid)
+        if oid is None:
+            oid = ET.Element(tag('ObjectId'))
+            lag = el.find(tag('Lag'))
+            el.insert(list(el).index(lag) + 1 if lag is not None else 0, oid)
+        oid.text = str(next_new_id())
         kids = list(project)
         rel_tag = tag('Relationship')
         last = max((i for i, c in enumerate(kids) if c.tag == rel_tag), default=None)

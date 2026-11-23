@@ -106,6 +106,17 @@ _COMMENCE_KEYS = ('commenc', 'notice to proceed', 'ntp', 'project start', 'contr
                   'site possession', 'start of works', 'award of contract', 'commencement date')
 
 
+def _safe_predecessor(graph, oid, a):
+    """A predecessor P6 can never flag its successor out of sequence against: finished work, or a
+    milestone already REACHED (a milestone not yet reached holds an FS successor back like any
+    unfinished activity - 22-Nov). Level of Effort / WBS Summary never drive, so they are safe."""
+    if graph.is_span_activity(oid):
+        return True
+    if 'Milestone' in (a.get('task_type') or ''):
+        return _milestone_reached(a)
+    return a.get('actual_finish') is not None
+
+
 def _find_commencement(graph):
     """The project Commencement / start (the baseline commencement date) — used as the replacement
     predecessor for a COMPLETED out-of-sequence activity whose offending tie is removed, so it stays
@@ -126,7 +137,7 @@ def _find_commencement(graph):
     def safe(oid, a):
         # P6 never flags a milestone or a completed predecessor as out-of-sequence, so re-tying to
         # one can't re-create the condition (mirrors the detection rule in _first_offending_pred).
-        return (not graph.is_real_activity(oid)) or (a.get('actual_finish') is not None)
+        return _safe_predecessor(graph, oid, a)
 
     items = list(graph.activities.items())
     named = [(oid, a) for oid, a in items
@@ -436,7 +447,7 @@ def _recommend_correction(graph, cur_type, cur_lag, succ, pred, remaining_preds=
             # Only re-tie to a commencement P6 will not itself flag out-of-sequence (a milestone or a
             # completed activity); otherwise the replace would merely move the problem, so fall back
             # to a plain remove below. (_find_commencement already screens for this — belt-and-braces.)
-            c_safe = (not graph.is_real_activity(c_oid)) or (c_act.get('actual_finish') is not None)
+            c_safe = _safe_predecessor(graph, c_oid, c_act)
         if c_safe:
             c_id, c_name = commencement[0], commencement[1]
             reasoning = (f"No overlap type fits — {why} — and {succ_id} is 100% complete, so it needs no "
@@ -615,10 +626,15 @@ def run_out_of_sequence(graph, config):
     data_date_str = dd.strftime('%d-%b.%Y') if hasattr(dd, 'strftime') else ''
     real = [(oid, a) for oid, a in graph.activities.items() if graph.is_real_activity(oid)]
     total = len(real)
+    # P6 lists a MILESTONE out of sequence too (22-Nov, Giza Zoo: REST-ZO3-CH-02 Completion of Cow
+    # House Works, reached while two predecessors were unfinished) - every activity P6 schedules by
+    # logic is checked; only Level of Effort / WBS Summary (they span other work) are not.
+    scanned = [(oid, a) for oid, a in graph.activities.items()
+               if graph.is_real_activity(oid) or 'Milestone' in (a.get('task_type') or '')]
     commencement = _find_commencement(graph)   # project commencement (id, name, oid) or (None,)*3
 
     findings = []
-    for oid, act in real:
+    for oid, act in scanned:
         s_as, s_af = act.get('actual_start'), act.get('actual_finish')
         if not s_as and not s_af:
             continue  # no actual progress → cannot be out of sequence
@@ -643,7 +659,7 @@ def run_out_of_sequence(graph, config):
         # principle) — correct it only if the successor is itself out of sequence relative to this
         # (still-incomplete) activity; otherwise it is "No change".
         succ_res = None
-        if succ_oid and succ_act and graph.is_real_activity(succ_oid) and _incomplete(act) \
+        if succ_oid and succ_act and not graph.is_span_activity(succ_oid) and _incomplete(act) \
                 and _is_oos(succ_rel, succ_act, act):
             # Removing the X→S tie affects S's predecessor logic → count S's OTHER predecessors.
             succ_remaining = _count_other_preds(graph, succ_oid, oid)

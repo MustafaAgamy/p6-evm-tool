@@ -353,18 +353,27 @@ def _oos_review_log(m):
     def _after(f, side):
         # After the corrections were applied (comment 88): EVERY changed tie of that side, each
         # highlighted with its related activity; before them: the recommended correction.
+        # An ORIGINAL relationship taken out (removed / reconnected elsewhere) is RED for the
+        # planner's review - same as the screen and Excel (23-Nov); a type / lag change stays amber.
+        def rm(text):
+            return 'Removed' in str(text or '') or 'Reconnected' in str(text or '')
+        box = ('<div style="background:{bg};color:{fg};border-left:3px solid {fg};border-radius:4px;'
+               'padding:2px 4px;margin-bottom:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">')
+        red, amber = box.format(bg='#FADDDD', fg='#C02626'), box.format(bg='#FEF3C7', fg='#92400E')
         ch = [c for c in (f.get('changes') or []) if c.get('side') == side]
         fx = [x for x in (f.get('pred_fixes') or []) if x.get('after') and x.get('after') != 'No change']
         if not ch and side == 'pred' and len(fx) > 1:     # several driving ties: each with its correction
-            return ''.join(f'<div><span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}'
+            return ''.join((red if rm(x.get('after')) else '<div>')
+                           + f'<span class="mono">{_esc(x.get("pred_id"))}</span> {_esc(x.get("after"))}'
                            f'<br><span class="mut">{_esc(x.get("pred_name"))}</span></div>' for x in fx)
         if not ch:
-            return _esc(f.get(f'{side}_after_label'))
-        return ''.join('<div style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 4px;margin-bottom:2px;'
-                       '-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
-                       f'<span class="mono">{_esc(c.get("other"))}</span> '
+            lbl = f.get(f'{side}_after_label')
+            return (red + f'<b>{_esc(lbl)}</b></div>') if rm(lbl) else _esc(lbl)
+        return ''.join((red if rm(c.get('after')) else amber)
+                       + f'<span class="mono">{_esc(c.get("other"))}</span> '
                        f'{_esc((c.get("before") + " → ") if c.get("before") else "")}<b>{_esc(c.get("after"))}</b>'
-                       f'<br>{_esc(c.get("other_name") or "")}</div>'
+                       + (' <b>[REVIEW]</b>' if rm(c.get('after')) else '')
+                       + f'<br>{_esc(c.get("other_name") or "")}</div>'
                        for c in ch)
 
     has_status = any(f.get('status') for f in findings)

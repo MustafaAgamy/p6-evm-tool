@@ -214,8 +214,12 @@ def test_an_added_relationship_is_written_where_p6_reads_it(tmp_path):
     rel = proj.find(f'{{{ns}}}Relationship')
     assert rel.find(f'{{{ns}}}PredecessorActivityObjectId').text == '13'
     assert rel.find(f'{{{ns}}}SuccessorActivityObjectId').text == '12'
-    # no ObjectId of its own: P6 numbers a new tie on import (a reused number can belong to another tie)
-    assert rel.find(f'{{{ns}}}ObjectId') is None
+    # a FRESH high number, never the file's highest + 1 (it can belong to another tie in the P6
+    # database) and never none (P6 skipped those - 20-Nov); P6 created such a tie on import (22-Nov)
+    num = int(rel.find(f'{{{ns}}}ObjectId').text)
+    assert 2_000_000_000 < num < 2_147_483_647
+    # kept in the schema's place (right after Lag), like every relationship P6 exports
+    assert [c.tag.split('}')[1] for c in rel][:2] == ['Lag', 'ObjectId']
 
 
 def test_every_changed_tie_is_listed_for_both_activities():
@@ -304,8 +308,12 @@ def test_each_driving_tie_shows_the_correction_it_gets_and_apply_does_exactly_th
     html = render_module_report(m, {'project_name': 'x'})
     assert all(f'<b>[DRIVING]</b> <b>{a}</b>' in html for a in fixes.values())
     headers, rows = excel_columns(m)
-    after = rows[0][headers.index('After Predecessor Tie')]
+    cell = rows[0][headers.index('After Predecessor Tie')]
+    after = ''.join(r['t'] for r in cell.runs)
     assert all(f'{p}  {a}  —  Act {p}' in after for p, a in fixes.items())        # with the activity name
+    # a line that takes an original tie out is red for the planner's review; a type change is not
+    for r in cell.runs:
+        assert (r['color'] == 'FFC02626') == ('Removed' in r['t'] or 'Reconnected' in r['t'])
     assert all(c['other_name'] == f"Act {c['other']}" for c in ch)
     js = _read('ui/modules/audit.js')
     assert 'oos-fixto' in js and '_oosFixesCell(f)' in js
@@ -349,3 +357,108 @@ def test_a_replaced_predecessor_is_written_by_editing_the_existing_relationship(
     R.write_corrected_xer(str(xer), ops, str(outx))
     rows = [l.split('\t') for l in outx.read_text(encoding='utf-8').splitlines() if l.startswith('%R\t500')]
     assert len(rows) == 1 and rows[0][1:4] == ['500', '12', '13'] and rows[0][6:8] == ['PR_FS', '0']
+
+
+def test_a_new_tie_with_no_shared_activity_still_reuses_a_free_removed_tie():
+    # 20-Nov, Giza Zoo: closing ties to Project Finish were written as NEW relationships and P6
+    # skipped them on import (open ends). Any removed tie left unused carries the new one instead.
+    ops = R._repoint([{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                      {'kind': 'remove_rel', 'pred_code': 'C', 'succ_code': 'D'},
+                      {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0},
+                      {'kind': 'add_rel', 'pred_code': 'X', 'succ_code': 'END', 'type': 'FS', 'lag_hours': 0}])
+    assert sorted(o['kind'] for o in ops) == ['repoint_rel', 'repoint_rel']
+    moved = {(o['pred_code'], o['succ_code']): (o['new_pred_code'], o['new_succ_code']) for o in ops}
+    assert moved == {('A', 'B'): ('NTP', 'B'), ('C', 'D'): ('X', 'END')}
+    # with no removed tie left, the extra one stays an add
+    ops = R._repoint([{'kind': 'remove_rel', 'pred_code': 'A', 'succ_code': 'B'},
+                      {'kind': 'add_rel', 'pred_code': 'NTP', 'succ_code': 'B', 'type': 'FS', 'lag_hours': 0},
+                      {'kind': 'add_rel', 'pred_code': 'X', 'succ_code': 'END', 'type': 'FS', 'lag_hours': 0}])
+    assert sorted(o['kind'] for o in ops) == ['add_rel', 'repoint_rel']
+
+
+def test_an_activity_left_without_successor_keeps_its_own_tie_reconnected_to_completion():
+    # 20-Nov (Ibrahim): instead of removing the out-of-sequence tie and leaving the predecessor
+    # loose, the SAME relationship is reconnected to the project completion - on screen and in the file.
+    acts = {
+        'ntp': _act('ntp', task_type='StartMilestone', name='Project Commencement', actual_start=dt('2025-11-01'),
+                    status='Completed'),
+        'end': _act('end', task_type='FinishMilestone', name='Project Completion', planned_finish=dt('2026-12-01')),
+        'app': _act('app'),                                          # approval, not started; only successor is x
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z'),
+    }
+    d = _data(acts, [('ntp', 'app', 'FS'), ('ntp', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'),
+                     ('x', 'z', 'FS'), ('z', 'end', 'FS')])
+    f = next(f for f in _oos(d)['findings'] if f['activity_id'] == 'x')
+    accepted = [{'finding_id': f['finding_id'], 'pred_id': 'app', 'succ_id': 'x', 'action': 'remove',
+                 'new_type': None, 'new_lag_days': None, 'new_pred_id': ''}]
+    out = R.revalidate(d, CONFIG, accepted)
+    assert out['findings'] == []
+    # the row of x shows the approval's tie reconnected, not "Removed" + a separate new tie
+    row = [c for c in out['changes']['x'] if c['side'] == 'pred']
+    assert [(c['other'], c['after'], c['auto']) for c in row] == [('app', 'Reconnected: app → end FS', 'close')]
+    # the file edits that same relationship in place - nothing new for P6 to skip
+    fops = R.to_file_ops(R.complete_ops(d, CONFIG, accepted), d)
+    assert fops == [{'kind': 'repoint_rel', 'pred_code': 'app', 'succ_code': 'x', 'new_pred_code': 'app',
+                     'new_succ_code': 'end', 'type': 'FS', 'lag_hours': 0.0}]
+
+
+def test_a_project_with_no_start_or_finish_milestone_still_leaves_no_open_end():
+    # 22-Nov (Ibrahim): every out-of-sequence solved with no open end - also on a schedule that has
+    # no commencement / completion milestone: the original network's own first / last activity is used.
+    acts = {
+        's': _act('s', actual_start=dt('2025-11-01'), actual_finish=dt('2025-11-05'), status='Completed',
+                  planned_start=dt('2025-11-01')),
+        'app': _act('app', planned_finish=dt('2026-03-10')),         # approval, not started
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z', planned_finish=dt('2026-06-30')),
+    }
+    d = _data(acts, [('s', 'app', 'FS'), ('s', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'), ('x', 'z', 'FS')])
+    accepted = [o for o in _ops(_oos(d)['findings']) if o['pred_id'] == 'app']
+    assert accepted and accepted[0]['action'] == 'remove'
+    out = R.revalidate(d, CONFIG, accepted)
+    assert out['findings'] == []
+    full = R.complete_ops(d, CONFIG, accepted)
+    rels = R.apply_ops_to_relationships(d, full)
+    no_succ = set(acts) - {r['pred_id'] for r in rels}
+    no_pred = set(acts) - {r['succ_id'] for r in rels}
+    assert no_succ == {'z'} and no_pred == {'s'}          # the same open ends as the original network
+    assert ('app', 'z') in {(r['pred_id'], r['succ_id']) for r in rels}
+
+
+def test_a_removed_or_reconnected_original_tie_is_red_on_screen_in_excel_and_in_the_report():
+    # 23-Nov (Ibrahim): any relationship Controlyx takes out of the original schedule is highlighted
+    # in RED for the planner's review - screen, Excel and the PDF / Word report alike.
+    acts = {
+        'ntp': _act('ntp', task_type='StartMilestone', name='Project Commencement', actual_start=dt('2025-11-01'),
+                    status='Completed'),
+        'end': _act('end', task_type='FinishMilestone', name='Project Completion', planned_finish=dt('2026-12-01')),
+        'app': _act('app'),                                            # not started; only successor is x
+        'w': _act('w', actual_start=dt('2025-12-01'), actual_finish=dt('2025-12-10'), status='Completed'),
+        'x': _act('x', actual_start=dt('2026-01-01'), actual_finish=dt('2026-01-20'), status='Completed'),
+        'z': _act('z'),
+    }
+    d = _data(acts, [('ntp', 'app', 'FS'), ('ntp', 'w', 'FS'), ('w', 'x', 'FS'), ('app', 'x', 'FS'),
+                     ('x', 'z', 'FS'), ('z', 'end', 'FS')])
+    f = next(f for f in _oos(d)['findings'] if f['activity_id'] == 'x')
+    out = R.revalidate(d, CONFIG, _ops([f]))
+    f = dict(f, changes=out['changes']['x'])
+    from p6_audit.report import render_module_report
+    from p6_audit.exporters import excel_columns
+    m = {'module': 'out_of_sequence', 'name': 'Out of Sequence', 'kpis': {'data_date': ''}, 'findings': [f],
+         'score': 90, 'grade': 'Review', 'pct': 1.0, 'wbs_summary': []}
+    headers, rows = excel_columns(m)
+    cell = rows[0][headers.index('After Predecessor Tie')]
+    assert [(r['color'], 'Reconnected: app → end FS' in r['t'], '[REVIEW]' in r['t']) for r in cell.runs] \
+        == [('FFC02626', True, True)]
+    html = render_module_report(m, {'project_name': 'x'})
+    assert 'background:#FADDDD;color:#C02626' in html and '[REVIEW]' in html
+    # before Apply the recommendation "FS → Removed" is red too (Excel + screen class)
+    headers, rows = excel_columns(dict(m, findings=[_oos(d)['findings'][0]]))
+    pre = rows[0][headers.index('After Predecessor Tie')]
+    assert getattr(pre, 'runs', None) and pre.runs[0]['color'] == 'FFC02626'
+    js = _read('ui/modules/audit.js')
+    assert "function _oosIsRemoval(text) { return /Removed|Reconnected/.test" in js
+    assert "oos-relrow aff oos-chg${rm ? ' rem' : ''}" in js and "oos-rembadge" in _read('ui/style.css')
