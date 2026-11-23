@@ -524,7 +524,7 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
         if keys is not None and key not in keys:
             continue
         whole = ' data-parts="none"' if key == 'counts' else ''     # one chart: ticked as a whole
-        body.append(f'<section class="sec-{key}" data-sec="{key}"{whole}><h2>{_e(title)}</h2>{htmls}</section>')
+        body.append(f'<section data-sec="{key}"{whole}><h2>{_e(title)}</h2>{htmls}</section>')
     _ink = report_theme.var('rpt-ink')
     _muted = report_theme.var('rpt-muted')
     _edge = report_theme.var('rpt-edge')
@@ -576,8 +576,8 @@ def render_html(report, sections=None, code_filter=None, scope_code=None, theme=
       .gapnote {{ font-size: 12px; margin-top: 4px; }}
       /* S-curve */
       /* section 6 starts a page so its heading stays with the chart (house page rule) */
-      section.sec-scurve {{ break-before: page; page-break-before: always; page-break-inside: auto; }}
-      section.sec-scurve:first-of-type {{ break-before: auto; page-break-before: auto; }}
+      section[data-sec=scurve] {{ break-before: page; page-break-before: always; page-break-inside: auto; }}
+      section[data-sec=scurve]:first-of-type {{ break-before: auto; page-break-before: auto; }}
       h2 {{ break-after: avoid; page-break-after: avoid; }}
       [data-part="scurve.chart"] {{ break-inside: avoid; page-break-inside: avoid; }}
       .scnote {{ font-size: 11px; color: {_muted}; line-height: 1.5; margin: 6px 0 8px; }} .scnote b {{ color: {_ink}; }}
